@@ -30,13 +30,15 @@
     <section id="chatColumn">
       <header id="chatHeader">
         <div class="head-status">
-          <span id="periodBadge" class="badge">—</span>
+          <span id="periodBadge" class="badge" title="峰谷状态(悬停看详情)">—</span>
           <span id="modelLabel" class="model-label">deepseek-v4-flash</span>
           <span id="threadState" class="muted"></span>
         </div>
         <div class="head-actions">
-          <button id="soundBtnChat" class="ghost" type="button" title="铃声总开关">铃声:开</button>
-          <a id="monitorBtn" class="ghost" href="/">监控视图 ▣</a>
+          <button id="popQueueBtn" class="icon-btn" type="button" data-pop="queue" title="定时队列(悬停看概要)">⏱<em>队列</em></button>
+          <button id="popBalBtn" class="icon-btn" type="button" data-pop="balance" title="账户余额(悬停看概要)">¥<em>余额</em></button>
+          <button id="soundBtnChat" class="ghost" type="button" data-pop="sound" title="铃声开关/设置">铃声:开</button>
+          <a id="monitorBtn" class="ghost" href="/">监控视图</a>
           <a id="settingsBtn" class="ghost" href="/settings.html">设置</a>
         </div>
       </header>
@@ -61,8 +63,21 @@
           <button id="sendBtn" class="send-btn" type="submit" title="发送任务">↑</button>
         </div>
       </form>
+
+      <!-- 对话框下常驻的参考数据:输入/输出/命中率/成本/状态 -->
+      <div id="usageStrip" class="usage-strip" title="最近任务用量实时参考">
+        <span class="us-item us-state"><b id="uState" class="badge">IDLE</b></span>
+        <span class="us-item">模型 <b id="uModel">—</b></span>
+        <span class="us-item">输入 <b id="uIn">0</b></span>
+        <span class="us-item">缓存命中 <b id="uCache">0</b></span>
+        <span class="us-item">输出 <b id="uOut">0</b></span>
+        <span class="us-item">命中率 <b id="uHit">—</b></span>
+        <span class="us-item">成本 ¥ <b id="uCost">—</b></span>
+        <span class="us-item us-hint muted" id="uHint">选择左侧任务查看明细;任务结束时响铃</span>
+      </div>
     </section>
 
+    <div id="hoverPop" class="hover-pop" hidden></div>
     <div id="toastWrap"></div>
     <script src="/ds-sound.js"></script>
     <script src="/chat.js"></script>

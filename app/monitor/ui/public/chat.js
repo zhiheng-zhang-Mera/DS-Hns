@@ -223,10 +223,176 @@
     return wrap
   }
 
+  let lastStatus = null
+  let lastQueueData = null
+
+  /* ------- usage strip: 对话框下常驻 输入/输出/命中率/成本 ------- */
+  function pickUsageTask() {
+    if (selectedId) {
+      const t = currentSelected()
+      if (t) return t
+    }
+    return mergeThreads().find((x) => x.usage || x.costCny != null) || null
+  }
+
+  function hitRateOf(u) {
+    if (!u) return null
+    const denom = (u.inputTokens || 0) + (u.cacheReadTokens || 0)
+    return denom > 0 ? Math.round(((u.cacheReadTokens || 0) / denom) * 1000) / 10 : null
+  }
+
+  function renderUsageStrip() {
+    const t = pickUsageTask()
+    const stateEl = $('uState')
+    const set = (id, v) => {
+      const el = $(id)
+      if (el) el.textContent = v
+    }
+    if (!t) {
+      if (stateEl) {
+        stateEl.textContent = 'IDLE'
+        stateEl.className = 'badge'
+      }
+      set('uModel', '—')
+      set('uIn', '0')
+      set('uCache', '0')
+      set('uOut', '0')
+      set('uHit', '—')
+      set('uCost', '—')
+      set('uHint', '暂无任务 - 输入任务后在此常驻显示用量参考')
+      return
+    }
+    const u = t.usage || {}
+    if (stateEl) {
+      stateEl.textContent = String(t.status || '—').toUpperCase()
+      stateEl.className = 'badge ' + String(t.status || '').toLowerCase()
+    }
+    set('uModel', esc(t.model || '—'))
+    set('uIn', (u.inputTokens || 0).toLocaleString())
+    set('uCache', (u.cacheReadTokens || 0).toLocaleString())
+    set('uOut', (u.outputTokens || 0).toLocaleString())
+    const hit = hitRateOf(u)
+    set('uHit', hit == null ? '—' : hit + '%')
+    set('uCost', t.costCny != null ? Number(t.costCny).toFixed(6) + (t.estimated ? '(估)' : '') : '—')
+    const title = esc((t.prompt || t.id || '').split('\n')[0]).slice(0, 40)
+    const secs = Math.max(0, Math.floor(((t.endedAt || Date.now()) - (t.createdAt || Date.now())) / 1000))
+    set('uHint', `会话 ${title}… · 时长 ${secs}s`)
+  }
+
+  /* ------- 小图标 + 鼠标悬浮概要窗 ------- */
+  function hoverPop(kind, anchor) {
+    const card = $('hoverPop')
+    if (!card) return
+    let html = ''
+    if (kind === 'queue') {
+      const s = (lastQueueData && lastQueueData.scheduler) || {}
+      const counts = s.counts || {}
+      const total = lastQueueData && lastQueueData.tasks ? lastQueueData.tasks.length : 0
+      html =
+        `<b>定时队列</b>` +
+        `<div class="hp-row">等待 ${counts.PENDING || 0} · 挂起 ${counts.SUSPENDED || 0} · 运行 ${counts.RUNNING || 0}</div>` +
+        `<div class="hp-row muted">已完成 ${counts.COMPLETED || 0} · 共 ${total} 条</div>` +
+        `<div class="hp-hint">点击:切到“排队”面板管理/查看</div>`
+    } else if (kind === 'balance') {
+      const b = lastStatus && lastStatus.balance
+      if (b && b.ok) {
+        const cny = b.balances.find((x) => x.currency === 'CNY') || b.balances[0]
+        html = cny
+          ? `<b>账户余额</b>` +
+            `<div class="hp-row">TOTAL <b>${Number(cny.total).toFixed(6)}</b></div>` +
+            `<div class="hp-row">TOP-UP ${Number(cny.toppedUp).toFixed(6)}</div>` +
+            `<div class="hp-row muted">GRANTED ${Number(cny.granted).toFixed(6)}</div>` +
+            `<div class="hp-hint">点击:打开监控视图(成本/价格)</div>`
+          : `<b>账户余额</b><div class="hp-row">无货币数据</div>`
+      } else {
+        const code = b && b.error && b.error.code
+        html = `<b>账户余额</b><div class="hp-row">${code === 'MISSING_CREDENTIAL' ? '未配置 API Key' : 'API 暂不可用'}</div>`
+      }
+    } else if (kind === 'sound') {
+      const st = DSSound.getState().sounds || { enabled: true, events: {} }
+      const ev = st.events || {}
+      const parts = ['COMPLETED', 'FAILED', 'INTERRUPTED']
+        .map((n) => {
+          const e = ev[n]
+          return `${e && e.enabled !== false ? '●' : '○'} ${n}`
+        })
+        .join(' ')
+      html =
+        `<b>铃声 ${st.enabled === false ? '关' : '开'} · 音量 ${Math.round((st.volume || 0.8) * 100)}%</b>` +
+        `<div class="hp-row muted">${esc(parts)}</div>` +
+        `<div class="hp-hint">点击:总开关;设置页可换预设/上传/试听</div>`
+    } else if (kind === 'peak') {
+      const b = lastStatus && lastStatus.billing
+      const peak = b ? b.status : null
+      const nextTxt =
+        b && b.nextChangeIso
+          ? `${b.statusAfter || ''} @ ${b.nextChangeTime || ''}${b.secondsLeft != null ? ' (' + Math.floor(b.secondsLeft / 60) + ' 分后)' : ''}`
+          : '无下一档'
+      html =
+        `<b>峰谷 ${peak || '—'}</b>` +
+        `<div class="hp-row ${peak === 'PEAK' ? 'peak-t' : 'off-t'}">当前 ${peak === 'PEAK' ? '高峰' : '谷价'} · 谷价任务 ${peak === 'PEAK' ? '挂起等待' : '自动开始'}</div>` +
+        `<div class="hp-row muted">下一档: ${esc(nextTxt)}</div>` +
+        `<div class="hp-hint">点击:打开监控视图(时间轴)</div>`
+    }
+    card.innerHTML = html
+    const r = anchor.getBoundingClientRect()
+    const cw = card.offsetWidth || 260
+    let left = Math.min(r.left, window.innerWidth - cw - 8)
+    left = Math.max(6, left)
+    let top = r.bottom + 8
+    if (top + 150 > window.innerHeight) top = Math.max(6, r.top - (card.offsetHeight || 120) - 8)
+    card.style.left = left + 'px'
+    card.style.top = top + 'px'
+    card.hidden = false
+  }
+
+  function hidePop() {
+    const card = $('hoverPop')
+    if (card) card.hidden = true
+  }
+
+  function bindPopovers() {
+    const anchors = [
+      ['queue', 'popQueueBtn'],
+      ['balance', 'popBalBtn'],
+      ['sound', 'soundBtnChat'],
+      ['peak', 'periodBadge']
+    ]
+    for (const item of anchors) {
+      const kind = item[0]
+      const el = document.getElementById(item[1])
+      if (!el) continue
+      el.addEventListener('mouseenter', () => hoverPop(kind, el))
+      el.addEventListener('click', () => {
+        hidePop()
+        if (kind === 'queue') {
+          currentView = 'queue'
+          for (const x of document.querySelectorAll('.nav-tab')) x.classList.toggle('active', x.dataset.view === 'queue')
+          refreshTasks()
+        } else if (kind === 'balance' || kind === 'peak') {
+          window.location.href = '/'
+        }
+      })
+    }
+    const card = $('hoverPop')
+    if (card) {
+      card.addEventListener('mouseenter', () => {
+        if (card._hideTimer) clearTimeout(card._hideTimer)
+      })
+      card.addEventListener('mouseleave', () => {
+        card._hideTimer = setTimeout(hidePop, 120)
+      })
+    }
+    document.addEventListener('click', (ev) => {
+      if (ev.target.closest && !ev.target.closest('#hoverPop') && !ev.target.closest('.head-actions')) hidePop()
+    })
+  }
+
   function refreshRunningTimers() {
     const list = mergeThreads()
     const t = list.find((x) => x.id === selectedId)
     if (t && (t.status === 'RUNNING' || t.status === 'STARTING')) renderConversation(t)
+    renderUsageStrip()
   }
 
   async function refreshTasks() {
@@ -237,11 +403,13 @@
       ])
       allThreads = tasksData.tasks || []
       queueThreads = queueData.tasks || []
+      lastQueueData = queueData
       // scheduler peak hint is attached by the server only to queue rows; keep statuses for direct sessions too.
       for (const q of queueThreads) q.schedulerHint = q.reason || ''
       renderThreadList()
       if (selectedId && currentSelected()) renderConversation(currentSelected())
       else if (!selectedId) renderConversation(null)
+      renderUsageStrip()
     } catch {
       /* offline */
     }
@@ -250,6 +418,7 @@
   async function applyStatus() {
     try {
       const s = await fetchJson('/api/status')
+      lastStatus = s
       const badge = $('periodBadge')
       badge.textContent = s.billing?.status || 'OFF-PEAK'
       badge.className = 'badge ' + (s.billing?.status === 'PEAK' ? 'peak' : 'off')
@@ -326,6 +495,7 @@
     }
     bindEvents()
     bindSoundButton()
+    bindPopovers()
     DSSound.refresh().then(syncSoundButton)
     refreshTasks()
     applyStatus()

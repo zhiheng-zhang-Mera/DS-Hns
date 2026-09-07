@@ -28,11 +28,21 @@ const STARTUP_TIMEOUT_MS = 90_000
 const VIEW_PATHS = { chat: '/chat.html', monitor: '/', settings: '/settings.html' }
 
 const smokeTest = process.argv.includes('--smoke-test')
-const noDshWeb = process.env.DSH_NO_DSH_WEB === '1' || smokeTest
-const startView = process.env.DSH_START_VIEW || 'dsh'
+const shotFlagIdx = process.argv.indexOf('--screenshot-test')
+const shotOut = shotFlagIdx >= 0 && process.argv[shotFlagIdx + 1] ? process.argv[shotFlagIdx + 1] : null
+const noDshWeb = process.env.DSH_NO_DSH_WEB === '1' || smokeTest || Boolean(shotOut)
+// 默认主界面 = 集成对话(ChatGPT/Codex 式);官方 dsh Web 是可选“官方视图”,按需启动引擎。
+const startView = process.env.DSH_START_VIEW || 'chat'
 const uiBase = Number(process.env.DSH_UI_PORT) || appConfig.ui?.port || 3300
 const dshBase = Number(process.env.DSH_DSH_WEB_PORT) || appConfig.dshWeb?.port || 3080
 const dshHost = process.env.DSH_DSH_WEB_HOST || appConfig.dshWeb?.host || '127.0.0.1'
+
+const VIEW_DOM_IDS = {
+  chat: ['chatForm', 'chatComposer', 'threadList', 'newChatBtn', 'chatMessages', 'sendBtn', 'usageStrip'],
+  monitor: ['queueForm', 'queueTable', 'soundToggle', 'sysCores', 'taskTable', 'timeline'],
+  settings: ['settingsSave', 'setApiKey', 'setModel', 'setPermission', 'setSound', 'soundEvents'],
+  dsh: []
+}
 
 let mainWindow = null
 let engineProcess = null
@@ -293,16 +303,86 @@ function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+  attachScreenshot(mainWindow, startView === 'dsh' ? 'dsh' : startView)
   return mainWindow
 }
 
+/** --screenshot-test <path>: capture the page + DOM self-check, then quit. */
+function attachScreenshot(win, viewKey) {
+  if (!shotOut) return
+  const issues = []
+  win.webContents.on('console-message', (event) => {
+    const level = event.level
+    if (level === 'error' || level === 'warning' || level === 2 || level === 3) {
+      issues.push({ level, message: event.message })
+    }
+  })
+  win.webContents.once('did-finish-load', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    try {
+      const out = shotOut.replace(/\.png$/i, '')
+      fs.mkdirSync(path.dirname(out + '.png'), { recursive: true })
+      const image = await win.webContents.capturePage()
+      fs.writeFileSync(out + '.png', image.toPNG())
+      const dom = await win.webContents.executeJavaScript(`(() => {
+        const ids = ${JSON.stringify(VIEW_DOM_IDS[viewKey] || [])}
+        return {
+          url: location.href,
+          title: document.title,
+          missing: ids.filter((id) => !document.getElementById(id)),
+          usageStripText: (document.getElementById('usageStrip') || {}).innerText || '',
+          bodyTextLength: document.body.innerText.length
+        }
+      })()`)
+      fs.writeFileSync(out + '.json', JSON.stringify({ dom, consoleIssues: issues }, null, 2), 'utf8')
+      console.log('screenshot saved: ' + out + '.png')
+    } catch (err) {
+      console.error('screenshot failed: ' + (err && err.stack ? err.stack : err))
+    }
+    app.quit()
+  })
+}
+
+let officialLoading = null
+
 function goDsh() {
   if (!mainWindow) return
+  if (noDshWeb) {
+    dialog
+      .showMessageBox({
+        type: 'info',
+        title: 'DS-Harness',
+        message: '官方 dsh Web 视图未启用',
+        detail: '当前以 DSH_NO_DSH_WEB=1 运行(或处于自检模式)。主界面对话/队列功能不受影响。'
+      })
+      .catch(() => {})
+    return
+  }
   if (lastDshUrl) {
     mainWindow.loadURL(lastDshUrl)
-  } else {
-    goUi(VIEW_PATHS.chat)
+    return
   }
+  if (!officialLoading) {
+    officialLoading = Promise.race([
+      startEngine(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('未在时限内收到引擎访问地址')), STARTUP_TIMEOUT_MS))
+    ])
+      .catch(async (err) => {
+        logLine(`official dsh web failed: ${err?.stack || err}`)
+        await dialog.showMessageBox({
+          type: 'error',
+          title: 'DS-Harness',
+          message: '无法启动官方 dsh Web 引擎',
+          detail: String(err?.stack || err)
+        })
+        return null
+      })
+  }
+  officialLoading.then(async (url) => {
+    if (!url) return
+    lastDshUrl = url
+    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.loadURL(url)
+  })
 }
 
 function goUi(viewPath) {
@@ -319,10 +399,11 @@ function buildMenu() {
     {
       label: '视图',
       submenu: [
-        { label: 'DeepSeek Harness 对话 (dsh Web)', accelerator: 'CmdOrCtrl+1', click: () => goDsh() },
-        { label: '调度中心 · 聊天', accelerator: 'CmdOrCtrl+2', click: () => goUi(VIEW_PATHS.chat) },
-        { label: '调度中心 · 监控', accelerator: 'CmdOrCtrl+3', click: () => goUi(VIEW_PATHS.monitor) },
-        { label: '调度中心 · 设置(铃声/密钥/并发…)', accelerator: 'CmdOrCtrl+4', click: () => goUi(VIEW_PATHS.settings) },
+        { label: '主界面 · 对话', accelerator: 'CmdOrCtrl+1', click: () => goUi(VIEW_PATHS.chat) },
+        { label: '监控(队列/峰谷/成本)', accelerator: 'CmdOrCtrl+2', click: () => goUi(VIEW_PATHS.monitor) },
+        { label: '设置(铃声/密钥/并发…)', accelerator: 'CmdOrCtrl+3', click: () => goUi(VIEW_PATHS.settings) },
+        { type: 'separator' },
+        { label: '官方 dsh Web 视图(按需启动引擎)', accelerator: 'CmdOrCtrl+4', click: () => goDsh() },
         { type: 'separator' },
         { label: '重新加载', role: 'reload' },
         { label: '开发者工具', role: 'toggleDevTools' }
@@ -339,7 +420,8 @@ function buildMenu() {
               title: 'DS-Harness',
               message: 'DS-Harness · DeepSeek Harness Desktop',
               detail:
-                `主界面:官方 dsh Web (${dshOrigin()})\n调度中心: ${uiOrigin()}\n` +
+                `主界面:集成对话(ChatGPT/Codex 式),调度中心服务 ${uiOrigin()}\n` +
+                `官方 dsh Web 视图(按需启动): ${dshOrigin()}\n` +
                 `引擎数据目录: ${PATHS.DSH_HOME}\n` +
                 `铃声配置: config\\sound.json(总开关/每事件开关/预设/本地文件)\n` +
                 `(端口被占用时已自动错开,实际端口见 data\\state\\ports.json)`
