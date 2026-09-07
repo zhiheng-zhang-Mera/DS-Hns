@@ -41,6 +41,62 @@ The previous integration retained Mega as a second application core under `app/m
 
 The rebuild removes the legacy `app/monitor` application and shared preload entirely. Optional functionality now starts only **after** the official dsh page has loaded. Extension failure is logged but must not terminate or mutate the official UI.
 
+## One-click install
+
+On Windows, clone/download the repository and double-click:
+
+```text
+Install-DS-Harness.cmd
+```
+
+The installer is idempotent and reuse-first:
+
+1. creates missing runtime/data/cache/workspace directories;
+2. reuses a compatible bundled Node.js if present;
+3. otherwise reuses a compatible Node.js already on `PATH`;
+4. otherwise reuses a previously downloaded portable Node archive;
+5. downloads portable Node only when no compatible local copy exists;
+6. checks the exact local versions of `@deepseek-ai/dsh` and Electron;
+7. skips `npm ci` completely when both installed versions already match `app/package.json`;
+8. when repair/install is needed, uses `npm ci --prefer-offline` and reuses existing npm/Electron caches when available;
+9. generates built-in sounds only when they are missing;
+10. runs unit + architecture tests and repository verification;
+11. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
+12. launches DS-Harness when installation succeeds.
+
+### API key flow
+
+The installer never requires an API key in order to finish installation.
+
+Priority is:
+
+```text
+Process/inherited environment
+        -> User environment
+        -> Machine environment
+        -> existing project config\.env
+        -> interactive choice
+```
+
+If `DEEPSEEK_API_KEY` already exists in the environment, it is reused and is **not copied or printed** by the installer.
+
+If no environment key and no existing project key are found, the installer asks:
+
+- **Configure now** — enter the key securely; it is stored only in `config\.env`.
+- **Configure later** — installation continues normally; open Mega Extensions with `Ctrl+Shift+M` and enter the key under **Harness / 提醒**.
+
+The default `.env.example` intentionally contains a blank API-key field, so a placeholder can never be mistaken for a configured credential.
+
+For scripted installs:
+
+```powershell
+# Do not prompt for API key; leave it for the settings page
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -ApiKeyMode Later
+
+# Install without launching or creating shortcuts
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -ApiKeyMode Later -NoLaunch -NoShortcuts
+```
+
 ## Mega-derived features retained
 
 - scheduled / off-peak task queue
@@ -57,6 +113,8 @@ These features live under `app/extensions/mega/` and are opened via the isolated
 ## Repository layout
 
 ```text
+Install-DS-Harness.cmd           double-click one-click installer
+Start-DeepSeek-Harness.cmd       normal launcher after installation
 app/
   desktop-main.cjs              Alien-derived shell; owns official dsh UI
   extensions/
@@ -76,6 +134,10 @@ config/
 data/
 assets/
 scripts/
+  install.ps1                   one-click install orchestration
+  install-deps.ps1              exact-version dependency reuse/repair
+  ensure-node.ps1               Node detection/cache reuse/bootstrap
+  verify.ps1
 tests/
 ```
 
@@ -89,8 +151,11 @@ tests/
 6. An extension crash must be logged and isolated from the official UI.
 
 These rules are enforced by `tests/unit/architecture-contract.test.js`.
+Installer/reuse/API-key behavior is enforced by `tests/unit/installer-contract.test.js`.
 
-## Start
+## Normal start
+
+After installation:
 
 ```cmd
 Start-DeepSeek-Harness.cmd
@@ -110,4 +175,4 @@ Mega tools: `Ctrl+Shift+M`.
 powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-The verification checks both the original Mega-derived unit logic and the Alien architectural contract.
+The verification checks both the Mega-derived feature logic and the Alien architectural contract.
