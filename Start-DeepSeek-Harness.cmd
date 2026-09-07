@@ -84,12 +84,21 @@ rem ============================================================
 :fresh_start
 echo [start] launching DS-Harness...
 "%PS%" -NoProfile -ExecutionPolicy Bypass -File "%DSH_ROOT%\scripts\run.ps1"
-echo [done] DS-Harness started (main window = dsh Web; view menu = dispatch center).
+if errorlevel 1 goto :start_failed
+echo [done] DS-Harness started (main window = 对话主界面).
 exit /b 0
 
 rem ============================================================
+:start_failed
+echo.
+echo [error] DS-Harness could not start / is not responding.
+echo        Check logs: %DSH_ROOT%\logs\app\electron.err.log and %DSH_ROOT%\logs\desktop-runtime.log
+pause
+exit /b 1
+
+rem ============================================================
 :focus_existing
-echo [info] DS-Harness is already running - opening another window...
+echo [info] DS-Harness is already running - focusing its window...
 call :snapshot_pids
 call :focus_once
 call :wait_health 12
@@ -104,7 +113,7 @@ goto :fresh_start
 
 rem ============================================================
 :focused
-echo [done] DS-Harness opened an additional window (multi-instance supported).
+echo [done] DS-Harness window focused/brought to front.
 exit /b 0
 
 rem ============================================================

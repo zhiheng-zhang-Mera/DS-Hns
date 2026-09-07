@@ -44,7 +44,7 @@ if ($HeadlessShell) {
   Start-Background 'ds-desktop' $electron @('.') "$ROOT\app" "$ROOT\logs\app\electron.out.log" | Out-Null
 }
 
-Start-Sleep -Seconds 5
+Start-Sleep -Seconds 3
 $portsFile = "$ROOT\data\state\ports.json"
 $uiPort = 3300
 $dshPort = 3080
@@ -55,14 +55,26 @@ if (Test-Path -LiteralPath $portsFile) {
     if ($pj.dsh) { $dshPort = $pj.dsh }
   } catch { }
 }
-try {
-  $resp = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$uiPort/api/health" -TimeoutSec 5
+
+# 等待窗口/服务真正就绪(最多 ~25s),确保“启动后必然有响应”。
+$up = $false
+$deadline = (Get-Date).AddSeconds(25)
+while ((Get-Date) -lt $deadline) {
+  try {
+    $resp = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$uiPort/api/health" -TimeoutSec 2
+    if ($resp.StatusCode -eq 200) { $up = $true; break }
+  } catch { }
+  Start-Sleep -Milliseconds 600
+}
+if ($up) {
   Write-Output ''
-  Write-Output 'DS-Harness is running.'
+  Write-Output 'DS-Harness is running (window should be visible / flashed).'
   Write-Output "  调度中心 API   : http://127.0.0.1:$uiPort (queue/peak/cost/sounds)"
   Write-Output "  dsh Web        : http://127.0.0.1:$dshPort (官方 dsh UI;被占用已自动错开)"
-  Write-Output '  Electron window: main view = official dsh Web; 视图 menu = 调度中心 (chat/monitor/settings)'
+  Write-Output '  Electron window: main view = 对话主界面(菜单栏已并入界面); Ctrl+1..3 切 监控/设置'
   Write-Output "  Logs           : $ROOT\logs"
-} catch {
-  Write-Warning 'Desktop app process started but the local API is not responding yet. Check logs\app\electron.err.log'
+} else {
+  Write-Warning 'DS-Harness 未能就绪。请查看 logs\app\electron.err.log 与 logs\desktop-runtime.log。'
+  Write-Warning '可能原因:端口冲突已自动错开、或引擎/Electron 启动异常。'
+  exit 1
 }

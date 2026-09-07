@@ -46,6 +46,7 @@ const VIEW_DOM_IDS = {
 
 let mainWindow = null
 let appWindows = [] // 多开支持:同一进程可拥有多个窗口
+let lastFocusedWin = null // 最近获焦的本程序窗口(聚焦优先于可见窗口)
 let engineProcess = null
 let lastDshUrl = null
 let shuttingDown = false
@@ -321,10 +322,14 @@ function createAppWindow(isPrimary = false) {
     shell.openExternal(url)
   })
   win.once('ready-to-show', () => win.show())
+  win.on('focus', () => {
+    lastFocusedWin = win
+  })
   win.on('closed', () => {
     const i = appWindows.indexOf(win)
     if (i >= 0) appWindows.splice(i, 1)
     if (mainWindow === win) mainWindow = null
+    if (lastFocusedWin === win) lastFocusedWin = null
   })
   appWindows.push(win)
   if (isPrimary || !mainWindow) mainWindow = win
@@ -548,12 +553,28 @@ app.on('second-instance', () => {
     }
     return
   }
-  const visible = appWindows.find((w) => !w.isDestroyed() && w.isVisible()) || mainWindow
-  const target = visible || appWindows.find((w) => !w.isDestroyed())
+  // 聚焦顺序:主窗口 → 最近获焦的本程序窗口 → 任意可见/存在的本程序窗口。
+  // 启动器只会唤起本程序(DS-Harness)的窗口,不会切到其它 electron 应用。
+  const prefer = (cand) => cand && !cand.isDestroyed() ? cand : null
+  let target =
+    prefer(mainWindow) ||
+    prefer(lastFocusedWin) ||
+    appWindows.find((w) => !w.isDestroyed() && w.isVisible()) ||
+    appWindows.find((w) => !w.isDestroyed())
   if (target) {
     if (target.isMinimized()) target.restore()
     if (!target.isVisible()) target.show()
+    target.moveTop()
     target.focus()
+    // 可见反馈:即使窗口本来就在前台,也让用户感知到“启动器已唤起本程序”。
+    try {
+      target.flashFrame(true)
+      setTimeout(() => {
+        if (!target.isDestroyed()) target.flashFrame(false)
+      }, 900)
+    } catch (err) {
+      /* ignore */
+    }
   } else {
     const win = createAppWindow(true)
     if (win) {
