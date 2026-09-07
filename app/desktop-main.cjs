@@ -45,6 +45,7 @@ const VIEW_DOM_IDS = {
 }
 
 let mainWindow = null
+let appWindows = [] // 多开支持:同一进程可拥有多个窗口
 let engineProcess = null
 let lastDshUrl = null
 let shuttingDown = false
@@ -259,10 +260,11 @@ ipcMain.on('ds-player:play', (_event, payload) => {
   playInHost(payload.url, payload.volume)
 })
 
-// In-page navigation (页内导航替代系统菜单栏)。
-ipcMain.on('ds-nav', (_event, kind) => {
-  if (kind === 'official') goDsh()
-  else if (VIEW_PATHS[kind]) goUi(VIEW_PATHS[kind])
+// In-page navigation (页内导航替代系统菜单栏;作用于发起请求的那个窗口)。
+ipcMain.on('ds-nav', (event, kind) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (kind === 'official') openOfficial(win)
+  else if (VIEW_PATHS[kind]) navTo(win, VIEW_PATHS[kind])
 })
 
 /* ------------------------------------------------------------------ *
@@ -278,8 +280,8 @@ function isAllowedOrigin(url) {
   }
 }
 
-function createMainWindow() {
-  mainWindow = new BrowserWindow({
+function createAppWindow(isPrimary = false) {
+  const win = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 980,
@@ -295,23 +297,27 @@ function createMainWindow() {
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  win.webContents.setWindowOpenHandler(({ url }) => {
     if (isAllowedOrigin(url)) return { action: 'allow' }
     shell.openExternal(url)
     return { action: 'deny' }
   })
-  mainWindow.webContents.on('will-navigate', (event, url) => {
+  win.webContents.on('will-navigate', (event, url) => {
     if (isAllowedOrigin(url)) return
     event.preventDefault()
     shell.openExternal(url)
   })
-  mainWindow.once('ready-to-show', () => mainWindow.show())
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  win.once('ready-to-show', () => win.show())
+  win.on('closed', () => {
+    const i = appWindows.indexOf(win)
+    if (i >= 0) appWindows.splice(i, 1)
+    if (mainWindow === win) mainWindow = null
   })
-  attachWindowKeys(mainWindow)
-  attachScreenshot(mainWindow, startView === 'dsh' ? 'dsh' : startView)
-  return mainWindow
+  appWindows.push(win)
+  if (isPrimary || !mainWindow) mainWindow = win
+  attachWindowKeys(win)
+  if (isPrimary) attachScreenshot(win, startView === 'dsh' ? 'dsh' : startView)
+  return win
 }
 
 /** In-window keyboard shortcuts (replaces the removed native menu bar). */
@@ -321,16 +327,16 @@ function attachWindowKeys(win) {
     const k = String(input.key || '').toLowerCase()
     if (k === '1') {
       event.preventDefault()
-      goUi(VIEW_PATHS.chat)
+      navTo(win, VIEW_PATHS.chat)
     } else if (k === '2') {
       event.preventDefault()
-      goUi(VIEW_PATHS.monitor)
+      navTo(win, VIEW_PATHS.monitor)
     } else if (k === '3') {
       event.preventDefault()
-      goUi(VIEW_PATHS.settings)
+      navTo(win, VIEW_PATHS.settings)
     } else if (k === '4') {
       event.preventDefault()
-      goDsh()
+      openOfficial(win)
     } else if (k === 'i' && input.shift) {
       event.preventDefault()
       win.webContents.toggleDevTools()
@@ -376,8 +382,21 @@ function attachScreenshot(win, viewKey) {
 
 let officialLoading = null
 
-function goDsh() {
-  if (!mainWindow) return
+/** 在指定窗口(默认主窗口)中加载调度中心某视图。 */
+function navTo(win, viewPath) {
+  if (!win || win.isDestroyed()) win = mainWindow
+  if (!win || win.isDestroyed()) return
+  win.loadURL(`${uiOrigin()}${viewPath}`)
+}
+
+function goUi(viewPath, win = mainWindow) {
+  navTo(win, viewPath)
+}
+
+/** 在指定窗口打开官方 dsh Web(引擎按需启动一次,可被多窗口复用)。 */
+function openOfficial(win) {
+  if (!win || win.isDestroyed()) win = mainWindow
+  if (!win || win.isDestroyed()) return
   if (noDshWeb) {
     dialog
       .showMessageBox({
@@ -390,7 +409,7 @@ function goDsh() {
     return
   }
   if (lastDshUrl) {
-    mainWindow.loadURL(lastDshUrl)
+    win.loadURL(lastDshUrl)
     return
   }
   if (!officialLoading) {
@@ -412,13 +431,12 @@ function goDsh() {
   officialLoading.then(async (url) => {
     if (!url) return
     lastDshUrl = url
-    if (mainWindow && !mainWindow.isDestroyed()) await mainWindow.loadURL(url)
+    if (win && !win.isDestroyed()) await win.loadURL(url)
   })
 }
 
-function goUi(viewPath) {
-  if (!mainWindow) return
-  mainWindow.loadURL(`${uiOrigin()}${viewPath}`)
+function goDsh(win = mainWindow) {
+  openOfficial(win)
 }
 
 function buildMenu() {
@@ -472,7 +490,7 @@ app.whenReady().then(async () => {
       return
     }
 
-    createMainWindow()
+    createAppWindow(true)
     if (startView === 'dsh' && !noDshWeb) {
       try {
         const engineUrl = await Promise.race([
@@ -508,11 +526,12 @@ app.whenReady().then(async () => {
 })
 
 app.on('second-instance', () => {
-  // Launcher asked to focus the running app: restore/show/focus its window.
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  if (!mainWindow.isVisible()) mainWindow.show()
-  mainWindow.focus()
+  // 再次启动 = 多开:在同一进程内新开一个窗口(共享引擎/监控/铃声服务)。
+  const win = createAppWindow(false)
+  if (win) {
+    win.loadURL(`${uiOrigin()}${VIEW_PATHS.chat}`)
+    win.once('ready-to-show', () => win.show())
+  }
 })
 
 app.on('window-all-closed', () => app.quit())

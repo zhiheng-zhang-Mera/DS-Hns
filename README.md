@@ -8,7 +8,7 @@
 
 ## 特性
 
-- **以 Alien 桌面壳为基准的单窗口体验**:不占用系统浏览器;单实例锁、日志令牌脱敏、端口自动错开、关闭即停引擎。
+- **以 Alien 桌面壳为基准的单进程多窗口体验**:不占用系统浏览器;单进程锁防重复服务、**支持再次启动多开窗口**、日志令牌脱敏、端口自动错开、关闭即停引擎。
 - **主界面(默认)= 集成对话,参考 ChatGPT/Codex**:左侧任务/排队列表 + 对话区 + 底部 Composer;
   - 对话框下方**常驻参考数据条**:输入 / 输出 / 缓存命中(命中率) / 成本 ¥ / 状态(随所选任务实时更新);
   - **小图标 + 鼠标悬浮概要窗**:队列(等待/挂起/运行数)、余额(TOTAL/TOP-UP/GRANTED)、峰谷(当前/下一档)、铃声(总开关/每事件)——点击小图标直达对应详细页或切到“排队”;
@@ -74,9 +74,8 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 
 停止:`scripts\stop.ps1`。桌面快捷方式/开机自启:`scripts\shortcuts.ps1`(`-Remove` 移除)。
 
-> **启动器行为**:双击 `Start-DeepSeek-Harness.cmd` 时,若检测到 DS-Harness 已在运行,
-> 会自动唤起已有窗口(单实例,不会重复启动);若唤起失败(进程无响应/监控不健康),
-> 会**强制关闭已有实例并重新启动**。
+> **启动器行为**:双击 `Start-DeepSeek-Harness.cmd` 时,若 DS-Harness 已在运行,会在**同一进程内再开一个窗口(支持多开)**,不会出现“只显示 launching 打不开”;
+> 若唤起失败(进程无响应/监控不健康),会**强制关闭已有实例并重新启动**。未运行时则全新启动。
 
 ## 使用
 
@@ -101,7 +100,8 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 - **端口自动错开(默认行为)**:启动时若 3080/3300 已被其他 Harness 实例或本机程序占用,
   自动向后寻找最近的空闲端口(最多 +30),无需手动配置;实际端口会打印到控制台、
   写入 `logs\desktop-runtime.log`,并保存在 `data\state\ports.json`(供脚本/运维读取)。
-  桌面壳为单实例:重复启动只会聚焦已有窗口。
+  桌面壳使用单实例锁防止重复拉起整套服务;再次启动会通知已运行进程**再开一个窗口(多开)**。
+  实际端口见 `data\state\ports.json`。
 - 显式指定起点:`set DSH_DSH_WEB_PORT=3180` 后启动即从 3180 起找空闲端口。
 - `DSH_NO_DSH_WEB=1`:仅运行调度中心,不拉起 dsh 引擎。
 - `DSH_START_VIEW=chat|monitor|settings|dsh`:启动时直接进入的视图(默认 `chat` 主界面;`dsh`=官方 dsh Web 并启动引擎)。

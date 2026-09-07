@@ -89,7 +89,7 @@ exit /b 0
 
 rem ============================================================
 :focus_existing
-echo [info] DS-Harness is already running - bringing up its window...
+echo [info] DS-Harness is already running - opening another window...
 call :snapshot_pids
 call :focus_once
 call :wait_health 12
@@ -104,7 +104,7 @@ goto :fresh_start
 
 rem ============================================================
 :focused
-echo [done] DS-Harness is running and its window has been brought to front.
+echo [done] DS-Harness opened an additional window (multi-instance supported).
 exit /b 0
 
 rem ============================================================
