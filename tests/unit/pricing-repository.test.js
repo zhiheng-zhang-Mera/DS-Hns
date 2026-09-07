@@ -1,7 +1,7 @@
-'use strict'
+﻿'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const PricingRepository = require('../../app/billing/pricing-repository')
+const PricingRepository = require('../../app/monitor/billing/pricing-repository')
 
 test('pricing repository loads the official DeepSeek snapshot', () => {
   const repo = new PricingRepository()

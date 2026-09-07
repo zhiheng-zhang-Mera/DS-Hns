@@ -1,7 +1,7 @@
-'use strict'
+﻿'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { decideTask } = require('../../app/scheduler/gate')
+const { decideTask } = require('../../app/monitor/scheduler/gate')
 
 const NOW = Date.UTC(2026, 8, 7, 2, 0, 0) // Beijing 10:00 Monday (peak)
 

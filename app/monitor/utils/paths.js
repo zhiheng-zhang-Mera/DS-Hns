@@ -4,14 +4,30 @@ const path = require('node:path')
 
 /**
  * DS-Harness project root resolution — root-agnostic, never hardcoded:
- *   1. DSH_ROOT env var (explicit override; set by scripts\env.ps1 and the Electron shell)
- *   2. DSH_HOME env var -> its parent (<root>\data)
- *   3. self-derived from this module's location (<root>\app\monitor\utils\paths.js)
+ *   1. DSH_ROOT env var (explicit override; set by scripts\env.ps1, the
+ *      Electron shell and tests)
+ *   2. self-derived from this module's location (<root>\app\monitor\utils\paths.js)
+ *   3. DSH_HOME env var -> its parent (<root>\data) as a last resort
+ * The self-derived root is preferred over an ambient DSH_HOME so running
+ * modules outside env.ps1 (e.g. an IDE or a harness with its own DSH_HOME)
+ * never silently points at another machine directory.
  */
 function resolveRoot() {
   if (process.env.DSH_ROOT) return path.resolve(process.env.DSH_ROOT)
-  if (process.env.DSH_HOME) return path.dirname(path.resolve(process.env.DSH_HOME))
-  return path.resolve(__dirname, '..', '..', '..')
+  const self = path.resolve(__dirname, '..', '..', '..')
+  const hasConfig = (p) => {
+    try {
+      return fs.existsSync(path.join(p, 'config'))
+    } catch {
+      return false
+    }
+  }
+  if (hasConfig(self)) return self
+  if (process.env.DSH_HOME) {
+    const alt = path.dirname(path.resolve(process.env.DSH_HOME))
+    if (hasConfig(alt)) return alt
+  }
+  return self
 }
 
 const ROOT = resolveRoot()

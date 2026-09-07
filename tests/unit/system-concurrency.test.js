@@ -1,7 +1,7 @@
-'use strict'
+﻿'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { computeMaxConcurrent } = require('../../app/scheduler/system')
+const { computeMaxConcurrent } = require('../../app/monitor/scheduler/system')
 
 function sys(cpuCores, freeGb) {
   return { cpu: { cores: cpuCores }, memory: { freeGb } }

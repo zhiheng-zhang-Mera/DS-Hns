@@ -1,15 +1,21 @@
+﻿# DS-Harness first-time install: directories -> npm ci (dsh core + Electron,
+# both from the single app\package.json) -> sounds -> unit tests.
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 
-Write-Output '[0/6] Creating category structure (fresh-clone bootstrap)'
-$dirs = @('app','config','runtime','cache','data','logs','assets','scripts','tests','docs','tools','workspace',
-  'cache\pip','cache\npm','cache\pnpm','cache\downloads','cache\build','cache\temp','cache\huggingface','cache\models',
-  'data\pricing','data\task-history','data\usage','data\state','data\dsh\sessions','data\dsh\storages',
-  'logs\app','logs\harness','logs\api','logs\errors','assets\sounds',
-  'workspace\active','workspace\completed','workspace\temp','runtime\dsh','tools\portable')
-foreach ($d in $dirs) { New-Item -ItemType Directory -Path (Join-Path $ROOT $d) -Force | Out-Null }
+Write-Output '[0/6] Creating directory structure (fresh-clone bootstrap)'
+$dirs = @(
+  'app', 'config', 'assets\sounds', 'scripts', 'tests', 'runtime', 'workspace\active', 'workspace\completed',
+  'workspace\temp', 'cache\pip', 'cache\npm', 'cache\electron', 'cache\pnpm', 'cache\downloads',
+  'cache\build', 'cache\temp', 'cache\huggingface', 'cache\models', 'data\sessions', 'data\sounds',
+  'data\state', 'data\task-history', 'data\usage', 'data\pricing', 'logs\app', 'logs\harness'
+)
+foreach ($d in $dirs) {
+  New-Item -ItemType Directory -Path (Join-Path $ROOT $d) -Force | Out-Null
+}
 
 . (Join-Path $PSScriptRoot 'env.ps1')
+
 Write-Output '[1/6] Checking dependencies'
 foreach ($tool in @('node', 'npm', 'git')) {
   $c = Get-Command $tool -ErrorAction SilentlyContinue
@@ -17,67 +23,43 @@ foreach ($tool in @('node', 'npm', 'git')) {
   else { Write-Output "  OK  $tool -> $($c.Source)" }
 }
 
-Write-Output '[2/6] Installing dsh npm packages (local caches)'
-Push-Location "$ROOT\app\harness"
+Write-Output '[2/6] npm ci for app (dsh core + Electron, local caches)'
+Push-Location "$ROOT\app"
 try {
-  if (-not (Test-Path "$ROOT\app\harness\node_modules\@deepseek-ai\dsh")) {
-    npm install --no-audit --no-fund
-    if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+  if (-not (Test-Path "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js")) {
+    npm ci --no-audit --no-fund
+    if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
   } else {
-    Write-Output '  dsh package already installed'
-  }
-  $dsh = "$ROOT\app\harness\node_modules\.bin\dsh.cmd"
-  & $dsh --version
-} finally { Pop-Location }
-
-Write-Output '[3/6] Installing Electron desktop shell (local caches)'
-Push-Location "$ROOT\app\electron"
-try {
-  if (-not (Test-Path "$ROOT\app\electron\node_modules\electron\dist\electron.exe")) {
-    $env:ELECTRON_CACHE = "$ROOT\cache\electron"
-    npm install --no-audit --no-fund
-    if ($LASTEXITCODE -ne 0) { throw 'electron npm install failed' }
-    node "$ROOT\app\electron\node_modules\electron\install.js"
-  } else {
-    Write-Output '  Electron already installed'
+    Write-Output '  app dependencies already installed'
   }
 } finally { Pop-Location }
 
-Write-Output '[4/6] Initializing dsh profiles (web, headless)'
-$env:DSH_HOME = "$ROOT\runtime\dsh"
-$dsh = "$ROOT\app\harness\node_modules\.bin\dsh.cmd"
-& $dsh --profile web --dump-config *> "$ROOT\cache\temp\verify-web-config.yml"
-if ($LASTEXITCODE -ne 0) { throw 'web profile init failed' }
+$dshBin = "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js"
+if (-not (Test-Path -LiteralPath $dshBin)) { throw 'dsh core missing after npm ci' }
+if (-not (Test-Path "$ROOT\app\node_modules\electron\dist\electron.exe")) { throw 'Electron missing after npm ci' }
+Write-Output '  dsh core + Electron OK'
 
-Write-Output '[5/6] Generating notification sounds'
+Write-Output '[3/6] Generating built-in ringtones'
 & "$ROOT\scripts\generate-sounds.ps1" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'sound generation failed' }
 
-Write-Output '[6/6] Running unit tests'
+Write-Output '[4/6] Running unit tests'
 & "$ROOT\scripts\test-all.ps1"
+if ($LASTEXITCODE -ne 0) { throw 'unit tests failed' }
 
-Write-Output 'Writing machine-local paths registry (config\paths.json, gitignored)'
-$pathsMap = [ordered]@{
-  ROOT         = $ROOT
-  APP          = "$ROOT\app"
-  CONFIG       = "$ROOT\config"
-  RUNTIME      = "$ROOT\runtime"
-  DSH_HOME     = "$ROOT\runtime\dsh"
-  CACHE        = "$ROOT\cache"
-  TEMP         = "$ROOT\cache\temp"
-  DOWNLOADS    = "$ROOT\cache\downloads"
-  LOGS         = "$ROOT\logs"
-  DATA         = "$ROOT\data"
-  TOOLS        = "$ROOT\tools"
-  WORKSPACE    = "$ROOT\workspace"
-  SESSIONS     = "$ROOT\data\dsh\sessions"
-  TASK_HISTORY = "$ROOT\data\task-history"
-  PRICING      = "$ROOT\data\pricing"
-  SOUNDS       = "$ROOT\assets\sounds"
+Write-Output '[5/6] Optional API key'
+$envFile = "$ROOT\config\.env"
+if (-not (Test-Path -LiteralPath $envFile)) {
+  Copy-Item -LiteralPath "$ROOT\config\.env.example" -Destination $envFile
+  Write-Output '  created config\.env from .env.example (edit it to add DEEPSEEK_API_KEY)'
+} else {
+  Write-Output '  config\.env already present'
 }
-[System.IO.File]::WriteAllText(
-  (Join-Path $ROOT 'config\paths.json'),
-  ($pathsMap | ConvertTo-Json),
-  (New-Object System.Text.UTF8Encoding($false))
-)
 
-Write-Output 'Install complete. Configure DEEPSEEK_API_KEY in config\.env, then run scripts\run.ps1'
+Write-Output '[6/6] Install complete'
+Write-Output ''
+Write-Output 'Next steps:'
+Write-Output "  1. Edit config\.env and set DEEPSEEK_API_KEY=sk-..."
+Write-Output "  2. Start the desktop app:  powershell -ExecutionPolicy Bypass -File $ROOT\scripts\run.ps1"
+Write-Output '     (main window = official dsh Web; 视图 menu switches to 调度中心 chat/monitor/settings)'
+Write-Output "  3. Ringtone settings live in 调度中心->设置(铃声), persisted to config\sound.json."

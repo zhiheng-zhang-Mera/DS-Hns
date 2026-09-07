@@ -1,0 +1,3 @@
+{"type":"session","version":0,"id":"sess-run","createdAt":1788777716483,"cwd":"D:\\work","delegationDepth":0}
+{"type":"user/message","seq":1,"time":1788777716484,"data":{"source":{"kind":"user"}}}
+{"type":"turn/start","seq":2,"time":1788777716485,"data":{"turn":1}}

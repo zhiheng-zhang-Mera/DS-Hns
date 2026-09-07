@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$FullAccess,
   [switch]$HeadlessShell
 )
@@ -9,10 +9,12 @@ if ($FullAccess) { $env:DSH_PERMISSION_MODE = 'danger-full-access' }
 
 $stateDir = "$ROOT\data\state"
 New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
-$electron = "$ROOT\app\electron\node_modules\electron\dist\electron.exe"
+$electron = "$ROOT\app\node_modules\electron\dist\electron.exe"
 if (-not (Test-Path -LiteralPath $electron)) {
-  throw "Electron not installed. Run install.ps1 first (npm install in app\electron)."
+  throw "Electron not installed. Run install.ps1 first (npm ci in app)."
 }
+$node = (Get-Command node).Source
+if (-not $node) { throw 'Node.js not found' }
 
 function Start-Background([string]$name, [string]$file, [string[]]$argList, [string]$work, [string]$outLog) {
   $pidFile = Join-Path $stateDir "$name.pid"
@@ -34,20 +36,22 @@ function Start-Background([string]$name, [string]$file, [string[]]$argList, [str
 }
 
 if ($HeadlessShell) {
-  # Keep a pure Node monitor mode (no desktop window) for scripts/debugging.
-  $node = (Get-Command node).Source
-  Start-Background 'monitor' $node @("$ROOT\app\ui\server.js") "$ROOT\workspace" "$ROOT\logs\app\monitor.out.log" | Out-Null
+  # Pure Node monitor mode (no desktop window) for scripts/debugging.
+  Start-Background 'monitor' $node @("$ROOT\app\monitor\ui\server.js") "$ROOT" "$ROOT\logs\app\monitor.out.log" | Out-Null
 } else {
-  Start-Background 'ds-desktop' $electron @('.') "$ROOT\app\electron" "$ROOT\logs\app\electron.out.log" | Out-Null
+  # Desktop shell: same process runs the 3300 monitor AND spawns the dsh Web
+  # engine (DSH_HOME=<root>\data), then opens the main window on dsh Web.
+  Start-Background 'ds-desktop' $electron @('.') "$ROOT\app" "$ROOT\logs\app\electron.out.log" | Out-Null
 }
 
 Start-Sleep -Seconds 4
 try {
   $resp = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:3300/api/health' -TimeoutSec 5
   Write-Output ''
-  Write-Output "DeepSeek Harness is running. Local API: http://127.0.0.1:3300"
-  Write-Output 'Electron desktop window has been launched (no browser required).'
-  Write-Output "Logs: $ROOT\logs"
+  Write-Output 'DS-Harness is running.'
+  Write-Output "  调度中心 API   : http://127.0.0.1:3300 (queue/peak/cost/sounds)"
+  Write-Output '  Electron window: main view = official dsh Web; 视图 menu = 调度中心 (chat/monitor/settings)'
+  Write-Output "  Logs           : $ROOT\logs"
 } catch {
   Write-Warning 'Desktop app process started but the local API is not responding yet. Check logs\app\electron.err.log'
 }

@@ -5,7 +5,7 @@ const { PATHS } = require('../utils/paths')
 
 /**
  * TaskRuntimeTracker / SessionReader — scans dsh JSONL session logs under
- * <project root>\data\dsh\sessions and derives task state, real token
+ * <project root>\data\sessions and derives task state, real token
  * usage, model and failure codes.
  *
  * A dsh session log is an event envelope JSONL file. Each line is one JSON

@@ -1,0 +1,37 @@
+{
+  "sourceUrl": "https://api-docs.deepseek.com/quick_start/pricing",
+  "retrievedAt": "2026-09-07",
+  "source": "official",
+  "currency": "CNY",
+  "schedule": {
+    "timeZone": "Asia/Shanghai",
+    "weekdays": [1, 2, 3, 4, 5],
+    "peakPeriods": [
+      { "start": "09:00", "end": "12:00" },
+      { "start": "14:00", "end": "18:00" }
+    ]
+  },
+  "models": [
+    {
+      "id": "deepseek-v4-flash",
+      "name": "DeepSeek-V4-Flash",
+      "inputCacheHit": { "peak": 0.10, "offPeak": 0.05 },
+      "inputCacheMiss": { "peak": 3.0, "offPeak": 1.5 },
+      "output": { "peak": 9.0, "offPeak": 4.5 }
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek-V4-Pro",
+      "inputCacheHit": { "peak": 0.30, "offPeak": 0.15 },
+      "inputCacheMiss": { "peak": 9.0, "offPeak": 4.5 },
+      "output": { "peak": 27.0, "offPeak": 13.5 }
+    },
+    {
+      "id": "deepseek-v4-flash-vision-exp",
+      "name": "DeepSeek-V4-Flash-Vision-Exp",
+      "inputCacheHit": { "peak": 0.10, "offPeak": 0.05 },
+      "inputCacheMiss": { "peak": 3.0, "offPeak": 1.5 },
+      "output": { "peak": 9.0, "offPeak": 4.5 }
+    }
+  ]
+}

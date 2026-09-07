@@ -1,18 +1,26 @@
 # ===== Node =====
 node_modules/
 
-# ===== Harness 运行时 / 用户数据（含凭据与会话，绝不入库）=====
-data/
+# ===== DS-Harness runtime / user data (credentials & sessions — never commit) =====
+data/*
+!data/pricing/
+data/pricing/*
+!data/pricing/official-pricing.json
+
 runtime/
 cache/
 downloads/
 logs/
 temp/
-
-# ===== 日志与临时文件 =====
+workspace/
+tools/
 *.log
 
-# ===== 操作系统 / 编辑器 =====
+# ===== Secrets & machine-local config =====
+config/.env
+config/paths.json
+
+# ===== OS / editor =====
 Thumbs.db
 Desktop.ini
 .vscode/

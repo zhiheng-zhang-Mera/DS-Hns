@@ -1,4 +1,4 @@
-# Hidden wrapper used by the Windows logon autostart shortcut.
+﻿# Hidden wrapper used by the Windows logon autostart shortcut.
 $ErrorActionPreference = 'Stop'
 Start-Sleep -Seconds 5
 $root = Split-Path -Parent $PSScriptRoot

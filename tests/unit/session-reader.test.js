@@ -1,10 +1,10 @@
-'use strict'
+﻿'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
-const { parseSessionFile } = require('../../app/tracker/session-reader')
-const { ROOT } = require('../../app/utils/paths')
+const { parseSessionFile } = require('../../app/monitor/tracker/session-reader')
+const { ROOT } = require('../../app/monitor/utils/paths')
 
 const OUT = path.join(ROOT, 'tests', 'out')
 fs.mkdirSync(OUT, { recursive: true })

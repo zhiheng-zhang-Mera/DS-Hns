@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$NoOpen,
   [switch]$FullAccess,
   [int]$Port = 3080
@@ -6,13 +6,14 @@ param(
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'env.ps1')
 if ($FullAccess) { $env:DSH_PERMISSION_MODE = 'danger-full-access' }
-$dsh = "$ROOT\app\harness\node_modules\.bin\dsh.cmd"
-if (-not (Test-Path -LiteralPath $dsh)) { throw "dsh not installed. Run install.ps1 first." }
+$node = (Get-Command node).Source
+$dshBin = "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js"
+if (-not (Test-Path -LiteralPath $dshBin)) { throw 'dsh not installed. Run install.ps1 first.' }
 Push-Location "$ROOT\workspace"
 try {
-  $args = @('web', '--host', '127.0.0.1', '--port', "$Port")
+  $args = @($dshBin, 'web', '--host', '127.0.0.1', '--port', "$Port")
   if ($NoOpen) { $args += '--no-open' }
-  & $dsh @args
+  & $node @args
 } finally {
   Pop-Location
 }

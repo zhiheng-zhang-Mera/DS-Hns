@@ -1,11 +1,11 @@
-'use strict'
+﻿'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {
   statusAt,
   nextChangeInfo,
   buildTimeline
-} = require('../../app/billing/peak-engine')
+} = require('../../app/monitor/billing/peak-engine')
 
 // Beijing (Asia/Shanghai) is UTC+8 without DST.
 const beijingUtc = (day, hour, minute = 0) => Date.UTC(2026, 8, day, hour - 8, minute)

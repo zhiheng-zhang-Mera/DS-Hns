@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$electron = "$root\app\electron\node_modules\electron\dist\electron.exe"
+$electron = "$root\app\node_modules\electron\dist\electron.exe"
 if (-not (Test-Path -LiteralPath $electron)) {
   throw "Electron not installed: $electron"
 }
@@ -64,7 +64,7 @@ New-Shortcut `
   -Path $paths.DesktopStart `
   -Target $electron `
   -Arguments '.' `
-  -WorkingDirectory (Join-Path $root 'app\electron') `
+  -WorkingDirectory (Join-Path $root 'app') `
   -Description 'DeepSeek Harness - Electron desktop app' `
   -Icon "$electron,0"
 Write-Output "created $($paths.DesktopStart)"
@@ -85,7 +85,7 @@ New-Shortcut `
   -Path $paths.StartMenu `
   -Target $electron `
   -Arguments '.' `
-  -WorkingDirectory (Join-Path $root 'app\electron') `
+  -WorkingDirectory (Join-Path $root 'app') `
   -Description 'DeepSeek Harness - Electron desktop app' `
   -Icon "$electron,0"
 Write-Output "created $($paths.StartMenu)"

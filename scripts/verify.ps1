@@ -1,4 +1,4 @@
-param([switch]$SkipTests)
+﻿param([switch]$SkipTests)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'env.ps1')
 $script:failures = 0
@@ -8,37 +8,31 @@ function Check([string]$label, [bool]$ok, [string]$detail = '') {
   Write-Output ("{0} {1} {2}" -f $marker, $label, $detail)
 }
 
-Write-Output '== DeepSeek Harness disk-location verification =='
+Write-Output '== DS-Harness disk-location verification =='
 Check "Project root exists: $ROOT" (Test-Path -LiteralPath $ROOT) $ROOT
 $under = $ROOT.TrimEnd('\') + '\'
 Check 'Workspace under project root' ($env:DEEPSEEK_HARNESS_WORKSPACE -like "$under*") $env:DEEPSEEK_HARNESS_WORKSPACE
 Check 'Temp under project root' (($env:TEMP -like "$under*") -and ($env:TMP -like "$under*")) "$env:TEMP / $env:TMP"
-Check 'pip cache under project root' ($env:PIP_CACHE_DIR -like "$under*") $env:PIP_CACHE_DIR
-Check 'package cache (npm) under project root' ($env:npm_config_cache -like "$under*") $env:npm_config_cache
+Check 'npm cache under project root' ($env:npm_config_cache -like "$under*") $env:npm_config_cache
+Check 'DSH_HOME = <root>\data (shared engine home)' ($env:DSH_HOME -eq "$ROOT\data") $env:DSH_HOME
 Check 'logs under project root' ($env:DEEPSEEK_HARNESS_LOG_DIR -like "$under*") $env:DEEPSEEK_HARNESS_LOG_DIR
-Check 'downloads dir present' (Test-Path -LiteralPath "$ROOT\cache\downloads") "$ROOT\cache\downloads"
-Check 'DSH_HOME under project root' ($env:DSH_HOME -like "$under*") $env:DSH_HOME
 
-$pathsRegistry = Join-Path $ROOT 'config\paths.json'
-if (Test-Path -LiteralPath $pathsRegistry) {
-  $pathsJson = Get-Content -LiteralPath $pathsRegistry -Raw -Encoding UTF8 | ConvertFrom-Json
-  $pathProps = @($pathsJson.PSObject.Properties)
-  $underRoot = @($pathProps | Where-Object { $_.Value -like "$under*" }).Count
-  Check 'config/paths.json registry matches project root' ($underRoot -eq $pathProps.Count) "$underRoot / $($pathProps.Count) keys"
-} else {
-  Check 'config/paths.json present (run install.ps1 to generate)' $false $pathsRegistry
-}
-
-$dsh = "$ROOT\app\harness\node_modules\.bin\dsh.cmd"
-Check 'dsh installed under app\harness' (Test-Path -LiteralPath $dsh) $dsh
-$electron = "$ROOT\app\electron\node_modules\electron\dist\electron.exe"
+Write-Output ''
+Write-Output '== Install completeness =='
+$dshBin = "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js"
+Check 'dsh core installed (single app install)' (Test-Path -LiteralPath $dshBin) $dshBin
+$electron = "$ROOT\app\node_modules\electron\dist\electron.exe"
 Check 'Electron desktop shell installed' (Test-Path -LiteralPath $electron) $electron
-Check 'Scheduler core modules present' ((Test-Path "$ROOT\app\scheduler\scheduler.js") -and (Test-Path "$ROOT\app\scheduler\gate.js")) 'scheduler.js / gate.js'
-Check 'Queue state stays under data\state' (Test-Path -LiteralPath "$ROOT\data\state") "$ROOT\data\state"
-Check 'settings.yaml exists' (Test-Path -LiteralPath "$env:DSH_HOME\settings.yaml") "$env:DSH_HOME\settings.yaml"
-Check 'home-level cordis patch exists' (Test-Path -LiteralPath "$env:DSH_HOME\cordis.patch.yml")
-$settingsText = Get-Content -LiteralPath "$env:DSH_HOME\settings.yaml" -Raw -Encoding UTF8
-Check 'settings reference DEEPSEEK_API_KEY (not plaintext key)' ($settingsText -match 'apiKeyEnv:\s*DEEPSEEK_API_KEY' -and $settingsText -notmatch 'sk-[A-Za-z0-9]{8,}') 'provider uses apiKeyEnv'
+Check 'Monitor server module present' (Test-Path -LiteralPath "$ROOT\app\monitor\ui\server.js") 'app\monitor\ui\server.js'
+Check 'Scheduler core modules present' ((Test-Path "$ROOT\app\monitor\scheduler\scheduler.js") -and (Test-Path "$ROOT\app\monitor\scheduler\gate.js")) 'scheduler.js / gate.js'
+Check 'Electron shell entry present' (Test-Path -LiteralPath "$ROOT\app\desktop-main.cjs") 'desktop-main.cjs'
+Check 'Pricing snapshot present' (Test-Path -LiteralPath "$ROOT\data\pricing\official-pricing.json") 'data\pricing\official-pricing.json'
+Check 'Sessions dir present' (Test-Path -LiteralPath "$ROOT\data\sessions") "$ROOT\data\sessions"
+Check 'Sounds dir present' (Test-Path -LiteralPath "$ROOT\assets\sounds") "$ROOT\assets\sounds"
+
+$soundJson = Get-Content -LiteralPath "$ROOT\config\sound.json" -Raw -Encoding UTF8 | ConvertFrom-Json
+Check 'sound.json master switch present' ($null -ne $soundJson.enabled) 'enabled'
+Check 'sound.json per-event switches present' (($soundJson.events.COMPLETED.enabled -ne $null) -and ($soundJson.events.FAILED.enabled -ne $null) -and ($soundJson.events.INTERRUPTED.enabled -ne $null)) 'events.*.enabled'
 
 $cfg = Get-Content -LiteralPath "$ROOT\config\app.json" -Raw -Encoding UTF8 | ConvertFrom-Json
 Check 'monitor UI port configured' ($cfg.ui.port -gt 0) "port $($cfg.ui.port)"
@@ -63,46 +57,23 @@ if (Test-Path -LiteralPath $envFile) {
   if ($envText -match 'DEEPSEEK_API_KEY=sk-') { Write-Output '  [INFO] DEEPSEEK_API_KEY is configured for live API tests.' }
   else { Write-Output '  [WARN] DEEPSEEK_API_KEY not configured yet - set it in config\.env for live API/agent tests.' }
 } else {
-  Write-Output '  [WARN] config\.env missing (copy .env.example).'
+  Write-Output '  [WARN] config\.env missing (copy config\.env.example).'
 }
-
-Write-Output ''
-Write-Output '== Root directory governance =='
-$rootItems = Get-ChildItem -LiteralPath $ROOT -Force | Where-Object { $_.Name -notin @('.git') }
-$allowed = @('app','assets','cache','config','data','docs','logs','runtime','scripts','tests','tools','workspace','README.md','TASKS.md','.gitignore')
-$bad = @($rootItems | Where-Object { $_.Name -notin $allowed } | ForEach-Object { $_.Name })
-Check 'No stray top-level categories' ($bad.Count -eq 0) ($bad -join ', ')
-$topDirs = @($rootItems | Where-Object { $_.PSIsContainer }).Count
-Check 'Top-level directory count <= 13' ($topDirs -le 13) "$topDirs directories"
 
 Write-Output ''
 Write-Output '== Runtime probes =='
-$monitorPidFile = "$ROOT\data\state\monitor.pid"
-if (Test-Path -LiteralPath $monitorPidFile) {
-  $pidValue = Get-Content -LiteralPath $monitorPidFile -ErrorAction SilentlyContinue | Select-Object -First 1
-  if ($pidValue -and (Get-Process -Id $pidValue -ErrorAction SilentlyContinue)) {
-    try {
-      $resp = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:3300/api/health' -TimeoutSec 5
-      Check 'Monitor HTTP health' ($resp.StatusCode -eq 200)
-    } catch { Check 'Monitor HTTP health' $false }
-  }
+if (Test-Path "$ROOT\data\state\monitor.pid") {
+  try {
+    $resp = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:3300/api/health' -TimeoutSec 5
+    Check 'Monitor HTTP health (3300)' ($resp.StatusCode -eq 200)
+  } catch { Check 'Monitor HTTP health (3300)' $false }
 } else {
   Write-Output '  [INFO] Monitor not running (start with run.ps1).'
 }
-$dshPidFile = "$ROOT\data\state\dsh-web.pid"
-if (Test-Path -LiteralPath $dshPidFile) {
-  $pidValue = Get-Content -LiteralPath $dshPidFile -ErrorAction SilentlyContinue | Select-Object -First 1
-  if ($pidValue -and (Get-Process -Id $pidValue -ErrorAction SilentlyContinue)) {
-    Write-Output '  [PASS] dsh Web UI process is running.'
-  } else { Write-Output '  [INFO] dsh Web UI is not running.' }
-}
-
-$desktopPidFile = "$ROOT\data\state\ds-desktop.pid"
-if (Test-Path -LiteralPath $desktopPidFile) {
-  $pidValue = Get-Content -LiteralPath $desktopPidFile -ErrorAction SilentlyContinue | Select-Object -First 1
-  if ($pidValue -and (Get-Process -Id $pidValue -ErrorAction SilentlyContinue)) {
-    Write-Output '  [PASS] Electron desktop process is running.'
-  } else { Write-Output '  [INFO] Electron desktop is not running.' }
+if (Test-Path "$ROOT\data\state\ds-desktop.pid") {
+  Write-Output '  [INFO] Electron desktop PID file present.'
+} else {
+  Write-Output '  [INFO] Electron desktop not running (start with run.ps1).'
 }
 
 if (-not $SkipTests) {
