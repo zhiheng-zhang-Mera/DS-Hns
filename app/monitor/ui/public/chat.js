@@ -905,16 +905,6 @@
 
   }
 
-  function bindOfficialButton() {
-    const btn = document.getElementById('officialBtn')
-    if (!btn) return
-    if (!(window.dsDesktop && window.dsDesktop.nav)) {
-      btn.hidden = true
-      return
-    }
-    btn.addEventListener('click', () => window.dsDesktop.nav.open('official'))
-  }
-
   function bindSidebar() {
     const btn = document.getElementById('sideToggle')
     if (!btn) return
@@ -957,7 +947,6 @@
     bindSoundButton()
     bindPopovers()
     bindHistoryExtras()
-    bindOfficialButton()
     bindSidebar()
     bindComposerAutoGrow()
     DSSound.refresh().then(syncSoundButton)

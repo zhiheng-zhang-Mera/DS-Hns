@@ -262,3 +262,28 @@ tr:hover td { background: rgba(255, 255, 255, .035); }
 
 /* hidden 必须始终生效(display 规则不得覆盖) */
 [hidden] { display: none !important; }
+
+/* ===== 所有按钮 / 设置等可点组件:白色描边 ===== */
+button,
+.btn,
+.link-btn,
+.action-btn {
+  border: 1px solid rgba(255, 255, 255, .55) !important;
+}
+select,
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"],
+textarea {
+  border: 1px solid rgba(255, 255, 255, .45) !important;
+}
+button:hover,
+.btn:hover,
+.link-btn:hover,
+.action-btn:hover {
+  border-color: #ffffff !important;
+}
+.btn.danger {
+  border-color: rgba(255, 95, 86, .75) !important;
+  color: var(--bad) !important;
+}

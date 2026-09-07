@@ -354,9 +354,6 @@ function attachWindowKeys(win) {
     } else if (k === '3') {
       event.preventDefault()
       navTo(win, VIEW_PATHS.settings)
-    } else if (k === '4') {
-      event.preventDefault()
-      openOfficial(win)
     } else if (k === 'i' && input.shift) {
       event.preventDefault()
       win.webContents.toggleDevTools()

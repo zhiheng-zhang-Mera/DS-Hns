@@ -294,3 +294,50 @@ body.side-collapsed .side-toggle { margin: 0 auto; }
 .btn.mini-btn { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; margin: 0; align-self: auto; }
 .btn.mini-btn:hover { border-color: var(--accent); color: var(--text); }
 .btn.mini-btn[data-upload] { color: var(--muted); }
+
+/* ===== 所有按钮 / 设置齿轮等可点组件:白色描边 ===== */
+button,
+.btn,
+.ghost,
+.new-btn,
+.nav-tab,
+.side-toggle,
+.icon-btn,
+.msg-btn,
+.sound-event-row .btn.mini-btn,
+.chip {
+  border: 1px solid rgba(255, 255, 255, .55) !important;
+}
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+textarea {
+  border: 1px solid rgba(255, 255, 255, .45) !important;
+}
+button:hover,
+.btn:hover,
+.ghost:hover,
+.new-btn:hover,
+.nav-tab:hover,
+.side-toggle:hover,
+.icon-btn:hover,
+.msg-btn:hover,
+.btn.mini-btn:hover,
+.chip:hover {
+  border-color: #ffffff !important;
+}
+/* 语义色保持:危险/上传用原色,避免被白色覆盖 */
+.btn.danger,
+.batch-bar .danger,
+.thread-ctx button.danger,
+.modal .btn.danger,
+.btn.mini-btn[data-upload] {
+  border-color: rgba(255, 95, 86, .75) !important;
+  color: var(--red) !important;
+}
+.msg-btn.stop {
+  border-color: rgba(255, 95, 86, .75) !important;
+  color: var(--red) !important;
+}
