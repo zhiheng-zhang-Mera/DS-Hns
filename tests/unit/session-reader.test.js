@@ -2,11 +2,14 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const { parseSessionFile } = require('../../app/monitor/tracker/session-reader')
-const { ROOT } = require('../../app/monitor/utils/paths')
 
-const OUT = path.join(ROOT, 'tests', 'out')
+// Fixtures are regenerated per run — keep them out of the repo (cache\temp
+// when launched through test-all.ps1, which sets TEMP under the project root).
+const OUT = path.join(process.env.TEMP || os.tmpdir(), 'dsh-sess-test-' + process.pid)
+fs.rmSync(OUT, { recursive: true, force: true })
 fs.mkdirSync(OUT, { recursive: true })
 
 function makeFile(name, lines) {

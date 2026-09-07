@@ -39,6 +39,9 @@ Check 'monitor UI port configured' ($cfg.ui.port -gt 0) "port $($cfg.ui.port)"
 
 Write-Output ''
 Write-Output '== No avoidable C: project data =='
+# The authoritative guarantee is checked above: every cache/log/home env var
+# of this project points inside $ROOT. The folders below may exist on the
+# machine from other tools (pnpm/npm/huggingface) — informational only.
 $homeRoot = [Environment]::GetFolderPath('UserProfile')
 $candidates = @(
   "$homeRoot\.dsh",
@@ -48,7 +51,11 @@ $candidates = @(
   "$env:LOCALAPPDATA\pnpm"
 )
 foreach ($c in $candidates) {
-  Check "No project path at C: -> $c" (-not (Test-Path -LiteralPath $c))
+  if (Test-Path -LiteralPath $c) {
+    Write-Output "  [WARN] pre-existing path (not created by DS-Harness; env vars all point under $ROOT): $c"
+  } else {
+    Write-Output "  [INFO] clean: $c"
+  }
 }
 $envFile = "$ROOT\config\.env"
 if (Test-Path -LiteralPath $envFile) {

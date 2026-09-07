@@ -25,3 +25,6 @@ Thumbs.db
 Desktop.ini
 .vscode/
 .idea/
+
+# ===== Test scratch =====
+tests/out/

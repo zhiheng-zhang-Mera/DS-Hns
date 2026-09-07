@@ -1,4 +1,0 @@
-{"type":"session","version":0,"id":"sess-fail","createdAt":1788742800000,"cwd":"D:\\work","delegationDepth":0}
-{"type":"user/message","seq":1,"time":1788742800001,"data":{"source":{"kind":"user"}}}
-{"type":"assistant/chunk","seq":2,"time":1788742800100,"data":{"chunk":{"type":"finish","reason":{"kind":"error","failure":{"message":"bad key","code":"MISSING_CREDENTIAL"}}}}}
-{"type":"turn/end","seq":3,"time":1788742800200,"data":{"reason":{"kind":"error","error":{"message":"bad key","code":"MISSING_CREDENTIAL"}}}}
