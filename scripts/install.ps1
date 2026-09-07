@@ -16,6 +16,14 @@ foreach ($d in $dirs) {
 
 . (Join-Path $PSScriptRoot 'env.ps1')
 
+Write-Output '[0.5/6] Ensuring Node.js (bundled runtime / PATH / auto-download)'
+$nodeDir = (& (Join-Path $PSScriptRoot 'ensure-node.ps1') | Select-Object -Last 1)
+if (-not $nodeDir -or -not (Test-Path -LiteralPath (Join-Path $nodeDir 'node.exe'))) {
+  throw 'Node.js unavailable: run scripts\ensure-node.ps1 manually or install Node.js >= 20.'
+}
+$env:PATH = "$nodeDir;$env:PATH"
+Write-Output "  node: $(& (Join-Path $nodeDir 'node.exe') --version)  ($nodeDir)"
+
 Write-Output '[1/6] Checking dependencies'
 foreach ($tool in @('node', 'npm', 'git')) {
   $c = Get-Command $tool -ErrorAction SilentlyContinue

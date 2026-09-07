@@ -49,18 +49,21 @@ DS-Harness/
 
 ## 快速开始(Windows)
 
-前置:Node.js ≥ 20 + npm + git(或把自带运行时放到 `runtime\node-v*-win-x64\`)。
+> **Node.js 缺失也能跑**:`Start-DeepSeek-Harness.cmd`(或 `install.ps1`/`install-deps.ps1`)
+> 检测不到 Node 时会**自动下载便携版到 `runtime\node-v*-win-x64\`** 并继续(官方源失败自动切 npmmirror 镜像);
+> 也可手动:`powershell -ExecutionPolicy Bypass -File scripts\ensure-node.ps1`。
 
 ```powershell
-# 1) 安装:建目录 -> npm ci(dsh core + Electron)-> 生成铃声 -> 单测
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+# 1) 安装依赖(自动确保 Node -> npm ci dsh core+Electron;加 -Full 再生成铃声/.env)
+powershell -ExecutionPolicy Bypass -File scripts\install-deps.ps1 -Full
+#    (完整安装=建目录+依赖+铃声+单测,可用 scripts\install.ps1)
 
 # 2) 配置 API Key(不入库)
 Copy-Item config\.env.example config\.env   # 然后编辑填入 DEEPSEEK_API_KEY
 
 # 3) 启动桌面
 powershell -ExecutionPolicy Bypass -File scripts\run.ps1
-#    或直接双击 Start-DeepSeek-Harness.cmd
+#    或直接双击 Start-DeepSeek-Harness.cmd(自动修复 Node/依赖;已在运行则唤起窗口)
 ```
 
 停止:`scripts\stop.ps1`。桌面快捷方式/开机自启:`scripts\shortcuts.ps1`(`-Remove` 移除)。
@@ -115,7 +118,9 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 
 | 脚本 | 作用 |
 |---|---|
-| `install.ps1` | 首次安装(目录/npm ci/铃声/单测) |
+| `ensure-node.ps1` | 确保 Node.js:找自带运行时 → PATH → 自动下载便携版到 `runtime\` |
+| `install-deps.ps1` | 依赖安装:确保 Node + `npm ci`(dsh core/Electron);`-Full` 加铃声/.env |
+| `install.ps1` | 完整首次安装(目录/依赖/铃声/单测) |
 | `run.ps1` | 启动 Electron 桌面(`-HeadlessShell` 仅 3300 监控;`-FullAccess` 放开权限) |
 | `run-monitor.ps1` | 仅 3300 监控(Node,无窗口) |
 | `run-dsh-web.ps1` | 单独启动官方 dsh Web(`-Port`/`-NoOpen`) |
