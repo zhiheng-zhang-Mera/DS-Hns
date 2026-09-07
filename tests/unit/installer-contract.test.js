@@ -12,6 +12,13 @@ test('one-click installer entry exists', () => {
   assert.match(read('Install-DS-Harness.cmd'), /scripts\\install\.ps1/i)
 })
 
+test('normal launcher delegates incomplete installations to the one-click installer', () => {
+  const text = read('Start-DeepSeek-Harness.cmd')
+  assert.match(text, /INSTALL_REQUIRED/)
+  assert.match(text, /Install-DS-Harness\.cmd/i)
+  assert.doesNotMatch(text, /npm ci/i)
+})
+
 test('installer checks environment key before prompting and supports deferral', () => {
   const text = read('scripts/install.ps1')
   assert.match(text, /GetEnvironmentVariable\('DEEPSEEK_API_KEY', 'User'\)/)
@@ -34,6 +41,7 @@ test('node bootstrap reuses compatible runtimes and cached archive', () => {
   assert.match(text, /Test-CompatibleNode/)
   assert.match(text, /reuse cached archive/i)
   assert.match(text, /Node >= \$minMajor/)
+  assert.doesNotMatch(text, /exit\s+[01]/i)
 })
 
 test('env template does not contain a fake configured API key', () => {
