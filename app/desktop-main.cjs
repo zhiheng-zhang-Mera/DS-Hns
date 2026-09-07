@@ -12,7 +12,7 @@
  * 自动向后寻找空闲端口(最多 +30),并把实际端口写入 data\state\ports.json。
  * 也可用 DSH_UI_PORT / DSH_DSH_WEB_PORT 显式指定起点。
  */
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, Tray, nativeImage, dialog, ipcMain, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const path = require('node:path')
@@ -30,9 +30,10 @@ const VIEW_PATHS = { chat: '/chat.html', monitor: '/', settings: '/settings.html
 const smokeTest = process.argv.includes('--smoke-test')
 const shotFlagIdx = process.argv.indexOf('--screenshot-test')
 const shotOut = shotFlagIdx >= 0 && process.argv[shotFlagIdx + 1] ? process.argv[shotFlagIdx + 1] : null
-const noDshWeb = process.env.DSH_NO_DSH_WEB === '1' || smokeTest || Boolean(shotOut)
-// 默认主界面 = 集成对话(ChatGPT/Codex 式);官方 dsh Web 是可选“官方视图”,按需启动引擎。
-const startView = process.env.DSH_START_VIEW || 'chat'
+const noDshWeb = process.env.DSH_NO_DSH_WEB === '1' || smokeTest
+// 主界面 = 官方 dsh Web UI(与本地部署版前端完全一致,由 DS-Harness 自己的引擎提供;
+// 绝不加载/打开 D:\DeepSeek-Harness 的页面窗口)。
+const startView = process.env.DSH_START_VIEW || 'dsh'
 const uiBase = Number(process.env.DSH_UI_PORT) || appConfig.ui?.port || 3300
 const dshBase = Number(process.env.DSH_DSH_WEB_PORT) || appConfig.dshWeb?.port || 3080
 const dshHost = process.env.DSH_DSH_WEB_HOST || appConfig.dshWeb?.host || '127.0.0.1'
@@ -47,6 +48,7 @@ const VIEW_DOM_IDS = {
 let mainWindow = null
 let appWindows = [] // 多开支持:同一进程可拥有多个窗口
 let lastFocusedWin = null // 最近获焦的本程序窗口(聚焦优先于可见窗口)
+let tray = null
 let engineProcess = null
 let lastDshUrl = null
 let shuttingDown = false
@@ -340,6 +342,58 @@ function createAppWindow(isPrimary = false) {
   return win
 }
 
+/** 聚焦主窗口(官方 dsh UI);不存在则补开一个窗口。 */
+function focusMain() {
+  const win = mainWindow || appWindows.find((w) => !w.isDestroyed())
+  if (!win) {
+    openUiWindow(VIEW_PATHS.chat)
+    return
+  }
+  if (win.isMinimized()) win.restore()
+  if (!win.isVisible()) win.show()
+  win.moveTop()
+  win.focus()
+}
+
+/** 打开/复用“调度中心”功能窗口(监控/设置/自研对话)——不会替换官方主界面。 */
+function openUiWindow(viewPath) {
+  let win = appWindows.find((w) => !w.isDestroyed() && w.__uiWindow)
+  if (!win) {
+    win = createAppWindow(false)
+    win.__uiWindow = true
+  }
+  navTo(win, viewPath)
+  if (win.isMinimized()) win.restore()
+  if (!win.isVisible()) win.show()
+  win.moveTop()
+  win.focus()
+  return win
+}
+
+/** 托盘入口:主界面(官方 dsh UI)+ 功能窗口 + 退出。 */
+function createTray() {
+  try {
+    const ico = path.join(ROOT, 'assets', 'icon', 'ds-harness.ico')
+    const img = nativeImage.createFromPath(ico)
+    if (img.isEmpty()) throw new Error('bad icon file')
+    tray = new Tray(img)
+    tray.setToolTip('DS-Harness · DeepSeek Harness')
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: '主界面 · 官方 dsh UI(DS-Harness)', click: () => focusMain() },
+        { label: '监控(队列/峰谷/成本/余额)', click: () => openUiWindow(VIEW_PATHS.monitor) },
+        { label: '设置(铃声/工作区/密钥/并发)', click: () => openUiWindow(VIEW_PATHS.settings) },
+        { label: '对话管理页(自研功能)', click: () => openUiWindow(VIEW_PATHS.chat) },
+        { type: 'separator' },
+        { label: '退出 DS-Harness', click: () => app.quit() }
+      ])
+    )
+    tray.on('double-click', () => focusMain())
+  } catch (err) {
+    logLine(`tray init failed: ${err?.message || err}`)
+  }
+}
+
 /** In-window keyboard shortcuts (replaces the removed native menu bar). */
 function attachWindowKeys(win) {
   win.webContents.on('before-input-event', (event, input) => {
@@ -347,13 +401,13 @@ function attachWindowKeys(win) {
     const k = String(input.key || '').toLowerCase()
     if (k === '1') {
       event.preventDefault()
-      navTo(win, VIEW_PATHS.chat)
+      focusMain()
     } else if (k === '2') {
       event.preventDefault()
-      navTo(win, VIEW_PATHS.monitor)
+      openUiWindow(VIEW_PATHS.monitor)
     } else if (k === '3') {
       event.preventDefault()
-      navTo(win, VIEW_PATHS.settings)
+      openUiWindow(VIEW_PATHS.settings)
     } else if (k === 'i' && input.shift) {
       event.preventDefault()
       win.webContents.toggleDevTools()
@@ -499,6 +553,7 @@ app.whenReady().then(async () => {
     }, 1200)
 
     buildMenu()
+    createTray()
     logLine(`monitor ${uiOrigin()} ready (dsh web ${dshOrigin()})`)
 
     if (smokeTest) {
