@@ -1,6 +1,6 @@
 {
-  "project": "DS-Harness (DeepSeek Harness Desktop)",
-  "version": "0.4.0",
+  "project": "DS-Harness (Alien-derived)",
+  "version": "1.0.0-alien-rebuild",
   "apiBaseURL": "https://api.deepseek.com",
   "harness": {
     "npmPackage": "@deepseek-ai/dsh",
@@ -8,18 +8,16 @@
     "defaultProvider": "deepseek-official",
     "defaultModel": "deepseek-v4-flash",
     "apiKeyEnv": "DEEPSEEK_API_KEY",
-    "profile": "web"
-  },
-  "ui": {
-    "host": "127.0.0.1",
-    "port": 3300,
-    "title": "DeepSeek Harness Monitor",
-    "refreshMs": 2000,
-    "balanceRefreshMs": 60000
-  },
-  "dshWeb": {
+    "profile": "web",
     "host": "127.0.0.1",
     "port": 3080
+  },
+  "extensions": {
+    "mega": {
+      "enabledByDefault": true,
+      "disableEnv": "DSH_DISABLE_MEGA",
+      "toolsShortcut": "Ctrl+Shift+M"
+    }
   },
   "timezones": {
     "local": "auto",
@@ -27,7 +25,5 @@
     "billing": "Asia/Shanghai",
     "billingLabel": "计费时间(北京时间)"
   },
-  "taskHistory": {
-    "maxEntries": 50
-  }
+  "taskHistory": { "maxEntries": 50 }
 }

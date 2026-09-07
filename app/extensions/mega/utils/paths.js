@@ -3,18 +3,13 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 /**
- * DS-Harness project root resolution — root-agnostic, never hardcoded:
- *   1. DSH_ROOT env var (explicit override; set by scripts\env.ps1, the
- *      Electron shell and tests)
- *   2. self-derived from this module's location (<root>\app\monitor\utils\paths.js)
- *   3. DSH_HOME env var -> its parent (<root>\data) as a last resort
- * The self-derived root is preferred over an ambient DSH_HOME so running
- * modules outside env.ps1 (e.g. an IDE or a harness with its own DSH_HOME)
- * never silently points at another machine directory.
+ * DS-Harness project root resolution for the Mega feature extension.
+ * The extension lives at <root>\app\extensions\mega\utils\paths.js.
+ * It is deliberately root-agnostic and never owns the Electron shell.
  */
 function resolveRoot() {
   if (process.env.DSH_ROOT) return path.resolve(process.env.DSH_ROOT)
-  const self = path.resolve(__dirname, '..', '..', '..')
+  const self = path.resolve(__dirname, '..', '..', '..', '..')
   const hasConfig = (p) => {
     try {
       return fs.existsSync(path.join(p, 'config'))
@@ -41,8 +36,6 @@ function readJson(name, fallback) {
   }
 }
 
-// Optional machine-local overrides (config\paths.json, gitignored). When absent
-// every default below points inside the project root, so nothing lives on C:.
 const paths = readJson('paths.json', {})
 const app = readJson('app.json', {})
 
@@ -51,8 +44,6 @@ const PATHS = Object.freeze({
   APP: paths.APP || path.join(ROOT, 'app'),
   CONFIG: CONFIG_DIR,
   RUNTIME: paths.RUNTIME || path.join(ROOT, 'runtime'),
-  // Single engine home for BOTH the dsh Web UI and headless queue jobs:
-  // dsh stores sessions/storages under <DSH_HOME>\sessions etc.
   DSH_HOME: paths.DSH_HOME || path.join(ROOT, 'data'),
   CACHE: paths.CACHE || path.join(ROOT, 'cache'),
   TEMP: paths.TEMP || path.join(ROOT, 'cache', 'temp'),
@@ -66,7 +57,6 @@ const PATHS = Object.freeze({
   PRICING: paths.PRICING || path.join(ROOT, 'data', 'pricing'),
   STATE: paths.STATE || path.join(ROOT, 'data', 'state'),
   SOUNDS: paths.SOUNDS || path.join(ROOT, 'assets', 'sounds'),
-  // User-uploaded ringtones: gitignored, per-machine, listed alongside presets.
   USER_SOUNDS: paths.USER_SOUNDS || path.join(ROOT, 'data', 'sounds')
 })
 

@@ -1,14 +1,15 @@
 {
   "name": "ds-harness",
   "private": true,
-  "version": "0.4.0",
-  "description": "DS-Harness: DeepSeek Harness desktop client (Alien shell + Mega dispatch center, customizable ringtones)",
+  "version": "1.0.0-alien-rebuild",
+  "description": "Alien-derived DeepSeek Harness desktop shell with optional Mega feature extensions",
   "main": "desktop-main.cjs",
   "scripts": {
     "start": "electron .",
     "desktop": "electron desktop-main.cjs",
-    "smoke": "electron . --smoke-test",
-    "check": "node --check desktop-main.cjs"
+    "desktop:alien": "set DSH_DISABLE_MEGA=1&& electron desktop-main.cjs",
+    "check": "node --check desktop-main.cjs && node --check extensions/manager.cjs && node --check extensions/mega/index.cjs",
+    "test": "node --test ../tests/unit/*.test.js"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.1.2-rc.1"
