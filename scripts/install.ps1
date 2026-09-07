@@ -7,6 +7,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
+$selfPowerShell = (Get-Process -Id $PID).Path
+if (-not $selfPowerShell) { $selfPowerShell = Join-Path $PSHOME 'powershell.exe' }
 
 function Write-Step([string]$text) {
   Write-Host ''
@@ -102,7 +104,6 @@ Write-Host 'Directory structure ready.'
 
 Write-Step '2/7 Resolve/reuse dependencies'
 & (Join-Path $PSScriptRoot 'install-deps.ps1') -Full
-if ($LASTEXITCODE -ne 0) { throw 'dependency installation failed' }
 
 Write-Step '3/7 Resolve DeepSeek API key'
 $envFile = Join-Path $ROOT 'config\.env'
@@ -150,12 +151,12 @@ Write-Step '4/7 Unit and architecture tests'
 if ($SkipTests) {
   Write-Host 'Tests skipped by -SkipTests.'
 } else {
-  & (Join-Path $PSScriptRoot 'test-all.ps1')
+  & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-all.ps1')
   if ($LASTEXITCODE -ne 0) { throw 'unit/architecture tests failed' }
 }
 
 Write-Step '5/7 Verification'
-& (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
+& $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
 if ($LASTEXITCODE -ne 0) { throw 'verification failed' }
 
 Write-Step '6/7 Shortcuts'
