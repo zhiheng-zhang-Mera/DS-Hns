@@ -1,8 +1,9 @@
 @echo off
 setlocal
 rem ============================================================
-rem  DS-Harness — Alien-derived desktop launcher
-rem  Official dsh Web UI is the primary renderer. Mega is optional.
+rem  DS-Harness — normal launcher after installation.
+rem  If the local install is incomplete, delegate to the canonical
+rem  one-click installer instead of running a second bootstrap path.
 rem ============================================================
 set "DSH_ROOT=%~dp0"
 if "%DSH_ROOT:~-1%"=="\" set "DSH_ROOT=%DSH_ROOT:~0,-1%"
@@ -16,25 +17,26 @@ if not exist "%npm_config_cache%" mkdir "%npm_config_cache%"
 if not exist "%TEMP%" mkdir "%TEMP%"
 if not exist "%DSH_ROOT%\logs" mkdir "%DSH_ROOT%\logs"
 
+set "INSTALL_REQUIRED=0"
+if not exist "%DSH_ROOT%\app\node_modules\@deepseek-ai\dsh\lib\bin.js" set "INSTALL_REQUIRED=1"
+if not exist "%DSH_ROOT%\app\node_modules\electron\dist\electron.exe" set "INSTALL_REQUIRED=1"
+
 set "NODE_DIR="
 for /d %%D in ("%DSH_ROOT%\runtime\node-v*") do set "NODE_DIR=%%D"
 if defined NODE_DIR set "PATH=%NODE_DIR%;%PATH%"
 where node >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Node.js not found. Put a node-v* runtime under "%DSH_ROOT%\runtime" or add Node.js to PATH.
-  pause
-  exit /b 1
-)
+if errorlevel 1 set "INSTALL_REQUIRED=1"
 
-cd /d "%DSH_ROOT%\app"
-if not exist "%DSH_ROOT%\app\node_modules\@deepseek-ai\dsh\lib\bin.js" (
-  echo [First run] Installing dependencies...
-  call npm ci --no-audit --no-fund
-  if errorlevel 1 (
-    echo [ERROR] npm ci failed.
+if "%INSTALL_REQUIRED%"=="1" (
+  echo [DS-Harness] Local installation is incomplete.
+  echo [DS-Harness] Handing off to Install-DS-Harness.cmd ...
+  if not exist "%DSH_ROOT%\Install-DS-Harness.cmd" (
+    echo [ERROR] Install-DS-Harness.cmd is missing.
     pause
     exit /b 1
   )
+  call "%DSH_ROOT%\Install-DS-Harness.cmd"
+  exit /b %ERRORLEVEL%
 )
 
 rem For pure Alien regression mode, launch from a terminal with:
