@@ -1,0 +1,41 @@
+{
+  "project": "DeepSeek Harness (dsh)",
+  "version": "0.3.1",
+  "apiBaseURL": "https://api.deepseek.com",
+  "harness": {
+    "npmPackage": "@deepseek-ai/dsh",
+    "version": "0.1.2-rc.1",
+    "defaultProvider": "deepseek-official",
+    "defaultModel": "deepseek-v4-flash",
+    "apiKeyEnv": "DEEPSEEK_API_KEY",
+    "profile": "web"
+  },
+  "ui": {
+    "host": "127.0.0.1",
+    "port": 3300,
+    "title": "DeepSeek Harness Monitor",
+    "refreshMs": 2000,
+    "balanceRefreshMs": 60000
+  },
+  "dshWeb": {
+    "host": "127.0.0.1",
+    "port": 3080
+  },
+  "timezones": {
+    "local": "auto",
+    "localLabel": "LOCAL (系统时区)",
+    "billing": "Asia/Shanghai",
+    "billingLabel": "BILLING (Beijing)"
+  },
+  "taskHistory": {
+    "maxEntries": 50
+  },
+  "sounds": {
+    "enabled": true,
+    "events": {
+      "COMPLETED": "completed.wav",
+      "FAILED": "failed.wav",
+      "INTERRUPTED": "interrupted.wav"
+    }
+  }
+}

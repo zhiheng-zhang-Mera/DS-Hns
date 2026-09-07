@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "events": {
+    "COMPLETED": "completed.wav",
+    "FAILED": "failed.wav",
+    "INTERRUPTED": "interrupted.wav"
+  },
+  "notes": "Audio is served by the monitor UI and played in the browser. dsh core execution is never blocked by sound failures."
+}

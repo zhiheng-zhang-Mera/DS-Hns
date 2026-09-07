@@ -1,0 +1,19 @@
+# ===== Node =====
+node_modules/
+
+# ===== Harness 运行时 / 用户数据（含凭据与会话，绝不入库）=====
+data/
+runtime/
+cache/
+downloads/
+logs/
+temp/
+
+# ===== 日志与临时文件 =====
+*.log
+
+# ===== 操作系统 / 编辑器 =====
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/

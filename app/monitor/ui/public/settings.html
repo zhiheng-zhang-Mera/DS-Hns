@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'"
+    />
+    <title>DeepSeek Harness - 设置</title>
+    <link rel="stylesheet" href="/chat.css" />
+  </head>
+  <body class="settings-page">
+    <header id="chatHeader" class="view-header">
+      <nav class="view-nav">
+        <a href="/chat.html">◀ 对话</a>
+        <a href="/">监控</a>
+        <span class="active">设置</span>
+      </nav>
+      <div class="head-status">
+        <span id="periodBadge" class="badge">—</span>
+        <span class="model-label">DeepSeek Harness 设置</span>
+      </div>
+    </header>
+
+    <main class="settings-main">
+      <h1>设置</h1>
+      <p class="muted">保存即时生效。Key 只回显掩码,项目数据仍全部位于 D 盘。</p>
+
+      <section class="settings-card">
+        <h2>API</h2>
+        <label>DeepSeek API Key
+          <input id="setApiKey" type="password" autocomplete="off" placeholder="sk-…" />
+        </label>
+        <p id="apiKeyState" class="muted"></p>
+        <label class="check-line"><input id="setClearKey" type="checkbox" /> 清除已保存的 Key</label>
+      </section>
+
+      <section class="settings-card">
+        <h2>运行策略</h2>
+        <div class="form-grid">
+          <label>默认模型
+            <select id="setModel"></select>
+          </label>
+          <label>权限模式
+            <select id="setPermission">
+              <option value="workspace-write">workspace-write(默认)</option>
+              <option value="danger-full-access">danger-full-access</option>
+            </select>
+          </label>
+          <label>遥测
+            <select id="setTelemetry">
+              <option value="DISABLED">DISABLED</option>
+              <option value="FEEDBACK_ONLY">FEEDBACK_ONLY</option>
+              <option value="FULL">FULL</option>
+            </select>
+          </label>
+          <label>最小并发
+            <input id="setMin" type="number" min="1" max="32" />
+          </label>
+          <label>最大并发
+            <input id="setMax" type="number" min="1" max="64" />
+          </label>
+        </div>
+        <label class="check-line"><input id="setPeakPause" type="checkbox" /> 高峰时暂停运行中的谷价任务并谷价自动重排</label>
+        <label class="check-line"><input id="setSound" type="checkbox" /> 启用完成/失败/中断提示音</label>
+      </section>
+
+      <div class="settings-actions">
+        <button id="settingsSave" class="btn primary" type="button">保存设置</button>
+        <a id="settingsBack" class="btn ghost-btn" href="/chat.html">返回对话</a>
+      </div>
+      <p id="settingsMsg" class="muted"></p>
+
+      <details class="settings-card">
+        <summary>路径(只读)</summary>
+        <div id="pathTable" class="path-table"></div>
+      </details>
+    </main>
+    <div id="toastWrap"></div>
+    <script src="/settings.js"></script>
+  </body>
+</html>

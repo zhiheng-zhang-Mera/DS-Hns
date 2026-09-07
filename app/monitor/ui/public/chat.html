@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'"
+    />
+    <title>DeepSeek Harness</title>
+    <link rel="stylesheet" href="/chat.css" />
+  </head>
+  <body>
+    <aside id="sidebar">
+      <div class="side-head">
+        <div class="brand-mini"><span class="dot pulse"></span> DeepSeek Harness</div>
+        <button id="newChatBtn" class="new-btn" type="button">＋ 新任务</button>
+      </div>
+      <nav id="navTabs" class="nav-tabs">
+        <button class="nav-tab active" data-view="tasks" type="button">任务</button>
+        <button class="nav-tab" data-view="queue" type="button">排队</button>
+      </nav>
+      <div id="threadList" class="thread-list"></div>
+      <div class="side-foot">
+        <a id="settingsBtnSide" class="ghost" href="/settings.html">⚙ 设置</a>
+        <a id="monitorBtnSide" class="ghost" href="/">▣ 监控视图</a>
+      </div>
+    </aside>
+
+    <section id="chatColumn">
+      <header id="chatHeader">
+        <div class="head-status">
+          <span id="periodBadge" class="badge">—</span>
+          <span id="modelLabel" class="model-label">deepseek-v4-flash</span>
+          <span id="threadState" class="muted"></span>
+        </div>
+        <div class="head-actions">
+          <a id="monitorBtn" class="ghost" href="/">监控视图 ▣</a>
+          <a id="settingsBtn" class="ghost" href="/settings.html">设置</a>
+        </div>
+      </header>
+
+      <main id="chatMessages">
+        <div id="emptyState" class="empty">
+          <h2>DeepSeek Harness</h2>
+          <p>像 Codex / ChatGPT 桌面版一样发送任务。默认谷价时段自动开始;也可以立即运行或定时排队。</p>
+        </div>
+      </main>
+
+      <form id="chatForm" class="composer">
+        <textarea
+          id="chatComposer"
+          rows="1"
+          placeholder="描述任务… 例如: 检查项目目录并运行测试"
+        ></textarea>
+        <div class="composer-tools">
+          <label class="chip"><input id="chatAllowPeak" type="checkbox" /> 立即运行(允许高峰)</label>
+          <label class="chip date-chip">定时<input id="chatStartAt" type="datetime-local" /></label>
+          <span id="composerHint" class="muted small"></span>
+          <button id="sendBtn" class="send-btn" type="submit" title="发送任务">↑</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="toastWrap"></div>
+    <script src="/chat.js"></script>
+  </body>
+</html>

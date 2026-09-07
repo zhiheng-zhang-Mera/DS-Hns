@@ -1,0 +1,18 @@
+{
+  "name": "harness-alien",
+  "private": true,
+  "version": "1.0.0",
+  "description": "DeepSeek Harness desktop client (Electron shell launcher)",
+  "main": "desktop-main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "desktop": "electron desktop-main.cjs",
+    "check": "node --check desktop-main.cjs"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.1.2-rc.1"
+  },
+  "devDependencies": {
+    "electron": "43.4.0"
+  }
+}
