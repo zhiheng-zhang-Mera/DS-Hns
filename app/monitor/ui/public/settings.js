@@ -195,6 +195,70 @@
 
   /* ---------------- load & save ---------------- */
 
+  /* ---------------- 项目工作区 ---------------- */
+
+  async function loadWorkspace() {
+    try {
+      const r = await fetchJson('/api/workspace')
+      const el = $('wsRoot')
+      if (el && r.root) el.value = r.root
+    } catch (err) {
+      /* server offline */
+    }
+  }
+
+  function bindWorkspace() {
+    const root = $('wsRoot')
+    const pick = $('wsPick')
+    const openBtn = $('wsOpen')
+    const save = $('wsSave')
+    if (!root || !save) return
+    if (window.dsDesktop && window.dsDesktop.workspace) {
+      if (pick) {
+        pick.addEventListener('click', async () => {
+          try {
+            const dir = await window.dsDesktop.workspace.pickDir()
+            if (dir) root.value = dir
+          } catch (err) {
+            toast('选择目录失败', 'error')
+          }
+        })
+      }
+      if (openBtn) {
+        openBtn.addEventListener('click', () => {
+          if (root.value.trim()) window.dsDesktop.workspace.openDir(root.value.trim())
+          else toast('请先输入或选择工作区目录', 'error')
+        })
+      }
+    } else {
+      if (pick) {
+        pick.title = '仅桌面版支持系统目录选择;可手动输入完整路径'
+        pick.disabled = true
+      }
+      if (openBtn) {
+        openBtn.title = '仅桌面版支持直接打开目录'
+        openBtn.disabled = true
+      }
+    }
+    save.addEventListener('click', async () => {
+      const dir = root.value.trim()
+      if (!dir) {
+        toast('请输入工作区目录', 'error')
+        return
+      }
+      const msg = $('wsMsg')
+      try {
+        const resp = await postJson('/api/workspace', { root: dir })
+        if (!resp.ok) throw new Error(resp.error || '设置失败')
+        if (msg) msg.textContent = '已应用:新任务将在 ' + resp.root + '\\active\\<任务ID> 下执行'
+        toast('工作区已更新')
+      } catch (err) {
+        if (msg) msg.textContent = ''
+        toast('设置失败:' + (err.message || err), 'error')
+      }
+    })
+  }
+
   async function load() {
     try {
       const data = await fetchJson('/api/settings')
@@ -262,9 +326,13 @@
     document.addEventListener('DOMContentLoaded', () => {
       bind()
       load()
+      loadWorkspace()
+      bindWorkspace()
     })
   } else {
     bind()
     load()
+    loadWorkspace()
+    bindWorkspace()
   }
 })()

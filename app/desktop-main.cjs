@@ -267,6 +267,19 @@ ipcMain.on('ds-nav', (event, kind) => {
   else if (VIEW_PATHS[kind]) navTo(win, VIEW_PATHS[kind])
 })
 
+// 项目工作区:选择目录(设置页“浏览…”)与打开目录。
+ipcMain.handle('ds-pick-dir', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender) || undefined
+  const result = await dialog.showOpenDialog(win, {
+    title: '选择 DS-Harness 项目工作区目录',
+    properties: ['openDirectory', 'createDirectory']
+  })
+  return result.canceled || !result.filePaths.length ? null : result.filePaths[0]
+})
+ipcMain.on('ds-open-path', (_event, p) => {
+  if (typeof p === 'string' && p) shell.openPath(p)
+})
+
 /* ------------------------------------------------------------------ *
  *  main window + view switching
  * ------------------------------------------------------------------ */
@@ -526,11 +539,27 @@ app.whenReady().then(async () => {
 })
 
 app.on('second-instance', () => {
-  // 再次启动 = 多开:在同一进程内新开一个窗口(共享引擎/监控/铃声服务)。
-  const win = createAppWindow(false)
-  if (win) {
-    win.loadURL(`${uiOrigin()}${VIEW_PATHS.chat}`)
-    win.once('ready-to-show', () => win.show())
+  // 默认:再次启动 = 聚焦已有窗口。设置 DSH_MULTI=1 时才多开一个新窗口。
+  if (process.env.DSH_MULTI === '1') {
+    const win = createAppWindow(false)
+    if (win) {
+      win.loadURL(`${uiOrigin()}${VIEW_PATHS.chat}`)
+      win.once('ready-to-show', () => win.show())
+    }
+    return
+  }
+  const visible = appWindows.find((w) => !w.isDestroyed() && w.isVisible()) || mainWindow
+  const target = visible || appWindows.find((w) => !w.isDestroyed())
+  if (target) {
+    if (target.isMinimized()) target.restore()
+    if (!target.isVisible()) target.show()
+    target.focus()
+  } else {
+    const win = createAppWindow(true)
+    if (win) {
+      win.loadURL(`${uiOrigin()}${VIEW_PATHS.chat}`)
+      win.once('ready-to-show', () => win.show())
+    }
   }
 })
 

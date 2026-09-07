@@ -19,6 +19,7 @@ const soundService = require('../notifications/sound-service')
 const scheduler = require('../scheduler/scheduler')
 const systemProbe = require('../scheduler/system')
 const settingsService = require('../settings/settings-service')
+const { getWorkspaceRoot, setWorkspaceRoot } = require('../utils/workspace')
 
 loadProjectEnv()
 
@@ -410,6 +411,18 @@ async function handleApi(req, res, url) {
   }
   if (url.pathname === '/api/queue/config') {
     return json(res, { config: scheduler.config })
+  }
+  if (url.pathname === '/api/workspace') {
+    if (req.method === 'POST') {
+      const body = await readBody(req)
+      try {
+        setWorkspaceRoot(String(body.root || ''))
+        return json(res, { ok: true, root: getWorkspaceRoot() })
+      } catch (err) {
+        return json(res, { ok: false, error: String(err?.message || err) }, 400)
+      }
+    }
+    return json(res, { ok: true, root: getWorkspaceRoot() })
   }
   if (url.pathname === '/api/history/rename' && req.method === 'POST') {
     const body = await readBody(req)

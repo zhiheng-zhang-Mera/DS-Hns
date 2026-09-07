@@ -66,6 +66,21 @@
       </section>
 
       <section class="settings-card">
+        <h2>项目工作区 (Workspace)</h2>
+        <p class="muted">
+          headless 任务将在 工作区\active\&lt;任务ID&gt; 下执行,dsh 子进程工作区
+          环境 = DEEPSEEK_HARNESS_WORKSPACE = 所选目录。默认 &lt;安装目录&gt;\workspace。
+        </p>
+        <div class="ws-row">
+          <input id="wsRoot" type="text" placeholder="C:\Users\…\my-project" />
+          <button id="wsPick" class="btn mini-btn" type="button">浏览…</button>
+          <button id="wsOpen" class="btn mini-btn" type="button">打开</button>
+          <button id="wsSave" class="btn mini-btn primary" type="button">设为工作区</button>
+        </div>
+        <p id="wsMsg" class="muted"></p>
+      </section>
+
+      <section class="settings-card">
         <h2>铃声 (Ringtone)</h2>
         <p class="muted">
           完成 / 失败 / 中断三类事件各自可开关、可选用内置预设或你上传的本地音频(wav/mp3)。

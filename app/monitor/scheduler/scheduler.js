@@ -22,6 +22,7 @@ const { appendRecent, loadRecent } = require('../tracker/task-history')
  */
 
 const { ROOT } = require('../utils/paths')
+const { getActiveDir, getWorkspaceRoot } = require('../utils/workspace')
 const STATE_DIR = path.join(ROOT, 'data', 'state')
 const CONFIG_FILE = path.join(STATE_DIR, 'scheduler-config.json')
 const QUEUE_FILE = path.join(STATE_DIR, 'scheduler-queue.json')
@@ -327,7 +328,7 @@ class SchedulerService extends EventEmitter {
     t.startedAt = Date.now()
     t.attempts += 1
     t.reason = null
-    const taskDir = path.join(ROOT, 'workspace', 'active', t.id)
+    const taskDir = getActiveDir(t.id)
     const launched = runner.startJob({
       id: t.id,
       prompt: t.prompt,
@@ -367,7 +368,7 @@ class SchedulerService extends EventEmitter {
     this.running.delete(t.id)
     appendRecent({
       id: t.id,
-      cwd: path.join(ROOT, 'workspace', 'active', t.id),
+      cwd: getActiveDir(t.id),
       status,
       model: null,
       createdAt: t.createdAt,

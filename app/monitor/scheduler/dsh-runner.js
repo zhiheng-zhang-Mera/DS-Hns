@@ -9,6 +9,7 @@ const path = require('node:path')
  */
 
 const { PATHS, ROOT } = require('../utils/paths')
+const { getWorkspaceRoot } = require('../utils/workspace')
 
 // Single dsh install for the whole desktop app: <root>\app\node_modules\@deepseek-ai\dsh
 const DSH_BIN = path.join(PATHS.APP, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
@@ -28,7 +29,7 @@ function childEnv(overrides = {}) {
     TEMP: PATHS.TEMP,
     TMP: PATHS.TEMP,
     npm_config_cache: path.join(PATHS.CACHE, 'npm'),
-    DEEPSEEK_HARNESS_WORKSPACE: PATHS.WORKSPACE,
+    DEEPSEEK_HARNESS_WORKSPACE: getWorkspaceRoot(),
     ...overrides
   }
 }

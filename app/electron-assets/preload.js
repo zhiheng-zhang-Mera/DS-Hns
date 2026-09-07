@@ -27,6 +27,15 @@ contextBridge.exposeInMainWorld('dsDesktop', {
       ipcRenderer.send('ds-nav', kind)
     }
   },
+  workspace: {
+    // 项目工作区:选择目录(系统对话框)与用资源管理器打开
+    pickDir() {
+      return ipcRenderer.invoke('ds-pick-dir')
+    },
+    openDir(p) {
+      if (typeof p === 'string' && p) ipcRenderer.send('ds-open-path', p)
+    }
+  },
   player: {
     play(payload) {
       ipcRenderer.send('ds-player:play', payload)

@@ -520,7 +520,81 @@
       `开始 ${fmtDate(t.startedAt) || '—'} · 结束 ${fmtDate(t.endedAt) || '—'}` +
       (t.costCny != null ? ` · 费用 ¥${Number(t.costCny).toFixed(6)}${t.estimated ? '(估)' : ''}` : '')
     wrap.appendChild(meta)
+
+    // ChatGPT/Codex 式消息操作:复制 / 停止(运行中、挂起、排队中)/ 再跑
+    const actions = document.createElement('div')
+    actions.className = 'msg-actions'
+    const mkBtn = (label, cls, fn) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'msg-btn ' + (cls || '')
+      b.textContent = label
+      b.addEventListener('click', () => fn(t))
+      actions.appendChild(b)
+    }
+    mkBtn('复制回答', '', () => {
+      const text = t.assistantText || body.innerText || ''
+      copyText(text ? '回答已复制' : '该会话暂无可复制内容', text)
+    })
+    if (status === 'RUNNING' || status === 'STARTING' || status === 'PENDING' || status === 'SUSPENDED') {
+      mkBtn('■ 停止', 'stop', () => doStop(t))
+    }
+    if (status === 'COMPLETED' || status === 'FAILED' || status === 'INTERRUPTED' || status === 'CANCELED') {
+      mkBtn('↻ 再跑', '', () => doRerun(t))
+    }
+    if (actions.childNodes.length) wrap.appendChild(actions)
     return wrap
+  }
+
+  function copyText(note, text) {
+    if (!text) return
+    const done = () => toast(note || '已复制')
+    const fail = () => {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        ta.remove()
+        toast(note || '已复制')
+      } catch (err) {
+        toast('复制失败(请手动选择复制)', 'error')
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fail)
+    } else {
+      fail()
+    }
+  }
+
+  async function doStop(t) {
+    try {
+      const resp = await postJson('/api/queue/' + encodeURIComponent(t.id) + '/cancel', {})
+      if (!resp.ok && resp.error && !/not found/.test(resp.error)) throw new Error(resp.error)
+      toast('已请求停止任务')
+      await refreshTasks()
+    } catch (err) {
+      toast('停止失败:' + (err.message || err), 'error')
+    }
+  }
+
+  async function doRerun(t) {
+    try {
+      const resp = await postJson('/api/queue', {
+        prompt: t.prompt || '',
+        allowPeak: Boolean(t.allowPeak),
+        startAt: null
+      })
+      if (!resp.ok) throw new Error(resp.error || '再跑失败')
+      toast('已重新加入队列:' + (resp.task && resp.task.id))
+      await refreshTasks()
+    } catch (err) {
+      toast('再跑失败:' + (err.message || err), 'error')
+    }
   }
 
   let lastStatus = null
@@ -841,6 +915,40 @@
     btn.addEventListener('click', () => window.dsDesktop.nav.open('official'))
   }
 
+  function bindSidebar() {
+    const btn = document.getElementById('sideToggle')
+    if (!btn) return
+    const apply = (on) => {
+      document.body.classList.toggle('side-collapsed', on)
+      btn.textContent = on ? '»' : '«'
+      btn.title = on ? '展开历史侧栏' : '收起历史侧栏'
+      try {
+        localStorage.setItem('dsside', on ? '1' : '0')
+      } catch (err) {
+        /* ignore */
+      }
+    }
+    let collapsed = false
+    try {
+      collapsed = localStorage.getItem('dsside') === '1'
+    } catch (err) {
+      /* ignore */
+    }
+    apply(collapsed)
+    btn.addEventListener('click', () => apply(!document.body.classList.contains('side-collapsed')))
+  }
+
+  function bindComposerAutoGrow() {
+    const ta = document.getElementById('chatComposer')
+    if (!ta) return
+    const grow = () => {
+      ta.style.height = 'auto'
+      ta.style.height = Math.min(180, Math.max(44, ta.scrollHeight)) + 'px'
+    }
+    ta.addEventListener('input', grow)
+    grow()
+  }
+
   function boot() {
     if (window.dsDesktop && window.dsDesktop.isElectron) {
       document.body.classList.add('electron')
@@ -850,6 +958,8 @@
     bindPopovers()
     bindHistoryExtras()
     bindOfficialButton()
+    bindSidebar()
+    bindComposerAutoGrow()
     DSSound.refresh().then(syncSoundButton)
     refreshTasks()
     applyStatus()
