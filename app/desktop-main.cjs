@@ -357,6 +357,9 @@ function buildMenu() {
  * ------------------------------------------------------------------ */
 
 app.whenReady().then(async () => {
+  // Second instance: the primary's 'second-instance' handler focuses its
+  // window; this extra process must exit without starting any service.
+  if (!gotSingleInstanceLock) return
   try {
     // 1) 自动错开端口:默认 3300/3080,被占用则向后找空闲端口。
     uiPort = await findFreePort(uiBase, { maxTries: 30 })
@@ -430,8 +433,10 @@ app.whenReady().then(async () => {
 })
 
 app.on('second-instance', () => {
-  if (!mainWindow) return
+  // Launcher asked to focus the running app: restore/show/focus its window.
+  if (!mainWindow || mainWindow.isDestroyed()) return
   if (mainWindow.isMinimized()) mainWindow.restore()
+  if (!mainWindow.isVisible()) mainWindow.show()
   mainWindow.focus()
 })
 

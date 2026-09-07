@@ -65,6 +65,10 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 
 停止:`scripts\stop.ps1`。桌面快捷方式/开机自启:`scripts\shortcuts.ps1`(`-Remove` 移除)。
 
+> **启动器行为**:双击 `Start-DeepSeek-Harness.cmd` 时,若检测到 DS-Harness 已在运行,
+> 会自动唤起已有窗口(单实例,不会重复启动);若唤起失败(进程无响应/监控不健康),
+> 会**强制关闭已有实例并重新启动**。
+
 ## 使用
 
 1. **主窗口**打开后默认进入官方 dsh Web(即 Alien 的用法);在其中对话/管理会话。
