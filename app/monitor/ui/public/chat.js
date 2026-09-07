@@ -147,14 +147,42 @@
     return groups
   }
 
+  let sideSearch = ''
+  let sideFilter = 'all'
+
+  function applyThreadList() {
+    let out = mergeThreads()
+    if (sideFilter === 'active') {
+      out = out.filter((t) => ['RUNNING', 'STARTING', 'PENDING'].includes(String(t.status).toUpperCase()))
+    } else if (sideFilter === 'suspended') {
+      out = out.filter((t) => String(t.status).toUpperCase() === 'SUSPENDED')
+    } else if (sideFilter === 'done') {
+      out = out.filter((t) => String(t.status).toUpperCase() === 'COMPLETED')
+    } else if (sideFilter === 'failed') {
+      out = out.filter((t) => ['FAILED', 'INTERRUPTED', 'CANCELED'].includes(String(t.status).toUpperCase()))
+    }
+    const q = sideSearch.trim().toLowerCase()
+    if (q) {
+      out = out.filter((t) => {
+        const hay = `${titleOf(t)} ${t.prompt || ''} ${t.id} ${t.model || ''} ${t.assistantText || ''} ${t.error && (t.error.code || '')}`.toLowerCase()
+        return hay.includes(q)
+      })
+    }
+    return out
+  }
+
   function renderThreadList() {
     const listEl = $('threadList')
-    const list = mergeThreads().slice(0, 200)
+    const list = applyThreadList().slice(0, 200)
     listEl.innerHTML = ''
     if (!list.length) {
       const empty = document.createElement('div')
       empty.className = 't-title muted'
-      empty.textContent = batchMode ? '无可管理任务' : '暂无任务'
+      empty.textContent = batchMode
+        ? '无可管理任务'
+        : sideSearch.trim() || sideFilter !== 'all'
+          ? '没有匹配的任务(试试清除搜索/筛选)'
+          : '暂无任务'
       listEl.appendChild(empty)
       return
     }
@@ -1087,6 +1115,88 @@
     btn.addEventListener('click', () => apply(!document.body.classList.contains('side-collapsed')))
   }
 
+  // ---------------- 侧栏:搜索 / 视图筛选 / 添加工作区 ----------------
+  let currentWorkspace = null
+
+  async function refreshWorkspaceLabel() {
+    try {
+      const r = await fetchJson('/api/workspace')
+      currentWorkspace = r.root || null
+      const el = $('wsNow')
+      if (el) {
+        const parts = String(currentWorkspace || '').split(/[\\/]/).filter(Boolean)
+        el.textContent = parts.length ? parts[parts.length - 1] + (parts.length > 1 ? '…' : '') : '未设置'
+        el.title = currentWorkspace || ''
+      }
+    } catch (err) {
+      /* offline */
+    }
+  }
+
+  async function applyWorkspace(path) {
+    try {
+      const resp = await postJson('/api/workspace', { root: path })
+      if (!resp.ok) throw new Error(resp.error || '设置失败')
+      currentWorkspace = resp.root
+      toast('工作区已切换:' + resp.root)
+      await refreshWorkspaceLabel()
+    } catch (err) {
+      toast('工作区设置失败:' + (err.message || err), 'error')
+    }
+  }
+
+  function bindSideControls() {
+    const s = $('threadSearch')
+    if (s) {
+      s.addEventListener('input', () => {
+        sideSearch = s.value
+        renderThreadList()
+      })
+    }
+    const chips = document.querySelectorAll('#viewFilter .filter-chip')
+    for (const c of chips) {
+      c.addEventListener('click', () => {
+        sideFilter = c.dataset.filter || 'all'
+        for (const x of document.querySelectorAll('#viewFilter .filter-chip')) x.classList.toggle('active', x === c)
+        renderThreadList()
+      })
+    }
+    const addBtn = $('wsAddBtn')
+    if (addBtn) {
+      addBtn.addEventListener('click', async () => {
+        if (window.dsDesktop && window.dsDesktop.workspace) {
+          try {
+            const dir = await window.dsDesktop.workspace.pickDir()
+            if (dir) await applyWorkspace(dir)
+          } catch (err) {
+            toast('选择目录失败', 'error')
+          }
+          return
+        }
+        modalShow(
+          `<h3>添加 / 切换工作区</h3>` +
+            `<input id="mdWsPath" type="text" placeholder="输入项目目录绝对路径…" />` +
+            `<p class="muted">之后的新任务将在 该目录\\active\\&lt;任务ID&gt; 下执行。</p>` +
+            `<div class="modal-actions"><button class="btn mini-btn" id="mdWsCancel" type="button">取消</button>` +
+            `<button class="btn mini-btn primary" id="mdWsOk" type="button">应用</button></div>`
+        )
+        const ok = $('mdWsOk')
+        const cancel = $('mdWsCancel')
+        const inp = $('mdWsPath')
+        if (inp) inp.focus()
+        if (ok) {
+          ok.addEventListener('click', async () => {
+            const v = (inp && inp.value || '').trim()
+            modalClose()
+            if (v) await applyWorkspace(v)
+          })
+        }
+        if (cancel) cancel.addEventListener('click', modalClose)
+      })
+    }
+    refreshWorkspaceLabel()
+  }
+
   function bindComposerAutoGrow() {
     const ta = document.getElementById('chatComposer')
     if (!ta) return
@@ -1109,6 +1219,7 @@
     bindPopovers()
     bindHistoryExtras()
     bindSidebar()
+    bindSideControls()
     bindComposerAutoGrow()
     DSSound.refresh().then(syncSoundButton)
     refreshTasks()

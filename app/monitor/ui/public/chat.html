@@ -19,6 +19,20 @@
         </div>
         <button id="newChatBtn" class="new-btn" type="button">＋ 新任务</button>
       </div>
+      <div class="side-controls">
+        <input id="threadSearch" type="text" placeholder="🔍 搜索任务 / 会话 / 内容…" autocomplete="off" />
+        <div class="side-filter-row" id="viewFilter" role="group" aria-label="视图筛选">
+          <button class="filter-chip active" data-filter="all" type="button">全部</button>
+          <button class="filter-chip" data-filter="active" type="button">进行中</button>
+          <button class="filter-chip" data-filter="suspended" type="button">挂起</button>
+          <button class="filter-chip" data-filter="done" type="button">已完成</button>
+          <button class="filter-chip" data-filter="failed" type="button">失败</button>
+        </div>
+        <div class="ws-row-mini">
+          <button id="wsAddBtn" class="ws-add" type="button" title="添加/切换项目工作区">＋ 添加工作区</button>
+          <span id="wsNow" class="muted ws-now" title="">—</span>
+        </div>
+      </div>
       <nav id="navTabs" class="nav-tabs">
         <button class="nav-tab active" data-view="tasks" type="button">任务</button>
         <button class="nav-tab" data-view="queue" type="button">排队</button>

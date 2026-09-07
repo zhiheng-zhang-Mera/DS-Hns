@@ -430,3 +430,56 @@ body { background: var(--bg); color: var(--text); font-size: 14px; }
 .usage-strip { background: var(--panel); border-top: 1px solid var(--hair); }
 .badge { background: var(--panel2); border: 1px solid var(--hair); }
 
+/* ===== 侧栏:搜索 / 视图筛选 / 添加工作区 ===== */
+.side-controls {
+  padding: 8px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-bottom: 1px solid var(--hair);
+  background: #1b1b1c;
+}
+#threadSearch {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.side-filter-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.filter-chip {
+  border: 1px solid var(--hair);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.filter-chip:hover { color: var(--text); border-color: var(--accent); }
+.filter-chip.active { color: #06204d; background: var(--accent); border-color: var(--accent); }
+.ws-row-mini { display: flex; align-items: center; gap: 6px; }
+.ws-add {
+  border: 1px dashed rgba(255, 255, 255, .35);
+  background: transparent;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  flex: 1;
+  text-align: center;
+}
+.ws-add:hover { border-color: var(--accent); border-style: solid; }
+.ws-now {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.side-collapsed .side-controls { display: none; }
+
