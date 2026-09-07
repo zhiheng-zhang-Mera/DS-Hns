@@ -1,73 +1,191 @@
-﻿# DS-Harness first-time install: directories -> npm ci (dsh core + Electron,
-# both from the single app\package.json) -> sounds -> unit tests.
+param(
+  [switch]$NoLaunch,
+  [switch]$NoShortcuts,
+  [switch]$SkipTests,
+  [ValidateSet('Prompt', 'Configure', 'Later')]
+  [string]$ApiKeyMode = 'Prompt'
+)
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 
-Write-Output '[0/6] Creating directory structure (fresh-clone bootstrap)'
-$dirs = @(
-  'app', 'config', 'assets\sounds', 'scripts', 'tests', 'runtime', 'workspace\active', 'workspace\completed',
-  'workspace\temp', 'cache\pip', 'cache\npm', 'cache\electron', 'cache\pnpm', 'cache\downloads',
-  'cache\build', 'cache\temp', 'cache\huggingface', 'cache\models', 'data\sessions', 'data\sounds',
-  'data\state', 'data\task-history', 'data\usage', 'data\pricing', 'logs\app', 'logs\harness'
-)
-foreach ($d in $dirs) {
-  New-Item -ItemType Directory -Path (Join-Path $ROOT $d) -Force | Out-Null
+function Write-Step([string]$text) {
+  Write-Host ''
+  Write-Host "== $text ==" -ForegroundColor Cyan
 }
 
+function Test-RealApiKey([string]$value) {
+  if ([string]::IsNullOrWhiteSpace($value)) { return $false }
+  $v = $value.Trim()
+  return ($v -ne 'sk-...') -and ($v -ne 'YOUR_API_KEY') -and ($v -ne 'YOUR_DEEPSEEK_API_KEY')
+}
+
+function Get-DotEnvValue([string]$file, [string]$key) {
+  if (-not (Test-Path -LiteralPath $file)) { return '' }
+  $pattern = '^\s*' + [regex]::Escape($key) + '\s*='
+  foreach ($line in [System.IO.File]::ReadAllLines($file)) {
+    if ($line -match $pattern) {
+      $value = $line.Substring($line.IndexOf('=') + 1).Trim()
+      if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+        $value = $value.Substring(1, $value.Length - 2)
+      }
+      return $value
+    }
+  }
+  return ''
+}
+
+function Set-DotEnvValue([string]$file, [string]$key, [string]$value) {
+  $dir = Split-Path -Parent $file
+  New-Item -ItemType Directory -Path $dir -Force | Out-Null
+  $lines = if (Test-Path -LiteralPath $file) { @([System.IO.File]::ReadAllLines($file)) } else { @() }
+  $pattern = '^\s*' + [regex]::Escape($key) + '\s*='
+  $found = $false
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -match $pattern) {
+      $lines[$i] = "$key=$value"
+      $found = $true
+      break
+    }
+  }
+  if (-not $found) { $lines += "$key=$value" }
+  [System.IO.File]::WriteAllLines($file, $lines, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Ensure-ProjectEnvFile([string]$envFile) {
+  if (Test-Path -LiteralPath $envFile) { return }
+  $template = Join-Path $ROOT 'config\.env.example'
+  if (Test-Path -LiteralPath $template) {
+    Copy-Item -LiteralPath $template -Destination $envFile
+  } else {
+    [System.IO.File]::WriteAllText(
+      $envFile,
+      "DEEPSEEK_API_KEY=`r`nDSH_TELEMETRY_MODE=DISABLED`r`nDSH_PERMISSION_MODE=workspace-write`r`n",
+      (New-Object System.Text.UTF8Encoding($false))
+    )
+  }
+}
+
+function Get-SystemApiKey {
+  $candidates = @(
+    @{ Scope = 'Process/inherited'; Value = $env:DEEPSEEK_API_KEY },
+    @{ Scope = 'User'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'User') },
+    @{ Scope = 'Machine'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'Machine') }
+  )
+  foreach ($item in $candidates) {
+    if (Test-RealApiKey ([string]$item.Value)) { return $item }
+  }
+  return $null
+}
+
+function Read-ApiKeySecurely {
+  $secure = Read-Host '请输入 DEEPSEEK_API_KEY（输入内容不会显示）' -AsSecureString
+  $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try {
+    return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+  } finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+  }
+}
+
+Write-Host 'DS-Harness one-click installer' -ForegroundColor Green
+Write-Host "Root: $ROOT"
+
+Write-Step '1/7 Bootstrap directories'
+$dirs = @(
+  'app', 'config', 'assets\sounds', 'runtime', 'workspace\active', 'workspace\completed', 'workspace\temp',
+  'cache\pip', 'cache\npm', 'cache\electron', 'cache\pnpm', 'cache\downloads', 'cache\build', 'cache\temp',
+  'cache\huggingface', 'cache\models', 'data\sessions', 'data\sounds', 'data\state', 'data\task-history',
+  'data\usage', 'data\pricing', 'logs\app', 'logs\harness'
+)
+foreach ($d in $dirs) { New-Item -ItemType Directory -Path (Join-Path $ROOT $d) -Force | Out-Null }
+Write-Host 'Directory structure ready.'
+
+Write-Step '2/7 Resolve/reuse dependencies'
+& (Join-Path $PSScriptRoot 'install-deps.ps1') -Full
+if ($LASTEXITCODE -ne 0) { throw 'dependency installation failed' }
+
+Write-Step '3/7 Resolve DeepSeek API key'
+$envFile = Join-Path $ROOT 'config\.env'
+Ensure-ProjectEnvFile $envFile
+$systemKey = Get-SystemApiKey
+$projectKey = Get-DotEnvValue $envFile 'DEEPSEEK_API_KEY'
+
+if ($systemKey) {
+  $env:DEEPSEEK_API_KEY = [string]$systemKey.Value
+  Write-Host "Found DEEPSEEK_API_KEY in $($systemKey.Scope) environment. Reusing it; no key is copied or logged."
+} elseif (Test-RealApiKey $projectKey) {
+  $env:DEEPSEEK_API_KEY = $projectKey
+  Write-Host 'No system API key found; existing project config\.env key will be reused.'
+} else {
+  $choice = $ApiKeyMode
+  if ($choice -eq 'Prompt') {
+    Write-Host 'No DEEPSEEK_API_KEY was found in Process/User/Machine environment variables.' -ForegroundColor Yellow
+    Write-Host '  [1] Configure now (stored only in this project: config\.env)'
+    Write-Host '  [2] Configure later in DS-Harness settings (Ctrl+Shift+M -> Harness / 提醒)'
+    do { $rawChoice = (Read-Host 'Choose 1 or 2').Trim() } while ($rawChoice -notin @('1', '2'))
+    $choice = if ($rawChoice -eq '1') { 'Configure' } else { 'Later' }
+  }
+
+  if ($choice -eq 'Configure') {
+    $plainKey = Read-ApiKeySecurely
+    if (Test-RealApiKey $plainKey) {
+      Set-DotEnvValue $envFile 'DEEPSEEK_API_KEY' $plainKey
+      $env:DEEPSEEK_API_KEY = $plainKey
+      $plainKey = ''
+      Write-Host 'API key saved to project config\.env. It was not printed to the console.'
+    } else {
+      Write-Host 'No valid key entered. Installation will continue without an API key.' -ForegroundColor Yellow
+      Set-DotEnvValue $envFile 'DEEPSEEK_API_KEY' ''
+    }
+  } else {
+    Set-DotEnvValue $envFile 'DEEPSEEK_API_KEY' ''
+    Write-Host 'API key deferred. You can configure it later from Mega Extensions settings.'
+  }
+}
+
+# Restore the canonical project runtime environment after install-time cache reuse.
 . (Join-Path $PSScriptRoot 'env.ps1')
 
-Write-Output '[0.5/6] Ensuring Node.js (bundled runtime / PATH / auto-download)'
-$nodeDir = (& (Join-Path $PSScriptRoot 'ensure-node.ps1') | Select-Object -Last 1)
-if (-not $nodeDir -or -not (Test-Path -LiteralPath (Join-Path $nodeDir 'node.exe'))) {
-  throw 'Node.js unavailable: run scripts\ensure-node.ps1 manually or install Node.js >= 20.'
-}
-$env:PATH = "$nodeDir;$env:PATH"
-Write-Output "  node: $(& (Join-Path $nodeDir 'node.exe') --version)  ($nodeDir)"
-
-Write-Output '[1/6] Checking dependencies'
-foreach ($tool in @('node', 'npm', 'git')) {
-  $c = Get-Command $tool -ErrorAction SilentlyContinue
-  if (-not $c) { Write-Error "Missing required tool: $tool" }
-  else { Write-Output "  OK  $tool -> $($c.Source)" }
-}
-
-Write-Output '[2/6] npm ci for app (dsh core + Electron, local caches)'
-Push-Location "$ROOT\app"
-try {
-  if (-not (Test-Path "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js")) {
-    npm ci --no-audit --no-fund
-    if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
-  } else {
-    Write-Output '  app dependencies already installed'
-  }
-} finally { Pop-Location }
-
-$dshBin = "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js"
-if (-not (Test-Path -LiteralPath $dshBin)) { throw 'dsh core missing after npm ci' }
-if (-not (Test-Path "$ROOT\app\node_modules\electron\dist\electron.exe")) { throw 'Electron missing after npm ci' }
-Write-Output '  dsh core + Electron OK'
-
-Write-Output '[3/6] Generating built-in ringtones'
-& "$ROOT\scripts\generate-sounds.ps1" | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'sound generation failed' }
-
-Write-Output '[4/6] Running unit tests'
-& "$ROOT\scripts\test-all.ps1"
-if ($LASTEXITCODE -ne 0) { throw 'unit tests failed' }
-
-Write-Output '[5/6] Optional API key'
-$envFile = "$ROOT\config\.env"
-if (-not (Test-Path -LiteralPath $envFile)) {
-  Copy-Item -LiteralPath "$ROOT\config\.env.example" -Destination $envFile
-  Write-Output '  created config\.env from .env.example (edit it to add DEEPSEEK_API_KEY)'
+Write-Step '4/7 Unit and architecture tests'
+if ($SkipTests) {
+  Write-Host 'Tests skipped by -SkipTests.'
 } else {
-  Write-Output '  config\.env already present'
+  & (Join-Path $PSScriptRoot 'test-all.ps1')
+  if ($LASTEXITCODE -ne 0) { throw 'unit/architecture tests failed' }
 }
 
-Write-Output '[6/6] Install complete'
-Write-Output ''
-Write-Output 'Next steps:'
-Write-Output "  1. Edit config\.env and set DEEPSEEK_API_KEY=sk-..."
-Write-Output "  2. Start the desktop app:  powershell -ExecutionPolicy Bypass -File $ROOT\scripts\run.ps1"
-Write-Output '     (main window = official dsh Web; 视图 menu switches to 调度中心 chat/monitor/settings)'
-Write-Output "  3. Ringtone settings live in 调度中心->设置(铃声), persisted to config\sound.json."
+Write-Step '5/7 Verification'
+& (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
+if ($LASTEXITCODE -ne 0) { throw 'verification failed' }
+
+Write-Step '6/7 Shortcuts'
+if ($NoShortcuts) {
+  Write-Host 'Shortcut creation skipped by -NoShortcuts.'
+} else {
+  try {
+    & (Join-Path $PSScriptRoot 'shortcuts.ps1') -NoAutoStart
+    Write-Host 'Desktop and Start Menu shortcuts are ready. Autostart was not enabled.'
+  } catch {
+    Write-Warning "Shortcut creation failed, but installation is otherwise usable: $($_.Exception.Message)"
+  }
+}
+
+Write-Step '7/7 Complete'
+Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+if ($systemKey) {
+  Write-Host "API: system environment ($($systemKey.Scope))"
+} elseif ($env:DEEPSEEK_API_KEY) {
+  Write-Host 'API: project configuration'
+} else {
+  Write-Host 'API: not configured yet (configure later with Ctrl+Shift+M).'
+}
+Write-Host 'Primary UI: official DeepSeek Harness (Alien-derived shell).'
+Write-Host 'Mega tools: Ctrl+Shift+M.'
+Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
+
+if (-not $NoLaunch) {
+  Write-Host 'Launching DS-Harness...'
+  Start-Process -FilePath (Join-Path $ROOT 'Start-DeepSeek-Harness.cmd') -WorkingDirectory $ROOT
+} else {
+  Write-Host 'Launch skipped by -NoLaunch.'
+}
