@@ -64,19 +64,32 @@
         </div>
       </form>
 
-      <!-- 对话框下常驻的参考数据:输入/输出/命中率/成本/状态 -->
+      <!-- 对话框下常驻的参考数据(以官方 dsh 用量口径补充:输入/输出/缓存读写/推理/命中率/成本) -->
       <div id="usageStrip" class="usage-strip" title="最近任务用量实时参考">
         <span class="us-item us-state"><b id="uState" class="badge">IDLE</b></span>
         <span class="us-item">模型 <b id="uModel">—</b></span>
         <span class="us-item">输入 <b id="uIn">0</b></span>
-        <span class="us-item">缓存命中 <b id="uCache">0</b></span>
         <span class="us-item">输出 <b id="uOut">0</b></span>
+        <span class="us-item">缓存命中 <b id="uCache">0</b></span>
+        <span class="us-item">缓存写 <b id="uWrite">0</b></span>
+        <span class="us-item">推理 <b id="uReason">0</b></span>
         <span class="us-item">命中率 <b id="uHit">—</b></span>
         <span class="us-item">成本 ¥ <b id="uCost">—</b></span>
+        <span class="us-item us-sus" id="usSusWrap" hidden>挂起 <b id="uSusReason">—</b></span>
+        <span class="us-item us-sus" id="usAtWrap" hidden>启动 <b id="uSusAt">—</b></span>
         <span class="us-item us-hint muted" id="uHint">选择左侧任务查看明细;任务结束时响铃</span>
       </div>
     </section>
 
+    <div id="batchBar" class="batch-bar" hidden>
+      <span id="batchInfo" class="muted">已选 0 项</span>
+      <button id="batchSelAll" class="btn mini-btn" type="button">全选</button>
+      <button id="batchMove" class="btn mini-btn" type="button">移动到文件夹…</button>
+      <button id="batchDelete" class="btn mini-btn danger" type="button">删除所选</button>
+      <button id="batchCancel" class="btn mini-btn" type="button">完成</button>
+    </div>
+    <div id="threadCtx" class="thread-ctx" hidden></div>
+    <div id="modalMask" class="modal-mask" hidden><div class="modal" id="modalBox"></div></div>
     <div id="hoverPop" class="hover-pop" hidden></div>
     <div id="toastWrap"></div>
     <script src="/ds-sound.js"></script>

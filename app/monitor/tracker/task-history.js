@@ -29,4 +29,12 @@ function appendRecent(entry, maxEntries = 50) {
   return trimmed
 }
 
-module.exports = { loadRecent, appendRecent, historyFile }
+function removeEntries(ids) {
+  const set = new Set(ids.map(String))
+  const list = loadRecent().filter((e) => !set.has(String(e?.id)))
+  fs.mkdirSync(PATHS.TASK_HISTORY, { recursive: true })
+  fs.writeFileSync(historyFile(), JSON.stringify(list, null, 2), 'utf8')
+  return list.length
+}
+
+module.exports = { loadRecent, appendRecent, removeEntries, historyFile }

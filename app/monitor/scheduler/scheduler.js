@@ -200,6 +200,32 @@ class SchedulerService extends EventEmitter {
     return cleared
   }
 
+  /** Hard-remove queue rows (cancel running children first, no terminal bell). */
+  removeTasks(ids) {
+    const set = new Set(ids.map(String))
+    let removed = 0
+    for (const t of [...this.tasks]) {
+      if (!set.has(String(t.id))) continue
+      if (t.status === 'RUNNING' || t.status === 'STARTING') {
+        t.status = 'CANCELED' // exit handler will then skip finish()
+        try {
+          t.child?.logStream?.end()
+        } catch {
+          /* no-op */
+        }
+        if (t.child) runner.killTree(t.pid)
+        this.running.delete(t.id)
+      }
+      this.tasks = this.tasks.filter((x) => x.id !== t.id)
+      removed++
+    }
+    if (removed) {
+      this.saveQueue()
+      this.emit('queue-changed')
+    }
+    return removed
+  }
+
   updateConfig(patch) {
     const next = { ...this.config, ...patch }
     next.minConcurrent = Math.max(1, Number(next.minConcurrent) || 1)

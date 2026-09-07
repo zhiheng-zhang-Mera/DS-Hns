@@ -77,6 +77,14 @@
     return `${d.getMonth() + 1}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
   }
 
+  // 历史元数据(别名/文件夹)、批量选择与右键菜单状态
+  let historyMeta = { aliases: {}, folders: {} }
+  let batchMode = false
+  let selected = new Set()
+  let ctxRowId = null
+
+  const QUEUE_DIR_RE = /[\\/]active[\\/]([^\\/]+?)[\\/]?$/
+
   function mergeThreads() {
     const map = new Map()
     const upsert = (t) => {
@@ -84,14 +92,35 @@
       if (!old) map.set(t.id, t)
       else map.set(t.id, { ...old, ...t })
     }
-    for (const t of allThreads) upsert(t)
+    // 队列行优先(保留队列生命周期与 prompt);挂起任务自动启动后,其 dsh 会话
+    // 折叠进同一条对话,绝不再开一条新对话。
     for (const t of queueThreads) upsert(t)
+    for (const t of allThreads) {
+      const m = QUEUE_DIR_RE.exec(t.cwd || '')
+      if (m && map.has(m[1])) {
+        const base = map.get(m[1])
+        const merged = { ...base }
+        for (const k of ['usage', 'assistantText', 'model', 'provider', 'createdAt', 'updatedAt', 'endedAt', 'durationMs', 'costCny', 'estimated', 'error']) {
+          if (merged[k] == null && t[k] != null) merged[k] = t[k]
+        }
+        if (t.status && merged.status !== 'RUNNING' && merged.status !== 'STARTING') merged.status = t.status
+        if (!merged.promptPreview && (t.prompt || t.assistantText)) merged.promptPreview = (t.prompt || t.assistantText).slice(0, 160)
+        merged.sessionStatus = t.status
+        map.set(m[1], merged)
+        continue
+      }
+      upsert(t)
+    }
     const list = [...map.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     return currentView === 'queue' ? list.filter((t) => ['PENDING', 'SUSPENDED', 'RUNNING', 'STARTING'].includes(t.status)) : list
   }
 
+  function aliasOf(id) {
+    return historyMeta.aliases && historyMeta.aliases[id] ? historyMeta.aliases[id] : null
+  }
+
   function titleOf(t) {
-    return (t.promptPreview || t.prompt || '').split('\n')[0] || t.id
+    return aliasOf(t.id) || (t.promptPreview || t.prompt || '').split('\n')[0] || t.id
   }
 
   function metaOf(t) {
@@ -101,6 +130,15 @@
     return pieces.filter(Boolean).join(' · ')
   }
 
+  function groupList(list) {
+    const folders = new Set()
+    for (const t of list) folders.add(historyMeta.folders[t.id] || '')
+    const names = [...folders].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b, 'zh')))
+    const groups = []
+    for (const name of names) groups.push({ name, items: list.filter((t) => (historyMeta.folders[t.id] || '') === name) })
+    return groups
+  }
+
   function renderThreadList() {
     const listEl = $('threadList')
     const list = mergeThreads().slice(0, 200)
@@ -108,25 +146,291 @@
     if (!list.length) {
       const empty = document.createElement('div')
       empty.className = 't-title muted'
-      empty.textContent = '暂无任务'
+      empty.textContent = batchMode ? '无可管理任务' : '暂无任务'
       listEl.appendChild(empty)
       return
     }
-    for (const t of list) {
-      const div = document.createElement('div')
-      div.className = 'thread-item st-' + String(t.status).toUpperCase() + (t.id === selectedId ? ' active' : '')
-      div.dataset.id = t.id
-      div.innerHTML =
-        `<span class="t-dot"></span><div><div class="t-title">${esc(titleOf(t))}</div>` +
-        `<div class="t-meta">${esc(t.status)} · ${esc(metaOf(t))}</div></div>`
-      div.addEventListener('click', () => {
-        selectedId = t.id
-        renderThreadList()
-        renderConversation(t)
-        $('chatColumn').scrollIntoView()
-      })
-      listEl.appendChild(div)
+    const groups = groupList(list)
+    const hasFolders = Object.keys(historyMeta.folders || {}).length > 0
+    for (const group of groups) {
+      if (hasFolders && groups.length > 1) {
+        const head = document.createElement('div')
+        head.className = 'thread-group'
+        head.textContent = group.name || '未分组'
+        const cnt = document.createElement('span')
+        cnt.className = 'cnt'
+        cnt.textContent = String(group.items.length)
+        head.appendChild(cnt)
+        listEl.appendChild(head)
+      }
+      for (const t of group.items) {
+        const div = document.createElement('div')
+        const st = String(t.status || 'PENDING').toUpperCase()
+        div.className =
+          'thread-item st-' + st + (t.id === selectedId ? ' active' : '') + (selected.has(t.id) ? ' sel' : '')
+        div.dataset.id = t.id
+        const alias = aliasOf(t.id)
+        div.innerHTML =
+          `<input type="checkbox" class="thread-check" ${selected.has(t.id) ? 'checked' : ''} />` +
+          `<span class="t-dot"></span><div><div class="t-title">${esc(titleOf(t))}${alias ? '<span class="alias-tag">✎</span>' : ''}</div>` +
+          `<div class="t-meta">${esc(t.status)} · ${esc(metaOf(t))}</div></div>`
+        div.addEventListener('click', (ev) => {
+          if (ev.target.closest('.thread-check')) {
+            const cb = ev.target
+            if (cb.checked) selected.add(t.id)
+            else selected.delete(t.id)
+            updateBatchBar()
+            renderThreadList()
+            return
+          }
+          if (batchMode) {
+            if (selected.has(t.id)) selected.delete(t.id)
+            else selected.add(t.id)
+            updateBatchBar()
+            renderThreadList()
+            return
+          }
+          selectedId = t.id
+          renderThreadList()
+          renderConversation(t)
+          $('chatColumn').scrollIntoView()
+        })
+        div.addEventListener('contextmenu', (ev) => {
+          ev.preventDefault()
+          openThreadCtx(t, ev.clientX, ev.clientY)
+        })
+        listEl.appendChild(div)
+      }
     }
+    document.body.classList.toggle('batch-mode', batchMode)
+    const bar = $('batchBar')
+    if (bar) bar.hidden = !batchMode
+  }
+
+  /* ---------------- 右键菜单 / 重命名 / 文件夹 / 删除 / 批量 ---------------- */
+
+  function openThreadCtx(t, x, y) {
+    ctxRowId = t.id
+    const menu = $('threadCtx')
+    menu.innerHTML =
+      `<button data-ctx="open">打开</button>` +
+      `<button data-ctx="rename">重命名…</button>` +
+      `<button data-ctx="folder">移动到文件夹…</button>` +
+      `<button data-ctx="delete" class="danger">删除</button>` +
+      `<hr />` +
+      `<button data-ctx="batch">批量操作…</button>`
+    menu.hidden = false
+    const r = menu.getBoundingClientRect()
+    let left = Math.min(x, window.innerWidth - r.width - 8)
+    let top = Math.min(y, window.innerHeight - r.height - 8)
+    menu.style.left = Math.max(4, left) + 'px'
+    menu.style.top = Math.max(4, top) + 'px'
+  }
+
+  function closeCtx() {
+    const menu = $('threadCtx')
+    if (menu) menu.hidden = true
+    ctxRowId = null
+  }
+
+  function modalShow(html) {
+    const box = $('modalBox')
+    box.innerHTML = html
+    $('modalMask').hidden = false
+  }
+
+  function modalClose() {
+    $('modalMask').hidden = true
+  }
+
+  async function doRename(id, title) {
+    try {
+      const resp = await postJson('/api/history/rename', { id, title })
+      if (!resp.ok) throw new Error(resp.error || '重命名失败')
+      historyMeta = resp.meta
+      await refreshTasks()
+      toast('已重命名')
+    } catch (err) {
+      toast('重命名失败:' + (err.message || err), 'error')
+    }
+  }
+
+  function renameDialog(id) {
+    const name = titleOf(mergeThreads().find((x) => x.id === id) || {})
+    modalShow(
+      `<h3>重命名</h3>` +
+        `<input id="mdRenameVal" type="text" value="${esc(name)}" maxlength="200" />` +
+        `<p class="muted">仅修改显示名称(存于本地元数据,不改动会话文件/队列 prompt)。</p>` +
+        `<div class="modal-actions"><button class="btn mini-btn" id="mdRenameCancel" type="button">取消</button>` +
+        `<button class="btn mini-btn" id="mdRenameOk" type="button">保存</button></div>`
+    )
+    const val = $('mdRenameVal')
+    if (val) val.focus()
+    const ok = $('mdRenameOk')
+    if (ok) {
+      ok.addEventListener('click', async () => {
+        modalClose()
+        await doRename(id, val.value)
+      })
+    }
+    const cancel = $('mdRenameCancel')
+    if (cancel) cancel.addEventListener('click', modalClose)
+  }
+
+  function folderDialog(ids) {
+    const folders = [...new Set(Object.values(historyMeta.folders || {}).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh'))
+    const opts = `<option value="">(未分组)</option>` + folders.map((f) => `<option value="${esc(f)}">${esc(f)}</option>`).join('')
+    modalShow(
+      `<h3>移动到文件夹 (${ids.length} 项)</h3>` +
+        `<select id="mdFolderSel">${opts}</select>` +
+        `<input id="mdFolderNew" type="text" placeholder="或输入新文件夹名…" maxlength="80" />` +
+        `<div class="modal-actions"><button class="btn mini-btn" id="mdFolderCancel" type="button">取消</button>` +
+        `<button class="btn mini-btn" id="mdFolderOk" type="button">移动</button></div>`
+    )
+    const ok = $('mdFolderOk')
+    if (ok) {
+      ok.addEventListener('click', async () => {
+        const sel = $('mdFolderSel')
+        const fresh = $('mdFolderNew')
+        const folder = (fresh && fresh.value.trim()) || (sel && sel.value) || ''
+        modalClose()
+        try {
+          const resp = await postJson('/api/history/move', { ids, folder })
+          if (!resp.ok) throw new Error(resp.error || '移动失败')
+          historyMeta = resp.meta
+          await refreshTasks()
+          toast(folder ? `已移动到“${folder}”` : '已移出文件夹(未分组)')
+        } catch (err) {
+          toast('移动失败:' + (err.message || err), 'error')
+        }
+      })
+    }
+    const cancel = $('mdFolderCancel')
+    if (cancel) cancel.addEventListener('click', modalClose)
+  }
+
+  async function deleteIds(ids) {
+    try {
+      const resp = await postJson('/api/history/delete', { ids })
+      if (!resp.ok) throw new Error(resp.error || '删除失败')
+      for (const id of ids) {
+        if (selectedId === id) selectedId = null
+        selected.delete(id)
+      }
+      await refreshTasks()
+      toast(`已删除 ${resp.removed || ids.length} 项`)
+    } catch (err) {
+      toast('删除失败:' + (err.message || err), 'error')
+    }
+  }
+
+  function deleteConfirm(ids) {
+    modalShow(
+      `<h3>删除 ${ids.length} 项?</h3>` +
+        `<p class="muted">将删除对应会话文件/队列记录与历史条目(队列中运行的任务会被终止)。此操作不可撤销。</p>` +
+        `<div class="modal-actions"><button class="btn mini-btn" id="mdDelCancel" type="button">取消</button>` +
+        `<button class="btn mini-btn danger" id="mdDelOk" type="button">删除</button></div>`
+    )
+    const ok = $('mdDelOk')
+    if (ok) {
+      ok.addEventListener('click', async () => {
+        modalClose()
+        await deleteIds(ids)
+      })
+    }
+    const cancel = $('mdDelCancel')
+    if (cancel) cancel.addEventListener('click', modalClose)
+  }
+
+  function setBatch(on) {
+    batchMode = Boolean(on)
+    if (!batchMode) selected.clear()
+    renderThreadList()
+    const bar = $('batchBar')
+    if (bar) bar.hidden = !batchMode
+    updateBatchBar()
+  }
+
+  function updateBatchBar() {
+    const info = $('batchInfo')
+    if (info) info.textContent = `已选 ${selected.size} 项`
+    const all = $('batchSelAll')
+    if (all) all.textContent = selected.size ? '取消全选' : '全选'
+  }
+
+  function bindHistoryExtras() {
+    document.addEventListener('click', (ev) => {
+      const menu = $('threadCtx')
+      if (menu && !menu.hidden && !ev.target.closest('#threadCtx')) closeCtx()
+      if (!ev.target.closest('#modalBox') && !ev.target.closest('.modal-actions') && !$('modalMask').hidden) {
+        // close modal only when clicking the mask itself
+        if (ev.target === $('modalMask')) modalClose()
+      }
+    })
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        closeCtx()
+        modalClose()
+        if (batchMode) setBatch(false)
+      }
+    })
+    const menu = $('threadCtx')
+    if (menu) {
+      menu.addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('button[data-ctx]')
+        if (!btn) return
+        const act = btn.dataset.ctx
+        const id = ctxRowId
+        closeCtx()
+        const row = mergeThreads().find((x) => x.id === id) || null
+        if (act === 'open' && row) {
+          selectedId = id
+          renderThreadList()
+          renderConversation(row)
+          $('chatColumn').scrollIntoView()
+        } else if (act === 'rename' && row) {
+          renameDialog(id)
+        } else if (act === 'folder' && row) {
+          folderDialog([id])
+        } else if (act === 'delete' && row) {
+          deleteConfirm([id])
+        } else if (act === 'batch') {
+          setBatch(true)
+          if (id) {
+            selected.add(id)
+            updateBatchBar()
+            renderThreadList()
+          }
+        }
+      })
+    }
+    const bindBtn = (id, fn) => {
+      const el = $(id)
+      if (el) el.addEventListener('click', fn)
+    }
+    bindBtn('batchSelAll', () => {
+      const list = mergeThreads()
+      if (selected.size) selected.clear()
+      else for (const t of list) selected.add(t.id)
+      updateBatchBar()
+      renderThreadList()
+    })
+    bindBtn('batchMove', () => {
+      if (!selected.size) {
+        toast('请先勾选要移动的任务', 'error')
+        return
+      }
+      folderDialog([...selected])
+    })
+    bindBtn('batchDelete', () => {
+      if (!selected.size) {
+        toast('请先勾选要删除的任务', 'error')
+        return
+      }
+      deleteConfirm([...selected])
+    })
+    bindBtn('batchCancel', () => setBatch(false))
+    bindBtn('batchBar', null)
   }
 
   function currentSelected() {
@@ -192,11 +496,7 @@
       body.textContent = '已加入队列,等待调度…'
     } else if (status === 'SUSPENDED') {
       body.className = 'agent-body status'
-      body.textContent = t.reason === 'peak-window'
-        ? '任务已挂起:当前为高峰时段(PEAK),进入谷价后自动开始。'
-        : t.reason === 'waiting-schedule'
-          ? '任务已挂起:等待计划开始时间。'
-          : '任务已挂起。'
+      body.textContent = suspendReasonText(t) + ' · 启动时间 ' + suspendStartText(t)
     } else if (status === 'COMPLETED') {
       body.className = 'agent-body'
       const answer = t.assistantText || '任务已完成。查看日志可获取完整输出。'
@@ -241,12 +541,31 @@
     return denom > 0 ? Math.round(((u.cacheReadTokens || 0) / denom) * 1000) / 10 : null
   }
 
+  function suspendStartText(t) {
+    if (t.startAtMs) return fmtDate(t.startAtMs)
+    const nb = lastStatus && lastStatus.billing
+    if (t.reason === 'peak-window' && nb && nb.nextChangeIso) return `谷价后≈${nb.nextChangeTime || ''}`
+    return '—'
+  }
+
+  function suspendReasonText(t) {
+    if (t.reason === 'waiting-schedule') return '等待计划启动'
+    if (t.reason === 'peak-window') return '等待谷价(PEAK)'
+    return t.reason || String(t.status || 'SUSPENDED')
+  }
+
   function renderUsageStrip() {
     const t = pickUsageTask()
     const stateEl = $('uState')
     const set = (id, v) => {
       const el = $(id)
       if (el) el.textContent = v
+    }
+    const susWrap = $('usSusWrap')
+    const atWrap = $('usAtWrap')
+    const hideSus = () => {
+      if (susWrap) susWrap.hidden = true
+      if (atWrap) atWrap.hidden = true
     }
     if (!t) {
       if (stateEl) {
@@ -256,27 +575,49 @@
       set('uModel', '—')
       set('uIn', '0')
       set('uCache', '0')
+      set('uWrite', '0')
+      set('uReason', '0')
       set('uOut', '0')
       set('uHit', '—')
       set('uCost', '—')
       set('uHint', '暂无任务 - 输入任务后在此常驻显示用量参考')
+      hideSus()
       return
     }
     const u = t.usage || {}
+    const st = String(t.status || '—').toUpperCase()
     if (stateEl) {
-      stateEl.textContent = String(t.status || '—').toUpperCase()
+      stateEl.textContent = st
       stateEl.className = 'badge ' + String(t.status || '').toLowerCase()
     }
     set('uModel', esc(t.model || '—'))
     set('uIn', (u.inputTokens || 0).toLocaleString())
     set('uCache', (u.cacheReadTokens || 0).toLocaleString())
+    set('uWrite', (u.cacheWriteTokens || 0).toLocaleString())
+    set('uReason', (u.reasoningTokens || 0).toLocaleString())
     set('uOut', (u.outputTokens || 0).toLocaleString())
     const hit = hitRateOf(u)
     set('uHit', hit == null ? '—' : hit + '%')
     set('uCost', t.costCny != null ? Number(t.costCny).toFixed(6) + (t.estimated ? '(估)' : '') : '—')
+    // 挂起状态 + 启动时间(计划开始或谷价下一档)额外显示
+    if (st === 'SUSPENDED') {
+      if (susWrap) {
+        susWrap.hidden = false
+        const rEl = $('uSusReason')
+        if (rEl) rEl.textContent = suspendReasonText(t)
+      }
+      if (atWrap) {
+        atWrap.hidden = false
+        const aEl = $('uSusAt')
+        if (aEl) aEl.textContent = suspendStartText(t)
+      }
+    } else {
+      hideSus()
+    }
     const title = esc((t.prompt || t.id || '').split('\n')[0]).slice(0, 40)
     const secs = Math.max(0, Math.floor(((t.endedAt || Date.now()) - (t.createdAt || Date.now())) / 1000))
-    set('uHint', `会话 ${title}… · 时长 ${secs}s`)
+    const stNote = st === 'SUSPENDED' ? ` · ${suspendReasonText(t)}` : ''
+    set('uHint', `会话 ${title}…${stNote} · 时长 ${secs}s`)
   }
 
   /* ------- 小图标 + 鼠标悬浮概要窗 ------- */
@@ -404,6 +745,7 @@
       allThreads = tasksData.tasks || []
       queueThreads = queueData.tasks || []
       lastQueueData = queueData
+      if (tasksData.meta) historyMeta = tasksData.meta
       // scheduler peak hint is attached by the server only to queue rows; keep statuses for direct sessions too.
       for (const q of queueThreads) q.schedulerHint = q.reason || ''
       renderThreadList()
@@ -496,6 +838,7 @@
     bindEvents()
     bindSoundButton()
     bindPopovers()
+    bindHistoryExtras()
     DSSound.refresh().then(syncSoundButton)
     refreshTasks()
     applyStatus()

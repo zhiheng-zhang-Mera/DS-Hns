@@ -195,6 +195,52 @@ body.electron .electron-only { display: inline-flex; }
 .hover-pop .hp-row.off-t, .hp-row.off-t { color: var(--green); }
 .hover-pop .hp-hint { margin-top: 6px; color: var(--accent); font-size: 11px; border-top: 1px dashed var(--line); padding-top: 5px; }
 
+/* ===== 挂起附加信息 ===== */
+.usage-strip .us-sus b { color: var(--amber); }
+.usage-strip .badge.suspended { background: var(--amber); color: #241404; }
+
+/* ===== 左侧历史:文件夹分组/批量/右键菜单/弹层 ===== */
+.thread-group { padding: 8px 9px 2px; font-size: 11px; color: var(--muted); letter-spacing: .4px; cursor: pointer; user-select: none; display: flex; gap: 6px; align-items: center; }
+.thread-group:hover { color: var(--text); }
+.thread-group .cnt { color: var(--muted); }
+.thread-item.batch .t-title, .thread-item.sel .t-title { color: var(--accent); }
+.thread-item.sel { background: rgba(63, 161, 255, .14); border-color: var(--accent); }
+.thread-check { display: none; width: 14px; height: 14px; accent-color: var(--accent); margin-top: 4px; flex: none; cursor: pointer; }
+body.batch-mode .thread-check { display: inline-block; }
+.batch-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--panel2); border-bottom: 1px solid var(--line); padding: 7px 10px;
+}
+.thread-ctx {
+  position: fixed; z-index: 90; min-width: 168px; background: #1a212b; border: 1px solid var(--line);
+  border-radius: 10px; padding: 4px; box-shadow: 0 10px 28px rgba(0,0,0,.5); font-size: 13px;
+}
+.thread-ctx button {
+  display: block; width: 100%; text-align: left; background: none; border: 0; color: var(--text);
+  padding: 7px 10px; border-radius: 7px; cursor: pointer;
+}
+.thread-ctx button:hover { background: var(--panel2); }
+.thread-ctx button.danger { color: var(--red); }
+.thread-ctx hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.modal-mask {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 120;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal {
+  width: min(380px, 90vw); background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.modal h3 { margin: 0; font-size: 15px; }
+.modal input[type="text"], .modal select {
+  background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+  border-radius: 8px; padding: 8px 10px; font: inherit; width: 100%;
+}
+.modal .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.modal .muted { margin: 0; }
+.thread-item .alias-tag { color: var(--amber); font-size: 11px; margin-left: 4px; }
+.modal .btn.danger, .batch-bar .danger { color: var(--red); border-color: var(--red); }
+.thread-item.st-SUSPENDED .t-title { color: var(--amber); }
+
 /* Ringtone settings panel */
 .vol-row { display: flex; align-items: center; gap: 12px; }
 .vol-row input[type="range"] { flex: 1; accent-color: var(--accent); }

@@ -13,14 +13,33 @@ const {
   formatInZone
 } = require('../billing/peak-engine')
 const { calculateTaskCost } = require('../billing/cost-calculator')
-const { listSessions } = require('../tracker/session-reader')
-const { appendRecent, loadRecent } = require('../tracker/task-history')
+const { listSessions, deleteSessionsFor } = require('../tracker/session-reader')
+const { appendRecent, loadRecent, removeEntries } = require('../tracker/task-history')
 const soundService = require('../notifications/sound-service')
 const scheduler = require('../scheduler/scheduler')
 const systemProbe = require('../scheduler/system')
 const settingsService = require('../settings/settings-service')
 
 loadProjectEnv()
+
+/* ---------- history metadata: rename aliases + folder assignments ---------- */
+function historyMetaFile() {
+  return path.join(PATHS.STATE, 'history-meta.json')
+}
+
+function loadHistoryMeta() {
+  try {
+    return JSON.parse(fs.readFileSync(historyMetaFile(), 'utf8'))
+  } catch {
+    return { aliases: {}, folders: {} }
+  }
+}
+
+function saveHistoryMeta(meta) {
+  fs.mkdirSync(PATHS.STATE, { recursive: true })
+  fs.writeFileSync(historyMetaFile(), JSON.stringify(meta, null, 2), 'utf8')
+  return meta
+}
 
 const HOST = process.env.DSH_UI_HOST || app.ui?.host || '127.0.0.1'
 // Requested port; if it is already taken the monitor automatically staggers
@@ -302,7 +321,7 @@ async function handleApi(req, res, url) {
       if (!seen.has(item.id)) merged.push(item)
     }
     merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-    return json(res, { tasks: merged.slice(0, 50) })
+    return json(res, { tasks: merged.slice(0, 50), meta: loadHistoryMeta() })
   }
   if (url.pathname === '/api/pricing') {
     return json(res, buildPricingView())
@@ -391,6 +410,58 @@ async function handleApi(req, res, url) {
   }
   if (url.pathname === '/api/queue/config') {
     return json(res, { config: scheduler.config })
+  }
+  if (url.pathname === '/api/history/rename' && req.method === 'POST') {
+    const body = await readBody(req)
+    try {
+      const id = String(body.id || '').trim()
+      if (!id) throw new Error('missing id')
+      const meta = loadHistoryMeta()
+      const title = String(body.title || '').trim().slice(0, 200)
+      if (title) meta.aliases[id] = title
+      else delete meta.aliases[id]
+      saveHistoryMeta(meta)
+      return json(res, { ok: true, meta })
+    } catch (err) {
+      return json(res, { ok: false, error: String(err?.message || err) }, 400)
+    }
+  }
+  if (url.pathname === '/api/history/move' && req.method === 'POST') {
+    const body = await readBody(req)
+    try {
+      const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : []
+      if (!ids.length) throw new Error('missing ids')
+      const folder = String(body.folder || '').trim().slice(0, 80)
+      const meta = loadHistoryMeta()
+      for (const id of ids) {
+        if (folder) meta.folders[id] = folder
+        else delete meta.folders[id]
+      }
+      saveHistoryMeta(meta)
+      return json(res, { ok: true, meta })
+    } catch (err) {
+      return json(res, { ok: false, error: String(err?.message || err) }, 400)
+    }
+  }
+  if (url.pathname === '/api/history/delete' && req.method === 'POST') {
+    const body = await readBody(req)
+    try {
+      const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean) : []
+      if (!ids.length) throw new Error('missing ids')
+      const removedSessions = deleteSessionsFor(ids)
+      const removedQueue = scheduler.removeTasks(ids)
+      removeEntries(ids)
+      const meta = loadHistoryMeta()
+      for (const id of ids) {
+        delete meta.aliases[id]
+        delete meta.folders[id]
+      }
+      saveHistoryMeta(meta)
+      log(`history delete: ${ids.length} ids (sessions=${removedSessions}, queue=${removedQueue})`)
+      return json(res, { ok: true, removed: ids.length })
+    } catch (err) {
+      return json(res, { ok: false, error: String(err?.message || err) }, 400)
+    }
   }
   return notFound(res)
 }

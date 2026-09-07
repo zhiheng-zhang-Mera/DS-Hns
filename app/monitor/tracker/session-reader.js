@@ -226,9 +226,10 @@ function listSessions({ root = PATHS.SESSIONS, limit = 200 } = {}) {
           acc.outputTokens += u.outputTokens
           acc.cacheReadTokens += u.cacheReadTokens
           acc.cacheWriteTokens += u.cacheWriteTokens
+          acc.reasoningTokens += u.reasoningTokens || 0
           return acc
         },
-        { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
+        { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0 }
       )
     })
   }
@@ -236,4 +237,60 @@ function listSessions({ root = PATHS.SESSIONS, limit = 200 } = {}) {
   return limit ? summaries.slice(0, limit) : summaries
 }
 
-module.exports = { walkSessionFiles, parseSessionFile, listSessions, collectUsage }
+/** Fast id/cwd lookup from the first (session header) line — no full parse. */
+function headerInfo(file) {
+  try {
+    const first = fs
+      .readFileSync(file, 'utf8')
+      .split(/\r?\n/)
+      .find(Boolean)
+    const ev = JSON.parse(first || 'null')
+    if (ev && ev.type === 'session') return { id: ev.id, cwd: ev.cwd || '' }
+  } catch {
+    /* unreadable session */
+  }
+  return null
+}
+
+/**
+ * Deletes session directories whose header id matches `ids`, or whose cwd is
+ * inside a queue task dir (<cwd>\active\<queueId>). Returns removed count.
+ */
+function deleteSessionsFor(ids) {
+  const want = new Set(ids.map(String))
+  const root = PATHS.SESSIONS
+  if (!fs.existsSync(root)) return 0
+  let removed = 0
+  for (const group of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!group.isDirectory()) continue
+    const groupDir = path.join(root, group.name)
+    let entries = []
+    try {
+      entries = fs.readdirSync(groupDir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const ent of entries) {
+      if (!ent.isDirectory()) continue
+      const jsonl = path.join(groupDir, ent.name, 'session.jsonl')
+      if (!fs.existsSync(jsonl)) continue
+      const info = headerInfo(jsonl)
+      const cwdMatch =
+        info &&
+        /(?:[\\/])active[\\/]([^\\/]+?)[\\/]?$/.test(info.cwd) &&
+        want.has(String(info.cwd).replace(/[\\/]$/, '').split(/[\\/]/).pop())
+      if (info && (want.has(String(info.id)) || cwdMatch)) {
+        try {
+          fs.rmSync(path.dirname(jsonl), { recursive: true, force: true })
+          removed++
+        } catch {
+          /* keep going */
+        }
+      }
+    }
+  }
+  if (removed) parsedCache.clear()
+  return removed
+}
+
+module.exports = { walkSessionFiles, parseSessionFile, listSessions, collectUsage, headerInfo, deleteSessionsFor }
