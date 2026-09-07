@@ -341,3 +341,24 @@ button:hover,
   border-color: rgba(255, 95, 86, .75) !important;
   color: var(--red) !important;
 }
+
+/* ===== 附件与权限选择 ===== */
+.attach-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 2px 2px; }
+.attach-chips .att-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel2); border: 1px solid rgba(255,255,255,.35);
+  border-radius: 999px; padding: 3px 10px; font-size: 12px;
+}
+.attach-chips .att-chip em { color: var(--muted); font-style: normal; font-size: 11px; }
+.att-chip .att-x {
+  cursor: pointer; color: var(--red); font-weight: 700; padding: 0 2px;
+}
+.perm-chip select {
+  background: var(--panel); color: var(--text); border: 1px solid rgba(255,255,255,.45);
+  border-radius: 6px; font: inherit; font-size: 12px; padding: 2px 4px;
+}
+.msg-att { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 2px; }
+.msg-att .att-chip { pointer-events: none; }
+.composer .chip { cursor: default; }
+.composer label.chip input { cursor: pointer; }
+

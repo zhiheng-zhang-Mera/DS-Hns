@@ -59,7 +59,15 @@
           rows="1"
           placeholder="描述任务… 例如: 检查项目目录并运行测试"
         ></textarea>
+        <div id="attachChips" class="attach-chips" hidden></div>
         <div class="composer-tools">
+          <label class="chip"><input id="chatFiles" type="file" multiple hidden />📎 附件</label>
+          <label class="chip perm-chip">权限
+            <select id="chatPerm" title="本次任务的工作区访问权限">
+              <option value="workspace-write">工作区访问</option>
+              <option value="danger-full-access">完全访问</option>
+            </select>
+          </label>
           <label class="chip"><input id="chatAllowPeak" type="checkbox" /> 立即运行(允许高峰)</label>
           <label class="chip date-chip">定时<input id="chatStartAt" type="datetime-local" /></label>
           <span id="composerHint" class="muted small"></span>

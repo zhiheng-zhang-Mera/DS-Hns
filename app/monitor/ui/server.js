@@ -372,6 +372,37 @@ async function handleApi(req, res, url) {
   if (url.pathname === '/api/system') {
     return json(res, scheduler.refreshSystem())
   }
+  if (url.pathname === '/api/attachments/upload' && req.method === 'POST') {
+    const body = await readBody(req)
+    try {
+      const taskId = String(body.taskId || '').trim()
+      if (!/^[A-Za-z0-9._-]+$/.test(taskId)) throw new Error('invalid taskId')
+      const files = Array.isArray(body.files) ? body.files : []
+      if (!files.length) throw new Error('no files')
+      if (files.length > 5) throw new Error('单次最多上传 5 个附件')
+      const attDir = path.join(getWorkspaceRoot(), 'active', taskId, 'attachments')
+      fs.mkdirSync(attDir, { recursive: true })
+      const saved = []
+      for (const f of files) {
+        const raw = Buffer.from(String(f.data || ''), 'base64')
+        if (!raw.length) throw new Error('empty file data')
+        if (raw.length > 100 * 1024 * 1024) throw new Error(`文件过大(上限 100MB): ${String(f.name || '')}`)
+        const base = path.basename(String(f.name || 'attachment.bin')).replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'attachment.bin'
+        let name = base
+        let n = 1
+        while (fs.existsSync(path.join(attDir, name))) {
+          name = `${path.basename(base, path.extname(base))}_${n}${path.extname(base)}`
+          n++
+        }
+        fs.writeFileSync(path.join(attDir, name), raw)
+        saved.push(name)
+      }
+      log(`attachments uploaded: ${saved.length} file(s) for task ${taskId}`)
+      return json(res, { ok: true, files: saved }, 201)
+    } catch (err) {
+      return json(res, { ok: false, error: String(err?.message || err) }, 400)
+    }
+  }
   if (url.pathname === '/api/queue') {
     if (req.method === 'POST') {
       const body = await readBody(req)
@@ -380,7 +411,9 @@ async function handleApi(req, res, url) {
           prompt: body.prompt,
           allowPeak: body.allowPeak,
           startAt: body.startAt || null,
-          taskId: body.taskId || null
+          taskId: body.taskId || null,
+          permissionMode: body.permissionMode || null,
+          attachments: Array.isArray(body.attachments) ? body.attachments : undefined
         })
         return json(res, { ok: true, task: scheduler.publicTask(task) }, 201)
       } catch (err) {
@@ -485,7 +518,7 @@ function readBody(req) {
     let size = 0
     req.on('data', (c) => {
       size += c.length
-      if (size > 14 * 1024 * 1024) {
+      if (size > 600 * 1024 * 1024) {
         reject(new Error('body too large'))
         req.destroy()
         return

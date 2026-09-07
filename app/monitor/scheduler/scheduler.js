@@ -124,7 +124,7 @@ class SchedulerService extends EventEmitter {
     }
   }
 
-  addTask({ prompt, allowPeak, startAt, taskId } = {}) {
+  addTask({ prompt, allowPeak, startAt, taskId, permissionMode, attachments } = {}) {
     if (!prompt || !String(prompt).trim()) throw new Error('prompt is required')
     const id = (taskId && /^[A-Za-z0-9._-]+$/.test(taskId)) ? taskId : `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     const task = {
@@ -139,6 +139,15 @@ class SchedulerService extends EventEmitter {
       startedAt: null,
       endedAt: null,
       exitCode: null,
+      // 每任务权限模式(为空则用启动时 DSH_PERMISSION_MODE)
+      permissionMode:
+        permissionMode === 'danger-full-access' || permissionMode === 'workspace-write'
+          ? permissionMode
+          : null,
+      // 附件文件名列表(已由上传接口放入 工作区\active\<id>\attachments\)
+      attachments: Array.isArray(attachments)
+        ? attachments.map((a) => String(a)).filter(Boolean).slice(0, 20)
+        : [],
       logFile: null,
       sessionDir: null,
       error: null
@@ -329,12 +338,20 @@ class SchedulerService extends EventEmitter {
     t.attempts += 1
     t.reason = null
     const taskDir = getActiveDir(t.id)
+    // 附件提示词注记(文件已置于 taskDir\attachments\ 下,提示 agent 使用)
+    let promptArg = t.prompt
+    if (Array.isArray(t.attachments) && t.attachments.length) {
+      const note =
+        '\n\n附件:以下文件已上传到当前任务工作目录的 attachments\\ 子目录,请按需读取/处理:\n' +
+        t.attachments.map((a) => `- ${a}`).join('\n')
+      promptArg = `${t.prompt}${note}`
+    }
     const launched = runner.startJob({
       id: t.id,
-      prompt: t.prompt,
+      prompt: promptArg,
       taskDir,
       logFile: t.logFile || undefined,
-      permissionMode: process.env.DSH_PERMISSION_MODE
+      permissionMode: t.permissionMode || process.env.DSH_PERMISSION_MODE
     })
     t.logFile = launched.logFile
     t.child = launched.child

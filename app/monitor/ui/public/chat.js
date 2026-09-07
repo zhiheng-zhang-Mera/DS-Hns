@@ -459,6 +459,12 @@
     } else {
       area.appendChild(msgUser(`任务 ${t.id}`))
     }
+    if (Array.isArray(t.attachments) && t.attachments.length) {
+      const att = document.createElement('div')
+      att.className = 'msg-att'
+      att.innerHTML = t.attachments.map((a) => `<span class="att-chip">📎 ${esc(a)}</span>`).join(' ')
+      area.appendChild(att)
+    }
     area.appendChild(msgAgentFor(t))
     area.scrollTop = area.scrollHeight
   }
@@ -848,6 +854,69 @@
     }
   }
 
+  // ---------------- 附件上传(发送前) ----------------
+  let attachFiles = [] // { name, size, file }
+
+  function fmtSize(b) {
+    if (b == null) return ''
+    if (b < 1024) return b + ' B'
+    if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB'
+    return (b / 1024 / 1024).toFixed(1) + ' MB'
+  }
+
+  function renderAttachChips() {
+    const box = $('attachChips')
+    if (!box) return
+    box.hidden = !attachFiles.length
+    box.innerHTML = ''
+    attachFiles.forEach((f, i) => {
+      const span = document.createElement('span')
+      span.className = 'att-chip'
+      span.innerHTML = `📎 ${esc(f.name)} <em>${fmtSize(f.size)}</em> <b class="att-x" data-i="${i}">×</b>`
+      box.appendChild(span)
+    })
+  }
+
+  function fileToB64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result).split(',')[1] || '')
+      r.onerror = reject
+      r.readAsDataURL(file)
+    })
+  }
+
+  function bindFileAttach() {
+    const input = $('chatFiles')
+    const box = $('attachChips')
+    if (!input || !box) return
+    input.addEventListener('change', () => {
+      const picked = Array.from(input.files || [])
+      for (const f of picked) {
+        if (attachFiles.length >= 5) {
+          toast('单次最多上传 5 个附件(已忽略其余)', 'error')
+          break
+        }
+        if (f.size > 100 * 1024 * 1024) {
+          toast(`附件过大(上限 100MB):${f.name}`, 'error')
+          continue
+        }
+        if (!attachFiles.some((x) => x.name === f.name && x.size === f.size)) {
+          attachFiles.push({ name: f.name, size: f.size, file: f })
+        }
+      }
+      input.value = ''
+      renderAttachChips()
+    })
+    box.addEventListener('click', (ev) => {
+      const x = ev.target.closest('.att-x')
+      if (!x) return
+      const i = Number(x.dataset.i)
+      if (!Number.isNaN(i)) attachFiles.splice(i, 1)
+      renderAttachChips()
+    })
+  }
+
   function bindEvents() {
     const newBtn = $('newChatBtn')
     const clearNew = () => {
@@ -874,26 +943,49 @@
       const prompt = $('chatComposer').value.trim()
       if (!prompt) return
       const startVal = $('chatStartAt').value
-      const body = {
-        prompt,
-        allowPeak: $('chatAllowPeak').checked,
-        startAt: startVal ? new Date(startVal).toISOString() : null
-      }
+      const files = attachFiles.slice()
+      const taskId = files.length ? `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` : null
+      const permissionMode = $('chatPerm') ? $('chatPerm').value : 'workspace-write'
       const send = $('sendBtn')
       send.disabled = true
-      const resp = await postJson('/api/queue', body)
-      send.disabled = false
-      if (!resp.ok) {
-        toast('任务添加失败:' + (resp.error || '未知错误'), 'error')
-        return
+      try {
+        if (files.length) {
+          // 1) 先把附件上传到 工作区\active\<taskId>\attachments\
+          for (const f of files) {
+            const data = await fileToB64(f.file)
+            const up = await postJson('/api/attachments/upload', {
+              taskId,
+              files: [{ name: f.name, data }]
+            })
+            if (!up.ok) throw new Error(`附件上传失败(${f.name}):${up.error || '未知错误'}`)
+          }
+        }
+        const body = {
+          prompt,
+          allowPeak: $('chatAllowPeak').checked,
+          startAt: startVal ? new Date(startVal).toISOString() : null,
+          taskId: taskId || null,
+          permissionMode,
+          attachments: files.map((f) => f.name)
+        }
+        const resp = await postJson('/api/queue', body)
+        if (!resp.ok) throw new Error(resp.error || '任务添加失败')
+        selectedId = resp.task?.id || taskId || null
+        $('chatComposer').value = ''
+        $('chatStartAt').value = ''
+        $('chatAllowPeak').checked = false
+        if ($('chatPerm')) $('chatPerm').value = 'workspace-write'
+        attachFiles = []
+        renderAttachChips()
+        await refreshTasks()
+        const item = currentSelected()
+        if (item) renderConversation(item)
+        toast('已加入排队队列')
+      } catch (err) {
+        toast('任务添加失败:' + (err.message || err), 'error')
+      } finally {
+        send.disabled = false
       }
-      selectedId = resp.task?.id || null
-      $('chatComposer').value = ''
-      $('chatStartAt').value = ''
-      await refreshTasks()
-      const item = currentSelected()
-      if (item) renderConversation(item)
-      toast('已加入排队队列')
     })
 
     $('chatComposer').addEventListener('keydown', (ev) => {
@@ -944,6 +1036,7 @@
       document.body.classList.add('electron')
     }
     bindEvents()
+    bindFileAttach()
     bindSoundButton()
     bindPopovers()
     bindHistoryExtras()
