@@ -25,6 +25,32 @@ let resolveHarnessUrl = null
 let rejectHarnessUrl = null
 let extensionManager = null
 
+/**
+ * Load project-local config without ever overriding an existing process/system
+ * environment variable. This keeps system DEEPSEEK_API_KEY highest priority
+ * while making config/.env work even when Electron is launched directly from
+ * a shortcut instead of scripts/run.ps1.
+ */
+function loadProjectEnv() {
+  const file = path.join(ROOT, 'config', '.env')
+  let text = ''
+  try { text = fs.readFileSync(file, 'utf8') } catch { return }
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq).trim()
+    let value = line.slice(eq + 1).trim()
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1)
+    }
+    if (!value || value === 'sk-...' || value === 'YOUR_API_KEY' || value === 'YOUR_DEEPSEEK_API_KEY') continue
+    if (!process.env[key]) process.env[key] = value
+  }
+}
+
+loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
 app.setName('DS-Harness')
