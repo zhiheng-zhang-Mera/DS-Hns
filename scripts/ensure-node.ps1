@@ -44,14 +44,14 @@ $bundled = Find-BundledNode
 if ($bundled) {
   Write-Host "[ensure-node] reuse bundled Node $(& (Join-Path $bundled.FullName 'node.exe') --version)"
   Write-Output $bundled.FullName
-  exit 0
+  return
 }
 
 $sysNode = Get-Command node -ErrorAction SilentlyContinue
 if ($sysNode -and (Test-CompatibleNode $sysNode.Source)) {
   Write-Host "[ensure-node] reuse PATH Node $(& $sysNode.Source --version)"
   Write-Output (Split-Path -Parent $sysNode.Source)
-  exit 0
+  return
 }
 if ($sysNode) {
   Write-Host "[ensure-node] PATH Node is too old ($(& $sysNode.Source --version)); need Node >= $minMajor."
@@ -80,7 +80,7 @@ function Expand-CachedZip {
 if (Expand-CachedZip) {
   Write-Host "[ensure-node] ready: $targetDir ($(& $targetExe --version))"
   Write-Output $targetDir
-  exit 0
+  return
 }
 
 Write-Host "[ensure-node] no compatible local Node found. Downloading portable node-$version once..."
@@ -113,4 +113,3 @@ if (-not (Test-CompatibleNode $targetExe)) {
 }
 Write-Host "[ensure-node] ready: $targetDir ($(& $targetExe --version))"
 Write-Output $targetDir
-exit 0
