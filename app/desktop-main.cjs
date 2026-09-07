@@ -259,6 +259,12 @@ ipcMain.on('ds-player:play', (_event, payload) => {
   playInHost(payload.url, payload.volume)
 })
 
+// In-page navigation (页内导航替代系统菜单栏)。
+ipcMain.on('ds-nav', (_event, kind) => {
+  if (kind === 'official') goDsh()
+  else if (VIEW_PATHS[kind]) goUi(VIEW_PATHS[kind])
+})
+
 /* ------------------------------------------------------------------ *
  *  main window + view switching
  * ------------------------------------------------------------------ */
@@ -303,8 +309,33 @@ function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+  attachWindowKeys(mainWindow)
   attachScreenshot(mainWindow, startView === 'dsh' ? 'dsh' : startView)
   return mainWindow
+}
+
+/** In-window keyboard shortcuts (replaces the removed native menu bar). */
+function attachWindowKeys(win) {
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || !input.control) return
+    const k = String(input.key || '').toLowerCase()
+    if (k === '1') {
+      event.preventDefault()
+      goUi(VIEW_PATHS.chat)
+    } else if (k === '2') {
+      event.preventDefault()
+      goUi(VIEW_PATHS.monitor)
+    } else if (k === '3') {
+      event.preventDefault()
+      goUi(VIEW_PATHS.settings)
+    } else if (k === '4') {
+      event.preventDefault()
+      goDsh()
+    } else if (k === 'i' && input.shift) {
+      event.preventDefault()
+      win.webContents.toggleDevTools()
+    }
+  })
 }
 
 /** --screenshot-test <path>: capture the page + DOM self-check, then quit. */
@@ -391,47 +422,9 @@ function goUi(viewPath) {
 }
 
 function buildMenu() {
-  const template = [
-    {
-      label: '文件',
-      submenu: [{ label: '退出 DS-Harness', accelerator: 'CmdOrCtrl+Q', role: 'quit' }]
-    },
-    {
-      label: '视图',
-      submenu: [
-        { label: '主界面 · 对话', accelerator: 'CmdOrCtrl+1', click: () => goUi(VIEW_PATHS.chat) },
-        { label: '监控(队列/峰谷/成本)', accelerator: 'CmdOrCtrl+2', click: () => goUi(VIEW_PATHS.monitor) },
-        { label: '设置(铃声/密钥/并发…)', accelerator: 'CmdOrCtrl+3', click: () => goUi(VIEW_PATHS.settings) },
-        { type: 'separator' },
-        { label: '官方 dsh Web 视图(按需启动引擎)', accelerator: 'CmdOrCtrl+4', click: () => goDsh() },
-        { type: 'separator' },
-        { label: '重新加载', role: 'reload' },
-        { label: '开发者工具', role: 'toggleDevTools' }
-      ]
-    },
-    {
-      label: '帮助',
-      submenu: [
-        {
-          label: '关于 DS-Harness',
-          click: () => {
-            dialog.showMessageBox({
-              type: 'info',
-              title: 'DS-Harness',
-              message: 'DS-Harness · DeepSeek Harness Desktop',
-              detail:
-                `主界面:集成对话(ChatGPT/Codex 式),调度中心服务 ${uiOrigin()}\n` +
-                `官方 dsh Web 视图(按需启动): ${dshOrigin()}\n` +
-                `引擎数据目录: ${PATHS.DSH_HOME}\n` +
-                `铃声配置: config\\sound.json(总开关/每事件开关/预设/本地文件)\n` +
-                `(端口被占用时已自动错开,实际端口见 data\\state\\ports.json)`
-            })
-          }
-        }
-      ]
-    }
-  ]
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  // 顶部白色系统菜单栏已移除:视图切换并入窗口内容区
+  // (页内导航 + Ctrl+1..4 快捷键,由 attachWindowKeys 接管)。
+  Menu.setApplicationMenu(null)
 }
 
 /* ------------------------------------------------------------------ *

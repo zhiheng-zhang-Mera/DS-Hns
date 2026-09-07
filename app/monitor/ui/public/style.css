@@ -194,3 +194,6 @@ tr:hover td { background: rgba(255, 255, 255, 0.02); }
   .form-grid { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: stretch; }
 }
+
+/* hidden 必须始终生效(display 规则不得覆盖) */
+[hidden] { display: none !important; }

@@ -831,6 +831,16 @@
 
   }
 
+  function bindOfficialButton() {
+    const btn = document.getElementById('officialBtn')
+    if (!btn) return
+    if (!(window.dsDesktop && window.dsDesktop.nav)) {
+      btn.hidden = true
+      return
+    }
+    btn.addEventListener('click', () => window.dsDesktop.nav.open('official'))
+  }
+
   function boot() {
     if (window.dsDesktop && window.dsDesktop.isElectron) {
       document.body.classList.add('electron')
@@ -839,6 +849,7 @@
     bindSoundButton()
     bindPopovers()
     bindHistoryExtras()
+    bindOfficialButton()
     DSSound.refresh().then(syncSoundButton)
     refreshTasks()
     applyStatus()

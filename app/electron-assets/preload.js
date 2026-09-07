@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld('dsDesktop', {
     chrome: process.versions.chrome
   },
   platform: process.platform,
+  nav: {
+    // 页内导航 → 主进程(替代被移除的系统菜单栏)
+    open(kind) {
+      ipcRenderer.send('ds-nav', kind)
+    }
+  },
   player: {
     play(payload) {
       ipcRenderer.send('ds-player:play', payload)

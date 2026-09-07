@@ -241,6 +241,10 @@ body.batch-mode .thread-check { display: inline-block; }
 .modal .btn.danger, .batch-bar .danger { color: var(--red); border-color: var(--red); }
 .thread-item.st-SUSPENDED .t-title { color: var(--amber); }
 
+/* hidden 必须始终生效:display 规则(如 flex)不得覆盖它,否则会出现
+   常驻遮挡层/常驻面板,导致页面无法交互。 */
+[hidden] { display: none !important; }
+
 /* Ringtone settings panel */
 .vol-row { display: flex; align-items: center; gap: 12px; }
 .vol-row input[type="range"] { flex: 1; accent-color: var(--accent); }
