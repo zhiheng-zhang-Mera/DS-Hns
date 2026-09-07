@@ -3,13 +3,14 @@
  * DS-Harness — DeepSeek Harness 桌面客户端（Alien 式外壳 + Mega 调度中心合并壳）。
  *
  * 单进程做两件事:
- *   1. 拉起官方 dsh Web UI（headless dsh 引擎,默认 http://127.0.0.1:3080/,引擎 home = <root>\data）
+ *   1. 拉起官方 dsh Web UI（headless dsh 引擎,引擎 home = <root>\data）
  *   2. 同进程内运行 3300 调度中心监控服务（队列/峰谷/计费/跟踪/铃声事件）
  * 主窗口默认加载 dsh Web;菜单/快捷键可切换到调度中心各视图(聊天/监控/设置)。
  * 铃声事件由 3300 服务推送,经隐藏“音频宿主”窗口播放——无论当前停留在哪个视图都会响。
  *
- * 端口可用环境变量覆盖（测试/端口冲突时）:DSH_UI_PORT, DSH_DSH_WEB_PORT。
- * 关闭窗口即停止 dsh 引擎与监控服务;日志中认证令牌一律脱敏。
+ * 端口自动错开:默认 dsh Web=3080、调度中心=3300;若被其他实例占用,启动时
+ * 自动向后寻找空闲端口(最多 +30),并把实际端口写入 data\state\ports.json。
+ * 也可用 DSH_UI_PORT / DSH_DSH_WEB_PORT 显式指定起点。
  */
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
@@ -19,21 +20,8 @@ const fs = require('node:fs')
 
 const paths = require('./monitor/utils/paths')
 const { ROOT, PATHS, app: appConfig } = paths
-const { loadProjectEnv } = require('./monitor/utils/env')
+const { findFreePort } = require('./monitor/utils/ports')
 
-// Ports: environment wins, then config/app.json.
-process.env.DSH_UI_PORT = process.env.DSH_UI_PORT || String(appConfig.ui?.port || 3300)
-process.env.DSH_DSH_WEB_HOST = process.env.DSH_DSH_WEB_HOST || appConfig.dshWeb?.host || '127.0.0.1'
-process.env.DSH_DSH_WEB_PORT = process.env.DSH_DSH_WEB_PORT || String(appConfig.dshWeb?.port || 3080)
-
-const { startServer, stopServer, setBellHook } = require('./monitor/ui/server')
-const soundService = require('./monitor/notifications/sound-service')
-
-// .env secrets (API key etc.) must be in process.env before the engine starts.
-loadProjectEnv()
-
-const UI_ORIGIN = `http://127.0.0.1:${process.env.DSH_UI_PORT}`
-const DSH_ORIGIN = `http://${process.env.DSH_DSH_WEB_HOST}:${process.env.DSH_DSH_WEB_PORT}`
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const PRELOAD = path.join(__dirname, 'electron-assets', 'preload.js')
 const STARTUP_TIMEOUT_MS = 90_000
@@ -42,18 +30,33 @@ const VIEW_PATHS = { chat: '/chat.html', monitor: '/', settings: '/settings.html
 const smokeTest = process.argv.includes('--smoke-test')
 const noDshWeb = process.env.DSH_NO_DSH_WEB === '1' || smokeTest
 const startView = process.env.DSH_START_VIEW || 'dsh'
+const uiBase = Number(process.env.DSH_UI_PORT) || appConfig.ui?.port || 3300
+const dshBase = Number(process.env.DSH_DSH_WEB_PORT) || appConfig.dshWeb?.port || 3080
+const dshHost = process.env.DSH_DSH_WEB_HOST || appConfig.dshWeb?.host || '127.0.0.1'
 
 let mainWindow = null
 let engineProcess = null
 let lastDshUrl = null
 let shuttingDown = false
 let playerWindow = null
+let uiPort = null
+let dshPort = null
+let monitor = null // ./monitor/ui/server (required after port selection)
+let soundService = null // ./monitor/notifications/sound-service
 
 app.setName('DS-Harness')
 app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) app.quit()
+
+function uiOrigin() {
+  return `http://127.0.0.1:${uiPort}`
+}
+
+function dshOrigin() {
+  return `http://${dshHost}:${dshPort}`
+}
 
 function logLine(msg) {
   try {
@@ -67,6 +70,20 @@ function logLine(msg) {
 /** Redact any `?token=…` in text before it touches disk. */
 function redact(text) {
   return String(text).replace(/(\?token=)[^\s]+/g, '$1[REDACTED]')
+}
+
+function writePortsState() {
+  try {
+    const dir = PATHS.STATE
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'ports.json'),
+      JSON.stringify({ ui: uiPort, dsh: dshPort, uiBase, dshBase, writtenAt: Date.now() }, null, 2),
+      'utf8'
+    )
+  } catch (err) {
+    logLine(`write ports.json failed: ${err?.message || err}`)
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -95,7 +112,7 @@ function requestOk(url) {
   return new Promise((resolve) => {
     const req = http.get(url, { timeout: 1500 }, (res) => {
       res.resume()
-      resolve(res.statusCode >= 200 && res.statusCode < 400)
+      resolve(res.statusCode >= 200 && res.statusCode < 500)
     })
     req.on('timeout', () => req.destroy())
     req.on('error', () => resolve(false))
@@ -114,10 +131,10 @@ function stopEngine() {
 function startEngine() {
   return new Promise((resolve, reject) => {
     const nodeExe = resolveNodeExe()
-    logLine(`starting dsh web engine: ${nodeExe} ${DSH_ENTRY} web --no-open (port ${process.env.DSH_DSH_WEB_PORT})`)
+    logLine(`starting dsh web engine: ${nodeExe} ${DSH_ENTRY} web --no-open (port ${dshPort})`)
     engineProcess = spawn(
       nodeExe,
-      [DSH_ENTRY, 'web', '--host', process.env.DSH_DSH_WEB_HOST, '--port', String(process.env.DSH_DSH_WEB_PORT), '--no-open'],
+      [DSH_ENTRY, 'web', '--host', dshHost, '--port', String(dshPort), '--no-open'],
       {
         cwd: ROOT,
         env: {
@@ -164,8 +181,8 @@ function startEngine() {
         return
       }
       if (engineProcess.exitCode !== null) return
-      if (await requestOk(`${DSH_ORIGIN}/`)) {
-        engineUrl = `${DSH_ORIGIN}/`
+      if (await requestOk(`${dshOrigin()}/`)) {
+        engineUrl = `${dshOrigin()}/`
         resolve(engineUrl)
         return
       }
@@ -198,7 +215,7 @@ function ensurePlayerWindow() {
     win.on('closed', () => {
       playerWindow = null
     })
-    win.loadURL(`${UI_ORIGIN}/player.html`).then(() => resolve(win)).catch(reject)
+    win.loadURL(`${uiOrigin()}/player.html`).then(() => resolve(win)).catch(reject)
   })
 }
 
@@ -215,11 +232,12 @@ function playInHost(url, volume) {
 }
 
 function ringBell(bell) {
+  if (!soundService) return
   try {
     const audio = soundService.resolveBellAudio(bell.event)
     if (!audio) return // master/per-event switch off or file missing
     logLine(`ringtone ${bell.event} -> ${audio.name}`)
-    playInHost(`${UI_ORIGIN}${audio.url}`, audio.volume)
+    playInHost(`${uiOrigin()}${audio.url}`, audio.volume)
   } catch (err) {
     logLine(`ringtone failed: ${err?.message || err}`)
   }
@@ -238,7 +256,7 @@ ipcMain.on('ds-player:play', (_event, payload) => {
 function isAllowedOrigin(url) {
   try {
     const u = new URL(url)
-    return u.origin === UI_ORIGIN || u.origin === DSH_ORIGIN
+    return u.origin === uiOrigin() || u.origin === dshOrigin()
   } catch {
     return false
   }
@@ -289,7 +307,7 @@ function goDsh() {
 
 function goUi(viewPath) {
   if (!mainWindow) return
-  mainWindow.loadURL(`${UI_ORIGIN}${viewPath}`)
+  mainWindow.loadURL(`${uiOrigin()}${viewPath}`)
 }
 
 function buildMenu() {
@@ -321,9 +339,10 @@ function buildMenu() {
               title: 'DS-Harness',
               message: 'DS-Harness · DeepSeek Harness Desktop',
               detail:
-                `主界面:官方 dsh Web (${DSH_ORIGIN})\n调度中心: ${UI_ORIGIN}\n` +
+                `主界面:官方 dsh Web (${dshOrigin()})\n调度中心: ${uiOrigin()}\n` +
                 `引擎数据目录: ${PATHS.DSH_HOME}\n` +
-                `铃声配置: config\\sound.json(总开关/每事件开关/预设/本地文件)`
+                `铃声配置: config\\sound.json(总开关/每事件开关/预设/本地文件)\n` +
+                `(端口被占用时已自动错开,实际端口见 data\\state\\ports.json)`
             })
           }
         }
@@ -338,53 +357,75 @@ function buildMenu() {
  * ------------------------------------------------------------------ */
 
 app.whenReady().then(async () => {
-  buildMenu()
   try {
-    startServer()
-  } catch (err) {
-    dialog.showErrorBox('DS-Harness 启动失败', `调度中心服务无法启动(端口可能被占用):\n${err?.message || err}`)
-    app.quit()
-    return
-  }
-  setBellHook(ringBell)
-  logLine(`monitor ${UI_ORIGIN} ready (dsh web ${DSH_ORIGIN})`)
+    // 1) 自动错开端口:默认 3300/3080,被占用则向后找空闲端口。
+    uiPort = await findFreePort(uiBase, { maxTries: 30 })
+    dshPort = noDshWeb ? dshBase : await findFreePort(dshBase, { maxTries: 30 })
+    process.env.DSH_UI_PORT = String(uiPort)
+    process.env.DSH_DSH_WEB_PORT = String(dshPort)
+    logLine(`ports: ui=${uiBase}->${uiPort}${uiPort !== uiBase ? ' (自动错开)' : ''}, dsh=${dshBase}->${dshPort}${dshPort !== dshBase ? ' (自动错开)' : ''}`)
+    console.log(`DS-Harness ports: 调度中心=${uiPort}${uiPort !== uiBase ? ` (${uiBase} 被占用,已自动错开)` : ''} dshWeb=${dshPort}${dshPort !== dshBase ? ` (${dshBase} 被占用,已自动错开)` : ''}`)
 
-  if (smokeTest) {
-    console.log('electron smoke ok')
-    setTimeout(() => app.quit(), 1500)
-    return
-  }
+    // 2) 加载 .env 与监控服务(server 模块读取上面的 DSH_UI_PORT)。
+    require('./monitor/utils/env').loadProjectEnv()
+    monitor = require('./monitor/ui/server')
+    soundService = require('./monitor/notifications/sound-service')
+    monitor.startServer()
+    monitor.setBellHook(ringBell)
+    writePortsState()
 
-  createMainWindow()
-  if (startView === 'dsh' && !noDshWeb) {
-    try {
-      if (await requestOk(`${DSH_ORIGIN}/`)) {
-        throw new Error(`端口 ${process.env.DSH_DSH_WEB_PORT} 已被其他 Harness 实例占用，请先关闭旧实例`)
+    // 服务内部若仍遇端口竞争而再次错开,采纳其实际绑定端口。
+    setTimeout(() => {
+      const actual = monitor.getBoundPort && monitor.getBoundPort()
+      if (actual && actual !== uiPort) {
+        uiPort = actual
+        process.env.DSH_UI_PORT = String(uiPort)
+        logLine(`monitor actually bound on ${uiPort}, adopting it`)
+        writePortsState()
       }
-      const engineUrl = await Promise.race([
-        startEngine(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('未在时限内收到引擎访问地址')), STARTUP_TIMEOUT_MS))
-      ])
-      lastDshUrl = engineUrl
-      await mainWindow.loadURL(engineUrl)
-    } catch (err) {
-      logLine(`dsh web startup failed: ${err?.stack || err}`)
-      await dialog.showMessageBox({
-        type: 'error',
-        title: 'DS-Harness 启动失败',
-        message: '无法启动本地 dsh Web 服务',
-        detail: String(err?.stack || err)
-      })
-      // 调度中心仍然可用:降级到监控视图,不退出整个应用。
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        await mainWindow.loadURL(`${UI_ORIGIN}${VIEW_PATHS.monitor}`)
-      } else {
-        app.quit()
-      }
+    }, 1200)
+
+    buildMenu()
+    logLine(`monitor ${uiOrigin()} ready (dsh web ${dshOrigin()})`)
+
+    if (smokeTest) {
+      console.log('electron smoke ok')
+      setTimeout(() => app.quit(), 1500)
+      return
     }
-  } else {
-    const view = VIEW_PATHS[startView] || VIEW_PATHS.monitor
-    await mainWindow.loadURL(`${UI_ORIGIN}${view}`)
+
+    createMainWindow()
+    if (startView === 'dsh' && !noDshWeb) {
+      try {
+        const engineUrl = await Promise.race([
+          startEngine(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('未在时限内收到引擎访问地址')), STARTUP_TIMEOUT_MS))
+        ])
+        lastDshUrl = engineUrl
+        await mainWindow.loadURL(engineUrl)
+      } catch (err) {
+        logLine(`dsh web startup failed: ${err?.stack || err}`)
+        await dialog.showMessageBox({
+          type: 'error',
+          title: 'DS-Harness 启动失败',
+          message: '无法启动本地 dsh Web 服务',
+          detail: String(err?.stack || err)
+        })
+        // 调度中心仍然可用:降级到监控视图,不退出整个应用。
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          await mainWindow.loadURL(`${uiOrigin()}${VIEW_PATHS.monitor}`)
+        } else {
+          app.quit()
+        }
+      }
+    } else {
+      const view = VIEW_PATHS[startView] || VIEW_PATHS.monitor
+      await mainWindow.loadURL(`${uiOrigin()}${view}`)
+    }
+  } catch (err) {
+    logLine(`startup failed: ${err?.stack || err}`)
+    dialog.showErrorBox('DS-Harness 启动失败', `初始化失败:\n${err?.message || err}`)
+    app.quit()
   }
 })
 
@@ -399,7 +440,7 @@ app.on('before-quit', () => {
   if (shuttingDown) return
   shuttingDown = true
   try {
-    stopServer()
+    monitor?.stopServer()
   } catch {
     /* no-op */
   }
@@ -407,11 +448,11 @@ app.on('before-quit', () => {
 })
 process.on('exit', () => {
   try {
-    stopServer()
+    monitor?.stopServer()
   } catch {
     /* no-op */
   }
   stopEngine()
 })
 
-module.exports = { ROOT, UI_ORIGIN, DSH_ORIGIN }
+module.exports = { ROOT, uiOrigin, dshOrigin }

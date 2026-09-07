@@ -69,11 +69,19 @@ if (Test-Path -LiteralPath $envFile) {
 
 Write-Output ''
 Write-Output '== Runtime probes =='
+$portsFile = "$ROOT\data\state\ports.json"
+$uiPort = 3300
+if (Test-Path -LiteralPath $portsFile) {
+  try {
+    $pj = Get-Content -LiteralPath $portsFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($pj.ui) { $uiPort = $pj.ui }
+  } catch { }
+}
 if (Test-Path "$ROOT\data\state\monitor.pid") {
   try {
-    $resp = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:3300/api/health' -TimeoutSec 5
-    Check 'Monitor HTTP health (3300)' ($resp.StatusCode -eq 200)
-  } catch { Check 'Monitor HTTP health (3300)' $false }
+    $resp = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$uiPort/api/health" -TimeoutSec 5
+    Check "Monitor HTTP health ($uiPort)" ($resp.StatusCode -eq 200)
+  } catch { Check "Monitor HTTP health ($uiPort)" $false }
 } else {
   Write-Output '  [INFO] Monitor not running (start with run.ps1).'
 }

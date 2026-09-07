@@ -44,12 +44,23 @@ if ($HeadlessShell) {
   Start-Background 'ds-desktop' $electron @('.') "$ROOT\app" "$ROOT\logs\app\electron.out.log" | Out-Null
 }
 
-Start-Sleep -Seconds 4
+Start-Sleep -Seconds 5
+$portsFile = "$ROOT\data\state\ports.json"
+$uiPort = 3300
+$dshPort = 3080
+if (Test-Path -LiteralPath $portsFile) {
+  try {
+    $pj = Get-Content -LiteralPath $portsFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($pj.ui) { $uiPort = $pj.ui }
+    if ($pj.dsh) { $dshPort = $pj.dsh }
+  } catch { }
+}
 try {
-  $resp = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:3300/api/health' -TimeoutSec 5
+  $resp = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$uiPort/api/health" -TimeoutSec 5
   Write-Output ''
   Write-Output 'DS-Harness is running.'
-  Write-Output "  调度中心 API   : http://127.0.0.1:3300 (queue/peak/cost/sounds)"
+  Write-Output "  调度中心 API   : http://127.0.0.1:$uiPort (queue/peak/cost/sounds)"
+  Write-Output "  dsh Web        : http://127.0.0.1:$dshPort (官方 dsh UI;被占用已自动错开)"
   Write-Output '  Electron window: main view = official dsh Web; 视图 menu = 调度中心 (chat/monitor/settings)'
   Write-Output "  Logs           : $ROOT\logs"
 } catch {

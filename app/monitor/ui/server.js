@@ -23,7 +23,11 @@ const settingsService = require('../settings/settings-service')
 loadProjectEnv()
 
 const HOST = process.env.DSH_UI_HOST || app.ui?.host || '127.0.0.1'
-const PORT = Number(process.env.DSH_UI_PORT) || app.ui?.port || 3300
+// Requested port; if it is already taken the monitor automatically staggers
+// upward (also covers headless `node app/monitor/ui/server.js` runs).
+const PORT_REQUESTED = Number(process.env.DSH_UI_PORT) || app.ui?.port || 3300
+let port = PORT_REQUESTED
+let boundPort = null
 const PUBLIC_DIR = path.join(__dirname, 'public')
 const BALANCE_REFRESH_MS = app.ui?.balanceRefreshMs || 60000
 
@@ -502,6 +506,30 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
+function attemptListen() {
+  server.once('error', function onListenError(err) {
+    if (err && err.code === 'EADDRINUSE' && port < PORT_REQUESTED + 25) {
+      port += 1
+      log(`端口 ${port - 1} 被占用,自动错开到 ${port}`)
+      console.log(`Monitor 端口 ${port - 1} 被占用,自动错开到 ${port}`)
+      attemptListen()
+      return
+    }
+    log(`monitor listen failed: ${err?.stack || err}`)
+    console.error(`Monitor 端口 ${port} 监听失败: ${err?.message || err}`)
+    throw err
+  })
+  server.listen(port, HOST, () => {
+    boundPort = port
+    log(`monitor listening on http://${HOST}:${boundPort}`)
+    console.log(`DeepSeek Harness Monitor: http://${HOST}:${boundPort}`)
+  })
+}
+
+function getBoundPort() {
+  return boundPort
+}
+
 function startServer() {
   if (started) return server
   started = true
@@ -551,10 +579,7 @@ function startServer() {
       log(`task reconciliation error: ${err?.stack || err}`)
     }
   }, 3000)
-  server.listen(PORT, HOST, () => {
-    log(`monitor listening on http://${HOST}:${PORT}`)
-    console.log(`DeepSeek Harness Monitor: http://${HOST}:${PORT}`)
-  })
+  attemptListen()
   return server
 }
 
@@ -572,4 +597,4 @@ if (require.main === module) {
   startServer()
 }
 
-module.exports = { server, startServer, stopServer, scheduler, setBellHook, pushBell, queueIdOf }
+module.exports = { server, startServer, stopServer, scheduler, setBellHook, pushBell, queueIdOf, getBoundPort }

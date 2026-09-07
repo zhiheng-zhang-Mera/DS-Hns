@@ -13,6 +13,8 @@
   - 监控视图 `/`(双时区峰谷、24h 时间轴、余额、价格对比、动态并发、最近任务、定时排队队列)
   - 设置视图 `/settings.html`(API Key / 模型 / 权限 / 遥测 / 并发 / **铃声**)
   - 通过应用菜单 **“视图”** 或快捷键 `Ctrl+1..4` 在主界面与调度中心各视图间一键切换。
+- **端口自动错开**:dsh Web(默认 3080)与调度中心(默认 3300)被占用时自动向后寻找空闲端口,
+  并把实际端口写入 `data\state\ports.json`,多实例/多客户端并存时互不冲突。
 - **队列与调度**:定时排队(Scheduled Queue)、峰谷价格门控(默认谷价执行)、高峰暂停并谷价自动重排、取消/清空/再跑、本机资源动态并发(CPU/内存实时计算)。
 - **成本与余额**:会话用量→CNY 成本拆分(含跨档估计)、官方价格快照、DeepSeek 余额 TOTAL/TOP-UP/GRANTED。
 - **铃声(本合并版重点重构)**:
@@ -76,13 +78,16 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 
 ## 端口与环境变量
 
-| 服务 | 默认 | 覆盖 |
+| 服务 | 默认 | 覆盖(设为“起点”) |
 |---|---|---|
 | dsh Web(官方 UI,引擎 home = `<root>\data`) | `127.0.0.1:3080` | `DSH_DSH_WEB_PORT` / `DSH_DSH_WEB_HOST` |
 | 调度中心 3300(聊天/监控/设置/API) | `127.0.0.1:3300` | `DSH_UI_PORT` / `DSH_UI_HOST` |
 
-- 若 3080 已被其他 Harness 实例占用(例如旧的开发实例),桌面壳会提示;确认后自动降级只打开调度中心视图。
-- 也可显式错开端口:`set DSH_DSH_WEB_PORT=3180` 后再启动。
+- **端口自动错开(默认行为)**:启动时若 3080/3300 已被其他 Harness 实例或本机程序占用,
+  自动向后寻找最近的空闲端口(最多 +30),无需手动配置;实际端口会打印到控制台、
+  写入 `logs\desktop-runtime.log`,并保存在 `data\state\ports.json`(供脚本/运维读取)。
+  桌面壳为单实例:重复启动只会聚焦已有窗口。
+- 显式指定起点:`set DSH_DSH_WEB_PORT=3180` 后启动即从 3180 起找空闲端口。
 - `DSH_NO_DSH_WEB=1`:仅运行调度中心,不拉起 dsh 引擎。
 - `DSH_START_VIEW=dsh|chat|monitor|settings`:启动时直接进入的视图(默认 `dsh`)。
 - `DSH_NODE_EXE`:指定启动引擎的 node.exe(最高优先级,其次 `runtime\` 自带运行时,再次 PATH)。
