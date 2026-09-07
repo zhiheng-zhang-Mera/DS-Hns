@@ -15,15 +15,15 @@ const {
 const { calculateTaskCost } = require('../billing/cost-calculator')
 const { listSessions } = require('../tracker/session-reader')
 const { appendRecent, loadRecent } = require('../tracker/task-history')
-const { describeSounds } = require('../notifications/sound-service')
+const soundService = require('../notifications/sound-service')
 const scheduler = require('../scheduler/scheduler')
 const systemProbe = require('../scheduler/system')
 const settingsService = require('../settings/settings-service')
 
 loadProjectEnv()
 
-const HOST = app.ui?.host || '127.0.0.1'
-const PORT = app.ui?.port || 3300
+const HOST = process.env.DSH_UI_HOST || app.ui?.host || '127.0.0.1'
+const PORT = Number(process.env.DSH_UI_PORT) || app.ui?.port || 3300
 const PUBLIC_DIR = path.join(__dirname, 'public')
 const BALANCE_REFRESH_MS = app.ui?.balanceRefreshMs || 60000
 
@@ -37,6 +37,7 @@ let bellSeq = 0
 const bells = []
 let started = false
 let monitorTimer = null
+let bellHook = null
 
 function nowIso() {
   return new Date().toISOString()
@@ -64,8 +65,8 @@ async function cachedBalance() {
 }
 
 async function probeDshWeb() {
-  const dshHost = app.dshWeb?.host || '127.0.0.1'
-  const dshPort = app.dshWeb?.port || 3080
+  const dshHost = process.env.DSH_DSH_WEB_HOST || app.dshWeb?.host || '127.0.0.1'
+  const dshPort = Number(process.env.DSH_DSH_WEB_PORT) || app.dshWeb?.port || 3080
   if (Date.now() - dshProbe.at < 5000) return dshProbe.alive
   dshProbe.at = Date.now()
   try {
@@ -113,6 +114,35 @@ function describeTasks(limit = 12) {
 
 const TERMINAL = new Set(['COMPLETED', 'FAILED', 'INTERRUPTED'])
 
+/**
+ * Bell detection.
+ *
+ * Sources:
+ *  1. terminal dsh sessions (foreground Web UI runs AND queue runs — both live
+ *     under the same DSH_HOME\sessions because the queue shares the engine home)
+ *  2. scheduler terminal events, as a fallback for queue tasks that end without
+ *     producing a session file (dedup via the queue task id ack below)
+ */
+const QUEUE_ACTIVE_RE = /[\\/]active[\\/]([^\\/]+?)[\\/]?$/
+
+function queueIdOf(cwd) {
+  if (!cwd) return null
+  const m = String(cwd).match(QUEUE_ACTIVE_RE)
+  return m ? m[1] : null
+}
+
+// queueId -> { status, at } : terminal events the scheduler reported.
+const queueEnded = new Map()
+// queueId -> { status, at } : queue runs whose terminal state was already
+// covered by a session-derived bell (matched through the per-task cwd).
+const queueAck = new Map()
+
+function noteQueueTerminal(info) {
+  if (info && TERMINAL.has(info.status)) {
+    queueEnded.set(info.id, { status: info.status, at: info.endedAt || Date.now() })
+  }
+}
+
 /** Returns the bell events newly detected for terminal task states. */
 function reconcileBells(tasks) {
   const now = Date.now()
@@ -138,13 +168,22 @@ function reconcileBells(tasks) {
   return produced
 }
 
-function pushBell(event, taskId, at) {
+function pushBell(event, taskId, at, extra = {}) {
   const id = ++bellSeq
-  const item = { id, seq: id, event, taskId, at: at || Date.now() }
+  const item = { id, seq: id, event, taskId, at: at || Date.now(), ...extra }
   bells.push(item)
   if (bells.length > 200) bells.shift()
   log(`bell ${event} task=${taskId}`)
+  try {
+    if (bellHook) bellHook(item)
+  } catch {
+    /* a failing hook must never break the monitor */
+  }
   return item
+}
+
+function setBellHook(fn) {
+  bellHook = fn
 }
 
 function enrichTask(task) {
@@ -272,6 +311,18 @@ async function handleApi(req, res, url) {
     const fresh = bells.filter((b) => b.seq > after)
     return json(res, { bells: fresh, latest: bells.length ? bells[bells.length - 1].seq : 0 })
   }
+  if (url.pathname === '/api/sounds') {
+    if (req.method === 'POST') {
+      const body = await readBody(req)
+      try {
+        const rec = soundService.saveUpload(String(body.name || 'ringtone.wav'), Buffer.from(String(body.data || ''), 'base64'))
+        return json(res, { ok: true, file: rec }, 201)
+      } catch (err) {
+        return json(res, { ok: false, error: String(err?.message || err) }, 400)
+      }
+    }
+    return json(res, { ok: true, sounds: soundService.describeSounds(), files: soundService.listSoundFiles() })
+  }
   if (url.pathname === '/api/settings') {
     if (req.method === 'POST') {
       const body = await readBody(req)
@@ -284,7 +335,8 @@ async function handleApi(req, res, url) {
         if (Object.keys(envPatch).length) settingsService.writeEnvFile(envPatch)
         settingsService.applyPatch({
           model: typeof body.defaultModel === 'string' && body.defaultModel ? body.defaultModel : undefined,
-          soundEnabled: typeof body.soundEnabled === 'boolean' ? body.soundEnabled : undefined
+          soundEnabled: typeof body.soundEnabled === 'boolean' ? body.soundEnabled : undefined,
+          sound: body.sound && typeof body.sound === 'object' ? body.sound : undefined
         })
         return json(res, { ok: true, settings: settingsService.publicSettings() })
       } catch (err) {
@@ -345,7 +397,7 @@ function readBody(req) {
     let size = 0
     req.on('data', (c) => {
       size += c.length
-      if (size > 2 * 1024 * 1024) {
+      if (size > 14 * 1024 * 1024) {
         reject(new Error('body too large'))
         req.destroy()
         return
@@ -382,16 +434,25 @@ function serveStatic(res, urlPath) {
 }
 
 function serveSound(res, urlPath) {
-  const name = path.basename(urlPath)
-  const sounds = describeSounds()
-  const wanted = Object.values(sounds).some((s) => s.url === `/sounds/${name}`)
-  if (!wanted) return notFound(res)
-  const file = path.join(PATHS.SOUNDS, name)
+  let name
+  try {
+    name = decodeURIComponent(path.basename(urlPath))
+  } catch {
+    return notFound(res)
+  }
+  const known = new Set(soundService.listSoundFiles().map((f) => f.name))
+  if (!soundService.validFileName(name) || !known.has(name)) return notFound(res)
+  const presetsDir = path.join(PATHS.SOUNDS, name)
+  const file = fs.existsSync(presetsDir) ? presetsDir : path.join(PATHS.USER_SOUNDS, name)
   fs.readFile(file, (err, data) => {
     if (err) return notFound(res)
-    res.writeHead(200, { 'Content-Type': 'audio/wav' })
+    res.writeHead(200, { 'Content-Type': soundContentType(file), 'Cache-Control': 'no-store' })
     res.end(data)
   })
+}
+
+function soundContentType(file) {
+  return path.extname(file).toLowerCase() === '.mp3' ? 'audio/mpeg' : 'audio/wav'
 }
 
 function contentType(file) {
@@ -402,7 +463,8 @@ function contentType(file) {
     '.css': 'text/css; charset=utf-8',
     '.json': 'application/json',
     '.svg': 'image/svg+xml',
-    '.wav': 'audio/wav'
+    '.wav': 'audio/wav',
+    '.mp3': 'audio/mpeg'
   }[ext] || 'application/octet-stream'
 }
 
@@ -444,10 +506,12 @@ function startServer() {
   if (started) return server
   started = true
   scheduler.start()
+  scheduler.on('task-terminal', noteQueueTerminal)
   monitorTimer = setInterval(() => {
     try {
       const tasks = describeTasks(100).map(enrichTask)
       const produced = reconcileBells(tasks)
+      const ackNow = Date.now()
       for (const t of tasks) {
         if (t.status === 'COMPLETED' || t.status === 'FAILED' || t.status === 'INTERRUPTED') {
           const bell = produced.find((b) => b.taskId === t.id)
@@ -468,8 +532,20 @@ function startServer() {
               },
               app.taskHistory?.maxEntries || 50
             )
+            const qid = queueIdOf(t.cwd)
+            if (qid) queueAck.set(qid, { status: bell.event, at: ackNow })
           }
         }
+      }
+      // Queue-task fallback: ring queue terminal events whose run produced no
+      // session file (after a settle window), unless already acked above.
+      for (const [qid, info] of queueEnded) {
+        if (ackNow - info.at < 8000) continue
+        queueEnded.delete(qid)
+        if (!queueAck.has(qid)) pushBell(info.status, qid, info.at)
+      }
+      for (const [qid, rec] of queueAck) {
+        if (ackNow - rec.at > 120_000) queueAck.delete(qid)
       }
     } catch (err) {
       log(`task reconciliation error: ${err?.stack || err}`)
@@ -487,6 +563,7 @@ function stopServer() {
   started = false
   if (monitorTimer) clearInterval(monitorTimer)
   monitorTimer = null
+  scheduler.off('task-terminal', noteQueueTerminal)
   scheduler.stop()
   server.close()
 }
@@ -495,4 +572,4 @@ if (require.main === module) {
   startServer()
 }
 
-module.exports = { server, startServer, stopServer, scheduler }
+module.exports = { server, startServer, stopServer, scheduler, setBellHook, pushBell, queueIdOf }

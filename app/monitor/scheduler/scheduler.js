@@ -182,6 +182,7 @@ class SchedulerService extends EventEmitter {
     this.running.delete(id)
     this.emit('queue-changed')
     this.saveQueue()
+    this.emit('task-terminal', { id, status: 'INTERRUPTED', endedAt: t.endedAt, reason })
   }
 
   clearPending() {
@@ -354,6 +355,13 @@ class SchedulerService extends EventEmitter {
     })
     this.saveQueue()
     this.emit('queue-changed')
+    this.emit('task-terminal', {
+      id: t.id,
+      status,
+      endedAt: t.endedAt,
+      reason: t.reason || null,
+      exitCode: code
+    })
     // Try to fill the freed slot immediately.
     this.tick()
   }

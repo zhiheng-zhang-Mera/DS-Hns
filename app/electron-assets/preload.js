@@ -1,11 +1,38 @@
 'use strict'
-const { contextBridge } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
+/**
+ * Minimal, sandbox-safe bridge shared by every window of the DS-Harness shell
+ * (the dsh Web view, the 调度中心 views, and the hidden audio host).
+ *
+ * window.dsDesktop = {
+ *   isElectron, versions,
+ *   player: {
+ *     play(payload)          // renderer -> main: ask main to play a URL (settings preview)
+ *     onPlayRequest(cb)      // main -> renderer (audio-host window): actually play
+ *   }
+ * }
+ */
 contextBridge.exposeInMainWorld('dsDesktop', {
   isElectron: true,
   versions: {
     electron: process.versions.electron,
-    chrome: process.versions.chrome,
-    node: process.versions.node
+    node: process.versions.node,
+    chrome: process.versions.chrome
+  },
+  platform: process.platform,
+  player: {
+    play(payload) {
+      ipcRenderer.send('ds-player:play', payload)
+    },
+    onPlayRequest(callback) {
+      ipcRenderer.on('ds-player:play-request', (_event, payload) => {
+        try {
+          callback(payload)
+        } catch {
+          /* never break the host */
+        }
+      })
+    }
   }
 })

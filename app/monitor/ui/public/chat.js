@@ -9,6 +9,7 @@
   let queueThreads = []
   let selectedId = null
   let currentView = 'tasks'
+  let lastBellSeq = 0
 
   async function fetchJson(url) {
     const res = await fetch(url, { cache: 'no-store' })
@@ -32,6 +33,41 @@
     div.textContent = text
     box.appendChild(div)
     setTimeout(() => div.remove(), 4200)
+  }
+
+  // Ringtone bells also reach the chat view (toast + sound when not Electron;
+  // under Electron the hidden audio host plays the ringtone for every view).
+  async function pollBells() {
+    try {
+      const data = await fetchJson('/api/bells?after=' + lastBellSeq)
+      for (const bell of data.bells || []) {
+        toast(`${bell.event} — ${bell.taskId.slice(0, 12)}`)
+        if (!DSSound.isElectron()) DSSound.playEvent(bell.event)
+      }
+      if (data.latest > lastBellSeq) lastBellSeq = data.latest
+    } catch {
+      /* no-op */
+    }
+  }
+
+  function syncSoundButton() {
+    const btn = $('soundBtnChat')
+    if (!btn) return
+    btn.textContent = DSSound.masterEnabled() ? '铃声:开' : '铃声:关'
+  }
+
+  function bindSoundButton() {
+    const btn = $('soundBtnChat')
+    if (!btn) return
+    syncSoundButton()
+    btn.addEventListener('click', async () => {
+      try {
+        await DSSound.setServerEnabled(!DSSound.masterEnabled())
+      } catch (err) {
+        toast('铃声开关保存失败:' + (err.message || err), 'error')
+      }
+      syncSoundButton()
+    })
   }
 
   function fmtDate(ms) {
@@ -289,12 +325,15 @@
       document.body.classList.add('electron')
     }
     bindEvents()
+    bindSoundButton()
+    DSSound.refresh().then(syncSoundButton)
     refreshTasks()
     applyStatus()
     renderConversation(null)
     setInterval(applyStatus, 2000)
     setInterval(refreshTasks, 3000)
     setInterval(refreshRunningTimers, 1000)
+    setInterval(pollBells, 1500)
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot)

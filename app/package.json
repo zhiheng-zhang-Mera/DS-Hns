@@ -1,12 +1,13 @@
 {
-  "name": "harness-alien",
+  "name": "ds-harness",
   "private": true,
-  "version": "1.0.0",
-  "description": "DeepSeek Harness desktop client (Electron shell launcher)",
+  "version": "0.4.0",
+  "description": "DS-Harness: DeepSeek Harness desktop client (Alien shell + Mega dispatch center, customizable ringtones)",
   "main": "desktop-main.cjs",
   "scripts": {
     "start": "electron .",
     "desktop": "electron desktop-main.cjs",
+    "smoke": "electron . --smoke-test",
     "check": "node --check desktop-main.cjs"
   },
   "dependencies": {

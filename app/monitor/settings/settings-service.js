@@ -3,18 +3,18 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { PATHS, app, readJson } = require('../utils/paths')
 const { loadProjectEnv } = require('../utils/env')
+const soundService = require('../notifications/sound-service')
 
 /**
  * Editable settings service.
  * - config/.env  (API key + telemetry + permission; gitignored)
  * - config/app.json (default model for the monitor/queue UI)
- * - runtime/dsh/cordis.patch.yml (agent default model for headless jobs)
- * - config/sound.json (sound on/off)
+ * - <DSH_HOME>\cordis.patch.yml (agent default model; DSH_HOME = <root>\data)
+ * - config/sound.json (ringtone: master switch, volume, per-event switch/file)
  */
 
 const ENV_FILE = path.join(PATHS.CONFIG, '.env')
 const APP_JSON = path.join(PATHS.CONFIG, 'app.json')
-const SOUND_JSON = path.join(PATHS.CONFIG, 'sound.json')
 const HOME_PATCH = path.join(PATHS.DSH_HOME, 'cordis.patch.yml')
 
 function readEnvMap() {
@@ -111,7 +111,7 @@ function patchAgentDefaultModel(model) {
   fs.writeFileSync(HOME_PATCH, kept.join('\r\n') + '\r\n', 'utf8')
 }
 
-function applyPatch({ model, soundEnabled } = {}) {
+function applyPatch({ model, soundEnabled, sound } = {}) {
   const cfg = readJson('app.json', {})
   if (model) {
     patchAgentDefaultModel(model)
@@ -120,15 +120,31 @@ function applyPatch({ model, soundEnabled } = {}) {
     fs.writeFileSync(APP_JSON, JSON.stringify(cfg, null, 2) + '\n', 'utf8')
   }
   if (typeof soundEnabled === 'boolean') {
-    const sounds = readJson('sound.json', { enabled: true, events: {} })
-    sounds.enabled = soundEnabled
-    fs.writeFileSync(SOUND_JSON, JSON.stringify(sounds, null, 2) + '\n', 'utf8')
+    soundService.setMasterEnabled(soundEnabled)
+  }
+  if (sound && typeof sound === 'object') {
+    const next = soundService.loadSoundConfig()
+    if (typeof sound.enabled === 'boolean') next.enabled = sound.enabled
+    if (sound.volume != null) {
+      const v = Number(sound.volume)
+      if (Number.isFinite(v)) next.volume = Math.min(1, Math.max(0, v))
+    }
+    for (const [name, patch] of Object.entries(sound.events || {})) {
+      if (!next.events[name]) continue
+      if (typeof patch.enabled === 'boolean') next.events[name].enabled = patch.enabled
+      if (typeof patch.file === 'string' && patch.file) {
+        if (!soundService.validFileName(patch.file) || !soundService.fileExists(patch.file)) {
+          throw new Error(`铃声文件不存在或文件名非法: ${patch.file}`)
+        }
+        next.events[name].file = patch.file
+      }
+    }
+    soundService.saveSoundConfig(next)
   }
 }
 
 function publicSettings() {
   const env = readEnvMap().map
-  const sounds = readJson('sound.json', { enabled: true, events: {} })
   const model = readModelChoice()
   return {
     apiKeyConfigured: Boolean(process.env.DEEPSEEK_API_KEY || env.get('DEEPSEEK_API_KEY')),
@@ -137,7 +153,7 @@ function publicSettings() {
     permissionMode: process.env.DSH_PERMISSION_MODE || env.get('DSH_PERMISSION_MODE') || 'workspace-write',
     defaultModel: model,
     models: validModels(),
-    soundEnabled: sounds.enabled !== false,
+    sound: soundService.describeSounds(),
     ui: app.ui,
     version: app.version || '0.2.0',
     dshWeb: app.dshWeb,

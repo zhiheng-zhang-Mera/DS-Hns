@@ -1,9 +1,10 @@
 {
   "enabled": true,
+  "volume": 0.8,
   "events": {
-    "COMPLETED": "completed.wav",
-    "FAILED": "failed.wav",
-    "INTERRUPTED": "interrupted.wav"
+    "COMPLETED": { "enabled": true, "file": "completed.wav", "label": "任务完成" },
+    "FAILED": { "enabled": true, "file": "failed.wav", "label": "任务失败" },
+    "INTERRUPTED": { "enabled": true, "file": "interrupted.wav", "label": "任务中断" }
   },
-  "notes": "Audio is served by the monitor UI and played in the browser. dsh core execution is never blocked by sound failures."
+  "notes": "铃声配置(唯一真源)。enabled=总开关;volume=播放音量 0-1;events 每事件独立 enabled;file 可为内置预设(assets/sounds 下)或用户上传(data/sounds 下,不入库)的 wav/mp3 文件名。dsh 执行永不被铃声失败阻塞。"
 }

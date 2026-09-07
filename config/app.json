@@ -1,6 +1,6 @@
 {
-  "project": "DeepSeek Harness (dsh)",
-  "version": "0.3.1",
+  "project": "DS-Harness (DeepSeek Harness Desktop)",
+  "version": "0.4.0",
   "apiBaseURL": "https://api.deepseek.com",
   "harness": {
     "npmPackage": "@deepseek-ai/dsh",
@@ -29,13 +29,5 @@
   },
   "taskHistory": {
     "maxEntries": 50
-  },
-  "sounds": {
-    "enabled": true,
-    "events": {
-      "COMPLETED": "completed.wav",
-      "FAILED": "failed.wav",
-      "INTERRUPTED": "interrupted.wav"
-    }
   }
 }

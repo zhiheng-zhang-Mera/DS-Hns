@@ -2,24 +2,15 @@
   'use strict'
 
   const $ = (id) => document.getElementById(id)
-  const soundEnabled = () => localStorage.getItem('dsSound') !== 'off'
-  const audioCache = {}
-
-  function playSound(name) {
-    if (!soundEnabled()) return
-    const map = { COMPLETED: '/sounds/completed.wav', FAILED: '/sounds/failed.wav', INTERRUPTED: '/sounds/interrupted.wav' }
-    const url = map[name]
-    if (!url) return
-    let audio = audioCache[name]
-    if (!audio) {
-      audio = new Audio(url)
-      audioCache[name] = audio
-    }
-    audio.currentTime = 0
-    audio.play().catch(() => {})
-  }
 
   let lastBellSeq = 0
+  let soundLabelEl = null
+
+  function syncSoundLabel() {
+    if (!soundLabelEl) return
+    const on = DSSound.masterEnabled()
+    soundLabelEl.textContent = on ? '铃声: 开' : '铃声: 关'
+  }
 
   async function fetchJson(url) {
     const res = await fetch(url, { cache: 'no-store' })
@@ -275,8 +266,9 @@
     try {
       const data = await fetchJson('/api/bells?after=' + lastBellSeq)
       for (const bell of data.bells || []) {
-        playSound(bell.event)
-        showToast(`${bell.event} — ${bell.taskId.slice(0, 8)}`)
+        const cls = bell.event === 'FAILED' || bell.event === 'INTERRUPTED' ? 'error-text' : ''
+        showToast(`${bell.event} — ${bell.taskId.slice(0, 12)}`, cls)
+        if (!DSSound.isElectron()) DSSound.playEvent(bell.event)
       }
       if (data.latest > lastBellSeq) lastBellSeq = data.latest
     } catch {
@@ -469,11 +461,16 @@
       runtime.hidden = false
       runtime.textContent = '浏览器模式'
     }
-    $('soundToggle').textContent = soundEnabled() ? '铃声: 开' : '铃声: 关'
-    $('soundToggle').addEventListener('click', () => {
-      if (soundEnabled()) localStorage.setItem('dsSound', 'off')
-      else localStorage.removeItem('dsSound')
-      $('soundToggle').textContent = soundEnabled() ? '铃声: 开' : '铃声: 关'
+    soundLabelEl = $('soundToggle')
+    syncSoundLabel()
+    DSSound.refresh().then(syncSoundLabel)
+    $('soundToggle').addEventListener('click', async () => {
+      try {
+        await DSSound.setServerEnabled(!DSSound.masterEnabled())
+      } catch (err) {
+        showToast('铃声开关保存失败:' + (err.message || err), 'error-text')
+      }
+      syncSoundLabel()
     })
     bindQueueControls()
     renderTasks()

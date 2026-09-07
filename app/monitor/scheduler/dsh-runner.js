@@ -8,8 +8,10 @@ const path = require('node:path')
  * child lifecycle and always works from a per-task directory on D:.
  */
 
-const { ROOT } = require('../utils/paths')
-const DSH_BIN = path.join(ROOT, 'app', 'harness', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
+const { PATHS, ROOT } = require('../utils/paths')
+
+// Single dsh install for the whole desktop app: <root>\app\node_modules\@deepseek-ai\dsh
+const DSH_BIN = path.join(PATHS.APP, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 
 function nodeExecutable() {
   return process.env.DSH_NODE || 'node'
@@ -18,13 +20,15 @@ function nodeExecutable() {
 function childEnv(overrides = {}) {
   return {
     ...process.env,
-    DSH_HOME: path.join(ROOT, 'runtime', 'dsh'),
+    // Same engine home as the dsh Web UI (<root>\data), so every session —
+    // foreground or queue — lands in one store the monitor watches for bells.
+    DSH_HOME: PATHS.DSH_HOME,
     DSH_TELEMETRY_MODE: process.env.DSH_TELEMETRY_MODE || 'DISABLED',
     DSH_PERMISSION_MODE: process.env.DSH_PERMISSION_MODE || 'workspace-write',
-    TEMP: path.join(ROOT, 'cache', 'temp'),
-    TMP: path.join(ROOT, 'cache', 'temp'),
-    npm_config_cache: path.join(ROOT, 'cache', 'npm'),
-    DEEPSEEK_HARNESS_WORKSPACE: path.join(ROOT, 'workspace'),
+    TEMP: PATHS.TEMP,
+    TMP: PATHS.TEMP,
+    npm_config_cache: path.join(PATHS.CACHE, 'npm'),
+    DEEPSEEK_HARNESS_WORKSPACE: PATHS.WORKSPACE,
     ...overrides
   }
 }

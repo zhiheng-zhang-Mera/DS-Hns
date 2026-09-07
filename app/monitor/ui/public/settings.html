@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'"
     />
-    <title>DeepSeek Harness - 设置</title>
+    <title>DS-Harness · 设置</title>
     <link rel="stylesheet" href="/chat.css" />
   </head>
   <body class="settings-page">
@@ -19,13 +19,13 @@
       </nav>
       <div class="head-status">
         <span id="periodBadge" class="badge">—</span>
-        <span class="model-label">DeepSeek Harness 设置</span>
+        <span class="model-label">DS-Harness 设置</span>
       </div>
     </header>
 
     <main class="settings-main">
       <h1>设置</h1>
-      <p class="muted">保存即时生效。Key 只回显掩码,项目数据仍全部位于 D 盘。</p>
+      <p class="muted">保存即时生效。Key 只回显掩码,项目数据仍全部位于本机工程目录(默认 D 盘)。</p>
 
       <section class="settings-card">
         <h2>API</h2>
@@ -63,7 +63,23 @@
           </label>
         </div>
         <label class="check-line"><input id="setPeakPause" type="checkbox" /> 高峰时暂停运行中的谷价任务并谷价自动重排</label>
-        <label class="check-line"><input id="setSound" type="checkbox" /> 启用完成/失败/中断提示音</label>
+      </section>
+
+      <section class="settings-card">
+        <h2>铃声 (Ringtone)</h2>
+        <p class="muted">
+          完成 / 失败 / 中断三类事件各自可开关、可选用内置预设或你上传的本地音频(wav/mp3)。
+          总开关控制全部铃声;所有修改点“保存设置”后立即生效并写入 config\sound.json。
+          桌面版由隐藏音频宿主播放,浏览器模式由页面直接播放——dsh 执行永不被铃声失败阻塞。
+        </p>
+        <label class="check-line"><input id="setSound" type="checkbox" /> 启用铃声(总开关)</label>
+        <label>播放音量
+          <div class="vol-row">
+            <input id="setVolume" type="range" min="0" max="100" step="5" value="80" />
+            <span id="volLabel" class="vol-label">80%</span>
+          </div>
+        </label>
+        <div id="soundEvents" class="sound-events"></div>
       </section>
 
       <div class="settings-actions">
@@ -78,6 +94,7 @@
       </details>
     </main>
     <div id="toastWrap"></div>
+    <script src="/ds-sound.js"></script>
     <script src="/settings.js"></script>
   </body>
 </html>

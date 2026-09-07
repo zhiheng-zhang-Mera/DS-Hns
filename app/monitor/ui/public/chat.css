@@ -127,3 +127,20 @@ body.electron .electron-only { display: inline-flex; }
 @media (max-width: 860px) {
   #sidebar { display: none; }
 }
+
+/* Ringtone settings panel */
+.vol-row { display: flex; align-items: center; gap: 12px; }
+.vol-row input[type="range"] { flex: 1; accent-color: var(--accent); }
+.vol-label { min-width: 44px; text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+.sound-events { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.sound-event-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--panel2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px;
+}
+.sound-event-row .ev-name { min-width: 92px; font-size: 13px; color: var(--text); font-weight: 600; }
+.sound-event-row .ev-check { margin: 0; font-size: 12px; white-space: nowrap; }
+.sound-event-row select { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 8px; font: inherit; flex: 1; min-width: 200px; }
+.btn.mini-btn { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; margin: 0; align-self: auto; }
+.btn.mini-btn:hover { border-color: var(--accent); color: var(--text); }
+.btn.mini-btn[data-upload] { color: var(--muted); }
