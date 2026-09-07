@@ -195,5 +195,70 @@ tr:hover td { background: rgba(255, 255, 255, 0.02); }
   .topbar { flex-direction: column; align-items: stretch; }
 }
 
+/* ===== DS-Harness 监控页:卡片铺满页面、不留“拼图缺口” ===== */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.grid > .card {
+  flex: 1 1 360px;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+.grid > .card.card-wide {
+  flex-basis: 100%;
+}
+.grid.lower { margin-top: 14px; }
+main { max-width: 1600px; }
+.card h2 { margin-bottom: 12px; }
+.kv { margin-bottom: 2px; }
+.clock { height: 100%; display: flex; flex-direction: column; justify-content: center; }
+.balance-num { display: flex; flex-direction: column; justify-content: center; }
+/* 卡片内容不足时也能饱满:次要区域弹性撑开 */
+.grid > .card > .muted:last-child { margin-top: auto; }
+
+/* ===== 可点击交互模块的视觉识别 ===== */
+button,
+.link-btn,
+.btn,
+.action-btn,
+input[type="checkbox"],
+select,
+input[type="text"],
+input[type="number"],
+input[type="datetime-local"],
+textarea,
+.nav-tab,
+.icon-btn {
+  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
+}
+button:hover,
+.link-btn:hover,
+.btn:hover,
+.action-btn:hover,
+.icon-btn:hover,
+.nav-tab:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(77, 163, 255, .28), 0 4px 14px rgba(0, 0, 0, .3);
+  transform: translateY(-1px);
+}
+.link-btn:active,
+.btn:active,
+.action-btn:active,
+button:active { transform: translateY(0); }
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(77, 163, 255, .22);
+}
+tr { transition: background .1s; }
+tr:hover td { background: rgba(255, 255, 255, .035); }
+.badge { transition: transform .1s; }
+
 /* hidden 必须始终生效(display 规则不得覆盖) */
 [hidden] { display: none !important; }

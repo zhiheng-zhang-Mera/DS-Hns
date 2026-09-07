@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$Remove,
   [switch]$NoAutoStart
 )
@@ -6,21 +6,25 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
 $electron = "$root\app\node_modules\electron\dist\electron.exe"
+$appIcon = "$root\assets\icon\ds-harness.ico"
 if (-not (Test-Path -LiteralPath $electron)) {
   throw "Electron not installed: $electron"
+}
+if (-not (Test-Path -LiteralPath $appIcon)) {
+  throw "App icon missing: $appIcon (run assets\icon\generate-icon.ps1)"
 }
 
 $desktop = [Environment]::GetFolderPath('Desktop')
 $startup = [Environment]::GetFolderPath('Startup')
 $programs = [Environment]::GetFolderPath('Programs')
-$appMenuDir = Join-Path $programs 'DeepSeek Harness'
+$appMenuDir = Join-Path $programs 'DS-Harness'
 New-Item -ItemType Directory -Path $appMenuDir -Force | Out-Null
 
 $paths = @{
-  DesktopStart  = Join-Path $desktop 'DeepSeek Harness.lnk'
-  DesktopStop   = Join-Path $desktop 'Stop DeepSeek Harness.lnk'
-  StartMenu     = Join-Path $appMenuDir 'DeepSeek Harness.lnk'
-  Autostart     = Join-Path $startup 'DeepSeek Harness Autostart.lnk'
+  DesktopStart  = Join-Path $desktop 'DS-Harness.lnk'
+  DesktopStop   = Join-Path $desktop 'Stop DS-Harness.lnk'
+  StartMenu     = Join-Path $appMenuDir 'DS-Harness.lnk'
+  Autostart     = Join-Path $startup 'DS-Harness Autostart.lnk'
 }
 
 function New-Shortcut {
@@ -65,8 +69,8 @@ New-Shortcut `
   -Target $electron `
   -Arguments '.' `
   -WorkingDirectory (Join-Path $root 'app') `
-  -Description 'DeepSeek Harness - Electron desktop app' `
-  -Icon "$electron,0"
+  -Description 'DS-Harness - DeepSeek Harness desktop' `
+  -Icon $appIcon
 Write-Output "created $($paths.DesktopStart)"
 
 # Desktop stop helper (short console so the user can see the result).
@@ -86,8 +90,8 @@ New-Shortcut `
   -Target $electron `
   -Arguments '.' `
   -WorkingDirectory (Join-Path $root 'app') `
-  -Description 'DeepSeek Harness - Electron desktop app' `
-  -Icon "$electron,0"
+  -Description 'DS-Harness - DeepSeek Harness desktop' `
+  -Icon $appIcon
 Write-Output "created $($paths.StartMenu)"
 
 # Windows logon autostart (hidden wrapper -> run.ps1 -> Electron).
@@ -98,7 +102,7 @@ if (-not $NoAutoStart) {
     -Arguments "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$root\scripts\autostart-electron.ps1`"" `
     -WorkingDirectory $root `
     -Description 'Start DeepSeek Harness automatically at Windows logon' `
-    -Icon "$electron,0" `
+    -Icon $appIcon `
     -WindowStyle 7
   Write-Output "created $($paths.Autostart) (logon autostart enabled)"
 } else {

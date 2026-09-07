@@ -23,9 +23,9 @@
   },
   "timezones": {
     "local": "auto",
-    "localLabel": "LOCAL (系统时区)",
+    "localLabel": "本地时间(系统时区)",
     "billing": "Asia/Shanghai",
-    "billingLabel": "BILLING (Beijing)"
+    "billingLabel": "计费时间(北京时间)"
   },
   "taskHistory": {
     "maxEntries": 50

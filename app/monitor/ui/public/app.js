@@ -3,6 +3,22 @@
 
   const $ = (id) => document.getElementById(id)
 
+  const ZH = {
+    PEAK: '高峰',
+    'OFF-PEAK': '谷价',
+    IDLE: '空闲',
+    COMPLETED: '完成',
+    FAILED: '失败',
+    INTERRUPTED: '中断',
+    RUNNING: '运行中',
+    STARTING: '启动中',
+    PENDING: '等待中',
+    SUSPENDED: '挂起',
+    CANCELED: '已取消',
+    UNKNOWN: '未知'
+  }
+  const zh = (t) => (t != null && ZH[t] ? ZH[t] : String(t ?? '—'))
+
   let lastBellSeq = 0
   let soundLabelEl = null
 
@@ -78,7 +94,7 @@
     // Local/billing clocks update every second; labels come from server status.
     if (s.billing) {
       const badge = $('peakBadge')
-      badge.textContent = s.billing.status
+      badge.textContent = zh(s.billing.status)
       badge.className = 'badge ' + (s.billing.status === 'PEAK' ? 'peak' : 'off')
       const next = s.billing.nextChangeIso
       $('nextChange').textContent = next
@@ -95,7 +111,6 @@
     $('curModel').textContent = modelId
     const period = s.billing?.status || 'OFF-PEAK'
     renderPriceCard(modelId, period, s.pricesSource)
-
     // Balance.
     const b = s.balance
     if (b && b.ok) {
@@ -130,7 +145,7 @@
     const model = (pricingCache.models || []).find((m) => m.id === modelId) || pricingCache.models?.[0]
     if (!model) return
     const rate = period === 'PEAK' ? 'peak' : 'offPeak'
-    $('curPeriod').textContent = period
+    $('curPeriod').textContent = zh(period)
     $('curPeriod').className = 'badge ' + (period === 'PEAK' ? 'peak' : 'off')
     $('curInput').textContent = money(model.inputCacheMiss?.[rate])
     $('curCache').textContent = money(model.inputCacheHit?.[rate])
@@ -143,7 +158,7 @@
   function renderTask(task) {
     const badge = $('taskState')
     if (!task) {
-      badge.textContent = 'IDLE'
+      badge.textContent = '空闲'
       badge.className = 'badge'
       $('taskDuration').textContent = '—'
       $('taskTokens').textContent = '—'
@@ -151,7 +166,7 @@
       $('taskModel').textContent = '—'
       $('taskInfo').textContent = '空闲 — 尚无任务记录'
     } else {
-      badge.textContent = task.status + (task.stale ? ' (stale)' : '')
+      badge.textContent = zh(task.status) + (task.stale ? ' (卡顿?)' : '')
       badge.className = 'badge ' + task.status.toLowerCase()
       $('taskDuration').textContent = fmtDuration(task.status === 'RUNNING' || task.status === 'STARTING' ? Date.now() - task.createdAt : task.durationMs)
       const u = task.usage || {}
@@ -162,9 +177,9 @@
       const err = task.error ? ` · ${task.error.code}: ${task.error.message}` : ''
       $('taskInfo').textContent =
         `工作目录: ${task.cwd || '—'}${err} · 开始 ${fmtDate(task.createdAt)}`
-      $('tokIn').textContent = 'in ' + (u.inputTokens || 0).toLocaleString()
-      $('tokCache').textContent = 'cache-hit ' + (u.cacheReadTokens || 0).toLocaleString()
-      $('tokOut').textContent = 'out ' + (u.outputTokens || 0).toLocaleString()
+      $('tokIn').textContent = '输入 ' + (u.inputTokens || 0).toLocaleString()
+      $('tokCache').textContent = '缓存命中 ' + (u.cacheReadTokens || 0).toLocaleString()
+      $('tokOut').textContent = '输出 ' + (u.outputTokens || 0).toLocaleString()
     }
 
   }
@@ -208,7 +223,7 @@
       const err = t.error ? (t.error.code ? t.error.code + ' ' : '') + (t.error.message || '').slice(0, 70) : ''
       tr.innerHTML =
         `<td>${fmtDate(t.createdAt)}</td>` +
-        `<td><span class="badge ${String(t.status).toLowerCase()}">${t.status}</span></td>` +
+        `<td><span class="badge ${String(t.status).toLowerCase()}">${zh(t.status)}</span></td>` +
         `<td>${t.model || '—'}</td>` +
         `<td>${total.toLocaleString()}</td>` +
         `<td>${t.costCny != null ? money6(t.costCny) + (t.estimated ? ' (估)' : '') : '—'}</td>` +
@@ -233,7 +248,7 @@
         tr.className = cls
         tr.innerHTML =
           `<td>${model.id}${isModel ? ' ◀' : ''}</td>` +
-          `<td>${p === 'peak' ? 'PEAK' : 'OFF-PEAK'}${isPeriod ? ' ◀' : ''}</td>` +
+          `<td>${p === 'peak' ? '高峰' : '谷价'}${isPeriod ? ' ◀' : ''}</td>` +
           `<td>${money(model.inputCacheHit?.[p])}</td>` +
           `<td>${money(model.inputCacheMiss?.[p])}</td>` +
           `<td>${money(model.output?.[p])}</td>`
@@ -267,7 +282,7 @@
       const data = await fetchJson('/api/bells?after=' + lastBellSeq)
       for (const bell of data.bells || []) {
         const cls = bell.event === 'FAILED' || bell.event === 'INTERRUPTED' ? 'error-text' : ''
-        showToast(`${bell.event} — ${bell.taskId.slice(0, 12)}`, cls)
+        showToast(`${zh(bell.event)} — ${bell.taskId.slice(0, 12)}`, cls)
         if (!DSSound.isElectron()) DSSound.playEvent(bell.event)
       }
       if (data.latest > lastBellSeq) lastBellSeq = data.latest
@@ -337,7 +352,7 @@
       const endInfo = t.endedAt ? fmtDate(t.endedAt) : '—'
       tr.innerHTML =
         `<td title="${title}">${id}<div class="muted">${preview}</div></td>` +
-        `<td><span class="badge ${cls}">${t.status}</span></td>` +
+        `<td><span class="badge ${cls}">${zh(t.status)}</span></td>` +
         `<td>${fmtPolicy(t)}</td>` +
         `<td>${t.startAtMs ? fmtDate(t.startAtMs) : '立即(窗口允许时)'}</td>` +
         `<td>${startInfo}<br><span class="muted">${endInfo}</span></td>` +
