@@ -5,6 +5,14 @@
   const esc = (v) =>
     String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
+  // 官方权限预设语义
+  const PERM_ZH = {
+    'read-only': '仅可查看',
+    'workspace-write': '工作区内修改',
+    'danger-full-access': '完全权限'
+  }
+  const permLabel = (p) => PERM_ZH[p] || p || '—'
+
   let allThreads = []
   let queueThreads = []
   let selectedId = null
@@ -524,7 +532,9 @@
     meta.className = 'mini'
     meta.textContent =
       `开始 ${fmtDate(t.startedAt) || '—'} · 结束 ${fmtDate(t.endedAt) || '—'}` +
-      (t.costCny != null ? ` · 费用 ¥${Number(t.costCny).toFixed(6)}${t.estimated ? '(估)' : ''}` : '')
+      (t.costCny != null ? ` · 费用 ¥${Number(t.costCny).toFixed(6)}${t.estimated ? '(估)' : ''}` : '') +
+      (t.permissionMode ? ` · 权限 ${permLabel(t.permissionMode)}` : '') +
+      (Array.isArray(t.attachments) && t.attachments.length ? ` · 📎 ${t.attachments.length}` : '')
     wrap.appendChild(meta)
 
     // ChatGPT/Codex 式消息操作:复制 / 停止(运行中、挂起、排队中)/ 再跑
@@ -593,7 +603,8 @@
       const resp = await postJson('/api/queue', {
         prompt: t.prompt || '',
         allowPeak: Boolean(t.allowPeak),
-        startAt: null
+        startAt: null,
+        permissionMode: t.permissionMode || null
       })
       if (!resp.ok) throw new Error(resp.error || '再跑失败')
       toast('已重新加入队列:' + (resp.task && resp.task.id))
@@ -917,6 +928,62 @@
     })
   }
 
+  // ---------------- 权限座椅(官方风险确认语义) ----------------
+  let permSeatValue = 'workspace-write'
+  let permAcked = false
+
+  function resetPermSeat() {
+    const sel = $('chatPerm')
+    if (sel) sel.value = 'workspace-write'
+    permSeatValue = 'workspace-write'
+    permAcked = false
+  }
+
+  function bindPermSeat() {
+    const sel = $('chatPerm')
+    if (!sel) return
+    sel.value = permSeatValue
+    sel.addEventListener('change', () => {
+      if (sel.value !== 'danger-full-access') {
+        permSeatValue = sel.value
+        return
+      }
+      if (permAcked) {
+        permSeatValue = 'danger-full-access'
+        return
+      }
+      modalShow(
+        `<h3>确认启用完全权限?</h3>` +
+          `<p class="muted">完全权限 = 任务可读写任意目录、不再逐次弹审批。请确认风险后继续。</p>` +
+          `<label class="check-line"><input id="riskAck" type="checkbox" /> 我已了解风险，并愿意继续</label>` +
+          `<div class="modal-actions"><button class="btn mini-btn" id="riskCancel" type="button">取消</button>` +
+          `<button class="btn mini-btn danger" id="riskOk" type="button">启用完全权限</button></div>`
+      )
+      const ack = $('riskAck')
+      const ok = $('riskOk')
+      const cancel = $('riskCancel')
+      const disable = () => {
+        if (ok) ok.disabled = !ack.checked
+      }
+      if (ack) ack.addEventListener('change', disable)
+      if (ok) {
+        disable()
+        ok.addEventListener('click', () => {
+          modalClose()
+          permAcked = true
+          permSeatValue = 'danger-full-access'
+          sel.value = 'danger-full-access'
+        })
+      }
+      if (cancel) {
+        cancel.addEventListener('click', () => {
+          modalClose()
+          sel.value = permSeatValue === 'danger-full-access' ? 'workspace-write' : permSeatValue
+        })
+      }
+    })
+  }
+
   function bindEvents() {
     const newBtn = $('newChatBtn')
     const clearNew = () => {
@@ -974,7 +1041,7 @@
         $('chatComposer').value = ''
         $('chatStartAt').value = ''
         $('chatAllowPeak').checked = false
-        if ($('chatPerm')) $('chatPerm').value = 'workspace-write'
+        resetPermSeat()
         attachFiles = []
         renderAttachChips()
         await refreshTasks()
@@ -1037,6 +1104,7 @@
     }
     bindEvents()
     bindFileAttach()
+    bindPermSeat()
     bindSoundButton()
     bindPopovers()
     bindHistoryExtras()

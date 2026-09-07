@@ -141,7 +141,9 @@ class SchedulerService extends EventEmitter {
       exitCode: null,
       // 每任务权限模式(为空则用启动时 DSH_PERMISSION_MODE)
       permissionMode:
-        permissionMode === 'danger-full-access' || permissionMode === 'workspace-write'
+        permissionMode === 'danger-full-access' ||
+        permissionMode === 'workspace-write' ||
+        permissionMode === 'read-only'
           ? permissionMode
           : null,
       // 附件文件名列表(已由上传接口放入 工作区\active\<id>\attachments\)

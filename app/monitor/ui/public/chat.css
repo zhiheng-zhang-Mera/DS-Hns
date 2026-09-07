@@ -1,14 +1,20 @@
+/* 官方 dsh / Alien UI 暗色视觉 token(依据 dsh-client-ui-theme 暗色取值) */
 :root {
-  --bg: #0d0f13;
-  --panel: #12151b;
-  --panel2: #191e27;
-  --line: #252b36;
-  --text: #e8edf3;
-  --muted: #8a94a3;
-  --accent: #3fa1ff;
-  --green: #2ecc71;
-  --amber: #ffc857;
-  --red: #ff5f56;
+  --bg: #151517;            /* dark bg-base(≈950) */
+  --panel: #232324;         /* layer-1 */
+  --panel2: #2c2c2e;        /* layer-2 */
+  --panel3: #353638;        /* layer-3 */
+  --line: rgba(255, 255, 255, .12);
+  --text: #f9fafb;          /* dark ink */
+  --muted: #adb2b8;         /* dark label-secondary */
+  --accent: #679efe;        /* deepseek-400(dark) */
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #f25a5a;
+  --bubble: #2c2c2e;
+  --hair: rgba(255, 255, 255, .1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -361,4 +367,66 @@ button:hover,
 .msg-att .att-chip { pointer-events: none; }
 .composer .chip { cursor: default; }
 .composer label.chip input { cursor: pointer; }
+
+/* ===== 官方 dsh/Alien UI 视觉对齐 override ===== */
+body { background: var(--bg); color: var(--text); font-size: 14px; }
+#sidebar { background: #1b1b1c; border-right: 1px solid var(--hair); }
+.side-head { background: #1b1b1c; }
+.thread-list { background: #1b1b1c; }
+.side-foot { border-top: 1px solid var(--hair); }
+#chatHeader { border-bottom: 1px solid var(--hair); background: var(--bg); }
+#chatMessages { background: var(--bg); }
+.msg-user {
+  background: var(--bubble);
+  color: var(--text);
+  border-radius: 22px 22px 4px 22px;
+  padding: 10px 16px;
+  border: 1px solid var(--hair);
+}
+.msg-agent { max-width: min(840px, 100%); }
+.agent-body {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.agent-body.status { color: var(--muted); }
+.agent-body.error { color: var(--red); }
+.agent-head { color: var(--muted); font-size: 12px; }
+.composer {
+  border: 1px solid var(--hair);
+  border-top: 1px solid var(--hair);
+  border-radius: 22px;
+  background: var(--panel);
+  margin: 0 auto 14px;
+  width: min(880px, calc(100% - 28px));
+  padding: 12px 14px 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
+}
+.composer textarea {
+  background: transparent;
+  border: 0 !important;
+  box-shadow: none !important;
+  font-size: 14px;
+  color: var(--text);
+  border-radius: 10px;
+}
+.composer textarea:focus { border: 0 !important; box-shadow: none !important; }
+.composer textarea::placeholder { color: var(--muted); opacity: 1; }
+.chip {
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--hair);
+}
+.send-btn {
+  width: 34px; height: 34px; border-radius: 999px;
+  background: var(--accent); color: #06204d; border: 0 !important;
+}
+.send-btn:hover { border-color: var(--accent) !important; }
+.empty h2 { font-size: 24px; font-weight: 600; }
+.usage-strip { background: var(--panel); border-top: 1px solid var(--hair); }
+.badge { background: var(--panel2); border: 1px solid var(--hair); }
 

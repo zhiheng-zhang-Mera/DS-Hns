@@ -1,15 +1,18 @@
 :root {
-  --bg: #0e1116;
-  --panel: #161b22;
-  --panel2: #1d242e;
-  --line: #2b3644;
-  --text: #e6edf3;
-  --muted: #8b98a5;
-  --accent: #4da3ff;
-  --peak: #ff9f43;
-  --offpeak: #2ecc71;
-  --bad: #ff5f56;
-  --warn: #ffd166;
+  --bg: #151517;
+  --panel: #232324;
+  --panel2: #2c2c2e;
+  --line: rgba(255, 255, 255, .12);
+  --text: #f9fafb;
+  --muted: #adb2b8;
+  --accent: #679efe;
+  --peak: #f59e0b;
+  --offpeak: #22c55e;
+  --bad: #f25a5a;
+  --warn: #f59e0b;
+  --hair: rgba(255, 255, 255, .1);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 body {
