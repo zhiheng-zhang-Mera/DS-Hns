@@ -73,16 +73,7 @@ New-Shortcut `
   -Icon $appIcon
 Write-Output "created $($paths.DesktopStart)"
 
-# Desktop stop helper (short console so the user can see the result).
-$ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
-New-Shortcut `
-  -Path $paths.DesktopStop `
-  -Target $ps `
-  -Arguments "-NoProfile -ExecutionPolicy Bypass -File `"$root\scripts\stop.ps1`"" `
-  -WorkingDirectory $root `
-  -Description 'Stop DeepSeek Harness and its task processes' `
-  -Icon "$env:WINDIR\System32\shell32.dll,27"
-Write-Output "created $($paths.DesktopStop)"
+# 按需求不创建 Stop 快捷方式(关闭窗口即自动退出)。
 
 # Start menu entry.
 New-Shortcut `
@@ -95,6 +86,7 @@ New-Shortcut `
 Write-Output "created $($paths.StartMenu)"
 
 # Windows logon autostart (hidden wrapper -> run.ps1 -> Electron).
+$ps = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
 if (-not $NoAutoStart) {
   New-Shortcut `
     -Path $paths.Autostart `

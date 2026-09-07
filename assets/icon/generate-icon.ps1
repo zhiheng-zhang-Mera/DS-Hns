@@ -1,5 +1,5 @@
 ﻿# Generates assets\icon\ds-harness.ico :
-#   黑色圆角方形 + 白色 "DS" (DeepSeek 风格) ,右下角叠加缩小版 Electron 原子环图标。
+#   透明背景 + 黑色 DeepSeek 鲸鱼(右向剪影,带白瞳)+ 右下角缩小版 Electron 粒子(原子环)。
 # Outputs ds-harness.ico (多尺寸 PNG-based ICO) + ds-harness-256.png 预览。
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -13,51 +13,54 @@ function New-IconBitmap([int]$size) {
   $bmp = New-Object System.Drawing.Bitmap($size, $size)
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAlias
-  $g.Clear([System.Drawing.Color]::Transparent)
+  $g.Clear([System.Drawing.Color]::Transparent) # 透明背景
 
-  $scale = $size / 256.0
-  function PX([double]$v) { return [float]($v * $scale) }
+  $s = $size / 256.0
+  function PX([double]$v) { [float]($v * $s) }
+  function PT([double]$x, [double]$y) { return [System.Drawing.PointF]::new([float]($x * $s), [float]($y * $s)) }
 
-  # 黑色圆角方块(近黑渐变感:底部略亮)
-  $rectF = New-Object System.Drawing.RectangleF((PX 8), (PX 8), (PX 240), (PX 240))
-  $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-  $r = PX 46
-  $path.AddArc($rectF.X, $rectF.Y, $r, $r, 180, 90)
-  $path.AddArc($rectF.Right - $r, $rectF.Y, $r, $r, 270, 90)
-  $path.AddArc($rectF.Right - $r, $rectF.Bottom - $r, $r, $r, 0, 90)
-  $path.AddArc($rectF.X, $rectF.Bottom - $r, $r, $r, 90, 90)
-  $path.CloseFigure()
-  $lg = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-    $rectF, [System.Drawing.Color]::FromArgb(255, 30, 30, 38), [System.Drawing.Color]::FromArgb(255, 2, 2, 6), 90)
-  $g.FillPath($lg, $path)
+  $black = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 10, 10, 10))
+  $whiteEye = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 250, 250, 250))
+  $atomPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(210, 63, 161, 255), [float](PX 4.2))
+  $dotBlue = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 110, 190, 255))
 
-  # DeepSeek 风格白字 DS(大) + deepseek 小字
-  $dsFont = New-Object System.Drawing.Font('Segoe UI', (PX 88), [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-  $sf = New-Object System.Drawing.StringFormat
-  $sf.Alignment = [System.Drawing.StringAlignment]::Center
-  $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
-  $txtRect = New-Object System.Drawing.RectangleF((PX 10), (PX 46), (PX 236), (PX 128))
-  $white = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 236, 240, 245))
-  $g.DrawString('DS', $dsFont, $white, $txtRect, $sf)
-  $subFont = New-Object System.Drawing.Font('Segoe UI', (PX 26), [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-  $subRect = New-Object System.Drawing.RectangleF((PX 10), (PX 176), (PX 236), (PX 34))
-  $grey = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(200, 140, 152, 166))
-  $g.DrawString('deepseek', $subFont, $grey, $subRect, $sf)
+  # ---- 鲸鱼剪影(右向) ----
+  $whale = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $w = @(
+    (PT 26 128), (PT 66 92), (PT 132 76), (PT 198 108),
+    (PT 240 122), (PT 242 158), (PT 200 172),
+    (PT 168 200), (PT 96 196), (PT 44 182),
+    (PT 24 168), (PT 22 150), (PT 26 138)
+  )
+  $whale.AddBezier($w[0], $w[1], $w[2], $w[3])
+  $whale.AddBezier($w[3], $w[4], $w[5], $w[6])
+  $whale.AddBezier($w[6], $w[7], $w[8], $w[9])
+  $whale.AddBezier($w[9], $w[10], $w[11], $w[12])
+  $whale.CloseFigure()
+  $g.FillPath($black, $whale)
 
-  # 右下角:缩小版 Electron 原子(圆环 x3 + 中心点 + 轨道点)
-  $cx = PX 196; $cy = PX 190
-  $atomPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 77, 163, 255), [float](PX 9))
-  $penLite = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 150, 200, 255), [float](PX 6))
-  $rx = PX 42; $ry = PX 15
-  $g.DrawEllipse($atomPen, (PX(196 - 42)), (PX(190 - 15)), (PX 84), (PX 30))
-  $g.DrawEllipse($penLite, (PX(196 - 30)), (PX(190 - 42)), (PX 60), (PX 84))
-  $g.DrawEllipse($penLite, (PX(196 - 28)), (PX(190 - 28)), (PX 56), (PX 56))
-  # 中心点 + 一个轨道电子点(高亮)
-  $centerBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 240, 245, 250))
-  $g.FillEllipse($centerBrush, (PX(196 - 10)), (PX(190 - 10)), (PX 20), (PX 20))
-  $dotBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 120, 200, 255))
-  $g.FillEllipse($dotBrush, (PX(230 - 12)), (PX(182 - 12)), (PX 24), (PX 24))
+  # 尾鳍缺口:让剪影更像鲸鱼
+  $notch = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $nt = @(
+    (PT 60 126), (PT 48 116), (PT 40 158), (PT 74 148),
+    (PT 62 156), (PT 66 166), (PT 54 166),
+    (PT 72 136), (PT 66 118)
+  )
+  $notch.AddBezier($nt[0], $nt[1], $nt[2], $nt[3])
+  $notch.AddBezier($nt[3], $nt[4], $nt[5], $nt[6])
+  $notch.AddBezier($nt[6], $nt[7], $nt[8], $nt[0])
+  $notch.CloseFigure()
+  $g.FillPath($black, $notch)
+
+  # 眼睛(白点,增强辨识)
+  $g.FillEllipse($whiteEye, (PX 196), (PX 118), (PX 16), (PX 16))
+
+  # ---- 右下角:缩小版 Electron 粒子(透明底上可见的原子环) ----
+  $g.DrawEllipse($atomPen, (PX 182), (PX 210), (PX 52), (PX 16))
+  $g.DrawEllipse($atomPen, (PX 200), (PX 192), (PX 16), (PX 52))
+  $g.DrawEllipse($atomPen, (PX 194), (PX 204), (PX 28), (PX 28))
+  $g.FillEllipse($dotBlue, (PX 204), (PX 214), (PX 8), (PX 8))
+  $g.FillEllipse($dotBlue, (PX 201), (PX 197), (PX 6), (PX 6))
 
   $g.Dispose()
   return $bmp
@@ -68,7 +71,6 @@ $p256 = New-IconBitmap 256
 $pngPath = Join-Path $outDir 'ds-harness-256.png'
 $p256.Save($pngPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-# 各尺寸 PNG(存内存)
 $sizes = @(256, 128, 64, 48, 32, 16)
 $pngs = @()
 foreach ($s in $sizes) {
@@ -76,11 +78,9 @@ foreach ($s in $sizes) {
   $ms = New-Object System.IO.MemoryStream
   $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
   $pngs += , @($s, $ms.ToArray())
-  $ms.Dispose()
-  $bmp.Dispose()
+  $ms.Dispose(); $bmp.Dispose()
 }
 
-# 写入 ICO(ICONDIR + PNG entries,Win Vista+ 支持)
 $icoPath = Join-Path $outDir 'ds-harness.ico'
 $count = $pngs.Count
 $out = New-Object System.IO.MemoryStream
@@ -93,14 +93,11 @@ foreach ($item in $pngs) {
   $bw.Write([byte]($(if ($s -ge 256) { 0 } else { $s })))
   $bw.Write([byte]0); $bw.Write([byte]0)
   $bw.Write([uint16]1); $bw.Write([uint16]32)
-  $bw.Write([uint32]$data.Length)
-  $bw.Write([uint32]$offset)
+  $bw.Write([uint32]$data.Length); $bw.Write([uint32]$offset)
   $offset += $data.Length
 }
 foreach ($item in $pngs) { $bw.Write($item[1]) }
 $bw.Flush()
 [System.IO.File]::WriteAllBytes($icoPath, $out.ToArray())
-$bw.Dispose(); $out.Dispose()
-$p256.Dispose()
+$bw.Dispose(); $out.Dispose(); $p256.Dispose()
 Write-Output "generated $icoPath"
-Get-ChildItem $outDir | Select-Object Name, Length

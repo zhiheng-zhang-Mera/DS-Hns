@@ -330,6 +330,8 @@ function createAppWindow(isPrimary = false) {
     if (i >= 0) appWindows.splice(i, 1)
     if (mainWindow === win) mainWindow = null
     if (lastFocusedWin === win) lastFocusedWin = null
+    // 关闭所有用户窗口即自动退出(隐藏音频宿主不计入,避免残留进程)。
+    if (appWindows.length === 0 && !shuttingDown) app.quit()
   })
   appWindows.push(win)
   if (isPrimary || !mainWindow) mainWindow = win
