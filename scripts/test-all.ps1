@@ -10,7 +10,7 @@ $syntaxFiles = @(
   "$ROOT\app\extensions\mega\scheduler\system.js",
   "$ROOT\app\extensions\mega\ui\preload.cjs",
   "$ROOT\app\extensions\mega\ui\renderer.js",
-  "$ROOT\app\extensions\mega\ui\widget.js"
+  "$ROOT\app\extensions\mega\ui\dock.js"
 )
 foreach ($file in $syntaxFiles) {
   & $node --check $file
