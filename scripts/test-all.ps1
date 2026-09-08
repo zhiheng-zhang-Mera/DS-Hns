@@ -6,6 +6,7 @@ $syntaxFiles = @(
   "$ROOT\app\desktop-main.cjs",
   "$ROOT\app\extensions\manager.cjs",
   "$ROOT\app\extensions\mega\index.cjs",
+  "$ROOT\app\extensions\mega\deepseek\official-session-client.js",
   "$ROOT\app\extensions\mega\scheduler\scheduler.js",
   "$ROOT\app\extensions\mega\scheduler\system.js",
   "$ROOT\app\extensions\mega\ui\preload.cjs",
