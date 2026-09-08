@@ -7,6 +7,7 @@ const PricingRepository = require('../billing/pricing-repository')
 const { statusAt, nextChangeInfo } = require('../billing/peak-engine')
 const system = require('./system')
 const runner = require('./dsh-runner')
+const { OfficialSessionClient } = require('../deepseek/official-session-client')
 const { appendRecent } = require('../tracker/task-history')
 const { ROOT } = require('../utils/paths')
 const { getActiveDir } = require('../utils/workspace')
@@ -48,7 +49,7 @@ class SchedulerService extends EventEmitter {
     this.running = new Map()
     this.timer = null
     this.startedAt = null
-    this.officialClient = null
+    this.officialClient = new OfficialSessionClient()
     this.tickInFlight = false
     this.tickPending = false
     this.ensureQueueOrders()
@@ -57,7 +58,7 @@ class SchedulerService extends EventEmitter {
   }
 
   setOfficialClient(client) {
-    this.officialClient = client || null
+    this.officialClient = client || new OfficialSessionClient()
   }
 
   loadConfig() {
@@ -79,9 +80,6 @@ class SchedulerService extends EventEmitter {
       if (!Array.isArray(list)) return []
       return list.map((task) => ({
         ...task,
-        // Existing queues created before official-session delivery are migrated
-        // to the user's expected behavior: scheduled work appears in the
-        // official DSH session store unless Headless was explicitly requested.
         deliveryMode: deliveryMode(task.deliveryMode)
       }))
     } catch {
@@ -491,9 +489,6 @@ class SchedulerService extends EventEmitter {
         continue
       }
 
-      // A newly accepted prompt may finish between scheduler polls. Once the
-      // session is non-blank and either a running edge was observed or a short
-      // grace period elapsed, idle means the official turn has settled.
       const acceptedAge = t.officialAcceptedAt ? now - t.officialAcceptedAt : 0
       if (summary.blank === false && (t.officialSeenRunning || acceptedAge >= 3_000)) {
         this.finish(t, 'COMPLETED', null, { source: 'official-session' })
