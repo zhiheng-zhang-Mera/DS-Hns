@@ -17,7 +17,7 @@ Alien-derived Electron shell
                  |
                  +--> Mega feature extension
                        scheduler / peak billing / tracker / settings / sounds
-                       companion widget / tray / isolated tools window
+                       right-side dock / tray / isolated full tools window
 ```
 
 ### Pure Alien regression mode
@@ -41,7 +41,7 @@ The previous integration retained Mega as a second application core under `app/m
 
 The rebuild removes the legacy `app/monitor` application and shared preload entirely. Optional functionality now starts only **after** the official dsh page has loaded. Extension failure is logged but must not terminate or mutate the official UI.
 
-Mega shell entrances are restored as **separate Electron windows/tray UI**. The companion widget is a child `BrowserWindow`; it is not injected into the official dsh page.
+Mega shell entrances are restored as **separate Electron windows/tray UI**. The right-side dock is a child `BrowserWindow`; it is visually attached to the official window but is never injected into the official dsh page.
 
 ## One-click install
 
@@ -99,8 +99,9 @@ If no environment key and no existing project key are found, the installer asks:
 
 ## Mega-derived features retained
 
+- manual ordered queue with top/up/down/bottom controls
 - scheduled / off-peak task queue
-- dynamic local concurrency
+- hardware-adaptive local concurrency
 - peak/off-peak pricing engine and task-cost calculation
 - DeepSeek account balance lookup
 - session JSONL tracking and recent task history
@@ -108,21 +109,39 @@ If no environment key and no existing project key are found, the installer asks:
 - configurable completion / failure / interruption sounds
 - selectable headless-task workspace
 
-### Mega Companion
+### Mega right-side dock
 
-After the official Alien/DSH UI loads, Mega starts as a companion layer:
+After the official Alien/DSH UI loads, Mega appears as a visually attached right-side dock.
 
-- **Companion widget** — a small floating status widget follows the main window and shows running/queued task state; click it to open the full Mega tools window.
-- **System tray** — entries for the official Harness, Mega Extensions, show/hide companion, and Exit.
-- **Full tools window** — `Ctrl+Shift+M` opens the scheduler/settings/session dashboard.
-
-The widget can be disabled without disabling Mega:
-
-```cmd
-set DSH_MEGA_WIDGET=0
+```text
+Collapsed                              Expanded
++----------------------+----+          +----------------------+-----------------------+
+| official DSH UI      | M  |          | official DSH UI      | Mega                  |
+|                      | E  |          |                      | Queue / reorder       |
+|                      | G  |          |                      | Hardware auto         |
+|                      | A  |          |                      | Peak / cost / balance |
+|                      |RUN |          |                      | Recent sessions       |
+|                      |Q/HW|          |                      |                       |
++----------------------+----+          +----------------------+-----------------------+
 ```
 
-The tray can be disabled separately:
+- **Collapsed rail** — 48 px vertical strip with MEGA identity, running count, queued count, hardware worker state and peak/off-peak state.
+- **Expanded dock** — 560 px by default, with manual task creation, real queue ordering controls, hardware-adaptive concurrency controls, balance and recent sessions.
+- **State memory** — collapsed/expanded state and dock width are stored in `data/state/mega-dock.json`.
+- **No official viewport resize** — the official DSH BrowserWindow keeps its original size. If there is room on the right, the dock sits outside it; if not (for example a maximized window), the dock overlays the right edge as a separate BrowserWindow instead of shrinking the official renderer.
+- **Full Mega tools** — the original larger management window remains available for low-frequency/advanced settings.
+- **Ctrl+Shift+M** — toggles the right dock between collapsed and expanded states.
+- **System tray** — Official Harness, Expand/Collapse Mega Dock, Show/Hide Mega Dock, Full Mega Tools, Exit.
+
+Disable only the dock without disabling Mega background features:
+
+```cmd
+set DSH_MEGA_DOCK=0
+```
+
+`DSH_MEGA_WIDGET=0` is also honored as a compatibility alias for older installations.
+
+Disable the tray separately:
 
 ```cmd
 set DSH_MEGA_TRAY=0
@@ -139,7 +158,7 @@ app/
   extensions/
     manager.cjs                  optional extension lifecycle
     mega/
-      index.cjs                  Mega adapter, tray/widget/tools lifecycle
+      index.cjs                  Mega adapter, dock/tray/tools lifecycle
       billing/
       scheduler/
       tracker/
@@ -148,10 +167,12 @@ app/
       deepseek/
       utils/
       ui/
+        dock.html                 collapsible right-side dock
+        dock.js
+        dock.css
         index.html                full Mega tools window
-        widget.html              companion widget
-        widget.js
-        widget.css
+        renderer.js
+        preload.cjs
   package.json
 config/
 data/
@@ -170,10 +191,11 @@ tests/
 1. `app/desktop-main.cjs#createWindow()` must not contain a `preload` entry.
 2. Mega code must never inject JavaScript/CSS into the official renderer.
 3. Mega UI must never replace the official main window.
-4. Companion/widget/tools UI must live in separate `BrowserWindow` instances.
-5. Extensions load only after `mainWindow.loadURL(officialDshUrl)` succeeds.
-6. `DSH_DISABLE_MEGA=1` must boot the product without loading Mega code.
-7. An extension crash must be logged and isolated from the official UI.
+4. Dock/tools UI must live in separate `BrowserWindow` instances.
+5. Expanding the Mega dock must not resize the official DSH BrowserWindow or its renderer viewport.
+6. Extensions load only after `mainWindow.loadURL(officialDshUrl)` succeeds.
+7. `DSH_DISABLE_MEGA=1` must boot the product without loading Mega code.
+8. An extension crash must be logged and isolated from the official UI.
 
 These rules are enforced by `tests/unit/architecture-contract.test.js`.
 Installer/reuse/API-key behavior is enforced by `tests/unit/installer-contract.test.js`.
@@ -192,7 +214,8 @@ Optional PowerShell launcher:
 powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
-Mega tools: `Ctrl+Shift+M` or click the companion widget / tray entry.
+Mega dock: `Ctrl+Shift+M`.
+Full Mega tools: use the expanded dock or tray entry.
 
 ## Verification
 
