@@ -8,7 +8,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 $selfPowerShell = (Get-Process -Id $PID).Path
-if (-not $selfPowerShell) { $selfPowerShell = Join-Path $PSHOME 'powershell.exe' }
+if (-not $selfPowerShell) {
+  $selfPowerShell = Join-Path $PSHOME 'powershell.exe'
+}
 
 function Write-Step([string]$text) {
   Write-Host ''
@@ -18,7 +20,10 @@ function Write-Step([string]$text) {
 function Test-RealApiKey([string]$value) {
   if ([string]::IsNullOrWhiteSpace($value)) { return $false }
   $v = $value.Trim()
-  return ($v -ne 'sk-...') -and ($v -ne 'YOUR_API_KEY') -and ($v -ne 'YOUR_DEEPSEEK_API_KEY')
+  if ($v -eq 'sk-...') { return $false }
+  if ($v -eq 'YOUR_API_KEY') { return $false }
+  if ($v -eq 'YOUR_DEEPSEEK_API_KEY') { return $false }
+  return $true
 }
 
 function Get-DotEnvValue([string]$file, [string]$key) {
@@ -27,8 +32,12 @@ function Get-DotEnvValue([string]$file, [string]$key) {
   foreach ($line in [System.IO.File]::ReadAllLines($file)) {
     if ($line -match $pattern) {
       $value = $line.Substring($line.IndexOf('=') + 1).Trim()
-      if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
-        $value = $value.Substring(1, $value.Length - 2)
+      if ($value.Length -ge 2) {
+        $first = $value.Substring(0, 1)
+        $last = $value.Substring($value.Length - 1, 1)
+        if ((($first -eq '"') -and ($last -eq '"')) -or (($first -eq "'") -and ($last -eq "'"))) {
+          $value = $value.Substring(1, $value.Length - 2)
+        }
       }
       return $value
     }
@@ -39,7 +48,11 @@ function Get-DotEnvValue([string]$file, [string]$key) {
 function Set-DotEnvValue([string]$file, [string]$key, [string]$value) {
   $dir = Split-Path -Parent $file
   New-Item -ItemType Directory -Path $dir -Force | Out-Null
-  $lines = if (Test-Path -LiteralPath $file) { @([System.IO.File]::ReadAllLines($file)) } else { @() }
+  if (Test-Path -LiteralPath $file) {
+    $lines = @([System.IO.File]::ReadAllLines($file))
+  } else {
+    $lines = @()
+  }
   $pattern = '^\s*' + [regex]::Escape($key) + '\s*='
   $found = $false
   for ($i = 0; $i -lt $lines.Count; $i++) {
@@ -49,8 +62,11 @@ function Set-DotEnvValue([string]$file, [string]$key, [string]$value) {
       break
     }
   }
-  if (-not $found) { $lines += "$key=$value" }
-  [System.IO.File]::WriteAllLines($file, $lines, (New-Object System.Text.UTF8Encoding($false)))
+  if (-not $found) {
+    $lines += "$key=$value"
+  }
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllLines($file, $lines, $utf8NoBom)
 }
 
 function Ensure-ProjectEnvFile([string]$envFile) {
@@ -58,13 +74,11 @@ function Ensure-ProjectEnvFile([string]$envFile) {
   $template = Join-Path $ROOT 'config\.env.example'
   if (Test-Path -LiteralPath $template) {
     Copy-Item -LiteralPath $template -Destination $envFile
-  } else {
-    [System.IO.File]::WriteAllText(
-      $envFile,
-      "DEEPSEEK_API_KEY=`r`nDSH_TELEMETRY_MODE=DISABLED`r`nDSH_PERMISSION_MODE=workspace-write`r`n",
-      (New-Object System.Text.UTF8Encoding($false))
-    )
+    return
   }
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  $content = "DEEPSEEK_API_KEY=`r`nDSH_TELEMETRY_MODE=DISABLED`r`nDSH_PERMISSION_MODE=workspace-write`r`n"
+  [System.IO.File]::WriteAllText($envFile, $content, $utf8NoBom)
 }
 
 function Get-SystemApiKey {
@@ -74,13 +88,15 @@ function Get-SystemApiKey {
     @{ Scope = 'Machine'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'Machine') }
   )
   foreach ($item in $candidates) {
-    if (Test-RealApiKey ([string]$item.Value)) { return $item }
+    if (Test-RealApiKey ([string]$item.Value)) {
+      return $item
+    }
   }
   return $null
 }
 
 function Read-ApiKeySecurely {
-  $secure = Read-Host '请输入 DEEPSEEK_API_KEY（输入内容不会显示）' -AsSecureString
+  $secure = Read-Host 'Enter DEEPSEEK_API_KEY (input is hidden)' -AsSecureString
   $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
   try {
     return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
@@ -89,8 +105,30 @@ function Read-ApiKeySecurely {
   }
 }
 
+function Assert-ScriptParses([string]$scriptPath) {
+  $tokens = $null
+  $errors = $null
+  [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors) | Out-Null
+  if ($errors -and $errors.Count -gt 0) {
+    $details = ($errors | ForEach-Object { $_.Message }) -join '; '
+    throw "PowerShell parser preflight failed for $scriptPath : $details"
+  }
+}
+
 Write-Host 'DS-Harness one-click installer' -ForegroundColor Green
 Write-Host "Root: $ROOT"
+
+Write-Step '0/7 PowerShell parser preflight'
+$criticalScripts = @(
+  (Join-Path $PSScriptRoot 'ensure-node.ps1'),
+  (Join-Path $PSScriptRoot 'install-deps.ps1'),
+  (Join-Path $PSScriptRoot 'test-all.ps1'),
+  (Join-Path $PSScriptRoot 'verify.ps1')
+)
+foreach ($scriptPath in $criticalScripts) {
+  Assert-ScriptParses $scriptPath
+  Write-Host "  OK $([System.IO.Path]::GetFileName($scriptPath))"
+}
 
 Write-Step '1/7 Bootstrap directories'
 $dirs = @(
@@ -99,11 +137,14 @@ $dirs = @(
   'cache\huggingface', 'cache\models', 'data\sessions', 'data\sounds', 'data\state', 'data\task-history',
   'data\usage', 'data\pricing', 'logs\app', 'logs\harness'
 )
-foreach ($d in $dirs) { New-Item -ItemType Directory -Path (Join-Path $ROOT $d) -Force | Out-Null }
+foreach ($d in $dirs) {
+  New-Item -ItemType Directory -Path (Join-Path $ROOT $d) -Force | Out-Null
+}
 Write-Host 'Directory structure ready.'
 
 Write-Step '2/7 Resolve/reuse dependencies'
-& (Join-Path $PSScriptRoot 'install-deps.ps1') -Full
+$dependencyScript = Join-Path $PSScriptRoot 'install-deps.ps1'
+& $dependencyScript -Full
 
 Write-Step '3/7 Resolve DeepSeek API key'
 $envFile = Join-Path $ROOT 'config\.env'
@@ -122,9 +163,16 @@ if ($systemKey) {
   if ($choice -eq 'Prompt') {
     Write-Host 'No DEEPSEEK_API_KEY was found in Process/User/Machine environment variables.' -ForegroundColor Yellow
     Write-Host '  [1] Configure now (stored only in this project: config\.env)'
-    Write-Host '  [2] Configure later in DS-Harness settings (Ctrl+Shift+M -> Harness / 提醒)'
-    do { $rawChoice = (Read-Host 'Choose 1 or 2').Trim() } while ($rawChoice -notin @('1', '2'))
-    $choice = if ($rawChoice -eq '1') { 'Configure' } else { 'Later' }
+    Write-Host '  [2] Configure later in DS-Harness settings (Ctrl+Shift+M -> Harness / Settings)'
+    $rawChoice = ''
+    while (($rawChoice -ne '1') -and ($rawChoice -ne '2')) {
+      $rawChoice = (Read-Host 'Choose 1 or 2').Trim()
+    }
+    if ($rawChoice -eq '1') {
+      $choice = 'Configure'
+    } else {
+      $choice = 'Later'
+    }
   }
 
   if ($choice -eq 'Configure') {
@@ -140,11 +188,11 @@ if ($systemKey) {
     }
   } else {
     Set-DotEnvValue $envFile 'DEEPSEEK_API_KEY' ''
-    Write-Host 'API key deferred. You can configure it later from Mega Extensions settings.'
+    Write-Host 'API key deferred. Configure later with Ctrl+Shift+M in Mega Extensions settings.'
   }
 }
 
-# Restore the canonical project runtime environment after install-time cache reuse.
+# Restore canonical project runtime variables after install-time cache reuse.
 . (Join-Path $PSScriptRoot 'env.ps1')
 
 Write-Step '4/7 Unit and architecture tests'
@@ -152,12 +200,16 @@ if ($SkipTests) {
   Write-Host 'Tests skipped by -SkipTests.'
 } else {
   & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-all.ps1')
-  if ($LASTEXITCODE -ne 0) { throw 'unit/architecture tests failed' }
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Unit/architecture tests failed.'
+  }
 }
 
 Write-Step '5/7 Verification'
 & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
-if ($LASTEXITCODE -ne 0) { throw 'verification failed' }
+if ($LASTEXITCODE -ne 0) {
+  throw 'Verification failed.'
+}
 
 Write-Step '6/7 Shortcuts'
 if ($NoShortcuts) {
