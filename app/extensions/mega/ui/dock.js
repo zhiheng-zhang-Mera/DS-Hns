@@ -1,5 +1,6 @@
 'use strict'
 const $ = (id) => document.getElementById(id)
+let latestSnapshot = null
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]))
@@ -7,6 +8,25 @@ function esc(value) {
 
 function fmtTime(ms) {
   return ms ? new Date(ms).toLocaleString() : '—'
+}
+
+function fmtClock(seconds) {
+  const value = Math.max(0, Math.floor(Number(seconds) || 0))
+  const h = Math.floor(value / 3600)
+  const m = Math.floor((value % 3600) / 60)
+  const s = value % 60
+  return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':')
+}
+
+function formatMoney(value, currency = 'CNY') {
+  const amount = Number(value || 0)
+  try {
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency', currency: currency || 'CNY', minimumFractionDigits: 2, maximumFractionDigits: 4
+    }).format(amount)
+  } catch {
+    return `${currency || 'CNY'} ${amount.toFixed(4)}`
+  }
 }
 
 function tokenCount(usage) {
@@ -42,7 +62,66 @@ function deliveryLabel(task) {
   return task.deliveryMode === 'headless' ? 'Headless' : '官方主界面'
 }
 
+function nextValleyText(snapshot) {
+  const peak = snapshot?.scheduler?.peak || {}
+  if (!peak.peak) return '现在'
+  const next = peak.nextChange
+  if (!next?.iso || next.statusAfter !== 'OFF-PEAK') return '—'
+  return fmtClock((Date.parse(next.iso) - Date.now()) / 1000)
+}
+
+function updateLivePeriod() {
+  if (!latestSnapshot) return
+  const peak = Boolean(latestSnapshot.scheduler?.peak?.peak)
+  const timer = $('nextValleyValue')
+  if (timer) timer.textContent = nextValleyText(latestSnapshot)
+  const railPeak = $('railPeak')
+  if (railPeak) {
+    railPeak.textContent = peak ? 'PEAK' : 'VALLEY'
+    railPeak.classList.toggle('peak', peak)
+    railPeak.classList.toggle('offpeak', !peak)
+  }
+}
+
+function renderBalance(snapshot) {
+  const balance = snapshot.balance
+  const sessions = snapshot.sessions || []
+  const recentCost = sessions.slice(0, 8).reduce((sum, session) => sum + Number(session.cost?.costCny || 0), 0)
+  const status = $('balanceStatus')
+  const meta = $('balanceMeta')
+  const cards = $('balanceCards')
+
+  if (!balance) {
+    status.textContent = '未刷新'
+    status.className = 'status-chip neutral'
+    meta.textContent = '余额与最近 Session 成本会在这里汇总。'
+    cards.innerHTML = `<div class="balance-card"><span>最近 8 个 Session</span><b>${formatMoney(recentCost, 'CNY')}</b><small>依据已记录 Token 估算</small></div><div class="balance-empty">点击“刷新”读取 DeepSeek 账户余额。</div>`
+    return
+  }
+
+  if (!balance.ok) {
+    status.textContent = '读取失败'
+    status.className = 'status-chip warn'
+    meta.textContent = balance.error?.message || '无法读取余额'
+    cards.innerHTML = `<div class="balance-card"><span>最近 8 个 Session</span><b>${formatMoney(recentCost, 'CNY')}</b><small>本地成本记录仍可用</small></div>`
+    return
+  }
+
+  status.textContent = balance.isAvailable ? '可用' : '不可用'
+  status.className = `status-chip ${balance.isAvailable ? 'ok' : 'warn'}`
+  meta.textContent = `上次刷新 ${new Date(balance.fetchedAt || Date.now()).toLocaleTimeString()}`
+  const rows = Array.isArray(balance.balances) ? balance.balances : []
+  const primary = rows[0] || { currency: 'CNY', total: 0, toppedUp: 0, granted: 0 }
+  cards.innerHTML = [
+    ['总余额', formatMoney(primary.total, primary.currency), primary.currency, 'primary'],
+    ['充值余额', formatMoney(primary.toppedUp, primary.currency), '自充值可用额度', ''],
+    ['赠送余额', formatMoney(primary.granted, primary.currency), '平台赠送额度', ''],
+    ['最近 8 个 Session', formatMoney(recentCost, 'CNY'), '依据已记录 Token 估算', '']
+  ].map(([label, value, note, cls]) => `<div class="balance-card ${cls}"><span>${esc(label)}</span><b>${esc(value)}</b><small>${esc(note)}</small></div>`).join('')
+}
+
 function render(snapshot) {
+  latestSnapshot = snapshot
   const scheduler = snapshot.scheduler || {}
   const counts = scheduler.counts || {}
   const concurrency = scheduler.concurrency || {}
@@ -52,19 +131,20 @@ function render(snapshot) {
   const active = tasks.filter(isActive)
   const dock = snapshot.extension?.dock || {}
   const activeCount = (counts.RUNNING || 0) + (counts.DISPATCHING || 0) || active.length || 0
+  const queuedCount = (counts.PENDING || 0) + (counts.SUSPENDED || 0) || queued.length || 0
 
   setExpanded(Boolean(dock.expanded))
   $('railRunning').textContent = String(activeCount)
-  $('railQueued').textContent = String((counts.PENDING || 0) + (counts.SUSPENDED || 0) || queued.length || 0)
+  $('railQueued').textContent = String(queuedCount)
   $('railWorkers').textContent = `${concurrency.current ?? '—'}/${concurrency.hardwareCap ?? '—'}`
-  $('railPeak').textContent = peak ? 'PEAK' : 'OFF'
 
   $('summary').innerHTML = [
-    ['时段', peak ? 'PEAK' : 'OFF-PEAK'],
-    ['运行', activeCount],
-    ['等待', (counts.PENDING || 0) + (counts.SUSPENDED || 0) || queued.length || 0],
-    ['并行', `${concurrency.current ?? '—'} / HW ${concurrency.hardwareCap ?? '—'}`]
-  ].map(([label, value]) => `<div class="summary-card"><span>${esc(label)}</span><b>${esc(value)}</b></div>`).join('')
+    ['时段', peak ? '峰价' : '谷价', `summary-card period-card ${peak ? 'peak' : 'offpeak'}`, ''],
+    ['距下一次谷价', nextValleyText(snapshot), 'summary-card timer-card', 'nextValleyValue'],
+    ['运行', activeCount, 'summary-card', ''],
+    ['等待', queuedCount, 'summary-card', ''],
+    ['并行', `${concurrency.current ?? '—'} / HW ${concurrency.hardwareCap ?? '—'}`, 'summary-card', '']
+  ].map(([label, value, cls, id]) => `<div class="${cls}"><span>${esc(label)}</span><b${id ? ` id="${id}"` : ''}>${esc(value)}</b></div>`).join('')
 
   $('queue').innerHTML = tasks.slice(0, 24).map((task) => {
     const rank = task.queueRank
@@ -102,15 +182,14 @@ function render(snapshot) {
   $('memoryReserveGb').value = config.memoryReserveGb ?? 2
   $('memoryPerWorkerGb').value = config.memoryPerWorkerGb ?? 2.5
 
-  if (snapshot.balance) {
-    const available = snapshot.balance.balanceInfos || snapshot.balance.balance_infos || snapshot.balance
-    $('balanceText').textContent = typeof available === 'string' ? available : JSON.stringify(available)
-  }
+  renderBalance(snapshot)
 
   $('sessions').innerHTML = (snapshot.sessions || []).slice(0, 8).map((session) => {
     const cost = session.cost ? `¥${Number(session.cost.costCny || 0).toFixed(4)}` : '—'
     return `<div class="session-item"><b>${esc(session.status || '—')}</b><span>${esc(session.model || '—')} · ${esc(tokenCount(session.usage).toLocaleString())} tok</span><span>${esc(cost)}</span></div>`
   }).join('') || '<div class="muted">暂无 Session</div>'
+
+  updateLivePeriod()
 }
 
 async function refresh() {
@@ -203,3 +282,4 @@ document.addEventListener('click', async (event) => {
 window.megaTools.onChanged(refresh)
 refresh()
 setInterval(refresh, 5000)
+setInterval(updateLivePeriod, 1000)
