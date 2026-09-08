@@ -205,22 +205,27 @@ function currentDockWidth() {
 
 function positionDock() {
   if (!dockWindow || dockWindow.isDestroyed() || !mainAlive()) return
-  const bounds = ctx.mainWindow.getBounds()
+  const outer = ctx.mainWindow.getBounds()
+  const content = typeof ctx.mainWindow.getContentBounds === 'function'
+    ? ctx.mainWindow.getContentBounds()
+    : outer
   const width = currentDockWidth()
   const { screen } = ctx.electron
-  const display = screen?.getDisplayMatching ? screen.getDisplayMatching(bounds) : null
+  const display = screen?.getDisplayMatching ? screen.getDisplayMatching(outer) : null
   const work = display?.workArea || { x: 0, y: 0, width: 3840, height: 2160 }
   const workRight = work.x + work.width
   const workBottom = work.y + work.height
 
-  let x = bounds.x + bounds.width
+  let x = outer.x + outer.width
   if (x + width > workRight) {
-    // Overlay only when the screen has no room. The official renderer keeps its
-    // original viewport size, so DSH responsive layout is never disturbed.
-    x = Math.max(work.x, bounds.x + bounds.width - width)
+    // Overlay only when the screen has no room. Keep the official renderer's
+    // viewport untouched while matching Mega to its visible content height.
+    x = Math.max(work.x, outer.x + outer.width - width)
   }
-  const y = Math.max(work.y, Math.min(bounds.y, workBottom - Math.min(bounds.height, work.height)))
-  const height = Math.max(160, Math.min(bounds.height, workBottom - y))
+  const desiredY = content.y
+  const desiredHeight = content.height
+  const y = Math.max(work.y, Math.min(desiredY, workBottom - Math.min(desiredHeight, work.height)))
+  const height = Math.max(160, Math.min(desiredHeight, workBottom - y))
   dockWindow.setBounds({ x, y, width, height }, false)
 }
 
@@ -283,9 +288,12 @@ function createDock() {
   if (!mainAlive()) return null
 
   const { BrowserWindow } = ctx.electron
+  const content = typeof ctx.mainWindow.getContentBounds === 'function'
+    ? ctx.mainWindow.getContentBounds()
+    : ctx.mainWindow.getBounds()
   dockWindow = new BrowserWindow({
     width: currentDockWidth(),
-    height: Math.max(300, ctx.mainWindow.getBounds().height),
+    height: Math.max(300, content.height),
     frame: false,
     resizable: false,
     maximizable: false,
