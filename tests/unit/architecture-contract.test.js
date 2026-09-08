@@ -39,7 +39,18 @@ test('Mega tray and full tools entrances are restored without replacing the Alie
   assert.match(mega, /function createTray\(/)
   assert.match(mega, /Mega Extensions/)
   assert.match(mega, /Show Mega Companion/)
-  assert.match(mega, /Ctrl\+Shift\+M/)
+
+  // Validate the actual Ctrl+Shift+M behavior instead of requiring a literal
+  // documentation string such as "Ctrl+Shift+M" to exist in the source.
+  const shortcutStart = mega.indexOf('shortcutHandler =')
+  const shortcutEnd = mega.indexOf("ctx.mainWindow.webContents.on('before-input-event'", shortcutStart)
+  assert.ok(shortcutStart >= 0)
+  assert.ok(shortcutEnd > shortcutStart)
+  const shortcut = mega.slice(shortcutStart, shortcutEnd)
+  assert.match(shortcut, /input\.control/)
+  assert.match(shortcut, /input\.shift/)
+  assert.match(shortcut, /key\s*===\s*['\"]m['\"]/)
+  assert.match(shortcut, /openTools\(\)/)
 })
 
 test('startup detects any listener on 3080 instead of treating authenticated 401 as free', () => {
