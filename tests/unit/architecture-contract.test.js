@@ -7,6 +7,7 @@ const path = require('node:path')
 const ROOT = path.resolve(__dirname, '..', '..')
 const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
 const runtime = fs.readFileSync(path.join(ROOT, 'app', 'runtime-process.cjs'), 'utf8')
+const mega = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'index.cjs'), 'utf8')
 
 test('official main BrowserWindow has no preload injection', () => {
   const createWindowBody = main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions'))
@@ -20,6 +21,25 @@ test('legacy monitor app is removed from core', () => {
 test('Mega lives under optional extensions and has a kill switch', () => {
   assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'index.cjs')), true)
   assert.match(main, /DSH_DISABLE_MEGA/)
+})
+
+test('Mega companion remains an isolated child window instead of injecting into official renderer', () => {
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'widget.html')), true)
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'widget.js')), true)
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'widget.css')), true)
+  assert.match(mega, /function createWidget\(/)
+  assert.match(mega, /parent: ctx\.mainWindow/)
+  assert.match(mega, /skipTaskbar: true/)
+  assert.match(mega, /DSH_MEGA_WIDGET/)
+  assert.doesNotMatch(main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions')), /preload\s*:/)
+})
+
+test('Mega tray and full tools entrances are restored without replacing the Alien shell', () => {
+  assert.match(main, /Tray, Menu, nativeImage, screen/)
+  assert.match(mega, /function createTray\(/)
+  assert.match(mega, /Mega Extensions/)
+  assert.match(mega, /Show Mega Companion/)
+  assert.match(mega, /Ctrl\+Shift\+M/)
 })
 
 test('startup detects any listener on 3080 instead of treating authenticated 401 as free', () => {
