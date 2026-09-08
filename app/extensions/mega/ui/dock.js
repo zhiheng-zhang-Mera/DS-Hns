@@ -25,13 +25,21 @@ function setExpanded(expanded) {
   $('rail').title = expanded ? '折叠 Mega Dock' : '展开 Mega Dock'
 }
 
+function isActive(task) {
+  return task.status === 'RUNNING' || task.status === 'DISPATCHING'
+}
+
 function queueActions(task) {
   if (!['PENDING', 'SUSPENDED'].includes(task.status)) {
-    return task.status === 'RUNNING' ? `<button data-cancel="${esc(task.id)}" title="取消">×</button>` : ''
+    return isActive(task) ? `<button data-cancel="${esc(task.id)}" title="取消">×</button>` : ''
   }
   return [
     ['top', '⇈', '置顶'], ['up', '↑', '上移'], ['down', '↓', '下移'], ['bottom', '⇊', '置底']
   ].map(([move, label, title]) => `<button data-id="${esc(task.id)}" data-move="${move}" title="${title}">${label}</button>`).join('') + `<button data-cancel="${esc(task.id)}" title="取消">×</button>`
+}
+
+function deliveryLabel(task) {
+  return task.deliveryMode === 'headless' ? 'Headless' : '官方主界面'
 }
 
 function render(snapshot) {
@@ -41,25 +49,31 @@ function render(snapshot) {
   const peak = Boolean(scheduler.peak?.peak)
   const tasks = snapshot.tasks || []
   const queued = tasks.filter((t) => ['PENDING', 'SUSPENDED'].includes(t.status))
-  const running = tasks.filter((t) => t.status === 'RUNNING')
+  const active = tasks.filter(isActive)
   const dock = snapshot.extension?.dock || {}
+  const activeCount = (counts.RUNNING || 0) + (counts.DISPATCHING || 0) || active.length || 0
 
   setExpanded(Boolean(dock.expanded))
-  $('railRunning').textContent = String(counts.RUNNING || running.length || 0)
+  $('railRunning').textContent = String(activeCount)
   $('railQueued').textContent = String((counts.PENDING || 0) + (counts.SUSPENDED || 0) || queued.length || 0)
   $('railWorkers').textContent = `${concurrency.current ?? '—'}/${concurrency.hardwareCap ?? '—'}`
   $('railPeak').textContent = peak ? 'PEAK' : 'OFF'
 
   $('summary').innerHTML = [
     ['时段', peak ? 'PEAK' : 'OFF-PEAK'],
-    ['运行', counts.RUNNING || running.length || 0],
+    ['运行', activeCount],
     ['等待', (counts.PENDING || 0) + (counts.SUSPENDED || 0) || queued.length || 0],
     ['并行', `${concurrency.current ?? '—'} / HW ${concurrency.hardwareCap ?? '—'}`]
   ].map(([label, value]) => `<div class="summary-card"><span>${esc(label)}</span><b>${esc(value)}</b></div>`).join('')
 
   $('queue').innerHTML = tasks.slice(0, 24).map((task) => {
-    const rank = task.queueRank ? `#${task.queueRank}` : task.status === 'RUNNING' ? 'RUN' : '—'
-    const meta = `${task.status} · ${task.allowPeak ? '允许峰值' : '仅谷值'} · ${task.startAtMs ? fmtTime(task.startAtMs) : '尽快'}`
+    const rank = task.queueRank
+      ? `#${task.queueRank}`
+      : task.status === 'DISPATCHING' ? 'SEND'
+        : task.status === 'RUNNING' ? 'RUN' : '—'
+    const session = task.officialSessionId ? ` · session ${String(task.officialSessionId).slice(0, 8)}` : ''
+    const failure = task.error ? ` · ${typeof task.error === 'string' ? task.error : JSON.stringify(task.error)}` : ''
+    const meta = `${task.status} · ${deliveryLabel(task)}${session} · ${task.allowPeak ? '允许峰值' : '仅谷值'} · ${task.startAtMs ? fmtTime(task.startAtMs) : '尽快'}${failure}`
     return `<div class="queue-item">
       <div class="queue-rank">${esc(rank)}</div>
       <div class="queue-main"><div class="queue-title" title="${esc(task.prompt)}">${esc(task.promptPreview || task.prompt)}</div><div class="queue-meta">${esc(meta)}</div></div>
@@ -135,12 +149,16 @@ $('balance').onclick = async () => {
 $('taskForm').onsubmit = async (event) => {
   event.preventDefault()
   try {
+    const raw = $('startAt').value
     await window.megaTools.addTask({
       prompt: $('prompt').value,
+      deliveryMode: $('deliveryMode').value,
       queuePosition: $('queuePosition').value,
-      allowPeak: $('allowPeak').checked
+      allowPeak: $('allowPeak').checked,
+      startAt: raw ? new Date(raw).toISOString() : null
     })
     $('prompt').value = ''
+    $('startAt').value = ''
     await refresh()
   } catch (error) {
     showError(error)
