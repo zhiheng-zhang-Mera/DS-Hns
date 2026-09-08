@@ -7,11 +7,13 @@ async function refresh() {
     const counts = snap?.scheduler?.counts || {}
     $('running').textContent = String(counts.RUNNING || 0)
     $('pending').textContent = String((counts.PENDING || 0) + (counts.SUSPENDED || 0))
-    const peak = snap?.scheduler?.peak
+    const peak = Boolean(snap?.scheduler?.peak?.peak)
     const current = snap?.scheduler?.concurrency?.current
-    const max = snap?.scheduler?.concurrency?.max
-    const peakText = peak?.peak ? 'peak window' : 'off-peak'
-    $('mode').textContent = current ? `${peakText} · concurrency ${current}${max ? `/${max}` : ''}` : peakText
+    const hardwareCap = snap?.scheduler?.concurrency?.hardwareCap
+    const peakText = peak ? 'peak window' : 'off-peak'
+    $('mode').textContent = current
+      ? `${peakText} · auto ${current}${hardwareCap ? `/${hardwareCap}` : ''}`
+      : peakText
   } catch {
     $('mode').textContent = 'Mega status unavailable'
   }
