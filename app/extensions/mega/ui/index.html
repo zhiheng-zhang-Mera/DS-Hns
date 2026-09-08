@@ -16,9 +16,10 @@
     <section class="cards" id="summary"></section>
 
     <section class="panel">
-      <div class="panel-title-row"><div><h2>手动任务队列</h2><p class="muted">队列编号就是实际调度顺序；运行中的任务不会因排序被打断。</p></div></div>
+      <div class="panel-title-row"><div><h2>手动任务队列</h2><p class="muted">默认创建官方 DSH Session 并出现在左侧历史；Headless 仅在明确选择时使用。</p></div></div>
       <form id="taskForm" class="grid-form">
-        <textarea id="prompt" required placeholder="输入要交给 headless dsh 的任务"></textarea>
+        <textarea id="prompt" required placeholder="输入要排队 / 定时执行的任务"></textarea>
+        <label>执行目标 <select id="deliveryMode"><option value="official-session">官方主界面（新会话）</option><option value="headless">Headless 后台</option></select></label>
         <label>加入位置 <select id="queuePosition"><option value="bottom">队尾</option><option value="top">队首</option></select></label>
         <label>开始时间 <input id="startAt" type="datetime-local"></label>
         <label><input id="allowPeak" type="checkbox"> 允许峰值时段运行</label>
@@ -26,7 +27,8 @@
         <button type="submit">新增队列任务</button>
         <button type="button" id="clearPending">清空待运行</button>
       </form>
-      <div class="table-wrap"><table><thead><tr><th>#</th><th>状态</th><th>任务</th><th>峰值</th><th>开始</th><th>队列操作</th></tr></thead><tbody id="tasks"></tbody></table></div>
+      <p class="muted">“官方主界面”会创建正式 Session 并进入官方历史列表，但不会强制切换你当前正在查看的会话。</p>
+      <div class="table-wrap"><table><thead><tr><th>#</th><th>状态</th><th>目标</th><th>任务</th><th>峰值</th><th>开始</th><th>队列操作</th></tr></thead><tbody id="tasks"></tbody></table></div>
     </section>
 
     <section class="split">
