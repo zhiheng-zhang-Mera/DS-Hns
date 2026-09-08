@@ -82,10 +82,15 @@ function Ensure-ProjectEnvFile([string]$envFile) {
 }
 
 function Get-SystemApiKey {
+  # Canonical name always wins. DeepSeek_API is accepted as a compatibility
+  # alias and is mapped only into this process as DEEPSEEK_API_KEY.
   $candidates = @(
-    @{ Scope = 'Process/inherited'; Value = $env:DEEPSEEK_API_KEY },
-    @{ Scope = 'User'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'User') },
-    @{ Scope = 'Machine'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'Machine') }
+    @{ Name = 'DEEPSEEK_API_KEY'; Scope = 'Process/inherited'; Value = $env:DEEPSEEK_API_KEY },
+    @{ Name = 'DEEPSEEK_API_KEY'; Scope = 'User'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'User') },
+    @{ Name = 'DEEPSEEK_API_KEY'; Scope = 'Machine'; Value = [Environment]::GetEnvironmentVariable('DEEPSEEK_API_KEY', 'Machine') },
+    @{ Name = 'DeepSeek_API'; Scope = 'Process/inherited'; Value = $env:DeepSeek_API },
+    @{ Name = 'DeepSeek_API'; Scope = 'User'; Value = [Environment]::GetEnvironmentVariable('DeepSeek_API', 'User') },
+    @{ Name = 'DeepSeek_API'; Scope = 'Machine'; Value = [Environment]::GetEnvironmentVariable('DeepSeek_API', 'Machine') }
   )
   foreach ($item in $candidates) {
     if (Test-RealApiKey ([string]$item.Value)) {
@@ -158,14 +163,14 @@ $projectKey = Get-DotEnvValue $envFile 'DEEPSEEK_API_KEY'
 
 if ($systemKey) {
   $env:DEEPSEEK_API_KEY = [string]$systemKey.Value
-  Write-Host "Found DEEPSEEK_API_KEY in $($systemKey.Scope) environment. Reusing it; no key is copied or logged."
+  Write-Host "Found $($systemKey.Name) in $($systemKey.Scope) environment. Reusing it as DEEPSEEK_API_KEY; no key is copied or logged."
 } elseif (Test-RealApiKey $projectKey) {
   $env:DEEPSEEK_API_KEY = $projectKey
   Write-Host 'No system API key found; existing project config\.env key will be reused.'
 } else {
   $choice = $ApiKeyMode
   if ($choice -eq 'Prompt') {
-    Write-Host 'No DEEPSEEK_API_KEY was found in Process/User/Machine environment variables.' -ForegroundColor Yellow
+    Write-Host 'No DEEPSEEK_API_KEY or DeepSeek_API was found in Process/User/Machine environment variables.' -ForegroundColor Yellow
     Write-Host '  [1] Configure now (stored only in this project: config\.env)'
     Write-Host '  [2] Configure later in DS-Harness settings (Ctrl+Shift+M -> Harness / Settings)'
     $rawChoice = ''
@@ -230,7 +235,7 @@ if ($NoShortcuts) {
 Write-Step '7/7 Complete'
 Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
 if ($systemKey) {
-  Write-Host "API: system environment ($($systemKey.Scope))"
+  Write-Host "API: system environment ($($systemKey.Name), $($systemKey.Scope))"
 } elseif ($env:DEEPSEEK_API_KEY) {
   Write-Host 'API: project configuration'
 } else {
