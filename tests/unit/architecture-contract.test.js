@@ -8,10 +8,15 @@ const ROOT = path.resolve(__dirname, '..', '..')
 const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
 const runtime = fs.readFileSync(path.join(ROOT, 'app', 'runtime-process.cjs'), 'utf8')
 const mega = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'index.cjs'), 'utf8')
+const dockHtml = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'dock.html'), 'utf8')
+const dockJs = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'dock.js'), 'utf8')
+
+function officialCreateWindowBody() {
+  return main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions'))
+}
 
 test('official main BrowserWindow has no preload injection', () => {
-  const createWindowBody = main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions'))
-  assert.equal(/preload\s*:/.test(createWindowBody), false)
+  assert.equal(/preload\s*:/.test(officialCreateWindowBody()), false)
 })
 
 test('legacy monitor app is removed from core', () => {
@@ -23,25 +28,47 @@ test('Mega lives under optional extensions and has a kill switch', () => {
   assert.match(main, /DSH_DISABLE_MEGA/)
 })
 
-test('Mega companion remains an isolated child window instead of injecting into official renderer', () => {
-  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'widget.html')), true)
-  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'widget.js')), true)
-  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'widget.css')), true)
-  assert.match(mega, /function createWidget\(/)
+test('Mega right dock is an isolated BrowserWindow and never mutates official renderer', () => {
+  for (const file of ['dock.html', 'dock.js', 'dock.css']) {
+    assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', file)), true)
+  }
+  assert.match(mega, /function createDock\(/)
   assert.match(mega, /parent: ctx\.mainWindow/)
   assert.match(mega, /skipTaskbar: true/)
-  assert.match(mega, /DSH_MEGA_WIDGET/)
-  assert.doesNotMatch(main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions')), /preload\s*:/)
+  assert.match(mega, /DOCK_COLLAPSED_WIDTH\s*=\s*48/)
+  assert.match(mega, /DOCK_DEFAULT_WIDTH\s*=\s*560/)
+  assert.match(mega, /DSH_MEGA_DOCK/)
+  assert.doesNotMatch(officialCreateWindowBody(), /preload\s*:/)
 })
 
-test('Mega tray and full tools entrances are restored without replacing the Alien shell', () => {
+test('dock collapse state is persisted independently of official DSH state', () => {
+  assert.match(mega, /mega-dock\.json/)
+  assert.match(mega, /loadDockState/)
+  assert.match(mega, /saveDockState/)
+  assert.match(mega, /setDockExpanded/)
+  assert.match(mega, /dockExpanded/)
+})
+
+test('collapsed rail remains useful and expanded dock contains queue and hardware controls', () => {
+  assert.match(dockHtml, /id="rail"/)
+  assert.match(dockHtml, /id="railRunning"/)
+  assert.match(dockHtml, /id="railQueued"/)
+  assert.match(dockHtml, /id="railWorkers"/)
+  assert.match(dockHtml, /手动队列/)
+  assert.match(dockHtml, /硬件自适应并行/)
+  assert.match(dockJs, /reorderTask/)
+  assert.match(dockJs, /hardwareCap/)
+})
+
+test('Mega tray and full tools remain available alongside the dock', () => {
   assert.match(main, /Tray, Menu, nativeImage, screen/)
   assert.match(mega, /function createTray\(/)
-  assert.match(mega, /Mega Extensions/)
-  assert.match(mega, /Show Mega Companion/)
+  assert.match(mega, /Expand Mega Dock/)
+  assert.match(mega, /Full Mega Tools/)
+  assert.match(mega, /function openTools\(/)
+})
 
-  // Validate the actual Ctrl+Shift+M behavior instead of requiring a literal
-  // documentation string such as "Ctrl+Shift+M" to exist in the source.
+test('Ctrl+Shift+M toggles the dock using actual input logic', () => {
   const shortcutStart = mega.indexOf('shortcutHandler =')
   const shortcutEnd = mega.indexOf("ctx.mainWindow.webContents.on('before-input-event'", shortcutStart)
   assert.ok(shortcutStart >= 0)
@@ -50,7 +77,7 @@ test('Mega tray and full tools entrances are restored without replacing the Alie
   assert.match(shortcut, /input\.control/)
   assert.match(shortcut, /input\.shift/)
   assert.match(shortcut, /key\s*===\s*['\"]m['\"]/)
-  assert.match(shortcut, /openTools\(\)/)
+  assert.match(shortcut, /toggleDock\(/)
 })
 
 test('startup detects any listener on 3080 instead of treating authenticated 401 as free', () => {
