@@ -6,6 +6,7 @@ const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..', '..')
 const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+const runtime = fs.readFileSync(path.join(ROOT, 'app', 'runtime-process.cjs'), 'utf8')
 
 test('official main BrowserWindow has no preload injection', () => {
   const createWindowBody = main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions'))
@@ -40,4 +41,22 @@ test('startup failures expose the runtime log tail', () => {
   assert.match(main, /function readLogTail/)
   assert.match(main, /desktop-runtime\.log \(tail\)/)
   assert.match(main, /Log: \$\{logPath\(\)\}/)
+})
+
+test('runtime ownership is written for the spawned DSH child and cleared on exit', () => {
+  assert.match(main, /runtimeProcess\.writeOwnership/)
+  assert.match(main, /runtimeProcess\.clearOwnership/)
+  assert.match(runtime, /dsh-process\.json/)
+  assert.match(runtime, /childPid/)
+  assert.match(runtime, /parentPid/)
+})
+
+test('owned stale DSH recovery runs before the port-3080 conflict check', () => {
+  const startupBlock = main.slice(main.indexOf('app.whenReady()'))
+  const recovery = startupBlock.indexOf('recoverOwnedStale')
+  const portCheck = startupBlock.indexOf('isHarnessPortListening()')
+  assert.ok(recovery >= 0)
+  assert.ok(portCheck > recovery)
+  assert.match(runtime, /isExpectedDshProcess/)
+  assert.match(runtime, /taskkill\.exe/)
 })
