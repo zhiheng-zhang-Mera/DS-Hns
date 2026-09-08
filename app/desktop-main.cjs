@@ -12,6 +12,7 @@ const http = require('node:http')
 const net = require('node:net')
 const path = require('node:path')
 const fs = require('node:fs')
+const runtimeProcess = require('./runtime-process.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -117,7 +118,7 @@ function resolveNodeExe() {
 }
 
 function ensureRuntimeDirs() {
-  for (const dir of ['logs', 'temp', 'cache', 'data', 'workspace']) {
+  for (const dir of ['logs', 'temp', 'cache', 'data', 'workspace', 'runtime']) {
     fs.mkdirSync(path.join(ROOT, dir), { recursive: true })
   }
 }
@@ -227,14 +228,20 @@ function startHarness(nodeExe) {
     windowsHide: true
   })
 
+  const childPid = harnessProcess.pid
+  runtimeProcess.writeOwnership({ root: ROOT, dshEntry: DSH_ENTRY, childPid, parentPid: process.pid })
+  logLine(`ownership childPid=${childPid} parentPid=${process.pid}`)
+
   const log = fs.createWriteStream(logPath(), { flags: 'a' })
   harnessProcess.stdout.on('data', (chunk) => observeStartupOutput('stdout', chunk, log))
   harnessProcess.stderr.on('data', (chunk) => observeStartupOutput('stderr', chunk, log))
   harnessProcess.once('error', (error) => {
+    runtimeProcess.clearOwnership({ root: ROOT, childPid })
     log.write(`\n[desktop] ${error.stack || error}\n`)
     rejectHarnessUrl(startupError(`Could not spawn Harness process: ${error.message || error}`))
   })
   harnessProcess.once('exit', (code, signal) => {
+    runtimeProcess.clearOwnership({ root: ROOT, childPid })
     log.write(`\n[desktop] Harness process exit code=${code} signal=${signal || ''}\n`)
     if (!harnessUrl) rejectHarnessUrl(startupError(`Harness service exited before announcing its access URL (code ${code})`))
   })
@@ -242,12 +249,15 @@ function startHarness(nodeExe) {
 }
 
 function stopHarness() {
-  if (!harnessProcess || harnessProcess.exitCode !== null) return
-  if (process.platform === 'win32') {
-    spawnSync('taskkill.exe', ['/pid', String(harnessProcess.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
-  } else {
-    harnessProcess.kill('SIGTERM')
+  const childPid = harnessProcess?.pid
+  if (harnessProcess && harnessProcess.exitCode === null) {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill.exe', ['/pid', String(childPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    } else {
+      harnessProcess.kill('SIGTERM')
+    }
   }
+  if (childPid) runtimeProcess.clearOwnership({ root: ROOT, childPid })
 }
 
 function createWindow() {
@@ -308,8 +318,9 @@ app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return
   createWindow()
   try {
+    await runtimeProcess.recoverOwnedStale({ root: ROOT, dshEntry: DSH_ENTRY, log: logLine })
     if (await isHarnessPortListening()) {
-      throw startupError(`Port ${HARNESS_PORT} is already in use. Close the existing Harness/DSH process and try again.`)
+      throw startupError(`Port ${HARNESS_PORT} is already in use by another process. Close it before starting DS-Harness.`)
     }
     const nodeExe = resolveNodeExe()
     await Promise.race([
