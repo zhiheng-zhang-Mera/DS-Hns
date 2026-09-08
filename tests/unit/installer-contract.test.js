@@ -57,3 +57,25 @@ test('direct Electron launch loads project env without overriding system env', (
   const createWindow = text.split('async function startExtensions')[0]
   assert.doesNotMatch(createWindow, /preload\s*:/)
 })
+
+test('critical installer PowerShell files stay ASCII-only for Windows PowerShell 5.1', () => {
+  const files = [
+    'scripts/install.ps1',
+    'scripts/install-deps.ps1',
+    'scripts/ensure-node.ps1',
+    'scripts/env.ps1',
+    'scripts/test-all.ps1',
+    'scripts/verify.ps1'
+  ]
+  for (const file of files) {
+    const text = read(file).replace(/^\uFEFF/, '')
+    assert.equal(/[^\x00-\x7F]/.test(text), false, `${file} contains non-ASCII characters`)
+  }
+})
+
+test('installer preflights child PowerShell scripts before dependency work', () => {
+  const text = read('scripts/install.ps1')
+  assert.match(text, /Parser\]::ParseFile/)
+  assert.match(text, /PowerShell parser preflight/i)
+  assert.ok(text.indexOf("0/7 PowerShell parser preflight") < text.indexOf("2/7 Resolve/reuse dependencies"))
+})
