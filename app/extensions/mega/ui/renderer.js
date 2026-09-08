@@ -8,6 +8,7 @@ function esc(value) {
 function fmtTime(ms) { return ms ? new Date(ms).toLocaleString() : '—' }
 function tokens(u) { return u ? (Number(u.inputTokens||0)+Number(u.outputTokens||0)+Number(u.reasoningTokens||0)).toLocaleString() : '—' }
 function showError(error) { $('error').textContent = error ? String(error.stack || error.message || error) : '' }
+function isActive(t) { return t.status === 'RUNNING' || t.status === 'DISPATCHING' }
 
 function renderHardware(d) {
   const hw = d.hardware || d.system?.hardware || {}
@@ -30,7 +31,7 @@ function renderHardware(d) {
 
 function queueActions(t) {
   if (!['PENDING','SUSPENDED'].includes(t.status)) {
-    return t.status === 'RUNNING' ? `<button data-cancel="${esc(t.id)}">取消</button>` : ''
+    return isActive(t) ? `<button data-cancel="${esc(t.id)}">取消</button>` : ''
   }
   return `<div class="queue-actions">
     <button title="置顶" data-id="${esc(t.id)}" data-move="top">⇈</button>
@@ -39,6 +40,11 @@ function queueActions(t) {
     <button title="置底" data-id="${esc(t.id)}" data-move="bottom">⇊</button>
     <button data-cancel="${esc(t.id)}">取消</button>
   </div>`
+}
+
+function targetLabel(t) {
+  if (t.deliveryMode === 'headless') return 'Headless'
+  return t.officialSessionId ? `官方 · ${String(t.officialSessionId).slice(0, 8)}` : '官方主界面'
 }
 
 function render(s) {
@@ -50,17 +56,18 @@ function render(s) {
     ['计费时段', peak ? 'PEAK' : 'OFF-PEAK'],
     ['动态并发', `${conc.current ?? '—'} / HW ${conc.hardwareCap ?? '—'}`],
     ['队列等待', (s.tasks || []).filter((t) => ['PENDING','SUSPENDED'].includes(t.status)).length],
-    ['正在运行', (s.tasks || []).filter((t) => t.status === 'RUNNING').length]
+    ['正在运行', (s.tasks || []).filter(isActive).length]
   ].map(([k,v]) => `<div class="card"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')
 
   $('tasks').innerHTML = (s.tasks || []).map((t) => `<tr>
-    <td>${t.queueRank ? '#'+esc(t.queueRank) : (t.status === 'RUNNING' ? 'RUN' : '—')}</td>
-    <td>${esc(t.status)}</td>
+    <td>${t.queueRank ? '#'+esc(t.queueRank) : (t.status === 'DISPATCHING' ? 'SEND' : t.status === 'RUNNING' ? 'RUN' : '—')}</td>
+    <td>${esc(t.status)}${t.error ? `<br><small class="error">${esc(typeof t.error === 'string' ? t.error : JSON.stringify(t.error))}</small>` : ''}</td>
+    <td>${esc(targetLabel(t))}</td>
     <td title="${esc(t.prompt)}">${esc(t.promptPreview || t.prompt)}</td>
     <td>${t.allowPeak?'允许':'仅谷值'}</td>
     <td>${esc(t.startAtMs?fmtTime(t.startAtMs):'尽快')}</td>
     <td>${queueActions(t)}</td>
-  </tr>`).join('') || '<tr><td colspan="6">暂无队列任务</td></tr>'
+  </tr>`).join('') || '<tr><td colspan="7">暂无队列任务</td></tr>'
 
   $('sessions').innerHTML = (s.sessions || []).map((x) => `<tr><td>${esc(x.status)}</td><td>${esc(x.model||'—')}</td><td>${esc(tokens(x.usage))}</td><td>${x.cost?esc('¥'+Number(x.cost.costCny||0).toFixed(4)):'—'}</td><td>${esc(fmtTime(x.updatedAt||x.createdAt))}</td></tr>`).join('') || '<tr><td colspan="5">暂无 session</td></tr>'
 
@@ -80,7 +87,7 @@ function render(s) {
   $('telemetry').value = st.telemetryMode || 'DISABLED'
   $('soundEnabled').checked = st.sound?.enabled !== false
   $('volume').value = st.sound?.volume ?? 0.8
-  $('workspaceText').textContent = `工作区: ${s.workspace || '—'} · API Key: ${st.apiKeyMasked || '未配置'}`
+  $('workspaceText').textContent = `工作区: ${s.workspace || '—'} · API Key: ${st.apiKeyMasked || '未配置'} · 官方投递: ${d.officialDeliveryReady ? 'ready' : 'unavailable'}`
   if (s.balance) $('balanceText').textContent = JSON.stringify(s.balance, null, 2)
 }
 
@@ -102,12 +109,14 @@ $('taskForm').onsubmit = async (event) => {
     const raw = $('startAt').value
     await window.megaTools.addTask({
       prompt: $('prompt').value,
+      deliveryMode: $('deliveryMode').value,
       queuePosition: $('queuePosition').value,
       allowPeak: $('allowPeak').checked,
       startAt: raw ? new Date(raw).toISOString() : null,
       permissionMode: $('permission').value || null
     })
     $('prompt').value = ''
+    $('startAt').value = ''
     await refresh()
   } catch(e){showError(e)}
 }
