@@ -41,6 +41,11 @@ test('Mega right dock is an isolated BrowserWindow and never mutates official re
   assert.doesNotMatch(officialCreateWindowBody(), /preload\s*:/)
 })
 
+test('Mega dock never shrinks the official DSH BrowserWindow to make room', () => {
+  assert.doesNotMatch(mega, /ctx\.mainWindow\.(?:setBounds|setSize|setContentSize)\s*\(/)
+  assert.match(mega, /dockWindow\.setBounds\(/)
+})
+
 test('dock collapse state is persisted independently of official DSH state', () => {
   assert.match(mega, /mega-dock\.json/)
   assert.match(mega, /loadDockState/)
