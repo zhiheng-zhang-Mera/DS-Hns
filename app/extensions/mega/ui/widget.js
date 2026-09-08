@@ -10,7 +10,7 @@ async function refresh() {
     const peak = snap?.scheduler?.peak
     const current = snap?.scheduler?.concurrency?.current
     const max = snap?.scheduler?.concurrency?.max
-    const peakText = peak?.isPeak ? 'peak window' : 'off-peak'
+    const peakText = peak?.peak ? 'peak window' : 'off-peak'
     $('mode').textContent = current ? `${peakText} · concurrency ${current}${max ? `/${max}` : ''}` : peakText
   } catch {
     $('mode').textContent = 'Mega status unavailable'
