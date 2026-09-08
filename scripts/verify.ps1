@@ -10,12 +10,17 @@ Check 'Runtime ownership helper present' (Test-Path "$ROOT\app\runtime-process.c
 Check 'Safe runtime cleanup helper present' (Test-Path "$ROOT\scripts\cleanup-runtime.ps1")
 Check 'Legacy app\monitor removed' (-not (Test-Path "$ROOT\app\monitor"))
 Check 'Mega extension exists' (Test-Path "$ROOT\app\extensions\mega\index.cjs")
+Check 'Mega companion widget exists' (Test-Path "$ROOT\app\extensions\mega\ui\widget.html")
+Check 'Mega companion renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\widget.js")
 Check 'Extension manager exists' (Test-Path "$ROOT\app\extensions\manager.cjs")
 $main = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
+$mega = Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw
 $create = ($main -split 'async function startExtensions')[0]
 Check 'Official main window has no preload' (-not ($create -match 'preload\s*:'))
 Check 'Pure Alien kill switch exists' ($main -match 'DSH_DISABLE_MEGA')
 Check 'Owned stale runtime recovery wired' ($main -match 'recoverOwnedStale')
+Check 'Mega widget is isolated BrowserWindow' (($mega -match 'function createWidget') -and ($mega -match 'parent: ctx\.mainWindow'))
+Check 'Mega tray entrance exists' ($mega -match 'function createTray')
 Check 'dsh core installed' (Test-Path "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js")
 Check 'Electron installed' (Test-Path "$ROOT\app\node_modules\electron\dist\electron.exe")
 Check 'Pricing snapshot present' (Test-Path "$ROOT\data\pricing\official-pricing.json")
