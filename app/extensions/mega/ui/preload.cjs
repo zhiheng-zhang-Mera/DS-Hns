@@ -13,5 +13,7 @@ contextBridge.exposeInMainWorld('megaTools', {
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
   openMain: () => ipcRenderer.invoke('mega:open-main'),
+  openTools: () => ipcRenderer.invoke('mega:open-tools'),
+  hideWidget: () => ipcRenderer.invoke('mega:widget-hide'),
   onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback())
 })
