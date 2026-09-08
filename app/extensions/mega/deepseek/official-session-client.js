@@ -3,6 +3,28 @@ const http = require('node:http')
 const https = require('node:https')
 const { randomUUID } = require('node:crypto')
 
+const DEFAULT_ORIGIN = 'http://127.0.0.1:3080'
+
+function defaultOriginProvider() {
+  return process.env.DSH_OFFICIAL_ORIGIN || DEFAULT_ORIGIN
+}
+
+async function defaultCookieProvider(origin) {
+  // Mega runs in Electron's main process. The official BrowserWindow uses the
+  // default partition, so this reads the same HttpOnly browser-session cookie
+  // without exposing it to any renderer or adding a preload to the DSH page.
+  let electron
+  try { electron = require('electron') } catch {
+    throw new Error('Electron session API is unavailable')
+  }
+  const session = electron?.session?.defaultSession
+  if (!session?.cookies?.get) throw new Error('Electron defaultSession cookie store is unavailable')
+  const cookies = await session.cookies.get({ url: `${origin}/` })
+  const auth = cookies.filter((cookie) => String(cookie.name || '').startsWith('dsh-auth-'))
+  const selected = auth.length ? auth : cookies
+  return selected.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ')
+}
+
 /**
  * Minimal authenticated client for the official dsh Web Remote API.
  *
@@ -13,9 +35,14 @@ const { randomUUID } = require('node:crypto')
  *   { type:'client-request', rpcId, method, payload:{ args } }
  */
 class OfficialSessionClient {
-  constructor({ originProvider, cookieProvider, timeoutMs = 15_000, log = () => {} } = {}) {
-    if (typeof originProvider !== 'function') throw new Error('originProvider is required')
-    if (typeof cookieProvider !== 'function') throw new Error('cookieProvider is required')
+  constructor({
+    originProvider = defaultOriginProvider,
+    cookieProvider = defaultCookieProvider,
+    timeoutMs = 15_000,
+    log = () => {}
+  } = {}) {
+    if (typeof originProvider !== 'function') throw new Error('originProvider must be a function')
+    if (typeof cookieProvider !== 'function') throw new Error('cookieProvider must be a function')
     this.originProvider = originProvider
     this.cookieProvider = cookieProvider
     this.timeoutMs = timeoutMs
@@ -119,4 +146,9 @@ class OfficialSessionClient {
   }
 }
 
-module.exports = { OfficialSessionClient }
+module.exports = {
+  OfficialSessionClient,
+  DEFAULT_ORIGIN,
+  defaultOriginProvider,
+  defaultCookieProvider
+}
