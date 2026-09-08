@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('megaTools', {
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
   openMain: () => ipcRenderer.invoke('mega:open-main'),
   openTools: () => ipcRenderer.invoke('mega:open-tools'),
-  hideWidget: () => ipcRenderer.invoke('mega:widget-hide'),
+  toggleDock: () => ipcRenderer.invoke('mega:dock-toggle'),
+  setDockExpanded: (expanded) => ipcRenderer.invoke('mega:dock-expand', Boolean(expanded)),
+  hideDock: () => ipcRenderer.invoke('mega:dock-hide'),
+  // Compatibility alias for the retired small companion widget.
+  hideWidget: () => ipcRenderer.invoke('mega:dock-hide'),
   onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback())
 })
