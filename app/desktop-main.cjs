@@ -9,13 +9,17 @@
 const { app, BrowserWindow, dialog, shell, ipcMain } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
+const net = require('node:net')
 const path = require('node:path')
 const fs = require('node:fs')
 
 const ROOT = path.resolve(__dirname, '..')
-const HARNESS_URL = 'http://127.0.0.1:3080/'
+const HARNESS_HOST = '127.0.0.1'
+const HARNESS_PORT = 3080
+const HARNESS_URL = `http://${HARNESS_HOST}:${HARNESS_PORT}/`
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-const STARTUP_TIMEOUT_MS = 90_000
+const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
+const STARTUP_BUFFER_LIMIT = 64 * 1024
 
 let mainWindow = null
 let harnessProcess = null
@@ -24,6 +28,7 @@ let harnessUrl = null
 let resolveHarnessUrl = null
 let rejectHarnessUrl = null
 let extensionManager = null
+let startupOutput = ''
 
 /**
  * Load project-local config without ever overriding an existing process/system
@@ -59,15 +64,38 @@ app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) app.quit()
 
+function logPath() {
+  return path.join(ROOT, 'logs', 'desktop-runtime.log')
+}
+
 function logLine(message) {
   try {
     fs.mkdirSync(path.join(ROOT, 'logs'), { recursive: true })
-    fs.appendFileSync(path.join(ROOT, 'logs', 'desktop-runtime.log'), `${new Date().toISOString()} ${String(message)}\n`, 'utf8')
+    fs.appendFileSync(logPath(), `${new Date().toISOString()} ${String(message)}\n`, 'utf8')
   } catch {}
 }
 
 function redact(text) {
-  return String(text).replace(/(\?token=)[^\s]+/g, '$1[REDACTED]')
+  return String(text).replace(/(\?token=)[^\s)\]]+/gi, '$1[REDACTED]')
+}
+
+function stripAnsi(text) {
+  return String(text).replace(/\x1B(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, '')
+}
+
+function readLogTail(maxLines = 50) {
+  try {
+    const text = fs.readFileSync(logPath(), 'utf8')
+    return text.split(/\r?\n/).slice(-maxLines).join('\n').trim()
+  } catch {
+    return ''
+  }
+}
+
+function startupError(message) {
+  const tail = readLogTail()
+  const suffix = tail ? `\n\n--- desktop-runtime.log (tail) ---\n${tail}` : ''
+  return new Error(`${message}${suffix}`)
 }
 
 function resolveNodeExe() {
@@ -94,6 +122,28 @@ function ensureRuntimeDirs() {
   }
 }
 
+/**
+ * Detect ANY listener on the canonical Harness TCP port. This intentionally
+ * does not use HTTP status because DSH 0.1.2+ returns 401 at bare `/` until
+ * the launch token/cookie exchange has completed.
+ */
+function isHarnessPortListening() {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: HARNESS_HOST, port: HARNESS_PORT })
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolve(value)
+    }
+    socket.setTimeout(1200)
+    socket.once('connect', () => finish(true))
+    socket.once('timeout', () => finish(false))
+    socket.once('error', () => finish(false))
+  })
+}
+
 function requestHarness(url) {
   return new Promise((resolve) => {
     const request = http.get(url, { timeout: 1500 }, (response) => {
@@ -105,14 +155,44 @@ function requestHarness(url) {
   })
 }
 
+function allowedHarnessNavigation(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl)
+    const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost'
+    return loopback && Number(parsed.port || 80) === HARNESS_PORT && parsed.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
+function observeStartupOutput(source, chunk, log) {
+  const raw = chunk.toString()
+  log.write(`[${source}] ${redact(raw)}`)
+
+  const clean = stripAnsi(raw)
+  startupOutput = `${startupOutput}${clean}`.slice(-STARTUP_BUFFER_LIMIT)
+
+  // DSH 0.1.2+ prints `dsh web: <authenticatedUrl>` only after the Loader
+  // settles. Parse both streams and a rolling buffer so chunk boundaries or
+  // harmless formatting changes cannot lose the one-time launch token.
+  const match = startupOutput.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/\?token=[^\s)\]"']+/i)
+  if (match && !harnessUrl) {
+    harnessUrl = match[0]
+    log.write(`\n[desktop] captured authenticated Harness URL on ${source}\n`)
+    resolveHarnessUrl(harnessUrl)
+  }
+}
+
 async function waitForHarness() {
   const deadline = Date.now() + STARTUP_TIMEOUT_MS
   while (Date.now() < deadline) {
     if (harnessUrl && await requestHarness(harnessUrl)) return harnessUrl
-    if (harnessProcess?.exitCode !== null) throw new Error(`Harness 服务提前退出，代码 ${harnessProcess.exitCode}`)
+    if (harnessProcess?.exitCode !== null) {
+      throw startupError(`Harness service exited early with code ${harnessProcess.exitCode}`)
+    }
     await new Promise((resolve) => setTimeout(resolve, 400))
   }
-  throw new Error(`Harness 服务在 ${STARTUP_TIMEOUT_MS / 1000} 秒内未就绪`)
+  throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds`)
 }
 
 function startHarness(nodeExe) {
@@ -121,6 +201,16 @@ function startHarness(nodeExe) {
     rejectHarnessUrl = reject
   })
   ensureRuntimeDirs()
+  startupOutput = ''
+  harnessUrl = null
+
+  logLine('--- DSH launch begin ---')
+  logLine(`node=${nodeExe}`)
+  logLine(`entry=${DSH_ENTRY}`)
+  logLine(`cwd=${ROOT}`)
+  logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
+  logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
+
   harnessProcess = spawn(nodeExe, [DSH_ENTRY, 'web', '--no-open'], {
     cwd: ROOT,
     env: {
@@ -137,23 +227,16 @@ function startHarness(nodeExe) {
     windowsHide: true
   })
 
-  const log = fs.createWriteStream(path.join(ROOT, 'logs', 'desktop-runtime.log'), { flags: 'a' })
-  harnessProcess.stdout.on('data', (chunk) => {
-    const text = chunk.toString()
-    const match = text.match(/http:\/\/127\.0\.0\.1:3080\/\?token=[^\s]+/)
-    if (match && !harnessUrl) {
-      harnessUrl = match[0]
-      resolveHarnessUrl(harnessUrl)
-    }
-    log.write(redact(text))
-  })
-  harnessProcess.stderr.on('data', (chunk) => log.write(redact(chunk.toString())))
+  const log = fs.createWriteStream(logPath(), { flags: 'a' })
+  harnessProcess.stdout.on('data', (chunk) => observeStartupOutput('stdout', chunk, log))
+  harnessProcess.stderr.on('data', (chunk) => observeStartupOutput('stderr', chunk, log))
   harnessProcess.once('error', (error) => {
     log.write(`\n[desktop] ${error.stack || error}\n`)
-    rejectHarnessUrl(error)
+    rejectHarnessUrl(startupError(`Could not spawn Harness process: ${error.message || error}`))
   })
-  harnessProcess.once('exit', (code) => {
-    if (!harnessUrl) rejectHarnessUrl(new Error(`Harness 服务提前退出，代码 ${code}`))
+  harnessProcess.once('exit', (code, signal) => {
+    log.write(`\n[desktop] Harness process exit code=${code} signal=${signal || ''}\n`)
+    if (!harnessUrl) rejectHarnessUrl(startupError(`Harness service exited before announcing its access URL (code ${code})`))
   })
   return urlPromise
 }
@@ -187,12 +270,12 @@ function createWindow() {
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(HARNESS_URL)) return { action: 'allow' }
+    if (allowedHarnessNavigation(url)) return { action: 'allow' }
     shell.openExternal(url)
     return { action: 'deny' }
   })
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(HARNESS_URL)) {
+    if (!allowedHarnessNavigation(url)) {
       event.preventDefault()
       shell.openExternal(url)
     }
@@ -225,11 +308,13 @@ app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return
   createWindow()
   try {
-    if (await requestHarness(HARNESS_URL)) throw new Error('端口 3080 已被其他 Harness 实例占用，请先关闭旧实例')
+    if (await isHarnessPortListening()) {
+      throw startupError(`Port ${HARNESS_PORT} is already in use. Close the existing Harness/DSH process and try again.`)
+    }
     const nodeExe = resolveNodeExe()
     await Promise.race([
       startHarness(nodeExe),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('未收到 Harness 访问令牌')), STARTUP_TIMEOUT_MS))
+      new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
     ])
     const readyUrl = await waitForHarness()
     await mainWindow.loadURL(readyUrl)
@@ -240,7 +325,7 @@ app.whenReady().then(async () => {
       type: 'error',
       title: 'DS-Harness 启动失败',
       message: '无法启动官方 DeepSeek Harness Web UI',
-      detail: String(error.stack || error)
+      detail: `${String(error.stack || error)}\n\nLog: ${logPath()}`
     })
     app.quit()
   }
