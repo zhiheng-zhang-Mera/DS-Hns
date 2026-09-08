@@ -32,10 +32,23 @@ let extensionManager = null
 let startupOutput = ''
 
 /**
+ * Compatibility alias for machines that already store the DeepSeek API key as
+ * DeepSeek_API. The official DSH process receives the canonical
+ * DEEPSEEK_API_KEY name, while the user's system environment is left untouched.
+ */
+function normalizeApiKeyEnv() {
+  if (process.env.DEEPSEEK_API_KEY) return
+  const aliasName = Object.keys(process.env).find((key) => key.toUpperCase() === 'DEEPSEEK_API')
+  if (!aliasName) return
+  const value = String(process.env[aliasName] || '').trim()
+  if (value) process.env.DEEPSEEK_API_KEY = value
+}
+
+/**
  * Load project-local config without ever overriding an existing process/system
- * environment variable. This keeps system DEEPSEEK_API_KEY highest priority
- * while making config/.env work even when Electron is launched directly from
- * a shortcut instead of scripts/run.ps1.
+ * environment variable. This keeps system DEEPSEEK_API_KEY (or DeepSeek_API
+ * after alias normalization) highest priority while making config/.env work
+ * even when Electron is launched directly from a shortcut.
  */
 function loadProjectEnv() {
   const file = path.join(ROOT, 'config', '.env')
@@ -56,6 +69,7 @@ function loadProjectEnv() {
   }
 }
 
+normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
