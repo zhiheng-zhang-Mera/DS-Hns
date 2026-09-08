@@ -120,6 +120,7 @@ Write-Host "Root: $ROOT"
 
 Write-Step '0/7 PowerShell parser preflight'
 $criticalScripts = @(
+  (Join-Path $PSScriptRoot 'cleanup-runtime.ps1'),
   (Join-Path $PSScriptRoot 'ensure-node.ps1'),
   (Join-Path $PSScriptRoot 'install-deps.ps1'),
   (Join-Path $PSScriptRoot 'test-all.ps1'),
@@ -130,7 +131,10 @@ foreach ($scriptPath in $criticalScripts) {
   Write-Host "  OK $([System.IO.Path]::GetFileName($scriptPath))"
 }
 
-Write-Step '1/7 Bootstrap directories'
+Write-Step '1/7 Clean stale runtime and bootstrap directories'
+$cleanupScript = Join-Path $PSScriptRoot 'cleanup-runtime.ps1'
+& $cleanupScript
+
 $dirs = @(
   'app', 'config', 'assets\sounds', 'runtime', 'workspace\active', 'workspace\completed', 'workspace\temp',
   'cache\pip', 'cache\npm', 'cache\electron', 'cache\pnpm', 'cache\downloads', 'cache\build', 'cache\temp',
