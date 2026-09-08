@@ -8,7 +8,7 @@
     "start": "electron .",
     "desktop": "electron desktop-main.cjs",
     "desktop:alien": "set DSH_DISABLE_MEGA=1&& electron desktop-main.cjs",
-    "check": "node --check desktop-main.cjs && node --check extensions/manager.cjs && node --check extensions/mega/index.cjs",
+    "check": "node --check desktop-main.cjs && node --check runtime-process.cjs && node --check extensions/manager.cjs && node --check extensions/mega/index.cjs",
     "test": "node --test ../tests/unit/*.test.js"
   },
   "dependencies": {
