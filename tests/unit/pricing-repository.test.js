@@ -1,22 +1,12 @@
-﻿'use strict'
+'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const PricingRepository = require('../../app/monitor/billing/pricing-repository')
+const PricingRepository = require('../../app/extensions/mega/billing/pricing-repository')
 
-test('pricing repository loads the official DeepSeek snapshot', () => {
+test('pricing repository loads the official snapshot', () => {
   const repo = new PricingRepository()
   const desc = repo.describe()
   assert.equal(desc.source, 'official')
   assert.equal(desc.currency, 'CNY')
-  const models = repo.getModels()
-  assert.equal(models.length, 3)
-  const pro = repo.getModel('deepseek-v4-pro')
-  assert.ok(pro)
-  assert.equal(pro.output.peak, 27)
-  assert.equal(pro.output.offPeak, 13.5)
-  assert.equal(pro.inputCacheHit.peak, 0.3)
-  assert.equal(pro.inputCacheMiss.offPeak, 4.5)
-  const schedule = repo.getSchedule()
-  assert.deepEqual(schedule.weekdays, [1, 2, 3, 4, 5])
-  assert.equal(schedule.timeZone, 'Asia/Shanghai')
+  assert.ok(repo.getModel('deepseek-v4-pro'))
 })

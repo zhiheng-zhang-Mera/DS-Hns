@@ -1,108 +1,131 @@
 'use strict'
 /**
- * DS-Harness — DeepSeek Harness 桌面客户端（Alien 式外壳 + Mega 调度中心合并壳）。
+ * DS-Harness desktop shell — Alien-derived canonical core.
  *
- * 单进程做两件事:
- *   1. 拉起官方 dsh Web UI（headless dsh 引擎,引擎 home = <root>\data）
- *   2. 同进程内运行 3300 调度中心监控服务（队列/峰谷/计费/跟踪/铃声事件）
- * 主窗口默认加载 dsh Web;菜单/快捷键可切换到调度中心各视图(聊天/监控/设置)。
- * 铃声事件由 3300 服务推送,经隐藏“音频宿主”窗口播放——无论当前停留在哪个视图都会响。
- *
- * 端口自动错开:默认 dsh Web=3080、调度中心=3300;若被其他实例占用,启动时
- * 自动向后寻找空闲端口(最多 +30),并把实际端口写入 data\state\ports.json。
- * 也可用 DSH_UI_PORT / DSH_DSH_WEB_PORT 显式指定起点。
+ * The official @deepseek-ai/dsh Web UI and optional Mega dock are rendered as
+ * sibling WebContentsViews inside one native BrowserWindow when the integrated
+ * dock is enabled. This keeps the official renderer untouched while reserving
+ * real layout width for Mega instead of overlaying it.
  */
-const { app, BrowserWindow, Menu, Tray, nativeImage, dialog, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
+const net = require('node:net')
 const path = require('node:path')
 const fs = require('node:fs')
+const runtimeProcess = require('./runtime-process.cjs')
 
-const paths = require('./monitor/utils/paths')
-const { ROOT, PATHS, app: appConfig } = paths
-const { findFreePort } = require('./monitor/utils/ports')
-
+const ROOT = path.resolve(__dirname, '..')
+const HARNESS_HOST = '127.0.0.1'
+const HARNESS_PORT = 3080
+const HARNESS_URL = `http://${HARNESS_HOST}:${HARNESS_PORT}/`
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
-const PRELOAD = path.join(__dirname, 'electron-assets', 'preload.js')
-const STARTUP_TIMEOUT_MS = 90_000
-const VIEW_PATHS = { chat: '/chat.html', monitor: '/', settings: '/settings.html' }
-
-const smokeTest = process.argv.includes('--smoke-test')
-const shotFlagIdx = process.argv.indexOf('--screenshot-test')
-const shotOut = shotFlagIdx >= 0 && process.argv[shotFlagIdx + 1] ? process.argv[shotFlagIdx + 1] : null
-const noDshWeb = process.env.DSH_NO_DSH_WEB === '1' || smokeTest
-// 主界面 = 官方 dsh Web UI(与本地部署版前端完全一致,由 DS-Harness 自己的引擎提供;
-// 绝不加载/打开 D:\DeepSeek-Harness 的页面窗口)。
-const startView = process.env.DSH_START_VIEW || 'dsh'
-const uiBase = Number(process.env.DSH_UI_PORT) || appConfig.ui?.port || 3300
-const dshBase = Number(process.env.DSH_DSH_WEB_PORT) || appConfig.dshWeb?.port || 3080
-const dshHost = process.env.DSH_DSH_WEB_HOST || appConfig.dshWeb?.host || '127.0.0.1'
-
-const VIEW_DOM_IDS = {
-  chat: ['chatForm', 'chatComposer', 'threadList', 'newChatBtn', 'chatMessages', 'sendBtn', 'usageStrip'],
-  monitor: ['queueForm', 'queueTable', 'soundToggle', 'sysCores', 'taskTable', 'timeline'],
-  settings: ['settingsSave', 'setApiKey', 'setModel', 'setPermission', 'setSound', 'soundEvents'],
-  dsh: []
-}
+const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
+const STARTUP_BUFFER_LIMIT = 64 * 1024
+const INTEGRATED_MEGA_DOCK = process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
+const MEGA_DOCK_COLLAPSED_WIDTH = 48
+const MEGA_DOCK_DEFAULT_WIDTH = 560
+const MEGA_DOCK_MIN_WIDTH = 440
+const MEGA_DOCK_MAX_WIDTH = 720
+const OFFICIAL_VIEW_MIN_WIDTH = 360
 
 let mainWindow = null
-let appWindows = [] // 多开支持:同一进程可拥有多个窗口
-let lastFocusedWin = null // 最近获焦的本程序窗口(聚焦优先于可见窗口)
-let tray = null
-let engineProcess = null
-let lastDshUrl = null
+let officialView = null
+let megaDockView = null
+let megaDockExpanded = false
+let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
+let harnessProcess = null
 let shuttingDown = false
-let playerWindow = null
-let uiPort = null
-let dshPort = null
-let monitor = null // ./monitor/ui/server (required after port selection)
-let soundService = null // ./monitor/notifications/sound-service
+let harnessUrl = null
+let resolveHarnessUrl = null
+let rejectHarnessUrl = null
+let extensionManager = null
+let startupOutput = ''
 
+/**
+ * Compatibility alias for machines that already store the DeepSeek API key as
+ * DeepSeek_API. The official DSH process receives the canonical
+ * DEEPSEEK_API_KEY name, while the user's system environment is left untouched.
+ */
+function normalizeApiKeyEnv() {
+  if (process.env.DEEPSEEK_API_KEY) return
+  const aliasName = Object.keys(process.env).find((key) => key.toUpperCase() === 'DEEPSEEK_API')
+  if (!aliasName) return
+  const value = String(process.env[aliasName] || '').trim()
+  if (value) process.env.DEEPSEEK_API_KEY = value
+}
+
+/**
+ * Load project-local config without ever overriding an existing process/system
+ * environment variable. This keeps system DEEPSEEK_API_KEY (or DeepSeek_API
+ * after alias normalization) highest priority while making config/.env work
+ * even when Electron is launched directly from a shortcut.
+ */
+function loadProjectEnv() {
+  const file = path.join(ROOT, 'config', '.env')
+  let text = ''
+  try { text = fs.readFileSync(file, 'utf8') } catch { return }
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq).trim()
+    let value = line.slice(eq + 1).trim()
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1)
+    }
+    if (!value || value === 'sk-...' || value === 'YOUR_API_KEY' || value === 'YOUR_DEEPSEEK_API_KEY') continue
+    if (!process.env[key]) process.env[key] = value
+  }
+}
+
+normalizeApiKeyEnv()
+loadProjectEnv()
+process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
+process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
+// Mega is rendered inside the native main window. Disable the legacy companion
+// BrowserWindow so there is only one top-level DS-Harness window.
+if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
 app.setName('DS-Harness')
 app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock()
-if (!gotSingleInstanceLock) app.quit()
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) app.quit()
 
-function uiOrigin() {
-  return `http://127.0.0.1:${uiPort}`
+function logPath() {
+  return path.join(ROOT, 'logs', 'desktop-runtime.log')
 }
 
-function dshOrigin() {
-  return `http://${dshHost}:${dshPort}`
-}
-
-function logLine(msg) {
+function logLine(message) {
   try {
     fs.mkdirSync(path.join(ROOT, 'logs'), { recursive: true })
-    fs.appendFileSync(path.join(ROOT, 'logs', 'desktop-runtime.log'), `${new Date().toISOString()} ${msg}\n`, 'utf8')
-  } catch {
-    /* never crash the shell because logging failed */
-  }
+    fs.appendFileSync(logPath(), `${new Date().toISOString()} ${String(message)}\n`, 'utf8')
+  } catch {}
 }
 
-/** Redact any `?token=…` in text before it touches disk. */
 function redact(text) {
-  return String(text).replace(/(\?token=)[^\s]+/g, '$1[REDACTED]')
+  return String(text).replace(/(\?token=)[^\s)\]]+/gi, '$1[REDACTED]')
 }
 
-function writePortsState() {
+function stripAnsi(text) {
+  return String(text).replace(/\x1B(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))/g, '')
+}
+
+function readLogTail(maxLines = 50) {
   try {
-    const dir = PATHS.STATE
-    fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(
-      path.join(dir, 'ports.json'),
-      JSON.stringify({ ui: uiPort, dsh: dshPort, uiBase, dshBase, writtenAt: Date.now() }, null, 2),
-      'utf8'
-    )
-  } catch (err) {
-    logLine(`write ports.json failed: ${err?.message || err}`)
+    const text = fs.readFileSync(logPath(), 'utf8')
+    return text.split(/\r?\n/).slice(-maxLines).join('\n').trim()
+  } catch {
+    return ''
   }
 }
 
-/* ------------------------------------------------------------------ *
- *  dsh engine (official DeepSeek Harness Web UI) child process
- * ------------------------------------------------------------------ */
+function startupError(message) {
+  const tail = readLogTail()
+  const suffix = tail ? `\n\n--- desktop-runtime.log (tail) ---\n${tail}` : ''
+  return new Error(`${message}${suffix}`)
+}
 
 function resolveNodeExe() {
   if (process.env.DSH_NODE_EXE && fs.existsSync(process.env.DSH_NODE_EXE)) return process.env.DSH_NODE_EXE
@@ -119,543 +142,368 @@ function resolveNodeExe() {
     candidates.sort()
     return candidates[candidates.length - 1]
   }
-  return process.env.DSH_NODE || 'node'
+  return 'node'
 }
 
-function requestOk(url) {
+function ensureRuntimeDirs() {
+  for (const dir of ['logs', 'temp', 'cache', 'data', 'workspace', 'runtime']) {
+    fs.mkdirSync(path.join(ROOT, dir), { recursive: true })
+  }
+}
+
+/**
+ * Detect ANY listener on the canonical Harness TCP port. This intentionally
+ * does not use HTTP status because DSH 0.1.2+ returns 401 at bare `/` until
+ * the launch token/cookie exchange has completed.
+ */
+function isHarnessPortListening() {
   return new Promise((resolve) => {
-    const req = http.get(url, { timeout: 1500 }, (res) => {
-      res.resume()
-      resolve(res.statusCode >= 200 && res.statusCode < 500)
-    })
-    req.on('timeout', () => req.destroy())
-    req.on('error', () => resolve(false))
-  })
-}
-
-function stopEngine() {
-  if (!engineProcess || engineProcess.exitCode !== null) return
-  try {
-    spawnSync('taskkill.exe', ['/pid', String(engineProcess.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
-  } catch {
-    /* already gone */
-  }
-}
-
-function startEngine() {
-  return new Promise((resolve, reject) => {
-    const nodeExe = resolveNodeExe()
-    logLine(`starting dsh web engine: ${nodeExe} ${DSH_ENTRY} web --no-open (port ${dshPort})`)
-    engineProcess = spawn(
-      nodeExe,
-      [DSH_ENTRY, 'web', '--host', dshHost, '--port', String(dshPort), '--no-open'],
-      {
-        cwd: ROOT,
-        env: {
-          ...process.env,
-          DSH_HOME: PATHS.DSH_HOME,
-          npm_config_cache: path.join(PATHS.CACHE, 'npm'),
-          TEMP: PATHS.TEMP,
-          TMP: PATHS.TEMP,
-          PATH: `${path.dirname(nodeExe)};${process.env.PATH || ''}`
-        },
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true
-      }
-    )
-
-    const startedAt = Date.now()
-    let engineUrl = null
-    engineProcess.stdout.on('data', (chunk) => {
-      const text = chunk.toString()
-      const match = text.match(/(http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s]+)/)
-      if (match && !engineUrl) {
-        engineUrl = match[1]
-        logLine(`engine URL ready: ${redact(engineUrl)}`)
-        resolve(engineUrl)
-      }
-      logLine(redact(text))
-    })
-    engineProcess.stderr.on('data', (chunk) => logLine(redact(chunk.toString())))
-    engineProcess.once('error', (err) => {
-      logLine(`engine spawn error: ${err.stack || err}`)
-      reject(new Error(`找不到可用的 Node.js/引擎: ${err.message || err}`))
-    })
-    engineProcess.once('exit', (code) => {
-      logLine(`engine exited code=${code}`)
-      if (!engineUrl) reject(new Error(`dsh 引擎提前退出，代码 ${code}`))
-    })
-
-    // Fallback poll if the URL was not printed but the server is up.
-    const deadline = startedAt + STARTUP_TIMEOUT_MS
-    const poll = async () => {
-      if (engineUrl) return
-      if (Date.now() > deadline) {
-        reject(new Error(`dsh 引擎在 ${STARTUP_TIMEOUT_MS / 1000} 秒内未就绪`))
-        return
-      }
-      if (engineProcess.exitCode !== null) return
-      if (await requestOk(`${dshOrigin()}/`)) {
-        engineUrl = `${dshOrigin()}/`
-        resolve(engineUrl)
-        return
-      }
-      setTimeout(poll, 400)
+    const socket = net.createConnection({ host: HARNESS_HOST, port: HARNESS_PORT })
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolve(value)
     }
-    setTimeout(poll, 800)
+    socket.setTimeout(1200)
+    socket.once('connect', () => finish(true))
+    socket.once('timeout', () => finish(false))
+    socket.once('error', () => finish(false))
   })
 }
 
-/* ------------------------------------------------------------------ *
- *  audio host (hidden window that actually plays ringtones)
- * ------------------------------------------------------------------ */
-
-function ensurePlayerWindow() {
-  if (playerWindow && !playerWindow.isDestroyed()) return Promise.resolve(playerWindow)
-  return new Promise((resolve, reject) => {
-    const win = new BrowserWindow({
-      width: 320,
-      height: 120,
-      show: false,
-      skipTaskbar: true,
-      webPreferences: {
-        preload: PRELOAD,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true
-      }
+function requestHarness(url) {
+  return new Promise((resolve) => {
+    const request = http.get(url, { timeout: 1500 }, (response) => {
+      response.resume()
+      resolve(response.statusCode >= 200 && response.statusCode < 400)
     })
-    playerWindow = win
-    win.on('closed', () => {
-      playerWindow = null
-    })
-    win.loadURL(`${uiOrigin()}/player.html`).then(() => resolve(win)).catch(reject)
+    request.on('timeout', () => request.destroy())
+    request.on('error', () => resolve(false))
   })
 }
 
-function playInHost(url, volume) {
-  ensurePlayerWindow()
-    .then((win) => {
-      if (win.webContents.isLoading()) {
-        win.webContents.once('did-finish-load', () => win.webContents.send('ds-player:play-request', { url, volume }))
-      } else {
-        win.webContents.send('ds-player:play-request', { url, volume })
-      }
-    })
-    .catch((err) => logLine(`audio host unavailable: ${err?.message || err}`))
-}
-
-function ringBell(bell) {
-  if (!soundService) return
+function allowedHarnessNavigation(rawUrl) {
   try {
-    const audio = soundService.resolveBellAudio(bell.event)
-    if (!audio) return // master/per-event switch off or file missing
-    logLine(`ringtone ${bell.event} -> ${audio.name}`)
-    playInHost(`${uiOrigin()}${audio.url}`, audio.volume)
-  } catch (err) {
-    logLine(`ringtone failed: ${err?.message || err}`)
-  }
-}
-
-// From the 3300 settings page ("试听") when running under Electron.
-ipcMain.on('ds-player:play', (_event, payload) => {
-  if (!payload || typeof payload.url !== 'string') return
-  playInHost(payload.url, payload.volume)
-})
-
-// In-page navigation (页内导航替代系统菜单栏;作用于发起请求的那个窗口)。
-ipcMain.on('ds-nav', (event, kind) => {
-  const win = BrowserWindow.fromWebContents(event.sender)
-  if (kind === 'official') openOfficial(win)
-  else if (VIEW_PATHS[kind]) navTo(win, VIEW_PATHS[kind])
-})
-
-// 项目工作区:选择目录(设置页“浏览…”)与打开目录。
-ipcMain.handle('ds-pick-dir', async (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender) || undefined
-  const result = await dialog.showOpenDialog(win, {
-    title: '选择 DS-Harness 项目工作区目录',
-    properties: ['openDirectory', 'createDirectory']
-  })
-  return result.canceled || !result.filePaths.length ? null : result.filePaths[0]
-})
-ipcMain.on('ds-open-path', (_event, p) => {
-  if (typeof p === 'string' && p) shell.openPath(p)
-})
-
-/* ------------------------------------------------------------------ *
- *  main window + view switching
- * ------------------------------------------------------------------ */
-
-function isAllowedOrigin(url) {
-  try {
-    const u = new URL(url)
-    return u.origin === uiOrigin() || u.origin === dshOrigin()
+    const parsed = new URL(rawUrl)
+    const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost'
+    return loopback && Number(parsed.port || 80) === HARNESS_PORT && parsed.protocol === 'http:'
   } catch {
     return false
   }
 }
 
-function createAppWindow(isPrimary = false) {
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 920,
-    minWidth: 980,
-    minHeight: 640,
-    title: 'DS-Harness · DeepSeek Harness',
-    backgroundColor: '#0b0f14',
-    show: false,
+function observeStartupOutput(source, chunk, log) {
+  const raw = chunk.toString()
+  log.write(`[${source}] ${redact(raw)}`)
+
+  const clean = stripAnsi(raw)
+  startupOutput = `${startupOutput}${clean}`.slice(-STARTUP_BUFFER_LIMIT)
+
+  const match = startupOutput.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/\?token=[^\s)\]"']+/i)
+  if (match && !harnessUrl) {
+    harnessUrl = match[0]
+    log.write(`\n[desktop] captured authenticated Harness URL on ${source}\n`)
+    resolveHarnessUrl(harnessUrl)
+  }
+}
+
+async function waitForHarness() {
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    if (harnessUrl && await requestHarness(harnessUrl)) return harnessUrl
+    if (harnessProcess?.exitCode !== null) {
+      throw startupError(`Harness service exited early with code ${harnessProcess.exitCode}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  }
+  throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds`)
+}
+
+function startHarness(nodeExe) {
+  const urlPromise = new Promise((resolve, reject) => {
+    resolveHarnessUrl = resolve
+    rejectHarnessUrl = reject
+  })
+  ensureRuntimeDirs()
+  startupOutput = ''
+  harnessUrl = null
+
+  logLine('--- DSH launch begin ---')
+  logLine(`node=${nodeExe}`)
+  logLine(`entry=${DSH_ENTRY}`)
+  logLine(`cwd=${ROOT}`)
+  logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
+  logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
+
+  harnessProcess = spawn(nodeExe, [DSH_ENTRY, 'web', '--no-open'], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      DSH_ROOT: ROOT,
+      DSH_HOME: path.join(ROOT, 'data'),
+      DSH_NODE: nodeExe,
+      npm_config_cache: path.join(ROOT, 'cache', 'npm'),
+      TEMP: path.join(ROOT, 'temp'),
+      TMP: path.join(ROOT, 'temp'),
+      PATH: `${path.dirname(nodeExe)};${process.env.PATH || ''}`
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
+  })
+
+  const childPid = harnessProcess.pid
+  runtimeProcess.writeOwnership({ root: ROOT, dshEntry: DSH_ENTRY, childPid, parentPid: process.pid })
+  logLine(`ownership childPid=${childPid} parentPid=${process.pid}`)
+
+  const log = fs.createWriteStream(logPath(), { flags: 'a' })
+  harnessProcess.stdout.on('data', (chunk) => observeStartupOutput('stdout', chunk, log))
+  harnessProcess.stderr.on('data', (chunk) => observeStartupOutput('stderr', chunk, log))
+  harnessProcess.once('error', (error) => {
+    runtimeProcess.clearOwnership({ root: ROOT, childPid })
+    log.write(`\n[desktop] ${error.stack || error}\n`)
+    rejectHarnessUrl(startupError(`Could not spawn Harness process: ${error.message || error}`))
+  })
+  harnessProcess.once('exit', (code, signal) => {
+    runtimeProcess.clearOwnership({ root: ROOT, childPid })
+    log.write(`\n[desktop] Harness process exit code=${code} signal=${signal || ''}\n`)
+    if (!harnessUrl) rejectHarnessUrl(startupError(`Harness service exited before announcing its access URL (code ${code})`))
+  })
+  return urlPromise
+}
+
+function stopHarness() {
+  const childPid = harnessProcess?.pid
+  if (harnessProcess && harnessProcess.exitCode === null) {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill.exe', ['/pid', String(childPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    } else {
+      harnessProcess.kill('SIGTERM')
+    }
+  }
+  if (childPid) runtimeProcess.clearOwnership({ root: ROOT, childPid })
+}
+
+function integratedDockWidth() {
+  return megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
+}
+
+function layoutIntegratedViews() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return
+  const [contentWidth, contentHeight] = mainWindow.getContentSize()
+  const maxDockWidth = Math.max(
+    MEGA_DOCK_COLLAPSED_WIDTH,
+    Math.min(MEGA_DOCK_MAX_WIDTH, Math.max(MEGA_DOCK_COLLAPSED_WIDTH, contentWidth - OFFICIAL_VIEW_MIN_WIDTH))
+  )
+  const desiredDockWidth = megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
+  const dockWidth = Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desiredDockWidth, maxDockWidth))
+  const officialWidth = Math.max(0, contentWidth - dockWidth)
+  const height = Math.max(1, contentHeight)
+
+  if (officialView) {
+    officialView.setBounds({ x: 0, y: 0, width: officialWidth, height })
+  }
+  if (megaDockView) {
+    megaDockView.setBounds({ x: officialWidth, y: 0, width: dockWidth, height })
+  }
+}
+
+function applyIntegratedDockState(payload = {}) {
+  if (!INTEGRATED_MEGA_DOCK) return
+  if (typeof payload.expanded === 'boolean') megaDockExpanded = payload.expanded
+  const candidate = Number(payload.expandedWidth ?? payload.width)
+  if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
+    megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
+  }
+  layoutIntegratedViews()
+}
+
+function registerIntegratedDockIpc() {
+  if (!INTEGRATED_MEGA_DOCK) return
+  ipcMain.removeAllListeners('mega-shell:dock-state')
+  ipcMain.on('mega-shell:dock-state', (_event, payload) => applyIntegratedDockState(payload || {}))
+}
+
+function configureOfficialWebContents(contents) {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (allowedHarnessNavigation(url)) return { action: 'allow' }
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    if (!allowedHarnessNavigation(url)) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+  contents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
+}
+
+async function createOfficialHarnessView(readyUrl) {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+    throw new Error('Integrated layout unavailable: WebContentsView/contentView not supported by this Electron build')
+  }
+  if (!officialView) {
+    officialView = new WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
+      }
+    })
+    configureOfficialWebContents(officialView.webContents)
+    mainWindow.contentView.addChildView(officialView)
+  }
+  layoutIntegratedViews()
+  await officialView.webContents.loadURL(readyUrl)
+  return true
+}
+
+async function createIntegratedMegaDock() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+    logLine('Integrated Mega dock unavailable: WebContentsView/contentView not supported by this Electron build')
+    return false
+  }
+  if (megaDockView) {
+    layoutIntegratedViews()
+    return true
+  }
+
+  megaDockView = new WebContentsView({
     webPreferences: {
-      preload: PRELOAD,
+      preload: path.join(__dirname, 'extensions', 'mega', 'ui', 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true
     }
   })
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedOrigin(url)) return { action: 'allow' }
-    shell.openExternal(url)
+  mainWindow.contentView.addChildView(megaDockView)
+  megaDockView.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url)
     return { action: 'deny' }
   })
-  win.webContents.on('will-navigate', (event, url) => {
-    if (isAllowedOrigin(url)) return
-    event.preventDefault()
-    shell.openExternal(url)
+  megaDockView.webContents.on('render-process-gone', (_event, details) => {
+    logLine(`integrated Mega renderer gone: ${JSON.stringify(details)}`)
   })
-  win.once('ready-to-show', () => win.show())
-  win.on('focus', () => {
-    lastFocusedWin = win
-  })
-  win.on('closed', () => {
-    const i = appWindows.indexOf(win)
-    if (i >= 0) appWindows.splice(i, 1)
-    if (mainWindow === win) mainWindow = null
-    if (lastFocusedWin === win) lastFocusedWin = null
-    // 关闭所有用户窗口即自动退出(隐藏音频宿主不计入,避免残留进程)。
-    if (appWindows.length === 0 && !shuttingDown) app.quit()
-  })
-  appWindows.push(win)
-  if (isPrimary || !mainWindow) mainWindow = win
-  attachWindowKeys(win)
-  if (isPrimary) attachScreenshot(win, startView === 'dsh' ? 'dsh' : startView)
-  return win
+  layoutIntegratedViews()
+  await megaDockView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'dock.html'))
+  logLine('Mega dock attached as a reserved right-side WebContentsView; official UI no longer sits underneath it')
+  return true
 }
 
-/** 聚焦主窗口(官方 dsh UI);不存在则补开一个窗口。 */
-function focusMain() {
-  const win = mainWindow || appWindows.find((w) => !w.isDestroyed())
-  if (!win) {
-    openUiWindow(VIEW_PATHS.chat)
-    return
-  }
-  if (win.isMinimized()) win.restore()
-  if (!win.isVisible()) win.show()
-  win.moveTop()
-  win.focus()
-}
-
-/** 打开/复用“调度中心”功能窗口(监控/设置/自研对话)——不会替换官方主界面。 */
-function openUiWindow(viewPath) {
-  let win = appWindows.find((w) => !w.isDestroyed() && w.__uiWindow)
-  if (!win) {
-    win = createAppWindow(false)
-    win.__uiWindow = true
-  }
-  navTo(win, viewPath)
-  if (win.isMinimized()) win.restore()
-  if (!win.isVisible()) win.show()
-  win.moveTop()
-  win.focus()
-  return win
-}
-
-/** 托盘入口:主界面(官方 dsh UI)+ 功能窗口 + 退出。 */
-function createTray() {
-  try {
-    const ico = path.join(ROOT, 'assets', 'icon', 'ds-harness.ico')
-    const img = nativeImage.createFromPath(ico)
-    if (img.isEmpty()) throw new Error('bad icon file')
-    tray = new Tray(img)
-    tray.setToolTip('DS-Harness · DeepSeek Harness')
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: '主界面 · 官方 dsh UI(DS-Harness)', click: () => focusMain() },
-        { label: '监控(队列/峰谷/成本/余额)', click: () => openUiWindow(VIEW_PATHS.monitor) },
-        { label: '设置(铃声/工作区/密钥/并发)', click: () => openUiWindow(VIEW_PATHS.settings) },
-        { label: '对话管理页(自研功能)', click: () => openUiWindow(VIEW_PATHS.chat) },
-        { type: 'separator' },
-        { label: '退出 DS-Harness', click: () => app.quit() }
-      ])
-    )
-    tray.on('double-click', () => focusMain())
-  } catch (err) {
-    logLine(`tray init failed: ${err?.message || err}`)
-  }
-}
-
-/** In-window keyboard shortcuts (replaces the removed native menu bar). */
-function attachWindowKeys(win) {
-  win.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || !input.control) return
-    const k = String(input.key || '').toLowerCase()
-    if (k === '1') {
-      event.preventDefault()
-      focusMain()
-    } else if (k === '2') {
-      event.preventDefault()
-      openUiWindow(VIEW_PATHS.monitor)
-    } else if (k === '3') {
-      event.preventDefault()
-      openUiWindow(VIEW_PATHS.settings)
-    } else if (k === 'i' && input.shift) {
-      event.preventDefault()
-      win.webContents.toggleDevTools()
-    }
-  })
-}
-
-/** --screenshot-test <path>: capture the page + DOM self-check, then quit. */
-function attachScreenshot(win, viewKey) {
-  if (!shotOut) return
-  const issues = []
-  win.webContents.on('console-message', (event) => {
-    const level = event.level
-    if (level === 'error' || level === 'warning' || level === 2 || level === 3) {
-      issues.push({ level, message: event.message })
-    }
-  })
-  win.webContents.once('did-finish-load', async () => {
-    await new Promise((resolve) => setTimeout(resolve, 3000))
+function destroyIntegratedViews() {
+  for (const view of [megaDockView, officialView]) {
+    if (!view) continue
+    try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
     try {
-      const out = shotOut.replace(/\.png$/i, '')
-      fs.mkdirSync(path.dirname(out + '.png'), { recursive: true })
-      const image = await win.webContents.capturePage()
-      fs.writeFileSync(out + '.png', image.toPNG())
-      const dom = await win.webContents.executeJavaScript(`(() => {
-        const ids = ${JSON.stringify(VIEW_DOM_IDS[viewKey] || [])}
-        return {
-          url: location.href,
-          title: document.title,
-          missing: ids.filter((id) => !document.getElementById(id)),
-          usageStripText: (document.getElementById('usageStrip') || {}).innerText || '',
-          bodyTextLength: document.body.innerText.length
-        }
-      })()`)
-      fs.writeFileSync(out + '.json', JSON.stringify({ dom, consoleIssues: issues }, null, 2), 'utf8')
-      console.log('screenshot saved: ' + out + '.png')
-    } catch (err) {
-      console.error('screenshot failed: ' + (err && err.stack ? err.stack : err))
+      if (!view.webContents.isDestroyed()) view.webContents.close()
+    } catch {}
+  }
+  megaDockView = null
+  officialView = null
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: INTEGRATED_MEGA_DOCK ? 1488 : 1440,
+    height: 920,
+    minWidth: 980,
+    minHeight: 640,
+    title: 'DS-Harness · DeepSeek Harness',
+    backgroundColor: '#f7f8fa',
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true
     }
-    app.quit()
+  })
+
+  if (!INTEGRATED_MEGA_DOCK) configureOfficialWebContents(mainWindow.webContents)
+
+  mainWindow.on('resize', layoutIntegratedViews)
+  mainWindow.on('maximize', layoutIntegratedViews)
+  mainWindow.on('unmaximize', layoutIntegratedViews)
+  mainWindow.on('restore', layoutIntegratedViews)
+  mainWindow.on('closed', () => {
+    megaDockView = null
+    officialView = null
+    mainWindow = null
   })
 }
 
-let officialLoading = null
-
-/** 在指定窗口(默认主窗口)中加载调度中心某视图。 */
-function navTo(win, viewPath) {
-  if (!win || win.isDestroyed()) win = mainWindow
-  if (!win || win.isDestroyed()) return
-  win.loadURL(`${uiOrigin()}${viewPath}`)
-}
-
-function goUi(viewPath, win = mainWindow) {
-  navTo(win, viewPath)
-}
-
-/** 在指定窗口打开官方 dsh Web(引擎按需启动一次,可被多窗口复用)。 */
-function openOfficial(win) {
-  if (!win || win.isDestroyed()) win = mainWindow
-  if (!win || win.isDestroyed()) return
-  if (noDshWeb) {
-    dialog
-      .showMessageBox({
-        type: 'info',
-        title: 'DS-Harness',
-        message: '官方 dsh Web 视图未启用',
-        detail: '当前以 DSH_NO_DSH_WEB=1 运行(或处于自检模式)。主界面对话/队列功能不受影响。'
-      })
-      .catch(() => {})
-    return
+async function startExtensions(nodeExe) {
+  if (process.env.DSH_DISABLE_MEGA === '1') {
+    logLine('Mega extensions disabled by DSH_DISABLE_MEGA=1')
+    return false
   }
-  if (lastDshUrl) {
-    win.loadURL(lastDshUrl)
-    return
+  try {
+    extensionManager = require('./extensions/manager.cjs')
+    await extensionManager.start({
+      root: ROOT,
+      nodeExe,
+      mainWindow,
+      officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
+      log: logLine,
+      electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen }
+    })
+    return true
+  } catch (error) {
+    logLine(`extension manager failed without affecting official UI: ${error?.stack || error}`)
+    return false
   }
-  if (!officialLoading) {
-    officialLoading = Promise.race([
-      startEngine(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('未在时限内收到引擎访问地址')), STARTUP_TIMEOUT_MS))
-    ])
-      .catch(async (err) => {
-        logLine(`official dsh web failed: ${err?.stack || err}`)
-        await dialog.showMessageBox({
-          type: 'error',
-          title: 'DS-Harness',
-          message: '无法启动官方 dsh Web 引擎',
-          detail: String(err?.stack || err)
-        })
-        return null
-      })
-  }
-  officialLoading.then(async (url) => {
-    if (!url) return
-    lastDshUrl = url
-    if (win && !win.isDestroyed()) await win.loadURL(url)
-  })
 }
-
-function goDsh(win = mainWindow) {
-  openOfficial(win)
-}
-
-function buildMenu() {
-  // 顶部白色系统菜单栏已移除:视图切换并入窗口内容区
-  // (页内导航 + Ctrl+1..4 快捷键,由 attachWindowKeys 接管)。
-  Menu.setApplicationMenu(null)
-}
-
-/* ------------------------------------------------------------------ *
- *  lifecycle
- * ------------------------------------------------------------------ */
 
 app.whenReady().then(async () => {
-  // Second instance: the primary's 'second-instance' handler focuses its
-  // window; this extra process must exit without starting any service.
-  if (!gotSingleInstanceLock) return
+  if (!hasSingleInstanceLock) return
+  registerIntegratedDockIpc()
+  createWindow()
   try {
-    // 1) 自动错开端口:默认 3300/3080,被占用则向后找空闲端口。
-    uiPort = await findFreePort(uiBase, { maxTries: 30 })
-    dshPort = noDshWeb ? dshBase : await findFreePort(dshBase, { maxTries: 30 })
-    process.env.DSH_UI_PORT = String(uiPort)
-    process.env.DSH_DSH_WEB_PORT = String(dshPort)
-    logLine(`ports: ui=${uiBase}->${uiPort}${uiPort !== uiBase ? ' (自动错开)' : ''}, dsh=${dshBase}->${dshPort}${dshPort !== dshBase ? ' (自动错开)' : ''}`)
-    console.log(`DS-Harness ports: 调度中心=${uiPort}${uiPort !== uiBase ? ` (${uiBase} 被占用,已自动错开)` : ''} dshWeb=${dshPort}${dshPort !== dshBase ? ` (${dshBase} 被占用,已自动错开)` : ''}`)
-
-    // 2) 加载 .env 与监控服务(server 模块读取上面的 DSH_UI_PORT)。
-    require('./monitor/utils/env').loadProjectEnv()
-    monitor = require('./monitor/ui/server')
-    soundService = require('./monitor/notifications/sound-service')
-    monitor.startServer()
-    monitor.setBellHook(ringBell)
-    writePortsState()
-
-    // 服务内部若仍遇端口竞争而再次错开,采纳其实际绑定端口。
-    setTimeout(() => {
-      const actual = monitor.getBoundPort && monitor.getBoundPort()
-      if (actual && actual !== uiPort) {
-        uiPort = actual
-        process.env.DSH_UI_PORT = String(uiPort)
-        logLine(`monitor actually bound on ${uiPort}, adopting it`)
-        writePortsState()
-      }
-    }, 1200)
-
-    buildMenu()
-    createTray()
-    logLine(`monitor ${uiOrigin()} ready (dsh web ${dshOrigin()})`)
-
-    if (smokeTest) {
-      console.log('electron smoke ok')
-      setTimeout(() => app.quit(), 1500)
-      return
+    await runtimeProcess.recoverOwnedStale({ root: ROOT, dshEntry: DSH_ENTRY, log: logLine })
+    if (await isHarnessPortListening()) {
+      throw startupError(`Port ${HARNESS_PORT} is already in use by another process. Close it before starting DS-Harness.`)
     }
+    const nodeExe = resolveNodeExe()
+    await Promise.race([
+      startHarness(nodeExe),
+      new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
+    ])
+    const readyUrl = await waitForHarness()
+    if (INTEGRATED_MEGA_DOCK) await createOfficialHarnessView(readyUrl)
+    else await mainWindow.loadURL(readyUrl)
 
-    createAppWindow(true)
-    if (startView === 'dsh' && !noDshWeb) {
-      try {
-        const engineUrl = await Promise.race([
-          startEngine(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('未在时限内收到引擎访问地址')), STARTUP_TIMEOUT_MS))
-        ])
-        lastDshUrl = engineUrl
-        await mainWindow.loadURL(engineUrl)
-      } catch (err) {
-        logLine(`dsh web startup failed: ${err?.stack || err}`)
-        await dialog.showMessageBox({
-          type: 'error',
-          title: 'DS-Harness 启动失败',
-          message: '无法启动本地 dsh Web 服务',
-          detail: String(err?.stack || err)
-        })
-        // 调度中心仍然可用:降级到监控视图,不退出整个应用。
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          await mainWindow.loadURL(`${uiOrigin()}${VIEW_PATHS.monitor}`)
-        } else {
-          app.quit()
-        }
-      }
-    } else {
-      const view = VIEW_PATHS[startView] || VIEW_PATHS.monitor
-      await mainWindow.loadURL(`${uiOrigin()}${view}`)
-    }
-  } catch (err) {
-    logLine(`startup failed: ${err?.stack || err}`)
-    dialog.showErrorBox('DS-Harness 启动失败', `初始化失败:\n${err?.message || err}`)
+    const extensionsReady = await startExtensions(nodeExe)
+    if (extensionsReady && INTEGRATED_MEGA_DOCK) await createIntegratedMegaDock()
+    layoutIntegratedViews()
+    mainWindow.show()
+  } catch (error) {
+    await dialog.showMessageBox({
+      type: 'error',
+      title: 'DS-Harness 启动失败',
+      message: '无法启动官方 DeepSeek Harness Web UI',
+      detail: `${String(error.stack || error)}\n\nLog: ${logPath()}`
+    })
     app.quit()
   }
 })
 
 app.on('second-instance', () => {
-  // 默认:再次启动 = 聚焦已有窗口。设置 DSH_MULTI=1 时才多开一个新窗口。
-  if (process.env.DSH_MULTI === '1') {
-    const win = createAppWindow(false)
-    if (win) {
-      win.loadURL(`${uiOrigin()}${VIEW_PATHS.chat}`)
-      win.once('ready-to-show', () => win.show())
-    }
-    return
-  }
-  // 聚焦顺序:主窗口 → 最近获焦的本程序窗口 → 任意可见/存在的本程序窗口。
-  // 启动器只会唤起本程序(DS-Harness)的窗口,不会切到其它 electron 应用。
-  const prefer = (cand) => cand && !cand.isDestroyed() ? cand : null
-  let target =
-    prefer(mainWindow) ||
-    prefer(lastFocusedWin) ||
-    appWindows.find((w) => !w.isDestroyed() && w.isVisible()) ||
-    appWindows.find((w) => !w.isDestroyed())
-  if (target) {
-    if (target.isMinimized()) target.restore()
-    if (!target.isVisible()) target.show()
-    target.moveTop()
-    target.focus()
-    // 可见反馈:即使窗口本来就在前台,也让用户感知到“启动器已唤起本程序”。
-    try {
-      target.flashFrame(true)
-      setTimeout(() => {
-        if (!target.isDestroyed()) target.flashFrame(false)
-      }, 900)
-    } catch (err) {
-      /* ignore */
-    }
-  } else {
-    const win = createAppWindow(true)
-    if (win) {
-      win.loadURL(`${uiOrigin()}${VIEW_PATHS.chat}`)
-      win.once('ready-to-show', () => win.show())
-    }
-  }
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
 })
-
 app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   if (shuttingDown) return
   shuttingDown = true
-  try {
-    monitor?.stopServer()
-  } catch {
-    /* no-op */
-  }
-  stopEngine()
+  ipcMain.removeAllListeners('mega-shell:dock-state')
+  destroyIntegratedViews()
+  try { extensionManager?.stop?.() } catch {}
+  stopHarness()
 })
-process.on('exit', () => {
-  try {
-    monitor?.stopServer()
-  } catch {
-    /* no-op */
-  }
-  stopEngine()
-})
-
-module.exports = { ROOT, uiOrigin, dshOrigin }
+process.on('exit', stopHarness)

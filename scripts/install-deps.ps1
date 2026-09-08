@@ -144,6 +144,8 @@ if ($dshPackageReady -and $electronPackageReady -and $electronBinaryReady) {
   Write-Output "  Reuse local Electron $installedElectron"
   Write-Output '  npm install skipped; no dependency download required.'
 } else {
+  # If package metadata is already correct, do not run npm ci just because the
+  # Electron binary is missing. Repair only the binary layer.
   if ($dshPackageReady -and $electronPackageReady -and (-not $electronBinaryReady)) {
     if (-not (Repair-ElectronBinary)) {
       throw "Electron package $installedElectron is installed but dist\electron.exe could not be repaired. Check proxy/mirror settings and Electron download access."
@@ -186,6 +188,8 @@ if ($dshPackageReady -and $electronPackageReady -and $electronBinaryReady) {
     }
   }
 
+  # Final verification uses separate messages so equal versions can never be
+  # reported as a version mismatch when only a binary/file is missing.
   $installedDsh = Get-PackageVersion $dshPkg
   $installedElectron = Get-PackageVersion $electronPkg
   if ($installedDsh -ne $expectedDsh) {

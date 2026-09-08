@@ -1,78 +1,126 @@
-﻿# DS-Harness: ensure a usable Node.js exists.
-# Priority:
-#   1. A bundled runtime already under <root>\runtime\node-v*-win-x64
-#   2. node already on PATH
-#   3. Auto-repair: download a portable Node zip into <root>\runtime and unpack it
-# Prints the directory containing node.exe on success; exit code 0 on success.
-# Version override: -NodeVersion or env DSH_NODE_VERSION (default v24.14.1).
+# DS-Harness: ensure a compatible Node.js exists without downloading twice.
+# Windows PowerShell 5.1 compatible and ASCII-only.
 param([string]$NodeVersion = '')
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 $runtimeDir = Join-Path $ROOT 'runtime'
 $downloadsDir = Join-Path $ROOT 'cache\downloads'
-$version = if ($NodeVersion) { $NodeVersion }
-           elseif ($env:DSH_NODE_VERSION) { $env:DSH_NODE_VERSION }
-           else { 'v24.14.1' }
 $ProgressPreference = 'SilentlyContinue'
+$minMajor = 20
+
+if ($NodeVersion) {
+  $version = $NodeVersion
+} elseif ($env:DSH_NODE_VERSION) {
+  $version = $env:DSH_NODE_VERSION
+} else {
+  $version = 'v24.14.1'
+}
+
+function Get-NodeMajor([string]$nodeExe) {
+  try {
+    $raw = (& $nodeExe --version 2>$null | Select-Object -First 1)
+    if ($raw -match '^v?(\d+)\.') { return [int]$Matches[1] }
+  } catch { }
+  return 0
+}
+
+function Test-CompatibleNode([string]$nodeExe) {
+  if (-not $nodeExe) { return $false }
+  if (-not (Test-Path -LiteralPath $nodeExe)) { return $false }
+  return ((Get-NodeMajor $nodeExe) -ge $minMajor)
+}
 
 function Find-BundledNode {
   if (-not (Test-Path -LiteralPath $runtimeDir)) { return $null }
-  Get-ChildItem -Path $runtimeDir -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -like 'node-v*-win-x64' -and (Test-Path -LiteralPath (Join-Path $_.FullName 'node.exe')) } |
-    Sort-Object Name |
-    Select-Object -Last 1
+  $candidates = Get-ChildItem -LiteralPath $runtimeDir -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like 'node-v*-win-x64' } |
+    Sort-Object Name -Descending
+  foreach ($dir in $candidates) {
+    $exe = Join-Path $dir.FullName 'node.exe'
+    if (Test-CompatibleNode $exe) { return $dir }
+  }
+  return $null
 }
 
 $bundled = Find-BundledNode
 if ($bundled) {
+  $bundledExe = Join-Path $bundled.FullName 'node.exe'
+  Write-Host "[ensure-node] reuse bundled Node $(& $bundledExe --version)"
   Write-Output $bundled.FullName
-  exit 0
+  return
 }
 
 $sysNode = Get-Command node -ErrorAction SilentlyContinue
 if ($sysNode) {
-  Write-Output (Split-Path -Parent $sysNode.Source)
-  exit 0
+  if (Test-CompatibleNode $sysNode.Source) {
+    Write-Host "[ensure-node] reuse PATH Node $(& $sysNode.Source --version)"
+    Write-Output (Split-Path -Parent $sysNode.Source)
+    return
+  }
+  Write-Host "[ensure-node] PATH Node is too old; Node >= $minMajor is required."
 }
 
-# ---- auto-repair: download portable Node ----
-Write-Host "[ensure-node] Node.js not found. Downloading portable node-$version (this happens once)..."
-New-Item -ItemType Directory -Path $runtimeDir, $downloadsDir -Force | Out-Null
-
+New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+New-Item -ItemType Directory -Path $downloadsDir -Force | Out-Null
 $zipName = "node-$version-win-x64.zip"
 $zipPath = Join-Path $downloadsDir $zipName
+$targetDir = Join-Path $runtimeDir "node-$version-win-x64"
+$targetExe = Join-Path $targetDir 'node.exe'
+
+function Expand-CachedZip {
+  if (-not (Test-Path -LiteralPath $zipPath)) { return $false }
+  try {
+    $zipInfo = Get-Item -LiteralPath $zipPath
+    if ($zipInfo.Length -lt 1048576) { return $false }
+    Write-Host "[ensure-node] reuse cached archive $zipPath"
+    if (Test-Path -LiteralPath $targetDir) {
+      Remove-Item -LiteralPath $targetDir -Recurse -Force
+    }
+    Expand-Archive -LiteralPath $zipPath -DestinationPath $runtimeDir -Force
+    return (Test-CompatibleNode $targetExe)
+  } catch {
+    Write-Host "[ensure-node] cached archive is unusable: $($_.Exception.Message)"
+    return $false
+  }
+}
+
+if (Expand-CachedZip) {
+  Write-Host "[ensure-node] ready: $targetDir ($(& $targetExe --version))"
+  Write-Output $targetDir
+  return
+}
+
+Write-Host "[ensure-node] no compatible local Node found. Downloading portable node-$version once..."
 $urls = @(
   "https://nodejs.org/dist/$version/$zipName",
   "https://npmmirror.com/mirrors/node/$version/$zipName"
 )
-
 $downloaded = $false
 foreach ($url in $urls) {
-  if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
   Write-Host "[ensure-node] downloading $url"
   try {
     Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing -TimeoutSec 600
-    $downloaded = $true
-    break
+    $zipInfo = Get-Item -LiteralPath $zipPath
+    if ($zipInfo.Length -ge 1048576) {
+      $downloaded = $true
+      break
+    }
   } catch {
     Write-Host "[ensure-node] download failed from $url : $($_.Exception.Message)"
   }
 }
-if (-not $downloaded -or -not (Test-Path -LiteralPath $zipPath)) {
-  Write-Error "无法自动下载 Node.js。请手动下载 $zipName 并解压到 $runtimeDir ,或安装 Node.js >= 20 并加入 PATH。"
-  exit 1
+
+if (-not $downloaded) {
+  throw "Unable to download Node.js automatically. Put $zipName in $downloadsDir or install Node.js >= $minMajor and add it to PATH."
 }
 
+if (Test-Path -LiteralPath $targetDir) {
+  Remove-Item -LiteralPath $targetDir -Recurse -Force
+}
 Write-Host "[ensure-node] unpacking $zipPath -> $runtimeDir"
 Expand-Archive -LiteralPath $zipPath -DestinationPath $runtimeDir -Force
-
-$dir = Join-Path $runtimeDir "node-$version-win-x64"
-$nodeExe = Join-Path $dir 'node.exe'
-if (-not (Test-Path -LiteralPath $nodeExe)) {
-  Write-Error "解压后未找到 $nodeExe"
-  exit 1
+if (-not (Test-CompatibleNode $targetExe)) {
+  throw "Compatible Node.js was not found after extraction: $targetExe"
 }
-$null = & $nodeExe --version
-Write-Host "[ensure-node] ready: $dir (version $(& $nodeExe --version))"
-Write-Output $dir
-exit 0
+Write-Host "[ensure-node] ready: $targetDir ($(& $targetExe --version))"
+Write-Output $targetDir
