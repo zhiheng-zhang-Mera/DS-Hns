@@ -58,6 +58,21 @@ if (-not $env:DSH_PERMISSION_MODE) {
   $env:DSH_PERMISSION_MODE = 'workspace-write'
 }
 
+# Compatibility alias: some existing machines use DeepSeek_API. Keep the
+# system variable untouched and map it only into this process for official DSH.
+if (-not $env:DEEPSEEK_API_KEY) {
+  $legacyApi = $env:DeepSeek_API
+  if (-not $legacyApi) {
+    $legacyApi = [Environment]::GetEnvironmentVariable('DeepSeek_API', 'User')
+  }
+  if (-not $legacyApi) {
+    $legacyApi = [Environment]::GetEnvironmentVariable('DeepSeek_API', 'Machine')
+  }
+  if ($legacyApi) {
+    $env:DEEPSEEK_API_KEY = [string]$legacyApi
+  }
+}
+
 # Optional secret layer. Existing process/user/machine environment wins.
 $envFile = "$ROOT\config\.env"
 if (Test-Path -LiteralPath $envFile) {
