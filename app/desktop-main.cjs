@@ -6,7 +6,7 @@
  * has NO preload script, NO DOM injection and NO dependency on Mega features.
  * Optional extensions start only after the official UI has loaded.
  */
-const { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen } = require('electron')
+const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
@@ -21,8 +21,16 @@ const HARNESS_URL = `http://${HARNESS_HOST}:${HARNESS_PORT}/`
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
 const STARTUP_BUFFER_LIMIT = 64 * 1024
+const INTEGRATED_MEGA_DOCK = process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
+const MEGA_DOCK_COLLAPSED_WIDTH = 48
+const MEGA_DOCK_DEFAULT_WIDTH = 560
+const MEGA_DOCK_MIN_WIDTH = 440
+const MEGA_DOCK_MAX_WIDTH = 720
 
 let mainWindow = null
+let megaDockView = null
+let megaDockExpanded = false
+let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 let harnessProcess = null
 let shuttingDown = false
 let harnessUrl = null
@@ -73,6 +81,9 @@ normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
+// Mega is rendered as a child WebContentsView inside the native main window.
+// Disable the legacy companion BrowserWindow to avoid the detached top-right corner.
+if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
 app.setName('DS-Harness')
 app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
 
@@ -271,9 +282,85 @@ function stopHarness() {
   if (childPid) runtimeProcess.clearOwnership({ root: ROOT, childPid })
 }
 
+function integratedDockWidth() {
+  return megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
+}
+
+function layoutIntegratedMegaDock() {
+  if (!mainWindow || mainWindow.isDestroyed() || !megaDockView) return
+  const [contentWidth, contentHeight] = mainWindow.getContentSize()
+  const maxExpanded = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, contentWidth - 360))
+  const desired = megaDockExpanded ? Math.min(megaDockWidth, maxExpanded) : MEGA_DOCK_COLLAPSED_WIDTH
+  const width = Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desired, contentWidth))
+  megaDockView.setBounds({
+    x: Math.max(0, contentWidth - width),
+    y: 0,
+    width,
+    height: Math.max(1, contentHeight)
+  })
+}
+
+function applyIntegratedDockState(payload = {}) {
+  if (!INTEGRATED_MEGA_DOCK) return
+  if (typeof payload.expanded === 'boolean') megaDockExpanded = payload.expanded
+  const candidate = Number(payload.expandedWidth ?? payload.width)
+  if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
+    megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
+  }
+  layoutIntegratedMegaDock()
+}
+
+function registerIntegratedDockIpc() {
+  if (!INTEGRATED_MEGA_DOCK) return
+  ipcMain.removeAllListeners('mega-shell:dock-state')
+  ipcMain.on('mega-shell:dock-state', (_event, payload) => applyIntegratedDockState(payload || {}))
+}
+
+async function createIntegratedMegaDock() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+    logLine('Integrated Mega dock unavailable: WebContentsView/contentView not supported by this Electron build')
+    return false
+  }
+  if (megaDockView) {
+    layoutIntegratedMegaDock()
+    return true
+  }
+
+  megaDockView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, 'extensions', 'mega', 'ui', 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  })
+  mainWindow.contentView.addChildView(megaDockView)
+  megaDockView.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  megaDockView.webContents.on('render-process-gone', (_event, details) => {
+    logLine(`integrated Mega renderer gone: ${JSON.stringify(details)}`)
+  })
+  layoutIntegratedMegaDock()
+  await megaDockView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'dock.html'))
+  logLine('Mega dock attached inside the native main window as a right-side WebContentsView')
+  return true
+}
+
+function destroyIntegratedMegaDock() {
+  if (!megaDockView) return
+  try { mainWindow?.contentView?.removeChildView?.(megaDockView) } catch {}
+  try {
+    if (!megaDockView.webContents.isDestroyed()) megaDockView.webContents.close()
+  } catch {}
+  megaDockView = null
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1440,
+    width: INTEGRATED_MEGA_DOCK ? 1488 : 1440,
     height: 920,
     minWidth: 980,
     minHeight: 640,
@@ -300,14 +387,20 @@ function createWindow() {
     }
   })
   mainWindow.webContents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
+  mainWindow.on('resize', layoutIntegratedMegaDock)
+  mainWindow.on('maximize', layoutIntegratedMegaDock)
+  mainWindow.on('unmaximize', layoutIntegratedMegaDock)
   mainWindow.once('ready-to-show', () => mainWindow.show())
-  mainWindow.on('closed', () => { mainWindow = null })
+  mainWindow.on('closed', () => {
+    megaDockView = null
+    mainWindow = null
+  })
 }
 
 async function startExtensions(nodeExe) {
   if (process.env.DSH_DISABLE_MEGA === '1') {
     logLine('Mega extensions disabled by DSH_DISABLE_MEGA=1')
-    return
+    return false
   }
   try {
     extensionManager = require('./extensions/manager.cjs')
@@ -318,13 +411,16 @@ async function startExtensions(nodeExe) {
       log: logLine,
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen }
     })
+    return true
   } catch (error) {
     logLine(`extension manager failed without affecting official UI: ${error?.stack || error}`)
+    return false
   }
 }
 
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return
+  registerIntegratedDockIpc()
   createWindow()
   try {
     await runtimeProcess.recoverOwnedStale({ root: ROOT, dshEntry: DSH_ENTRY, log: logLine })
@@ -338,7 +434,8 @@ app.whenReady().then(async () => {
     ])
     const readyUrl = await waitForHarness()
     await mainWindow.loadURL(readyUrl)
-    await startExtensions(nodeExe)
+    const extensionsReady = await startExtensions(nodeExe)
+    if (extensionsReady) await createIntegratedMegaDock()
   } catch (error) {
     await dialog.showMessageBox({
       type: 'error',
@@ -360,6 +457,8 @@ app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   if (shuttingDown) return
   shuttingDown = true
+  ipcMain.removeAllListeners('mega-shell:dock-state')
+  destroyIntegratedMegaDock()
   try { extensionManager?.stop?.() } catch {}
   stopHarness()
 })
