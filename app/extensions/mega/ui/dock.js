@@ -225,7 +225,6 @@ $('rail').onclick = async (event) => {
 $('collapse').onclick = async () => {
   try { await window.megaTools.setDockExpanded(false); await refresh() } catch (error) { showError(error) }
 }
-$('fullTools').onclick = () => window.megaTools.openTools()
 $('clearPending').onclick = async () => {
   try { await window.megaTools.clearPending(); await refresh() } catch (error) { showError(error) }
 }
