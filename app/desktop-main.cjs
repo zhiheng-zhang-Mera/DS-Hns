@@ -2,9 +2,10 @@
 /**
  * DS-Harness desktop shell — Alien-derived canonical core.
  *
- * The main renderer is the official @deepseek-ai/dsh Web UI and intentionally
- * has NO preload script, NO DOM injection and NO dependency on Mega features.
- * Optional extensions start only after the official UI has loaded.
+ * The official @deepseek-ai/dsh Web UI and optional Mega dock are rendered as
+ * sibling WebContentsViews inside one native BrowserWindow when the integrated
+ * dock is enabled. This keeps the official renderer untouched while reserving
+ * real layout width for Mega instead of overlaying it.
  */
 const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
@@ -26,8 +27,10 @@ const MEGA_DOCK_COLLAPSED_WIDTH = 48
 const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
+const OFFICIAL_VIEW_MIN_WIDTH = 360
 
 let mainWindow = null
+let officialView = null
 let megaDockView = null
 let megaDockExpanded = false
 let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
@@ -81,8 +84,8 @@ normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
-// Mega is rendered as a child WebContentsView inside the native main window.
-// Disable the legacy companion BrowserWindow to avoid the detached top-right corner.
+// Mega is rendered inside the native main window. Disable the legacy companion
+// BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
 app.setName('DS-Harness')
 app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
@@ -286,18 +289,24 @@ function integratedDockWidth() {
   return megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
 }
 
-function layoutIntegratedMegaDock() {
-  if (!mainWindow || mainWindow.isDestroyed() || !megaDockView) return
+function layoutIntegratedViews() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return
   const [contentWidth, contentHeight] = mainWindow.getContentSize()
-  const maxExpanded = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, contentWidth - 360))
-  const desired = megaDockExpanded ? Math.min(megaDockWidth, maxExpanded) : MEGA_DOCK_COLLAPSED_WIDTH
-  const width = Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desired, contentWidth))
-  megaDockView.setBounds({
-    x: Math.max(0, contentWidth - width),
-    y: 0,
-    width,
-    height: Math.max(1, contentHeight)
-  })
+  const maxDockWidth = Math.max(
+    MEGA_DOCK_COLLAPSED_WIDTH,
+    Math.min(MEGA_DOCK_MAX_WIDTH, Math.max(MEGA_DOCK_COLLAPSED_WIDTH, contentWidth - OFFICIAL_VIEW_MIN_WIDTH))
+  )
+  const desiredDockWidth = megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
+  const dockWidth = Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desiredDockWidth, maxDockWidth))
+  const officialWidth = Math.max(0, contentWidth - dockWidth)
+  const height = Math.max(1, contentHeight)
+
+  if (officialView) {
+    officialView.setBounds({ x: 0, y: 0, width: officialWidth, height })
+  }
+  if (megaDockView) {
+    megaDockView.setBounds({ x: officialWidth, y: 0, width: dockWidth, height })
+  }
 }
 
 function applyIntegratedDockState(payload = {}) {
@@ -307,13 +316,49 @@ function applyIntegratedDockState(payload = {}) {
   if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
     megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
   }
-  layoutIntegratedMegaDock()
+  layoutIntegratedViews()
 }
 
 function registerIntegratedDockIpc() {
   if (!INTEGRATED_MEGA_DOCK) return
   ipcMain.removeAllListeners('mega-shell:dock-state')
   ipcMain.on('mega-shell:dock-state', (_event, payload) => applyIntegratedDockState(payload || {}))
+}
+
+function configureOfficialWebContents(contents) {
+  contents.setWindowOpenHandler(({ url }) => {
+    if (allowedHarnessNavigation(url)) return { action: 'allow' }
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  contents.on('will-navigate', (event, url) => {
+    if (!allowedHarnessNavigation(url)) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+  contents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
+}
+
+async function createOfficialHarnessView(readyUrl) {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+    throw new Error('Integrated layout unavailable: WebContentsView/contentView not supported by this Electron build')
+  }
+  if (!officialView) {
+    officialView = new WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
+      }
+    })
+    configureOfficialWebContents(officialView.webContents)
+    mainWindow.contentView.addChildView(officialView)
+  }
+  layoutIntegratedViews()
+  await officialView.webContents.loadURL(readyUrl)
+  return true
 }
 
 async function createIntegratedMegaDock() {
@@ -323,7 +368,7 @@ async function createIntegratedMegaDock() {
     return false
   }
   if (megaDockView) {
-    layoutIntegratedMegaDock()
+    layoutIntegratedViews()
     return true
   }
 
@@ -343,19 +388,22 @@ async function createIntegratedMegaDock() {
   megaDockView.webContents.on('render-process-gone', (_event, details) => {
     logLine(`integrated Mega renderer gone: ${JSON.stringify(details)}`)
   })
-  layoutIntegratedMegaDock()
+  layoutIntegratedViews()
   await megaDockView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'dock.html'))
-  logLine('Mega dock attached inside the native main window as a right-side WebContentsView')
+  logLine('Mega dock attached as a reserved right-side WebContentsView; official UI no longer sits underneath it')
   return true
 }
 
-function destroyIntegratedMegaDock() {
-  if (!megaDockView) return
-  try { mainWindow?.contentView?.removeChildView?.(megaDockView) } catch {}
-  try {
-    if (!megaDockView.webContents.isDestroyed()) megaDockView.webContents.close()
-  } catch {}
+function destroyIntegratedViews() {
+  for (const view of [megaDockView, officialView]) {
+    if (!view) continue
+    try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
+    try {
+      if (!view.webContents.isDestroyed()) view.webContents.close()
+    } catch {}
+  }
   megaDockView = null
+  officialView = null
 }
 
 function createWindow() {
@@ -365,7 +413,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 640,
     title: 'DS-Harness · DeepSeek Harness',
-    backgroundColor: '#0b0f14',
+    backgroundColor: '#f7f8fa',
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -375,24 +423,15 @@ function createWindow() {
     }
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (allowedHarnessNavigation(url)) return { action: 'allow' }
-    shell.openExternal(url)
-    return { action: 'deny' }
-  })
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!allowedHarnessNavigation(url)) {
-      event.preventDefault()
-      shell.openExternal(url)
-    }
-  })
-  mainWindow.webContents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
-  mainWindow.on('resize', layoutIntegratedMegaDock)
-  mainWindow.on('maximize', layoutIntegratedMegaDock)
-  mainWindow.on('unmaximize', layoutIntegratedMegaDock)
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+  if (!INTEGRATED_MEGA_DOCK) configureOfficialWebContents(mainWindow.webContents)
+
+  mainWindow.on('resize', layoutIntegratedViews)
+  mainWindow.on('maximize', layoutIntegratedViews)
+  mainWindow.on('unmaximize', layoutIntegratedViews)
+  mainWindow.on('restore', layoutIntegratedViews)
   mainWindow.on('closed', () => {
     megaDockView = null
+    officialView = null
     mainWindow = null
   })
 }
@@ -408,6 +447,7 @@ async function startExtensions(nodeExe) {
       root: ROOT,
       nodeExe,
       mainWindow,
+      officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
       log: logLine,
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen }
     })
@@ -433,9 +473,13 @@ app.whenReady().then(async () => {
       new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
     ])
     const readyUrl = await waitForHarness()
-    await mainWindow.loadURL(readyUrl)
+    if (INTEGRATED_MEGA_DOCK) await createOfficialHarnessView(readyUrl)
+    else await mainWindow.loadURL(readyUrl)
+
     const extensionsReady = await startExtensions(nodeExe)
-    if (extensionsReady) await createIntegratedMegaDock()
+    if (extensionsReady && INTEGRATED_MEGA_DOCK) await createIntegratedMegaDock()
+    layoutIntegratedViews()
+    mainWindow.show()
   } catch (error) {
     await dialog.showMessageBox({
       type: 'error',
@@ -458,7 +502,7 @@ app.on('before-quit', () => {
   if (shuttingDown) return
   shuttingDown = true
   ipcMain.removeAllListeners('mega-shell:dock-state')
-  destroyIntegratedMegaDock()
+  destroyIntegratedViews()
   try { extensionManager?.stop?.() } catch {}
   stopHarness()
 })
