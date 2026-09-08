@@ -17,7 +17,7 @@ Alien-derived Electron shell
                  |
                  +--> Mega feature extension
                        scheduler / peak billing / tracker / settings / sounds
-                       isolated tools window only
+                       companion widget / tray / isolated tools window
 ```
 
 ### Pure Alien regression mode
@@ -41,6 +41,8 @@ The previous integration retained Mega as a second application core under `app/m
 
 The rebuild removes the legacy `app/monitor` application and shared preload entirely. Optional functionality now starts only **after** the official dsh page has loaded. Extension failure is logged but must not terminate or mutate the official UI.
 
+Mega shell entrances are restored as **separate Electron windows/tray UI**. The companion widget is a child `BrowserWindow`; it is not injected into the official dsh page.
+
 ## One-click install
 
 On Windows, clone/download the repository and double-click:
@@ -51,51 +53,49 @@ Install-DS-Harness.cmd
 
 The installer is idempotent and reuse-first:
 
-1. creates missing runtime/data/cache/workspace directories;
-2. reuses a compatible bundled Node.js if present;
-3. otherwise reuses a compatible Node.js already on `PATH`;
-4. otherwise reuses a previously downloaded portable Node archive;
-5. downloads portable Node only when no compatible local copy exists;
-6. checks the exact local versions of `@deepseek-ai/dsh` and Electron;
-7. skips `npm ci` completely when both installed versions already match `app/package.json`;
-8. when repair/install is needed, uses `npm ci --prefer-offline` and reuses existing npm/Electron caches when available;
-9. generates built-in sounds only when they are missing;
-10. runs unit + architecture tests and repository verification;
-11. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
-12. launches DS-Harness when installation succeeds.
+1. checks/cleans stale DS-Harness-owned runtime processes;
+2. creates missing runtime/data/cache/workspace directories;
+3. reuses a compatible bundled Node.js if present;
+4. otherwise reuses a compatible Node.js already on `PATH`;
+5. otherwise reuses a previously downloaded portable Node archive;
+6. downloads portable Node only when no compatible local copy exists;
+7. checks the exact local versions of `@deepseek-ai/dsh` and Electron;
+8. skips `npm ci` completely when both installed versions already match `app/package.json`;
+9. repairs only the Electron binary when the npm package is correct but `dist\electron.exe` is missing;
+10. when package repair/install is needed, uses `npm ci --prefer-offline` and reuses existing npm/Electron caches when available;
+11. generates built-in sounds only when they are missing;
+12. runs unit + architecture tests and repository verification;
+13. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
+14. launches DS-Harness when installation succeeds.
 
-### API key flow
+## API key flow
 
 The installer never requires an API key in order to finish installation.
+
+Supported environment names:
+
+```text
+DEEPSEEK_API_KEY   canonical name
+DeepSeek_API       compatibility alias
+```
 
 Priority is:
 
 ```text
-Process/inherited environment
-        -> User environment
-        -> Machine environment
+DEEPSEEK_API_KEY: Process -> User -> Machine
+        -> DeepSeek_API: Process -> User -> Machine
         -> existing project config\.env
         -> interactive choice
 ```
 
-If `DEEPSEEK_API_KEY` already exists in the environment, it is reused and is **not copied or printed** by the installer.
+When `DeepSeek_API` is found, DS-Hns maps it to `DEEPSEEK_API_KEY` **inside the current process only**. It does not rename or rewrite the user's Windows environment variable.
+
+If an environment key already exists, it is reused and is **not copied or printed** by the installer.
 
 If no environment key and no existing project key are found, the installer asks:
 
 - **Configure now** — enter the key securely; it is stored only in `config\.env`.
-- **Configure later** — installation continues normally; open Mega Extensions with `Ctrl+Shift+M` and enter the key under **Harness / 提醒**.
-
-The default `.env.example` intentionally contains a blank API-key field, so a placeholder can never be mistaken for a configured credential.
-
-For scripted installs:
-
-```powershell
-# Do not prompt for API key; leave it for the settings page
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -ApiKeyMode Later
-
-# Install without launching or creating shortcuts
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -ApiKeyMode Later -NoLaunch -NoShortcuts
-```
+- **Configure later** — installation continues normally; open Mega Extensions and enter the key under **Harness / 提醒**.
 
 ## Mega-derived features retained
 
@@ -108,7 +108,25 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -ApiKeyMode Later -
 - configurable completion / failure / interruption sounds
 - selectable headless-task workspace
 
-These features live under `app/extensions/mega/` and are opened via the isolated tools window (`Ctrl+Shift+M`).
+### Mega Companion
+
+After the official Alien/DSH UI loads, Mega starts as a companion layer:
+
+- **Companion widget** — a small floating status widget follows the main window and shows running/queued task state; click it to open the full Mega tools window.
+- **System tray** — entries for the official Harness, Mega Extensions, show/hide companion, and Exit.
+- **Full tools window** — `Ctrl+Shift+M` opens the scheduler/settings/session dashboard.
+
+The widget can be disabled without disabling Mega:
+
+```cmd
+set DSH_MEGA_WIDGET=0
+```
+
+The tray can be disabled separately:
+
+```cmd
+set DSH_MEGA_TRAY=0
+```
 
 ## Repository layout
 
@@ -116,11 +134,12 @@ These features live under `app/extensions/mega/` and are opened via the isolated
 Install-DS-Harness.cmd           double-click one-click installer
 Start-DeepSeek-Harness.cmd       normal launcher after installation
 app/
-  desktop-main.cjs              Alien-derived shell; owns official dsh UI
+  desktop-main.cjs               Alien-derived shell; owns official dsh UI
+  runtime-process.cjs            DSH child ownership/recovery
   extensions/
-    manager.cjs                 optional extension lifecycle
+    manager.cjs                  optional extension lifecycle
     mega/
-      index.cjs                 Mega adapter, IPC and tools-window lifecycle
+      index.cjs                  Mega adapter, tray/widget/tools lifecycle
       billing/
       scheduler/
       tracker/
@@ -128,15 +147,20 @@ app/
       notifications/
       deepseek/
       utils/
-      ui/                       isolated extension-only renderer
+      ui/
+        index.html                full Mega tools window
+        widget.html              companion widget
+        widget.js
+        widget.css
   package.json
 config/
 data/
 assets/
 scripts/
-  install.ps1                   one-click install orchestration
-  install-deps.ps1              exact-version dependency reuse/repair
-  ensure-node.ps1               Node detection/cache reuse/bootstrap
+  install.ps1
+  install-deps.ps1
+  ensure-node.ps1
+  cleanup-runtime.ps1
   verify.ps1
 tests/
 ```
@@ -146,9 +170,10 @@ tests/
 1. `app/desktop-main.cjs#createWindow()` must not contain a `preload` entry.
 2. Mega code must never inject JavaScript/CSS into the official renderer.
 3. Mega UI must never replace the official main window.
-4. Extensions load only after `mainWindow.loadURL(officialDshUrl)` succeeds.
-5. `DSH_DISABLE_MEGA=1` must boot the product without loading Mega code.
-6. An extension crash must be logged and isolated from the official UI.
+4. Companion/widget/tools UI must live in separate `BrowserWindow` instances.
+5. Extensions load only after `mainWindow.loadURL(officialDshUrl)` succeeds.
+6. `DSH_DISABLE_MEGA=1` must boot the product without loading Mega code.
+7. An extension crash must be logged and isolated from the official UI.
 
 These rules are enforced by `tests/unit/architecture-contract.test.js`.
 Installer/reuse/API-key behavior is enforced by `tests/unit/installer-contract.test.js`.
@@ -167,7 +192,7 @@ Optional PowerShell launcher:
 powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
-Mega tools: `Ctrl+Shift+M`.
+Mega tools: `Ctrl+Shift+M` or click the companion widget / tray entry.
 
 ## Verification
 
