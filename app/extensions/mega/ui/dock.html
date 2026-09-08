@@ -33,14 +33,24 @@
 
     <section class="panel">
       <div class="panel-head">
-        <div><h2>手动队列</h2><p>按 # 顺序调度；受计划时间/峰谷限制的任务不会堵塞后续可运行任务。</p></div>
+        <div>
+          <h2>手动队列</h2>
+          <p>默认投递到官方 DSH 新 Session，并进入左侧历史；不会抢占你当前正在看的会话。</p>
+        </div>
         <button id="clearPending" class="quiet">清空等待</button>
       </div>
       <form id="taskForm" class="task-form">
-        <textarea id="prompt" required placeholder="新增一个要交给 headless dsh 的任务"></textarea>
+        <textarea id="prompt" required placeholder="新增一个定时 / 排队任务"></textarea>
         <div class="form-row">
+          <select id="deliveryMode" title="执行目标">
+            <option value="official-session">官方主界面（新会话）</option>
+            <option value="headless">Headless 后台</option>
+          </select>
           <select id="queuePosition" title="加入位置"><option value="bottom">加入队尾</option><option value="top">加入队首</option></select>
           <label class="check"><input id="allowPeak" type="checkbox">允许峰值</label>
+        </div>
+        <div class="form-row">
+          <label>开始时间 <input id="startAt" type="datetime-local"></label>
           <button type="submit">加入队列</button>
         </div>
       </form>
