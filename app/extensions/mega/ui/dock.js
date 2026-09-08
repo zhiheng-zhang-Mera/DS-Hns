@@ -138,13 +138,24 @@ function render(snapshot) {
   $('railQueued').textContent = String(queuedCount)
   $('railWorkers').textContent = `${concurrency.current ?? '—'}/${concurrency.hardwareCap ?? '—'}`
 
-  $('summary').innerHTML = [
-    ['时段', peak ? '峰价' : '谷价', `summary-card period-card ${peak ? 'peak' : 'offpeak'}`, ''],
-    ['距下一次谷价', nextValleyText(snapshot), 'summary-card timer-card', 'nextValleyValue'],
-    ['运行', activeCount, 'summary-card', ''],
-    ['等待', queuedCount, 'summary-card', ''],
-    ['并行', `${concurrency.current ?? '—'} / HW ${concurrency.hardwareCap ?? '—'}`, 'summary-card', '']
-  ].map(([label, value, cls, id]) => `<div class="${cls}"><span>${esc(label)}</span><b${id ? ` id="${id}"` : ''}>${esc(value)}</b></div>`).join('')
+  $('summary').innerHTML = `
+    <div class="summary-card period-card ${peak ? 'peak' : 'offpeak'}">
+      <span>时段</span><b>${esc(peak ? '峰价' : '谷价')}</b>
+    </div>
+    <div class="summary-card timer-card">
+      <span>距下一次谷价</span><b id="nextValleyValue">${esc(nextValleyText(snapshot))}</b>
+    </div>
+    <div class="summary-card task-summary-card">
+      <span>任务</span>
+      <div class="task-summary-values">
+        <div><small>运行</small><b>${esc(activeCount)}</b></div>
+        <i aria-hidden="true"></i>
+        <div><small>等待</small><b>${esc(queuedCount)}</b></div>
+      </div>
+    </div>
+    <div class="summary-card">
+      <span>并行</span><b>${esc(`${concurrency.current ?? '—'} / HW ${concurrency.hardwareCap ?? '—'}`)}</b>
+    </div>`
 
   $('queue').innerHTML = tasks.slice(0, 24).map((task) => {
     const rank = task.queueRank
