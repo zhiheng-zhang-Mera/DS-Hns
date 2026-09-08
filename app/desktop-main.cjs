@@ -6,7 +6,7 @@
  * has NO preload script, NO DOM injection and NO dependency on Mega features.
  * Optional extensions start only after the official UI has loaded.
  */
-const { app, BrowserWindow, dialog, shell, ipcMain } = require('electron')
+const { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
@@ -187,9 +187,6 @@ function observeStartupOutput(source, chunk, log) {
   const clean = stripAnsi(raw)
   startupOutput = `${startupOutput}${clean}`.slice(-STARTUP_BUFFER_LIMIT)
 
-  // DSH 0.1.2+ prints `dsh web: <authenticatedUrl>` only after the Loader
-  // settles. Parse both streams and a rolling buffer so chunk boundaries or
-  // harmless formatting changes cannot lose the one-time launch token.
   const match = startupOutput.match(/https?:\/\/(?:127\.0\.0\.1|localhost):\d+\/\?token=[^\s)\]"']+/i)
   if (match && !harnessUrl) {
     harnessUrl = match[0]
@@ -275,8 +272,6 @@ function stopHarness() {
 }
 
 function createWindow() {
-  // Keep this BrowserWindow contract aligned with Harness-Alien.
-  // In particular: DO NOT add preload here. The official dsh renderer owns itself.
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
@@ -321,7 +316,7 @@ async function startExtensions(nodeExe) {
       nodeExe,
       mainWindow,
       log: logLine,
-      electron: { app, BrowserWindow, dialog, shell, ipcMain }
+      electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen }
     })
   } catch (error) {
     logLine(`extension manager failed without affecting official UI: ${error?.stack || error}`)
@@ -343,7 +338,6 @@ app.whenReady().then(async () => {
     ])
     const readyUrl = await waitForHarness()
     await mainWindow.loadURL(readyUrl)
-    // Official renderer is loaded first. Optional feature failures cannot black-screen it.
     await startExtensions(nodeExe)
   } catch (error) {
     await dialog.showMessageBox({
