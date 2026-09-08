@@ -7,22 +7,10 @@ const PricingRepository = require('../billing/pricing-repository')
 const { statusAt, nextChangeInfo } = require('../billing/peak-engine')
 const system = require('./system')
 const runner = require('./dsh-runner')
-const { appendRecent, loadRecent } = require('../tracker/task-history')
-
-/**
- * SchedulerService — bounded task queue with price-window gating.
- *
- * Policies:
- *   allowPeak=false  task stays SUSPENDED during Beijing peak and auto-starts
- *                    as soon as the window turns OFF-PEAK (or after startAt)
- *   interruptRunningAtPeak=true  running off-peak-only jobs are interrupted at
- *                    the next peak boundary and automatically re-queued
- *   concurrency      recomputed from local CPU/RAM each tick, bounded by the
- *                    user-configured min/max from data/state
- */
-
+const { appendRecent } = require('../tracker/task-history')
 const { ROOT } = require('../utils/paths')
-const { getActiveDir, getWorkspaceRoot } = require('../utils/workspace')
+const { getActiveDir } = require('../utils/workspace')
+
 const STATE_DIR = path.join(ROOT, 'data', 'state')
 const CONFIG_FILE = path.join(STATE_DIR, 'scheduler-config.json')
 const QUEUE_FILE = path.join(STATE_DIR, 'scheduler-queue.json')
@@ -30,9 +18,16 @@ const QUEUE_FILE = path.join(STATE_DIR, 'scheduler-queue.json')
 const DEFAULTS = {
   defaultAllowPeak: false,
   minConcurrent: 1,
-  maxConcurrent: 4,
+  maxConcurrent: 0,
   interruptRunningAtPeak: false,
+  cpuReservePercent: 25,
+  memoryReserveGb: 2,
+  memoryPerWorkerGb: 2.5,
   tickMs: 10_000
+}
+
+function isQueued(t) {
+  return t.status === 'PENDING' || t.status === 'SUSPENDED'
 }
 
 class SchedulerService extends EventEmitter {
@@ -44,9 +39,10 @@ class SchedulerService extends EventEmitter {
     this.tasks = this.loadQueue()
     this.running = new Map()
     this.timer = null
+    this.startedAt = null
+    this.ensureQueueOrders()
     this.lastSystem = system.probe()
     this.concurrency = system.computeMaxConcurrent(this.lastSystem, this.config)
-    this.startedAt = null
   }
 
   loadConfig() {
@@ -71,6 +67,21 @@ class SchedulerService extends EventEmitter {
     }
   }
 
+  ensureQueueOrders() {
+    const queued = this.tasks.filter(isQueued).sort((a, b) => {
+      const ao = Number.isFinite(Number(a.queueOrder)) ? Number(a.queueOrder) : Number.MAX_SAFE_INTEGER
+      const bo = Number.isFinite(Number(b.queueOrder)) ? Number(b.queueOrder) : Number.MAX_SAFE_INTEGER
+      if (ao !== bo) return ao - bo
+      return (a.createdAt || 0) - (b.createdAt || 0)
+    })
+    queued.forEach((t, index) => { t.queueOrder = index + 1 })
+  }
+
+  nextQueueOrder() {
+    const queued = this.tasks.filter(isQueued)
+    return queued.length ? Math.max(...queued.map((t) => Number(t.queueOrder || 0))) + 1 : 1
+  }
+
   saveQueue() {
     fs.mkdirSync(STATE_DIR, { recursive: true })
     const persisted = this.tasks.map((t) => {
@@ -85,7 +96,6 @@ class SchedulerService extends EventEmitter {
   start() {
     if (this.startedAt) return
     this.startedAt = Date.now()
-    // Sessions from a previous process can no longer be running.
     for (const t of this.tasks) {
       if (t.status === 'RUNNING') {
         t.status = 'INTERRUPTED'
@@ -95,6 +105,7 @@ class SchedulerService extends EventEmitter {
       delete t.proc
       delete t.child
     }
+    this.ensureQueueOrders()
     this.saveQueue()
     this.tick()
     this.timer = setInterval(() => this.tick(), this.config.tickMs || DEFAULTS.tickMs)
@@ -105,9 +116,7 @@ class SchedulerService extends EventEmitter {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     for (const t of this.tasks) {
-      if (t.status === 'RUNNING') {
-        this.interruptTask(t.id, 'app-quit')
-      }
+      if (t.status === 'RUNNING') this.interruptTask(t.id, 'app-quit')
     }
   }
 
@@ -124,29 +133,32 @@ class SchedulerService extends EventEmitter {
     }
   }
 
-  addTask({ prompt, allowPeak, startAt, taskId, permissionMode, attachments } = {}) {
+  addTask({ prompt, allowPeak, startAt, taskId, permissionMode, attachments, queuePosition = 'bottom' } = {}) {
     if (!prompt || !String(prompt).trim()) throw new Error('prompt is required')
-    const id = (taskId && /^[A-Za-z0-9._-]+$/.test(taskId)) ? taskId : `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    const id = (taskId && /^[A-Za-z0-9._-]+$/.test(taskId))
+      ? taskId
+      : `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    if (this.tasks.some((t) => t.id === id)) throw new Error(`duplicate task id: ${id}`)
+
     const task = {
       id,
       prompt: String(prompt).trim(),
       allowPeak: allowPeak == null ? Boolean(this.config.defaultAllowPeak) : Boolean(allowPeak),
       startAtMs: startAt ? new Date(startAt).getTime() : null,
       createdAt: Date.now(),
+      queueOrder: this.nextQueueOrder(),
       status: 'PENDING',
       reason: null,
       attempts: 0,
       startedAt: null,
       endedAt: null,
       exitCode: null,
-      // 每任务权限模式(为空则用启动时 DSH_PERMISSION_MODE)
       permissionMode:
         permissionMode === 'danger-full-access' ||
         permissionMode === 'workspace-write' ||
         permissionMode === 'read-only'
           ? permissionMode
           : null,
-      // 附件文件名列表(已由上传接口放入 工作区\active\<id>\attachments\)
       attachments: Array.isArray(attachments)
         ? attachments.map((a) => String(a)).filter(Boolean).slice(0, 20)
         : [],
@@ -156,10 +168,38 @@ class SchedulerService extends EventEmitter {
     }
     if (Number.isNaN(task.startAtMs)) throw new Error('invalid startAt')
     this.tasks.push(task)
+    if (queuePosition === 'top') this.reorderTask(id, 'top', { save: false, emit: false })
+    else this.ensureQueueOrders()
     this.saveQueue()
     this.emit('queue-changed')
     this.tick()
-    return task
+    return this.publicTask(task)
+  }
+
+  reorderTask(id, move, options = {}) {
+    const t = this.tasks.find((x) => x.id === id)
+    if (!t) throw new Error(`task not found: ${id}`)
+    if (!isQueued(t)) throw new Error('only pending/suspended tasks can be reordered')
+
+    const queued = this.tasks.filter(isQueued).sort((a, b) => (a.queueOrder || 0) - (b.queueOrder || 0))
+    const from = queued.findIndex((x) => x.id === id)
+    if (from < 0) return this.publicTask(t)
+    let to = from
+    if (move === 'top') to = 0
+    else if (move === 'up') to = Math.max(0, from - 1)
+    else if (move === 'down') to = Math.min(queued.length - 1, from + 1)
+    else if (move === 'bottom') to = queued.length - 1
+    else if (Number.isInteger(Number(move))) to = Math.max(0, Math.min(queued.length - 1, Number(move)))
+    else throw new Error(`invalid queue move: ${move}`)
+
+    if (to !== from) {
+      queued.splice(from, 1)
+      queued.splice(to, 0, t)
+    }
+    queued.forEach((item, index) => { item.queueOrder = index + 1 })
+    if (options.save !== false) this.saveQueue()
+    if (options.emit !== false) this.emit('queue-changed')
+    return this.publicTask(t)
   }
 
   cancelTask(id, { reason = 'user-cancel' } = {}) {
@@ -167,25 +207,22 @@ class SchedulerService extends EventEmitter {
     if (!t) return null
     if (t.status === 'RUNNING') {
       this.interruptTask(id, reason)
-    } else if (t.status === 'PENDING' || t.status === 'SUSPENDED') {
+    } else if (isQueued(t)) {
       t.status = 'CANCELED'
       t.reason = reason
       t.endedAt = Date.now()
+      this.ensureQueueOrders()
       this.saveQueue()
       this.emit('queue-changed')
     }
-    return t
+    return this.publicTask(t)
   }
 
   interruptTask(id, reason = 'interrupted') {
     const t = this.tasks.find((x) => x.id === id)
     if (!t) return
     if (t.child) {
-      try {
-        t.child.logStream?.end()
-      } catch {
-        /* no-op */
-      }
+      try { t.child.logStream?.end() } catch {}
       runner.killTree(t.pid)
     }
     t.status = 'INTERRUPTED'
@@ -200,31 +237,27 @@ class SchedulerService extends EventEmitter {
   clearPending() {
     let cleared = 0
     for (const t of this.tasks) {
-      if (t.status === 'PENDING' || t.status === 'SUSPENDED') {
+      if (isQueued(t)) {
         t.status = 'CANCELED'
         t.reason = 'queue-cleared'
         t.endedAt = Date.now()
         cleared++
       }
     }
+    this.ensureQueueOrders()
     this.saveQueue()
     if (cleared) this.emit('queue-changed')
     return cleared
   }
 
-  /** Hard-remove queue rows (cancel running children first, no terminal bell). */
   removeTasks(ids) {
     const set = new Set(ids.map(String))
     let removed = 0
     for (const t of [...this.tasks]) {
       if (!set.has(String(t.id))) continue
       if (t.status === 'RUNNING' || t.status === 'STARTING') {
-        t.status = 'CANCELED' // exit handler will then skip finish()
-        try {
-          t.child?.logStream?.end()
-        } catch {
-          /* no-op */
-        }
+        t.status = 'CANCELED'
+        try { t.child?.logStream?.end() } catch {}
         if (t.child) runner.killTree(t.pid)
         this.running.delete(t.id)
       }
@@ -232,6 +265,7 @@ class SchedulerService extends EventEmitter {
       removed++
     }
     if (removed) {
+      this.ensureQueueOrders()
       this.saveQueue()
       this.emit('queue-changed')
     }
@@ -241,7 +275,10 @@ class SchedulerService extends EventEmitter {
   updateConfig(patch) {
     const next = { ...this.config, ...patch }
     next.minConcurrent = Math.max(1, Number(next.minConcurrent) || 1)
-    next.maxConcurrent = Math.max(next.minConcurrent, Number(next.maxConcurrent) || 1)
+    next.maxConcurrent = Math.max(0, Number(next.maxConcurrent) || 0)
+    next.cpuReservePercent = Math.max(5, Math.min(80, Number(next.cpuReservePercent) || DEFAULTS.cpuReservePercent))
+    next.memoryReserveGb = Math.max(0.5, Number(next.memoryReserveGb) || DEFAULTS.memoryReserveGb)
+    next.memoryPerWorkerGb = Math.max(0.5, Number(next.memoryPerWorkerGb) || DEFAULTS.memoryPerWorkerGb)
     this.config = next
     this.saveConfig()
     this.refreshSystem()
@@ -252,17 +289,25 @@ class SchedulerService extends EventEmitter {
   refreshSystem() {
     this.lastSystem = system.probe()
     this.concurrency = system.computeMaxConcurrent(this.lastSystem, this.config)
-    return {
-      system: this.lastSystem,
-      concurrency: this.concurrency
-    }
+    return { system: this.lastSystem, concurrency: this.concurrency }
   }
 
   listTasks({ limit = 200 } = {}) {
+    const rank = new Map(
+      this.tasks.filter(isQueued)
+        .sort((a, b) => (a.queueOrder || 0) - (b.queueOrder || 0))
+        .map((t, index) => [t.id, index + 1])
+    )
     return [...this.tasks]
-      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .sort((a, b) => {
+        const aActive = a.status === 'RUNNING' ? 0 : isQueued(a) ? 1 : 2
+        const bActive = b.status === 'RUNNING' ? 0 : isQueued(b) ? 1 : 2
+        if (aActive !== bActive) return aActive - bActive
+        if (aActive === 1) return (a.queueOrder || 0) - (b.queueOrder || 0)
+        return (b.createdAt || 0) - (a.createdAt || 0)
+      })
       .slice(0, limit)
-      .map((t) => this.publicTask(t))
+      .map((t) => ({ ...this.publicTask(t), queueRank: rank.get(t.id) || null }))
   }
 
   publicTask(t) {
@@ -272,43 +317,46 @@ class SchedulerService extends EventEmitter {
     return { ...copy, promptPreview: t.prompt.length > 160 ? t.prompt.slice(0, 160) + '…' : t.prompt }
   }
 
-  /** Called by server/electron: try to promote ready tasks into running slots. */
   tick() {
     try {
       this.refreshSystem()
       const peak = this.nowPeak()
       let changed = false
-      for (const t of this.tasks) {
-        if (t.status === 'RUNNING') {
-          if (peak && !t.allowPeak && this.config.interruptRunningAtPeak) {
-            changed = true
-            const originalId = t.id
-            this.interruptTask(originalId, 'peak-pause')
-            // Auto re-queue for the next OFF-PEAK window.
-            const n = nextChangeInfo(Date.now(), this.schedule)
-            this.tasks.push({
-              id: `${originalId}@retry-${Date.now()}`,
-              prompt: t.prompt,
-              allowPeak: false,
-              startAtMs: n ? Date.parse(n.iso) : Date.now() + 60_000,
-              createdAt: Date.now(),
-              status: 'PENDING',
-              reason: 'peak-retry',
-              attempts: t.attempts + 1,
-              startedAt: null,
-              endedAt: null,
-              exitCode: null,
-              logFile: null,
-              sessionDir: null,
-              error: null,
-              parentId: originalId
-            })
-          }
-          continue
+
+      for (const t of this.tasks.filter((x) => x.status === 'RUNNING')) {
+        if (peak && !t.allowPeak && this.config.interruptRunningAtPeak) {
+          changed = true
+          const originalId = t.id
+          this.interruptTask(originalId, 'peak-pause')
+          const n = nextChangeInfo(Date.now(), this.schedule)
+          this.tasks.push({
+            id: `${originalId}@retry-${Date.now()}`,
+            prompt: t.prompt,
+            allowPeak: false,
+            startAtMs: n ? Date.parse(n.iso) : Date.now() + 60_000,
+            createdAt: Date.now(),
+            queueOrder: this.nextQueueOrder(),
+            status: 'PENDING',
+            reason: 'peak-retry',
+            attempts: t.attempts + 1,
+            startedAt: null,
+            endedAt: null,
+            exitCode: null,
+            permissionMode: t.permissionMode || null,
+            attachments: Array.isArray(t.attachments) ? [...t.attachments] : [],
+            logFile: null,
+            sessionDir: null,
+            error: null,
+            parentId: originalId
+          })
         }
+      }
+
+      const queued = this.tasks.filter(isQueued).sort((a, b) => (a.queueOrder || 0) - (b.queueOrder || 0))
+      for (const t of queued) {
         const decision = decideTask({ ...t, peak, now: Date.now() })
         if (decision === 'suspend-peak') {
-          if (t.status !== 'SUSPENDED') {
+          if (t.status !== 'SUSPENDED' || t.reason !== 'peak-window') {
             t.status = 'SUSPENDED'
             t.reason = 'peak-window'
             changed = true
@@ -316,19 +364,23 @@ class SchedulerService extends EventEmitter {
           continue
         }
         if (decision === 'suspend-schedule') {
-          if (t.status !== 'SUSPENDED') {
+          if (t.status !== 'SUSPENDED' || t.reason !== 'waiting-schedule') {
             t.status = 'SUSPENDED'
             t.reason = 'waiting-schedule'
             changed = true
           }
           continue
         }
-        if (decision === 'ready' && this.running.size < this.concurrency.current) {
+        if (decision === 'ready') {
+          if (this.running.size >= this.concurrency.current) break
           this.launch(t)
           changed = true
         }
       }
-      if (changed) this.saveQueue()
+      if (changed) {
+        this.ensureQueueOrders()
+        this.saveQueue()
+      }
     } catch (err) {
       this.emit('error', err)
     }
@@ -340,11 +392,9 @@ class SchedulerService extends EventEmitter {
     t.attempts += 1
     t.reason = null
     const taskDir = getActiveDir(t.id)
-    // 附件提示词注记(文件已置于 taskDir\attachments\ 下,提示 agent 使用)
     let promptArg = t.prompt
     if (Array.isArray(t.attachments) && t.attachments.length) {
-      const note =
-        '\n\n附件:以下文件已上传到当前任务工作目录的 attachments\\ 子目录,请按需读取/处理:\n' +
+      const note = '\n\n附件:以下文件已上传到当前任务工作目录的 attachments\\ 子目录,请按需读取/处理:\n' +
         t.attachments.map((a) => `- ${a}`).join('\n')
       promptArg = `${t.prompt}${note}`
     }
@@ -365,15 +415,10 @@ class SchedulerService extends EventEmitter {
       this.finish(t, 'FAILED')
     })
     proc.on('exit', (code) => {
-      try {
-        t.child?.logStream?.end()
-      } catch {
-        /* no-op */
-      }
-      if (t.status === 'RUNNING') {
-        this.finish(t, code === 0 ? 'COMPLETED' : 'FAILED', code)
-      }
+      try { t.child?.logStream?.end() } catch {}
+      if (t.status === 'RUNNING') this.finish(t, code === 0 ? 'COMPLETED' : 'FAILED', code)
     })
+    this.ensureQueueOrders()
     this.emit('queue-changed')
   }
 
@@ -381,9 +426,7 @@ class SchedulerService extends EventEmitter {
     t.status = status
     t.exitCode = code
     t.endedAt = Date.now()
-    if (status === 'FAILED') {
-      t.error = this.extractError(t.logFile, code)
-    }
+    if (status === 'FAILED') t.error = this.extractError(t.logFile, code)
     this.running.delete(t.id)
     appendRecent({
       id: t.id,
@@ -393,22 +436,16 @@ class SchedulerService extends EventEmitter {
       createdAt: t.createdAt,
       endedAt: t.endedAt,
       durationMs: t.startedAt ? t.endedAt - t.startedAt : null,
-      error: t.error ? { code: 'EXIT', message: t.error } : code ? { code: `EXIT_${code}`, message: `dsh exited ${code}` } : null,
+      error: t.error ? { code: 'EXIT', message: typeof t.error === 'string' ? t.error : JSON.stringify(t.error) } : code ? { code: `EXIT_${code}`, message: `dsh exited ${code}` } : null,
       usage: null,
       costCny: null,
       estimated: false,
       source: 'queue'
     })
+    this.ensureQueueOrders()
     this.saveQueue()
     this.emit('queue-changed')
-    this.emit('task-terminal', {
-      id: t.id,
-      status,
-      endedAt: t.endedAt,
-      reason: t.reason || null,
-      exitCode: code
-    })
-    // Try to fill the freed slot immediately.
+    this.emit('task-terminal', { id: t.id, status, endedAt: t.endedAt, reason: t.reason || null, exitCode: code })
     this.tick()
   }
 
@@ -418,6 +455,8 @@ class SchedulerService extends EventEmitter {
       config: this.config,
       peak: this.peakInfo(),
       concurrency: this.concurrency,
+      system: this.lastSystem,
+      hardware: this.lastSystem?.hardware || system.hardwareInventory(),
       counts: this.tasks.reduce((acc, t) => {
         acc[t.status] = (acc[t.status] || 0) + 1
         return acc
@@ -433,9 +472,7 @@ class SchedulerService extends EventEmitter {
         const m = lines[i].match(/\b([A-Z][A-Z0-9_]{2,40})\s*:\s*(.{1,300})/)
         if (m) return { code: m[1], message: m[2].slice(0, 300) }
       }
-    } catch {
-      /* no log available */
-    }
+    } catch {}
     return code == null ? null : { code: `EXIT_${code}`, message: `dsh exited with code ${code}` }
   }
 }
