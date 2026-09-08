@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;">
+  <title>Mega Dock</title>
+  <link rel="stylesheet" href="dock.css">
+</head>
+<body class="collapsed">
+  <aside id="rail" title="展开 Mega Dock">
+    <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
+    <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>
+    <div class="rail-stat"><small>RUN</small><b id="railRunning">0</b></div>
+    <div class="rail-stat"><small>QUEUE</small><b id="railQueued">0</b></div>
+    <div class="rail-stat"><small>HW</small><b id="railWorkers">—</b></div>
+    <div id="railPeak" class="rail-mode">OFF</div>
+  </aside>
+
+  <main id="detail">
+    <header class="dock-header">
+      <div>
+        <h1>Mega</h1>
+        <p>DS-Harness companion dock</p>
+      </div>
+      <div class="header-actions">
+        <button id="fullTools" title="打开完整 Mega 管理页">全屏管理</button>
+        <button id="collapse" title="折叠 Mega Dock">›</button>
+      </div>
+    </header>
+
+    <section id="summary" class="summary-grid"></section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div><h2>手动队列</h2><p>按 # 顺序调度；受计划时间/峰谷限制的任务不会堵塞后续可运行任务。</p></div>
+        <button id="clearPending" class="quiet">清空等待</button>
+      </div>
+      <form id="taskForm" class="task-form">
+        <textarea id="prompt" required placeholder="新增一个要交给 headless dsh 的任务"></textarea>
+        <div class="form-row">
+          <select id="queuePosition" title="加入位置"><option value="bottom">加入队尾</option><option value="top">加入队首</option></select>
+          <label class="check"><input id="allowPeak" type="checkbox">允许峰值</label>
+          <button type="submit">加入队列</button>
+        </div>
+      </form>
+      <div id="queue" class="queue-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div><h2>硬件自适应并行</h2><p>CPU / RAM 的实时余量决定新任务并发槽。</p></div>
+        <button id="hardwareRefresh" class="quiet">采样</button>
+      </div>
+      <div id="hardware" class="hardware-grid"></div>
+      <form id="schedulerForm" class="scheduler-form">
+        <label>最低并发<input id="minConcurrent" type="number" min="1" max="64"></label>
+        <label>人工上限<input id="maxConcurrent" type="number" min="0" max="64"><small>0 = 硬件自动</small></label>
+        <label>CPU 预留 %<input id="cpuReservePercent" type="number" min="5" max="80" step="5"></label>
+        <label>系统预留 RAM GB<input id="memoryReserveGb" type="number" min="0.5" max="64" step="0.5"></label>
+        <label>每任务 RAM GB<input id="memoryPerWorkerGb" type="number" min="0.5" max="32" step="0.5"></label>
+        <button type="submit">保存并发设置</button>
+      </form>
+    </section>
+
+    <section class="panel compact-panel">
+      <div class="panel-head">
+        <div><h2>成本 / 余额</h2><p id="balanceText">尚未刷新余额</p></div>
+        <button id="balance" class="quiet">刷新</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>最近 Session</h2><p>最近任务状态、Token 与估算成本。</p></div></div>
+      <div id="sessions" class="session-list"></div>
+    </section>
+
+    <p id="error" class="error"></p>
+  </main>
+  <script src="dock.js"></script>
+</body>
+</html>
