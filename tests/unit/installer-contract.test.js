@@ -27,13 +27,31 @@ test('installer checks environment key before prompting and supports deferral', 
   assert.match(text, /Ctrl\+Shift\+M/)
 })
 
-test('dependency installer skips matching local dependencies and prefers offline reuse', () => {
+test('dependency installer has package, binary-repair, and fully-ready states', () => {
   const text = read('scripts/install-deps.ps1')
-  assert.match(text, /depsReady/)
+  assert.match(text, /dshPackageReady/)
+  assert.match(text, /electronPackageReady/)
+  assert.match(text, /electronBinaryReady/)
+  assert.match(text, /Repair-ElectronBinary/)
+  assert.match(text, /binary is missing/i)
+  assert.match(text, /node_modules will not be reinstalled/i)
   assert.match(text, /npm install skipped/i)
   assert.match(text, /--prefer-offline/)
+})
+
+test('dependency installer reuses npm and Electron caches using current Electron cache variable', () => {
+  const text = read('scripts/install-deps.ps1')
   assert.match(text, /Reuse npm cache/i)
   assert.match(text, /Reuse Electron cache/i)
+  assert.match(text, /electron_config_cache/)
+  assert.match(text, /ELECTRON_CACHE/)
+})
+
+test('dependency verification distinguishes package version mismatch from missing Electron binary', () => {
+  const text = read('scripts/install-deps.ps1')
+  assert.match(text, /Electron package version mismatch/)
+  assert.match(text, /Electron binary missing after repair/)
+  assert.doesNotMatch(text, /Electron dependency verification failed: expected/)
 })
 
 test('node bootstrap reuses compatible runtimes and cached archive', () => {
