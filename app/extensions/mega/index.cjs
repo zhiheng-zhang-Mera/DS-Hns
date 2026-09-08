@@ -15,8 +15,8 @@ const { calculateTaskCost } = require('./billing/cost-calculator')
 
 const pricing = new PricingRepository()
 const CHANNELS = [
-  'mega:snapshot', 'mega:add-task', 'mega:cancel-task', 'mega:clear-pending',
-  'mega:remove-tasks', 'mega:update-scheduler', 'mega:update-settings',
+  'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
+  'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
   'mega:balance', 'mega:pick-workspace', 'mega:pick-sound', 'mega:open-main',
   'mega:open-tools', 'mega:widget-hide'
 ]
@@ -167,12 +167,9 @@ function positionWidget() {
   const { screen } = ctx.electron
   const display = screen?.getDisplayMatching ? screen.getDisplayMatching(bounds) : null
   const work = display?.workArea || { x: 0, y: 0, width: 3840, height: 2160 }
-
   let x = bounds.x + bounds.width + WIDGET_GAP
   const workRight = work.x + work.width
-  if (x + WIDGET_WIDTH > workRight) {
-    x = Math.max(work.x, bounds.x + bounds.width - WIDGET_WIDTH - 14)
-  }
+  if (x + WIDGET_WIDTH > workRight) x = Math.max(work.x, bounds.x + bounds.width - WIDGET_WIDTH - 14)
   let y = bounds.y + 78
   const workBottom = work.y + work.height
   y = Math.max(work.y, Math.min(y, workBottom - WIDGET_HEIGHT))
@@ -209,7 +206,6 @@ function createWidget() {
   }
   if (widgetWindow && !widgetWindow.isDestroyed()) return widgetWindow
   if (!mainAlive()) return null
-
   const { BrowserWindow } = ctx.electron
   widgetWindow = new BrowserWindow({
     width: WIDGET_WIDTH,
@@ -321,21 +317,24 @@ function unbindMainWindow() {
     mainWindowBindings.length = 0
     return
   }
-  for (const [event, handler] of mainWindowBindings.splice(0)) {
-    ctx.mainWindow.removeListener(event, handler)
-  }
+  for (const [event, handler] of mainWindowBindings.splice(0)) ctx.mainWindow.removeListener(event, handler)
 }
 
 function registerIpc() {
   const { ipcMain, dialog } = ctx.electron
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
-
   ipcMain.handle('mega:snapshot', () => snapshot())
   ipcMain.handle('mega:add-task', (_event, payload) => scheduler.addTask(payload || {}))
+  ipcMain.handle('mega:reorder-task', (_event, id, move) => scheduler.reorderTask(String(id || ''), move))
   ipcMain.handle('mega:cancel-task', (_event, id) => scheduler.cancelTask(String(id || '')))
   ipcMain.handle('mega:clear-pending', () => scheduler.clearPending())
   ipcMain.handle('mega:remove-tasks', (_event, ids) => scheduler.removeTasks(Array.isArray(ids) ? ids : []))
   ipcMain.handle('mega:update-scheduler', (_event, patch) => scheduler.updateConfig(patch || {}))
+  ipcMain.handle('mega:refresh-hardware', () => {
+    const value = scheduler.refreshSystem()
+    notifyChanged()
+    return value
+  })
   ipcMain.handle('mega:update-settings', (_event, patch = {}) => {
     const envPatch = {}
     if (typeof patch.permissionMode === 'string') envPatch.DSH_PERMISSION_MODE = patch.permissionMode
@@ -387,7 +386,6 @@ async function start(context) {
   })
   scheduler.on('error', (error) => log(`scheduler error: ${error?.stack || error}`))
   scheduler.start()
-
   shortcutHandler = (event, input) => {
     if (input.type !== 'keyDown') return
     const key = String(input.key || '').toLowerCase()
@@ -401,7 +399,7 @@ async function start(context) {
   createWidget()
   createTray()
   if (process.argv.includes('--mega-tools')) openTools()
-  log('ready; companion widget + tray restored; Ctrl+Shift+M opens full Mega tools')
+  log('ready; ordered queue + hardware-adaptive concurrency enabled')
 }
 
 function stop() {
