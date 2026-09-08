@@ -12,15 +12,22 @@ Check 'Legacy app\monitor removed' (-not (Test-Path "$ROOT\app\monitor"))
 Check 'Mega extension exists' (Test-Path "$ROOT\app\extensions\mega\index.cjs")
 Check 'Mega companion widget exists' (Test-Path "$ROOT\app\extensions\mega\ui\widget.html")
 Check 'Mega companion renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\widget.js")
+Check 'Mega hardware probe exists' (Test-Path "$ROOT\app\extensions\mega\scheduler\system.js")
 Check 'Extension manager exists' (Test-Path "$ROOT\app\extensions\manager.cjs")
 $main = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
 $mega = Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw
+$scheduler = Get-Content "$ROOT\app\extensions\mega\scheduler\scheduler.js" -Raw
+$system = Get-Content "$ROOT\app\extensions\mega\scheduler\system.js" -Raw
 $create = ($main -split 'async function startExtensions')[0]
 Check 'Official main window has no preload' (-not ($create -match 'preload\s*:'))
 Check 'Pure Alien kill switch exists' ($main -match 'DSH_DISABLE_MEGA')
 Check 'Owned stale runtime recovery wired' ($main -match 'recoverOwnedStale')
 Check 'Mega widget is isolated BrowserWindow' (($mega -match 'function createWidget') -and ($mega -match 'parent: ctx\.mainWindow'))
 Check 'Mega tray entrance exists' ($mega -match 'function createTray')
+Check 'Manual queue reorder IPC exists' ($mega -match 'mega:reorder-task')
+Check 'Queue order is persistent' (($scheduler -match 'queueOrder') -and ($scheduler -match 'reorderTask'))
+Check 'Hardware-auto concurrency exists' (($system -match 'hardware-auto') -and ($system -match 'hardwareCap'))
+Check 'Windows hardware inventory probe exists' ($system -match 'Win32_Processor')
 Check 'dsh core installed' (Test-Path "$ROOT\app\node_modules\@deepseek-ai\dsh\lib\bin.js")
 Check 'Electron installed' (Test-Path "$ROOT\app\node_modules\electron\dist\electron.exe")
 Check 'Pricing snapshot present' (Test-Path "$ROOT\data\pricing\official-pricing.json")
