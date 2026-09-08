@@ -76,11 +76,38 @@ test('direct Electron launch loads project env without overriding system env', (
   assert.doesNotMatch(createWindow, /preload\s*:/)
 })
 
+test('reinstall cleanup kills only repository-owned Electron and DSH processes', () => {
+  const cleanup = read('scripts/cleanup-runtime.ps1')
+  assert.match(cleanup, /Same-Path/)
+  assert.match(cleanup, /repository Electron shell/)
+  assert.match(cleanup, /repository DSH web process/)
+  assert.match(cleanup, /dsh-process\.json/)
+  assert.match(cleanup, /Port 3080 is still occupied by an unrelated process/)
+  assert.doesNotMatch(cleanup, /Stop-Process\s+-Name\s+node/i)
+})
+
+test('installer runs stale-runtime cleanup before dependency installation', () => {
+  const text = read('scripts/install.ps1')
+  const cleanup = text.indexOf("cleanup-runtime.ps1")
+  const deps = text.indexOf("2/7 Resolve/reuse dependencies")
+  assert.ok(cleanup >= 0)
+  assert.ok(deps > cleanup)
+})
+
+test('stop helper uses the same repository-owned cleanup path', () => {
+  const text = read('scripts/stop.ps1')
+  assert.match(text, /cleanup-runtime\.ps1/)
+  assert.match(text, /AllowForeignPort/)
+  assert.doesNotMatch(text, /app\\monitor/i)
+})
+
 test('critical installer PowerShell files stay ASCII-only for Windows PowerShell 5.1', () => {
   const files = [
     'scripts/install.ps1',
     'scripts/install-deps.ps1',
     'scripts/ensure-node.ps1',
+    'scripts/cleanup-runtime.ps1',
+    'scripts/stop.ps1',
     'scripts/env.ps1',
     'scripts/test-all.ps1',
     'scripts/verify.ps1'
@@ -95,5 +122,6 @@ test('installer preflights child PowerShell scripts before dependency work', () 
   const text = read('scripts/install.ps1')
   assert.match(text, /Parser\]::ParseFile/)
   assert.match(text, /PowerShell parser preflight/i)
+  assert.match(text, /cleanup-runtime\.ps1/)
   assert.ok(text.indexOf("0/7 PowerShell parser preflight") < text.indexOf("2/7 Resolve/reuse dependencies"))
 })
