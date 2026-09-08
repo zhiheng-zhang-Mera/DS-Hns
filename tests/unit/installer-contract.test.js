@@ -19,12 +19,22 @@ test('normal launcher delegates incomplete installations to the one-click instal
   assert.doesNotMatch(text, /npm ci/i)
 })
 
-test('installer checks environment key before prompting and supports deferral', () => {
+test('installer checks canonical and legacy API environment names before prompting', () => {
   const text = read('scripts/install.ps1')
   assert.match(text, /GetEnvironmentVariable\('DEEPSEEK_API_KEY', 'User'\)/)
   assert.match(text, /GetEnvironmentVariable\('DEEPSEEK_API_KEY', 'Machine'\)/)
+  assert.match(text, /GetEnvironmentVariable\('DeepSeek_API', 'User'\)/)
+  assert.match(text, /GetEnvironmentVariable\('DeepSeek_API', 'Machine'\)/)
+  assert.match(text, /Reusing it as DEEPSEEK_API_KEY/)
   assert.match(text, /Configure later/i)
   assert.match(text, /Ctrl\+Shift\+M/)
+})
+
+test('shared environment maps DeepSeek_API alias without changing system scope', () => {
+  const text = read('scripts/env.ps1')
+  assert.match(text, /DeepSeek_API/)
+  assert.match(text, /\$env:DEEPSEEK_API_KEY = \[string\]\$legacyApi/)
+  assert.doesNotMatch(text, /SetEnvironmentVariable\('DeepSeek_API'/)
 })
 
 test('dependency installer has package, binary-repair, and fully-ready states', () => {
@@ -68,9 +78,12 @@ test('env template does not contain a fake configured API key', () => {
   assert.doesNotMatch(text, /DEEPSEEK_API_KEY=sk-\.\.\./)
 })
 
-test('direct Electron launch loads project env without overriding system env', () => {
+test('direct Electron launch normalizes DeepSeek_API before project env loading', () => {
   const text = read('app/desktop-main.cjs')
-  assert.match(text, /function loadProjectEnv/)
+  assert.match(text, /function normalizeApiKeyEnv/)
+  assert.match(text, /key\.toUpperCase\(\) === 'DEEPSEEK_API'/)
+  assert.match(text, /process\.env\.DEEPSEEK_API_KEY = value/)
+  assert.ok(text.indexOf('normalizeApiKeyEnv()') < text.indexOf('loadProjectEnv()'))
   assert.match(text, /if \(!process\.env\[key\]\) process\.env\[key\] = value/)
   const createWindow = text.split('async function startExtensions')[0]
   assert.doesNotMatch(createWindow, /preload\s*:/)
