@@ -1,10 +1,9 @@
-﻿# DS-Harness shared environment initializer (dot-source from run.ps1 / install.ps1 / verify.ps1 / ...)
-# ROOT = the repository root (parent of the scripts\ folder), wherever it is cloned.
+# DS-Harness shared environment initializer.
+# Windows PowerShell 5.1 compatible and ASCII-only.
 $ErrorActionPreference = 'Stop'
 $script:ROOT = Split-Path -Parent $PSScriptRoot
 $script:envLoaded = $true
 
-# Runtime directories are created on demand (never refuse, never fall back to C:).
 $script:requiredDirs = @(
   "$ROOT\workspace\active",
   "$ROOT\workspace\completed",
@@ -29,21 +28,16 @@ foreach ($dir in $script:requiredDirs) {
   }
 }
 
-# Write test: make sure $ROOT is actually writable (never fall back to C:).
 $probe = Join-Path "$ROOT\cache\temp" ("write-probe-{0}.tmp" -f ([guid]::NewGuid().ToString('N')))
 try {
   Set-Content -LiteralPath $probe -Value 'probe' -Encoding ascii
   Remove-Item -LiteralPath $probe -Force
 } catch {
-  Write-Error "$ROOT is not writable. Refusing to fall back to C:."
+  Write-Error "$ROOT is not writable. Refusing to fall back to another location."
   return
 }
 
-# Project root for Node (paths.js picks it up when the env var is set).
 $env:DSH_ROOT = $ROOT
-
-# One engine home for BOTH the dsh Web UI and headless queue jobs: <root>\data.
-# dsh keeps sessions/storages under <DSH_HOME>\sessions / \storages.
 $env:DSH_HOME = "$ROOT\data"
 $env:TEMP = "$ROOT\cache\temp"
 $env:TMP = "$ROOT\cache\temp"
@@ -57,15 +51,19 @@ $env:TRANSFORMERS_CACHE = "$ROOT\cache\huggingface\transformers"
 $env:DEEPSEEK_HARNESS_WORKSPACE = "$ROOT\workspace"
 $env:DEEPSEEK_HARNESS_LOG_DIR = "$ROOT\logs"
 
-if (-not $env:DSH_TELEMETRY_MODE) { $env:DSH_TELEMETRY_MODE = 'DISABLED' }
-if (-not $env:DSH_PERMISSION_MODE) { $env:DSH_PERMISSION_MODE = 'workspace-write' }
+if (-not $env:DSH_TELEMETRY_MODE) {
+  $env:DSH_TELEMETRY_MODE = 'DISABLED'
+}
+if (-not $env:DSH_PERMISSION_MODE) {
+  $env:DSH_PERMISSION_MODE = 'workspace-write'
+}
 
-# Optional secret layer: config\.env. Explicit caller environment wins.
+# Optional secret layer. Existing process/user/machine environment wins.
 $envFile = "$ROOT\config\.env"
 if (Test-Path -LiteralPath $envFile) {
   foreach ($line in [System.IO.File]::ReadAllLines($envFile)) {
     $trimmed = $line.Trim()
-    if ($trimmed -and -not $trimmed.StartsWith('#') -and $trimmed.Contains('=')) {
+    if ($trimmed -and (-not $trimmed.StartsWith('#')) -and $trimmed.Contains('=')) {
       $eq = $trimmed.IndexOf('=')
       $key = $trimmed.Substring(0, $eq).Trim()
       $value = $trimmed.Substring($eq + 1).Trim()
