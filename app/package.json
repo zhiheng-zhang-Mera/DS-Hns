@@ -8,7 +8,7 @@
     "start": "electron .",
     "desktop": "electron desktop-main.cjs",
     "desktop:alien": "set DSH_DISABLE_MEGA=1&& electron desktop-main.cjs",
-    "check": "node --check desktop-main.cjs && node --check runtime-process.cjs && node --check extensions/manager.cjs && node --check extensions/mega/index.cjs && node --check extensions/mega/deepseek/official-session-client.js && node --check extensions/mega/scheduler/scheduler.js && node --check extensions/mega/scheduler/system.js && node --check extensions/mega/ui/preload.cjs && node --check extensions/mega/ui/renderer.js && node --check extensions/mega/ui/dock.js",
+    "check": "node --check desktop-main.cjs && node --check runtime-process.cjs && node --check extensions/manager.cjs && node --check extensions/mega/index.cjs && node --check extensions/mega/deepseek/official-session-client.js && node --check extensions/mega/scheduler/scheduler.js && node --check extensions/mega/scheduler/system.js && node --check extensions/mega/autonomy/progress-observer.js && node --check extensions/mega/autonomy/stall-detector.js && node --check extensions/mega/autonomy/episode-supervisor.js && node --check extensions/mega/autonomy/continuation-controller.js && node --check extensions/mega/autonomy/question-interceptor.js && node --check extensions/mega/autonomy/result-validator.js && node --check extensions/mega/autonomy/decision-ledger.js && node --check extensions/mega/ui/preload.cjs && node --check extensions/mega/ui/renderer.js && node --check extensions/mega/ui/dock.js",
     "test": "node --test ../tests/unit/*.test.js"
   },
   "dependencies": {

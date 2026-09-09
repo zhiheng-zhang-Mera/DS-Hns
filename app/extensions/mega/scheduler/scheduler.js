@@ -9,12 +9,16 @@ const system = require('./system')
 const runner = require('./dsh-runner')
 const { OfficialSessionClient } = require('../deepseek/official-session-client')
 const { appendRecent } = require('../tracker/task-history')
+const { StallDetector } = require('../autonomy/stall-detector')
+const { decideContinuation } = require('../autonomy/continuation-controller')
+const { DecisionLedger } = require('../autonomy/decision-ledger')
 const { ROOT } = require('../utils/paths')
 const { getActiveDir } = require('../utils/workspace')
 
 const STATE_DIR = path.join(ROOT, 'data', 'state')
 const CONFIG_FILE = path.join(STATE_DIR, 'scheduler-config.json')
 const QUEUE_FILE = path.join(STATE_DIR, 'scheduler-queue.json')
+const LEDGER_FILE = path.join(STATE_DIR, 'decision-ledger.json')
 
 const DEFAULTS = {
   defaultAllowPeak: false,
@@ -24,7 +28,15 @@ const DEFAULTS = {
   cpuReservePercent: 25,
   memoryReserveGb: 2,
   memoryPerWorkerGb: 2.5,
-  tickMs: 10_000
+  tickMs: 10_000,
+  // Rev.2 autonomy (§15): opt-in per config; default OFF keeps current behavior
+  // until an operator enables it. Guards headless stalls only — official-session
+  // episodes keep the existing RPC monitor (§16: never inject into the renderer).
+  autonomyEnabled: false,
+  autonomyQuietMs: 20_000,
+  autonomyHardStallMs: 120_000,
+  autonomyFailMs: 15 * 60_000,
+  autonomyMaxAttempts: 3
 }
 
 function isQueued(t) {
@@ -55,6 +67,35 @@ class SchedulerService extends EventEmitter {
     this.ensureQueueOrders()
     this.lastSystem = system.probe()
     this.concurrency = system.computeMaxConcurrent(this.lastSystem, this.config)
+    // Rev.2 autonomy supervisor (opt-in). Ledger is created lazily so the
+    // default-off path never touches disk for autonomy state.
+    this.autonomyEnabled = Boolean(this.config.autonomyEnabled)
+    this.autonomy = null
+    this.autonomyLedger = null
+    this.headlessHearts = new Map()
+    if (this.autonomyEnabled) this.enableAutonomy()
+  }
+
+  enableAutonomy() {
+    this.autonomyEnabled = true
+    this.config.autonomyEnabled = true
+    const bounds = {
+      quietAfterMs: Math.max(1_000, Number(this.config.autonomyQuietMs) || 20_000),
+      hardStallAfterMs: Math.max(5_000, Number(this.config.autonomyHardStallMs) || 120_000),
+      failAfterMs: Math.max(60_000, Number(this.config.autonomyFailMs) || 15 * 60_000)
+    }
+    this.autonomy = new StallDetector({ bounds })
+    this.autonomyLedger = this.autonomyLedger || new DecisionLedger(LEDGER_FILE)
+    this.emit('autonomy-enabled', { bounds })
+    return { enabled: true, bounds }
+  }
+
+  disableAutonomy() {
+    this.autonomyEnabled = false
+    this.config.autonomyEnabled = false
+    this.autonomy = null
+    this.headlessHearts.clear()
+    return { enabled: false }
   }
 
   setOfficialClient(client) {
@@ -334,6 +375,12 @@ class SchedulerService extends EventEmitter {
     next.memoryReserveGb = Math.max(0.5, Number(next.memoryReserveGb) || DEFAULTS.memoryReserveGb)
     next.memoryPerWorkerGb = Math.max(0.5, Number(next.memoryPerWorkerGb) || DEFAULTS.memoryPerWorkerGb)
     this.config = next
+    // Autonomy toggle: enable/disable the supervisor when the patch flips it.
+    const wantsAutonomy = Boolean(next.autonomyEnabled)
+    if (wantsAutonomy !== this.autonomyEnabled) {
+      if (wantsAutonomy) this.enableAutonomy()
+      else this.disableAutonomy()
+    }
     this.saveConfig()
     this.refreshSystem()
     this.emit('queue-changed')
@@ -380,6 +427,7 @@ class SchedulerService extends EventEmitter {
     try {
       this.refreshSystem()
       await this.syncOfficialRuns()
+      if (this.autonomyEnabled) this.autonomyTick()
       const peak = this.nowPeak()
       let changed = false
 
@@ -538,11 +586,118 @@ class SchedulerService extends EventEmitter {
     })
     proc.on('exit', (code) => {
       try { t.child?.logStream?.end() } catch {}
+      this.headlessHearts.delete(t.id)
       if (t.status === 'RUNNING') this.finish(t, code === 0 ? 'COMPLETED' : 'FAILED', code)
     })
     this.ensureQueueOrders()
     this.saveQueue()
     this.emit('queue-changed')
+  }
+
+  /**
+   * Rev.2 §15/§16 headless progress supervision (runs inside the scheduler tick,
+   * never blocking it). Watches log growth per RUNNING headless task and consults
+   * the stall detector + continuation controller. A hard stall triggers a bounded
+   * auto-retry (backoff, attempts-capped, parent-linked); beyond the cap the
+   * episode FAILS with a recorded reason. The waiting slot is released instantly
+   * (§17) so sibling tasks keep running. Default OFF (autonomyEnabled=false).
+   */
+  autonomyTick() {
+    if (!this.autonomy || !this.autonomyLedger) return
+    const now = Date.now()
+    for (const t of [...this.running.values()]) {
+      if (t.status !== 'RUNNING' || t.deliveryMode !== 'headless') continue
+      const heart = this.headlessHearts.get(t.id) || { logBytes: 0, mtimeMs: 0 }
+      let size = null
+      let mtimeMs = null
+      if (t.logFile) {
+        try {
+          const st = fs.statSync(t.logFile)
+          size = st.size
+          mtimeMs = st.mtimeMs
+        } catch {}
+      }
+      const grew = size !== null && size > heart.logBytes
+      const update = { busy: true }
+      if (grew) update.lastResponseDeltaAt = now
+      if (mtimeMs !== null && mtimeMs >= heart.mtimeMs) update.lastPageStateAt = mtimeMs
+      heart.logBytes = size ?? heart.logBytes
+      heart.mtimeMs = mtimeMs ?? heart.mtimeMs
+      this.headlessHearts.set(t.id, heart)
+
+      const observation = this.autonomy.observe(t.id, update, now)
+      const decision = decideContinuation({
+        verdict: observation.verdict,
+        attempts: t.attempts || 0,
+        startedAt: t.startedAt || t.createdAt || 0,
+        now,
+        retryable: true,
+        maxAttempts: Math.max(1, Number(this.config.autonomyMaxAttempts) || 3)
+      })
+      const ledgerReason = decision.reason
+      if (decision.action === 'FAIL') {
+        t.error = ledgerReason
+        this.autonomyLedger.append({
+          id: `autonomy-${t.id}-${now}`,
+          episodeId: t.id,
+          createdAt: new Date(now).toISOString(),
+          question: 'headless episode stalled / hard deadline',
+          candidates: [],
+          chosen: 'FAIL',
+          evidence: [ledgerReason],
+          outcome: 'DEFERRED',
+          source: 'continuation-controller'
+        })
+        this.finish(t, 'FAILED', null, { source: 'autonomy-stall', preserveError: true })
+        this.emit('autonomy-decision', { id: t.id, action: 'FAIL', reason: ledgerReason })
+        continue
+      }
+      if (decision.action === 'PARK_AWAITING_RETRY') {
+        const originalId = t.id
+        const retryAt = decision.retryAtMs || now + 60_000
+        this.interruptTask(originalId, 'stall-retry')
+        this.tasks.push({
+          id: `${originalId}@retry-${now}`,
+          prompt: t.prompt,
+          deliveryMode: t.deliveryMode,
+          allowPeak: t.allowPeak,
+          startAtMs: retryAt,
+          createdAt: now,
+          queueOrder: this.nextQueueOrder(),
+          status: 'PENDING',
+          reason: 'stall-retry',
+          attempts: t.attempts || 0,
+          startedAt: null,
+          endedAt: null,
+          exitCode: null,
+          permissionMode: t.permissionMode || null,
+          attachments: Array.isArray(t.attachments) ? [...t.attachments] : [],
+          logFile: null,
+          sessionDir: null,
+          officialSessionId: null,
+          officialAcceptedAt: null,
+          officialSeenRunning: false,
+          officialLastSeenAt: null,
+          error: null,
+          parentId: originalId
+        })
+        this.autonomyLedger.append({
+          id: `autonomy-${originalId}-${now}`,
+          episodeId: originalId,
+          createdAt: new Date(now).toISOString(),
+          question: 'headless episode stalled',
+          candidates: [],
+          chosen: `bounded retry at +${retryAt - now}ms`,
+          evidence: [ledgerReason],
+          outcome: 'APPLIED',
+          source: 'continuation-controller'
+        })
+        this.emit('autonomy-decision', { id: originalId, action: 'PARK_AWAITING_RETRY', retryAtMs: retryAt, reason: ledgerReason })
+        this.ensureQueueOrders()
+        this.saveQueue()
+        this.emit('queue-changed')
+      }
+    }
   }
 
   async launchOfficial(t) {
@@ -628,6 +783,7 @@ class SchedulerService extends EventEmitter {
     return {
       startedAt: this.startedAt,
       config: this.config,
+      autonomy: { enabled: this.autonomyEnabled, bounds: this.autonomy ? { quietAfterMs: this.autonomy.bounds.quietAfterMs, hardStallAfterMs: this.autonomy.bounds.hardStallAfterMs, failAfterMs: this.autonomy.bounds.failAfterMs } : null },
       peak: this.peakInfo(),
       concurrency: this.concurrency,
       system: this.lastSystem,

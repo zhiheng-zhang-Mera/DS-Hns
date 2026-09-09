@@ -85,8 +85,17 @@ test('direct Electron launch normalizes DeepSeek_API before project env loading'
   assert.match(text, /process\.env\.DEEPSEEK_API_KEY = value/)
   assert.ok(text.indexOf('normalizeApiKeyEnv()') < text.indexOf('loadProjectEnv()'))
   assert.match(text, /if \(!process\.env\[key\]\) process\.env\[key\] = value/)
-  const createWindow = text.split('async function startExtensions')[0]
-  assert.doesNotMatch(createWindow, /preload\s*:/)
+})
+
+test('official harness renderer stays untouched: only the Mega dock view may carry a preload', () => {
+  const text = read('app/desktop-main.cjs')
+  // The official WebContentsView is created without any preload (§42: official
+  // renderer untouched). The integrated Mega dock is the only sanctioned
+  // preload user, and it lives in its own creation function.
+  const officialSection = text.split('function createOfficialHarnessView')[1].split('async function createIntegratedMegaDock')[0]
+  assert.doesNotMatch(officialSection, /preload\s*:/)
+  const megaDockSection = text.split('function createIntegratedMegaDock')[1]
+  assert.match(megaDockSection, /preload:\s*path\.join\(__dirname, 'extensions', 'mega', 'ui', 'preload\.cjs'\)/)
 })
 
 test('reinstall cleanup kills only repository-owned Electron and DSH processes', () => {
