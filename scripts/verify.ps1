@@ -31,6 +31,20 @@ Check 'Owned stale runtime recovery wired' ($main -match 'recoverOwnedStale')
 Check 'Mega dock is isolated BrowserWindow' (($mega -match 'function createDock') -and ($mega -match 'parent: ctx\.mainWindow'))
 Check 'Mega dock collapse state persists' (($mega -match 'mega-dock\.json') -and ($mega -match 'setDockExpanded'))
 Check 'Mega tray entrance exists' ($mega -match 'function createTray')
+$trayMenu = ($mega -split 'function applyTrayMenu')[1]
+$trayMenu = ($trayMenu -split 'function requestShutdown')[0]
+Check 'Tray menu is exit only' (($trayMenu -match "Exit DS-Harness") -and ($trayMenu -match "Force Exit DS-Harness") -and (-not ($trayMenu -match 'Mega Dock|Full Mega Tools|Official Harness')))
+Check 'Tray double click focuses main window' ($mega -match "tray\.on\('double-click', focusMain\)")
+Check 'Graceful and force exit implemented' (($main -match 'function gracefulExit\(') -and ($main -match 'function forceExit\(') -and ($main -match 'app\.exit\(0\)'))
+Check 'Force exit kills the managed child tree' ($main -match "'\/T', '\/F'")
+Check 'Full Mega Tools window removed' ((-not (Test-Path "$ROOT\app\extensions\mega\ui\index.html")) -and (-not ($mega -match 'function openTools\(')) -and (-not ($mega -match 'toolsWindow')))
+Check 'No dead mega:open-tools IPC' (-not (($mega + (Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw)) -match 'mega:open-tools'))
+$dockHtml = Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw
+$dockJs = Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw
+Check 'Dock settings overlay exists' ($dockHtml -match 'id="settingsOverlay"')
+Check 'Dock settings reuse existing IPC' (($dockJs -match 'megaTools\.updateSettings') -and ($dockJs -match 'megaTools\.updateScheduler'))
+Check 'Mega Recent Session removed' (-not (($dockHtml + $dockJs) -match 'id="sessions"|session-item|tokenCount|recentSessionCost|costCny'))
+Check 'Unified terminal observer exists' ((Test-Path "$ROOT\app\extensions\mega\tracker\terminal-observer.js") -and (Test-Path "$ROOT\app\extensions\mega\notifications\terminal-dispatch.js"))
 Check 'Manual queue reorder IPC exists' ($mega -match 'mega:reorder-task')
 Check 'Queue order is persistent' (($scheduler -match 'queueOrder') -and ($scheduler -match 'reorderTask'))
 Check 'Scheduled tasks default to official sessions' (($scheduler -match "requestedDeliveryMode = 'official-session'") -and ($scheduler -match 'launchOfficial'))

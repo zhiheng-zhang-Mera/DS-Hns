@@ -81,16 +81,13 @@ test('Mega scheduler defaults scheduled work to official sessions and keeps head
   assert.match(scheduler, /session did not appear in session\/list/)
 })
 
-test('Dock and full tools expose the delivery target instead of silently using headless', () => {
+test('the Mega dock exposes the delivery target instead of silently using headless', () => {
   const dock = read('app/extensions/mega/ui/dock.html')
-  const full = read('app/extensions/mega/ui/index.html')
   const dockJs = read('app/extensions/mega/ui/dock.js')
-  const renderer = read('app/extensions/mega/ui/renderer.js')
-  for (const text of [dock, full]) {
-    assert.match(text, /id="deliveryMode"/)
-    assert.match(text, /value="official-session"/)
-    assert.match(text, /value="headless"/)
-  }
+  assert.match(dock, /id="deliveryMode"/)
+  assert.match(dock, /value="official-session"/)
+  assert.match(dock, /value="headless"/)
   assert.match(dockJs, /deliveryMode: \$\('deliveryMode'\)\.value/)
-  assert.match(renderer, /deliveryMode: \$\('deliveryMode'\)\.value/)
+  // The retired Full Mega Tools page must not come back as a second delivery UI.
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'index.html')), false)
 })

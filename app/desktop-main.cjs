@@ -305,6 +305,62 @@ function stopHarness() {
   if (childPid) runtimeProcess.clearOwnership({ root: ROOT, childPid })
 }
 
+/**
+ * Shared teardown for every exit path: stop the extension (which stops the
+ * scheduler and persists the queue/history), drop the integrated views, and
+ * terminate the managed Harness child tree.
+ */
+function teardownManagedResources({ destroyWindows = false } = {}) {
+  try {
+    ipcMain.removeAllListeners('mega-shell:dock-state')
+  } catch {}
+  try {
+    extensionManager?.stop?.()
+  } catch (error) {
+    logLine(`extension stop failed during exit: ${error?.message || error}`)
+  }
+  try {
+    destroyIntegratedViews()
+  } catch {}
+  if (destroyWindows) {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy()
+    } catch {}
+  }
+  try {
+    stopHarness()
+  } catch {}
+}
+
+/**
+ * Normal exit (tray "Exit DS-Harness"):
+ *   stop scheduler -> stop extensions -> flush/persist state -> stop the
+ *   managed Harness -> destroy windows/tray -> app.quit()
+ * The extension stop is what persists the scheduler queue and history, so it
+ * runs before the managed Harness child is terminated.
+ */
+function gracefulExit(source = 'shell') {
+  if (shuttingDown) return
+  shuttingDown = true
+  logLine(`graceful exit requested (${source})`)
+  teardownManagedResources({ destroyWindows: true })
+  app.quit()
+}
+
+/**
+ * Force exit (tray "Force Exit DS-Harness"):
+ *   mark shutting down -> best-effort flush -> kill the managed child process
+ *   tree -> destroy extension/runtime resources -> destroy windows/tray ->
+ *   app.exit()
+ * No cleanup step is allowed to prevent the final exit.
+ */
+function forceExit(source = 'shell') {
+  logLine(`force exit requested (${source})`)
+  shuttingDown = true
+  teardownManagedResources({ destroyWindows: true })
+  app.exit(0)
+}
+
 function integratedDockWidth() {
   return megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
 }
@@ -470,6 +526,12 @@ async function startExtensions(nodeExe) {
       mainWindow,
       officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
       log: logLine,
+      // The shell owns process lifecycle, so the tray's exit actions are routed
+      // back here instead of the extension reaching into the managed child.
+      shutdown: {
+        graceful: (source) => gracefulExit(source || 'tray'),
+        force: (source) => forceExit(source || 'tray')
+      },
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
@@ -522,11 +584,10 @@ app.on('second-instance', () => {
 })
 app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
+  // Closing the main window (or a system shutdown) is the implicit normal exit.
   if (shuttingDown) return
   shuttingDown = true
-  ipcMain.removeAllListeners('mega-shell:dock-state')
-  destroyIntegratedViews()
-  try { extensionManager?.stop?.() } catch {}
-  stopHarness()
+  logLine('before-quit: reconciling managed resources')
+  teardownManagedResources()
 })
 process.on('exit', stopHarness)

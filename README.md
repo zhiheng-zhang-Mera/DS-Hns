@@ -117,22 +117,24 @@ After the official Alien/DSH UI loads, Mega appears as a visually attached right
 ```text
 Collapsed                              Expanded
 +----------------------+----+          +----------------------+-----------------------+
-| official DSH UI      | M  |          | official DSH UI      | Mega                  |
+| official DSH UI      | M  |          | official DSH UI      | Mega              ⚙ ›  |
 |                      | E  |          |                      | Queue / reorder       |
 |                      | G  |          |                      | Hardware auto         |
-|                      | A  |          |                      | Peak / balance        |
-|                      |RUN |          |                      | Recent sessions       |
+|                      | A  |          |                      | Balance               |
+|                      |RUN |          |                      | Mega settings overlay |
 |                      |Q/HW|          |                      |                       |
 +----------------------+----+          +----------------------+-----------------------+
 ```
 
 - **Collapsed rail** — 48 px vertical strip with MEGA identity, running count, queued count, hardware worker state and peak/off-peak state.
-- **Expanded dock** — 560 px by default, with manual task creation, real queue ordering controls, hardware-adaptive concurrency controls, balance and recent sessions.
+- **Expanded dock** — 560 px by default: manual task creation with real queue ordering controls, hardware-adaptive concurrency, the account balance module and the settings layer.
 - **State memory** — collapsed/expanded state and dock width are stored in `data/state/mega-dock.json`.
 - **No official viewport resize** — the official DSH BrowserWindow keeps its original size. If there is room on the right, the dock sits outside it; if not (for example a maximized window), the dock overlays the right edge as a separate BrowserWindow instead of shrinking the official renderer.
-- **Full Mega tools** — the original larger management window remains available for low-frequency/advanced settings.
+- **One product window** — there is no separate Mega management window or page. Every Mega capability lives in the dock; the settings layer (⚙ in the dock header) is an in-dock overlay that reuses the existing IPC backend.
 - **Ctrl+Shift+M** — toggles the right dock between collapsed and expanded states.
-- **System tray** — Official Harness, Expand/Collapse Mega Dock, Show/Hide Mega Dock, Full Mega Tools, Exit.
+- **System tray** — double-click restores/focuses the main window; right-click offers only **Exit DS-Harness** and **Force Exit DS-Harness**.
+  - *Exit* stops the scheduler, flushes/persists state, stops the managed Harness, destroys windows/tray and quits gracefully.
+  - *Force Exit* performs a best-effort flush, kills the managed child process tree (`taskkill /T /F`), destroys extension/runtime resources and calls `app.exit()`; no cleanup step can block the final exit.
 
 Disable only the dock without disabling Mega background features:
 
@@ -164,15 +166,26 @@ TERMINAL = COMPLETED | FAILED_FINAL | CANCELLED
 - **One terminal event** — the scheduler emits `TASK_TERMINATED`
   (taskId, taskName, finalStatus, completedAt, shortResult/errorSummary) exactly once per
   lifecycle. The notification layer deduplicates on `taskId + finalStatus + terminal epoch`.
+- **Unified terminal alerts** — every task path converges on one pipeline:
+  an ordinary official Harness session (observed from the DSH session store by
+  `tracker\terminal-observer.js`), a scheduler-dispatched official session and a headless
+  task all produce the same `TASK_TERMINATED` payload into
+  `notifications\terminal-dispatch.js`, which rings the ringtone and sends the desktop
+  notification at most once per terminal state. The observer is primed at startup, so
+  pre-existing history never alerts; sessions Mega launched itself are filtered out because
+  the scheduler already reports them.
 - **Desktop notifications** — one notification per terminal state, dispatched as a side
   effect: a notification failure never changes an already-final task state and never blocks
-  the renderer. Configuration lives in `config\notifications.json` and is editable in
-  Mega Extensions → Harness / 提醒 (system notifications, cancelled-task notifications).
+  the renderer. Configuration lives in `config\notifications.json` and is editable in the
+  dock's ⚙ Settings → Notifications group (system notifications, cancelled-task notifications).
 - **Balance module** — opening the module refreshes automatically through the same
   `refreshBalances(trigger)` implementation used by the manual button
   (`module-open` / `manual` / `retry`). Concurrent requests are coalesced, providers are
   isolated (one provider failing never fails the page), and the last successful balance is
   retained and labelled as stale instead of being blanked out.
+- **No session mirror** — Mega does not repeat the official Harness session history: the
+  "Recent Session" panel was removed. The official UI remains the single owner of session
+  history; Mega only watches it for terminal alerts.
 
 ### Launcher icon
 
@@ -193,27 +206,28 @@ app/
   extensions/
     manager.cjs                  optional extension lifecycle
     mega/
-      index.cjs                  Mega adapter, dock/tray/tools lifecycle, IPC
+      index.cjs                  Mega adapter, dock/tray lifecycle, IPC, exit routing
       billing/
         balance-service.js       balance refresh: coalescing + provider isolation
       scheduler/
         lifecycle.js             canonical task lifecycle vocabulary/events
         scheduler.js             queue, concurrency, terminal transitions
       tracker/
-        session-view.js          renderer projection for tracked sessions
+        session-reader.js        DSH session store reader (tracker)
+        terminal-observer.js     unified terminal observer for official sessions
       settings/
+        settings-service.js      env/app/sound/notification settings backend
       notifications/
         notification-service.js  terminal desktop notifications (dedup + isolation)
+        terminal-dispatch.js     single alert pipeline: ringtone + notification
         sound-service.js         ringtones
       deepseek/
       utils/
       ui/
-        dock.html                collapsible right-side dock
+        dock.html                collapsible right-side dock + settings overlay
         dock.js
         dock.css
         balance-module.js        shared Balance module open detection
-        index.html               full Mega tools window
-        renderer.js
         preload.cjs
   package.json
 config/
@@ -231,12 +245,35 @@ scripts/
 tests/
 ```
 
+## Product surface
+
+```text
+Windows
+│
+├── DS-Harness Main Window
+│   ├── Official Harness
+│   └── Mega Dock
+│       ├── Queue
+│       ├── Hardware
+│       ├── Balance
+│       └── ⚙ Settings popup (in-dock overlay)
+│
+└── Tray
+    ├── double click -> focus main window
+    └── right click
+        ├── Exit DS-Harness
+        └── Force Exit DS-Harness
+```
+
+There is no Full Mega Tools window, no secondary Mega control window and no duplicate
+Recent Session panel.
+
 ## Black-screen protection rules
 
 1. `app/desktop-main.cjs#createWindow()` must not contain a `preload` entry.
 2. Mega code must never inject JavaScript/CSS into the official renderer.
 3. Mega UI must never replace the official main window.
-4. Dock/tools UI must live in separate `BrowserWindow` instances.
+4. Dock UI must live in separate `BrowserWindow` instances.
 5. Expanding the Mega dock must not resize the official DSH BrowserWindow or its renderer viewport.
 6. Extensions load only after `mainWindow.loadURL(officialDshUrl)` succeeds.
 7. `DSH_DISABLE_MEGA=1` must boot the product without loading Mega code.
@@ -259,8 +296,8 @@ Optional PowerShell launcher:
 powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
-Mega dock: `Ctrl+Shift+M`.
-Full Mega tools: use the expanded dock or tray entry.
+Mega dock: `Ctrl+Shift+M`. Mega settings: ⚙ in the dock header.
+Exit: tray right-click → **Exit DS-Harness** (graceful) or **Force Exit DS-Harness**.
 
 ## Verification
 

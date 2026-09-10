@@ -42,13 +42,10 @@ contextBridge.exposeInMainWorld('megaTools', {
   fetchBalance: (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options),
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
-  openMain: () => ipcRenderer.invoke('mega:open-main'),
-  openTools: () => ipcRenderer.invoke('mega:open-tools'),
   toggleDock,
   setDockExpanded,
   // In integrated mode the rail should always remain reachable, so "hide"
   // degrades to collapse instead of removing the whole in-window view.
   hideDock: () => setDockExpanded(false),
-  hideWidget: () => setDockExpanded(false),
   onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback())
 })

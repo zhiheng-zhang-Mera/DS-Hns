@@ -8,9 +8,10 @@ const { TERMINAL_EVENT, CANONICAL_TERMINAL } = require('./scheduler/lifecycle')
 const settingsService = require('./settings/settings-service')
 const soundService = require('./notifications/sound-service')
 const notificationService = require('./notifications/notification-service')
+const { createTerminalDispatcher } = require('./notifications/terminal-dispatch')
 const { BalanceService } = require('./billing/balance-service')
 const sessionReader = require('./tracker/session-reader')
-const { toSessionViews } = require('./tracker/session-view')
+const { TerminalObserver } = require('./tracker/terminal-observer')
 const taskHistory = require('./tracker/task-history')
 const workspace = require('./utils/workspace')
 const { PATHS } = require('./utils/paths')
@@ -18,8 +19,8 @@ const { PATHS } = require('./utils/paths')
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
-  'mega:balance', 'mega:pick-workspace', 'mega:pick-sound', 'mega:open-main',
-  'mega:open-tools', 'mega:dock-toggle', 'mega:dock-expand', 'mega:dock-hide', 'mega:widget-hide'
+  'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
+  'mega:dock-toggle', 'mega:dock-expand'
 ]
 
 /** Canonical terminal state -> existing ringtone event. */
@@ -35,7 +36,6 @@ const DOCK_MIN_WIDTH = 440
 const DOCK_MAX_WIDTH = 720
 
 let ctx = null
-let toolsWindow = null
 let dockWindow = null
 let playerWindow = null
 let tray = null
@@ -47,6 +47,26 @@ let dockUserHidden = false
 const mainWindowBindings = []
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
+
+/**
+ * Terminal alerts are one pipeline for every task path (official user session,
+ * scheduler official session, headless task): whichever observer reports the
+ * terminal state first, the dispatcher guarantees a single ringtone and a single
+ * desktop notification.
+ */
+const terminalDispatcher = createTerminalDispatcher({
+  ring: (event) => ring(SOUND_EVENT_BY_TERMINAL[event.finalStatus] || event.status),
+  notify: (event) => notificationService.notifyTerminal(event),
+  log: (message) => log(message)
+})
+
+const terminalObserver = new TerminalObserver({
+  listSessions: () => sessionReader.listSessions({ limit: 60 }),
+  isManagedSession: (sessionId) => scheduler.isManagedOfficialSession(sessionId),
+  // Tunable polling window (used by tests and for slower machines).
+  intervalMs: Number(process.env.DSH_MEGA_OBSERVE_MS) || undefined,
+  log: (message) => log(message)
+})
 
 function log(message) {
   ctx?.log?.(`[mega] ${message}`)
@@ -83,7 +103,6 @@ function saveDockState() {
 }
 
 function snapshot() {
-  const sessions = toSessionViews(sessionReader.listSessions({ limit: 40 }), { limit: 40 })
   const recent = taskHistory.loadRecent()
   return {
     extension: {
@@ -104,19 +123,19 @@ function snapshot() {
     tasks: scheduler.listTasks({ limit: 200 }),
     // Terminal tasks stay queryable through the history layer.
     history: recent,
-    sessions,
     recent,
     settings: settingsService.publicSettings(),
     workspace: workspace.getWorkspaceRoot(),
     soundFiles: soundService.listSoundFiles(),
-    balance: balanceService.describe()
+    balance: balanceService.describe(),
+    // Mega no longer mirrors the official Harness session history: the official
+    // UI owns it, and the terminal observer only watches it for alerts.
+    terminalAlerts: terminalDispatcher.describe()
   }
 }
 
 function notifyChanged() {
-  for (const win of [toolsWindow, dockWindow]) {
-    if (win && !win.isDestroyed()) win.webContents.send('mega:changed')
-  }
+  if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send('mega:changed')
 }
 
 function ensurePlayerWindow() {
@@ -153,41 +172,6 @@ function ring(eventName) {
   } catch (error) {
     log(`ring failed: ${error?.message || error}`)
   }
-}
-
-function openTools() {
-  if (toolsWindow && !toolsWindow.isDestroyed()) {
-    if (toolsWindow.isMinimized()) toolsWindow.restore()
-    toolsWindow.show()
-    toolsWindow.focus()
-    return toolsWindow
-  }
-  const { BrowserWindow, shell } = ctx.electron
-  toolsWindow = new BrowserWindow({
-    width: 1180,
-    height: 820,
-    minWidth: 880,
-    minHeight: 620,
-    title: 'DS-Harness · Mega Extensions',
-    backgroundColor: '#101317',
-    autoHideMenuBar: true,
-    show: false,
-    parent: mainAlive() ? ctx.mainWindow : undefined,
-    webPreferences: {
-      preload: path.join(__dirname, 'ui', 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  })
-  toolsWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) shell.openExternal(url)
-    return { action: 'deny' }
-  })
-  toolsWindow.once('ready-to-show', () => toolsWindow.show())
-  toolsWindow.on('closed', () => { toolsWindow = null })
-  toolsWindow.loadFile(path.join(__dirname, 'ui', 'index.html')).catch((error) => log(`tools load failed: ${error}`))
-  return toolsWindow
 }
 
 function dockEnabled() {
@@ -234,7 +218,6 @@ function syncDockVisibility() {
   positionDock()
   if (dockCanShow()) dockWindow.showInactive()
   else dockWindow.hide()
-  updateTrayMenu()
 }
 
 function setDockExpanded(expanded, { focus = false } = {}) {
@@ -253,7 +236,6 @@ function setDockExpanded(expanded, { focus = false } = {}) {
     }
     dockWindow.webContents.send('mega:changed')
   }
-  updateTrayMenu()
   return { expanded: dockExpanded, width: currentDockWidth() }
 }
 
@@ -269,13 +251,6 @@ function toggleDock({ focus = true } = {}) {
 function hideDock({ user = true } = {}) {
   if (user) dockUserHidden = true
   if (dockWindow && !dockWindow.isDestroyed()) dockWindow.hide()
-  updateTrayMenu()
-  return true
-}
-
-function showDock() {
-  dockUserHidden = false
-  syncDockVisibility()
   return true
 }
 
@@ -312,10 +287,7 @@ function createDock() {
     }
   })
   dockWindow.setMenuBarVisibility(false)
-  dockWindow.on('closed', () => {
-    dockWindow = null
-    updateTrayMenu()
-  })
+  dockWindow.on('closed', () => { dockWindow = null })
   dockWindow.once('ready-to-show', () => syncDockVisibility())
   dockWindow.loadFile(path.join(__dirname, 'ui', 'dock.html')).catch((error) => log(`dock load failed: ${error}`))
   return dockWindow
@@ -329,25 +301,61 @@ function focusMain() {
   return true
 }
 
-function updateTrayMenu() {
+/**
+ * The tray menu is intentionally exit-only: the main window (with the Mega dock
+ * inside it) is the single product surface, so there is no second Mega window to
+ * navigate to and no dock toggling from the tray.
+ */
+function applyTrayMenu() {
   if (!tray || !ctx?.electron?.Menu) return
-  const { Menu, app } = ctx.electron
+  const { Menu } = ctx.electron
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Official Harness', click: focusMain },
-    {
-      label: dockExpanded ? 'Collapse Mega Dock' : 'Expand Mega Dock',
-      enabled: dockEnabled(),
-      click: () => setDockExpanded(!dockExpanded, { focus: !dockExpanded })
-    },
-    {
-      label: dockUserHidden || !dockWindow?.isVisible() ? 'Show Mega Dock' : 'Hide Mega Dock',
-      enabled: dockEnabled(),
-      click: () => dockUserHidden || !dockWindow?.isVisible() ? showDock() : hideDock({ user: true })
-    },
-    { label: 'Full Mega Tools', click: openTools },
-    { type: 'separator' },
-    { label: 'Exit DS-Harness', click: () => app.quit() }
+    { label: 'Exit DS-Harness', click: () => requestShutdown('graceful') },
+    { label: 'Force Exit DS-Harness', click: () => requestShutdown('force') }
   ]))
+}
+
+/**
+ * Exit routing. The shell owns the managed Harness child, so both actions are
+ * delegated to the shell hook when available:
+ *   graceful -> stop scheduler/extensions, persist state, stop the managed
+ *               Harness, destroy windows/tray, app.quit()
+ *   force    -> best-effort flush, kill the managed child process tree,
+ *               destroy extension/runtime resources, app.exit()
+ * A failure in any step must never leave the user without a working exit.
+ */
+function requestShutdown(mode = 'graceful') {
+  const hook = ctx?.shutdown
+  try {
+    if (mode === 'force') {
+      if (typeof hook?.force === 'function') {
+        hook.force('tray')
+        return true
+      }
+      log('force exit requested without a shell hook; exiting directly')
+      return hardExit()
+    }
+    if (typeof hook?.graceful === 'function') {
+      hook.graceful('tray')
+      return true
+    }
+    log('graceful exit requested without a shell hook; stopping the extension first')
+    try { stop() } catch {}
+    return hardExit()
+  } catch (error) {
+    log(`exit request failed: ${error?.message || error}`)
+    return hardExit()
+  }
+}
+
+function hardExit(code = 0) {
+  try {
+    ctx?.electron?.app?.exit?.(code)
+    return true
+  } catch (error) {
+    log(`hard exit failed: ${error?.message || error}`)
+    return false
+  }
 }
 
 function createTray() {
@@ -363,9 +371,10 @@ function createTray() {
     const image = nativeImage.createFromPath(iconPath)
     if (!image || image.isEmpty()) throw new Error(`tray icon unavailable: ${iconPath}`)
     tray = new Tray(image)
-    tray.setToolTip('DS-Harness · Mega Dock')
+    tray.setToolTip('DS-Harness · DeepSeek Harness')
+    // Double click always brings the single product window back.
     tray.on('double-click', focusMain)
-    updateTrayMenu()
+    applyTrayMenu()
     return tray
   } catch (error) {
     log(`tray init failed: ${error?.message || error}`)
@@ -390,7 +399,6 @@ function bindMainWindow() {
   bind('hide', () => hideDock({ user: false }))
   bind('closed', () => {
     if (dockWindow && !dockWindow.isDestroyed()) dockWindow.destroy()
-    if (toolsWindow && !toolsWindow.isDestroyed()) toolsWindow.destroy()
   })
 }
 
@@ -400,6 +408,16 @@ function unbindMainWindow() {
     return
   }
   for (const [event, handler] of mainWindowBindings.splice(0)) ctx.mainWindow.removeListener(event, handler)
+}
+
+/** One entry point for every terminal alert source. */
+function dispatchTerminal(event) {
+  const outcome = terminalDispatcher.dispatch(event)
+  if (outcome.reason && outcome.reason.startsWith('error:')) {
+    log(`terminal alert failed for ${event?.taskId}: ${outcome.reason}`)
+  }
+  notifyChanged()
+  return outcome
 }
 
 function registerIpc() {
@@ -448,7 +466,7 @@ function registerIpc() {
     }
   })
   ipcMain.handle('mega:pick-workspace', async () => {
-    const result = await dialog.showOpenDialog(toolsWindow || ctx.mainWindow, {
+    const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: '选择 headless 队列工作区',
       properties: ['openDirectory', 'createDirectory']
     })
@@ -456,7 +474,7 @@ function registerIpc() {
     return workspace.setWorkspaceRoot(result.filePaths[0])
   })
   ipcMain.handle('mega:pick-sound', async () => {
-    const result = await dialog.showOpenDialog(toolsWindow || ctx.mainWindow, {
+    const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: '导入任务提示音',
       properties: ['openFile'],
       filters: [{ name: 'Audio', extensions: ['wav', 'mp3'] }]
@@ -465,13 +483,8 @@ function registerIpc() {
     const file = result.filePaths[0]
     return soundService.saveUpload(path.basename(file), fs.readFileSync(file))
   })
-  ipcMain.handle('mega:open-main', focusMain)
-  ipcMain.handle('mega:open-tools', () => Boolean(openTools()))
   ipcMain.handle('mega:dock-toggle', () => toggleDock({ focus: true }))
   ipcMain.handle('mega:dock-expand', (_event, expanded) => setDockExpanded(Boolean(expanded), { focus: Boolean(expanded) }))
-  ipcMain.handle('mega:dock-hide', () => hideDock({ user: true }))
-  // Compatibility alias for the previous companion widget renderer.
-  ipcMain.handle('mega:widget-hide', () => hideDock({ user: true }))
 }
 
 async function start(context) {
@@ -486,27 +499,17 @@ async function start(context) {
   notificationService.setCreateNotification(ctx.electron?.Notification || null)
   notificationService.setOnClick(() => focusMain())
   scheduler.on('queue-changed', notifyChanged)
-  scheduler.on(TERMINAL_EVENT, (event) => {
-    // Side effects only. A sound or notification failure can never change the
-    // task's already-final state, so both are individually isolated.
-    try {
-      ring(SOUND_EVENT_BY_TERMINAL[event.finalStatus] || event.status)
-    } catch (error) {
-      log(`ring failed for ${event.taskId}: ${error?.message || error}`)
-    }
-    try {
-      const outcome = notificationService.notifyTerminal(event)
-      if (String(outcome?.reason || '').startsWith('error:')) log(`desktop notification for ${event.taskId}: ${outcome.reason}`)
-    } catch (error) {
-      log(`desktop notification threw for ${event.taskId}: ${error?.message || error}`)
-    }
-    notifyChanged()
-  })
+  scheduler.on(TERMINAL_EVENT, dispatchTerminal)
   scheduler.on('terminal-queue-migrated', ({ migrated, total }) => {
     log(`startup recovery moved ${migrated}/${total} terminal task(s) out of the active queue into history`)
   })
   scheduler.on('error', (error) => log(`scheduler error: ${error?.stack || error}`))
   scheduler.start()
+  // Ordinary official Harness sessions are announced by the session observer;
+  // scheduler-dispatched and headless tasks are already covered by the
+  // scheduler's own terminal event, and are filtered out of the observer.
+  terminalObserver.on(TERMINAL_EVENT, dispatchTerminal)
+  terminalObserver.start()
   shortcutHandler = (event, input) => {
     if (input.type !== 'keyDown') return
     const key = String(input.key || '').toLowerCase()
@@ -519,14 +522,14 @@ async function start(context) {
   bindMainWindow()
   createDock()
   createTray()
-  if (process.argv.includes('--mega-tools')) openTools()
   if (process.argv.includes('--mega-dock')) setDockExpanded(true, { focus: true })
-  log('ready; right-side collapsible Mega dock + ordered queue + hardware-adaptive concurrency enabled')
+  log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency enabled')
 }
 
 function stop() {
   if (!started) return
   started = false
+  try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
   notificationService.setCreateNotification(null)
   notificationService.setOnClick(null)
@@ -540,15 +543,13 @@ function stop() {
   if (tray) {
     try { tray.destroy() } catch {}
   }
-  if (toolsWindow && !toolsWindow.isDestroyed()) toolsWindow.destroy()
   if (dockWindow && !dockWindow.isDestroyed()) dockWindow.destroy()
   if (playerWindow && !playerWindow.isDestroyed()) playerWindow.destroy()
   tray = null
-  toolsWindow = null
   dockWindow = null
   playerWindow = null
   shortcutHandler = null
   ctx = null
 }
 
-module.exports = { start, stop, openTools, toggleDock, setDockExpanded }
+module.exports = { start, stop, toggleDock, setDockExpanded, requestShutdown }

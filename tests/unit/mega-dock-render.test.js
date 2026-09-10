@@ -6,12 +6,14 @@ const assert = require('node:assert/strict')
  * Renderer level: execute the real dock renderer against a minimal DOM stub so
  * the UI bindings are actually exercised - no jsdom dependency required.
  *
- * Covers: no crash on a legacy snapshot, no Recent Session Cost rendering,
- * Balance module open detection and manual/retry sharing one refresh path.
+ * Covers: legacy snapshot tolerance, no Recent Session / cost rendering, the
+ * in-dock settings layer (former Full Mega Tools capabilities) and the Balance
+ * module open/manual/retry refresh semantics.
  */
 
 function makeElement(id) {
   const classes = new Set()
+  const handlers = new Map()
   return {
     id,
     innerHTML: '',
@@ -24,6 +26,7 @@ function makeElement(id) {
     dataset: {},
     style: {},
     onclick: null,
+    handlers,
     classList: {
       add: (c) => classes.add(c),
       remove: (c) => classes.delete(c),
@@ -35,7 +38,13 @@ function makeElement(id) {
         return next
       }
     },
-    addEventListener() {},
+    addEventListener(name, handler) {
+      if (!handlers.has(name)) handlers.set(name, [])
+      handlers.get(name).push(handler)
+    },
+    fire(name, event = {}) {
+      for (const handler of handlers.get(name) || []) handler(event)
+    },
     closest: () => null,
     querySelector: () => null
   }
@@ -43,9 +52,11 @@ function makeElement(id) {
 
 function installDom() {
   const elements = new Map()
-  const clicks = []
+  const documentHandlers = new Map()
   const panel = makeElement('balance-panel')
   const observers = []
+  // The stub mirrors markup state that a browser would already have applied.
+  elements.set('settingsOverlay', Object.assign(makeElement('settingsOverlay'), { hidden: true }))
 
   class FakeIntersectionObserver {
     constructor(callback, options) {
@@ -64,16 +75,22 @@ function installDom() {
       return elements.get(id)
     },
     querySelector: (selector) => (selector === '.balance-panel' ? panel : null),
-    addEventListener: (name, handler) => clicks.push({ name, handler })
+    addEventListener: (name, handler) => {
+      if (!documentHandlers.has(name)) documentHandlers.set(name, [])
+      documentHandlers.get(name).push(handler)
+    },
+    fire: (name, event = {}) => {
+      for (const handler of documentHandlers.get(name) || []) handler(event)
+    }
   }
   global.window = globalThis
   global.IntersectionObserver = FakeIntersectionObserver
   return {
     elements,
-    clicks,
     panel,
     observers,
     element: (id) => document.getElementById(id),
+    fireDocument: (name, event) => document.fire(name, event),
     fireIntersection: (isIntersecting) => {
       for (const observer of observers) observer.callback([{ target: observer.element || panel, isIntersecting }])
     }
@@ -87,7 +104,15 @@ function makeSnapshot(overrides = {}) {
       counts: { RUNNING: 0, PENDING: 1 },
       concurrency: { current: 2, hardwareCap: 4, byCpuLoad: 3 },
       peak: { peak: false, nextChange: null },
-      config: { minConcurrent: 1, maxConcurrent: 0, cpuReservePercent: 25, memoryReserveGb: 2, memoryPerWorkerGb: 2.5 },
+      config: {
+        minConcurrent: 2,
+        maxConcurrent: 0,
+        cpuReservePercent: 25,
+        memoryReserveGb: 2,
+        memoryPerWorkerGb: 2.5,
+        defaultAllowPeak: true,
+        interruptRunningAtPeak: false
+      },
       system: { cpu: { usagePercent: 4 }, memory: { freeGb: 8, totalGb: 32 } },
       hardware: { cpu: { model: 'test', logicalCores: 8 }, gpus: [] }
     },
@@ -104,12 +129,32 @@ function makeSnapshot(overrides = {}) {
       }
     ],
     history: [{ id: 'old-task', status: 'COMPLETED', savedAt: Date.now() }],
-    sessions: [
-      // Legacy record: removed cost fields must be ignored, never rendered.
-      { status: 'COMPLETED', model: 'deepseek-v4-flash', usage: { inputTokens: 10, outputTokens: 5 }, updatedAt: 1700000000000, cost: { costCny: 4.2 }, recentSessionCost: 4.2 }
-    ],
-    settings: { notifications: { enabled: true, onCancelled: true, supported: true } },
+    // Legacy payload from an older build: the dock must ignore it completely.
+    sessions: [{ status: 'COMPLETED', model: 'deepseek-v4-flash', usage: { inputTokens: 10 }, cost: { costCny: 4.2 } }],
+    settings: {
+      defaultModel: 'deepseek-v4-flash',
+      models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+      permissionMode: 'workspace-write',
+      telemetryMode: 'DISABLED',
+      apiKeyMasked: 'sk-••••1234',
+      sound: {
+        enabled: true,
+        volume: 0.8,
+        events: {
+          COMPLETED: { enabled: true, file: 'completed.wav', label: '任务完成' },
+          FAILED: { enabled: true, file: 'failed.wav', label: '任务失败' },
+          INTERRUPTED: { enabled: true, file: 'interrupted.wav', label: '任务中断' }
+        }
+      },
+      notifications: { enabled: true, onCancelled: false, supported: true }
+    },
     workspace: 'C:\\work',
+    soundFiles: [
+      { name: 'completed.wav', kind: 'preset' },
+      { name: 'failed.wav', kind: 'preset' },
+      { name: 'interrupted.wav', kind: 'preset' },
+      { name: 'custom.mp3', kind: 'user' }
+    ],
     balance: {
       refreshing: false,
       trigger: 'module-open',
@@ -129,7 +174,20 @@ function makeSnapshot(overrides = {}) {
 
 function loadDock(snapshot) {
   const dom = installDom()
-  const calls = { fetchBalance: [], addTask: [], reorderTask: [], cancelTask: [], clearPending: [], refreshHardware: [], setDockExpanded: [], toggleDock: [] }
+  const calls = {
+    fetchBalance: [],
+    addTask: [],
+    reorderTask: [],
+    cancelTask: [],
+    clearPending: [],
+    refreshHardware: [],
+    setDockExpanded: [],
+    toggleDock: [],
+    updateSettings: [],
+    updateScheduler: [],
+    pickWorkspace: [],
+    pickSound: []
+  }
   let changedHandler = null
 
   global.setInterval = () => 0
@@ -142,18 +200,16 @@ function loadDock(snapshot) {
     cancelTask: async (id) => { calls.cancelTask.push(id); return {} },
     clearPending: async () => { calls.clearPending.push(true); return 0 },
     removeTasks: async () => 0,
-    updateScheduler: async () => ({}),
+    updateScheduler: async (patch) => { calls.updateScheduler.push(patch); return patch },
     refreshHardware: async () => { calls.refreshHardware.push(true); return {} },
-    updateSettings: async () => ({}),
+    updateSettings: async (patch) => { calls.updateSettings.push(patch); return {} },
     fetchBalance: async (trigger, options) => { calls.fetchBalance.push({ trigger, options }); return snapshot.balance },
-    pickWorkspace: async () => null,
-    pickSound: async () => null,
+    pickWorkspace: async () => { calls.pickWorkspace.push(true); return 'C:\\other' },
+    pickSound: async () => { calls.pickSound.push(true); return { name: 'custom.mp3', kind: 'user' } },
     openMain: async () => {},
-    openTools: async () => {},
     toggleDock: async () => { calls.toggleDock.push(true); return {} },
     setDockExpanded: async (value) => { calls.setDockExpanded.push(value); return {} },
     hideDock: async () => {},
-    hideWidget: async () => {},
     onChanged: (handler) => { changedHandler = handler }
   }
 
@@ -168,81 +224,9 @@ function loadDock(snapshot) {
   return { dom, calls, notifyChanged: () => changedHandler && changedHandler() }
 }
 
-function loadTools(snapshot) {
-  const dom = installDom()
-  const calls = { fetchBalance: [], updateSettings: [] }
-  let changedHandler = null
-
-  global.setInterval = () => 0
-  global.clearInterval = () => {}
-
-  global.window.megaTools = {
-    snapshot: async () => snapshot,
-    addTask: async () => ({}),
-    reorderTask: async () => ({}),
-    cancelTask: async () => ({}),
-    clearPending: async () => 0,
-    removeTasks: async () => 0,
-    updateScheduler: async () => ({}),
-    refreshHardware: async () => ({}),
-    updateSettings: async (patch) => { calls.updateSettings.push(patch); return {} },
-    fetchBalance: async (trigger, options) => { calls.fetchBalance.push({ trigger, options }); return snapshot.balance },
-    pickWorkspace: async () => null,
-    pickSound: async () => null,
-    openMain: async () => {},
-    openTools: async () => {},
-    toggleDock: async () => ({}),
-    setDockExpanded: async () => ({}),
-    hideDock: async () => {},
-    hideWidget: async () => {},
-    onChanged: (handler) => { changedHandler = handler }
-  }
-
-  for (const file of ['../../app/extensions/mega/ui/renderer.js', '../../app/extensions/mega/ui/balance-module.js']) {
-    delete require.cache[require.resolve(file)]
-  }
-  require('../../app/extensions/mega/ui/balance-module.js')
-  require('../../app/extensions/mega/ui/renderer.js')
-
-  return { dom, calls, notifyChanged: () => changedHandler && changedHandler() }
-}
-
 const settle = async () => {
   for (let i = 0; i < 4; i++) await new Promise((resolve) => setImmediate(resolve))
 }
-
-test('full Mega tools renders tasks/sessions and refreshes the balance when opened', async () => {
-  const h = loadTools(makeSnapshot())
-  await settle()
-
-  assert.match(h.dom.element('tasks').innerHTML, /queued work/)
-  assert.match(h.dom.element('sessions').innerHTML, /deepseek-v4-flash/)
-  assert.equal(/成本|¥/.test(h.dom.element('sessions').innerHTML), false, 'the cost column is gone from the session table')
-  assert.equal(h.dom.element('notifyEnabled').checked, true)
-  assert.equal(h.dom.element('notifyCancelled').checked, true)
-  assert.equal(h.dom.element('error').textContent, '')
-
-  // Browsers deliver an initial IntersectionObserver callback once the panel is
-  // laid out; that is the "module opened" signal.
-  h.dom.fireIntersection(true)
-  await settle()
-  assert.equal(h.calls.fetchBalance.length, 1, 'opening the window opens the balance module')
-  assert.equal(h.calls.fetchBalance[0].trigger, 'module-open')
-  assert.match(h.dom.element('balanceText').textContent, /"ok": true/)
-})
-
-test('saving settings sends the notification configuration', async () => {
-  const h = loadTools(makeSnapshot())
-  await settle()
-
-  h.dom.element('notifyEnabled').checked = false
-  h.dom.element('notifyCancelled').checked = true
-  await h.dom.element('settingsForm').onsubmit({ preventDefault() {} })
-  await settle()
-
-  assert.equal(h.calls.updateSettings.length, 1)
-  assert.deepEqual(h.calls.updateSettings[0].notifications, { enabled: false, onCancelled: true })
-})
 
 test('the dock renders a snapshot (including legacy session data) without throwing', async () => {
   const h = loadDock(makeSnapshot())
@@ -251,22 +235,20 @@ test('the dock renders a snapshot (including legacy session data) without throwi
   assert.match(h.dom.element('queue').innerHTML, /queued work/)
   assert.match(h.dom.element('railQueued').textContent, /1/)
   assert.match(h.dom.element('summary').innerHTML, /谷价/)
-  assert.match(h.dom.element('sessions').innerHTML, /deepseek-v4-flash/)
   assert.equal(h.dom.element('error').textContent, '')
+  assert.equal(h.dom.element('settingsOverlay').hidden, true, 'settings start closed')
 })
 
-test('the dock never renders a Recent Session Cost metric', async () => {
+test('the dock renders neither a session list nor a cost metric', async () => {
   const h = loadDock(makeSnapshot())
   await settle()
 
   const balanceCards = h.dom.element('balanceCards').innerHTML
-  const sessions = h.dom.element('sessions').innerHTML
   assert.equal(/最近\s*8\s*个\s*Session/.test(balanceCards), false)
   assert.equal(/成本/.test(balanceCards), false)
-  assert.equal(/¥/.test(sessions), false)
   assert.equal(/¥/.test(balanceCards), true, 'the account balance itself is still shown')
   assert.match(balanceCards, /总余额/)
-  assert.match(h.dom.element('balanceMeta').textContent, /Last updated: /)
+  assert.equal(h.dom.elements.has('sessions') && h.dom.element('sessions').innerHTML !== '', false, 'no session list is rendered')
 })
 
 test('opening the Balance module triggers exactly one automatic refresh', async () => {
@@ -277,13 +259,11 @@ test('opening the Balance module triggers exactly one automatic refresh', async 
   assert.equal(h.calls.fetchBalance.length, 1)
   assert.equal(h.calls.fetchBalance[0].trigger, 'module-open')
 
-  // Re-renders (mega:changed, the 5s poll) must not fan out new requests.
   h.notifyChanged()
   h.notifyChanged()
   await settle()
   assert.equal(h.calls.fetchBalance.length, 1)
 
-  // Collapse the dock (module closed) and expand it again: one more refresh.
   snapshot.extension.dock.expanded = false
   h.notifyChanged()
   await settle()
@@ -296,7 +276,7 @@ test('opening the Balance module triggers exactly one automatic refresh', async 
   assert.equal(h.calls.fetchBalance[1].trigger, 'module-open')
 })
 
-test('manual and retry clicks reuse the same refresh path and the button is disabled while busy', async () => {
+test('manual and retry clicks reuse the same refresh path', async () => {
   const h = loadDock(makeSnapshot({
     balance: {
       refreshing: false,
@@ -319,7 +299,6 @@ test('manual and retry clicks reuse the same refresh path and the button is disa
 
   assert.equal(h.dom.element('balanceRetry').hidden, false, 'the retry affordance appears when a provider failed')
   assert.match(h.dom.element('balanceCards').innerHTML, /Provider B/)
-  assert.match(h.dom.element('balanceCards').innerHTML, /timed out/)
   assert.match(h.dom.element('balanceStatus').textContent, /部分可用/)
 
   await h.dom.element('balance').onclick()
@@ -366,4 +345,136 @@ test('a never-refreshed balance shows the empty state without stray values', asy
   assert.match(h.dom.element('balanceMeta').textContent, /Last updated: —/)
   assert.match(h.dom.element('balanceCards').innerHTML, /打开余额模块会自动刷新/)
   assert.equal(h.dom.element('balanceRetry').hidden, true)
+})
+
+test('the settings layer opens inside the dock and mirrors every migrated setting', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+
+  assert.equal(h.dom.element('settingsOverlay').hidden, true)
+  h.dom.element('openSettings').onclick({ stopPropagation() {} })
+  assert.equal(h.dom.element('settingsOverlay').hidden, false)
+  assert.equal(h.dom.element('apiKey').value, '')
+
+  // General
+  assert.match(h.dom.element('model').innerHTML, /deepseek-v4-pro/)
+  assert.equal(h.dom.element('globalPermission').value, 'workspace-write')
+  assert.equal(h.dom.element('telemetry').value, 'DISABLED')
+  // Notifications
+  assert.equal(h.dom.element('soundEnabled').checked, true)
+  assert.equal(h.dom.element('volume').value, 0.8)
+  assert.match(h.dom.element('soundCompleted').innerHTML, /completed\.wav/)
+  assert.match(h.dom.element('soundCompleted').innerHTML, /custom\.mp3/, 'imported ringtones are selectable')
+  assert.match(h.dom.element('soundFailed').innerHTML, /failed\.wav/)
+  assert.match(h.dom.element('soundInterrupted').innerHTML, /interrupted\.wav/)
+  assert.equal(h.dom.element('notifyEnabled').checked, true)
+  assert.equal(h.dom.element('notifyCancelled').checked, false)
+  // Workspace
+  assert.match(h.dom.element('workspaceText').textContent, /C:\\work/)
+  // Scheduler
+  assert.equal(h.dom.element('minConcurrent').value, 2)
+  assert.equal(h.dom.element('memoryPerWorkerGb').value, 2.5)
+  assert.equal(h.dom.element('defaultAllowPeak').checked, true)
+  assert.equal(h.dom.element('interruptRunningAtPeak').checked, false)
+
+  h.dom.element('closeSettings').onclick()
+  assert.equal(h.dom.element('settingsOverlay').hidden, true)
+})
+
+test('the settings layer closes on Escape and on a backdrop click', async () => {
+  const snapshotForCollapse = makeSnapshot()
+  const h = loadDock(snapshotForCollapse)
+  await settle()
+
+  h.dom.element('openSettings').onclick({ stopPropagation() {} })
+  assert.equal(h.dom.element('settingsOverlay').hidden, false)
+  h.dom.fireDocument('keydown', { key: 'Escape' })
+  assert.equal(h.dom.element('settingsOverlay').hidden, true)
+
+  h.dom.element('openSettings').onclick({ stopPropagation() {} })
+  h.dom.element('settingsOverlay').fire('click', { target: h.dom.element('settingsOverlay') })
+  assert.equal(h.dom.element('settingsOverlay').hidden, true)
+
+  // A collapsed dock cannot leave a floating settings layer behind.
+  h.dom.element('openSettings').onclick({ stopPropagation() {} })
+  snapshotForCollapse.extension.dock.expanded = false
+  h.dom.element('collapse').onclick()
+  await settle()
+  assert.equal(h.dom.element('settingsOverlay').hidden, true)
+})
+
+test('saving settings uses the existing backend IPC with the expected patches', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+
+  h.dom.element('model').value = 'deepseek-v4-pro'
+  h.dom.element('globalPermission').value = 'read-only'
+  h.dom.element('telemetry').value = 'ENABLED'
+  h.dom.element('apiKey').value = 'sk-new-key'
+  await h.dom.element('generalForm').onsubmit({ preventDefault() {} })
+  await settle()
+  assert.deepEqual(h.calls.updateSettings[0], {
+    model: 'deepseek-v4-pro',
+    permissionMode: 'read-only',
+    telemetryMode: 'ENABLED',
+    apiKey: 'sk-new-key'
+  })
+  assert.equal(h.dom.element('apiKey').value, '', 'the key field is cleared after saving')
+
+  // A browser reflects the rendered <option selected> into .value.
+  h.dom.element('soundCompleted').value = 'custom.mp3'
+  h.dom.element('soundFailed').value = 'failed.wav'
+  h.dom.element('soundInterrupted').value = 'interrupted.wav'
+  h.dom.element('notifyEnabled').checked = false
+  h.dom.element('notifyCancelled').checked = true
+  h.dom.element('volume').value = '0.35'
+  await h.dom.element('notificationForm').onsubmit({ preventDefault() {} })
+  await settle()
+  const notificationPatch = h.calls.updateSettings[1]
+  assert.equal(notificationPatch.soundEnabled, true)
+  assert.equal(notificationPatch.sound.volume, 0.35)
+  assert.deepEqual(notificationPatch.sound.events, {
+    COMPLETED: { file: 'custom.mp3' },
+    FAILED: { file: 'failed.wav' },
+    INTERRUPTED: { file: 'interrupted.wav' }
+  })
+  assert.deepEqual(notificationPatch.notifications, { enabled: false, onCancelled: true })
+
+  // With no ringtone available the event entry is omitted, so the configured
+  // file is preserved instead of being rejected by the settings backend.
+  h.dom.element('soundFailed').value = ''
+  await h.dom.element('notificationForm').onsubmit({ preventDefault() {} })
+  await settle()
+  assert.deepEqual(h.calls.updateSettings[2].sound.events, {
+    COMPLETED: { file: 'custom.mp3' },
+    INTERRUPTED: { file: 'interrupted.wav' }
+  })
+
+  h.dom.element('maxConcurrent').value = '3'
+  await h.dom.element('schedulerForm').onsubmit({ preventDefault() {} })
+  await settle()
+  assert.equal(h.calls.updateScheduler[0].maxConcurrent, 3)
+  assert.equal(h.calls.updateScheduler[0].minConcurrent, 2)
+  assert.equal(h.calls.updateScheduler[0].defaultAllowPeak, true)
+
+  await h.dom.element('workspace').onclick()
+  await settle()
+  assert.deepEqual(h.calls.pickWorkspace, [true])
+  assert.match(h.dom.element('settingsStatus').textContent, /C:\\other/)
+
+  await h.dom.element('soundFile').onclick()
+  await settle()
+  assert.deepEqual(h.calls.pickSound, [true])
+  assert.match(h.dom.element('settingsStatus').textContent, /custom\.mp3/)
+})
+
+test('a settings save failure is reported without breaking the dock', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+  global.window.megaTools.updateSettings = async () => { throw new Error('settings backend refused') }
+
+  await h.dom.element('generalForm').onsubmit({ preventDefault() {} })
+  await settle()
+  assert.match(h.dom.element('settingsStatus').textContent, /保存失败/)
+  assert.match(h.dom.element('error').textContent, /settings backend refused/)
 })

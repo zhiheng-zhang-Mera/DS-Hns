@@ -32,6 +32,23 @@ function normalizeFailure(failure) {
   }
 }
 
+/** First real user prompt text of a session (used for alert wording). */
+function extractUserText(data) {
+  const candidates = [data?.message?.content, data?.content, data?.text, data?.prompt]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim().slice(0, 400)
+    if (Array.isArray(candidate)) {
+      const text = candidate
+        .filter((block) => block && block.type === 'text' && typeof block.text === 'string')
+        .map((block) => block.text)
+        .join('\n')
+        .trim()
+      if (text) return text.slice(0, 400)
+    }
+  }
+  return ''
+}
+
 function collectUsage(data) {
   const usage = data?.usage
   if (!usage || typeof usage !== 'object') return null
@@ -84,6 +101,7 @@ function parseSessionFile(file) {
   let sawAssistantMessage = false
   let sawFinish = false
   let sawUserMessage = false
+  let firstUserText = ''
   let lastAssistantText = ''
   const usageEvents = []
   const errors = []
@@ -108,7 +126,10 @@ function parseSessionFile(file) {
     lastTime = Math.max(lastTime ?? 0, ev.time)
     const data = ev.data || {}
 
-    if (ev.type === 'user/message' && data.source?.kind === 'user') sawUserMessage = true
+    if (ev.type === 'user/message' && data.source?.kind === 'user') {
+      sawUserMessage = true
+      if (!firstUserText) firstUserText = extractUserText(data)
+    }
     if (ev.type === 'request/header') {
       provider = data.header?.config?.provider || provider
       model = data.header?.config?.model || model
@@ -172,6 +193,7 @@ function parseSessionFile(file) {
   session.provider = provider
   session.model = model
   session.sawUserMessage = sawUserMessage
+  session.firstUserText = firstUserText
   session.sawFinish = sawFinish
   session.usageEvents = usageEvents
   session.errors = errors
@@ -217,6 +239,10 @@ function listSessions({ root = PATHS.SESSIONS, limit = 200 } = {}) {
       model: parsed.model,
       provider: parsed.provider,
       lastSeq: parsed.lastSeq,
+      endedAt: parsed.endedAt ?? null,
+      delegationDepth: parsed.delegationDepth ?? 0,
+      sawUserMessage: parsed.sawUserMessage === true,
+      firstUserText: parsed.firstUserText || '',
       error: parsed.lastError,
       usageEvents: parsed.usageEvents,
       assistantText: parsed.assistantText,
@@ -293,4 +319,4 @@ function deleteSessionsFor(ids) {
   return removed
 }
 
-module.exports = { walkSessionFiles, parseSessionFile, listSessions, collectUsage, headerInfo, deleteSessionsFor }
+module.exports = { walkSessionFiles, parseSessionFile, listSessions, collectUsage, headerInfo, deleteSessionsFor, extractUserText }

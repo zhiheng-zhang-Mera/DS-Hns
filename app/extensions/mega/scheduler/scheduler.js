@@ -626,6 +626,28 @@ class SchedulerService extends EventEmitter {
     }
   }
 
+  /**
+   * Official session ids that Mega launched itself (scheduler dispatch). The
+   * terminal observer uses this to skip sessions the scheduler already reports,
+   * so one task never produces two alerts.
+   */
+  managedOfficialSessionIds() {
+    const ids = new Set()
+    for (const t of this.tasks) {
+      if (t.officialSessionId) ids.add(String(t.officialSessionId))
+    }
+    for (const entry of this.listHistory({ limit: 200 })) {
+      if (entry?.officialSessionId) ids.add(String(entry.officialSessionId))
+    }
+    return ids
+  }
+
+  isManagedOfficialSession(sessionId) {
+    const id = String(sessionId || '')
+    if (!id) return false
+    return this.managedOfficialSessionIds().has(id)
+  }
+
   publicTask(t) {
     const copy = { ...t }
     delete copy.proc

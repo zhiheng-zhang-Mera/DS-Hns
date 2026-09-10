@@ -39,13 +39,30 @@ function formatMoney(value, currency = 'CNY') {
   }
 }
 
-function tokenCount(usage) {
-  if (!usage) return 0
-  return Number(usage.inputTokens || 0) + Number(usage.outputTokens || 0) + Number(usage.reasoningTokens || 0)
-}
-
 function showError(error) {
   $('error').textContent = error ? String(error.stack || error.message || error) : ''
+}
+
+function setSettingsStatus(text) {
+  const node = $('settingsStatus')
+  if (node) node.textContent = text ? String(text) : ''
+}
+
+/** Settings layer: an in-dock overlay, never a second window or page. */
+function setSettingsOpen(open) {
+  const overlay = $('settingsOverlay')
+  if (!overlay) return false
+  overlay.hidden = !open
+  document.body.classList.toggle('settings-open', Boolean(open))
+  if (open) {
+    setSettingsStatus('')
+    $('apiKey').value = ''
+  }
+  return Boolean(open)
+}
+
+function isSettingsOpen() {
+  return !$('settingsOverlay').hidden
 }
 
 function setExpanded(expanded) {
@@ -56,6 +73,8 @@ function setExpanded(expanded) {
   // Collapse/expand is the dock's "module open" event: closing the dock and
   // reopening it is what allows another automatic balance refresh to fire.
   balanceModule?.sync()
+  // The settings layer lives inside the dock, so a collapsed dock closes it.
+  if (!expanded) setSettingsOpen(false)
 }
 
 function isActive(task) {
@@ -187,6 +206,65 @@ function renderBalance(snapshot) {
   cards.innerHTML = balanceCards(balance)
 }
 
+const SOUND_EVENT_INPUTS = [
+  ['COMPLETED', 'soundCompleted'],
+  ['FAILED', 'soundFailed'],
+  ['INTERRUPTED', 'soundInterrupted']
+]
+
+function fillSelect(select, values, current) {
+  if (!select) return
+  const options = [...values]
+  if (current && !options.includes(current)) options.unshift(current)
+  select.innerHTML = options.length
+    ? options.map((name) => `<option value="${esc(name)}" ${name === current ? 'selected' : ''}>${esc(name)}</option>`).join('')
+    : '<option value="">无可用铃声</option>'
+}
+
+/**
+ * Every former Full Mega Tools capability is rendered here, inside the dock.
+ * The backend is unchanged: mega:update-settings, mega:update-scheduler,
+ * mega:pick-workspace, mega:pick-sound and mega:snapshot.
+ */
+function renderSettings(snapshot) {
+  const st = snapshot.settings || {}
+  const sound = st.sound || {}
+  const notifications = st.notifications || {}
+
+  $('model').innerHTML = (st.models || [])
+    .map((m) => `<option value="${esc(m)}" ${m === st.defaultModel ? 'selected' : ''}>${esc(m)}</option>`)
+    .join('')
+  $('globalPermission').value = st.permissionMode || 'workspace-write'
+  $('telemetry').value = st.telemetryMode || 'DISABLED'
+
+  $('soundEnabled').checked = sound.enabled !== false
+  $('volume').value = sound.volume ?? 0.8
+  const files = (snapshot.soundFiles || []).map((file) => file.name)
+  for (const [event, inputId] of SOUND_EVENT_INPUTS) {
+    fillSelect($(inputId), files, sound.events?.[event]?.file || '')
+  }
+
+  $('notifyEnabled').checked = notifications.enabled !== false
+  $('notifyCancelled').checked = notifications.onCancelled !== false
+  $('notifyEnabled').title = notifications.supported === false
+    ? '当前环境不支持系统通知'
+    : '终态任务会发送系统通知'
+  $('notifyCancelled').title = notifications.supported === false
+    ? '当前环境不支持系统通知'
+    : '取消 / 中断的任务是否也发送通知'
+
+  $('workspaceText').textContent = snapshot.workspace || '—'
+
+  const config = snapshot.scheduler?.config || {}
+  $('minConcurrent').value = config.minConcurrent ?? 1
+  $('maxConcurrent').value = config.maxConcurrent ?? 0
+  $('cpuReservePercent').value = config.cpuReservePercent ?? 25
+  $('memoryReserveGb').value = config.memoryReserveGb ?? 2
+  $('memoryPerWorkerGb').value = config.memoryPerWorkerGb ?? 2.5
+  $('defaultAllowPeak').checked = Boolean(config.defaultAllowPeak)
+  $('interruptRunningAtPeak').checked = Boolean(config.interruptRunningAtPeak)
+}
+
 function render(snapshot) {
   latestSnapshot = snapshot
   const scheduler = snapshot.scheduler || {}
@@ -253,18 +331,8 @@ function render(snapshot) {
     ['当前并行', `${concurrency.current ?? '—'} workers`]
   ].map(([label, value]) => `<div class="hardware-item"><span>${esc(label)}</span><b>${esc(value)}</b></div>`).join('')
 
-  const config = scheduler.config || {}
-  $('minConcurrent').value = config.minConcurrent ?? 1
-  $('maxConcurrent').value = config.maxConcurrent ?? 0
-  $('cpuReservePercent').value = config.cpuReservePercent ?? 25
-  $('memoryReserveGb').value = config.memoryReserveGb ?? 2
-  $('memoryPerWorkerGb').value = config.memoryPerWorkerGb ?? 2.5
-
   renderBalance(snapshot)
-
-  $('sessions').innerHTML = (snapshot.sessions || []).slice(0, 8).map((session) => (
-    `<div class="session-item"><b>${esc(session.status || '—')}</b><span>${esc(session.model || '—')} · ${esc(tokenCount(session.usage).toLocaleString())} tok</span><span>${esc(fmtTime(session.updatedAt || session.createdAt))}</span></div>`
-  )).join('') || '<div class="muted">暂无 Session</div>'
+  renderSettings(snapshot)
 
   updateLivePeriod()
 }
@@ -305,6 +373,105 @@ balanceModule = window.megaBalanceModule.attachBalanceModule({
   onError: (error) => showError(error)
 })
 
+async function saveSettings(patch, okMessage) {
+  setSettingsStatus('保存中…')
+  try {
+    await window.megaTools.updateSettings(patch)
+    await refresh()
+    setSettingsStatus(okMessage)
+  } catch (error) {
+    setSettingsStatus(`保存失败：${error?.message || error}`)
+    showError(error)
+  }
+}
+
+$('openSettings').onclick = (event) => {
+  event.stopPropagation()
+  setSettingsOpen(true)
+}
+$('closeSettings').onclick = () => setSettingsOpen(false)
+$('settingsOverlay').addEventListener('click', (event) => {
+  if (event.target === $('settingsOverlay')) setSettingsOpen(false)
+})
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && isSettingsOpen()) setSettingsOpen(false)
+})
+
+$('generalForm').onsubmit = async (event) => {
+  event.preventDefault()
+  const patch = {
+    model: $('model').value,
+    permissionMode: $('globalPermission').value,
+    telemetryMode: $('telemetry').value
+  }
+  if ($('apiKey').value) patch.apiKey = $('apiKey').value
+  await saveSettings(patch, 'General 已保存')
+  $('apiKey').value = ''
+}
+
+$('notificationForm').onsubmit = async (event) => {
+  event.preventDefault()
+  const events = {}
+  for (const [name, inputId] of SOUND_EVENT_INPUTS) {
+    const file = $(inputId).value
+    if (file) events[name] = { file }
+  }
+  const patch = {
+    soundEnabled: $('soundEnabled').checked,
+    sound: {
+      enabled: $('soundEnabled').checked,
+      volume: Number($('volume').value)
+    },
+    notifications: {
+      enabled: $('notifyEnabled').checked,
+      onCancelled: $('notifyCancelled').checked
+    }
+  }
+  if (Object.keys(events).length) patch.sound.events = events
+  await saveSettings(patch, 'Notifications 已保存')
+}
+
+$('schedulerForm').onsubmit = async (event) => {
+  event.preventDefault()
+  setSettingsStatus('保存中…')
+  try {
+    await window.megaTools.updateScheduler({
+      minConcurrent: Number($('minConcurrent').value),
+      maxConcurrent: Number($('maxConcurrent').value),
+      cpuReservePercent: Number($('cpuReservePercent').value),
+      memoryReserveGb: Number($('memoryReserveGb').value),
+      memoryPerWorkerGb: Number($('memoryPerWorkerGb').value),
+      defaultAllowPeak: $('defaultAllowPeak').checked,
+      interruptRunningAtPeak: $('interruptRunningAtPeak').checked
+    })
+    await refresh()
+    setSettingsStatus('Scheduler 已保存')
+  } catch (error) {
+    setSettingsStatus(`保存失败：${error?.message || error}`)
+    showError(error)
+  }
+}
+
+$('workspace').onclick = async () => {
+  try {
+    const selected = await window.megaTools.pickWorkspace()
+    if (selected) setSettingsStatus(`工作区已切换到 ${selected}`)
+    await refresh()
+  } catch (error) {
+    showError(error)
+  }
+}
+
+$('soundFile').onclick = async () => {
+  try {
+    const imported = await window.megaTools.pickSound()
+    if (imported?.name) setSettingsStatus(`已导入 ${imported.name}`)
+    await refresh()
+  } catch (error) {
+    showError(error)
+  }
+}
+
 $('railToggle').onclick = async (event) => {
   event.stopPropagation()
   try { await window.megaTools.toggleDock(); await refresh() } catch (error) { showError(error) }
@@ -343,22 +510,6 @@ $('taskForm').onsubmit = async (event) => {
     })
     $('prompt').value = ''
     $('startAt').value = ''
-    await refresh()
-  } catch (error) {
-    showError(error)
-  }
-}
-
-$('schedulerForm').onsubmit = async (event) => {
-  event.preventDefault()
-  try {
-    await window.megaTools.updateScheduler({
-      minConcurrent: Number($('minConcurrent').value),
-      maxConcurrent: Number($('maxConcurrent').value),
-      cpuReservePercent: Number($('cpuReservePercent').value),
-      memoryReserveGb: Number($('memoryReserveGb').value),
-      memoryPerWorkerGb: Number($('memoryPerWorkerGb').value)
-    })
     await refresh()
   } catch (error) {
     showError(error)

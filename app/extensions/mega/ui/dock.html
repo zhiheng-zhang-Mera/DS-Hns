@@ -24,6 +24,7 @@
         <p>DS-Harness companion dock</p>
       </div>
       <div class="header-actions">
+        <button id="openSettings" class="icon-button" title="Mega 设置" aria-label="Mega 设置">⚙</button>
         <button id="collapse" class="icon-button" title="折叠 Mega Dock" aria-label="折叠 Mega Dock">›</button>
       </div>
     </header>
@@ -62,14 +63,6 @@
         <button id="hardwareRefresh" class="quiet">采样</button>
       </div>
       <div id="hardware" class="hardware-grid"></div>
-      <form id="schedulerForm" class="scheduler-form">
-        <label>最低并发<input id="minConcurrent" type="number" min="1" max="64"></label>
-        <label>人工上限<input id="maxConcurrent" type="number" min="0" max="64"><small>0 = 硬件自动</small></label>
-        <label>CPU 预留 %<input id="cpuReservePercent" type="number" min="5" max="80" step="5"></label>
-        <label>系统预留 RAM GB<input id="memoryReserveGb" type="number" min="0.5" max="64" step="0.5"></label>
-        <label>每任务 RAM GB<input id="memoryPerWorkerGb" type="number" min="0.5" max="32" step="0.5"></label>
-        <button type="submit">保存并发设置</button>
-      </form>
     </section>
 
     <section class="panel balance-panel">
@@ -91,13 +84,81 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head"><div><h2>最近 Session</h2><p>最近任务状态与 Token 用量。</p></div></div>
-      <div id="sessions" class="session-list"></div>
-    </section>
-
     <p id="error" class="error"></p>
   </main>
+
+  <div id="settingsOverlay" class="settings-overlay" hidden>
+    <div class="settings-sheet" role="dialog" aria-modal="true" aria-label="Mega 设置">
+      <div class="settings-head">
+        <h2>Mega 设置</h2>
+        <button id="closeSettings" class="icon-button" title="关闭设置" aria-label="关闭设置">×</button>
+      </div>
+      <div class="settings-body">
+        <details class="settings-group" open>
+          <summary>General</summary>
+          <form id="generalForm" class="settings-form">
+            <label>默认模型 <select id="model"></select></label>
+            <label>权限模式 <select id="globalPermission"><option value="workspace-write">workspace-write</option><option value="read-only">read-only</option><option value="danger-full-access">danger-full-access</option></select></label>
+            <label>遥测 <select id="telemetry"><option value="DISABLED">DISABLED</option><option value="ENABLED">ENABLED</option></select></label>
+            <label>API Key（留空不修改） <input id="apiKey" type="password" autocomplete="off"></label>
+            <button type="submit">保存 General</button>
+          </form>
+        </details>
+
+        <details class="settings-group" open>
+          <summary>Notifications</summary>
+          <form id="notificationForm" class="settings-form">
+            <div class="settings-row">
+              <label class="check"><input id="soundEnabled" type="checkbox"> 启用任务提示音</label>
+              <label class="check"><input id="notifyEnabled" type="checkbox"> 终态发送系统通知</label>
+              <label class="check"><input id="notifyCancelled" type="checkbox"> 取消 / 中断也通知</label>
+            </div>
+            <label>音量 <input id="volume" type="range" min="0" max="1" step="0.05"></label>
+            <label>铃声 · 任务完成 <select id="soundCompleted"></select></label>
+            <label>铃声 · 任务失败 <select id="soundFailed"></select></label>
+            <label>铃声 · 任务中断 <select id="soundInterrupted"></select></label>
+            <div class="settings-actions">
+              <button type="button" id="soundFile" class="quiet">导入提示音</button>
+              <button type="submit">保存 Notifications</button>
+            </div>
+          </form>
+        </details>
+
+        <details class="settings-group">
+          <summary>Workspace</summary>
+          <div class="settings-form">
+            <p class="settings-note">Headless 工作区：<span id="workspaceText">—</span></p>
+            <div class="settings-actions"><button type="button" id="workspace" class="quiet">选择工作区</button></div>
+          </div>
+        </details>
+
+        <details class="settings-group">
+          <summary>Scheduler</summary>
+          <form id="schedulerForm" class="settings-form">
+            <div class="settings-row">
+              <label>最低并发<input id="minConcurrent" type="number" min="1" max="64"></label>
+              <label>人工上限<input id="maxConcurrent" type="number" min="0" max="64"><small>0 = 硬件自动</small></label>
+            </div>
+            <div class="settings-row">
+              <label>CPU 预留 %<input id="cpuReservePercent" type="number" min="5" max="80" step="5"></label>
+              <label>系统预留 RAM GB<input id="memoryReserveGb" type="number" min="0.5" max="64" step="0.5"></label>
+            </div>
+            <div class="settings-row">
+              <label>每任务 RAM GB<input id="memoryPerWorkerGb" type="number" min="0.5" max="32" step="0.5"></label>
+            </div>
+            <div class="settings-row">
+              <label class="check"><input id="defaultAllowPeak" type="checkbox"> 新任务默认允许峰值</label>
+              <label class="check"><input id="interruptRunningAtPeak" type="checkbox"> 峰值时中断仅谷值任务</label>
+            </div>
+            <button type="submit">保存 Scheduler</button>
+          </form>
+        </details>
+
+        <p id="settingsStatus" class="settings-status" role="status"></p>
+      </div>
+    </div>
+  </div>
+
   <script src="balance-module.js"></script>
   <script src="dock.js"></script>
 </body>

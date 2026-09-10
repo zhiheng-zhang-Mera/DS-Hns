@@ -292,6 +292,26 @@ test('restart recovery never reloads a terminal task and never resurrects it', a
   assert.equal(h.events.length, eventsBefore, 'restarting again emits no new terminal event')
 })
 
+test('Mega-dispatched official sessions are registered as managed', async (t) => {
+  const h = makeHarness()
+  t.after(h.cleanup)
+
+  h.service.addTask({ prompt: 'scheduler dispatched session' })
+  const task = h.service.tasks[0]
+  await h.service.launchOfficial(task)
+  assert.equal(h.service.isManagedOfficialSession(task.officialSessionId), true, 'active task session is managed')
+  assert.equal(h.service.isManagedOfficialSession('someone-elses-session'), false)
+
+  h.service.finish(task, 'COMPLETED', 0, { source: 'test' })
+  assert.equal(
+    h.service.isManagedOfficialSession(task.officialSessionId),
+    true,
+    'the history layer keeps the session managed so the observer cannot double-alert it'
+  )
+  assert.deepEqual([...h.service.managedOfficialSessionIds()], [task.officialSessionId])
+  assert.equal(h.service.isManagedOfficialSession(''), false)
+})
+
 test('bulk clear moves every queued task to history and cancels active work', async (t) => {
   const h = makeHarness()
   t.after(h.cleanup)

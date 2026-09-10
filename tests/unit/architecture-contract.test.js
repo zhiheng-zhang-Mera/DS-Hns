@@ -65,12 +65,53 @@ test('collapsed rail remains useful and expanded dock contains queue and hardwar
   assert.match(dockJs, /hardwareCap/)
 })
 
-test('Mega tray and full tools remain available alongside the dock', () => {
+test('the tray exposes only exit actions and no secondary Mega window exists', () => {
   assert.match(main, /Tray, Menu, nativeImage, screen/)
   assert.match(mega, /function createTray\(/)
-  assert.match(mega, /Expand Mega Dock/)
-  assert.match(mega, /Full Mega Tools/)
-  assert.match(mega, /function openTools\(/)
+  assert.match(mega, /function applyTrayMenu\(/)
+  assert.match(mega, /\{ label: 'Exit DS-Harness'/)
+  assert.match(mega, /\{ label: 'Force Exit DS-Harness'/)
+  // No navigation/control items and no Full Mega Tools product concept.
+  for (const removed of ['Expand Mega Dock', 'Collapse Mega Dock', 'Show Mega Dock', 'Hide Mega Dock', 'Full Mega Tools']) {
+    assert.equal(new RegExp(removed).test(mega), false, `tray menu must not offer ${removed}`)
+  }
+  assert.equal(/function openTools\(/.test(mega), false)
+  assert.equal(/toolsWindow/.test(mega), false)
+  assert.equal(/mega:open-tools/.test(mega), false)
+  assert.equal(/mega:open-main/.test(mega), false)
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'index.html')), false)
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'renderer.js')), false)
+  assert.equal(fs.existsSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'style.css')), false)
+  // Settings live inside the dock as an overlay, not in a second window.
+  assert.match(dockHtml, /id="settingsOverlay"/)
+  assert.match(dockHtml, /id="openSettings"/)
+  assert.equal(/new BrowserWindow/.test(dockJs), false)
+})
+
+test('exit paths are graceful and force-exit capable in the shell', () => {
+  assert.match(main, /function gracefulExit\(/)
+  assert.match(main, /function forceExit\(/)
+  assert.match(main, /function teardownManagedResources\(/)
+  assert.match(main, /shutdown: \{/)
+  assert.match(main, /taskkill\.exe', \['\/pid', String\(childPid\), '\/T', '\/F'\]/)
+  assert.match(main, /app\.exit\(0\)/)
+  // State is persisted (extension stop) before the managed child is killed.
+  const teardown = main.slice(main.indexOf('function teardownManagedResources'), main.indexOf('function gracefulExit'))
+  assert.ok(teardown.indexOf('extensionManager?.stop?.()') >= 0)
+  assert.ok(
+    teardown.indexOf('extensionManager?.stop?.()') < teardown.indexOf('stopHarness()'),
+    'normal exit must flush/persist state before stopping the managed Harness'
+  )
+  // Force exit keeps going even when a cleanup step fails.
+  const force = main.slice(main.indexOf('function forceExit'), main.indexOf('function integratedDockWidth'))
+  assert.ok(force.length > 0 && force.length < 2000, 'the force exit body must be extractable')
+  assert.equal(/throw\b/.test(force), false, 'no cleanup step may abort the force exit')
+  assert.match(force, /app\.exit\(0\)/)
+  // The extension routes both tray actions to the shell hook.
+  assert.match(mega, /function requestShutdown\(mode = 'graceful'\)/)
+  assert.match(mega, /hook\.force\('tray'\)/)
+  assert.match(mega, /hook\.graceful\('tray'\)/)
+  assert.match(mega, /tray\.on\('double-click', focusMain\)/)
 })
 
 test('Ctrl+Shift+M toggles the dock using actual input logic', () => {

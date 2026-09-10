@@ -8,9 +8,15 @@ $syntaxFiles = @(
   "$ROOT\app\extensions\mega\index.cjs",
   "$ROOT\app\extensions\mega\deepseek\official-session-client.js",
   "$ROOT\app\extensions\mega\scheduler\scheduler.js",
+  "$ROOT\app\extensions\mega\scheduler\lifecycle.js",
   "$ROOT\app\extensions\mega\scheduler\system.js",
+  "$ROOT\app\extensions\mega\billing\balance-service.js",
+  "$ROOT\app\extensions\mega\notifications\notification-service.js",
+  "$ROOT\app\extensions\mega\notifications\terminal-dispatch.js",
+  "$ROOT\app\extensions\mega\tracker\terminal-observer.js",
+  "$ROOT\app\extensions\mega\tracker\session-reader.js",
   "$ROOT\app\extensions\mega\ui\preload.cjs",
-  "$ROOT\app\extensions\mega\ui\renderer.js",
+  "$ROOT\app\extensions\mega\ui\balance-module.js",
   "$ROOT\app\extensions\mega\ui\dock.js"
 )
 foreach ($file in $syntaxFiles) {
