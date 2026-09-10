@@ -4,6 +4,7 @@ const path = require('node:path')
 const { PATHS, app, readJson } = require('../utils/paths')
 const { loadProjectEnv } = require('../utils/env')
 const soundService = require('../notifications/sound-service')
+const notificationService = require('../notifications/notification-service')
 
 /**
  * Editable settings service.
@@ -11,6 +12,7 @@ const soundService = require('../notifications/sound-service')
  * - config/app.json (default model for the monitor/queue UI)
  * - <DSH_HOME>\cordis.patch.yml (agent default model; DSH_HOME = <root>\data)
  * - config/sound.json (ringtone: master switch, volume, per-event switch/file)
+ * - config/notifications.json (desktop terminal notifications)
  */
 
 const ENV_FILE = path.join(PATHS.CONFIG, '.env')
@@ -111,7 +113,7 @@ function patchAgentDefaultModel(model) {
   fs.writeFileSync(HOME_PATCH, kept.join('\r\n') + '\r\n', 'utf8')
 }
 
-function applyPatch({ model, soundEnabled, sound } = {}) {
+function applyPatch({ model, soundEnabled, sound, notifications } = {}) {
   const cfg = readJson('app.json', {})
   if (model) {
     patchAgentDefaultModel(model)
@@ -141,6 +143,17 @@ function applyPatch({ model, soundEnabled, sound } = {}) {
     }
     soundService.saveSoundConfig(next)
   }
+  if (notifications && typeof notifications === 'object') {
+    const patch = {}
+    for (const key of ['enabled', 'onCompleted', 'onFailed', 'onCancelled', 'silent']) {
+      if (typeof notifications[key] === 'boolean') patch[key] = notifications[key]
+    }
+    // Legacy/alternate alias accepted on input only.
+    if (typeof notifications.notifyOnCancelled === 'boolean' && !('onCancelled' in patch)) {
+      patch.onCancelled = notifications.notifyOnCancelled
+    }
+    notificationService.updateConfig(patch)
+  }
 }
 
 function publicSettings() {
@@ -154,6 +167,7 @@ function publicSettings() {
     defaultModel: model,
     models: validModels(),
     sound: soundService.describeSounds(),
+    notifications: notificationService.describe(),
     ui: app.ui,
     version: app.version || '0.2.0',
     dshWeb: app.dshWeb,

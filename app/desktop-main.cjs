@@ -7,7 +7,7 @@
  * dock is enabled. This keeps the official renderer untouched while reserving
  * real layout width for Mega instead of overlaying it.
  */
-const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen } = require('electron')
+const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
@@ -89,6 +89,26 @@ process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
 app.setName('DS-Harness')
 app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
+// Windows needs an explicit AppUserModelID so terminal task notifications and
+// taskbar grouping carry the DS-Harness identity instead of Electron's.
+try {
+  if (typeof app.setAppUserModelId === 'function') app.setAppUserModelId('com.dsharness.desktop')
+} catch {}
+
+/**
+ * Launcher icon resolution. `assets\icon\ds-harness.ico` is generated from the
+ * repository-root icon.jpg (scripts\ensure-icon.ps1); a missing or broken icon
+ * may only degrade to the platform default icon - it must never stop the shell
+ * from starting.
+ */
+function resolveAppIcon() {
+  try {
+    const ico = path.join(ROOT, 'assets', 'icon', 'ds-harness.ico')
+    return fs.existsSync(ico) ? ico : undefined
+  } catch {
+    return undefined
+  }
+}
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
 if (!hasSingleInstanceLock) app.quit()
@@ -413,6 +433,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 640,
     title: 'DS-Harness · DeepSeek Harness',
+    icon: resolveAppIcon(),
     backgroundColor: '#f7f8fa',
     autoHideMenuBar: true,
     show: false,
@@ -449,7 +470,9 @@ async function startExtensions(nodeExe) {
       mainWindow,
       officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
       log: logLine,
-      electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen }
+      // `Notification` is handed to the extension so terminal task notifications
+      // are a first-class lifecycle capability rather than a renderer concern.
+      electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
     })
     return true
   } catch (error) {

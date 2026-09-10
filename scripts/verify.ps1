@@ -21,8 +21,11 @@ $mega = Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw
 $scheduler = Get-Content "$ROOT\app\extensions\mega\scheduler\scheduler.js" -Raw
 $system = Get-Content "$ROOT\app\extensions\mega\scheduler\system.js" -Raw
 $official = Get-Content "$ROOT\app\extensions\mega\deepseek\official-session-client.js" -Raw
-$create = ($main -split 'async function startExtensions')[0]
+$create = $main.Substring($main.IndexOf('function createWindow()'), $main.IndexOf('async function startExtensions') - $main.IndexOf('function createWindow()'))
+$officialView = ($main -split 'function createOfficialHarnessView')[1]
+$officialView = ($officialView -split 'async function createIntegratedMegaDock')[0]
 Check 'Official main window has no preload' (-not ($create -match 'preload\s*:'))
+Check 'Official WebContentsView has no preload' (-not ($officialView -match 'preload\s*:'))
 Check 'Pure Alien kill switch exists' ($main -match 'DSH_DISABLE_MEGA')
 Check 'Owned stale runtime recovery wired' ($main -match 'recoverOwnedStale')
 Check 'Mega dock is isolated BrowserWindow' (($mega -match 'function createDock') -and ($mega -match 'parent: ctx\.mainWindow'))

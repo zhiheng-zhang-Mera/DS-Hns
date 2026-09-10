@@ -76,25 +76,29 @@
       <div class="panel-head balance-head">
         <div>
           <div class="balance-title-row">
-            <h2>成本 / 余额</h2>
+            <h2>账户余额</h2>
             <span id="balanceStatus" class="status-chip neutral">未刷新</span>
           </div>
-          <p id="balanceMeta">余额与最近 Session 成本会在这里汇总。</p>
+          <p id="balanceMeta">打开本模块会自动刷新，也可以随时手动刷新。</p>
         </div>
-        <button id="balance" class="quiet">刷新</button>
+        <div class="balance-actions">
+          <button id="balanceRetry" class="quiet" hidden>重试失败项</button>
+          <button id="balance" class="quiet">刷新</button>
+        </div>
       </div>
       <div id="balanceCards" class="balance-grid">
-        <div class="balance-empty">刷新后显示账户余额与最近 Session 成本。</div>
+        <div class="balance-empty">打开余额模块会自动读取 DeepSeek 账户余额。</div>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-head"><div><h2>最近 Session</h2><p>最近任务状态、Token 与估算成本。</p></div></div>
+      <div class="panel-head"><div><h2>最近 Session</h2><p>最近任务状态与 Token 用量。</p></div></div>
       <div id="sessions" class="session-list"></div>
     </section>
 
     <p id="error" class="error"></p>
   </main>
+  <script src="balance-module.js"></script>
   <script src="dock.js"></script>
 </body>
 </html>

@@ -55,19 +55,24 @@
           <label>API Key（留空不修改） <input id="apiKey" type="password" autocomplete="off"></label>
           <label><input id="soundEnabled" type="checkbox"> 启用任务提示音</label>
           <label>音量 <input id="volume" type="range" min="0" max="1" step="0.05"></label>
+          <label><input id="notifyEnabled" type="checkbox"> 任务进入终态时发送系统通知</label>
+          <label><input id="notifyCancelled" type="checkbox"> 取消 / 中断的任务也发送通知</label>
           <button>保存设置</button>
         </form>
-        <div class="row"><button id="workspace">选择队列工作区</button><button id="soundFile">导入提示音</button><button id="balance">刷新余额</button></div>
-        <p class="muted" id="workspaceText"></p><pre id="balanceText"></pre>
+        <div class="balance-panel">
+          <div class="row"><button id="workspace">选择队列工作区</button><button id="soundFile">导入提示音</button><button id="balance">刷新余额</button></div>
+          <p class="muted" id="workspaceText"></p><pre id="balanceText"></pre>
+        </div>
       </div>
     </section>
 
     <section class="panel">
       <h2>最近 Session</h2>
-      <div class="table-wrap"><table><thead><tr><th>状态</th><th>模型</th><th>Token</th><th>成本</th><th>时间</th></tr></thead><tbody id="sessions"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>状态</th><th>模型</th><th>Token</th><th>时间</th></tr></thead><tbody id="sessions"></tbody></table></div>
     </section>
     <p id="error" class="error"></p>
   </main>
+  <script src="balance-module.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

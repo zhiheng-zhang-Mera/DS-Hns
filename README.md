@@ -102,10 +102,11 @@ If no environment key and no existing project key are found, the installer asks:
 - manual ordered queue with top/up/down/bottom controls
 - scheduled / off-peak task queue
 - hardware-adaptive local concurrency
-- peak/off-peak pricing engine and task-cost calculation
-- DeepSeek account balance lookup
-- session JSONL tracking and recent task history
-- model / permission / telemetry settings helpers
+- peak/off-peak pricing engine and task-cost calculation (billing/accounting layer, no longer a UI metric)
+- DeepSeek account balance lookup, refreshed automatically when the Balance module opens
+- session JSONL tracking plus a queryable terminal task history
+- one desktop notification per terminal task state (completed / failed / cancelled)
+- model / permission / telemetry / notification settings helpers
 - configurable completion / failure / interruption sounds
 - selectable headless-task workspace
 
@@ -119,7 +120,7 @@ Collapsed                              Expanded
 | official DSH UI      | M  |          | official DSH UI      | Mega                  |
 |                      | E  |          |                      | Queue / reorder       |
 |                      | G  |          |                      | Hardware auto         |
-|                      | A  |          |                      | Peak / cost / balance |
+|                      | A  |          |                      | Peak / balance        |
 |                      |RUN |          |                      | Recent sessions       |
 |                      |Q/HW|          |                      |                       |
 +----------------------+----+          +----------------------+-----------------------+
@@ -147,41 +148,85 @@ Disable the tray separately:
 set DSH_MEGA_TRAY=0
 ```
 
+## Task lifecycle, notifications and the balance module
+
+Task lifecycle is a single shared capability rather than per-task-type code:
+
+```text
+QUEUED -> RUNNING -> SUSPENDED -> RUNNING -> TERMINAL
+TERMINAL = COMPLETED | FAILED_FINAL | CANCELLED
+```
+
+- **Terminal cleanup** — a task that reaches a terminal state is finalized, written to
+  `data\task-history\recent.json`, and removed from the active queue/worker slot in one
+  idempotent step (`removeIfPresent`, never `removeOrThrow`). Terminal tasks are never
+  reloaded into the active queue at startup, so they cannot resurrect after a restart.
+- **One terminal event** — the scheduler emits `TASK_TERMINATED`
+  (taskId, taskName, finalStatus, completedAt, shortResult/errorSummary) exactly once per
+  lifecycle. The notification layer deduplicates on `taskId + finalStatus + terminal epoch`.
+- **Desktop notifications** — one notification per terminal state, dispatched as a side
+  effect: a notification failure never changes an already-final task state and never blocks
+  the renderer. Configuration lives in `config\notifications.json` and is editable in
+  Mega Extensions → Harness / 提醒 (system notifications, cancelled-task notifications).
+- **Balance module** — opening the module refreshes automatically through the same
+  `refreshBalances(trigger)` implementation used by the manual button
+  (`module-open` / `manual` / `retry`). Concurrent requests are coalesced, providers are
+  isolated (one provider failing never fails the page), and the last successful balance is
+  retained and labelled as stale instead of being blanked out.
+
+### Launcher icon
+
+`icon.jpg` in the repository root is the only icon source. `scripts\ensure-icon.ps1`
+regenerates `assets\icon\ds-harness.ico` from it whenever the source is newer, and the
+launcher shortcuts, the Electron window and the tray all read that generated artifact.
+A missing or broken icon can only degrade the icon — never the launcher or the Harness start.
+
 ## Repository layout
 
 ```text
 Install-DS-Harness.cmd           double-click one-click installer
-Start-DeepSeek-Harness.cmd       normal launcher after installation
+Start-DeepSeek-Harness.cmd       normal launcher after installation (canonical boot entry)
+icon.jpg                         launcher icon source asset (single source of truth)
 app/
   desktop-main.cjs               Alien-derived shell; owns official dsh UI
   runtime-process.cjs            DSH child ownership/recovery
   extensions/
     manager.cjs                  optional extension lifecycle
     mega/
-      index.cjs                  Mega adapter, dock/tray/tools lifecycle
+      index.cjs                  Mega adapter, dock/tray/tools lifecycle, IPC
       billing/
+        balance-service.js       balance refresh: coalescing + provider isolation
       scheduler/
+        lifecycle.js             canonical task lifecycle vocabulary/events
+        scheduler.js             queue, concurrency, terminal transitions
       tracker/
+        session-view.js          renderer projection for tracked sessions
       settings/
       notifications/
+        notification-service.js  terminal desktop notifications (dedup + isolation)
+        sound-service.js         ringtones
       deepseek/
       utils/
       ui/
-        dock.html                 collapsible right-side dock
+        dock.html                collapsible right-side dock
         dock.js
         dock.css
-        index.html                full Mega tools window
+        balance-module.js        shared Balance module open detection
+        index.html               full Mega tools window
         renderer.js
         preload.cjs
   package.json
 config/
 data/
 assets/
+  icon/ds-harness.ico            generated from icon.jpg (never hand-edited)
 scripts/
   install.ps1
+  ensure-icon.ps1
   install-deps.ps1
   ensure-node.ps1
   cleanup-runtime.ps1
+  shortcuts.ps1
   verify.ps1
 tests/
 ```

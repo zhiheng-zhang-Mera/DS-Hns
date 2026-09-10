@@ -69,7 +69,7 @@ function render(s) {
     <td>${queueActions(t)}</td>
   </tr>`).join('') || '<tr><td colspan="7">暂无队列任务</td></tr>'
 
-  $('sessions').innerHTML = (s.sessions || []).map((x) => `<tr><td>${esc(x.status)}</td><td>${esc(x.model||'—')}</td><td>${esc(tokens(x.usage))}</td><td>${x.cost?esc('¥'+Number(x.cost.costCny||0).toFixed(4)):'—'}</td><td>${esc(fmtTime(x.updatedAt||x.createdAt))}</td></tr>`).join('') || '<tr><td colspan="5">暂无 session</td></tr>'
+  $('sessions').innerHTML = (s.sessions || []).map((x) => `<tr><td>${esc(x.status)}</td><td>${esc(x.model||'—')}</td><td>${esc(tokens(x.usage))}</td><td>${esc(fmtTime(x.updatedAt||x.createdAt))}</td></tr>`).join('') || '<tr><td colspan="4">暂无 session</td></tr>'
 
   const c = d.config || {}
   $('minConcurrent').value = c.minConcurrent ?? 1
@@ -87,7 +87,9 @@ function render(s) {
   $('telemetry').value = st.telemetryMode || 'DISABLED'
   $('soundEnabled').checked = st.sound?.enabled !== false
   $('volume').value = st.sound?.volume ?? 0.8
-  $('workspaceText').textContent = `工作区: ${s.workspace || '—'} · API Key: ${st.apiKeyMasked || '未配置'} · 官方投递: ${d.officialDeliveryReady ? 'ready' : 'unavailable'}`
+  $('notifyEnabled').checked = st.notifications?.enabled !== false
+  $('notifyCancelled').checked = st.notifications?.onCancelled !== false
+  $('workspaceText').textContent = `工作区: ${s.workspace || '—'} · API Key: ${st.apiKeyMasked || '未配置'} · 官方投递: ${d.officialDeliveryReady ? 'ready' : 'unavailable'} · 系统通知: ${st.notifications?.supported === false ? '不可用' : '可用'}`
   if (s.balance) $('balanceText').textContent = JSON.stringify(s.balance, null, 2)
 }
 
@@ -98,10 +100,24 @@ async function refresh() {
 $('refresh').onclick = refresh
 $('openMain').onclick = () => window.megaTools.openMain()
 $('hardwareRefresh').onclick = async () => { try { await window.megaTools.refreshHardware(); await refresh() } catch(e){showError(e)} }
-$('balance').onclick = async () => { try { $('balanceText').textContent = JSON.stringify(await window.megaTools.fetchBalance(), null, 2); await refresh() } catch(e){showError(e)} }
 $('clearPending').onclick = async () => { try { await window.megaTools.clearPending(); await refresh() } catch(e){showError(e)} }
 $('workspace').onclick = async () => { try { await window.megaTools.pickWorkspace(); await refresh() } catch(e){showError(e)} }
 $('soundFile').onclick = async () => { try { await window.megaTools.pickSound(); await refresh() } catch(e){showError(e)} }
+
+/**
+ * Balance module (this window): opening it refreshes automatically through the
+ * same main-process implementation used by the manual button.
+ */
+const balanceModule = window.megaBalanceModule.attachBalanceModule({
+  panelSelector: '.balance-panel',
+  refresh: async (trigger, options) => {
+    $('balanceText').textContent = JSON.stringify(await window.megaTools.fetchBalance(trigger, options), null, 2)
+    await refresh()
+  },
+  onBusy: (busy) => { $('balance').disabled = Boolean(busy) },
+  onError: (error) => showError(error)
+})
+$('balance').onclick = () => balanceModule.trigger('manual')
 
 $('taskForm').onsubmit = async (event) => {
   event.preventDefault()
@@ -144,7 +160,11 @@ $('settingsForm').onsubmit = async (event) => {
       model: $('model').value,
       permissionMode: $('globalPermission').value,
       telemetryMode: $('telemetry').value,
-      sound: { enabled: $('soundEnabled').checked, volume: Number($('volume').value) }
+      sound: { enabled: $('soundEnabled').checked, volume: Number($('volume').value) },
+      notifications: {
+        enabled: $('notifyEnabled').checked,
+        onCancelled: $('notifyCancelled').checked
+      }
     }
     if ($('apiKey').value) patch.apiKey = $('apiKey').value
     await window.megaTools.updateSettings(patch)

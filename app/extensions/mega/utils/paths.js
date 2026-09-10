@@ -57,7 +57,11 @@ const PATHS = Object.freeze({
   PRICING: paths.PRICING || path.join(ROOT, 'data', 'pricing'),
   STATE: paths.STATE || path.join(ROOT, 'data', 'state'),
   SOUNDS: paths.SOUNDS || path.join(ROOT, 'assets', 'sounds'),
-  USER_SOUNDS: paths.USER_SOUNDS || path.join(ROOT, 'data', 'sounds')
+  USER_SOUNDS: paths.USER_SOUNDS || path.join(ROOT, 'data', 'sounds'),
+  // Generated launcher icon directory. The source asset is always the
+  // repository-root icon.jpg; ds-harness.ico inside this directory is a build
+  // artifact produced by scripts\ensure-icon.ps1 and never edited by hand.
+  ICON: paths.ICON || path.join(ROOT, 'assets', 'icon')
 })
 
 module.exports = { ROOT, PATHS, app, readJson }

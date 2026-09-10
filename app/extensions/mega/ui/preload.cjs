@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld('megaTools', {
   updateScheduler: (patch) => ipcRenderer.invoke('mega:update-scheduler', patch),
   refreshHardware: () => ipcRenderer.invoke('mega:refresh-hardware'),
   updateSettings: (patch) => ipcRenderer.invoke('mega:update-settings', patch),
-  fetchBalance: () => ipcRenderer.invoke('mega:balance'),
+  fetchBalance: (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options),
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
   openMain: () => ipcRenderer.invoke('mega:open-main'),

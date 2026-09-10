@@ -127,6 +127,7 @@ Write-Step '0/7 PowerShell parser preflight'
 $criticalScripts = @(
   (Join-Path $PSScriptRoot 'cleanup-runtime.ps1'),
   (Join-Path $PSScriptRoot 'ensure-node.ps1'),
+  (Join-Path $PSScriptRoot 'ensure-icon.ps1'),
   (Join-Path $PSScriptRoot 'install-deps.ps1'),
   (Join-Path $PSScriptRoot 'test-all.ps1'),
   (Join-Path $PSScriptRoot 'verify.ps1')
@@ -224,6 +225,20 @@ Write-Step '6/7 Shortcuts'
 if ($NoShortcuts) {
   Write-Host 'Shortcut creation skipped by -NoShortcuts.'
 } else {
+  # Launcher icon: generated from the repository-root icon.jpg. A failure here
+  # may only degrade the shortcut icon, never the installation or the launch.
+  try {
+    $iconScript = Join-Path $PSScriptRoot 'ensure-icon.ps1'
+    $iconResult = & $iconScript
+    $iconPath = [string]($iconResult | Select-Object -Last 1)
+    if ($iconPath) {
+      Write-Host "Launcher icon ready (generated from icon.jpg): $iconPath"
+    } else {
+      Write-Warning 'Launcher icon could not be generated from icon.jpg; shortcuts will use the default icon.'
+    }
+  } catch {
+    Write-Warning "Launcher icon step failed, installation continues: $($_.Exception.Message)"
+  }
   try {
     & (Join-Path $PSScriptRoot 'shortcuts.ps1') -NoAutoStart
     Write-Host 'Desktop and Start Menu shortcuts are ready. Autostart was not enabled.'

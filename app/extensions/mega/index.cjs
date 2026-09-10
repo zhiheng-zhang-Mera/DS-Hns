@@ -4,22 +4,30 @@ const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 
 const scheduler = require('./scheduler/scheduler')
+const { TERMINAL_EVENT, CANONICAL_TERMINAL } = require('./scheduler/lifecycle')
 const settingsService = require('./settings/settings-service')
 const soundService = require('./notifications/sound-service')
-const balanceService = require('./deepseek/api')
+const notificationService = require('./notifications/notification-service')
+const { BalanceService } = require('./billing/balance-service')
 const sessionReader = require('./tracker/session-reader')
+const { toSessionViews } = require('./tracker/session-view')
 const taskHistory = require('./tracker/task-history')
 const workspace = require('./utils/workspace')
-const PricingRepository = require('./billing/pricing-repository')
-const { calculateTaskCost } = require('./billing/cost-calculator')
+const { PATHS } = require('./utils/paths')
 
-const pricing = new PricingRepository()
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
   'mega:balance', 'mega:pick-workspace', 'mega:pick-sound', 'mega:open-main',
   'mega:open-tools', 'mega:dock-toggle', 'mega:dock-expand', 'mega:dock-hide', 'mega:widget-hide'
 ]
+
+/** Canonical terminal state -> existing ringtone event. */
+const SOUND_EVENT_BY_TERMINAL = Object.freeze({
+  [CANONICAL_TERMINAL.COMPLETED]: 'COMPLETED',
+  [CANONICAL_TERMINAL.FAILED_FINAL]: 'FAILED',
+  [CANONICAL_TERMINAL.CANCELLED]: 'INTERRUPTED'
+})
 
 const DOCK_COLLAPSED_WIDTH = 48
 const DOCK_DEFAULT_WIDTH = 560
@@ -32,12 +40,13 @@ let dockWindow = null
 let playerWindow = null
 let tray = null
 let shortcutHandler = null
-let lastBalance = null
 let started = false
 let dockExpanded = false
 let dockWidth = DOCK_DEFAULT_WIDTH
 let dockUserHidden = false
 const mainWindowBindings = []
+
+const balanceService = new BalanceService({ log: (message) => log(message) })
 
 function log(message) {
   ctx?.log?.(`[mega] ${message}`)
@@ -73,21 +82,9 @@ function saveDockState() {
   }
 }
 
-function costForSession(session) {
-  try {
-    const model = pricing.getModel(session.model)
-    if (!model) return null
-    return calculateTaskCost({ model, schedule: pricing.getSchedule(), events: session.usageEvents || [] })
-  } catch {
-    return null
-  }
-}
-
 function snapshot() {
-  const sessions = sessionReader.listSessions({ limit: 40 }).map((session) => ({
-    ...session,
-    cost: costForSession(session)
-  }))
+  const sessions = toSessionViews(sessionReader.listSessions({ limit: 40 }), { limit: 40 })
+  const recent = taskHistory.loadRecent()
   return {
     extension: {
       id: 'mega',
@@ -103,13 +100,16 @@ function snapshot() {
       tray: Boolean(tray)
     },
     scheduler: scheduler.describe(),
+    // Active queue only: tasks that may still be executed (MEGA-01).
     tasks: scheduler.listTasks({ limit: 200 }),
+    // Terminal tasks stay queryable through the history layer.
+    history: recent,
     sessions,
-    recent: taskHistory.loadRecent(),
+    recent,
     settings: settingsService.publicSettings(),
     workspace: workspace.getWorkspaceRoot(),
     soundFiles: soundService.listSoundFiles(),
-    balance: lastBalance
+    balance: balanceService.describe()
   }
 }
 
@@ -359,7 +359,7 @@ function createTray() {
   const { Tray, nativeImage } = ctx.electron
   if (!Tray || !nativeImage) return null
   try {
-    const iconPath = path.join(ctx.root, 'assets', 'icon', 'ds-harness.ico')
+    const iconPath = path.join(PATHS.ICON, 'ds-harness.ico')
     const image = nativeImage.createFromPath(iconPath)
     if (!image || image.isEmpty()) throw new Error(`tray icon unavailable: ${iconPath}`)
     tray = new Tray(image)
@@ -423,14 +423,29 @@ function registerIpc() {
     if (typeof patch.telemetryMode === 'string') envPatch.DSH_TELEMETRY_MODE = patch.telemetryMode
     if (Object.prototype.hasOwnProperty.call(patch, 'apiKey')) envPatch.DEEPSEEK_API_KEY = String(patch.apiKey || '')
     if (Object.keys(envPatch).length) settingsService.writeEnvFile(envPatch)
-    settingsService.applyPatch({ model: patch.model, soundEnabled: patch.soundEnabled, sound: patch.sound })
+    settingsService.applyPatch({
+      model: patch.model,
+      soundEnabled: patch.soundEnabled,
+      sound: patch.sound,
+      notifications: patch.notifications
+    })
     notifyChanged()
     return settingsService.publicSettings()
   })
-  ipcMain.handle('mega:balance', async () => {
-    lastBalance = await balanceService.fetchBalance()
-    notifyChanged()
-    return lastBalance
+  // Single balance refresh entry point: the renderer only supplies which trigger
+  // fired (module-open / manual / retry); the service owns the implementation.
+  ipcMain.handle('mega:balance', async (_event, trigger = 'manual', options = {}) => {
+    try {
+      const only = Array.isArray(options?.only) && options.only.length ? options.only : null
+      const result = await balanceService.refreshBalances(typeof trigger === 'string' ? trigger : 'manual', { only })
+      notifyChanged()
+      return result
+    } catch (error) {
+      // A balance failure is an outer-service failure: report, never throw.
+      log(`balance refresh failed: ${error?.stack || error}`)
+      notifyChanged()
+      return { ...balanceService.describe(), error: { code: 'REFRESH_FAILED', message: String(error?.message || error) } }
+    }
   })
   ipcMain.handle('mega:pick-workspace', async () => {
     const result = await dialog.showOpenDialog(toolsWindow || ctx.mainWindow, {
@@ -466,10 +481,29 @@ async function start(context) {
   if (ctx.nodeExe) process.env.DSH_NODE = ctx.nodeExe
   loadDockState()
   registerIpc()
+  // Desktop notifications are a unified lifecycle capability: bind the Electron
+  // notification factory once, before any task can reach a terminal state.
+  notificationService.setCreateNotification(ctx.electron?.Notification || null)
+  notificationService.setOnClick(() => focusMain())
   scheduler.on('queue-changed', notifyChanged)
-  scheduler.on('task-terminal', (event) => {
-    ring(event.status)
+  scheduler.on(TERMINAL_EVENT, (event) => {
+    // Side effects only. A sound or notification failure can never change the
+    // task's already-final state, so both are individually isolated.
+    try {
+      ring(SOUND_EVENT_BY_TERMINAL[event.finalStatus] || event.status)
+    } catch (error) {
+      log(`ring failed for ${event.taskId}: ${error?.message || error}`)
+    }
+    try {
+      const outcome = notificationService.notifyTerminal(event)
+      if (String(outcome?.reason || '').startsWith('error:')) log(`desktop notification for ${event.taskId}: ${outcome.reason}`)
+    } catch (error) {
+      log(`desktop notification threw for ${event.taskId}: ${error?.message || error}`)
+    }
     notifyChanged()
+  })
+  scheduler.on('terminal-queue-migrated', ({ migrated, total }) => {
+    log(`startup recovery moved ${migrated}/${total} terminal task(s) out of the active queue into history`)
   })
   scheduler.on('error', (error) => log(`scheduler error: ${error?.stack || error}`))
   scheduler.start()
@@ -494,6 +528,8 @@ function stop() {
   if (!started) return
   started = false
   try { scheduler.stop() } catch {}
+  notificationService.setCreateNotification(null)
+  notificationService.setOnClick(null)
   if (ctx?.mainWindow && shortcutHandler && !ctx.mainWindow.isDestroyed()) {
     ctx.mainWindow.webContents.removeListener('before-input-event', shortcutHandler)
   }

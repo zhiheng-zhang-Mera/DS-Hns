@@ -1,6 +1,7 @@
 'use strict'
 const $ = (id) => document.getElementById(id)
 let latestSnapshot = null
+let balanceModule = null
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]))
@@ -16,6 +17,15 @@ function fmtClock(seconds) {
   const m = Math.floor((value % 3600) / 60)
   const s = value % 60
   return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':')
+}
+
+function fmtTimeOfDay(ms) {
+  if (!ms) return '—'
+  try {
+    return new Date(ms).toLocaleTimeString('zh-CN', { hour12: false })
+  } catch {
+    return new Date(ms).toLocaleTimeString()
+  }
 }
 
 function formatMoney(value, currency = 'CNY') {
@@ -43,6 +53,9 @@ function setExpanded(expanded) {
   document.body.classList.toggle('collapsed', !expanded)
   $('railToggle').textContent = expanded ? '›' : '‹'
   $('rail').title = expanded ? '折叠 Mega Dock' : '展开 Mega Dock'
+  // Collapse/expand is the dock's "module open" event: closing the dock and
+  // reopening it is what allows another automatic balance refresh to fire.
+  balanceModule?.sync()
 }
 
 function isActive(task) {
@@ -83,41 +96,95 @@ function updateLivePeriod() {
   }
 }
 
+const PROVIDER_STATUS_TEXT = {
+  ok: '正常',
+  failed: '读取失败',
+  timeout: '超时',
+  unavailable: '不可用',
+  pending: '刷新中',
+  idle: '未刷新'
+}
+
+const TRIGGER_TEXT = {
+  'module-open': '打开模块自动刷新',
+  manual: '手动刷新',
+  retry: '重试失败项'
+}
+
+function lastUpdatedText(balance) {
+  return `Last updated: ${balance.lastUpdatedAt ? fmtTimeOfDay(balance.lastUpdatedAt) : '—'}`
+}
+
+function providerRows(balance) {
+  const providers = Array.isArray(balance.providers) ? balance.providers : []
+  if (!providers.length) return ''
+  const needsDetail = providers.length > 1 || providers.some((p) => p.status !== 'ok')
+  if (!needsDetail) return ''
+  return `<div class="provider-list">${providers.map((provider) => {
+    const note = provider.error
+      ? `${provider.error.message}`
+      : `${PROVIDER_STATUS_TEXT[provider.status] || provider.status}${provider.stale ? ' · 显示上次成功余额' : ''}`
+    return `<div class="provider-item" data-status="${esc(provider.status)}">
+      <b>${esc(provider.label || provider.id)}</b>
+      <span>${esc(note)}</span>
+      <small>${esc(provider.lastUpdatedAt ? `Last updated: ${fmtTimeOfDay(provider.lastUpdatedAt)}` : '尚未成功刷新')}</small>
+    </div>`
+  }).join('')}</div>`
+}
+
+function balanceCards(balance) {
+  const rows = Array.isArray(balance.balances) ? balance.balances : []
+  const primary = rows[0] || { currency: 'CNY', total: 0, toppedUp: 0, granted: 0 }
+  const staleNote = balance.stale ? '上次成功值' : ''
+  return [
+    ['总余额', formatMoney(primary.total, primary.currency), staleNote || primary.currency, 'primary'],
+    ['充值余额', formatMoney(primary.toppedUp, primary.currency), '自充值可用额度', ''],
+    ['赠送余额', formatMoney(primary.granted, primary.currency), '平台赠送额度', '']
+  ].map(([label, value, note, cls]) => `<div class="balance-card ${cls}"><span>${esc(label)}</span><b>${esc(value)}</b><small>${esc(note)}</small></div>`).join('') + providerRows(balance)
+}
+
 function renderBalance(snapshot) {
-  const balance = snapshot.balance
-  const sessions = snapshot.sessions || []
-  const recentCost = sessions.slice(0, 8).reduce((sum, session) => sum + Number(session.cost?.costCny || 0), 0)
+  const balance = snapshot.balance || {}
   const status = $('balanceStatus')
   const meta = $('balanceMeta')
   const cards = $('balanceCards')
+  const retry = $('balanceRetry')
+  const failed = Array.isArray(balance.failedProviders) ? balance.failedProviders : []
+  if (retry) retry.hidden = failed.length === 0
 
-  if (!balance) {
-    status.textContent = '未刷新'
+  const triggerText = TRIGGER_TEXT[balance.trigger] || '—'
+  meta.textContent = `${lastUpdatedText(balance)} · ${triggerText}`
+
+  if (balance.refreshing) {
+    status.textContent = '刷新中'
     status.className = 'status-chip neutral'
-    meta.textContent = '余额与最近 Session 成本会在这里汇总。'
-    cards.innerHTML = `<div class="balance-card"><span>最近 8 个 Session</span><b>${formatMoney(recentCost, 'CNY')}</b><small>依据已记录 Token 估算</small></div><div class="balance-empty">点击“刷新”读取 DeepSeek 账户余额。</div>`
-    return
-  }
-
-  if (!balance.ok) {
+  } else if (balance.partial) {
+    status.textContent = '部分可用'
+    status.className = 'status-chip warn'
+  } else if (balance.ok) {
+    status.textContent = '可用'
+    status.className = 'status-chip ok'
+  } else if (balance.hasData) {
+    status.textContent = '刷新失败'
+    status.className = 'status-chip warn'
+  } else if (failed.length) {
     status.textContent = '读取失败'
     status.className = 'status-chip warn'
-    meta.textContent = balance.error?.message || '无法读取余额'
-    cards.innerHTML = `<div class="balance-card"><span>最近 8 个 Session</span><b>${formatMoney(recentCost, 'CNY')}</b><small>本地成本记录仍可用</small></div>`
+  } else {
+    status.textContent = '未刷新'
+    status.className = 'status-chip neutral'
+  }
+
+  if (!balance.hasData) {
+    // Never blank a previously successful balance: there simply is none yet.
+    const reason = failed.length
+      ? `余额读取失败：${esc(balance.error?.message || '未知错误')}`
+      : '打开余额模块会自动刷新，也可以点“刷新”。'
+    cards.innerHTML = `<div class="balance-empty">${reason}</div>${providerRows(balance)}`
     return
   }
 
-  status.textContent = balance.isAvailable ? '可用' : '不可用'
-  status.className = `status-chip ${balance.isAvailable ? 'ok' : 'warn'}`
-  meta.textContent = `上次刷新 ${new Date(balance.fetchedAt || Date.now()).toLocaleTimeString()}`
-  const rows = Array.isArray(balance.balances) ? balance.balances : []
-  const primary = rows[0] || { currency: 'CNY', total: 0, toppedUp: 0, granted: 0 }
-  cards.innerHTML = [
-    ['总余额', formatMoney(primary.total, primary.currency), primary.currency, 'primary'],
-    ['充值余额', formatMoney(primary.toppedUp, primary.currency), '自充值可用额度', ''],
-    ['赠送余额', formatMoney(primary.granted, primary.currency), '平台赠送额度', ''],
-    ['最近 8 个 Session', formatMoney(recentCost, 'CNY'), '依据已记录 Token 估算', '']
-  ].map(([label, value, note, cls]) => `<div class="balance-card ${cls}"><span>${esc(label)}</span><b>${esc(value)}</b><small>${esc(note)}</small></div>`).join('')
+  cards.innerHTML = balanceCards(balance)
 }
 
 function render(snapshot) {
@@ -195,10 +262,9 @@ function render(snapshot) {
 
   renderBalance(snapshot)
 
-  $('sessions').innerHTML = (snapshot.sessions || []).slice(0, 8).map((session) => {
-    const cost = session.cost ? `¥${Number(session.cost.costCny || 0).toFixed(4)}` : '—'
-    return `<div class="session-item"><b>${esc(session.status || '—')}</b><span>${esc(session.model || '—')} · ${esc(tokenCount(session.usage).toLocaleString())} tok</span><span>${esc(cost)}</span></div>`
-  }).join('') || '<div class="muted">暂无 Session</div>'
+  $('sessions').innerHTML = (snapshot.sessions || []).slice(0, 8).map((session) => (
+    `<div class="session-item"><b>${esc(session.status || '—')}</b><span>${esc(session.model || '—')} · ${esc(tokenCount(session.usage).toLocaleString())} tok</span><span>${esc(fmtTime(session.updatedAt || session.createdAt))}</span></div>`
+  )).join('') || '<div class="muted">暂无 Session</div>'
 
   updateLivePeriod()
 }
@@ -211,6 +277,33 @@ async function refresh() {
     showError(error)
   }
 }
+
+function setBalanceBusy(busy) {
+  for (const id of ['balance', 'balanceRetry']) {
+    const button = $(id)
+    if (button) button.disabled = Boolean(busy)
+  }
+  $('balanceStatus').classList.toggle('busy', Boolean(busy))
+}
+
+/**
+ * The one Balance-module controller for this window: automatic (module-open)
+ * and manual triggers share a single refresh implementation and are coalesced.
+ */
+balanceModule = window.megaBalanceModule.attachBalanceModule({
+  // The Balance panel sits below the fold of the dock's scrollable column, so
+  // "the module was opened" means "the dock became visible" here. Collapsing and
+  // re-expanding the dock is what allows the next automatic refresh.
+  openOnIntersect: false,
+  panelSelector: '.balance-panel',
+  isOpen: () => document.body.classList.contains('expanded'),
+  refresh: async (trigger, options) => {
+    await window.megaTools.fetchBalance(trigger, options)
+    await refresh()
+  },
+  onBusy: setBalanceBusy,
+  onError: (error) => showError(error)
+})
 
 $('railToggle').onclick = async (event) => {
   event.stopPropagation()
@@ -231,8 +324,10 @@ $('clearPending').onclick = async () => {
 $('hardwareRefresh').onclick = async () => {
   try { await window.megaTools.refreshHardware(); await refresh() } catch (error) { showError(error) }
 }
-$('balance').onclick = async () => {
-  try { await window.megaTools.fetchBalance(); await refresh() } catch (error) { showError(error) }
+$('balance').onclick = () => balanceModule.trigger('manual')
+$('balanceRetry').onclick = () => {
+  const failed = latestSnapshot?.balance?.failedProviders || []
+  return balanceModule.trigger('retry', failed.length ? { only: failed } : {})
 }
 
 $('taskForm').onsubmit = async (event) => {
