@@ -20,6 +20,9 @@ tools/
 config/.env
 config/paths.json
 
+# ===== Local planning / working notes (never published) =====
+Update-Plan/
+
 # ===== OS / editor =====
 Thumbs.db
 Desktop.ini

@@ -132,7 +132,7 @@ Collapsed                              Expanded
 - **No official viewport resize** — the official DSH BrowserWindow keeps its original size. If there is room on the right, the dock sits outside it; if not (for example a maximized window), the dock overlays the right edge as a separate BrowserWindow instead of shrinking the official renderer.
 - **One product window** — there is no separate Mega management window or page. Every Mega capability lives in the dock; the settings layer (⚙ in the dock header) is an in-dock overlay that reuses the existing IPC backend.
 - **Ctrl+Shift+M** — toggles the right dock between collapsed and expanded states.
-- **System tray** — double-click restores/focuses the main window; right-click offers only **Exit DS-Harness** and **Force Exit DS-Harness**.
+- **System tray** — double-click restores/focuses the main window; right-click offers **Show**, **Mega**, the optional **Sub-worker** submenu, **Exit DS-Harness** and **Force Exit DS-Harness**.
   - *Exit* stops the scheduler, flushes/persists state, stops the managed Harness, destroys windows/tray and quits gracefully.
   - *Force Exit* performs a best-effort flush, kills the managed child process tree (`taskkill /T /F`), destroys extension/runtime resources and calls `app.exit()`; no cleanup step can block the final exit.
 
@@ -193,6 +193,46 @@ TERMINAL = COMPLETED | FAILED_FINAL | CANCELLED
 regenerates `assets\icon\ds-harness.ico` from it whenever the source is newer, and the
 launcher shortcuts, the Electron window and the tray all read that generated artifact.
 A missing or broken icon can only degrade the icon — never the launcher or the Harness start.
+
+## Optional Sub-worker execution layer
+
+An optional executor layer that is **off by default**. With `subWorker.enabledOnStartup=false`
+the shell spawns no worker process, binds no extra port, opens no extra window and does not even
+create `data\sub-worker\`: the default DS-Harness experience is unchanged, and the worker has no
+Electron window of its own (its only visuals are the existing Mega panel and Live View).
+
+Enable or disable it from the Mega dock's **Sub-worker** panel (Enable / Start / Stop / Restart,
+plus Pause, Resume, Cancel Task, Take Over, Open Live View, and a *Release worktree* action for the
+isolated checkout that holds a reviewed deliverable) or from the tray's **Sub-worker**
+submenu: a busy-aware header (`Sub-worker: OFF`, `Sub-worker: BUSY (RUNNING)`) with
+`Task: <id>`, then Start / Stop / Restart, Pause / Resume / Cancel Current Task / Open Live View
+and Restart Worker or Take Over Workspace, sitting between **Mega** and **Exit DS-Harness**.
+`⚙ Settings → Sub-worker` holds the persisted options.
+
+The worker is an **executor only** — it never decides direction, architecture or the next task.
+The Controller (the main Harness, or an external Codex through it) dispatches a versioned,
+validated Task Object (`task_id`, `objective`, `target_repo`, `workspace`, `workspace_mode`,
+`allowed_paths`, `forbidden_paths`, `acceptance`, `acceptance_commands`, `permissions`,
+`risk_level`, `requires_vision`, `operations`) and receives a structured Result Object
+(`status`, `code`, `summary`, `changed_files`, `changed_file_details`, `tests`, `git`,
+`warnings`, `acceptance`, `stage_log`). Only risk levels `L0`–`L2` are accepted; `L3`/`L4` are
+refused with `REQUIRES_CONTROLLER`, a `requires_vision` task with `UNSUPPORTED_CAPABILITY`, and a
+task without executable `operations` rather than improvised.
+
+Every run is inspectable: the Live View shows Task, Status, Execution Summary, Changed Files,
+Tests, Terminal, Warnings / Errors, Result, Events and Task History — the auditable execution
+summary only, never model hidden reasoning. Durable state lives in `data\sub-worker\` (config /
+state / queue / history / tasks / workspace-lock) and `logs\sub-worker.log` plus
+`logs\sub-worker\<task_id>.log`; all of it is git-ignored, and the worker edits a target
+repository through `isolated_worktree` (`<repo>-worktrees\hns-sub-worker`) by default.
+
+Phase 1 is deliberately small: single worker (`maxWorkers=1`), local only, no worker-to-worker
+communication, and **Auto Delegate OFF** by default — even when enabled it can only auto-dispatch
+a task that already carries a complete executable specification and whose objective matches an
+allowed category, never architecture redesign, security-sensitive work, deployment, large
+deletion, research direction or high-risk migrations.
+
+Full reference: [docs/sub-worker.md](docs/sub-worker.md).
 
 ## Repository layout
 

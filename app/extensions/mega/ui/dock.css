@@ -120,6 +120,65 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .muted{color:var(--muted)}
 .error{white-space:pre-wrap;color:var(--peak);font-size:10px;margin:8px 0}
 
+/* ---------- Optional Sub-worker panel (plan §11) ---------- */
+.sub-worker-panel{border-color:color-mix(in srgb,var(--accent) 22%,var(--border))}
+.sw-title-row{display:flex;align-items:center;gap:8px}
+.sw-title-row h2{margin:0;font-size:14px}
+.sub-worker-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:7px;margin-bottom:9px}
+.sub-worker-grid .hardware-item b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-controls{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.sw-controls button{padding:7px 11px;font-size:11px;background:var(--surface-soft)}
+.sw-controls button:disabled{opacity:.45;cursor:not-allowed}
+.sw-controls #swEnable{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 28%,var(--border));color:var(--accent);font-weight:600}
+.sw-dispatch{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:0 10px;margin-bottom:9px}
+.sw-dispatch>summary{cursor:pointer;padding:9px 2px;font-size:11px;font-weight:700;list-style:none}
+.sw-dispatch>summary::-webkit-details-marker{display:none}
+.sw-dispatch textarea{width:100%;min-height:44px;padding:7px;background:var(--surface-soft);resize:vertical}
+.sw-subhead{margin:4px 0 6px;font-size:11px;color:var(--muted)}
+.sw-history{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.sw-history-item{display:grid;grid-template-columns:auto auto 1fr;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--border);border-radius:9px;background:var(--surface-soft);font-size:10px;cursor:pointer}
+.sw-history-item:hover{background:var(--surface-hover)}
+.sw-history-item b{font-size:10px}
+.sw-history-item small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-history-status{font-size:9px;font-weight:700;padding:2px 6px;border-radius:999px;background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+.sw-history-status[data-status="completed"]{color:var(--off);border-color:color-mix(in srgb,var(--off) 24%,var(--border))}
+.sw-history-status[data-status="failed"],.sw-history-status[data-status="rejected"]{color:var(--peak);border-color:color-mix(in srgb,var(--peak) 24%,var(--border))}
+.sw-crash{margin:8px 0 0;padding:9px;border-radius:9px;background:var(--peak-bg);border:1px solid color-mix(in srgb,var(--peak) 24%,transparent);color:var(--peak);font-size:10px}
+
+/* ---------- Sub-worker Live View (plan §12) ---------- */
+.live-view-overlay{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-start;justify-content:center;padding:12px;background:rgba(16,24,40,.38);overflow:auto}
+.live-view-overlay[hidden]{display:none}
+.collapsed .live-view-overlay{display:none}
+.live-view-sheet{width:100%;max-width:600px;max-height:calc(100vh - 24px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border-strong);border-radius:13px;box-shadow:0 18px 48px rgba(16,24,40,.3);overflow:hidden}
+.live-view-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:12px 13px;border-bottom:1px solid var(--border);background:var(--surface-soft)}
+.live-view-head h2{margin:0;font-size:15px}
+.lv-note{margin:3px 0 0;font-size:9px;color:var(--muted);max-width:380px}
+.live-view-head-actions{display:flex;align-items:center;gap:6px}
+.live-view-head-actions .icon-button{width:30px;padding:4px 0;font-size:15px}
+.live-view-body{display:flex;flex-direction:column;gap:8px;padding:10px 13px;overflow:auto}
+.lv-card{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:8px 10px}
+.lv-card h3{margin:0 0 6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.lv-content{font-size:10px;display:flex;flex-direction:column;gap:3px}
+.lv-row{display:grid;grid-template-columns:96px 1fr;gap:8px;align-items:baseline}
+.lv-row span{color:var(--muted);font-size:9px}
+.lv-row b{font-weight:600;word-break:break-word}
+.lv-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:230px;overflow:auto}
+.lv-list li{display:grid;grid-template-columns:16px 1fr;gap:6px;align-items:baseline;padding:3px 0;border-bottom:1px dashed var(--border)}
+.lv-list li:last-child{border-bottom:0}
+.lv-list li i{font-style:normal;color:var(--accent);font-size:10px}
+.lv-list li span{word-break:break-word}
+.lv-list li small{grid-column:2;color:var(--subtle);font-size:9px}
+.lv-terminal{margin:0;padding:8px;max-height:200px;overflow:auto;border-radius:8px;background:#11161d;color:#d6e2f0;font-family:"Cascadia Mono",Consolas,monospace;font-size:9.5px;white-space:pre-wrap;word-break:break-word}
+.lv-issue{padding:6px 8px;border-radius:8px;font-size:10px;margin-bottom:3px;word-break:break-word}
+.lv-issue.error{background:var(--peak-bg);color:var(--peak)}
+.lv-issue.warn{background:#fff8e8;color:#8a6300}
+.live-view-foot{display:flex;flex-direction:column;gap:7px;padding:10px 13px;border-top:1px solid var(--border);background:var(--surface-soft)}
+.lv-actions{display:flex;flex-wrap:wrap;gap:6px}
+.lv-actions button{padding:6px 10px;font-size:10px;background:var(--surface)}
+.lv-note-form{display:grid;grid-template-columns:1fr auto;gap:6px}
+.lv-note-form input{padding:7px;background:var(--surface)}
+.lv-note-form button{padding:7px 11px;font-size:10px;background:var(--surface)}
+
 /* Settings layer: an in-dock overlay (never a second window or page). */
 .settings-overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:14px;background:rgba(16,24,40,.34);overflow:auto}
 .settings-overlay[hidden]{display:none}

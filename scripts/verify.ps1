@@ -1,4 +1,4 @@
-param([switch]$SkipTests)
+param([switch]$SkipTests, [switch]$Acceptance)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'env.ps1')
 $script:failures = 0
@@ -57,11 +57,68 @@ Check 'Electron installed' (Test-Path "$ROOT\app\node_modules\electron\dist\elec
 Check 'Pricing snapshot present' (Test-Path "$ROOT\data\pricing\official-pricing.json")
 Check 'Sounds present' (Test-Path "$ROOT\assets\sounds")
 
+Write-Output ''
+Write-Output '== Optional Sub-worker execution layer =='
+foreach ($file in @('manager.cjs','runtime.cjs','protocol.cjs','state.cjs','permissions.cjs','event-bus.cjs','reporter.cjs','task-runner.cjs')) {
+  Check "Sub-worker module $file present" (Test-Path "$ROOT\app\sub-worker\$file")
+}
+$swProtocol = Get-Content "$ROOT\app\sub-worker\protocol.cjs" -Raw
+$swState = Get-Content "$ROOT\app\sub-worker\state.cjs" -Raw
+$swPerm = Get-Content "$ROOT\app\sub-worker\permissions.cjs" -Raw
+$swRuntime = Get-Content "$ROOT\app\sub-worker\runtime.cjs" -Raw
+$swManager = Get-Content "$ROOT\app\sub-worker\manager.cjs" -Raw
+$swRun = Get-Content "$ROOT\app\sub-worker\task-runner.cjs" -Raw
+$swBus = Get-Content "$ROOT\app\sub-worker\event-bus.cjs" -Raw
+$swPreload = Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw
+$swUi = (Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) + "`n" + (Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw)
+$appConfig = Get-Content "$ROOT\config\app.json" -Raw
+Check 'Sub-worker is disabled by default' ($appConfig -match '"enabledOnStartup":\s*false')
+Check 'Phase 1 stays single worker' ($appConfig -match '"maxWorkers":\s*1')
+Check 'Auto Delegate defaults to off' ($appConfig -match '"autoDelegate":\s*false')
+Check 'Worker runtime is plain Node (no Electron)' ((-not ($swRuntime -match "require\('electron'\)")) -and (-not ($swManager -match "require\('electron'\)")))
+Check 'Sub-worker never opens a window' (-not ($swUi -match 'new BrowserWindow'))
+Check 'Structured task protocol is versioned' (($swProtocol -match 'PROTOCOL_VERSION = 1') -and ($swProtocol -match 'validateTask'))
+Check 'Result protocol is implemented' (($swProtocol -match 'function createResult') -and ($swProtocol -match 'needs_controller_review'))
+Check 'L3/L4 are rejected by contract' ($swProtocol -match "ALLOWED_RISK_LEVELS")
+Check 'Vision capability is refused explicitly' ($swPerm -match 'UNSUPPORTED_CAPABILITY')
+Check 'High-risk commands are denied' (($swPerm -match 'DENIED_COMMAND_PATTERNS') -and ($swPerm -match 'git\\s\+push') -and ($swPerm -match 'taskkill'))
+Check 'Protected branches are guarded' (($swPerm -match 'PROTECTED_BRANCHES') -and ($swPerm -match 'isProtectedBranch'))
+Check 'Path allow/forbid guard exists' (($swPerm -match 'function checkPath') -and ($swPerm -match 'CRITICAL_DELETE_PATTERNS'))
+Check 'Worker state machine is explicit' (($swProtocol -match 'WORKER_STATES') -and ($swState -match 'const TRANSITIONS') -and ($swState -match 'canTransition'))
+Check 'Isolated worktree automation exists' (($swManager -match 'WorktreeManager') -and ($swManager -match 'hns-sub-worker'))
+Check 'Single-writer workspace lock exists' (($swState -match 'workspaceLockFile') -and ($swManager -match 'loadWorkspaceLock'))
+Check 'Worker crash is isolated from the shell' (($swManager -match 'handleExit') -and ($swManager -match 'CRASHED'))
+Check 'Task runner emits auditable events' (($swRun -match "'file_write'") -and ($swRun -match "'command_finished'") -and ($swRun -match "'test_result'"))
+Check 'Command output is redacted' ($swBus -match 'redactSecrets')
+Check 'Typed runtime ownership + orphan reclaim' ((Get-Content "$ROOT\app\runtime-process.cjs" -Raw) -match 'recoverStaleWorker')
+Check 'Tray exposes Sub-worker controls' ($mega -match 'subWorkerTrayItem')
+Check 'Mega Sub-worker panel exists' (($swUi -match 'id="swState"') -and ($swUi -match 'Enable Sub-worker'))
+Check 'Live View exists inside the dock' (($swUi -match 'id="liveView"') -and ($swUi -match 'Execution Summary'))
+Check 'Live View declares its audit-only scope' ($swUi -match 'lv-note')
+Check 'Live View supports Pause/Stop/Send Note/Take Over' (($swUi -match 'id="lvPause"') -and ($swUi -match 'id="lvStop"') -and ($swUi -match 'id="lvNote"') -and ($swUi -match 'id="lvTakeOver"'))
+Check 'Preload exposes the Sub-worker bridge' ($swPreload -match 'megaSubWorker')
+Check 'Shell registers Sub-worker IPC' (($main -match 'SUB_WORKER_CHANNELS') -and ($main -match 'registerSubWorkerIpc'))
+Check 'Exit terminates the worker before the Harness' ($main -match 'stopSubWorkerOnExit\(')
+Check 'Harness port default is unchanged' ($main -match 'const HARNESS_PORT = .*: 3080')
+Check 'Real acceptance harness exists' (Test-Path "$ROOT\scripts\sub-worker-acceptance.cjs")
+Check 'Sub-worker reference doc exists' (Test-Path "$ROOT\docs\sub-worker.md")
+
 if (-not $SkipTests) {
   Write-Output ''
   Write-Output '== Unit + architecture tests =='
   Push-Location "$ROOT\app"
   try { npm test; if ($LASTEXITCODE -ne 0) { $script:failures++ } } finally { Pop-Location }
+}
+
+if ($Acceptance) {
+  Write-Output ''
+  Write-Output '== Real end-to-end acceptance (launches the Electron shell twice, isolated root) =='
+  $node = (Get-Command node).Source
+  Push-Location $ROOT
+  try {
+    & $node "$ROOT\scripts\sub-worker-acceptance.cjs" all
+    if ($LASTEXITCODE -ne 0) { $script:failures++ }
+  } finally { Pop-Location }
 }
 
 if ($script:failures -eq 0) { Write-Output 'VERIFY: ALL CHECKS PASSED' } else { Write-Output "VERIFY: $script:failures check(s) FAILED" }

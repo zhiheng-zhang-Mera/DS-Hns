@@ -73,8 +73,12 @@ function setExpanded(expanded) {
   // Collapse/expand is the dock's "module open" event: closing the dock and
   // reopening it is what allows another automatic balance refresh to fire.
   balanceModule?.sync()
-  // The settings layer lives inside the dock, so a collapsed dock closes it.
-  if (!expanded) setSettingsOpen(false)
+  // The settings layer and the Live View live inside the dock, so a collapsed
+  // dock closes both.
+  if (!expanded) {
+    setSettingsOpen(false)
+    closeLiveView()
+  }
 }
 
 function isActive(task) {
@@ -212,6 +216,369 @@ const SOUND_EVENT_INPUTS = [
   ['INTERRUPTED', 'soundInterrupted']
 ]
 
+/* ------------------------------------------------------------------ *
+ * Optional Sub-worker (plan §11 Sub-worker panel, §12 Live View)
+ *
+ * The dock is the worker's only visual surface: no second window, no second
+ * Electron, and the Live View shows auditable execution facts only - never a
+ * model's hidden reasoning.
+ * ------------------------------------------------------------------ */
+
+const SUB_WORKER_BUSY_STATES = ['ASSIGNED', 'RUNNING', 'PAUSING', 'PAUSED', 'BLOCKED', 'STOPPING']
+let latestSubWorker = null
+let liveViewOpen = false
+let liveViewTaskId = null
+let liveViewDetail = null
+
+/** The worker bridge only exists inside the real dock preload. */
+function subWorkerApi() {
+  return window.megaSubWorker && typeof window.megaSubWorker.snapshot === 'function' ? window.megaSubWorker : null
+}
+
+function setSubWorkerStatus(text) {
+  const node = $('swDispatchStatus')
+  if (node) node.textContent = text ? String(text) : ''
+}
+
+function setLiveViewNotice(text) {
+  const node = $('lvNotice')
+  if (node) node.textContent = text ? String(text) : ''
+}
+
+function splitLines(value) {
+  return String(value || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function subWorkerStateClass(state) {
+  const value = String(state || 'OFF').toUpperCase()
+  if (value === 'OFF' || value === 'HANDOFF') return 'neutral'
+  if (['IDLE', 'READY_FOR_REVIEW'].includes(value)) return 'ok'
+  if (['CRASHED', 'FAILED', 'BLOCKED'].includes(value)) return 'warn'
+  return 'busy'
+}
+
+function subWorkerTaskText(sw) {
+  const task = sw.task || null
+  if (!task) return 'Idle'
+  return `${task.task_id}${task.stage ? ` · ${task.stage}` : ''}`
+}
+
+function renderSubWorker(snapshot) {
+  const sw = snapshot?.subWorker || { available: false, state: 'OFF', enabled: false }
+  latestSubWorker = sw
+  const state = String(sw.state || 'OFF').toUpperCase()
+  const busy = SUB_WORKER_BUSY_STATES.includes(state)
+  const available = sw.available !== false && Boolean(subWorkerApi())
+
+  const stateChip = $('swState')
+  if (stateChip) {
+    stateChip.textContent = sw.available === false ? 'UNAVAILABLE' : state
+    stateChip.className = `status-chip ${subWorkerStateClass(state)}`
+  }
+  const rail = $('railSubWorker')
+  if (rail) rail.textContent = sw.available === false ? 'N/A' : (sw.enabled ? (busy ? 'BUSY' : 'ON') : 'OFF')
+
+  const config = sw.config || {}
+  const rows = [
+    ['Worker', sw.worker_id || '—'],
+    ['Mode', sw.mode || 'Executor'],
+    ['State', state],
+    ['Stage', sw.stage || '—'],
+    ['Task', subWorkerTaskText(sw)],
+    ['Queue', sw.queue_length ?? 0],
+    ['Workspace', sw.workspace_lock?.workspace || '—'],
+    ['PID', sw.pid || '—'],
+    ['Restarts', sw.restarts ?? 0],
+    ['Auto Delegate', config.autoDelegate ? 'ON' : 'OFF'],
+    ['Workspace Mode', config.workspaceMode || 'isolated_worktree']
+  ]
+  const summary = $('swSummary')
+  if (summary) {
+    summary.innerHTML = rows
+      .map(([label, value]) => `<div class="hardware-item"><span>${esc(label)}</span><b title="${esc(value)}">${esc(String(value))}</b></div>`)
+      .join('')
+  }
+
+  const enable = $('swEnable')
+  if (enable) {
+    enable.textContent = sw.enabled ? 'Disable Sub-worker' : 'Enable Sub-worker'
+    enable.disabled = !available
+    enable.hidden = Boolean(sw.enabled)
+  }
+  const start = $('swStart')
+  if (start) {
+    start.hidden = Boolean(sw.enabled)
+    start.disabled = !available || sw.enabled
+  }
+  const stop = $('swStop')
+  if (stop) stop.disabled = !available || !sw.enabled
+  const restart = $('swRestart')
+  if (restart) restart.disabled = !available || (!sw.enabled && state === 'OFF' && !sw.handoff)
+  const pause = $('swPause')
+  if (pause) pause.disabled = !available || !sw.enabled || ['PAUSED', 'PAUSING'].includes(state)
+  const resume = $('swResume')
+  if (resume) resume.disabled = !available || !['PAUSED', 'PAUSING'].includes(state)
+  const cancel = $('swCancel')
+  if (cancel) cancel.disabled = !available || !busy
+  const takeOver = $('swTakeOver')
+  if (takeOver) takeOver.disabled = !available || (!sw.enabled && !sw.handoff)
+  const live = $('swLive')
+  if (live) live.disabled = !available
+  const dispatchBox = $('swDispatchBox')
+  if (dispatchBox) dispatchBox.hidden = sw.available === false
+
+  if (snapshot?.subWorker?.available === false) {
+    if (summary) summary.innerHTML = `<div class="muted">Sub-worker 管理器不可用：${esc(sw.reason || '未由桌面 shell 提供')}</div>`
+  }
+
+  const crash = $('swCrash')
+  if (crash) {
+    if (state === 'CRASHED') {
+      crash.hidden = false
+      crash.textContent = `Sub-worker crashed. Last task: ${sw.task_id || sw.history?.[0]?.task_id || 'none'}`
+    } else if (state === 'HANDOFF') {
+      crash.hidden = false
+      crash.textContent = `Workspace handed over to the Controller: ${sw.handoff?.workspace || '—'}`
+    } else {
+      crash.hidden = true
+      crash.textContent = ''
+    }
+  }
+
+  const queue = $('swQueue')
+  if (queue) {
+    const items = sw.queue || []
+    queue.innerHTML = items.length
+      ? items.map((item) => `<div class="queue-item">
+          <div class="queue-rank">SUB</div>
+          <div class="queue-main"><div class="queue-title" title="${esc(item.objective)}">${esc(item.objective)}</div>
+          <div class="queue-meta">${esc(`${item.task_id} · ${item.risk_level || '—'} · ${item.target_repo || '—'}`)}</div></div>
+        </div>`).join('')
+      : '<div class="muted">Sub-worker 队列为空</div>'
+  }
+
+  const history = $('swHistory')
+  if (history) {
+    const entries = (sw.history || []).slice(0, 12)
+    history.innerHTML = entries.length
+      ? `<h3 class="sw-subhead">Task History</h3>` + entries.map((entry) => `<div class="sw-history-item" data-sw-task="${esc(entry.task_id)}">
+          <span class="sw-history-status" data-status="${esc(entry.status)}">${esc(entry.status)}</span>
+          <b>${esc(entry.task_id)}</b>
+          <small>${esc(entry.summary || entry.code || '')}</small>
+        </div>`).join('')
+      : ''
+  }
+
+  renderLiveView(sw)
+}
+
+function liveViewPayload() {
+  return liveViewDetail || latestSubWorker?.live || null
+}
+
+function renderLiveView(sw) {
+  if (!liveViewOpen) return
+  const state = String(sw?.state || 'OFF').toUpperCase()
+  const chip = $('lvState')
+  if (chip) {
+    chip.textContent = state
+    chip.className = `status-chip ${subWorkerStateClass(state)}`
+  }
+
+  const live = liveViewPayload() || {}
+  const taskId = liveViewTaskId || live.task_id || sw?.task_id || null
+  const task = $('lvTask')
+  if (task) {
+    task.innerHTML = taskId
+      ? `<div class="lv-row"><span>task_id</span><b>${esc(taskId)}</b></div>
+         <div class="lv-row"><span>objective</span><b>${esc(live.objective || sw?.objective || '—')}</b></div>
+         <div class="lv-row"><span>workspace</span><b>${esc(live.workspace || sw?.workspace_lock?.workspace || '—')}</b></div>`
+      : '<div class="muted">暂无任务。开启 Sub-worker 并由 Controller 派发任务后，这里会显示全过程。</div>'
+  }
+
+  const status = $('lvStatus')
+  if (status) {
+    status.innerHTML = [
+      ['state', state],
+      ['stage', sw?.stage || live.stage || '—'],
+      ['started', live.started_at ? fmtTimeOfDay(Date.parse(live.started_at)) : '—'],
+      ['finished', live.finished_at ? fmtTimeOfDay(Date.parse(live.finished_at)) : '—'],
+      ['worker', sw?.worker_id || '—'],
+      ['heartbeat', sw?.last_heartbeat_at ? fmtTimeOfDay(sw.last_heartbeat_at) : '—']
+    ].map(([label, value]) => `<div class="lv-row"><span>${esc(label)}</span><b>${esc(String(value))}</b></div>`).join('')
+  }
+
+  const summary = $('lvSummary')
+  if (summary) {
+    const lines = Array.isArray(live.summary) ? live.summary.slice(-40) : []
+    summary.innerHTML = lines.length
+      ? `<ul class="lv-list">${lines.map((line) => `<li><i>${esc(line.icon || '·')}</i><span>${esc(line.text)}</span><small>${esc(line.at ? fmtTimeOfDay(Date.parse(line.at)) : '')}</small></li>`).join('')}</ul>`
+      : '<div class="muted">尚未产生执行摘要。</div>'
+  }
+
+  const files = $('lvFiles')
+  if (files) {
+    const list = Array.isArray(live.changed_files) ? live.changed_files : []
+    files.innerHTML = list.length
+      ? `<ul class="lv-list">${list.map((file) => `<li><i>${esc(file.status || 'M')}</i><span>${esc(file.path)}</span></li>`).join('')}</ul>`
+      : '<div class="muted">暂无文件变化。</div>'
+  }
+
+  const tests = $('lvTests')
+  if (tests) {
+    const value = live.tests || {}
+    tests.innerHTML = value.parser
+      ? `<div class="lv-row"><span>passed</span><b>${esc(value.passed ?? 0)}</b></div>
+         <div class="lv-row"><span>failed</span><b>${esc(value.failed ?? 0)}</b></div>
+         <div class="lv-row"><span>skipped</span><b>${esc(value.skipped ?? 0)}</b></div>
+         <div class="lv-row"><span>parser</span><b>${esc(value.inferred ? `${value.parser}（由退出码推断）` : value.parser)}</b></div>`
+      : '<div class="muted">尚未运行测试命令。</div>'
+  }
+
+  const terminal = $('lvTerminal')
+  if (terminal) {
+    const lines = Array.isArray(live.terminal) ? live.terminal.slice(-80) : []
+    terminal.textContent = lines.length
+      ? lines.map((line) => (line.kind === 'command' ? `$ ${line.text}` : line.text)).join('\n')
+      : '尚无命令输出。'
+  }
+
+  const issues = $('lvIssues')
+  if (issues) {
+    const warnings = Array.isArray(live.warnings) ? live.warnings : []
+    const errors = Array.isArray(live.errors) ? live.errors : []
+    issues.innerHTML = (warnings.length || errors.length)
+      ? [...errors.map((text) => `<div class="lv-issue error">${esc(text)}</div>`),
+        ...warnings.map((text) => `<div class="lv-issue warn">${esc(text)}</div>`)].join('')
+      : '<div class="muted">无警告与错误。</div>'
+  }
+
+  const result = $('lvResult')
+  if (result) {
+    const stored = live.result || null
+    result.innerHTML = stored
+      ? `<div class="lv-row"><span>status</span><b>${esc(stored.status)}</b></div>
+         <div class="lv-row"><span>code</span><b>${esc(stored.code || '—')}</b></div>
+         <div class="lv-row"><span>summary</span><b>${esc(stored.summary || '—')}</b></div>
+         <div class="lv-row"><span>needs review</span><b>${stored.needs_controller_review ? 'yes' : 'no'}</b></div>
+         ${(stored.acceptance || []).map((entry) => `<div class="lv-row"><span>acceptance</span><b>${esc(`${entry.status}: ${entry.criterion}`)}</b></div>`).join('')}`
+      : '<div class="muted">任务尚未结束。</div>'
+  }
+
+  const events = $('lvEvents')
+  if (events) {
+    const list = Array.isArray(sw?.events) ? sw.events.slice(-30).reverse() : []
+    events.innerHTML = list.length
+      ? `<ul class="lv-list">${list.map((event) => `<li><i>·</i><span>${esc(event.type)}</span><small>${esc(event.summary || '')}</small><small>${esc(event.timestamp ? fmtTimeOfDay(Date.parse(event.timestamp)) : '')}</small></li>`).join('')}</ul>`
+      : '<div class="muted">暂无事件。</div>'
+  }
+
+  const history = $('lvHistory')
+  if (history) {
+    const entries = sw?.history || []
+    history.innerHTML = entries.length
+      ? `<ul class="lv-list">${entries.map((entry) => `<li data-sw-task="${esc(entry.task_id)}"><i>${esc(entry.status)}</i><span>${esc(entry.task_id)}</span><small>${esc(entry.summary || '')}</small></li>`).join('')}</ul>`
+      : '<div class="muted">暂无历史记录。</div>'
+  }
+}
+
+function openLiveView(taskId = null) {
+  liveViewOpen = true
+  liveViewTaskId = taskId || liveViewTaskId
+  liveViewDetail = null
+  const overlay = $('liveView')
+  if (overlay) overlay.hidden = false
+  document.body.classList.add('live-view-open')
+  setLiveViewNotice('')
+  return refreshLiveView()
+}
+
+function closeLiveView() {
+  liveViewOpen = false
+  const overlay = $('liveView')
+  if (overlay) overlay.hidden = true
+  document.body.classList.remove('live-view-open')
+  return true
+}
+
+async function refreshLiveView(taskId = liveViewTaskId) {
+  if (!liveViewOpen) return null
+  const api = subWorkerApi()
+  if (!api) {
+    setLiveViewNotice('Sub-worker 控制通道不可用')
+    return null
+  }
+  try {
+    const detail = await api.liveView(taskId || null)
+    if (detail) liveViewDetail = detail
+    renderLiveView(latestSubWorker || {})
+    return detail
+  } catch (error) {
+    showError(error)
+    return null
+  }
+}
+
+/** One entry point for every worker action, so failures never break the dock. */
+async function subWorkerAction(label, run) {
+  const api = subWorkerApi()
+  if (!api) {
+    setSubWorkerStatus('Sub-worker 控制通道不可用')
+    return null
+  }
+  try {
+    setSubWorkerStatus(`${label}…`)
+    const result = await run(api)
+    await refresh()
+    if (result && result.ok === false) setSubWorkerStatus(`${label} 未完成：${result.reason || result.error || 'unknown'}`)
+    else setSubWorkerStatus(`${label} 已提交`)
+    return result
+  } catch (error) {
+    setSubWorkerStatus(`${label} 失败：${error?.message || error}`)
+    showError(error)
+    return null
+  }
+}
+
+function buildSubWorkerTask() {
+  const operationsRaw = $('swOperations').value.trim()
+  let operations = []
+  if (operationsRaw) {
+    try {
+      operations = JSON.parse(operationsRaw)
+    } catch (error) {
+      throw new Error(`operations 不是合法 JSON：${error.message}`)
+    }
+    if (!Array.isArray(operations)) throw new Error('operations 必须是 JSON 数组')
+  }
+  return {
+    version: 1,
+    task_id: `mega-${Date.now().toString(36)}`,
+    created_at: new Date().toISOString(),
+    objective: $('swObjective').value.trim(),
+    target_repo: $('swTargetRepo').value.trim(),
+    workspace: $('swWorkspace').value.trim() || null,
+    workspace_mode: $('swWorkspaceMode').value,
+    allowed_paths: splitLines($('swAllowed').value),
+    forbidden_paths: splitLines($('swForbidden').value),
+    acceptance: splitLines($('swAcceptance').value),
+    acceptance_commands: splitLines($('swAcceptanceCommands').value),
+    permissions: {
+      read: true,
+      write: $('swPermWrite').checked,
+      shell: $('swPermShell').checked,
+      git_commit: $('swPermCommit').checked,
+      network: $('swPermNetwork').checked
+    },
+    risk_level: $('swRisk').value,
+    requires_vision: $('swRequiresVision').checked,
+    operations
+  }
+}
+
 function fillSelect(select, values, current) {
   if (!select) return
   const options = [...values]
@@ -263,6 +630,19 @@ function renderSettings(snapshot) {
   $('memoryPerWorkerGb').value = config.memoryPerWorkerGb ?? 2.5
   $('defaultAllowPeak').checked = Boolean(config.defaultAllowPeak)
   $('interruptRunningAtPeak').checked = Boolean(config.interruptRunningAtPeak)
+
+  // Sub-worker configuration (plan §18). Missing data leaves the defaults as
+  // they are, so an older backend cannot blank these controls.
+  const swConfig = snapshot.subWorker?.config
+  if (swConfig) {
+    $('swEnabledOnStartup').checked = Boolean(swConfig.enabledOnStartup)
+    $('swAutoDelegate').checked = Boolean(swConfig.autoDelegate)
+    $('swCfgWorkspaceMode').value = swConfig.workspaceMode || 'isolated_worktree'
+    $('swMaxWorkers').value = swConfig.maxWorkers ?? 1
+    $('swKeepChanges').checked = swConfig.keepChangesOnStop !== false
+    $('swAllowCommit').checked = Boolean(swConfig.allowGitCommit)
+    $('swShowNotifications').checked = swConfig.showNotifications !== false
+  }
 }
 
 function render(snapshot) {
@@ -333,6 +713,7 @@ function render(snapshot) {
 
   renderBalance(snapshot)
   renderSettings(snapshot)
+  renderSubWorker(snapshot)
 
   updateLivePeriod()
 }
@@ -394,7 +775,13 @@ $('settingsOverlay').addEventListener('click', (event) => {
   if (event.target === $('settingsOverlay')) setSettingsOpen(false)
 })
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && isSettingsOpen()) setSettingsOpen(false)
+  if (event.key !== 'Escape') return
+  // The Live View sits above the settings layer, so it closes first.
+  if (liveViewOpen) {
+    closeLiveView()
+    return
+  }
+  if (isSettingsOpen()) setSettingsOpen(false)
 })
 
 $('generalForm').onsubmit = async (event) => {
@@ -520,7 +907,12 @@ document.addEventListener('click', async (event) => {
   const move = event.target?.dataset?.move
   const id = event.target?.dataset?.id
   const cancel = event.target?.dataset?.cancel
+  const subTask = event.target?.closest?.('[data-sw-task]')?.dataset?.swTask
   try {
+    if (subTask) {
+      await openLiveView(subTask)
+      return
+    }
     if (move && id) {
       await window.megaTools.reorderTask(id, move)
       await refresh()
@@ -534,6 +926,168 @@ document.addEventListener('click', async (event) => {
     showError(error)
   }
 })
+
+/* ------------------------- Sub-worker interaction ------------------------- */
+
+$('swEnable').onclick = () => subWorkerAction('启用 Sub-worker', (api) => api.start())
+$('swStart').onclick = () => subWorkerAction('启动 Sub-worker', (api) => api.start())
+$('swStop').onclick = () => subWorkerAction('停止 Sub-worker', (api) => api.stop())
+$('swRestart').onclick = () => subWorkerAction('重启 Sub-worker', (api) => api.restart())
+$('swPause').onclick = () => subWorkerAction('暂停', (api) => api.pause('paused from Mega'))
+$('swResume').onclick = () => subWorkerAction('恢复', (api) => api.resume('resumed from Mega'))
+$('swCancel').onclick = () => subWorkerAction('取消任务', (api) => api.cancelTask('cancelled from Mega'))
+$('swTakeOver').onclick = () => subWorkerAction('接管工作区', (api) => api.takeOver('take over from Mega'))
+$('swLive').onclick = () => openLiveView()
+$('lvClose').onclick = () => closeLiveView()
+$('lvRefresh').onclick = () => refreshLiveView()
+$('lvPause').onclick = () => subWorkerAction('暂停', (api) => api.pause('paused from Live View'))
+$('lvResume').onclick = () => subWorkerAction('恢复', (api) => api.resume('resumed from Live View'))
+$('lvCancel').onclick = () => subWorkerAction('取消任务', (api) => api.cancelTask('cancelled from Live View'))
+$('lvStop').onclick = () => subWorkerAction('停止 Sub-worker', (api) => api.stop())
+$('lvRestart').onclick = () => subWorkerAction('重启 Sub-worker', (api) => api.restart())
+$('lvTakeOver').onclick = () => subWorkerAction('接管工作区', (api) => api.takeOver('take over from Live View'))
+$('lvLog').onclick = async () => {
+  const api = subWorkerApi()
+  const taskId = liveViewTaskId || latestSubWorker?.task_id
+  if (!api || !taskId) {
+    setLiveViewNotice('暂无可读取的任务日志')
+    return
+  }
+  try {
+    const result = await api.readLog(taskId)
+    setLiveViewNotice(result?.ok ? `日志：${result.file}` : `日志不可用：${result?.reason || 'unknown'}`)
+    renderLiveView(latestSubWorker || {})
+  } catch (error) {
+    setLiveViewNotice(`日志读取失败：${error?.message || error}`)
+  }
+}
+
+$('lvNoteForm').onsubmit = async (event) => {
+  event.preventDefault()
+  const api = subWorkerApi()
+  const note = $('lvNote').value.trim()
+  if (!api) {
+    setLiveViewNotice('Sub-worker 控制通道不可用')
+    return
+  }
+  if (!note) {
+    setLiveViewNotice('请输入要注入的 Note')
+    return
+  }
+  try {
+    const result = await api.sendNote({ note })
+    $('lvNote').value = ''
+    setLiveViewNotice(result?.ok
+      ? `Note 已进入 controller_note_queue（${result.delivered ? '已送达 worker，将在下一个执行边界生效' : '将在 worker 启动后注入'}）`
+      : `Note 未接受：${result?.reason || 'unknown'}`)
+    await refresh()
+  } catch (error) {
+    setLiveViewNotice(`Note 发送失败：${error?.message || error}`)
+  }
+}
+
+$('swPickRepo').onclick = async () => {
+  const api = subWorkerApi()
+  if (!api) return
+  try {
+    const picked = await api.pickTargetRepo()
+    if (picked) $('swTargetRepo').value = picked
+  } catch (error) {
+    showError(error)
+  }
+}
+
+$('swResumeLast').onclick = () => subWorkerAction('恢复上次任务', (api) => api.resumeLast())
+
+$('swReleaseWorktree').onclick = async () => {
+  const api = subWorkerApi()
+  const target = $('swTargetRepo').value.trim()
+  if (!api) {
+    setSubWorkerStatus('Sub-worker 控制通道不可用')
+    return
+  }
+  if (!target) {
+    setSubWorkerStatus('请先填写或选择 target_repo')
+    return
+  }
+  try {
+    setSubWorkerStatus('正在释放隔离工作区…')
+    const result = await api.releaseWorktree(target)
+    setSubWorkerStatus(result?.ok
+      ? (result.removed ? `已释放 ${result.worktree}` : `无隔离工作区可释放：${target}`)
+      : `释放失败：${result?.reason || 'unknown'}`)
+    await refresh()
+  } catch (error) {
+    setSubWorkerStatus(`释放失败：${error?.message || error}`)
+  }
+}
+
+$('swTaskForm').onsubmit = async (event) => {
+  event.preventDefault()
+  const api = subWorkerApi()
+  if (!api) {
+    setSubWorkerStatus('Sub-worker 控制通道不可用')
+    return
+  }
+  let task
+  try {
+    task = buildSubWorkerTask()
+  } catch (error) {
+    setSubWorkerStatus(String(error.message || error))
+    return
+  }
+  if (!task.objective) {
+    setSubWorkerStatus('objective 不能为空')
+    return
+  }
+  if (!task.operations.length) {
+    setSubWorkerStatus('必须提供 operations：worker 只执行明确 specification，不会自行设计实现方案')
+    return
+  }
+  try {
+    const result = await api.assignTask(task)
+    if (result?.accepted) {
+      setSubWorkerStatus(`任务 ${result.task_id} 已受理（队列 ${result.queue_length}）`)
+      $('swObjective').value = ''
+      $('swOperations').value = ''
+    } else {
+      setSubWorkerStatus(`任务未受理：${result?.reason || (result?.errors || []).join('; ') || result?.code || 'unknown'}`)
+    }
+    await refresh()
+  } catch (error) {
+    setSubWorkerStatus(`派发失败：${error?.message || error}`)
+  }
+}
+
+$('subWorkerForm').onsubmit = async (event) => {
+  event.preventDefault()
+  const api = subWorkerApi()
+  if (!api) {
+    setSettingsStatus('Sub-worker 控制通道不可用')
+    return
+  }
+  setSettingsStatus('保存中…')
+  try {
+    await api.updateConfig({
+      enabledOnStartup: $('swEnabledOnStartup').checked,
+      autoDelegate: $('swAutoDelegate').checked,
+      workspaceMode: $('swCfgWorkspaceMode').value,
+      maxWorkers: 1,
+      keepChangesOnStop: $('swKeepChanges').checked,
+      allowGitCommit: $('swAllowCommit').checked,
+      showNotifications: $('swShowNotifications').checked
+    })
+    await refresh()
+    setSettingsStatus('Sub-worker 已保存')
+  } catch (error) {
+    setSettingsStatus(`保存失败：${error?.message || error}`)
+    showError(error)
+  }
+}
+
+if (subWorkerApi()?.onOpenLiveView) {
+  subWorkerApi().onOpenLiveView(() => openLiveView())
+}
 
 window.megaTools.onChanged(refresh)
 refresh()

@@ -4,7 +4,16 @@ $node = (Get-Command node).Source
 
 $syntaxFiles = @(
   "$ROOT\app\desktop-main.cjs",
+  "$ROOT\app\runtime-process.cjs",
   "$ROOT\app\extensions\manager.cjs",
+  "$ROOT\app\sub-worker\manager.cjs",
+  "$ROOT\app\sub-worker\runtime.cjs",
+  "$ROOT\app\sub-worker\protocol.cjs",
+  "$ROOT\app\sub-worker\state.cjs",
+  "$ROOT\app\sub-worker\permissions.cjs",
+  "$ROOT\app\sub-worker\event-bus.cjs",
+  "$ROOT\app\sub-worker\reporter.cjs",
+  "$ROOT\app\sub-worker\task-runner.cjs",
   "$ROOT\app\extensions\mega\index.cjs",
   "$ROOT\app\extensions\mega\deepseek\official-session-client.js",
   "$ROOT\app\extensions\mega\scheduler\scheduler.js",
