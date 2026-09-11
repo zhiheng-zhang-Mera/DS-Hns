@@ -96,7 +96,16 @@ function defaultConfig() {
     // Additive, documented in docs/sub-worker.md: how long a single worker
     // command may run before it is treated as a timeout and killed.
     commandTimeoutMs: 30 * 60 * 1000,
-    heartbeatMs: 2000
+    // Worker heartbeats are the supervisor's liveness signal (multi-sub.md §32).
+    heartbeatMs: 2000,
+    /**
+     * Multi-worker execution (multi-sub.md). `adaptiveWorkers: false` keeps the
+     * documented compatibility mode: exactly one worker on one code path.
+     */
+    adaptiveWorkers: false,
+    // The resolved resource configuration lives in resource-config.cjs; a
+    // persisted copy may override individual keys.
+    resources: null
   }
 }
 
@@ -106,7 +115,8 @@ function publicConfig(raw) {
   const maxWorkers = Number(source.maxWorkers)
   return {
     enabledOnStartup: source.enabledOnStartup === true,
-    // Phase 1 is single-worker by contract (plan §6/§31).
+    // Compatibility mode is the default: one worker unless the user opts into
+    // the adaptive scheduler (multi-sub.md §36).
     maxWorkers: Number.isFinite(maxWorkers) && maxWorkers >= 1 ? Math.floor(maxWorkers) : defaults.maxWorkers,
     autoDelegate: source.autoDelegate === true,
     workspaceMode: ['shared', 'isolated_worktree'].includes(source.workspaceMode)
@@ -120,7 +130,9 @@ function publicConfig(raw) {
       : defaults.commandTimeoutMs,
     heartbeatMs: Number.isFinite(Number(source.heartbeatMs)) && Number(source.heartbeatMs) > 0
       ? Math.floor(Number(source.heartbeatMs))
-      : defaults.heartbeatMs
+      : defaults.heartbeatMs,
+    adaptiveWorkers: source.adaptiveWorkers === true,
+    resources: isPlainObject(source.resources) ? { ...source.resources } : null
   }
 }
 
@@ -190,10 +202,23 @@ function paths(root) {
     queueFile: path.join(base, 'data', 'sub-worker', 'queue.json'),
     historyFile: path.join(base, 'data', 'sub-worker', 'history.json'),
     workspaceLockFile: path.join(base, 'data', 'sub-worker', 'workspace-lock.json'),
+    // Multi-worker artifacts (multi-sub.md §17, §18, §20, §37, §38).
+    hardwareProfileFile: path.join(base, 'data', 'sub-worker', 'hardware-profile.json'),
+    poolFile: path.join(base, 'data', 'sub-worker', 'pool.json'),
+    plansDir: path.join(base, 'data', 'sub-worker', 'plans'),
+    snapshotsDir: path.join(base, 'data', 'sub-worker', 'snapshots'),
+    fileOwnershipFile: path.join(base, 'data', 'sub-worker', 'file-ownership.json'),
+    metricsFile: path.join(base, 'data', 'sub-worker', 'metrics.json'),
+    resourceConfigFile: path.join(base, 'config', 'hns-resource.yaml'),
     runtimeDir: path.join(base, 'runtime'),
     logsDir: path.join(base, 'logs'),
     runtimeLog: path.join(base, 'logs', 'sub-worker.log'),
-    taskLogsDir: path.join(base, 'logs', 'sub-worker')
+    taskLogsDir: path.join(base, 'logs', 'sub-worker'),
+    // The documented log split of multi-sub.md §37.
+    supervisorLog: path.join(base, 'logs', 'sub-worker', 'supervisor.log'),
+    schedulerLog: path.join(base, 'logs', 'sub-worker', 'scheduler.log'),
+    resourceLog: path.join(base, 'logs', 'sub-worker', 'resources.log'),
+    workerLogsDir: path.join(base, 'logs', 'sub-worker', 'workers')
   }
 }
 
@@ -212,12 +237,79 @@ class SubWorkerStore {
   }
 
   ensureDirs() {
-    for (const dir of [this.paths.dataDir, this.paths.tasksDir, this.paths.logsDir, this.paths.taskLogsDir, this.paths.runtimeDir]) {
+    for (const dir of [
+      this.paths.dataDir,
+      this.paths.tasksDir,
+      this.paths.plansDir,
+      this.paths.snapshotsDir,
+      this.paths.logsDir,
+      this.paths.taskLogsDir,
+      this.paths.workerLogsDir,
+      this.paths.runtimeDir
+    ]) {
       try {
         fs.mkdirSync(dir, { recursive: true })
       } catch (error) {
         this.log(`sub-worker dir create failed (${dir}): ${error?.message || error}`)
       }
+    }
+  }
+
+  /** Persist one serialized plan under data/sub-worker/plans (multi-sub.md §15). */
+  savePlan(planId, serialized) {
+    const file = path.join(this.paths.plansDir, `${sanitizeTaskId(planId)}.json`)
+    try {
+      writeJsonFile(file, serialized)
+      return file
+    } catch (error) {
+      this.log(`sub-worker plan save failed: ${error?.message || error}`)
+      return null
+    }
+  }
+
+  loadPlan(planId) {
+    return readJsonFile(path.join(this.paths.plansDir, `${sanitizeTaskId(planId)}.json`), null)
+  }
+
+  loadMetrics() {
+    return readJsonFile(this.paths.metricsFile, null)
+  }
+
+  saveMetrics(serialized) {
+    try {
+      writeJsonFile(this.paths.metricsFile, serialized)
+      return this.paths.metricsFile
+    } catch (error) {
+      this.log(`sub-worker metrics save failed: ${error?.message || error}`)
+      return null
+    }
+  }
+
+  loadFileOwnership() {
+    return readJsonFile(this.paths.fileOwnershipFile, null)
+  }
+
+  saveFileOwnership(serialized) {
+    try {
+      writeJsonFile(this.paths.fileOwnershipFile, serialized)
+      return this.paths.fileOwnershipFile
+    } catch (error) {
+      this.log(`sub-worker file ownership save failed: ${error?.message || error}`)
+      return null
+    }
+  }
+
+  loadPool() {
+    return readJsonFile(this.paths.poolFile, null)
+  }
+
+  savePool(serialized) {
+    try {
+      writeJsonFile(this.paths.poolFile, serialized)
+      return this.paths.poolFile
+    } catch (error) {
+      this.log(`sub-worker pool save failed: ${error?.message || error}`)
+      return null
     }
   }
 

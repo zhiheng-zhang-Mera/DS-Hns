@@ -145,6 +145,30 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .sw-history-status[data-status="failed"],.sw-history-status[data-status="rejected"]{color:var(--peak);border-color:color-mix(in srgb,var(--peak) 24%,var(--border))}
 .sw-crash{margin:8px 0 0;padding:9px;border-radius:9px;background:var(--peak-bg);border:1px solid color-mix(in srgb,var(--peak) 24%,transparent);color:var(--peak);font-size:10px}
 
+/* ---------- Adaptive multi-worker surface (multi-sub.md §10, §13, §15) ---------- */
+.sw-adaptive{margin:0 0 9px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface-soft);display:flex;flex-direction:column;gap:7px}
+.sw-adaptive label{display:flex;align-items:center;gap:6px;font-size:10px}
+.sw-adaptive-actions{display:flex;align-items:center;gap:6px}
+.sw-adaptive-actions button{padding:6px 10px;font-size:10px;background:var(--surface)}
+.sw-adaptive-actions .status-chip{margin-left:auto}
+.sw-pool{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}
+.sw-pool-row{display:grid;grid-template-columns:64px 62px 62px 1fr 56px 52px;gap:6px;align-items:center;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-soft);font-size:9.5px}
+.sw-pool-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-pool-head{background:transparent;border-color:transparent;color:var(--muted);font-weight:700}
+.sw-pool-row span[data-status="BUSY"],.sw-pool-row span[data-status="RUNNING"]{color:var(--accent)}
+.sw-pool-row span[data-status="CRASHED"],.sw-pool-row span[data-status="FAILED"]{color:var(--peak)}
+.sw-dag{display:flex;flex-direction:column;gap:8px;margin-bottom:9px}
+.sw-plan{border:1px solid var(--border);border-radius:10px;padding:7px 9px;background:var(--surface)}
+.sw-plan-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;font-size:10px}
+.sw-plan-head small{margin-left:auto;color:var(--muted);font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-node{display:grid;grid-template-columns:88px 66px 60px 1fr 34px;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dashed var(--border);font-size:9.5px}
+.sw-node:last-child{border-bottom:0}
+.sw-node span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw-node[data-status="completed"] span:nth-child(2){color:var(--off)}
+.sw-node[data-status="failed"] span:nth-child(2),.sw-node[data-status="blocked"] span:nth-child(2){color:var(--peak)}
+.sw-node[data-status="running"] span:nth-child(2){color:var(--accent)}
+.sw-plan-integration{margin-top:5px;font-size:9px;color:var(--muted);border-top:1px solid var(--border);padding-top:4px}
+
 /* ---------- Sub-worker Live View (plan §12) ---------- */
 .live-view-overlay{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-start;justify-content:center;padding:12px;background:rgba(16,24,40,.38);overflow:auto}
 .live-view-overlay[hidden]{display:none}

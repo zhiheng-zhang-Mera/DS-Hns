@@ -173,8 +173,8 @@ test('the worker lifecycle runs OFF -> STARTING -> IDLE -> STOPPING -> OFF with 
   assert.equal(manager.describe().state, 'OFF')
   assert.equal(manager.isRunning, false)
   assert.equal(fs.existsSync(path.join(root, 'runtime', 'sub-worker-process.json')), false)
-  assert.ok(logs.some((line) => /worker sub-1 started/.test(line)))
-  assert.ok(logs.some((line) => /worker stopped/.test(line)))
+  assert.ok(logs.some((line) => /worker sub-1 spawned/.test(line)))
+  assert.ok(logs.some((line) => /worker stopped|stopped \(test stop\)/.test(line)))
 
   // The process really is gone.
   let alive = true
@@ -380,12 +380,14 @@ test('a worker crash is contained: CRASHED is recorded, the Harness keeps runnin
   assert.equal(snapshot.history[0].needs_controller_review, true)
   assert.ok(snapshot.notifications.some((entry) => entry.kind === 'crash'), 'the user is told what happened')
   assert.equal(fs.existsSync(path.join(root, 'runtime', 'sub-worker-process.json')), false)
-  assert.equal(logs.some((line) => /worker exit code/.test(line)), true)
+  assert.equal(logs.some((line) => /worker exited unexpectedly/.test(line)), true)
 
   // AC-09: the host process is unaffected and the worker can be restarted.
   const restarted = await manager.restart({ reason: 'after crash' })
   assert.equal(restarted.ok, true)
-  assert.equal(manager.describe().state, 'IDLE')
+  // The supervisor is alive again; if the interrupted node is still pending it is
+  // already being replayed, which is why the state may be ASSIGNED here.
+  assert.ok(['IDLE', 'ASSIGNED', 'RUNNING'].includes(manager.describe().state), `unexpected state ${manager.describe().state}`)
   assert.equal(manager.describe().restarts >= 1, true)
 
   // Crash resume replays the interrupted task from its durable dispatch record.

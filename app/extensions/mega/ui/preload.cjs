@@ -73,7 +73,12 @@ contextBridge.exposeInMainWorld('megaSubWorker', {
   liveView: (taskId) => ipcRenderer.invoke('sub-worker:live-view', taskId),
   readLog: (taskId) => ipcRenderer.invoke('sub-worker:read-log', taskId),
   pickTargetRepo: () => ipcRenderer.invoke('sub-worker:pick-target-repo'),
-  releaseWorktree: (targetRepo) => ipcRenderer.invoke('sub-worker:release-worktree', targetRepo),
+  releaseWorktree: (targetRepo, options) => ipcRenderer.invoke('sub-worker:release-worktree', targetRepo, options),
+  // Adaptive multi-worker surface (Update-Plan/multi-sub.md).
+  submitPlan: (plan, options) => ipcRenderer.invoke('sub-worker:submit-plan', plan, options),
+  plans: () => ipcRenderer.invoke('sub-worker:plans'),
+  resourceConfig: (patch) => ipcRenderer.invoke('sub-worker:resource-config', patch),
+  tick: () => ipcRenderer.invoke('sub-worker:tick'),
   // The tray's "Open Live View" (and anything else outside the dock) asks the
   // dock to reveal the Live View pane; the dock never opens a second window.
   onOpenLiveView: (callback) => ipcRenderer.on('mega:sub-worker-live-view', () => callback())

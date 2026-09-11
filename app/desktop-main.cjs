@@ -73,7 +73,12 @@ const SUB_WORKER_CHANNELS = [
   'sub-worker:live-view',
   'sub-worker:read-log',
   'sub-worker:pick-target-repo',
-  'sub-worker:release-worktree'
+  'sub-worker:release-worktree',
+  // Adaptive multi-worker surface (Update-Plan/multi-sub.md).
+  'sub-worker:submit-plan',
+  'sub-worker:resource-config',
+  'sub-worker:tick',
+  'sub-worker:plans'
 ]
 
 /**
@@ -501,10 +506,31 @@ function registerSubWorkerIpc() {
   }))
   // Releasing the isolated worktree is an explicit Controller action: the
   // worktree normally holds the deliverable that is being reviewed.
-  ipcMain.handle('sub-worker:release-worktree', guard((_event, targetRepo) => {
-    const result = workerManager.releaseWorktree(targetRepo)
+  ipcMain.handle('sub-worker:release-worktree', guard((_event, targetRepo, options) => {
+    const result = workerManager.releaseWorktree(targetRepo, options || {})
     notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker worktree release requested' })
     return result
+  }))
+  // Adaptive multi-worker surface: a plan is a DAG the scheduler parallelises.
+  ipcMain.handle('sub-worker:submit-plan', guard((_event, plan, options) => workerManager.submitPlan(plan || {}, options || {})))
+  ipcMain.handle('sub-worker:plans', guard(() => workerManager.describe().plans))
+  ipcMain.handle('sub-worker:resource-config', guard((_event, patch) => {
+    // Resource keys live beside the subWorker keys in the persisted config and
+    // are resolved by resource-config.cjs, so one update path covers both.
+    const next = workerManager.updateConfig({ ...(patch || {}) })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker resource configuration updated' })
+    return { config: next, resources: workerManager.resourceConfig, source: workerManager.resourceConfigSource }
+  }))
+  // One scheduler loop on demand: sample → scale → dispatch (multi-sub.md §42).
+  ipcMain.handle('sub-worker:tick', guard(() => {
+    const decision = workerManager.tick({ force: true })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker scheduler ticked' })
+    return {
+      state: decision?.state || null,
+      desired: decision?.desired ?? null,
+      direction: decision?.direction || null,
+      reason: decision?.reason || null
+    }
   }))
   logLine(`sub-worker IPC registered (${SUB_WORKER_CHANNELS.length} channels)`)
 }

@@ -113,6 +113,12 @@ class TaskController {
   addNote(note) {
     const entry = isPlainObject(note) ? { ...note } : { note: String(note == null ? '' : note) }
     const text = String(entry.note || '')
+    // The supervisor may deliver the same note twice (once while idle, once at
+    // dispatch); applying it twice would only duplicate the audit line.
+    const signature = `${text}|${JSON.stringify(entry.forbid || [])}|${JSON.stringify(entry.allow || [])}`
+    if (this.notes.some((existing) => existing.signature === signature)) {
+      return { note: entry, effects: [], duplicate: true }
+    }
     const effects = []
     const addForbidden = (pattern) => {
       const value = String(pattern || '').trim().replaceAll('\\', '/').replace(/[.,;:。；：]+$/, '')
@@ -138,7 +144,7 @@ class TaskController {
     const onlyMatch = text.match(/(?:only|仅|只)[^\n]{0,12}?(?:fix|modify|change|edit|touch|修改|改动|修复)\s*([^\s,;。；]+)/i)
     if (onlyMatch) addAllowed(onlyMatch[1])
 
-    this.notes.push({ ...entry, applied: false, effects, at: new Date(this.now()).toISOString() })
+    this.notes.push({ ...entry, signature, applied: false, effects, at: new Date(this.now()).toISOString() })
     return { note: entry, effects }
   }
 

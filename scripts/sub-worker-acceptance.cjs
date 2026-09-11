@@ -69,7 +69,7 @@ function commandLineFor(pid) {
 }
 
 /** Prepare an isolated DS-Harness root with a junctioned node_modules. */
-function prepareRoot(name, { port, enabledOnStartup }) {
+function prepareRoot(name, { port, enabledOnStartup, anchor = null, plan = null, resourceOverrides = null }) {
   const root = path.join(REPO, 'temp', `e2e-${name}`)
   fs.rmSync(root, { recursive: true, force: true })
   fs.mkdirSync(root, { recursive: true })
@@ -87,10 +87,64 @@ function prepareRoot(name, { port, enabledOnStartup }) {
   spawnSync('cmd.exe', ['/c', 'mklink', '/J', path.join(root, 'app', 'node_modules'), path.join(APP, 'node_modules')], { windowsHide: true, stdio: 'ignore' })
   if (enabledOnStartup) {
     fs.mkdirSync(path.join(root, 'data', 'sub-worker'), { recursive: true })
-    fs.writeFileSync(path.join(root, 'data', 'sub-worker', 'config.json'), JSON.stringify({
+    const config = {
       enabledOnStartup: true,
       maxWorkers: 1,
       showNotifications: false
+    }
+    if (resourceOverrides) {
+      config.adaptiveWorkers = true
+      config.resources = resourceOverrides
+    }
+    fs.writeFileSync(path.join(root, 'data', 'sub-worker', 'config.json'), JSON.stringify(config, null, 2), 'utf8')
+  }
+  if (anchor && plan) {
+    // Restore an active plan on boot: this is the crash-recovery path (§34) and
+    // it also gives the adaptive scheduler real work to parallelise.
+    fs.mkdirSync(path.join(root, 'data', 'sub-worker'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'data', 'sub-worker', 'state.json'), JSON.stringify({
+      version: 1,
+      state: 'CRASHED',
+      lastError: 'e2e: previous supervisor stopped',
+      active_plans: [{
+        plan: {
+          plan_id: plan.plan_id,
+          created_at: new Date().toISOString(),
+          objective: 'e2e adaptive plan',
+          acceptance: [],
+          acceptance_commands: [],
+          target_repo: anchor,
+          workspace_mode: 'isolated_worktree'
+        },
+        nodes: plan.nodes.map((node) => ({
+          node_id: node.node_id,
+          objective: node.objective,
+          role: node.role || 'code',
+          depends_on: node.depends_on || [],
+          write_scope: node.write_scope,
+          file_scope: null,
+          read_only_files: [],
+          relevant_files: [],
+          acceptance_tests: [],
+          constraints: [],
+          timeout: null,
+          priority: 0,
+          failure_blocking_weight: 1,
+          speculative: false,
+          max_attempts: 1,
+          requires_network: false,
+          requires_gpu: false,
+          status: 'pending',
+          attempts: 0,
+          worker_id: null,
+          result: null,
+          started_at: null,
+          finished_at: null
+        })),
+        node_tasks: plan.nodes.map((node) => ({ node_id: node.node_id, task: node.task })),
+        source: 'e2e',
+        accepted_at: new Date().toISOString()
+      }]
     }, null, 2), 'utf8')
   }
   return { root, port }
@@ -113,8 +167,17 @@ function readLog(root) {
   }
 }
 
-async function runShell({ name, port, enabledOnStartup, extraChecks }) {
-  const { root } = prepareRoot(name, { port, enabledOnStartup })
+function readText(file) {
+  try {
+    return fs.readFileSync(file, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+async function runShell({ name, port, enabledOnStartup, extraChecks, anchor = null, plan = null, resourceOverrides = null }) {
+  const { root } = prepareRoot(name, { port, enabledOnStartup, anchor, plan, resourceOverrides })
+  const expectEnabled = Boolean(enabledOnStartup)
   console.log(`\n=== run ${name}: root=${root} port=${port} enabledOnStartup=${enabledOnStartup} ===`)
   const child = spawn(ELECTRON, [path.join(root, 'app')], {
     cwd: path.join(root, 'app'),
@@ -143,7 +206,13 @@ async function runShell({ name, port, enabledOnStartup, extraChecks }) {
     check(`${name}: the official UI was created as a WebContentsView`, /--- DSH launch begin ---/.test(log))
     check(`${name}: the Mega dock attached to the single window`, /Mega dock attached/.test(log))
     check(`${name}: the mega extension started`, /extension started: mega/.test(log))
-    check(`${name}: the sub-worker manager initialised inertly`, /sub-worker manager ready; state=OFF/.test(log))
+    // Inertness only applies to the runs where the feature is off: an enabled
+    // run starts its pool immediately, which is the point of the opt-in.
+    if (!expectEnabled) {
+      check(`${name}: the sub-worker manager initialised inertly`, /sub-worker manager ready; state=OFF/.test(log))
+    } else {
+      check(`${name}: the sub-worker manager initialised for use`, /sub-worker manager ready/.test(log))
+    }
     check(`${name}: the shell is still alive after boot`, processAlive(child.pid))
 
     const ownership = path.join(root, 'runtime', 'dsh-process.json')
@@ -232,6 +301,93 @@ async function main() {
       ? JSON.parse(fs.readFileSync(path.join(root, 'data', 'sub-worker', 'state.json'), 'utf8'))
       : null
     check('exit: the persisted worker state is OFF', state && state.state === 'OFF', state ? state.state : 'no state file')
+  }
+
+  if (mode === 'C' || mode === 'all') {
+    // Adaptive mode, on the real shell: a restored plan (the crash-recovery path)
+    // gives two independent nodes, so the pool must grow to two workers, run them
+    // in parallel, merge them and reclaim everything on exit.
+    const anchor = path.join(REPO, 'temp', 'e2e-anchor-repo')
+    fs.rmSync(anchor, { recursive: true, force: true })
+    fs.mkdirSync(anchor, { recursive: true })
+    spawnSync('git', ['init', '-q'], { cwd: anchor, windowsHide: true })
+    spawnSync('git', ['config', 'user.email', 'e2e@example.com'], { cwd: anchor, windowsHide: true })
+    spawnSync('git', ['config', 'user.name', 'e2e'], { cwd: anchor, windowsHide: true })
+    fs.writeFileSync(path.join(anchor, 'README.md'), '# anchor\n')
+    spawnSync('git', ['add', '-A'], { cwd: anchor, windowsHide: true })
+    spawnSync('git', ['commit', '-qm', 'init'], { cwd: anchor, windowsHide: true })
+
+    const plan = {
+      plan_id: 'e2e-adaptive',
+      nodes: ['alpha', 'beta'].map((id) => ({
+        node_id: id,
+        objective: `e2e node ${id}`,
+        role: 'code',
+        write_scope: [`e2e-${id}.txt`],
+        task: {
+          version: 1,
+          task_id: `e2e-adaptive-${id}`,
+          objective: `e2e node ${id}`,
+          risk_level: 'L1',
+          permissions: { read: true, write: true, shell: true },
+          allowed_paths: [`e2e-${id}.txt`],
+          forbidden_paths: [],
+          operations: [
+            { op: 'write_file', path: `e2e-${id}.txt`, content: `${id}\n` },
+            { op: 'run_command', command: 'node -e "setTimeout(()=>{},4000)"' }
+          ]
+        }
+      }))
+    }
+
+    await runShell({
+      name: 'adaptive',
+      port: PORT_BASE + 2,
+      enabledOnStartup: true,
+      anchor,
+      plan,
+      resourceOverrides: {
+        workers: { min: 1, softMax: 2, hardMax: 2 },
+        scaling: { enabled: true, scaleUpDelaySeconds: 1, scaleDownDelaySeconds: 1, idleDownGraceSeconds: 1 },
+        runtime: { heartbeatSeconds: 1, sampleIntervalSeconds: 1 }
+      },
+      extraChecks: async ({ root: bootRoot }) => {
+        await waitFor(() => fs.existsSync(path.join(bootRoot, 'data', 'sub-worker', 'hardware-profile.json')), { label: 'the hardware profile', timeoutMs: 60_000 })
+        const profile = JSON.parse(fs.readFileSync(path.join(bootRoot, 'data', 'sub-worker', 'hardware-profile.json'), 'utf8'))
+        check('adaptive: the installation profiler produced a hardware ceiling', profile.max_recommended_workers >= 1, `tier ${profile.tier?.name}, max ${profile.max_recommended_workers}`)
+        check('adaptive: the hardware profile lists CPU, RAM and storage', profile.physical_cpu_cores >= 1 && profile.ram_total_gb > 0 && typeof profile.storage_type === 'string')
+
+        await waitFor(() => listWorkerProcesses(bootRoot).length >= 2, { label: 'a second worker process', timeoutMs: 90_000 })
+        const workers = listWorkerProcesses(bootRoot)
+        check('adaptive: the pool grew to two real worker processes', workers.length === 2, workers.join(', '))
+        check('adaptive: the pool never exceeded the configured maximum', workers.length <= 2)
+
+        check('adaptive: the supervisor log records the adaptive mode', /adaptive true/.test(readText(path.join(bootRoot, 'logs', 'sub-worker', 'supervisor.log'))))
+        check('adaptive: the resource log has samples', readText(path.join(bootRoot, 'logs', 'sub-worker', 'resources.log')).length > 0)
+
+        await waitFor(() => {
+          const history = JSON.parse(readText(path.join(bootRoot, 'data', 'sub-worker', 'history.json')) || '[]')
+          return Array.isArray(history) && history.filter((entry) => entry.status === 'completed').length >= 2
+        }, { label: 'both restored nodes to complete', timeoutMs: 120_000 })
+        const history = JSON.parse(readText(path.join(bootRoot, 'data', 'sub-worker', 'history.json')))
+        check('adaptive: both restored nodes completed on the real shell', history.filter((entry) => entry.status === 'completed').length >= 2)
+
+        const integrationWorktree = path.join(path.dirname(anchor), `${path.basename(anchor)}-worktrees`, 'hns-e2e-adaptive-integration')
+        // The merge runs on the tick after the DAG drains, so wait for it
+        // instead of racing it.
+        await waitFor(() => fs.existsSync(integrationWorktree), { label: 'the integration worktree', timeoutMs: 60_000 })
+        check('adaptive: an integration worktree was produced', fs.existsSync(integrationWorktree), integrationWorktree)
+        const merged = ['e2e-alpha.txt', 'e2e-beta.txt'].filter((file) => fs.existsSync(path.join(integrationWorktree, file)))
+        check('adaptive: the integration merged both node results', merged.length === 2, merged.join(', '))
+        check('adaptive: the target repository was never written to', !fs.existsSync(path.join(anchor, 'e2e-alpha.txt')))
+        const metrics = JSON.parse(readText(path.join(bootRoot, 'data', 'sub-worker', 'metrics.json')) || '{}')
+        check('adaptive: performance metrics were recorded', (metrics.records || []).length >= 2)
+      }
+    })
+
+    const orphans = listWorkerProcesses(path.join(REPO, 'temp', 'e2e-adaptive'))
+    check('adaptive exit: no orphaned worker survived the exit', orphans.length === 0, orphans.join(', '))
+    check('adaptive exit: the worker ownership record was cleared', !fs.existsSync(path.join(REPO, 'temp', 'e2e-adaptive', 'runtime', 'sub-worker-process.json')))
   }
 
   const failed = results.filter((entry) => !entry.ok)

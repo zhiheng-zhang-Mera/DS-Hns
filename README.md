@@ -234,6 +234,40 @@ deletion, research direction or high-risk migrations.
 
 Full reference: [docs/sub-worker.md](docs/sub-worker.md).
 
+## Adaptive multi-process execution
+
+The same layer can grow into an adaptive parallel executor, **off by default**. Turning on
+*Adaptive multi-process* in the Sub-worker panel keeps the executor contract and changes only who
+decides how many workers exist:
+
+- **Hardware ceiling** (detected once at installation and stored in
+  `data\sub-worker\hardware-profile.json`) × **runtime ceiling** (sampled CPU, RAM, disk latency,
+  VRAM, battery, thermal) × **task parallelism** × **file-conflict ceiling** ×
+  **external-service limit** = the effective worker count. `min(...)` over every dimension, never a
+  hardware-only guess, and the pool grows one worker at a time after a sustained-healthy window
+  (hysteresis) instead of jumping to the maximum.
+- **Performance states** `NORMAL / BOOST / THROTTLED / CRITICAL / SAFE_MODE` drive dispatch: no new
+  tasks while throttled, immediate scale-down when critical, and a parked pool with a live
+  supervisor if the machine cannot host even one worker.
+- **Task DAGs**: submit a plan of nodes with `depends_on`, `write_scope` and `acceptance_tests`;
+  the scheduler runs only dependency-satisfied nodes, orders them by critical path + dependents,
+  and never starts two writers of the same file at once (file-scope conflicts plus a file-ownership
+  registry). Each node gets its own git worktree; the results are merged into an integration
+  worktree and validated there, and a same-file conflict is reported rather than resolved.
+- **Worker pool**: persistent processes (not spawn-per-task) with heartbeats and multi-signal hang
+  detection, crash isolation, one automatic retry for infrastructure failures, and optional
+  `speculative` duplication while healthy.
+- **Learning**: per-role memory/CPU estimates are refined with an EWMA from real runs, clamped to a
+  documented band around the seeded profile.
+- Control and configuration: the Mega panel's pool/resource/DAG/metrics sections,
+  `config\hns-resource.yaml` (a documented, zero-dependency YAML subset), and
+  `subWorker.adaptiveWorkers` / `subWorker.resources` in `config\app.json`.
+
+With adaptive mode off, the supervisor runs **exactly one worker on the same code path** — the
+two-process behaviour of the previous phase, not a second architecture.
+
+Full reference: [docs/multi-worker.md](docs/multi-worker.md).
+
 ## Repository layout
 
 ```text

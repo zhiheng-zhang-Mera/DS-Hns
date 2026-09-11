@@ -225,6 +225,15 @@ const SOUND_EVENT_INPUTS = [
  * ------------------------------------------------------------------ */
 
 const SUB_WORKER_BUSY_STATES = ['ASSIGNED', 'RUNNING', 'PAUSING', 'PAUSED', 'BLOCKED', 'STOPPING']
+
+/** Performance states of the adaptive scheduler (Update-Plan/multi-sub.md §10). */
+const RESOURCE_STATE_CLASS = {
+  NORMAL: 'ok',
+  BOOST: 'busy',
+  THROTTLED: 'warn',
+  CRITICAL: 'warn',
+  SAFE_MODE: 'warn'
+}
 let latestSubWorker = null
 let liveViewOpen = false
 let liveViewTaskId = null
@@ -372,7 +381,124 @@ function renderSubWorker(snapshot) {
       : ''
   }
 
+  renderAdaptive(sw)
   renderLiveView(sw)
+}
+
+/**
+ * Adaptive multi-worker surface: performance state, limits, the worker pool, the
+ * task DAG and the performance metrics (Update-Plan/multi-sub.md §10, §11, §15,
+ * §38).
+ */
+function renderAdaptive(sw) {
+  const resources = sw.resources || null
+  const pool = sw.pool || null
+
+  const adaptive = $('swAdaptive')
+  if (adaptive) adaptive.checked = Boolean(sw.adaptive_workers)
+
+  const stateNode = $('swResourceState')
+  if (stateNode) {
+    const state = String(resources?.state || sw.resource_state || 'NORMAL').toUpperCase()
+    stateNode.textContent = state
+    stateNode.className = `status-chip ${RESOURCE_STATE_CLASS[state] || 'neutral'}`
+    stateNode.title = (resources?.reasons || []).join('; ') || ''
+  }
+
+  const resourceGrid = $('swResources')
+  if (resourceGrid) {
+    if (!resources) {
+      resourceGrid.innerHTML = '<div class="muted">自适应调度未启用（当前为 1 Worker 兼容模式）。</div>'
+    } else {
+      const sample = resources.sample || {}
+      const decision = sw.decision || {}
+      const hardware = sw.hardware || {}
+      resourceGrid.innerHTML = [
+        ['性能状态', resources.state],
+        ['决策', `${decision.direction || '—'} → ${decision.desired ?? '—'} workers`],
+        ['决策原因', decision.reason || '—'],
+        ['CPU', `${sample.cpu?.usage_percent ?? '—'}% · 预算 ${resources.cpuBudgetPercent ?? '—'}%`],
+        ['内存', `${sample.memory?.available_gb ?? '—'} / ${sample.memory?.total_gb ?? '—'} GB free（可用 ${resources.usableRamGb ?? '—'} GB）`],
+        ['存储', `${resources.storageClass || '—'} · 延迟 ${sample.disk?.latency?.write_ms ?? '—'} ms`],
+        ['硬件档位', hardware.tier ? `${hardware.tier.label} · 上限 ${hardware.max_recommended_workers}` : '—'],
+        ['退化传感器', (resources.degraded || []).length ? resources.degraded.join('；') : '无']
+      ].map(([label, value]) => `<div class="hardware-item"><span>${esc(label)}</span><b title="${esc(value)}">${esc(String(value))}</b></div>`).join('')
+    }
+  }
+
+  const limitsGrid = $('swLimits')
+  if (limitsGrid) {
+    const limits = sw.limits || null
+    if (!limits) {
+      limitsGrid.innerHTML = ''
+    } else {
+      const rows = ['cpu', 'ram', 'io', 'thermal', 'config']
+        .filter((key) => limits[key] !== undefined)
+        .map((key) => [`${key} limit`, String(limits[key])])
+      rows.push(['effective', String(limits.effective)])
+      rows.push(['bottleneck', (limits.binding || []).join(', ') || '—'])
+      if (limits.external) rows.push(['external', String(limits.external)])
+      limitsGrid.innerHTML = rows
+        .map(([label, value]) => `<div class="hardware-item"><span>${esc(label)}</span><b>${esc(value)}</b></div>`)
+        .join('')
+    }
+  }
+
+  const poolNode = $('swPool')
+  if (poolNode) {
+    const workers = Array.isArray(pool?.workers) ? pool.workers : []
+    poolNode.innerHTML = workers.length
+      ? `<div class="sw-pool-row sw-pool-head"><span>worker</span><span>role</span><span>state</span><span>task</span><span>pid</span><span>restarts</span></div>` +
+        workers.map((worker) => `<div class="sw-pool-row">
+          <span>${esc(worker.worker_id)}</span>
+          <span>${esc(worker.role)}</span>
+          <span data-status="${esc(worker.state)}">${esc(worker.busy ? 'BUSY' : worker.state)}</span>
+          <span title="${esc(worker.node_id || '')}">${esc(worker.task_id || '—')}</span>
+          <span>${esc(worker.pid || '—')}</span>
+          <span>${esc(worker.restarts || 0)}</span>
+        </div>`).join('')
+      : '<div class="muted">没有运行中的 Worker。</div>'
+  }
+
+  const dagNode = $('swDag')
+  if (dagNode) {
+    const plans = Array.isArray(sw.plans) ? sw.plans : []
+    if (!plans.length) {
+      dagNode.innerHTML = '<div class="muted">暂无计划。单任务派发也会生成一个单节点计划。</div>'
+    } else {
+      dagNode.innerHTML = plans.slice(0, 3).map((plan) => `
+        <div class="sw-plan">
+          <div class="sw-plan-head"><b>${esc(plan.plan_id)}</b><span class="status-chip neutral">${esc(plan.status)}</span>
+            <small>${esc(String(plan.node_count || 0))} 节点 · 关键路径 ${esc((plan.critical_path || []).join(' → ') || '—')}</small></div>
+          ${(plan.nodes || []).map((node) => `<div class="sw-node" data-status="${esc(node.status)}">
+            <span>${esc(node.node_id)}</span>
+            <span>${esc(node.status)}</span>
+            <span>${esc(node.worker_id || '—')}</span>
+            <span title="${esc(node.objective)}">${esc(node.objective)}</span>
+            <span>P${esc(String(node.priority ?? '—'))}</span>
+          </div>`).join('')}
+          ${plan.integration ? `<div class="sw-plan-integration">集成：${esc(plan.integration.summary || '')}${plan.integration.conflicts ? ` · 冲突 ${esc(String(plan.integration.conflicts))}` : ''}</div>` : ''}
+        </div>`).join('')
+    }
+  }
+
+  const metricsNode = $('swMetrics')
+  if (metricsNode) {
+    const metrics = sw.metrics || {}
+    const throughput = metrics.throughput || {}
+    const rows = [
+      ['任务', `${metrics.tasks ?? 0}（完成 ${metrics.completed ?? 0} / 失败 ${metrics.failed ?? 0}）`],
+      ['有效吞吐', `${throughput.per_minute ?? 0} / 分钟`],
+      ['平均用时', metrics.average_task_ms != null ? `${metrics.average_task_ms} ms` : '—'],
+      ['重试次数', String(metrics.retry_count ?? 0)],
+      ['合并冲突率', String(metrics.merge_conflict_rate ?? 0)],
+      ['峰值 Worker RAM', metrics.peak_worker_ram_mb != null ? `${metrics.peak_worker_ram_mb} MB` : '—']
+    ]
+    const profiles = Object.entries(metrics.role_profiles || {}).slice(0, 4)
+    metricsNode.innerHTML = rows
+      .map(([label, value]) => `<div class="hardware-item"><span>${esc(label)}</span><b>${esc(value)}</b></div>`)
+      .join('') + profiles.map(([role, profile]) => `<div class="hardware-item"><span>${esc(role)} 画像</span><b title="EWMA">${esc(`${profile.ramEstimateMb ?? '—'} MB · w${profile.cpuWeight ?? '—'} · n${profile.samples ?? 0}`)}</b></div>`).join('')
+  }
 }
 
 function liveViewPayload() {
@@ -998,6 +1124,40 @@ $('swPickRepo').onclick = async () => {
 }
 
 $('swResumeLast').onclick = () => subWorkerAction('恢复上次任务', (api) => api.resumeLast())
+
+/* ---------------- adaptive multi-worker controls ---------------- */
+
+$('swAdaptiveApply').onclick = async () => {
+  const api = subWorkerApi()
+  if (!api) {
+    setSubWorkerStatus('Sub-worker 控制通道不可用')
+    return
+  }
+  setSubWorkerStatus('正在应用自适应设置…')
+  try {
+    const enabled = $('swAdaptive').checked
+    await api.updateConfig({ adaptiveWorkers: enabled })
+    setSubWorkerStatus(enabled
+      ? '已启用自适应多进程：调度器将按资源与任务量决定 Worker 数量'
+      : '已关闭自适应：保持 1 Worker 兼容模式')
+    await refresh()
+  } catch (error) {
+    setSubWorkerStatus(`应用失败：${error?.message || error}`)
+  }
+}
+
+$('swTick').onclick = async () => {
+  const api = subWorkerApi()
+  if (!api?.tick) return
+  try {
+    setSubWorkerStatus('正在执行一次调度循环…')
+    const result = await api.tick()
+    setSubWorkerStatus(`调度完成：${result?.state || '—'} · ${result?.direction || '—'} → ${result?.desired ?? '—'} workers（${result?.reason || ''}）`)
+    await refresh()
+  } catch (error) {
+    setSubWorkerStatus(`调度失败：${error?.message || error}`)
+  }
+}
 
 $('swReleaseWorktree').onclick = async () => {
   const api = subWorkerApi()

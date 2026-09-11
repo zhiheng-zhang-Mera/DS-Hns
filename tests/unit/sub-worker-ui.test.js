@@ -317,7 +317,9 @@ test('the preload bridge exposes exactly the Sub-worker channels the shell regis
     'sub-worker:snapshot', 'sub-worker:start', 'sub-worker:stop', 'sub-worker:restart', 'sub-worker:pause',
     'sub-worker:resume', 'sub-worker:cancel-task', 'sub-worker:assign-task', 'sub-worker:send-note',
     'sub-worker:take-over', 'sub-worker:clear-handoff', 'sub-worker:resume-last', 'sub-worker:update-config',
-    'sub-worker:live-view', 'sub-worker:read-log', 'sub-worker:pick-target-repo', 'sub-worker:release-worktree'
+    'sub-worker:live-view', 'sub-worker:read-log', 'sub-worker:pick-target-repo', 'sub-worker:release-worktree',
+    // Adaptive multi-worker surface (Update-Plan/multi-sub.md).
+    'sub-worker:submit-plan', 'sub-worker:resource-config', 'sub-worker:tick', 'sub-worker:plans'
   ]
   for (const channel of channels) {
     assert.ok(preload.includes(`'${channel}'`), `the preload must expose ${channel}`)

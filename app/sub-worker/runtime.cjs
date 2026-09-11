@@ -22,17 +22,20 @@ const protocol = require('./protocol.cjs')
 const permissions = require('./permissions.cjs')
 const { SubWorkerStore, publicConfig } = require('./state.cjs')
 const { EventBus } = require('./event-bus.cjs')
+const { isPlainObject } = require('./protocol.cjs')
 const { Reporter, createRuntimeLogger } = require('./reporter.cjs')
 const { TaskController, TaskRunner } = require('./task-runner.cjs')
 
 function parseArgs(argv) {
-  const args = { root: null, workerId: null }
+  const args = { root: null, workerId: null, role: null }
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i]
     if (token === '--root' && argv[i + 1]) args.root = argv[i + 1]
     else if (token === '--worker-id' && argv[i + 1]) args.workerId = argv[i + 1]
+    else if (token === '--role' && argv[i + 1]) args.role = argv[i + 1]
     else if (token.startsWith('--root=')) args.root = token.slice('--root='.length)
     else if (token.startsWith('--worker-id=')) args.workerId = token.slice('--worker-id='.length)
+    else if (token.startsWith('--role=')) args.role = token.slice('--role='.length)
   }
   return args
 }
@@ -40,6 +43,12 @@ function parseArgs(argv) {
 const ARGS = parseArgs(process.argv.slice(2))
 const ROOT = path.resolve(ARGS.root || process.env.DSH_ROOT || path.join(__dirname, '..', '..'))
 const WORKER_ID = ARGS.workerId || process.env.DSH_SUB_WORKER_ID || 'sub-1'
+/**
+ * Worker role (plan §14). Phase 1 shares one implementation and only varies the
+ * role/profile/capability; a specialized process can be introduced later
+ * without changing the protocol.
+ */
+const WORKER_ROLE = ARGS.role || process.env.DSH_SUB_WORKER_ROLE || 'generic'
 
 const store = new SubWorkerStore({ root: ROOT })
 const runtimeLog = createRuntimeLogger(ROOT)
@@ -49,11 +58,13 @@ const state = {
   state: 'STARTING',
   stage: null,
   workerId: WORKER_ID,
+  role: WORKER_ROLE,
   taskId: null,
   objective: null,
   startedAt: null,
   shuttingDown: false,
   currentTask: null,
+  currentPackage: null,
   // A task is being executed right now. Control messages must be able to reach
   // the running task, so they are never queued behind it.
   taskInFlight: false,
@@ -64,7 +75,24 @@ const state = {
   pauseReason: null,
   // Notes that arrived while the worker was idle: they apply to the next task
   // (plan §15 - a note is never dropped).
-  idleNotes: []
+  idleNotes: [],
+  /**
+   * Liveness telemetry (plan §32, §33). A supervisor cannot judge a hang from
+   * elapsed time alone, so the worker reports independent signals: CPU time it
+   * actually consumed, resident memory, whether a subprocess is running, and
+   * the timestamps of its last output and last file change.
+   */
+  telemetry: {
+    cpu_ms: 0,
+    rss_mb: 0,
+    peak_rss_mb: 0,
+    active_child: false,
+    output_seq: 0,
+    file_change_seq: 0,
+    last_output_at: Date.now(),
+    last_file_change_at: Date.now()
+  },
+  bootCpu: process.cpuUsage()
 }
 
 const reporter = new Reporter({ root: ROOT })
@@ -120,14 +148,78 @@ function makeBus(taskId) {
   // One subscriber, wired once: the reporter is the single projector from the
   // raw event stream onto the auditable summary.
   instance.subscribe((event) => reporter.record(event))
+  // A second, cheap subscriber keeps the liveness telemetry current (§33).
+  instance.subscribe((event) => noteTelemetryEvent(event))
   return instance
+}
+
+/** Update the liveness signals the supervisor watches for a hang. */
+function noteTelemetryEvent(event) {
+  const telemetry = state.telemetry
+  switch (event?.type) {
+    case 'command_output':
+      telemetry.output_seq += 1
+      telemetry.last_output_at = Date.now()
+      break
+    case 'command_started':
+      telemetry.active_child = true
+      break
+    case 'command_finished':
+      telemetry.active_child = false
+      telemetry.output_seq += 1
+      telemetry.last_output_at = Date.now()
+      break
+    case 'file_write':
+    case 'file_delete':
+      telemetry.file_change_seq += 1
+      telemetry.last_file_change_at = Date.now()
+      break
+    case 'file_read':
+    case 'inspection_started':
+    case 'test_started':
+    case 'test_result':
+    case 'git_status':
+    case 'diff_generated':
+      telemetry.last_output_at = Date.now()
+      break
+    default:
+      break
+  }
+}
+
+/** Snapshot the telemetry, refreshing the OS-reported numbers. */
+function telemetrySnapshot() {
+  const telemetry = state.telemetry
+  const usage = process.cpuUsage(state.bootCpu)
+  telemetry.cpu_ms = Math.round((Number(usage.user) + Number(usage.system)) / 1000)
+  const memory = process.memoryUsage()
+  telemetry.rss_mb = Math.round(Number(memory.rss) / (1024 * 1024))
+  telemetry.peak_rss_mb = Math.max(Number(telemetry.peak_rss_mb) || 0, telemetry.rss_mb)
+  return {
+    worker_id: WORKER_ID,
+    role: state.role,
+    state: state.state,
+    stage: state.stage,
+    task_id: state.taskId,
+    node_id: state.currentPackage?.node_id || null,
+    cpu_ms: telemetry.cpu_ms,
+    rss_mb: telemetry.rss_mb,
+    peak_rss_mb: telemetry.peak_rss_mb,
+    active_child: telemetry.active_child,
+    output_seq: telemetry.output_seq,
+    file_change_seq: telemetry.file_change_seq,
+    last_output_at: telemetry.last_output_at,
+    last_file_change_at: telemetry.last_file_change_at,
+    uptime_ms: Math.round(process.uptime() * 1000)
+  }
 }
 
 function startHeartbeat() {
   const intervalMs = publicConfig(store.loadConfig()).heartbeatMs
   if (heartbeatTimer) clearInterval(heartbeatTimer)
   heartbeatTimer = setInterval(() => {
-    send('heartbeat', { worker_id: WORKER_ID, state: state.state, task_id: state.taskId, at: Date.now() })
+    // §32: state, task, CPU, RAM, elapsed time and last progress time.
+    send('heartbeat', telemetrySnapshot())
   }, intervalMs)
   if (typeof heartbeatTimer.unref === 'function') heartbeatTimer.unref()
 }
@@ -211,6 +303,11 @@ async function handleAssignTask(message) {
   state.objective = task.objective
   state.startedAt = new Date().toISOString()
   state.currentTask = task
+  // The Worker Task Package (plan §21) travels alongside the Task Object: it
+  // carries the goal, scope, constraints and timeout the Controller bounded this
+  // node with. The executor's own guard already enforces write_scope and
+  // read_only_files, because the supervisor folds them into the task.
+  state.currentPackage = isPlainObject(payload.package) ? payload.package : null
 
   reporter.reset(task.task_id)
   bus = makeBus(task.task_id)
@@ -300,6 +397,10 @@ async function handleAssignTask(message) {
   }
   result.workspace = workspace
   result.worker_id = WORKER_ID
+  result.worker_role = state.role
+  // §38/§40: the supervisor learns each role's real cost from these numbers
+  // instead of trusting the seed profile forever.
+  result.resource_usage = telemetrySnapshot()
 
   // Persistence of `data/sub-worker/**` belongs to the WorkerManager alone: a
   // single writer keeps the queue, history and task records race-free. The
@@ -308,12 +409,14 @@ async function handleAssignTask(message) {
   log(`task ${task.task_id} -> ${result.status} (${result.code})`)
 
   state.currentTask = null
+  state.currentPackage = null
   state.taskId = null
   state.objective = null
   state.startedAt = null
   state.taskInFlight = false
   state.pauseRequested = false
   state.stopRequested = false
+  state.telemetry.active_child = false
   bus = null
   controller = null
   emitState(result.status === 'completed' ? 'READY_FOR_REVIEW' : (result.status === 'blocked' ? 'BLOCKED' : (result.status === 'cancelled' ? 'IDLE' : 'FAILED')), { stage: null })
@@ -383,14 +486,18 @@ function handleNote(message) {
   const note = message?.payload?.note
   if (!controller) {
     // The note is never dropped: it is queued and injected before the first
-    // execution boundary of the next task.
-    if (note && (note.note || note.forbid || note.allow)) state.idleNotes.push(note)
+    // execution boundary of the next task. A plain sentence and a structured
+    // {note, forbid, allow} object are both accepted.
+    const hasContent = typeof note === 'string'
+      ? note.trim().length > 0
+      : Boolean(note && (note.note || note.forbid || note.allow))
+    if (hasContent) state.idleNotes.push(note)
     send('note_applied', {
       note: typeof note === 'string' ? note : String(note?.note || ''),
       applied: false,
-      queued: true,
+      queued: hasContent,
       at: Date.now(),
-      effects: ['queued while idle; it will apply to the next task']
+      effects: hasContent ? ['queued while idle; it will apply to the next task'] : ['the note carried no content']
     })
     return { ok: true, idle: true, queued: state.idleNotes.length }
   }
@@ -533,6 +640,7 @@ function main() {
   emitState('IDLE', { stage: null })
   send('ready', {
     worker_id: WORKER_ID,
+    role: WORKER_ROLE,
     pid: process.pid,
     root: ROOT,
     capabilities: protocol.CAPABILITIES,

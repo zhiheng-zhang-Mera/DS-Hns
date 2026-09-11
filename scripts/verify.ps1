@@ -103,6 +103,44 @@ Check 'Harness port default is unchanged' ($main -match 'const HARNESS_PORT = .*
 Check 'Real acceptance harness exists' (Test-Path "$ROOT\scripts\sub-worker-acceptance.cjs")
 Check 'Sub-worker reference doc exists' (Test-Path "$ROOT\docs\sub-worker.md")
 
+Write-Output ''
+Write-Output '== Adaptive multi-process execution (multi-sub.md) =='
+foreach ($file in @('yaml.cjs','resource-config.cjs','profiler.cjs','resources.cjs','dag.cjs','ownership.cjs','snapshot.cjs','metrics.cjs','pool.cjs','scheduler.cjs','integration.cjs')) {
+  Check "Multi-worker module $file present" (Test-Path "$ROOT\app\sub-worker\$file")
+}
+$swYaml = Get-Content "$ROOT\app\sub-worker\yaml.cjs" -Raw
+$swResCfg = Get-Content "$ROOT\app\sub-worker\resource-config.cjs" -Raw
+$swProfiler = Get-Content "$ROOT\app\sub-worker\profiler.cjs" -Raw
+$swResources = Get-Content "$ROOT\app\sub-worker\resources.cjs" -Raw
+$swPool = Get-Content "$ROOT\app\sub-worker\pool.cjs" -Raw
+$swSched = Get-Content "$ROOT\app\sub-worker\scheduler.cjs" -Raw
+$swDag = Get-Content "$ROOT\app\sub-worker\dag.cjs" -Raw
+$swOwn = Get-Content "$ROOT\app\sub-worker\ownership.cjs" -Raw
+$swIntegr = Get-Content "$ROOT\app\sub-worker\integration.cjs" -Raw
+$swMetrics = Get-Content "$ROOT\app\sub-worker\metrics.cjs" -Raw
+$swCfgFile = Test-Path "$ROOT\config\hns-resource.yaml"
+Check 'Adaptive mode is off by default' ($appConfig -match '"adaptiveWorkers":\s*false')
+Check 'The resource configuration file is shipped' ($swCfgFile)
+Check 'A dependency-free YAML subset reader exists' (($swYaml -match 'function parseYaml') -and ($swYaml -match 'anchors and aliases are not supported'))
+Check 'Installation tiers are documented' (($swResCfg -match 'INSTALLATION_TIERS') -and ($swResCfg -match "workstation") -and ($swResCfg -match 'maxRecommendedWorkers'))
+Check 'The hardware profiler degrades gracefully' (($swProfiler -match 'degraded') -and ($swProfiler -match 'classifyStorageFromLatency') -and ($swProfiler -match 'usable_ram_gb'))
+Check 'Storage is never misread as a rotating disk' ($swProfiler -match 'does not imply a rotating disk')
+Check 'The resource scheduler composes limits with min' (($swResources -match 'function limitSet') -and ($swResources -match 'binding'))
+Check 'All five performance states exist' (($swResources -match "PERFORMANCE_STATES") -and ($swResources -match 'SAFE_MODE') -and ($swResources -match 'THROTTLED'))
+Check 'Scale-up and scale-down are hysteretic' (($swResources -match 'scaleUpAllowed') -and ($swResources -match 'scaleDownAllowed') -and ($swResources -match 'idleSurplusSince'))
+Check 'The pool is persistent with heartbeat telemetry' (($swPool -match 'class WorkerPool') -and ($swPool -match 'noteTelemetry') -and ($swPool -match 'task is being reused|reused'))
+Check 'Hang detection needs several signals' (($swPool -match 'STALLED') -and ($swPool -match 'no output for') -and ($swPool -match 'no CPU progress'))
+Check 'The DAG validates cycles and scores critical paths' (($swDag -match 'findCycle') -and ($swDag -match 'critical_path_score') -and ($swDag -match 'dependent_count'))
+Check 'File conflict control and ownership exist' (($swOwn -match 'filterConflicts') -and ($swOwn -match 'class FileOwnershipRegistry') -and ($swOwn -match 'scopesOverlap'))
+Check 'Merge conflicts are reported, never guessed' ($swOwn -match 'both .* and .* changed this file')
+Check 'Per-node worktrees and integration exist' (($swIntegr -match 'integrationWorktreePath') -and ($swIntegr -match 'mergeContributions'))
+Check 'Speculative execution is gated by state and flag' (($swSched -match 'selectSpeculative') -and ($swSched -match "NORMAL', 'BOOST'"))
+Check 'Metrics include throughput and parallel efficiency' (($swMetrics -match 'effectiveThroughput') -and ($swMetrics -match 'parallelEfficiency') -and ($swMetrics -match 'EWMA_ALPHA'))
+Check 'Learned profiles are clamped to a documented band' (($swResCfg -match 'LEARNED_RAM_BAND') -and ($swResCfg -match 'LEARNED_MIN_SAMPLES'))
+Check 'The supervisor recovers a parked pool' ($swManager -match 'pool recovery')
+Check 'The panel exposes the pool, resources and DAG' (($swUi -match 'id="swPool"') -and ($swUi -match 'id="swResources"') -and ($swUi -match 'id="swDag"') -and ($swUi -match 'id="swAdaptive"'))
+Check 'Multi-worker reference doc exists' (Test-Path "$ROOT\docs\multi-worker.md")
+
 if (-not $SkipTests) {
   Write-Output ''
   Write-Output '== Unit + architecture tests =='

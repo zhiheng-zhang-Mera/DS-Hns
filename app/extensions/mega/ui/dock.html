@@ -91,6 +91,27 @@
         <button id="swLive" class="quiet">Open Live View</button>
       </div>
 
+      <div class="sw-adaptive">
+        <label class="check"><input id="swAdaptive" type="checkbox"> 自适应多进程（自适应 Worker 数量；关闭时保持 1 Worker 兼容模式）</label>
+        <div class="sw-adaptive-actions">
+          <button id="swAdaptiveApply" class="quiet">应用</button>
+          <button id="swTick" class="quiet" title="立即执行一次调度循环（采样资源 → 扩缩容 → 派发）">调度一次</button>
+          <span id="swResourceState" class="status-chip neutral">NORMAL</span>
+        </div>
+      </div>
+
+      <div id="swResources" class="hardware-grid"></div>
+      <div id="swLimits" class="sub-worker-grid"></div>
+
+      <h3 class="sw-subhead">Worker Pool</h3>
+      <div id="swPool" class="sw-pool"></div>
+
+      <h3 class="sw-subhead">Task DAG</h3>
+      <div id="swDag" class="sw-dag"></div>
+
+      <h3 class="sw-subhead">性能指标</h3>
+      <div id="swMetrics" class="hardware-grid"></div>
+
       <details class="sw-dispatch" id="swDispatchBox">
         <summary>派发任务（Controller 提供明确 specification）</summary>
         <form id="swTaskForm" class="settings-form">
