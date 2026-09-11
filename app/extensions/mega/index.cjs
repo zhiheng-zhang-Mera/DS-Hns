@@ -15,11 +15,13 @@ const { TerminalObserver } = require('./tracker/terminal-observer')
 const taskHistory = require('./tracker/task-history')
 const workspace = require('./utils/workspace')
 const { PATHS } = require('./utils/paths')
+const { HarnessUpdater } = require('./updater/harness-updater')
 
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
   'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
+  'mega:update-check', 'mega:update-apply',
   'mega:dock-toggle', 'mega:dock-expand'
 ]
 
@@ -40,6 +42,8 @@ let dockWindow = null
 let playerWindow = null
 let tray = null
 let shortcutHandler = null
+let updater = null
+let restartTimer = null
 let started = false
 let dockExpanded = false
 let dockWidth = DOCK_DEFAULT_WIDTH
@@ -128,6 +132,8 @@ function snapshot() {
     workspace: workspace.getWorkspaceRoot(),
     soundFiles: soundService.listSoundFiles(),
     balance: balanceService.describe(),
+    // Official harness alignment (Mega 拓展状态): installed vs official latest.
+    update: updater ? updater.describe() : null,
     // Mega no longer mirrors the official Harness session history: the official
     // UI owns it, and the terminal observer only watches it for alerts.
     terminalAlerts: terminalDispatcher.describe()
@@ -358,6 +364,30 @@ function hardExit(code = 0) {
   }
 }
 
+/**
+ * Restart after a harness update. The detached update runner waits for this
+ * process to disappear before it may touch `app\node_modules`, so the shutdown
+ * must be a real exit, never a window close: the normal graceful path stops the
+ * scheduler, persists state and terminates the managed Harness child first.
+ */
+function scheduleRestart(delayMs = 1200) {
+  if (restartTimer) return true
+  restartTimer = setTimeout(() => {
+    restartTimer = null
+    log('restarting DS-Harness for the harness update')
+    const hook = ctx?.shutdown
+    try {
+      if (typeof hook?.graceful === 'function') hook.graceful('update')
+      else hardExit()
+    } catch (error) {
+      log(`restart failed, exiting directly: ${error?.message || error}`)
+      hardExit()
+    }
+  }, delayMs)
+  restartTimer.unref?.()
+  return true
+}
+
 function createTray() {
   if (process.env.DSH_MEGA_TRAY === '0') {
     log('Mega tray disabled by DSH_MEGA_TRAY=0')
@@ -483,6 +513,28 @@ function registerIpc() {
     const file = result.filePaths[0]
     return soundService.saveUpload(path.basename(file), fs.readFileSync(file))
   })
+  ipcMain.handle('mega:update-check', async () => {
+    try {
+      await updater.check()
+    } catch (error) {
+      // A registry failure is reported in the status, never thrown at the dock.
+      log(`harness update check failed: ${error?.stack || error}`)
+    }
+    notifyChanged()
+    return updater.describe()
+  })
+  /**
+   * Update = hand off to the detached runner and quit. The shell must stop
+   * before npm may replace `app\node_modules`, so the response is returned
+   * first and the graceful exit is scheduled a beat later, which also lets the
+   * dock paint its "restarting" state.
+   */
+  ipcMain.handle('mega:update-apply', () => {
+    const result = updater.apply()
+    if (result.started) scheduleRestart()
+    notifyChanged()
+    return { ...result, update: updater.describe() }
+  })
   ipcMain.handle('mega:dock-toggle', () => toggleDock({ focus: true }))
   ipcMain.handle('mega:dock-expand', (_event, expanded) => setDockExpanded(Boolean(expanded), { focus: Boolean(expanded) }))
 }
@@ -492,6 +544,13 @@ async function start(context) {
   started = true
   ctx = context
   if (ctx.nodeExe) process.env.DSH_NODE = ctx.nodeExe
+  updater = new HarnessUpdater({
+    root: PATHS.ROOT,
+    appDir: PATHS.APP,
+    nodeExe: ctx.nodeExe || process.env.DSH_NODE || '',
+    stateDir: PATHS.STATE,
+    log: (message) => log(`updater: ${message}`)
+  })
   loadDockState()
   registerIpc()
   // Desktop notifications are a unified lifecycle capability: bind the Electron
@@ -529,6 +588,10 @@ async function start(context) {
 function stop() {
   if (!started) return
   started = false
+  if (restartTimer) {
+    clearTimeout(restartTimer)
+    restartTimer = null
+  }
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
   notificationService.setCreateNotification(null)

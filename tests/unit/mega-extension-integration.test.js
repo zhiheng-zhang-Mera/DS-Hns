@@ -180,7 +180,7 @@ test('the product is one window with an exit-only tray and no Mega management pa
   assert.equal(handlers.has('mega:open-main'), false)
   assert.equal(handlers.has('mega:widget-hide'), false)
   assert.equal(handlers.has('mega:dock-hide'), false)
-  for (const channel of ['mega:snapshot', 'mega:update-settings', 'mega:update-scheduler', 'mega:pick-workspace', 'mega:pick-sound']) {
+  for (const channel of ['mega:snapshot', 'mega:update-settings', 'mega:update-scheduler', 'mega:pick-workspace', 'mega:pick-sound', 'mega:update-check', 'mega:update-apply']) {
     assert.equal(handlers.has(channel), true, `${channel} must stay available for the dock settings layer`)
   }
 
@@ -190,6 +190,11 @@ test('the product is one window with an exit-only tray and no Mega management pa
   assert.equal('history' in snapshot, true)
   assert.ok(snapshot.settings.models.length > 0, 'settings for the dock layer are exposed')
   assert.ok(Array.isArray(snapshot.soundFiles))
+  // The 拓展状态 module reports the harness alignment state, read-only and
+  // without ever reaching the network during a snapshot.
+  assert.equal(snapshot.update.status, 'idle')
+  assert.equal(snapshot.update.updateAvailable, false)
+  assert.equal(snapshot.update.latestVersion, null)
 })
 
 test('an ordinary Harness session, a scheduler task and a headless task each alert once', async (t) => {

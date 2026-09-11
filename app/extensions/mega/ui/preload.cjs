@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld('megaTools', {
   fetchBalance: (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options),
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
+  // 拓展状态 module: align the main harness with the official latest version.
+  checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
+  applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),
   toggleDock,
   setDockExpanded,
   // In integrated mode the rail should always remain reachable, so "hide"

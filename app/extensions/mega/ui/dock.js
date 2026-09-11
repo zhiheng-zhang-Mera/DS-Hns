@@ -206,6 +206,118 @@ function renderBalance(snapshot) {
   cards.innerHTML = balanceCards(balance)
 }
 
+const UPDATE_STATUS_TEXT = {
+  idle: '未检查',
+  checking: '检查中',
+  current: '已是最新',
+  outdated: '可更新',
+  updating: '更新中',
+  failed: '检查失败'
+}
+
+const UPDATE_STATUS_CLASS = {
+  idle: 'neutral',
+  checking: 'busy',
+  current: 'ok',
+  outdated: 'warn',
+  updating: 'busy',
+  failed: 'warn'
+}
+
+const LAST_UPDATE_TEXT = {
+  succeeded: '上次更新成功',
+  failed: '上次更新失败',
+  interrupted: '上次更新未完成',
+  updating: '上次更新进行中'
+}
+
+function updateNoteText(update) {
+  const last = update.lastUpdate
+  const parts = []
+  if (last) {
+    const from = last.from ? ` ${last.from}` : ''
+    const to = last.to ? ` → ${last.to}` : ''
+    const when = last.finishedAt ? ` · ${fmtTime(last.finishedAt)}` : ''
+    parts.push(`${LAST_UPDATE_TEXT[last.status] || '上次更新'}${from}${to}${when}`)
+    if (last.error?.message) parts.push(`原因：${last.error.message}`)
+  }
+  if (update.error?.message) parts.push(`检查失败：${update.error.message}`)
+  if (update.npmAvailable === false) parts.push('未找到 npm CLI，更新不可用。')
+  return parts.join('\n')
+}
+
+/**
+ * 拓展状态 module: what the Mega extension is doing, which harness version is
+ * installed, and the one sanctioned way to align it with the official latest.
+ * The button never installs anything by itself - the shell quits and a detached
+ * runner owns the install, because npm cannot replace a running harness.
+ */
+function renderUpdate(snapshot) {
+  const update = snapshot.update || {}
+  const status = $('updateStatus')
+  const meta = $('updateMeta')
+  const grid = $('updateGrid')
+  const note = $('updateNote')
+  const check = $('updateCheck')
+  const apply = $('updateApply')
+
+  const busy = update.status === 'checking' || update.status === 'updating'
+  const updatable = Boolean(update.updateAvailable)
+  if (check) check.disabled = busy
+  if (apply) apply.disabled = busy || !updatable || update.npmAvailable === false
+
+  if (status) {
+    status.textContent = UPDATE_STATUS_TEXT[update.status] || '未检查'
+    status.className = `status-chip ${UPDATE_STATUS_CLASS[update.status] || 'neutral'}`
+  }
+  if (meta) {
+    const checked = update.checkedAt ? `Last checked: ${fmtTimeOfDay(update.checkedAt)}` : '尚未检查更新'
+    const tag = update.tag || 'latest'
+    meta.textContent = `${checked} · 官方 dist-tag ${tag}`
+  }
+
+  const extension = snapshot.extension || {}
+  const current = update.currentVersion || '—'
+  const latest = update.latestVersion || '—'
+  const rows = [
+    ['Mega 扩展', extension.id ? `已加载 · ${extension.id}` : '未加载', extension.shellOwner ? `shell: ${extension.shellOwner}` : '可选功能扩展', 'ok'],
+    ['主 Harness 当前', current, update.pinnedVersion && update.pinnedVersion !== current ? `package.json 固定 ${update.pinnedVersion}` : 'app\\node_modules\\@deepseek-ai\\dsh', ''],
+    ['官方最新', latest, `@deepseek-ai/dsh · ${update.tag || 'latest'}`, updatable ? 'outdated' : (update.latestVersion ? 'ok' : '')],
+    ['更新方式', update.npmAvailable === false ? '不可用' : '安装后自动重启', update.npmAvailable === false ? '未找到 npm CLI' : '应用会自动退出并重新拉起', '']
+  ]
+  if (grid) {
+    grid.innerHTML = rows.map(([label, value, hint, state]) => `<div class="update-item"${state ? ` data-state="${esc(state)}"` : ''}>
+      <span>${esc(label)}</span><b>${esc(value)}</b><small>${esc(hint)}</small>
+    </div>`).join('')
+  }
+  if (note) {
+    const fallback = updateNoteText(update)
+    const failed = update.status === 'failed' || update.lastUpdate?.status === 'failed'
+    note.textContent = updateMessage ? updateMessage.text : fallback
+    note.dataset.state = updateMessage ? updateMessage.state : (failed ? 'failed' : '')
+  }
+}
+
+/**
+ * A hand-off message (checking / updating / refused) must outlive the 5 s
+ * snapshot refresh, so it is held here until the user starts another action or
+ * the app restarts. Without it, "更新未启动：…" would vanish within seconds.
+ */
+let updateMessage = null
+
+function setUpdateMessage(text, state = '') {
+  updateMessage = text ? { text: String(text), state } : null
+  renderUpdateNote()
+}
+
+function renderUpdateNote() {
+  const note = $('updateNote')
+  if (!note) return
+  const message = updateMessage || { text: updateNoteText(latestSnapshot?.update || {}), state: '' }
+  note.textContent = message.text || ''
+  note.dataset.state = message.state || ''
+}
+
 const SOUND_EVENT_INPUTS = [
   ['COMPLETED', 'soundCompleted'],
   ['FAILED', 'soundFailed'],
@@ -333,6 +445,7 @@ function render(snapshot) {
 
   renderBalance(snapshot)
   renderSettings(snapshot)
+  renderUpdate(snapshot)
 
   updateLivePeriod()
 }
@@ -495,6 +608,39 @@ $('balance').onclick = () => balanceModule.trigger('manual')
 $('balanceRetry').onclick = () => {
   const failed = latestSnapshot?.balance?.failedProviders || []
   return balanceModule.trigger('retry', failed.length ? { only: failed } : {})
+}
+
+$('updateCheck').onclick = async () => {
+  setUpdateMessage('正在检查官方最新版本…')
+  try {
+    await window.megaTools.checkHarnessUpdate?.()
+    await refresh()
+  } catch (error) {
+    showError(error)
+    setUpdateMessage(`检查失败：${error?.message || error}`, 'failed')
+  }
+}
+$('updateApply').onclick = async () => {
+  const update = latestSnapshot?.update || {}
+  const target = update.latestVersion
+  if (!target) return
+  // Aligning the main harness restarts the app, so this is never implicit.
+  const question = `将主 harness 从 ${update.currentVersion || '当前版本'} 更新到官方 ${target}，完成后 DS-Harness 会自动重启。继续？`
+  if (typeof window.confirm === 'function' && !window.confirm(question)) return
+  try {
+    const result = await window.megaTools.applyHarnessUpdate?.()
+    if (result && result.started === false) {
+      setUpdateMessage(`更新未启动：${result.message || result.reason || '未知原因'}`, 'failed')
+      await refresh()
+      return
+    }
+    setUpdateMessage(`正在更新到 ${target}，DS-Harness 即将自动重启…`)
+    $('updateCheck').disabled = true
+    $('updateApply').disabled = true
+  } catch (error) {
+    showError(error)
+    setUpdateMessage(`更新启动失败：${error?.message || error}`, 'failed')
+  }
 }
 
 $('taskForm').onsubmit = async (event) => {

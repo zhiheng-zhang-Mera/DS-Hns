@@ -15,6 +15,8 @@ $syntaxFiles = @(
   "$ROOT\app\extensions\mega\notifications\terminal-dispatch.js",
   "$ROOT\app\extensions\mega\tracker\terminal-observer.js",
   "$ROOT\app\extensions\mega\tracker\session-reader.js",
+  "$ROOT\app\extensions\mega\updater\harness-updater.js",
+  "$ROOT\app\extensions\mega\updater\update-runner.js",
   "$ROOT\app\extensions\mega\ui\preload.cjs",
   "$ROOT\app\extensions\mega\ui\balance-module.js",
   "$ROOT\app\extensions\mega\ui\dock.js"

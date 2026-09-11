@@ -88,6 +88,36 @@ test('the tray exposes only exit actions and no secondary Mega window exists', (
   assert.equal(/new BrowserWindow/.test(dockJs), false)
 })
 
+test('拓展状态 module aligns the main harness without touching the official renderer', () => {
+  const updater = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'updater', 'harness-updater.js'), 'utf8')
+  const runner = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'updater', 'update-runner.js'), 'utf8')
+
+  // The dock owns the button; the extension owns the IPC; neither installs.
+  assert.match(dockHtml, /拓展状态/)
+  assert.match(dockHtml, /id="updateApply"/)
+  assert.match(dockHtml, /id="updateCheck"/)
+  assert.match(dockJs, /megaTools\.applyHarnessUpdate/)
+  assert.match(dockJs, /megaTools\.checkHarnessUpdate/)
+  assert.match(mega, /mega:update-check/)
+  assert.match(mega, /mega:update-apply/)
+  assert.match(mega, /scheduleRestart/)
+
+  // Installing is delegated to a detached runner: npm can not replace the
+  // harness while the shell still holds it open on Windows.
+  assert.match(updater, /detached: true/)
+  assert.match(updater, /registry\.npmjs\.org/)
+  assert.doesNotMatch(updater, /spawnSync|execSync|execFile/, 'the extension never runs npm itself, it only hands off')
+  assert.match(runner, /waitForParentExit/)
+  assert.match(runner, /taskkill\.exe/)
+  assert.match(runner, /restoreManifests/)
+  // The pin is what stops scripts\install-deps.ps1 from reverting the update.
+  assert.match(runner, /dependencies\[PACKAGE_NAME\] = rt\.target/)
+  assert.match(runner, /relaunch/)
+
+  // It never injects anything into the official renderer or resizes it.
+  assert.equal(/WebContentsView|executeJavaScript|insertCSS/.test(runner), false)
+})
+
 test('exit paths are graceful and force-exit capable in the shell', () => {
   assert.match(main, /function gracefulExit\(/)
   assert.match(main, /function forceExit\(/)

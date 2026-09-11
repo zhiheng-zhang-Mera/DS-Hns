@@ -109,6 +109,7 @@ If no environment key and no existing project key are found, the installer asks:
 - model / permission / telemetry / notification settings helpers
 - configurable completion / failure / interruption sounds
 - selectable headless-task workspace
+- extension status module: installed vs official harness version, with one click to align the main harness with the official latest release
 
 ### Mega right-side dock
 
@@ -121,13 +122,13 @@ Collapsed                              Expanded
 |                      | E  |          |                      | Queue / reorder       |
 |                      | G  |          |                      | Hardware auto         |
 |                      | A  |          |                      | Balance               |
-|                      |RUN |          |                      | Mega settings overlay |
-|                      |Q/HW|          |                      |                       |
+|                      |RUN |          |                      | Extension status      |
+|                      |Q/HW|          |                      | Mega settings overlay |
 +----------------------+----+          +----------------------+-----------------------+
 ```
 
 - **Collapsed rail** — 48 px vertical strip with MEGA identity, running count, queued count, hardware worker state and peak/off-peak state.
-- **Expanded dock** — 560 px by default: manual task creation with real queue ordering controls, hardware-adaptive concurrency, the account balance module and the settings layer.
+- **Expanded dock** — 560 px by default: manual task creation with real queue ordering controls, hardware-adaptive concurrency, the account balance module, the extension status module and the settings layer.
 - **State memory** — collapsed/expanded state and dock width are stored in `data/state/mega-dock.json`.
 - **No official viewport resize** — the official DSH BrowserWindow keeps its original size. If there is room on the right, the dock sits outside it; if not (for example a maximized window), the dock overlays the right edge as a separate BrowserWindow instead of shrinking the official renderer.
 - **One product window** — there is no separate Mega management window or page. Every Mega capability lives in the dock; the settings layer (⚙ in the dock header) is an in-dock overlay that reuses the existing IPC backend.
@@ -187,6 +188,39 @@ TERMINAL = COMPLETED | FAILED_FINAL | CANCELLED
   "Recent Session" panel was removed. The official UI remains the single owner of session
   history; Mega only watches it for terminal alerts.
 
+### Extension status and harness alignment
+
+The dock's **拓展状态** module reports what the Mega extension is doing and which harness is
+actually installed, and it owns the single sanctioned way to align the main harness with the
+official latest release of `@deepseek-ai/dsh`.
+
+```text
+拓展状态
+├── Mega 扩展          已加载 · mega (optional feature extension)
+├── 主 Harness 当前     installed version (read from app\node_modules)
+├── 官方最新            official dist-tag "latest" from registry.npmjs.org
+└── [检查更新] [更新并重启]
+```
+
+- **Check** — one read-only HTTPS request for the official `dist-tags` document; nothing is
+  installed, nothing is written. A registry failure is reported in the panel, never thrown.
+- **Update** — pins `app\package.json`, hands the install to a detached runner and lets the
+  shell exit gracefully. The runner then waits for DS-Harness to disappear (a real exit is
+  required: Windows will not let npm replace a running harness), runs
+  `npm install --save-exact @deepseek-ai/dsh@<latest>`, verifies the installed version and CLI
+  entry, and relaunches DS-Harness.
+- **Failure isolation** — a failed install is rolled back to the previous `package.json` /
+  `package-lock.json` and repaired with a best-effort `npm install`, the outcome is written to
+  `data\state\mega-update.json`, and the app is relaunched either way. The dock shows the last
+  outcome ("上次更新成功 / 上次更新失败 / 上次更新未完成") after the restart.
+- **Pin matters** — `scripts\install-deps.ps1` runs `npm ci` whenever the installed version
+  differs from `app\package.json`, so the pin is what stops an update from being silently
+  reverted on the next start.
+- **No official-renderer contact** — the button lives in the dock, the update runs in its own
+  process, and nothing is ever injected into the official dsh page.
+
+Update progress is logged to `logs\mega-update.log`.
+
 ### Launcher icon
 
 `icon.jpg` in the repository root is the only icon source. `scripts\ensure-icon.ps1`
@@ -217,6 +251,9 @@ app/
         terminal-observer.js     unified terminal observer for official sessions
       settings/
         settings-service.js      env/app/sound/notification settings backend
+      updater/
+        harness-updater.js       official version check + update hand-off
+        update-runner.js         detached install/verify/rollback/relaunch runner
       notifications/
         notification-service.js  terminal desktop notifications (dedup + isolation)
         terminal-dispatch.js     single alert pipeline: ringtone + notification
@@ -256,6 +293,7 @@ Windows
 │       ├── Queue
 │       ├── Hardware
 │       ├── Balance
+│       ├── Extension status (harness update)
 │       └── ⚙ Settings popup (in-dock overlay)
 │
 └── Tray

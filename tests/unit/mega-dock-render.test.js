@@ -99,7 +99,7 @@ function installDom() {
 
 function makeSnapshot(overrides = {}) {
   return {
-    extension: { dock: { expanded: true, width: 560 } },
+    extension: { id: 'mega', mode: 'optional-feature-extension', shellOwner: 'alien', dock: { expanded: true, width: 560 } },
     scheduler: {
       counts: { RUNNING: 0, PENDING: 1 },
       concurrency: { current: 2, hardwareCap: 4, byCpuLoad: 3 },
@@ -149,6 +149,20 @@ function makeSnapshot(overrides = {}) {
       notifications: { enabled: true, onCancelled: false, supported: true }
     },
     workspace: 'C:\\work',
+    update: {
+      status: 'outdated',
+      packageName: '@deepseek-ai/dsh',
+      tag: 'latest',
+      currentVersion: '0.1.2-rc.1',
+      pinnedVersion: '0.1.2-rc.1',
+      latestVersion: '0.1.5-rc.1',
+      updateAvailable: true,
+      checkedAt: Date.UTC(2026, 0, 2, 6, 32, 5),
+      npmAvailable: true,
+      nodeExe: 'C:\\runtime\\node.exe',
+      error: null,
+      lastUpdate: null
+    },
     soundFiles: [
       { name: 'completed.wav', kind: 'preset' },
       { name: 'failed.wav', kind: 'preset' },
@@ -186,7 +200,9 @@ function loadDock(snapshot) {
     updateSettings: [],
     updateScheduler: [],
     pickWorkspace: [],
-    pickSound: []
+    pickSound: [],
+    checkHarnessUpdate: [],
+    applyHarnessUpdate: []
   }
   let changedHandler = null
 
@@ -206,6 +222,11 @@ function loadDock(snapshot) {
     fetchBalance: async (trigger, options) => { calls.fetchBalance.push({ trigger, options }); return snapshot.balance },
     pickWorkspace: async () => { calls.pickWorkspace.push(true); return 'C:\\other' },
     pickSound: async () => { calls.pickSound.push(true); return { name: 'custom.mp3', kind: 'user' } },
+    checkHarnessUpdate: async () => { calls.checkHarnessUpdate.push(true); return snapshot.update },
+    applyHarnessUpdate: async () => {
+      calls.applyHarnessUpdate.push(true)
+      return { started: true, from: snapshot.update?.currentVersion, to: snapshot.update?.latestVersion }
+    },
     openMain: async () => {},
     toggleDock: async () => { calls.toggleDock.push(true); return {} },
     setDockExpanded: async (value) => { calls.setDockExpanded.push(value); return {} },
@@ -477,4 +498,111 @@ test('a settings save failure is reported without breaking the dock', async () =
   await settle()
   assert.match(h.dom.element('settingsStatus').textContent, /保存失败/)
   assert.match(h.dom.element('error').textContent, /settings backend refused/)
+})
+
+test('拓展状态 renders the Mega extension and both harness versions and offers the update', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+
+  const grid = h.dom.element('updateGrid').innerHTML
+  assert.match(grid, /Mega 扩展/)
+  assert.match(grid, /已加载 · mega/)
+  assert.match(grid, /0\.1\.2-rc\.1/)
+  assert.match(grid, /0\.1\.5-rc\.1/)
+  assert.match(grid, /data-state="outdated"/, 'an available update is visibly flagged')
+  assert.match(h.dom.element('updateMeta').textContent, /Last checked:/)
+
+  assert.equal(h.dom.element('updateStatus').textContent, '可更新')
+  assert.equal(h.dom.element('updateCheck').disabled, false)
+  assert.equal(h.dom.element('updateApply').disabled, false, 'the button is live when an update exists')
+})
+
+test('the update button stays disabled when the harness is already current or npm is missing', async () => {
+  const current = loadDock(makeSnapshot({
+    update: { ...makeSnapshot().update, status: 'current', latestVersion: '0.1.2-rc.1', updateAvailable: false }
+  }))
+  await settle()
+  assert.equal(current.dom.element('updateStatus').textContent, '已是最新')
+  assert.equal(current.dom.element('updateApply').disabled, true)
+
+  const noNpm = loadDock(makeSnapshot({
+    update: { ...makeSnapshot().update, npmAvailable: false, status: 'idle' }
+  }))
+  await settle()
+  assert.equal(noNpm.dom.element('updateApply').disabled, true)
+  assert.match(noNpm.dom.element('updateNote').textContent, /未找到 npm CLI/)
+})
+
+test('checking and applying the update go through the dedicated IPC channels', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+
+  await h.dom.element('updateCheck').onclick()
+  await settle()
+  assert.deepEqual(h.calls.checkHarnessUpdate, [true])
+
+  // Without a confirm() implementation the click proceeds; the restart itself
+  // belongs to the shell, so the dock only reports that it was handed off.
+  delete global.window.confirm
+  await h.dom.element('updateApply').onclick()
+  await settle()
+  assert.deepEqual(h.calls.applyHarnessUpdate, [true])
+  assert.match(h.dom.element('updateNote').textContent, /即将自动重启/)
+  assert.equal(h.dom.element('updateApply').disabled, true)
+})
+
+test('declining the restart confirmation never starts an update', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+
+  global.window.confirm = () => false
+  try {
+    await h.dom.element('updateApply').onclick()
+    await settle()
+    assert.deepEqual(h.calls.applyHarnessUpdate, [])
+  } finally {
+    delete global.window.confirm
+  }
+})
+
+test('a refused update start is reported instead of pretending to restart', async () => {
+  const h = loadDock(makeSnapshot())
+  await settle()
+  global.window.megaTools.applyHarnessUpdate = async () => ({ started: false, reason: 'NPM_UNAVAILABLE', message: '未找到 npm CLI，无法更新主 harness。' })
+
+  await h.dom.element('updateApply').onclick()
+  await settle()
+  assert.match(h.dom.element('updateNote').textContent, /更新未启动/)
+  assert.match(h.dom.element('updateNote').textContent, /npm CLI/)
+  assert.equal(h.dom.element('updateNote').dataset.state, 'failed')
+})
+
+test('the last update outcome survives the restart and is reported in the dock', async () => {
+  const h = loadDock(makeSnapshot({
+    update: {
+      ...makeSnapshot().update,
+      status: 'current',
+      currentVersion: '0.1.5-rc.1',
+      latestVersion: '0.1.5-rc.1',
+      updateAvailable: false,
+      lastUpdate: { status: 'succeeded', from: '0.1.2-rc.1', to: '0.1.5-rc.1', finishedAt: Date.UTC(2026, 0, 2, 7, 0, 0) }
+    }
+  }))
+  await settle()
+  const note = h.dom.element('updateNote').textContent
+  assert.match(note, /上次更新成功/)
+  assert.match(note, /0\.1\.2-rc\.1 → 0\.1\.5-rc\.1/)
+
+  const failed = loadDock(makeSnapshot({
+    update: {
+      ...makeSnapshot().update,
+      status: 'failed',
+      error: { message: 'registry unavailable' },
+      lastUpdate: { status: 'failed', from: '0.1.2-rc.1', to: '0.1.5-rc.1', error: { message: 'npm install exited with code 1' }, finishedAt: Date.UTC(2026, 0, 2, 7, 0, 0) }
+    }
+  }))
+  await settle()
+  assert.equal(failed.dom.element('updateStatus').textContent, '检查失败')
+  assert.equal(failed.dom.element('updateNote').dataset.state, 'failed')
+  assert.match(failed.dom.element('updateNote').textContent, /npm install exited with code 1/)
 })

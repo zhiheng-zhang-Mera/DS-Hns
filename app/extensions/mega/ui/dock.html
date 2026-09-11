@@ -84,6 +84,24 @@
       </div>
     </section>
 
+    <section class="panel">
+      <div class="panel-head balance-head">
+        <div>
+          <div class="balance-title-row">
+            <h2>拓展状态</h2>
+            <span id="updateStatus" class="status-chip neutral">未检查</span>
+          </div>
+          <p id="updateMeta">Mega 扩展运行状态与主 harness 版本；可一键对齐官方最新版本。</p>
+        </div>
+        <div class="balance-actions">
+          <button id="updateCheck" class="quiet">检查更新</button>
+          <button id="updateApply" class="quiet" disabled>更新并重启</button>
+        </div>
+      </div>
+      <div id="updateGrid" class="update-grid"></div>
+      <p id="updateNote" class="update-note"></p>
+    </section>
+
     <p id="error" class="error"></p>
   </main>
 
