@@ -147,7 +147,9 @@ function installEnv(rt) {
     npm_config_cache: path.join(rt.root, 'cache', 'npm'),
     TEMP: path.join(rt.root, 'cache', 'temp'),
     TMP: path.join(rt.root, 'cache', 'temp'),
-    PATH: `${path.dirname(rt.nodeExe)};${process.env.PATH || ''}`
+    // `path.delimiter` so the npm child can still resolve tools on POSIX; the
+    // shipped platform is Windows, but the test suite and CI also run elsewhere.
+    PATH: `${path.dirname(rt.nodeExe)}${path.delimiter}${process.env.PATH || ''}`
   }
 }
 

@@ -2,10 +2,11 @@ name: verify
 
 # Syntax, unit and architecture gates.
 #
-# The full Electron acceptance (CDP attach, screenshots, native dialogs) is a
-# release step, not a per-push one: it needs a real Windows desktop session. It is
-# available from the repository as scripts\acceptance.mjs (see --help in its
-# header) and is documented in docs\.
+# This runs on Windows because DS-Hns is a Windows desktop product: the tests
+# exercise the real launcher/installer scripts, the `.cmd` shims, `taskkill.exe`
+# teardown and PowerShell probes, and a green Linux run would not be evidence that
+# the shipped platform works. The full Electron acceptance is a release step on
+# top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
     branches: [main, merging]
@@ -14,12 +15,8 @@ on:
 
 jobs:
   verify:
-    name: check + tests (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    name: check + tests
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
