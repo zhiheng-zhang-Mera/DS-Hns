@@ -43,6 +43,38 @@ User Prompt
 
 `orchestrator.createTheme()` **只到预览为止**；只有 `orchestrator.approve()` 会把包提升到正式目录。
 
+### 2.1 视觉观察必须闭环
+
+`UI Inspection` 不是可选的装饰步骤，它由两部分组成，且结果必须如实上报：
+
+1. **结构 + 几何**：观察前会主动向 Dock 渲染器发一次实时测量请求
+   （`mega-theme:probe-regions`），拿回真实 Slot bounding box，而不是等最后一次被动上报。
+2. **视觉快照**：对 Dock 自己的 `webContents` 截图（官方渲染器永不参与），
+   每个页面一张 PNG，写入 `data/theme-workspace/snapshot/`。
+
+快照包会明确记录：
+
+```json
+{
+  "visual": true,
+  "degraded": false,
+  "visual_expected": true,
+  "visual_reason": "visual snapshot captured",
+  "capture_problems": [],
+  "screenshots": { "dashboard": "snapshot/dashboard.png" }
+}
+```
+
+- **截图必须先通过实体校验**（`visual-artifact.js`）：PNG 签名、IHDR 尺寸、与像素数成比例的
+  体积下限。空 buffer、0x0 截图、把文本错误页存成 `.png` 都会被判为缺陷并从包里剔除。
+- **允许降级，但禁止静默降级**：Dock 未创建、未显示、headless、显式
+  `DSH_THEME_NO_VISUAL=1` 属于**已知且允许**的降级（`degraded: false` + 原因）；
+  而当 Dock 明明可用却拿不到图，`degraded` 为 `true` 并带 `visual_reason` /
+  `capture_problems`，同时写日志、返回给渲染器。
+- `mega:theme-observe` 返回 `visual / degraded / reason / observedSlots`；
+  `mega:theme-artifacts` 返回磁盘真相（ui-map.json + 每个 PNG 的校验结论）。
+  验收会因此直接失败，而不是相信一个布尔值。
+
 ---
 
 ## 3. 模块一览
@@ -60,12 +92,15 @@ User Prompt
 | `builder.js` | 编译自包含主题包（tokens/components/persona/assets/preview/README） |
 | `capability.js` | Theme Capability Manifest（含官方 UI 只读声明） |
 | `inspector.js` | UI Inspector + UI Snapshot Package |
+| `visual-artifact.js` | 截图实体校验（PNG 签名 / IHDR 尺寸 / 密度下限） |
+| `model-adapter.js` | 可选 AI 设计层（默认 disabled，失败即回退规则解释器） |
 | `preview.js` | 预览载荷（CSS 变量 + Slot 样式）与预览校验清单 |
 | `runtime.js` | 活动主题、预览状态、负载自适应降级 |
 | `lifecycle.js` | install / delete / duplicate / restore / import |
 | `orchestrator.js` | 上述管线的唯一入口 |
 | `index.js` | 引擎装配入口（`createThemeEngine`） |
 | `ui/theme-panel.js` | Appearance 面板（唯一样式化成 UI 的消费方） |
+| `../dock/target.js` | Dock Target Adapter：integrated `WebContentsView` 与 legacy `BrowserWindow` 的唯一入口 |
 
 ---
 
@@ -223,6 +258,11 @@ powershell -ExecutionPolicy Bypass -File ..\scripts\verify.ps1
 - `tests/unit/theme-designer.test.js` — Intent、增量修订、设计确定性、资源与 PNG
 - `tests/unit/theme-engine.test.js` — 沙箱内的完整管线 / 删除 / 副本 / 恢复 / 降级 / 布局（12 个场景）
 - `tests/unit/theme-panel.test.js` — Appearance 面板渲染器行为（17 项）
+- `tests/unit/theme-visual-observation.test.js` — 视觉观察闭环：真实截图被接受并落盘；
+  空截图 / 非 PNG / 8x8 / 抛异常一律 `degraded`；renderer 不可用与显式 no-visual 属于允许降级
+- `tests/unit/dock-target.test.js` — Dock Adapter 两种后端、view 销毁、抛异常的 adapter、legacy 形式
+- `tests/unit/theme-model-adapter.test.js` — 可选 AI 层默认关闭、失败回退、可开关
+- `tests/unit/encoding-integrity.test.js` — 防止有损编码把中文注释写成替换字符
 
 `theme-engine.test.js` 由 `tests/helpers/generate-theme-engine-test.cjs` 生成；
 每个场景在**独立的临时 DSH_ROOT** 中运行，避免把测试主题装进真实安装。
