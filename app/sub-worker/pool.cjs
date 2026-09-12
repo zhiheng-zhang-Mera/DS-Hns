@@ -149,6 +149,9 @@ class WorkerPool {
     this.nextIndex = 1
     this.lastSpawnAt = 0
     this.stopping = false
+    // Waiters for "the pool has drained"; notified on every worker exit so a
+    // teardown does not have to poll for it.
+    this.exitWaiters = new Set()
   }
 
   // ------------------------------------------------------------------ queries
@@ -481,6 +484,46 @@ class WorkerPool {
     } catch (error) {
       this.log(`[pool:${workerId}] exit handler failed: ${error?.message || error}`)
     }
+    // A teardown waiting for the pool to drain learns about it here rather than
+    // by polling. `killAll` deletes slots before killing, so its own exits never
+    // reach this path; the caller resolves immediately in that case.
+    this.notifyExit()
+  }
+
+  /**
+   * Resolve once every worker has exited, or at `timeoutMs`.
+   *
+   * Event-driven on purpose: a teardown that polls can be beaten by a supervisor
+   * tick that respawns a worker in the meantime, and then it waits out its whole
+   * timeout for a pool that will never drain.
+   */
+  waitForExit({ timeoutMs = 5000 } = {}) {
+    if (!this.running.length) return Promise.resolve({ drained: true, running: 0 })
+    return new Promise((resolve) => {
+      let settle = null
+      const finish = (drained) => {
+        if (!settle) return
+        const done = settle
+        settle = null
+        this.exitWaiters.delete(done)
+        clearTimeout(timer)
+        resolve({ drained, running: this.running.length })
+      }
+      settle = () => finish(!this.running.length)
+      this.exitWaiters.add(settle)
+      const timer = setTimeout(() => finish(false), Math.max(250, Number(timeoutMs) || 5000))
+    })
+  }
+
+  /** Wake every `waitForExit` waiter so it can re-check the pool. */
+  notifyExit() {
+    for (const settle of [...this.exitWaiters]) {
+      try {
+        settle()
+      } catch (error) {
+        this.log(`[pool] exit waiter failed: ${error?.message || error}`)
+      }
+    }
   }
 
   /**
@@ -595,6 +638,8 @@ class WorkerPool {
       }
     }
     this.log(`[pool] retired ${removed.length} worker(s) (${reason})`)
+    // The slots are gone now, so any teardown waiting for a drain is satisfied.
+    this.notifyExit()
     return removed
   }
 

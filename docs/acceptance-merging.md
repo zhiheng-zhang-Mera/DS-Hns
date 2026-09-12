@@ -123,3 +123,19 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 `app/extensions/mega/updater/update-runner.js` 的子进程 PATH 由硬编码 `;` 改为
 `path.delimiter`，Windows 行为逐字节不变，非 Windows 环境（测试/CI）也能正确解析工具。
 
+### 7.1 CI 首次运行失败的原因与修复
+
+云端 `verify` 在每次 push 上都失败（Node 22 / windows-latest），实测是**两个真实产品缺陷 +
+一处测试自身语法缺陷**，不是 CI 配置问题：
+
+| 症状 | 根因 | 修复 |
+| --- | --- | --- |
+| `balance-service` 的 5 个用例 `cancelledByParent`，报 `Promise resolution is still pending but the event loop has already resolved` | `withTimeout()` 的截止计时器用了 `unref()`，当「等一个永不返回的 provider」是唯一待处理工作时，事件循环可被判定为空而进程退出，超时竞态永远不结算 | 计时器改为被引用：竞态一定在 provider 截止时间内结算；`finally` 仍会清除它，退出时机仍由外壳的显式退出路径决定 |
+| `sub-worker-manager` 17 个用例全部 `cancelledByParent`（`manager.stop()` 不结算 / 等满 5s） | `stop()` 用 `unref()` 计时器轮询 pool 是否排空，同时 supervisor tick 仍可能重拉 worker（或 worker 的 `exit` 事件尚未被观察到），于是永远等不到「pool 为空」 | pool 在 worker 退出时主动唤醒等待者（`waitForExit`/`notifyExit`）；`stop()` 先给 pool 上「stopping」锁再等待；`tick()` 在 teardown 期间拒绝动作。排空在毫秒级完成，超时只作为兜底 |
+| `multi-supervisor` 的 `运行验收 + 低资源验收` 失败，其后 5 个用例被判为它的子测试并取消 | 该测试缺少一个 `})`：从集成测试往下的所有内容都被解析成了它的嵌套子测试 | 补上 `})`，文件恢复为 13 个测试 |
+| 同一文件在 2 vCPU CI 上 pool 天花板=1，多 worker 场景永远等不到第二个 worker | 测试 rig 未注入硬件档案，天花板随宿主机变化 | rig 固定注入合成硬件档案（3 workers）；天花板**推导**本身仍由 `multi-profiler.test.js` 用真实/合成 facts 覆盖 |
+
+修复后在 Node 22 与 Node 24 上全量单测均 **629 pass / 0 fail / 0 cancelled**，
+两套真实验收（`acceptance.mjs` 60/60、`sub-worker-acceptance.cjs` 60/60）同样通过。
+`verify.yml` 的 Node 版本固定为 `22` 并注明原因（本机已在 22/24 两个版本验证）。
+

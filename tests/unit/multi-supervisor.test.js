@@ -11,6 +11,26 @@ const runtimeProcess = require('../../app/runtime-process.cjs')
 const { DispatchScheduler } = require('../../app/sub-worker/scheduler.cjs')
 const { TaskGraph, NODE_STATUS } = require('../../app/sub-worker/dag.cjs')
 const integrationHelper = require('../../app/sub-worker/integration.cjs')
+const profiler = require('../../app/sub-worker/profiler.cjs')
+
+/**
+ * Injected hardware facts for every adaptive rig.
+ *
+ * The pool ceiling is `min(configured hardMax, hardware ceiling)`, so on a small
+ * CI runner (2 vCPU / 7 GB) the real ceiling is 1 and every multi-worker
+ * scenario here would wait forever for a second worker. These facts describe a
+ * machine the scenarios are written for; the ceiling *derivation* itself is
+ * covered against real and synthetic facts in `multi-profiler.test.js`, and the
+ * adaptive behaviour (grow one step at a time, throttle, SAFE MODE, recover) is
+ * what these tests are actually about. Deterministic > host-dependent.
+ */
+const SYNTHETIC_HARDWARE_FACTS = {
+  cpu: { model: 'Injected CPU (multi-supervisor rig)', physicalCores: 8, logicalCores: 16, maxClockMhz: 3600 },
+  ram_total_gb: 32,
+  storage_class: 'nvme',
+  gpus: [],
+  gpu_vram_gb: 0
+}
 
 /**
  * Adaptive multi-process framework, end to end with real worker processes
@@ -92,6 +112,9 @@ async function rig(name, { adaptive = true, resources = {}, start = true } = {})
   ROOTS.push(root)
   const target = makeRepo(root)
   const logs = []
+  // Pin the hardware ceiling before the manager reads it, so the rig behaves the
+  // same on a developer machine and on a 2-vCPU CI runner.
+  profiler.writeHardwareProfile(root, profiler.buildHardwareProfile({ facts: SYNTHETIC_HARDWARE_FACTS }))
   const manager = new WorkerManager({
     root,
     nodeExe: process.execPath,
@@ -422,6 +445,7 @@ test('运行验收 + 低资源验收: injected pressure lowers concurrency down 
   // is retained and replays rather than disappearing.
   assert.ok(manager.describe().plans.length >= 1)
   assert.ok(['BOOST', 'NORMAL'].includes(manager.describe().resource_state))
+})
 
 // ----------------------------------------------------------------- integration
 
@@ -548,5 +572,4 @@ test('§34: a supervisor crash record is recoverable and replayable', async (t) 
   const restoredTask = [...restoredNodes.values()][0]
   assert.equal(restoredTask.task_id, 'recover-plan-interrupted')
   assert.ok(Array.isArray(restoredTask.operations) && restoredTask.operations.length > 0)
-})
 })

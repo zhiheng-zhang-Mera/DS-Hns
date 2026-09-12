@@ -3,6 +3,39 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## merging — GitHub CI gate repaired
+
+The repository's `verify` workflow (Windows, Node 22) failed on every push. Two
+independent causes, both real product bugs rather than CI configuration:
+
+- **The balance module could strand a refresh on a hanging provider.** The
+  per-provider deadline timer was created with `unref()`, so it did nothing to
+  keep the event loop alive. When a provider never answered and the wait for it
+  was the only pending work, the process could exit with the timeout still
+  unsettled — Node reports that as *"Promise resolution is still pending but the
+  event loop has already resolved"*. The timer is now referenced, so the race
+  always settles within the provider deadline; the shell's explicit exit paths
+  still decide when DS-Harness goes away.
+- **A sub-worker teardown could wait out its whole timeout.** `stop()` polled the
+  pool for a drain with `unref()`-ed timers while the supervisor tick could still
+  respawn a worker (or while the worker's own `exit` event had simply not been
+  observed yet), so it either polled for the full 5 s or never settled at all.
+  The pool now notifies waiters when a worker exits, `stop()` latches the pool as
+  stopping before it waits, and `tick()` refuses to act during a teardown — the
+  drain completes in milliseconds, and the timeout remains only as a safety net.
+
+The tests are also repaired, so the gate measures the product rather than the
+machine:
+
+- `tests/unit/multi-supervisor.test.js` had a missing `})`: everything from the
+  integration test down was parsed as a nested subtest of the pressure test,
+  which is why Node 22 reported them cancelled. The file now parses as 13 tests.
+- The same file pins a synthetic hardware profile in its rig, so the pool ceiling
+  is no longer 1 on a 2-vCPU CI runner; the ceiling *derivation* against real and
+  synthetic facts stays covered by `multi-profiler.test.js`.
+- The workflow documentation now states why the Node version is pinned instead of
+  floating (the suite is verified on 22 and 24).
+
 ## merging — Sub-worker execution layer merged in
 
 `merging` now carries every line of development that is not `main`:

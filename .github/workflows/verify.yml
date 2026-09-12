@@ -22,6 +22,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
+          # Pinned on purpose. The suite is verified on both 22 and 24 locally,
+          # and pinning the LTS line is what keeps the gate reproducible: the
+          # `node --test` runner resolves "the event loop emptied" differently on
+          # the version boundary, which is exactly the class of failure this gate
+          # is supposed to surface rather than hide behind a floating version.
           node-version: '22'
 
       - name: Syntax gate

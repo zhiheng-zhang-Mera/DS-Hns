@@ -36,6 +36,18 @@ function timeoutError(ms) {
   return error
 }
 
+/**
+ * Resolve to the provider's result, or reject when its deadline passes.
+ *
+ * The deadline timer is deliberately *referenced*. An `unref()`-ed timer does
+ * nothing to keep the event loop alive, so a caller whose only pending work is
+ * "wait for this hanging provider" can have the process exit while the race is
+ * still unsettled — which is exactly the state the timeout exists to prevent
+ * (Node reports it as "Promise resolution is still pending but the event loop has
+ * already resolved"). With the timer referenced, the race always settles within
+ * `ms`, and the shell's explicit exit paths remain the only thing that decides
+ * when DS-Harness goes away.
+ */
 function withTimeout(promise, ms) {
   if (!ms || ms <= 0) return Promise.resolve(promise)
   let timer = null
@@ -43,7 +55,6 @@ function withTimeout(promise, ms) {
     Promise.resolve(promise).finally(() => { if (timer) clearTimeout(timer) }),
     new Promise((_resolve, reject) => {
       timer = setTimeout(() => reject(timeoutError(ms)), ms)
-      if (typeof timer.unref === 'function') timer.unref()
     })
   ])
 }

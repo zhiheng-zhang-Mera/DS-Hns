@@ -571,24 +571,20 @@ class WorkerManager {
       return { ok: true, already: true }
     }
     this.setState('STOPPING')
+    // Latch the pool as stopping *before* waiting: a supervisor tick that lands
+    // during the drain would otherwise resurrect a worker and the drain would
+    // never complete (the teardown would sit until its timeout every time).
+    this.pool.stopping = true
     const interrupted = this.abandonRunningNodes(reason)
     void interrupted
     this.pool.broadcast('shutdown', { reason })
-    await new Promise((resolve) => {
-      const timer = setTimeout(resolve, Math.max(250, Number(timeoutMs) || 5000))
-      if (typeof timer.unref === 'function') timer.unref()
-      const check = setInterval(() => {
-        if (!this.pool.running.length) {
-          clearInterval(check)
-          clearTimeout(timer)
-          resolve()
-        }
-      }, 100)
-      if (typeof check.unref === 'function') check.unref()
-    })
+    const drained = await this.pool.waitForExit({ timeoutMs })
+    if (!drained.drained) {
+      this.journalLine(`[supervisor] ${drained.running} worker(s) did not exit within ${timeoutMs} ms; killing the process tree`)
+    }
     this.pool.killAll({ reason })
     this.finalizeStop(reason)
-    return { ok: true }
+    return { ok: true, drained: drained.drained }
   }
 
   finalizeStop(reason) {
@@ -1005,6 +1001,12 @@ class WorkerManager {
     const minimumInterval = force ? 0 : 250
     if (this.lastTick && now - this.lastTick < minimumInterval && this.lastDecision) return this.lastDecision
     this.lastTick = now
+    // A tick must never act while a teardown is draining the pool: scale-up,
+    // restart and replacement would all resurrect a worker the stop is waiting
+    // for (or has already killed).
+    if (this.pool.stopping || this.intentionalStop) {
+      return this.lastDecision || null
+    }
 
     const active = this.plans.filter((plan) => ['active', 'recovered'].includes(plan.state))
     const busyWorkers = this.pool.busy.length
