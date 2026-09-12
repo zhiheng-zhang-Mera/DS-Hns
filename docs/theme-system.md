@@ -433,5 +433,11 @@ bounds**、覆盖层跟随官方视图、保护 Surface 未被注入、Overlay �
 
 CI（`.github/workflows/verify.yml`）在 `main` / `merging` / `Theme-Cover` 上运行
 `npm run check` + `npm test`，并额外断言 11 个新增文件存在、两个新目录确实被语法闸门覆盖。
+`Theme-Cover` 分支上的绿灯运行是 `34682726135`：`checked 98/98 files`、
+`# tests 681 / # pass 681 / # fail 0 / # cancelled 0`、Theme surface gate 通过。
+
+`npm test` 使用 `--test-concurrency=2`：Sub-worker 套件会派生真实 worker 进程与真实
+`git worktree add`，在 2 vCPU 的托管 runner 上让无限数量的测试文件竞争 CPU 会把"结果是否到达"
+变成"机器有多快"。受限并发使该套件在本地与 CI 上表现一致。
 
 
