@@ -32,6 +32,7 @@ const contract = require('./contract')
 const designer = require('./designer')
 const preview = require('./preview')
 const validator = require('./validator')
+const inspectorModule = require('./inspector')
 
 const DRAFT_STATE_FILE = 'theme-drafts.json'
 
@@ -82,6 +83,10 @@ function createOrchestrator({
   /**
    * Step 1 + 2: observe the real UI and discover current capabilities.
    * Both degrade gracefully; a missing visual capture is recorded, never faked.
+   *
+   * The result carries the visual verdict explicitly (`visual`, `degraded`,
+   * `reason`, `observedSlots`) so a caller — the dock, the acceptance run, the
+   * design summary — can tell a full observation from a structure-only one.
    */
   async function observe({ pages = null } = {}) {
     const manifest = runtime.manifest({
@@ -100,7 +105,26 @@ function createOrchestrator({
         log(`UI observation failed, continuing structure-only: ${error?.message || error}`)
       }
     }
-    return { manifest, snapshot: snapshotPackage, snapshotDir: dir }
+    const observedSlots = snapshotPackage
+      ? inspectorModule.observedSlots({
+          slots: Object.fromEntries(Object.entries(snapshotPackage.slot_map || {}).map(([id, slot]) => [id, {
+            id,
+            present: slot.present,
+            boundingBox: slot.boundingBox
+          }]))
+        })
+      : { count: 0, ids: [], boundingBoxes: {} }
+    return {
+      manifest,
+      snapshot: snapshotPackage,
+      snapshotDir: dir,
+      visual: Boolean(snapshotPackage && snapshotPackage.visual),
+      degraded: !snapshotPackage || Boolean(snapshotPackage.degraded),
+      reason: snapshotPackage
+        ? snapshotPackage.visual_reason || null
+        : 'the UI snapshot service was unavailable',
+      observedSlots
+    }
   }
 
   /**
@@ -186,6 +210,7 @@ function createOrchestrator({
       validation: report.validation,
       capabilityManifest: observation.manifest,
       snapshotCaptured: Boolean(observation.snapshot && observation.snapshot.visual),
+      observation: describeObservation(observation),
       contrastAdjustments: previewed.contrastAdjustments || []
     })
 
@@ -208,12 +233,31 @@ function createOrchestrator({
         states: observation.manifest.states,
         canThemeOfficialUi: observation.manifest.capabilities.can_theme_official_ui
       },
+      // A structure-only design is allowed; being quiet about it is not. The
+      // renderer shows `degraded`, the acceptance run asserts on it, and the log
+      // records why.
+      observation: describeObservation(observation),
       snapshot: {
         captured: Boolean(observation.snapshot),
         visual: Boolean(observation.snapshot && observation.snapshot.visual),
+        degraded: Boolean(observation.degraded),
+        reason: observation.reason || null,
         dir: observation.snapshotDir,
-        pages: observation.snapshot ? observation.snapshot.page_names : []
+        pages: observation.snapshot ? observation.snapshot.page_names : [],
+        observedSlots: observation.observedSlots || { count: 0, ids: [], boundingBoxes: {} }
       }
+    }
+  }
+
+  /** Compact, renderer-safe view of what the observation actually produced. */
+  function describeObservation(observation) {
+    return {
+      visual: Boolean(observation.visual),
+      degraded: Boolean(observation.degraded),
+      reason: observation.reason || null,
+      snapshotDir: observation.snapshotDir || null,
+      observedSlots: observation.observedSlots || { count: 0, ids: [], boundingBoxes: {} },
+      captureProblems: (observation.snapshot && observation.snapshot.capture_problems) || []
     }
   }
 

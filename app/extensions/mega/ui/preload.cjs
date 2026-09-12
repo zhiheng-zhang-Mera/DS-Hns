@@ -74,6 +74,12 @@ contextBridge.exposeInMainWorld('megaTools', {
     restore: (id) => ipcRenderer.invoke('mega:theme-restore', { id }),
     importPackage: () => ipcRenderer.invoke('mega:theme-import'),
     observe: (pages) => ipcRenderer.invoke('mega:theme-observe', { pages }),
+    /**
+     * On-disk truth for the latest snapshot (the package plus a verdict per PNG)
+     * and the optional AI designer's state. Used by the appearance panel and by
+     * acceptance, which must judge the artifact rather than a boolean.
+     */
+    artifacts: () => ipcRenderer.invoke('mega:theme-artifacts'),
     detail: (id) => ipcRenderer.invoke('mega:theme-detail', { id }),
     // Engine -> renderer paint pushes and change notifications.
     onApply: (callback) => ipcRenderer.on('mega:theme-apply', (_event, payload) => callback(payload)),
@@ -85,7 +91,8 @@ contextBridge.exposeInMainWorld('megaTools', {
      */
     reportRegions: (payload) => ipcRenderer.send('mega-theme:regions', payload),
     // The main process asks for a geometry probe on this exact channel; a mismatch
-    // here silently disabled live measurement of critical regions.
+    // here silently disabled live measurement of critical regions. The engine's
+    // `requestThemeRegions()` is the pull side of this push.
     onProbeRegions: (callback) => ipcRenderer.on('mega-theme:probe-regions', () => callback())
   },
   /**

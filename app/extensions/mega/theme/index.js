@@ -30,6 +30,7 @@ const inspector = require('./inspector')
 const runtimeModule = require('./runtime')
 const lifecycleModule = require('./lifecycle')
 const orchestratorModule = require('./orchestrator')
+const modelAdapterModule = require('./model-adapter')
 
 /** Read the live system load for effect degradation, from the scheduler. */
 function makeLoadReader({ scheduler, log }) {
@@ -69,6 +70,7 @@ function makeLoadReader({ scheduler, log }) {
  * @param {Function} [options.componentTree]   () => tree
  * @param {Function} [options.windowSize]      () => [w, h]
  * @param {Function} [options.dockState]       () => dock state
+ * @param {Function} [options.visualExpected]  () => { expected, reason } — is a screenshot possible right now?
  * @param {Function} [options.modelInterpreter]
  * @param {Function} [options.log]
  * @param {Function} [options.onChanged]
@@ -81,6 +83,7 @@ function createThemeEngine({
   componentTree = () => null,
   windowSize = () => null,
   dockState = () => null,
+  visualExpected = () => null,
   modelInterpreter = null,
   log = () => {},
   onChanged = () => {}
@@ -108,6 +111,7 @@ function createThemeEngine({
     windowSize,
     currentTheme: () => runtime.currentTheme(),
     dockState,
+    visualExpected,
     manifest: () => runtime.manifest({ dockState: safeCall(dockState), engineVersion: null }),
     log
   })
@@ -124,6 +128,17 @@ function createThemeEngine({
     onChanged
   })
 
+  /**
+   * The optional AI designer. It is a refinement layer only: with no worker
+   * configured the adapter stays disabled and the deterministic interpreter
+   * produces the same output contract, so the AI layer is never a boot
+   * dependency.
+   */
+  const modelAdapter = modelAdapterModule.createModelAdapter({
+    interpret: modelInterpreter,
+    log: (message) => log(`model: ${message}`)
+  })
+
   const orchestrator = orchestratorModule.createOrchestrator({
     registry,
     recovery,
@@ -133,7 +148,7 @@ function createThemeEngine({
     builder,
     log,
     onChanged,
-    modelInterpreter,
+    modelInterpreter: modelAdapter.interpreter,
     capturePreview: capture,
     readLoad: () => {
       try { return runtime.describe().load } catch { return null }
@@ -185,7 +200,14 @@ function createThemeEngine({
     paintPayload: () => runtime.rendererPayload(runtime.currentTheme(), { preview: Boolean(runtime.describe().previewing) }),
     describe: () => orchestrator.describe(),
     capabilities: () => orchestrator.capabilities(),
-    setModelInterpreter: (fn) => orchestrator.setModelInterpreter(fn)
+    /** On-disk truth for the latest snapshot: JSON + verified PNGs. */
+    snapshotArtifacts: () => snapshot.artifacts(),
+    modelAdapter,
+    setModelInterpreter: (fn) => {
+      const adapter = modelAdapterModule.createModelAdapter({ interpret: fn, log: (message) => log(`model: ${message}`) })
+      orchestrator.setModelInterpreter(adapter.interpreter)
+      return adapter.describe()
+    }
   }
 }
 

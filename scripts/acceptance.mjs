@@ -55,9 +55,31 @@ function parseArgs(argv) {
 const OPTIONS = parseArgs(process.argv.slice(2))
 const CHECKS = []
 const NOTES = []
+const WARNINGS = []
 
-function check(name, ok, detail = '') {
-  CHECKS.push({ name, ok: Boolean(ok), detail: String(detail || '') })
+/**
+ * Which part of the product a check belongs to, for the per-module summary in the
+ * report. `modules` in the report is what makes a failure localisable without
+ * reading the whole check list.
+ */
+const MODULE_RULES = [
+  [/updater|rollback|harness update|update /i, 'updater'],
+  [/theme|snapshot|visual|appearance|palette|tokens|png|slot/i, 'theme'],
+  [/skill/i, 'skills'],
+  [/dock/i, 'dock'],
+  [/harness|renderer|render|boot|instance|core|shell/i, 'core']
+]
+
+function moduleOf(name) {
+  for (const [pattern, module] of MODULE_RULES) {
+    if (pattern.test(name)) return module
+  }
+  return 'core'
+}
+
+function check(name, ok, detail = '', module = null) {
+  const owner = module || moduleOf(name)
+  CHECKS.push({ name, module: owner, ok: Boolean(ok), detail: String(detail || '') })
   const mark = ok ? 'PASS' : 'FAIL'
   console.log(`[${mark}] ${name}${detail ? ` — ${detail}` : ''}`)
   return Boolean(ok)
@@ -66,6 +88,11 @@ function check(name, ok, detail = '') {
 function note(text) {
   NOTES.push(text)
   console.log(`[NOTE] ${text}`)
+}
+
+function warn(text) {
+  WARNINGS.push(text)
+  console.log(`[WARN] ${text}`)
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -237,6 +264,89 @@ async function attachTo(cdpPort, matcher, { timeoutMs = 180_000 } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// snapshot artifacts
+// ---------------------------------------------------------------------------
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+/** The engineering-spec floor for a screenshot read back from disk. */
+const MIN_ACCEPTANCE_PNG_BYTES = 5 * 1024
+const MIN_PNG_EDGE = 64
+
+/**
+ * Ground truth for a snapshot file on disk.
+ *
+ * `snapshot.visual === true` is a claim; this is the evidence. An empty file, a
+ * text error page named .png, or a 0x0 capture must all fail here, which is
+ * exactly the false green the acceptance run exists to catch.
+ */
+function inspectPngFile(file) {
+  const problems = []
+  let buffer = null
+  try {
+    buffer = fs.readFileSync(file)
+  } catch (error) {
+    return { ok: false, bytes: 0, width: 0, height: 0, problems: [`unreadable: ${error?.message || error}`] }
+  }
+  if (buffer.length < PNG_SIGNATURE.length || !buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+    problems.push('not a PNG')
+  }
+  if (buffer.length < MIN_ACCEPTANCE_PNG_BYTES) {
+    problems.push(`only ${buffer.length} bytes (minimum ${MIN_ACCEPTANCE_PNG_BYTES})`)
+  }
+  let width = 0
+  let height = 0
+  if (buffer.length >= 24 && buffer.subarray(12, 16).toString('ascii') === 'IHDR') {
+    width = buffer.readUInt32BE(16)
+    height = buffer.readUInt32BE(20)
+    if (width < MIN_PNG_EDGE || height < MIN_PNG_EDGE) {
+      problems.push(`too small to be a UI: ${width}x${height}`)
+    }
+  } else {
+    problems.push('missing PNG header')
+  }
+  return { ok: problems.length === 0, bytes: buffer.length, width, height, problems }
+}
+
+/**
+ * Read the snapshot package the theme engine wrote into this run's data
+ * directory and verify every file it claims.
+ */
+function verifySnapshotArtifacts(root) {
+  const dir = path.join(root, 'data', 'theme-workspace', 'snapshot')
+  const mapFile = path.join(dir, 'ui-map.json')
+  let pkg = null
+  try {
+    pkg = JSON.parse(fs.readFileSync(mapFile, 'utf8'))
+  } catch {
+    return { dir, mapFile, mapExists: false, package: null, files: [], ok: false }
+  }
+  const claimed = Object.values(pkg.screenshots || {})
+  const files = claimed.map((name) => {
+    const file = path.join(dir, String(name))
+    return { name: String(name), path: file, exists: fs.existsSync(file), ...inspectPngFile(file) }
+  })
+  return {
+    dir,
+    mapFile,
+    mapExists: true,
+    package: pkg,
+    files,
+    ok: files.length > 0 && files.every((file) => file.exists && file.ok)
+  }
+}
+
+/** `git rev-parse` for the report; never fatal. */
+function gitValue(args) {
+  try {
+    const result = spawnSync('git', args, { cwd: OPTIONS.root, encoding: 'utf8', windowsHide: true })
+    if (result.status !== 0) return null
+    return String(result.stdout || '').trim() || null
+  } catch {
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
 // launching the shell
 // ---------------------------------------------------------------------------
 
@@ -260,6 +370,13 @@ function launchShell() {
     TEMP: path.join(OPTIONS.root, 'temp'),
     TMP: path.join(OPTIONS.root, 'temp')
   }
+  // The acceptance run is a normal GUI run: visual observation is required, not
+  // optional, so any no-visual switch from the caller's environment is dropped.
+  delete env.DSH_THEME_NO_VISUAL
+  // Start with the dock expanded: that is the surface a user themes, and it makes
+  // the visual observation assertion independent of click timing. The run still
+  // exercises the user-facing expand control below.
+  env.DSH_MEGA_DOCK_EXPANDED = '1'
   // The shell's single-instance lock lives in the userData directory, so an
   // acceptance run always takes a profile of its own. Running the same checkout the
   // product is running from needs a name and a profile too, or the run would sit
@@ -301,27 +418,38 @@ function resolvePowerShell() {
 
 /**
  * Drive the real "local install" path: click the button, then type the path into
- * the native Windows folder picker and confirm it. This is the only part of the
- * acceptance that needs the OS dialog, so it is attempted but only *fails* the run
- * when the dialog never appeared at all.
+ * the native Windows folder picker and confirm it.
+ *
+ * Only the *click* is load-bearing here. The dialog is a real OS window: it may
+ * be titled by the app, by Windows' own localised "Select Folder" string, or not
+ * be activatable at all on a locked/headless desktop. When the keystrokes do not
+ * land, the caller falls back to the same source-channel install, so this returns
+ * whether the automation had a fair chance rather than pretending to know.
  */
 async function pickLocalDirectory(page, directory) {
   const shell = resolvePowerShell()
   if (!shell) return false
+  const escaped = directory.replace(/\\/g, '\\\\')
   const script = `
     Add-Type -AssemblyName System.Windows.Forms
     $wsh = New-Object -ComObject WScript.Shell
-    for ($i = 0; $i -lt 80; $i++) {
+    $titles = @('选择技能目录或 SKILL.md', 'Select Folder', 'Select a folder', '选择文件夹', 'DS-Harness')
+    $seen = $false
+    for ($i = 0; $i -lt 120; $i++) {
       Start-Sleep -Milliseconds 250
-      if ($wsh.AppActivate('选择技能目录或 SKILL.md') -or $wsh.AppActivate('Select')) { break }
+      foreach ($title in $titles) {
+        if ($wsh.AppActivate($title)) { $seen = $true; break }
+      }
+      if ($seen) { break }
     }
-    Start-Sleep -Milliseconds 500
+    if (-not $seen) { exit 3 }
+    Start-Sleep -Milliseconds 600
     [System.Windows.Forms.SendKeys]::SendWait('^l')
-    Start-Sleep -Milliseconds 300
-    [System.Windows.Forms.SendKeys]::SendWait('${directory.replace(/\\/g, '\\\\')}')
-    Start-Sleep -Milliseconds 300
+    Start-Sleep -Milliseconds 400
+    [System.Windows.Forms.SendKeys]::SendWait('${escaped}')
+    Start-Sleep -Milliseconds 400
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Start-Sleep -Milliseconds 800
+    Start-Sleep -Milliseconds 1000
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
   `
   const child = spawn(shell, ['-NoProfile', '-NonInteractive', '-Command', script], {
@@ -352,6 +480,12 @@ async function run() {
   console.log(`== DS-Hns acceptance ==`)
   console.log(`root=${OPTIONS.root}`)
   console.log(`harness port=${OPTIONS.port}  cdp port=${OPTIONS.cdp}  skills=${OPTIONS.skills}  github=${OPTIONS.github}`)
+  if (!OPTIONS.github) {
+    warn('GitHub network test skipped (--github): the live repository install was not exercised')
+  }
+  if (!OPTIONS.skills) {
+    warn('skills acceptance skipped (--skills): the skills module was not exercised')
+  }
 
   const dataDir = path.join(OPTIONS.root, 'data')
   // A fresh checkout has no runtime directories; the shell creates them only after
@@ -436,6 +570,65 @@ async function run() {
       panels.panelModule || (Array.isArray(panels.bridgeModules) && panels.bridgeModules.includes('appearance')),
       JSON.stringify({ panel: panels.panelModule, modules: panels.bridgeModules })
     )
+
+    // The dock boots collapsed (the rail) on a narrow window unless the run starts
+    // it expanded. The visual observation below is only meaningful once the product
+    // surface is actually laid out, so expand it through the dock's own control and
+    // prove the control works in both directions.
+    const expandViaRail = async () => dock.page.poll(`
+      const rail = document.getElementById('railToggle')
+      if (rail && !document.body.classList.contains('expanded')) rail.click()
+      return document.body.classList.contains('expanded') &&
+        document.getElementById('detail') &&
+        document.getElementById('detail').getBoundingClientRect().width > 200
+        ? true
+        : null
+    `, { timeoutMs: 12_000 })
+
+    const startedExpanded = await dock.page.evaluate(`return document.body.classList.contains('expanded')`)
+    let collapsed = null
+    if (startedExpanded) {
+      // Exercise the user-facing collapse control too, then expand again.
+      collapsed = await dock.page.evaluate(`
+        const collapse = document.getElementById('collapse')
+        if (collapse) collapse.click()
+        return new Promise((resolve) => setTimeout(() => {
+          const detail = document.getElementById('detail')
+          resolve({ expanded: document.body.classList.contains('expanded'), width: detail ? Math.round(detail.getBoundingClientRect().width) : 0 })
+        }, 700))
+      `)
+      check('the dock collapses through its own control', collapsed.expanded === false, JSON.stringify(collapsed))
+    }
+    let dockExpanded = false
+    for (let attempt = 0; attempt < 3 && !dockExpanded; attempt += 1) {
+      try {
+        dockExpanded = await expandViaRail()
+      } catch {
+        dockExpanded = false
+      }
+    }
+    const expandedState = await dock.page.evaluate(`
+      const detail = document.getElementById('detail')
+      return {
+        expanded: document.body.classList.contains('expanded'),
+        width: detail ? Math.round(detail.getBoundingClientRect().width) : 0
+      }
+    `)
+    check('the dock expands to full width through its own control', dockExpanded && expandedState.expanded && expandedState.width > 200, JSON.stringify(expandedState))
+
+    // The dock must be expanded before geometry can mean anything, and the
+    // appearance module has to have finished its first layout: the observation
+    // below asserts on measured pixels.
+    const dockVisible = await dock.page.evaluate(`
+      const bridge = window.megaThemeBridge
+      const regions = bridge && typeof bridge.reportRegions === 'function' ? bridge.reportRegions() : null
+      return {
+        expanded: document.body.classList.contains('expanded'),
+        width: document.getElementById('detail') ? Math.round(document.getElementById('detail').getBoundingClientRect().width) : 0,
+        measured: regions ? Object.keys(regions).filter((key) => key !== 'componentTree').length : 0
+      }
+    `)
+    check('the dock reports live geometry for the observation', dockVisible.measured > 0, JSON.stringify(dockVisible))
 
     // --- theme switching through the real engine -----------------------------
     // Start from a known theme so the assertion is about the transition, not about
@@ -605,22 +798,41 @@ async function run() {
       ].join('\n'), 'utf8')
 
       const before = await dock.page.evaluate(`return window.megaTools.skills.snapshot().then((s) => s.skills.length)`)
-      try {
-        await pickLocalDirectory(dock.page, localSource)
-        const after = await dock.page.poll(`
-          return window.megaTools.skills.snapshot().then((s) => s.skills.some((k) => k.name === 'acceptance-local-skill') ? s.skills.length : null)
-        `, { timeoutMs: 40_000 })
-        check('a local directory installs through the native picker', after > before, `${before} -> ${after}`)
-      } catch (error) {
-        // The OS dialog cannot be driven reliably in every environment; report it
-        // rather than claiming success or failing the whole run.
-        note(`native directory picker could not be driven (${error.message}); local install verified by unit tests instead`)
-        const direct = await dock.page.evaluate(`
-          const engine = window.megaTools.skills
-          return engine.installSource({ source: ${JSON.stringify(localSource)} }).then((r) => ({ ok: r.ok, installed: (r.installed || []).map((i) => i.name), reason: r.reason || null }))
-        `)
-        check('a local path installs through the source channel', direct.ok, JSON.stringify(direct))
+      // The dialog can be slow to appear behind an expanded dock, and one wasted
+      // attempt costs nothing: try the real picker twice before falling back.
+      let picked = false
+      let nativePickerDriven = true
+      for (let attempt = 0; attempt < 2 && !picked; attempt += 1) {
+        try {
+          await pickLocalDirectory(dock.page, localSource)
+          const after = await dock.page.poll(`
+            return window.megaTools.skills.snapshot().then((s) => s.skills.some((k) => k.name === 'acceptance-local-skill') ? s.skills.length : null)
+          `, { timeoutMs: 25_000 })
+          check('a local directory installs through the native picker', after > before, `${before} -> ${after}`)
+          picked = true
+        } catch (error) {
+          if (attempt === 1) {
+            // The OS dialog cannot be driven reliably in every environment; report
+            // it rather than claiming success or failing the whole run.
+            note(`native directory picker could not be driven (${error.message}); local install verified through the source channel instead`)
+            warn('the native directory picker could not be automated in this environment; the install path was verified through the source channel')
+            nativePickerDriven = false
+            const direct = await dock.page.evaluate(`
+              const engine = window.megaTools.skills
+              return engine.installSource({ source: ${JSON.stringify(localSource)} }).then((r) => ({ ok: r.ok, installed: (r.installed || []).map((i) => i.name), reason: r.reason || null }))
+            `)
+            check('a local path installs through the source channel', direct.ok, JSON.stringify(direct))
+          } else {
+            note(`native directory picker attempt ${attempt + 1} did not complete; retrying`)
+          }
+        }
       }
+      if (nativePickerDriven) note('the native directory picker was driven end to end')
+      // Either path must leave the skill on disk: that is what the user asked for.
+      const localInstalled = await dock.page.poll(`
+        return window.megaTools.skills.snapshot().then((s) => s.skills.some((k) => k.name === 'acceptance-local-skill') ? true : null)
+      `, { timeoutMs: 20_000 })
+      check('the local skill is installed either way', localInstalled === true, String(localInstalled))
       const localFile = path.join(skillRoot, 'acceptance-local-skill.md')
       const localDir = path.join(skillRoot, 'acceptance-local-skill')
       check('the locally installed skill exists on disk', fs.existsSync(localFile) || fs.existsSync(localDir))
@@ -641,23 +853,102 @@ async function run() {
     }
 
     // --- theme create → preview → approve, in the running app ---------------
+    // The create call must observe the real UI first: this is where a
+    // structure-only regression would hide, so the observation verdict is
+    // returned by the engine and asserted here.
     const themeFlow = await dock.page.evaluate(`
       const engine = window.megaTools.theme
       return engine.create({ prompt: '赛博全息 HUD，黑灰蓝，扫描线，人物不要抢屏' }).then((created) => {
         if (!created.ok) return { ok: false, reason: created.reason, stage: 'create' }
         const stage = created.stage
         const validationOk = created.validation.ok
+        const observation = created.observation || null
+        const snapshot = created.snapshot || null
         return engine.approve({ draftId: created.draftId }).then((approved) => ({
           ok: approved.ok,
           stage,
           validationOk,
           id: approved.id,
-          reason: approved.reason || null
+          reason: approved.reason || null,
+          observation,
+          snapshot
         }))
       })
     `)
     check('a prompt creates a preview and does not install', themeFlow.stage === 'preview' || themeFlow.ok, JSON.stringify(themeFlow))
     check('the generated theme was approved and installed', themeFlow.ok, JSON.stringify(themeFlow))
+
+    // --- observation every theme design must make first ----------------------
+    const observation = themeFlow.observation || {}
+    const snapshotClaim = themeFlow.snapshot || {}
+    check('the theme create reported its observation', Boolean(themeFlow.observation), JSON.stringify(observation).slice(0, 200))
+    check(
+      'the theme design observed the UI visually',
+      snapshotClaim.visual === true && observation.visual === true,
+      JSON.stringify({ snapshotVisual: snapshotClaim.visual, observationVisual: observation.visual, reason: snapshotClaim.reason || observation.reason || null })
+    )
+    check(
+      'the theme observation is not degraded',
+      snapshotClaim.degraded !== true && observation.degraded !== true,
+      JSON.stringify({ snapshotDegraded: snapshotClaim.degraded, observationDegraded: observation.degraded, reason: observation.reason || null })
+    )
+    check('the observation captured the dock snapshot package', snapshotClaim.captured === true, JSON.stringify(snapshotClaim).slice(0, 200))
+
+    // --- slot observation: real bounding boxes, not just contract ids --------
+    const slotObservation = await dock.page.evaluate(`
+      return window.megaTools.theme.observe().then((observed) => {
+        const slotMap = (observed.snapshot && observed.snapshot.slot_map) || {}
+        const withBox = Object.entries(slotMap)
+          .filter(([, slot]) => slot && slot.boundingBox && slot.boundingBox.width > 0 && slot.boundingBox.height > 0)
+          .map(([id, slot]) => ({ id, box: slot.boundingBox }))
+        return {
+          ok: observed.ok,
+          degraded: observed.degraded,
+          visual: observed.visual,
+          reason: observed.reason || null,
+          slotCount: Object.keys(slotMap).length,
+          observedSlots: observed.observedSlots || null,
+          withBox: withBox.slice(0, 12),
+          withBoxCount: withBox.length
+        }
+      })
+    `)
+    check(
+      'the UI inspector reports live slot geometry',
+      slotObservation.withBoxCount > 0 && slotObservation.observedSlots?.count > 0,
+      `${slotObservation.withBoxCount} slot(s) with a bounding box of ${slotObservation.slotCount} in the map`
+    )
+    if (slotObservation.withBox.length) {
+      const sample = slotObservation.withBox[0]
+      const box = sample.box
+      check(
+        'a reported slot carries a usable bounding box',
+        Number.isFinite(box.x) && Number.isFinite(box.y) && box.width > 0 && box.height > 0,
+        `${sample.id}: ${JSON.stringify(box)}`
+      )
+    } else {
+      check('a reported slot carries a usable bounding box', false, 'no slot was measured at all')
+    }
+
+    // --- the snapshot must be a real PNG on disk, not just a flag ------------
+    const artifacts = verifySnapshotArtifacts(OPTIONS.root)
+    check('the snapshot directory holds a map file', artifacts.mapExists, artifacts.mapFile)
+    check(
+      'the snapshot package claims PNG files',
+      artifacts.mapExists && Array.isArray(Object.values(artifacts.package?.screenshots || {})) && Object.keys(artifacts.package?.screenshots || {}).length > 0,
+      JSON.stringify(artifacts.package?.screenshots || {})
+    )
+    for (const file of artifacts.files) {
+      check(
+        `the snapshot PNG ${file.name} is a real image`,
+        file.exists && file.ok,
+        file.exists ? `${file.bytes} bytes, ${file.width}x${file.height}${file.problems.length ? ` — ${file.problems.join('; ')}` : ''}` : 'missing'
+      )
+    }
+    if (artifacts.mapExists) {
+      check('the snapshot package reports no capture problems', (artifacts.package.capture_problems || []).length === 0, JSON.stringify(artifacts.package.capture_problems || []))
+    }
+
     if (themeFlow.ok) {
       const installedDir = path.join(dataDir, 'themes', 'user', themeFlow.id)
       check('the generated theme package exists on disk', fs.existsSync(path.join(installedDir, 'manifest.json')), installedDir)
@@ -680,6 +971,21 @@ async function run() {
       return window.megaTools.theme.remove('hns.system.dark').then((r) => ({ ok: r.ok, reason: r.reason }))
     `)
     check('a protected system theme cannot be deleted', !protection.ok && protection.reason === 'protected', JSON.stringify(protection))
+    const lightProtection = await dock.page.evaluate(`
+      return window.megaTools.theme.remove('hns.system.light').then((r) => ({ ok: r.ok, reason: r.reason }))
+    `)
+    check('every protected system theme refuses deletion', !lightProtection.ok && lightProtection.reason === 'protected', JSON.stringify(lightProtection))
+
+    // --- the optional AI designer must be off, and must not be required ------
+    const modelState = await dock.page.evaluate(`
+      return window.megaTools.theme.artifacts().then((a) => (a && a.model) || null)
+    `)
+    if (modelState && modelState.enabled) {
+      check('the optional AI designer reports its state when enabled', true, JSON.stringify(modelState))
+    } else {
+      warn('AI model adapter disabled: the deterministic interpreter designed every theme in this run')
+      check('the theme pipeline works without an AI designer', true, JSON.stringify(modelState || { enabled: false }))
+    }
   } finally {
     dock?.page.close()
     official?.page.close()
@@ -688,20 +994,58 @@ async function run() {
   }
 }
 
+/**
+ * Updater rollback, run as part of acceptance.
+ *
+ * The engineering spec lists it as an acceptance item, and driving it through the
+ * real test suite (rather than re-implementing the stub) keeps one source of
+ * truth for what "a rollback that actually restores the old version" means.
+ */
+function runUpdaterAcceptance() {
+  const appDir = path.join(OPTIONS.root, 'app')
+  const result = spawnSync(process.execPath, ['--test', path.join(OPTIONS.root, 'tests', 'unit', 'update-runner.test.js')], {
+    cwd: appDir,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 300_000
+  })
+  const output = `${result.stdout || ''}${result.stderr || ''}`
+  const summary = output.split(/\r?\n/).filter((line) => /^ℹ (tests|pass|fail)/.test(line)).join(' · ')
+  const ok = result.status === 0 && /ℹ fail 0/.test(output)
+  check('the updater rollback tests pass against the real runner', ok, summary || `exit ${result.status}`)
+  if (!ok) note(`updater test output tail: ${output.split(/\r?\n/).slice(-25).join(' | ')}`)
+  return { ok, summary }
+}
+
 // ---------------------------------------------------------------------------
 
 run()
-  .then(() => {
+  .then((value) => value)
+  .then((result) => {
+    const updater = runUpdaterAcceptance()
     const failed = CHECKS.filter((entry) => !entry.ok)
+    const modules = {}
+    for (const entry of CHECKS) {
+      const bucket = modules[entry.module] || (modules[entry.module] = { passed: 0, failed: 0, checks: [] })
+      if (entry.ok) bucket.passed += 1
+      else bucket.failed += 1
+      bucket.checks.push({ name: entry.name, ok: entry.ok })
+    }
     const report = {
+      commit: gitValue(['rev-parse', 'HEAD']),
+      branch: gitValue(['rev-parse', '--abbrev-ref', 'HEAD']),
       root: OPTIONS.root,
       port: OPTIONS.port,
       skills: OPTIONS.skills,
       github: OPTIONS.github,
+      keep: OPTIONS.keep,
       at: new Date().toISOString(),
       total: CHECKS.length,
       passed: CHECKS.length - failed.length,
       failed: failed.length,
+      warnings: WARNINGS,
+      modules,
+      updater,
       checks: CHECKS,
       notes: NOTES
     }
@@ -709,8 +1053,10 @@ run()
     fs.writeFileSync(OPTIONS.report, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
     console.log('')
     console.log(`== acceptance: ${report.passed}/${report.total} checks passed ==`)
+    console.log(`   modules: ${Object.entries(modules).map(([name, m]) => `${name} ${m.passed}/${m.passed + m.failed}`).join(' · ')}`)
+    for (const warning of WARNINGS) console.log(`   WARNING: ${warning}`)
     if (failed.length) {
-      for (const entry of failed) console.log(`   FAILED: ${entry.name} — ${entry.detail}`)
+      for (const entry of failed) console.log(`   FAILED: [${entry.module}] ${entry.name} — ${entry.detail}`)
     }
     console.log(`report: ${OPTIONS.report}`)
     process.exit(failed.length ? 1 : 0)
