@@ -1,0 +1,72 @@
+{
+  "id": "hns.demo.cyber-hud",
+  "name": "Cyber HUD Demo",
+  "author": "HNS Theme Engine",
+  "version": "1.0.1",
+  "source": "builtin-demo",
+  "protected": false,
+  "deletable": true,
+  "editable": true,
+  "system_theme": false,
+  "theme_api_version": "1.0",
+  "required_theme_api": ">=1.0",
+  "supported_apps": [
+    "hns"
+  ],
+  "created_at": "2026-09-11T23:51:16.822Z",
+  "installed_at": null,
+  "generated_prompt": "赛博全息 HUD，黑灰蓝，扫描线，微光，人物不要抢屏",
+  "revision_history": [
+    {
+      "revision": 1,
+      "at": "2026-09-11T23:51:16.822Z",
+      "prompt": "赛博全息 HUD，黑灰蓝，扫描线，微光，人物不要抢屏",
+      "design_language": "cyber_hud",
+      "palette": "steel_blue",
+      "density": "compact",
+      "motion": "subtle",
+      "decoration": "high",
+      "persona": {
+        "character": "android_operator",
+        "prominence": 0.16
+      }
+    }
+  ],
+  "derived_from": null,
+  "official_palette": "dark",
+  "animation": {
+    "type": "fade",
+    "intensity": 0.3
+  },
+  "preview": "preview.png",
+  "preview_html": "preview.html",
+  "asset_files": [
+    {
+      "path": "assets/wallpapers/main.png",
+      "bytes": 91966
+    },
+    {
+      "path": "assets/panels/panel.png",
+      "bytes": 15955
+    },
+    {
+      "path": "assets/icons/set.png",
+      "bytes": 564
+    },
+    {
+      "path": "assets/persona/avatar.png",
+      "bytes": 2206
+    },
+    {
+      "path": "assets/persona/banner.png",
+      "bytes": 2078
+    },
+    {
+      "path": "assets/decorations/corners.png",
+      "bytes": 1487
+    }
+  ],
+  "design_language": "cyber_hud",
+  "palette": "steel_blue",
+  "mode": "dark"
+}

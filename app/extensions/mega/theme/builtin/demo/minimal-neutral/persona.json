@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "prominence": 0,
+  "character": "operator_assistant",
+  "states": {},
+  "occludes": [],
+  "overlay_main": false,
+  "sounds": [],
+  "avatar": null,
+  "banner": null,
+  "notes": "HNS allows a lightweight persona only: small operator avatar, status avatar, corner widget, light banner."
+}

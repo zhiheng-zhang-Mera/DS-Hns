@@ -50,5 +50,40 @@ contextBridge.exposeInMainWorld('megaTools', {
   // In integrated mode the rail should always remain reachable, so "hide"
   // degrades to collapse instead of removing the whole in-window view.
   hideDock: () => setDockExpanded(false),
-  onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback())
+  onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback()),
+  /**
+   * HNS unified theme system.
+   *
+   * The renderer never receives a theme file path and never reads the theme
+   * directory: the engine hands it a small declarative payload (tokens as CSS
+   * custom properties + slot styles) which is data, not code.
+   */
+  theme: {
+    snapshot: () => ipcRenderer.invoke('mega:theme-snapshot'),
+    capabilities: () => ipcRenderer.invoke('mega:theme-capabilities'),
+    // Paint payload for the currently active theme (used on first paint).
+    paint: () => ipcRenderer.invoke('mega:theme-paint'),
+    create: (payload) => ipcRenderer.invoke('mega:theme-create', payload),
+    revise: (payload) => ipcRenderer.invoke('mega:theme-revise', payload),
+    validate: (payload) => ipcRenderer.invoke('mega:theme-validate', payload),
+    approve: (payload) => ipcRenderer.invoke('mega:theme-approve', payload),
+    discard: (payload) => ipcRenderer.invoke('mega:theme-discard', payload),
+    apply: (id) => ipcRenderer.invoke('mega:theme-apply', { id }),
+    remove: (id) => ipcRenderer.invoke('mega:theme-delete', { id }),
+    duplicate: (id, name) => ipcRenderer.invoke('mega:theme-duplicate', { id, name }),
+    restore: (id) => ipcRenderer.invoke('mega:theme-restore', { id }),
+    importPackage: () => ipcRenderer.invoke('mega:theme-import'),
+    observe: (pages) => ipcRenderer.invoke('mega:theme-observe', { pages }),
+    detail: (id) => ipcRenderer.invoke('mega:theme-detail', { id }),
+    // Engine -> renderer paint pushes and change notifications.
+    onApply: (callback) => ipcRenderer.on('mega:theme-apply', (_event, payload) => callback(payload)),
+    onChanged: (callback) => ipcRenderer.on('mega:theme-changed', () => callback()),
+    /**
+     * UI observation support: the engine asks for live slot geometry, the dock
+     * answers with bounding boxes so the preview validator can verify that
+     * critical controls stay visible and unoccluded.
+     */
+    reportRegions: (payload) => ipcRenderer.send('mega-theme:regions', payload),
+    onProbeRegions: (callback) => ipcRenderer.on('mega-theme:probe-regions', () => callback())
+  }
 })

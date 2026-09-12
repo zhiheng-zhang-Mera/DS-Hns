@@ -60,6 +60,16 @@ Check 'dsh core installed' (Test-Path "$ROOT\app\node_modules\@deepseek-ai\dsh\l
 Check 'Electron installed' (Test-Path "$ROOT\app\node_modules\electron\dist\electron.exe")
 Check 'Pricing snapshot present' (Test-Path "$ROOT\data\pricing\official-pricing.json")
 Check 'Sounds present' (Test-Path "$ROOT\assets\sounds")
+# ---- HNS unified theme system ----
+Check 'Theme engine entry exists' (Test-Path "$ROOT\app\extensions\mega\theme\index.js")
+Check 'Theme contract exposes the slot table' ((Get-Content "$ROOT\app\extensions\mega\theme\contract.js" -Raw) -match 'SLOTS')
+Check 'Protected system themes are committed' ((Test-Path "$ROOT\app\extensions\mega\theme\builtin\system\dark\manifest.json") -and (Test-Path "$ROOT\app\extensions\mega\theme\builtin\system\light\manifest.json"))
+Check 'Built-in demo themes are committed' ((Test-Path "$ROOT\app\extensions\mega\theme\builtin\demo\minimal-neutral\manifest.json") -and (Test-Path "$ROOT\app\extensions\mega\theme\builtin\demo\anime-persona\manifest.json") -and (Test-Path "$ROOT\app\extensions\mega\theme\builtin\demo\cyber-hud\manifest.json"))
+Check 'Appearance panel exists in the dock' ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearancePanel"')
+Check 'Theme panel renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\theme-panel.js")
+Check 'Theme bridge is exposed through the preload' ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'mega:theme-create')
+Check 'Theme recovery falls back to Dark' ((Get-Content "$ROOT\app\extensions\mega\theme\recovery.js" -Raw) -match 'RECOVERY|fallbackTheme')
+Check 'Theme system never touches the official renderer' (-not ((Get-Content "$ROOT\app\extensions\mega\theme\index.js" -Raw) -match 'officialWebContents|executeJavaScript|insertCSS'))
 
 if (-not $SkipTests) {
   Write-Output ''

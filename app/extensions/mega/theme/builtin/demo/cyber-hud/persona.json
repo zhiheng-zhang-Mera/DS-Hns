@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "prominence": 0.16,
+  "character": "android_operator",
+  "states": {},
+  "occludes": [],
+  "overlay_main": false,
+  "sounds": [],
+  "avatar": "assets/persona/avatar.png",
+  "banner": "assets/persona/banner.png",
+  "notes": "HNS allows a lightweight persona only: small operator avatar, status avatar, corner widget, light banner."
+}

@@ -1,0 +1,26 @@
+{
+  "id": "hns.system.light",
+  "name": "Light",
+  "author": "HNS Theme Engine",
+  "version": "1.0.0",
+  "source": "system",
+  "protected": true,
+  "deletable": false,
+  "editable": false,
+  "system_theme": true,
+  "theme_api_version": "1.0",
+  "supported_apps": [
+    "hns"
+  ],
+  "required_theme_api": ">=1.0",
+  "created_at": "2026-09-11T00:00:00.000Z",
+  "generated_prompt": null,
+  "revision_history": [],
+  "derived_from": null,
+  "official_palette": "light",
+  "animation": {
+    "type": "none",
+    "intensity": 0
+  },
+  "preview": null
+}

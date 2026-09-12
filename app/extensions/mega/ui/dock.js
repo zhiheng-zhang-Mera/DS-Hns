@@ -450,10 +450,25 @@ function render(snapshot) {
   updateLivePeriod()
 }
 
+/**
+ * Appearance module: the theme panel owns its own state and talks to the theme
+ * engine directly, so a theme failure can never stop the queue/hardware/balance
+ * modules from rendering.
+ */
+let themePanel = null
+try {
+  themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
+} catch (error) {
+  showError(error)
+}
+
 async function refresh() {
   try {
     showError()
     render(await window.megaTools.snapshot())
+    // The dock snapshot carries only a compact theme status; the panel keeps the
+    // full list, capability manifest and preview state.
+    await themePanel?.refresh?.()
   } catch (error) {
     showError(error)
   }
@@ -507,8 +522,21 @@ $('settingsOverlay').addEventListener('click', (event) => {
   if (event.target === $('settingsOverlay')) setSettingsOpen(false)
 })
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && isSettingsOpen()) setSettingsOpen(false)
+  if (event.key === 'Escape') {
+    if (isSettingsOpen()) setSettingsOpen(false)
+    else {
+      const detail = $('themeDetail')
+      if (detail && !detail.hidden) detail.hidden = true
+    }
+  }
 })
+const themeDetailClose = $('themeDetailClose')
+if (themeDetailClose) {
+  themeDetailClose.onclick = () => {
+    const detail = $('themeDetail')
+    if (detail) detail.hidden = true
+  }
+}
 
 $('generalForm').onsubmit = async (event) => {
   event.preventDefault()

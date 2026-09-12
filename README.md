@@ -188,6 +188,51 @@ TERMINAL = COMPLETED | FAILED_FINAL | CANCELLED
   "Recent Session" panel was removed. The official UI remains the single owner of session
   history; Mega only watches it for terminal alerts.
 
+### Unified theme system (Appearance)
+
+The dock carries a complete, autonomous theme subsystem. The user supplies **only natural
+language** — never a slot, token, manifest or file path.
+
+```text
+Appearance · 主题皮肤
+├── Current theme (Dark)
+├── Describe what you want  →  [ Generate ]
+├── Preview: validation verdict + checklist
+│     [ Looks Good ]  [ Modify → "What would you like changed?" ]
+└── Themes: Dark 🔒  Light 🔒  Minimal Neutral  Anime Persona Demo  Cyber HUD Demo
+```
+
+```text
+Prompt → UI inspection → capability manifest → design intent → live preview
+       → validation → user revision / approval → theme compilation
+       → package validation → registration → installation
+```
+
+- **Preview-first** — generating a theme stops at a live preview applied to the real dock.
+  Nothing is registered or installed until **Looks Good**.
+- **Self-contained packages** — `data/themes/user/<theme-id>/` holds its own
+  `manifest.json`, `tokens.json`, `components.json`, `persona.json`, `preview.png`,
+  `preview.html` and `assets/`. Compiled assets are embedded as inline data URIs at
+  runtime, so painting a theme never reads the filesystem.
+- **No runtime theme dependencies** — `derived_from` is history metadata only; deleting any
+  theme can never affect another one.
+- **Protected** — `Dark` and `Light` are `protected`, `deletable: false`, `editable: false`.
+  `Dark` is also the global recovery target; a broken package, missing asset or failed
+  compatibility check degrades to Dark instead of breaking the dock.
+- **HNS state legibility is protected** — all ten canonical worker states get their own
+  token, and a theme whose states become perceptually indistinguishable is rejected.
+- **Lightweight persona only** — small operator avatar / status avatar / corner widget /
+  light banner, prominence capped at `0.4`; a large character overlay is rejected.
+- **Load-aware** — the runtime samples load every 15 s and down-grades effects (blur,
+  decoration, animation, heavy assets) without ever editing the installed theme package or
+  touching the scheduler.
+- **Official UI is untouched** — DS-Hns may not inject CSS/JS into the official renderer, so
+  the capability manifest declares `can_theme_official_ui: false` and exposes only a
+  `light`/`dark` palette hint. The theme system styles the HNS dock surface only.
+
+See [`docs/theme-system.md`](docs/theme-system.md) for the full implementation note,
+the slot/permission model, the validation checklist and the recovery rules.
+
 ### Extension status and harness alignment
 
 The dock's **拓展状态** module reports what the Mega extension is doing and which harness is
@@ -241,6 +286,28 @@ app/
     manager.cjs                  optional extension lifecycle
     mega/
       index.cjs                  Mega adapter, dock/tray lifecycle, IPC, exit routing
+      theme/                     HNS unified theme system (engine)
+        contract.js              Theme API version, slot table, permissions, tokens
+        color.js                 colour parsing, WCAG contrast, perceptual distance
+        png.js                   dependency-free PNG encoder
+        asset-factory.js         procedural wallpapers/panels/persona/icons
+        validator.js             package validator (manifest/assets/API/readability/states)
+        registry.js              theme registry, active theme, built-in tombstones
+        recovery.js              load guard; any failure degrades to Dark
+        designer.js              intent interpretation, incremental revision, token synthesis
+        builder.js               approved design -> self-contained package
+        capability.js            Theme Capability Manifest
+        inspector.js             UI inspector + UI snapshot package
+        preview.js               preview payload + preview validation checklist
+        runtime.js               active theme, preview state, load-aware degradation
+        lifecycle.js             install / delete / duplicate / restore / import
+        orchestrator.js          prompt -> ... -> install pipeline
+        index.js                 engine assembly (createThemeEngine)
+        builtin/                 committed self-contained packages
+          system/{dark,light}/   protected system themes
+          demo/{minimal-neutral,anime-persona,cyber-hud}/
+          generate.cjs           regenerates the system themes
+          generate-demos.cjs     rebuilds the demos through the real builder pipeline
       billing/
         balance-service.js       balance refresh: coalescing + provider isolation
       scheduler/
@@ -263,7 +330,9 @@ app/
       ui/
         dock.html                collapsible right-side dock + settings overlay
         dock.js
-        dock.css
+        dock.css                 dock palette bridged to the Theme API tokens
+        theme-panel.js           Appearance panel (theme creation / preview / list)
+        apply-theme-css.cjs      regenerates the dock.css token bridge
         balance-module.js        shared Balance module open detection
         preload.cjs
   package.json
@@ -290,6 +359,7 @@ Windows
 ├── DS-Harness Main Window
 │   ├── Official Harness
 │   └── Mega Dock
+│       ├── Appearance (unified theme system)
 │       ├── Queue
 │       ├── Hardware
 │       ├── Balance
@@ -319,6 +389,9 @@ Recent Session panel.
 
 These rules are enforced by `tests/unit/architecture-contract.test.js`.
 Installer/reuse/API-key behavior is enforced by `tests/unit/installer-contract.test.js`.
+Theme-system behavior is enforced by `tests/unit/theme-validator.test.js`,
+`tests/unit/theme-designer.test.js`, `tests/unit/theme-engine.test.js` and
+`tests/unit/theme-panel.test.js`.
 
 ## Normal start
 
@@ -335,6 +408,8 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
 Mega dock: `Ctrl+Shift+M`. Mega settings: ⚙ in the dock header.
+Themes: the **Appearance** panel at the top of the dock — type a description, preview it on
+the dock, then **Looks Good** to install or **Modify** to refine it in natural language.
 Exit: tray right-click → **Exit DS-Harness** (graceful) or **Force Exit DS-Harness**.
 
 ## Verification

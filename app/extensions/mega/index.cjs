@@ -16,14 +16,32 @@ const taskHistory = require('./tracker/task-history')
 const workspace = require('./utils/workspace')
 const { PATHS } = require('./utils/paths')
 const { HarnessUpdater } = require('./updater/harness-updater')
+const { createThemeEngine } = require('./theme')
 
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
   'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
   'mega:update-check', 'mega:update-apply',
-  'mega:dock-toggle', 'mega:dock-expand'
+  'mega:dock-toggle', 'mega:dock-expand',
+  // ---- HNS unified theme system ----
+  'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
+  'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
+  'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
+  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint'
 ]
+
+/** Renderer events pushed by the theme engine (never injected into the official UI). */
+const THEME_EVENT_CHANNEL = 'mega:theme-changed'
+
+/** Theme IPC channels, cleared and re-registered on every extension start. */
+const THEME_CHANNELS = [
+  'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
+  'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
+  'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
+  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint'
+]
+
 
 /** Canonical terminal state -> existing ringtone event. */
 const SOUND_EVENT_BY_TERMINAL = Object.freeze({
@@ -48,6 +66,10 @@ let started = false
 let dockExpanded = false
 let dockWidth = DOCK_DEFAULT_WIDTH
 let dockUserHidden = false
+let themeEngine = null
+// Latest geometry reported by the dock renderer (slot map + protected regions).
+let themeRegionCache = {}
+let themeTreeCache = null
 const mainWindowBindings = []
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
@@ -136,12 +158,126 @@ function snapshot() {
     update: updater ? updater.describe() : null,
     // Mega no longer mirrors the official Harness session history: the official
     // UI owns it, and the terminal observer only watches it for alerts.
-    terminalAlerts: terminalDispatcher.describe()
+    terminalAlerts: terminalDispatcher.describe(),
+    // Compact theme status. The full theme list/detail lives behind the dedicated
+    // theme channels so this snapshot stays small and cheap to poll.
+    theme: themeEngine ? (() => {
+      try {
+        const described = themeEngine.describe()
+        return {
+          themeApiVersion: described.themeApiVersion,
+          active: described.active,
+          activeName: described.activeName,
+          previewing: described.previewing,
+          previewDraftId: described.previewDraftId,
+          effectLevel: described.effectLevel,
+          effect: described.effect,
+          degraded: described.degraded,
+          themeCount: described.themes.length,
+          userThemeCount: described.themes.filter((theme) => theme.source !== 'system').length,
+          recovery: described.recovery.slice(-2)
+        }
+      } catch (error) {
+        log(`theme status unavailable: ${error?.message || error}`)
+        return null
+      }
+    })() : null
   }
 }
 
 function notifyChanged() {
   if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send('mega:changed')
+}
+
+/**
+ * Theme paint channel. Deliberately separate from `mega:changed`: a theme payload
+ * carries tokens, slot styles and inline asset data URIs, and it must reach the
+ * renderer even when the ordinary dock snapshot push is coalesced.
+ */
+function notifyThemeChanged() {
+  if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send(THEME_EVENT_CHANNEL)
+}
+
+/**
+ * Ask the dock renderer for its live slot geometry. Used by the UI inspector to
+ * locate the protected regions. Bounded by a timeout: a renderer that never
+ * answers degrades the snapshot to structure-only instead of stalling a design.
+ */
+function requestThemeRegions(timeoutMs = 700) {
+  const wc = dockWindow && !dockWindow.isDestroyed() ? dockWindow.webContents : null
+  if (!wc) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      try { ctx?.electron?.ipcMain?.removeListener('mega-theme:regions', onReply) } catch {}
+      resolve(value)
+    }
+    const onReply = (_event, payload) => finish(payload)
+    const timer = setTimeout(() => finish(null), timeoutMs)
+    timer.unref?.()
+    try {
+      ctx.electron.ipcMain.on('mega-theme:regions', onReply)
+      wc.send('mega-theme:probe-regions')
+    } catch {
+      finish(null)
+    }
+  })
+}
+
+/**
+ * Visual observation. Only our own dock webContents is ever captured — the
+ * official Harness renderer is never read, styled or screenshotted by us.
+ */
+async function captureDockPages(pageIds = []) {
+  const wc = dockWindow && !dockWindow.isDestroyed() ? dockWindow.webContents : null
+  if (!wc || typeof wc.capturePage !== 'function') return {}
+  const screenshots = {}
+  for (const pageId of pageIds) {
+    try {
+      const image = await wc.capturePage()
+      const png = image && typeof image.toPNG === 'function' ? image.toPNG() : null
+      if (png && png.length) screenshots[pageId] = png
+    } catch (error) {
+      log(`dock capture failed for ${pageId}: ${error?.message || error}`)
+    }
+  }
+  return screenshots
+}
+
+function themeDockState() {
+  return {
+    visible: Boolean(dockWindow && !dockWindow.isDestroyed() && dockWindow.isVisible()),
+    expanded: dockExpanded,
+    width: currentDockWidth(),
+    expandedWidth: dockWidth
+  }
+}
+
+function ensureThemeEngine() {
+  if (themeEngine) return themeEngine
+  themeEngine = createThemeEngine({
+    log: (message) => log(`theme: ${message}`),
+    scheduler,
+    applyToRenderer: (payload) => {
+      if (dockWindow && !dockWindow.isDestroyed()) {
+        dockWindow.webContents.send('mega:theme-apply', payload)
+      }
+    },
+    onChanged: () => notifyThemeChanged(),
+    capture: (pageIds) => captureDockPages(pageIds),
+    dockRegions: () => themeRegionCache,
+    componentTree: () => themeTreeCache,
+    windowSize: () => {
+      if (!dockWindow || dockWindow.isDestroyed()) return null
+      const [width, height] = dockWindow.getContentSize()
+      return [width, height]
+    },
+    dockState: () => themeDockState()
+  })
+  return themeEngine
 }
 
 function ensurePlayerWindow() {
@@ -450,6 +586,15 @@ function dispatchTerminal(event) {
   return outcome
 }
 
+/**
+ * Region probe listener, kept in a named reference so `stop()` can detach exactly
+ * the handler it registered.
+ */
+function onThemeRegions(_event, payload) {
+  themeRegionCache = payload && typeof payload === 'object' ? payload : {}
+  themeTreeCache = payload?.componentTree || null
+}
+
 function registerIpc() {
   const { ipcMain, dialog } = ctx.electron
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
@@ -537,6 +682,106 @@ function registerIpc() {
   })
   ipcMain.handle('mega:dock-toggle', () => toggleDock({ focus: true }))
   ipcMain.handle('mega:dock-expand', (_event, expanded) => setDockExpanded(Boolean(expanded), { focus: Boolean(expanded) }))
+
+  registerThemeIpc()
+}
+
+/**
+ * HNS unified theme system IPC.
+ *
+ * Every handler answers with plain data and never throws at the renderer: a
+ * failing theme operation returns `{ ok: false, reason }` so the dock can render
+ * the failure, and the worst case is always "the active theme is Dark".
+ */
+function registerThemeIpc() {
+  const { ipcMain } = ctx.electron
+  const engine = ensureThemeEngine()
+  const orchestrator = engine.orchestrator
+
+  for (const channel of THEME_CHANNELS) ipcMain.removeHandler(channel)
+
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`theme ipc failure: ${error?.stack || error}`)
+      return {
+        ok: false,
+        reason: 'theme_error',
+        message: String(error?.message || error),
+        status: safeThemeStatus(engine)
+      }
+    }
+  }
+
+  ipcMain.handle('mega:theme-snapshot', guard(() => ({
+    ok: true,
+    status: orchestrator.describe(),
+    engine: { themeApiVersion: require('./theme/contract').THEME_API_VERSION }
+  })))
+  ipcMain.handle('mega:theme-capabilities', guard(() => ({ ok: true, capability: orchestrator.capabilities() })))
+  ipcMain.handle('mega:theme-paint', guard(() => ({ ok: true, payload: engine.paintPayload() })))
+  ipcMain.handle('mega:theme-create', guard((_event, payload = {}) => orchestrator.createTheme(payload || {})))
+  ipcMain.handle('mega:theme-revise', guard((_event, payload = {}) => orchestrator.reviseTheme(payload || {})))
+  ipcMain.handle('mega:theme-validate', guard((_event, payload = {}) => ({ ok: true, ...orchestrator.validate(payload || {}) })))
+  ipcMain.handle('mega:theme-approve', guard((_event, payload = {}) => orchestrator.approve(payload || {})))
+  ipcMain.handle('mega:theme-discard', guard((_event, payload = {}) => orchestrator.discard(payload || {})))
+  ipcMain.handle('mega:theme-apply', guard((_event, payload = {}) => {
+    const id = typeof payload === 'string' ? payload : payload?.id
+    return orchestrator.applyTheme(id)
+  }))
+  ipcMain.handle('mega:theme-delete', guard((_event, payload = {}) => {
+    const id = typeof payload === 'string' ? payload : payload?.id
+    return orchestrator.deleteTheme(id)
+  }))
+  ipcMain.handle('mega:theme-duplicate', guard((_event, payload = {}) => {
+    const id = typeof payload === 'string' ? payload : payload?.id
+    return orchestrator.duplicateTheme(id, payload && typeof payload === 'object' ? { name: payload.name } : undefined)
+  }))
+  ipcMain.handle('mega:theme-restore', guard((_event, payload = {}) => {
+    const id = typeof payload === 'string' ? payload : payload?.id
+    return orchestrator.restoreBuiltin(id)
+  }))
+  ipcMain.handle('mega:theme-import', guard(async () => {
+    const result = await ctx.electron.dialog.showOpenDialog(ctx.mainWindow, {
+      title: '导入 HNS 主题包目录',
+      properties: ['openDirectory']
+    })
+    if (result.canceled || !result.filePaths.length) return { ok: false, reason: 'cancelled' }
+    return orchestrator.importTheme(result.filePaths[0])
+  }))
+  ipcMain.handle('mega:theme-observe', guard(async (_event, payload = {}) => {
+    const observed = await orchestrator.observe({ pages: payload?.pages || null })
+    return {
+      ok: true,
+      capability: observed.manifest,
+      snapshot: observed.snapshot,
+      dir: observed.snapshotDir
+    }
+  }))
+  ipcMain.handle('mega:theme-detail', guard((_event, payload = {}) => {
+    const id = typeof payload === 'string' ? payload : payload?.id
+    const inspected = engine.lifecycle.inspectTheme(id)
+    if (!inspected.ok) return inspected
+    return {
+      ok: true,
+      record: inspected.record,
+      manifest: inspected.theme.manifest,
+      persona: inspected.theme.persona,
+      tokens: inspected.theme.declaredTokens,
+      slotCount: Object.keys(inspected.theme.components.slots || {}).length,
+      slots: inspected.theme.components.slots,
+      animation: inspected.theme.components.animation
+    }
+  }))
+}
+
+function safeThemeStatus(engine) {
+  try {
+    return engine.describe()
+  } catch {
+    return null
+  }
 }
 
 async function start(context) {
@@ -581,8 +826,20 @@ async function start(context) {
   bindMainWindow()
   createDock()
   createTray()
+  // Theme system starts last: it must never be able to delay the official UI,
+  // the scheduler or the dock. A failure here is logged and the product runs on
+  // the Dark recovery theme.
+  try {
+    const engine = ensureThemeEngine()
+    ctx.electron.ipcMain.on('mega-theme:regions', onThemeRegions)
+    engine.start()
+    const paint = engine.paintPayload()
+    if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send('mega:theme-apply', paint)
+  } catch (error) {
+    log(`theme system unavailable, continuing with the built-in Dark palette: ${error?.stack || error}`)
+  }
   if (process.argv.includes('--mega-dock')) setDockExpanded(true, { focus: true })
-  log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency enabled')
+  log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency + unified theme system enabled')
 }
 
 function stop() {
@@ -592,6 +849,13 @@ function stop() {
     clearTimeout(restartTimer)
     restartTimer = null
   }
+  // Stop the theme runtime first: it owns the only timer in this extension and
+  // must not repaint a renderer that is about to be destroyed.
+  try { themeEngine?.stop?.() } catch {}
+  themeEngine = null
+  themeRegionCache = {}
+  themeTreeCache = null
+  try { ctx?.electron?.ipcMain?.removeListener('mega-theme:regions', onThemeRegions) } catch {}
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
   notificationService.setCreateNotification(null)

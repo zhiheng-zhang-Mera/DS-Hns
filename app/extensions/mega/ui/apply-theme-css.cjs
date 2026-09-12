@@ -1,4 +1,48 @@
-:root{
+'use strict'
+/**
+ * One-shot CSS bridge update for the dock stylesheet.
+ *
+ * Rewrites the dock's palette variables into the HNS Theme API variable names so
+ * the unified theme system can drive every surface, then appends the Appearance
+ * panel styles.
+ *
+ * Run from `app/`:
+ *   node extensions/mega/ui/apply-theme-css.cjs
+ */
+const fs = require('node:fs')
+const path = require('node:path')
+
+const FILE = path.join(__dirname, 'dock.css')
+
+/** Old dock palette variable -> HNS Theme API token variable. */
+const BRIDGE = {
+  '--bg': '--hns-color-bg-base',
+  '--surface': '--hns-color-bg-layer1',
+  '--surface-soft': '--hns-color-bg-layer2',
+  '--surface-hover': '--hns-color-bg-raised',
+  '--border': '--hns-color-border-l1',
+  '--border-strong': '--hns-color-border-l2',
+  '--text': '--hns-color-label-primary',
+  '--muted': '--hns-color-label-secondary',
+  '--subtle': '--hns-color-label-tertiary',
+  '--accent': '--hns-color-accent-primary',
+  '--accent-soft': '--hns-color-bg-raised',
+  '--peak': '--hns-state-failed',
+  '--peak-bg': '--hns-color-bg-layer2',
+  '--off': '--hns-state-completed',
+  '--off-bg': '--hns-color-bg-layer2',
+  '--shadow': '--hns-shadow-l1'
+}
+
+let css = fs.readFileSync(FILE, 'utf8')
+
+// Only the `var(--x)` usages are rewritten; the :root declarations themselves are
+// replaced wholesale below.
+for (const [from, to] of Object.entries(BRIDGE)) {
+  css = css.split(`var(${from})`).join(`var(${to})`)
+}
+
+const ROOT_BLOCK = `:root{
   /* ---- Dock palette, driven by the HNS Theme API (data/extensions/mega/theme) ----
      Every value is a var() reference to a theme token, so the dock follows the
      active theme. The literal fallbacks are the Dark system theme values: if the
@@ -79,151 +123,11 @@
 
   color:var(--hns-color-label-primary);
   background:var(--hns-color-bg-base);
-}
-*{box-sizing:border-box}
-html,body{margin:0;width:100%;height:100%;overflow:hidden}
-body{display:flex;background:var(--hns-color-bg-base);border-left:1px solid var(--hns-color-border-l1);box-shadow:-8px 0 24px rgba(16,24,40,.06)}
-button,input,select,textarea{font:inherit;color:var(--hns-color-label-primary);background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l2);border-radius:9px;outline:none}
-button{cursor:pointer;transition:background .15s ease,border-color .15s ease,transform .08s ease}
-button:hover{background:var(--hns-color-bg-raised);border-color:var(--hns-color-border-l2)}
-button:active{transform:translateY(1px)}
-input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--hns-color-accent-primary) 12%,transparent)}
+}`
 
-#rail{width:48px;min-width:48px;height:100%;display:flex;flex-direction:column;align-items:center;padding:8px 5px;gap:12px;background:var(--hns-color-bg-layer1);border-right:1px solid var(--hns-color-border-l1);user-select:none}
-.rail-toggle{width:34px;height:34px;padding:0;font-size:22px;line-height:1;color:var(--hns-color-label-primary);background:var(--hns-color-bg-layer2)}
-.mega-mark{display:flex;flex-direction:column;align-items:center;gap:1px;font-weight:800;letter-spacing:.03em;color:var(--hns-color-label-primary)}
-.mega-mark span{line-height:1.05}
-.rail-stat{width:38px;padding:6px 2px;text-align:center;border:1px solid var(--hns-color-border-l1);border-radius:9px;background:var(--hns-color-bg-layer2)}
-.rail-stat small{display:block;font-size:8px;color:var(--hns-color-label-secondary);letter-spacing:.04em}
-.rail-stat b{display:block;margin-top:2px;font-size:14px}
-.rail-mode{margin-top:auto;width:36px;padding:7px 1px;text-align:center;border-radius:8px;font-size:9px;font-weight:800;border:1px solid transparent}
-.rail-mode.peak{background:var(--hns-color-bg-layer2);color:var(--hns-state-failed);border-color:color-mix(in srgb,var(--hns-state-failed) 28%,transparent)}
-.rail-mode.offpeak{background:var(--hns-color-bg-layer2);color:var(--hns-state-completed);border-color:color-mix(in srgb,var(--hns-state-completed) 24%,transparent)}
+css = css.replace(/^:root\{[\s\S]*?\n\}/, ROOT_BLOCK)
 
-#detail{flex:1;min-width:0;height:100%;overflow:auto;padding:14px;background:var(--hns-color-bg-base)}
-.collapsed #detail{display:none}
-.collapsed #rail{border-right:0}
-.expanded #detail{display:block}
-.expanded #rail{display:none}
-
-.dock-header{position:sticky;top:-14px;z-index:3;margin:-14px -14px 12px;padding:15px 14px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:color-mix(in srgb,var(--hns-color-bg-layer1) 94%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--hns-color-border-l1)}
-.dock-header h1{margin:0;font-size:21px;letter-spacing:-.02em}
-.dock-header p{margin:2px 0 0;font-size:11px;color:var(--hns-color-label-secondary)}
-.header-actions{display:flex;gap:7px}
-.header-actions button{padding:7px 10px}
-.header-actions .icon-button{width:36px;padding:7px 0;font-size:18px}
-
-.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-bottom:10px}
-.summary-card{min-width:0;padding:10px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:11px;box-shadow:var(--hns-shadow-l1)}
-.summary-card>span{display:block;color:var(--hns-color-label-secondary);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.summary-card>b{display:block;margin-top:4px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.summary-card.period-card{position:relative;overflow:hidden}
-.summary-card.period-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--hns-color-label-tertiary)}
-.summary-card.period-card.peak{background:var(--hns-color-bg-layer2);border-color:color-mix(in srgb,var(--hns-state-failed) 22%,var(--hns-color-border-l1))}
-.summary-card.period-card.peak::before{background:var(--hns-state-failed)}
-.summary-card.period-card.peak b{color:var(--hns-state-failed)}
-.summary-card.period-card.offpeak{background:var(--hns-color-bg-layer2);border-color:color-mix(in srgb,var(--hns-state-completed) 20%,var(--hns-color-border-l1))}
-.summary-card.period-card.offpeak::before{background:var(--hns-state-completed)}
-.summary-card.period-card.offpeak b{color:var(--hns-state-completed)}
-.summary-card.timer-card b{font-variant-numeric:tabular-nums;letter-spacing:.01em}
-.task-summary-values{display:grid;grid-template-columns:1fr 1px 1fr;align-items:end;gap:8px;margin-top:4px}
-.task-summary-values>div{min-width:0}
-.task-summary-values small{display:block;color:var(--hns-color-label-secondary);font-size:8px;line-height:1.1}
-.task-summary-values b{display:block;margin-top:2px;font-size:15px;line-height:1.05;font-variant-numeric:tabular-nums}
-.task-summary-values i{display:block;width:1px;height:24px;background:var(--hns-color-border-l1);align-self:center}
-
-.panel{margin-bottom:10px;padding:12px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:12px;box-shadow:var(--hns-shadow-l1)}
-.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:9px}
-.panel-head h2{margin:0;font-size:14px}
-.panel-head p{margin:3px 0 0;font-size:10px;line-height:1.4;color:var(--hns-color-label-secondary)}
-.quiet{padding:6px 8px;font-size:11px;background:var(--hns-color-bg-layer2)}
-.task-form textarea{width:100%;min-height:76px;padding:9px;resize:vertical;background:var(--hns-color-bg-layer2)}
-.form-row{display:grid;grid-template-columns:1fr auto auto;gap:7px;align-items:center;margin-top:7px}
-.form-row select,.form-row button{padding:8px}
-.check{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--hns-color-label-primary)}
-.queue-list{margin-top:10px;display:flex;flex-direction:column;gap:6px}
-.queue-item{display:grid;grid-template-columns:34px 1fr auto;gap:7px;align-items:start;padding:8px;border-radius:9px;background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1)}
-.queue-rank{font-weight:800;font-size:12px;text-align:center;padding-top:3px}
-.queue-main{min-width:0}
-.queue-title{font-size:11px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.queue-meta{margin-top:3px;font-size:9px;color:var(--hns-color-label-secondary)}
-.queue-actions{display:flex;gap:3px}
-.queue-actions button{width:25px;height:25px;padding:0;font-size:11px;background:var(--hns-color-bg-layer1)}
-
-.hardware-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
-.hardware-item{padding:8px;border-radius:9px;background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1)}
-.hardware-item span{display:block;font-size:9px;color:var(--hns-color-label-secondary)}
-.hardware-item b{display:block;margin-top:3px;font-size:11px;line-height:1.3}
-
-.balance-head{align-items:center}
-.balance-title-row{display:flex;align-items:center;gap:8px}
-.balance-actions{display:flex;gap:6px;align-items:center}
-.status-chip{display:inline-flex;align-items:center;min-height:20px;padding:2px 7px;border-radius:999px;font-size:9px;font-weight:700;border:1px solid var(--hns-color-border-l1);background:var(--hns-color-bg-layer2);color:var(--hns-color-label-secondary)}
-.status-chip.ok{background:var(--hns-color-bg-layer2);color:var(--hns-state-completed);border-color:color-mix(in srgb,var(--hns-state-completed) 20%,var(--hns-color-border-l1))}
-.status-chip.warn{background:var(--hns-color-bg-layer2);color:var(--hns-state-failed);border-color:color-mix(in srgb,var(--hns-state-failed) 20%,var(--hns-color-border-l1))}
-.status-chip.neutral{background:var(--hns-color-bg-layer2);color:var(--hns-color-label-secondary)}
-.status-chip.busy{background:var(--hns-color-bg-raised);color:var(--hns-color-accent-primary);border-color:color-mix(in srgb,var(--hns-color-accent-primary) 20%,var(--hns-color-border-l1))}
-.balance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:7px}
-.balance-card{min-width:0;padding:10px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
-.balance-card.primary{background:var(--hns-color-bg-raised);border-color:color-mix(in srgb,var(--hns-color-accent-primary) 20%,var(--hns-color-border-l1))}
-.balance-card span{display:block;font-size:9px;color:var(--hns-color-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.balance-card b{display:block;margin-top:4px;font-size:16px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.balance-card small{display:block;margin-top:3px;font-size:9px;color:var(--hns-color-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.balance-empty{grid-column:1/-1;padding:13px;border:1px dashed var(--hns-color-border-l2);border-radius:10px;background:var(--hns-color-bg-layer2);font-size:10px;color:var(--hns-color-label-secondary);text-align:center}
-.provider-list{grid-column:1/-1;display:flex;flex-direction:column;gap:5px;margin-top:2px}
-.provider-item{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:7px 9px;border-radius:9px;background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);font-size:10px}
-.provider-item b{font-size:10px}
-.provider-item span{color:var(--hns-color-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.provider-item small{color:var(--hns-color-label-tertiary);font-size:9px;white-space:nowrap}
-.provider-item[data-status="failed"] span,.provider-item[data-status="timeout"] span,.provider-item[data-status="unavailable"] span{color:var(--hns-state-failed)}
-
-.muted{color:var(--hns-color-label-secondary)}
-.error{white-space:pre-wrap;color:var(--hns-state-failed);font-size:10px;margin:8px 0}
-
-/* 拓展状态 module: extension + main harness version alignment. */
-.update-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:7px}
-.update-item{min-width:0;padding:10px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
-.update-item span{display:block;font-size:9px;color:var(--hns-color-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.update-item b{display:block;margin-top:4px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.update-item small{display:block;margin-top:3px;font-size:9px;color:var(--hns-color-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.update-item[data-state="outdated"]{background:var(--hns-color-bg-raised);border-color:color-mix(in srgb,var(--hns-color-accent-primary) 20%,var(--hns-color-border-l1))}
-.update-item[data-state="failed"] b{color:var(--hns-state-failed)}
-.update-note{min-height:0;margin:8px 0 0;font-size:10px;line-height:1.4;color:var(--hns-color-label-secondary);word-break:break-word}
-.update-note:empty{display:none}
-.update-note[data-state="failed"]{color:var(--hns-state-failed)}
-
-/* Settings layer: an in-dock overlay (never a second window or page). */
-.settings-overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:14px;background:rgba(16,24,40,.34);overflow:auto}
-.settings-overlay[hidden]{display:none}
-.collapsed .settings-overlay{display:none}
-.settings-sheet{width:100%;max-width:520px;max-height:calc(100vh - 28px);display:flex;flex-direction:column;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l2);border-radius:13px;box-shadow:0 18px 48px rgba(16,24,40,.28);overflow:hidden}
-.settings-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 13px;border-bottom:1px solid var(--hns-color-border-l1);background:var(--hns-color-bg-layer2)}
-.settings-head h2{margin:0;font-size:15px}
-.settings-head .icon-button{width:30px;padding:4px 0;font-size:16px}
-.settings-body{padding:10px 13px 14px;overflow:auto;display:flex;flex-direction:column;gap:8px}
-.settings-group{border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer1);padding:0 10px}
-.settings-group>summary{cursor:pointer;padding:9px 2px;font-size:12px;font-weight:700;color:var(--hns-color-label-primary);list-style:none}
-.settings-group>summary::-webkit-details-marker{display:none}
-.settings-group>summary::before{content:"▸ ";color:var(--hns-color-label-secondary)}
-.settings-group[open]>summary::before{content:"▾ "}
-.settings-form{display:flex;flex-direction:column;gap:8px;padding:2px 0 10px}
-.settings-form label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--hns-color-label-primary)}
-.settings-form label.check{flex-direction:row;align-items:center;gap:6px}
-.settings-form input,.settings-form select{padding:7px;background:var(--hns-color-bg-layer2)}
-.settings-form input[type="range"]{padding:0}
-.settings-form small{color:var(--hns-color-label-secondary);font-size:9px}
-.settings-form>button{align-self:flex-start;padding:7px 12px;background:var(--hns-color-bg-layer2)}
-.settings-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}
-.settings-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.settings-actions button{padding:7px 12px;background:var(--hns-color-bg-layer2)}
-.settings-note{margin:0;font-size:10px;color:var(--hns-color-label-secondary);word-break:break-all}
-.settings-status{min-height:14px;margin:0;font-size:10px;color:var(--hns-color-label-secondary)}
-
-@media(max-width:620px){.summary-grid{grid-template-columns:1fr 1fr}.balance-grid{grid-template-columns:1fr 1fr}.update-grid{grid-template-columns:1fr 1fr}.settings-row{grid-template-columns:1fr}}
-
-@media(max-width:520px){.hardware-grid{grid-template-columns:1fr}.update-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr 1fr}.form-row .check{grid-column:1/-1}}
-
-
+const THEME_CSS = `
 /* ==========================================================================
    Appearance panel — the only user-facing surface of the HNS theme system.
    Internal concepts (slots, tokens, manifests, capabilities) are never shown;
@@ -347,3 +251,8 @@ button:hover{background:var(--hns-color-bg-layer2)}
 #detail>.dock-header,#detail>section,#detail>p,#detail>div{position:relative;z-index:1}
 body[data-effect-level="2"] #hnsDecoration,body[data-effect-level="2"] #hnsPersona{display:none}
 body[data-effect-level="1"] #hnsDecoration{opacity:0}
+`
+
+if (!css.includes('#hnsDecoration')) css = `${css}\n${THEME_CSS}`
+fs.writeFileSync(FILE, css, 'utf8')
+console.log(`dock.css bridged to the HNS Theme API (${css.length} bytes)`)

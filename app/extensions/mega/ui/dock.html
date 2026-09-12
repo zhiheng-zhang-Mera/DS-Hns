@@ -18,6 +18,11 @@
   </aside>
 
   <main id="detail">
+    <!-- Persona / decoration layer. Non-interactive, always behind the content,
+         and confined to corners so it can never cover the queue, hardware grid or
+         status strip (HNS specialization §4). -->
+    <div id="hnsDecoration" aria-hidden="true"></div>
+    <div id="hnsPersona" aria-hidden="true"></div>
     <header class="dock-header">
       <div>
         <h1>Mega</h1>
@@ -30,6 +35,71 @@
     </header>
 
     <section id="summary" class="summary-grid"></section>
+
+    <section class="panel appearance-panel" id="appearancePanel">
+      <div class="panel-head">
+        <div>
+          <div class="balance-title-row">
+            <h2>Appearance · 主题皮肤</h2>
+            <span id="themeActiveMarker" class="status-chip neutral">—</span>
+          </div>
+          <p>用自然语言描述你想要的视觉效果即可；预览会直接应用到这个 Dock，确认后才会安装。</p>
+        </div>
+        <div class="balance-actions">
+          <button id="themeObserve" class="quiet" title="重新观察当前界面">观察界面</button>
+          <button id="themeImport" class="quiet" title="导入自包含主题包目录">导入主题</button>
+        </div>
+      </div>
+
+      <div class="theme-current">
+        <span>当前主题</span>
+        <b id="themeActive">—</b>
+      </div>
+
+      <div id="themeCapability" class="theme-capability"></div>
+
+      <div class="theme-create">
+        <label for="themePrompt">Describe what you want</label>
+        <textarea id="themePrompt" rows="2" placeholder="例如：银发角色，黑灰蓝色调，看起来像未来科研工作站，人物别太抢屏"></textarea>
+        <div class="theme-create-actions">
+          <span id="themeBusy" class="theme-busy" hidden>生成中…</span>
+          <button id="themeCreate" type="button">Generate</button>
+        </div>
+        <div id="themeQuick" class="theme-quick-row"></div>
+      </div>
+
+      <div id="themePreview" class="theme-preview" hidden>
+        <div id="themePreviewBody"></div>
+        <div class="theme-preview-actions">
+          <button id="themeApprove" type="button">Looks Good</button>
+          <button id="themeModify" type="button" class="quiet">Modify</button>
+          <button id="themeDiscard" type="button" class="quiet">放弃</button>
+        </div>
+        <div id="themeModifyBox" class="theme-modify" hidden>
+          <label for="themeModifyPrompt">What would you like changed?</label>
+          <div class="theme-modify-row">
+            <input id="themeModifyPrompt" type="text" placeholder="例如：人物再小一点，按钮不要这么亮">
+            <button id="themeModifySend" type="button">应用修改</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="themeMessage" class="theme-message" role="status"></div>
+
+      <div class="theme-list-head">
+        <h3>Themes</h3>
+        <span>🔒 = 受保护的系统主题</span>
+      </div>
+      <div id="themeList" class="theme-list"></div>
+
+      <div id="themeDetail" class="theme-detail" hidden>
+        <div class="theme-detail-head">
+          <h3>主题详情</h3>
+          <button type="button" class="theme-icon" id="themeDetailClose" title="关闭">×</button>
+        </div>
+        <div id="themeDetailBody"></div>
+      </div>
+    </section>
 
     <section class="panel">
       <div class="panel-head">
@@ -178,6 +248,7 @@
   </div>
 
   <script src="balance-module.js"></script>
+  <script src="theme-panel.js"></script>
   <script src="dock.js"></script>
 </body>
 </html>

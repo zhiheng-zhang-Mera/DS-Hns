@@ -1,0 +1,63 @@
+{
+  "id": "hns.demo.minimal",
+  "name": "Minimal Neutral",
+  "author": "HNS Theme Engine",
+  "version": "1.0.1",
+  "source": "builtin-demo",
+  "protected": false,
+  "deletable": true,
+  "editable": true,
+  "system_theme": false,
+  "theme_api_version": "1.0",
+  "required_theme_api": ">=1.0",
+  "supported_apps": [
+    "hns"
+  ],
+  "created_at": "2026-09-11T23:51:15.473Z",
+  "installed_at": null,
+  "generated_prompt": "极简、干净的浅色中性主题，低装饰，不要角色，文字清晰优先",
+  "revision_history": [
+    {
+      "revision": 1,
+      "at": "2026-09-11T23:51:15.473Z",
+      "prompt": "极简、干净的浅色中性主题，低装饰，不要角色，文字清晰优先",
+      "design_language": "minimal_neutral",
+      "palette": "silver",
+      "density": "normal",
+      "motion": "none",
+      "decoration": "none",
+      "persona": {
+        "enabled": false
+      }
+    }
+  ],
+  "derived_from": null,
+  "official_palette": "light",
+  "animation": {
+    "type": "none",
+    "intensity": 0
+  },
+  "preview": "preview.png",
+  "preview_html": "preview.html",
+  "asset_files": [
+    {
+      "path": "assets/wallpapers/main.png",
+      "bytes": 57595
+    },
+    {
+      "path": "assets/panels/panel.png",
+      "bytes": 15884
+    },
+    {
+      "path": "assets/icons/set.png",
+      "bytes": 567
+    },
+    {
+      "path": "assets/decorations/corners.png",
+      "bytes": 1173
+    }
+  ],
+  "design_language": "minimal_neutral",
+  "palette": "silver",
+  "mode": "light"
+}

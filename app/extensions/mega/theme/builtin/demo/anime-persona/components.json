@@ -1,0 +1,181 @@
+{
+  "theme_api_version": "1.0",
+  "generated_by": "theme-builder",
+  "slots": {
+    "hns.window.background": {
+      "background": "var(--hns-asset-wallpaper)",
+      "overlay": "var(--hns-asset-overlay)"
+    },
+    "hns.window.overlay": {
+      "background": "var(--hns-asset-overlay)",
+      "opacity": 0.2,
+      "blur": "2px",
+      "blend": "normal"
+    },
+    "hns.worker.card": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-md)",
+      "shadow": "var(--hns-shadow-l1)",
+      "label": "var(--hns-color-label-primary)"
+    },
+    "hns.worker.status": {
+      "background": "transparent",
+      "label": "var(--hns-color-label-secondary)",
+      "border": "1px solid var(--hns-color-border-l2)"
+    },
+    "hns.process.panel": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-md)",
+      "shadow": "var(--hns-shadow-l2)"
+    },
+    "hns.process.queue": {
+      "background": "var(--hns-color-bg-layer2)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)",
+      "label": "var(--hns-color-label-secondary)"
+    },
+    "hns.hardware.cpu": {
+      "background": "transparent",
+      "label": "var(--hns-color-label-secondary)",
+      "color": "var(--hns-color-accent-primary)"
+    },
+    "hns.hardware.gpu": {
+      "background": "transparent",
+      "label": "var(--hns-color-label-secondary)",
+      "color": "var(--hns-color-accent-secondary)"
+    },
+    "hns.hardware.memory": {
+      "background": "transparent",
+      "label": "var(--hns-color-label-secondary)",
+      "color": "var(--hns-color-accent-primary)"
+    },
+    "hns.hardware.power": {
+      "background": "transparent",
+      "label": "var(--hns-color-label-secondary)",
+      "color": "var(--hns-state-warning)"
+    },
+    "hns.log.panel": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)",
+      "label": "var(--hns-color-label-secondary)"
+    },
+    "hns.log.level": {
+      "color": "var(--hns-color-label-secondary)",
+      "label": "var(--hns-color-label-secondary)",
+      "weight": "500"
+    },
+    "hns.status.badge": {
+      "background": "var(--hns-color-bg-layer2)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)"
+    },
+    "hns.window.shell": {
+      "background": "var(--hns-color-bg-layer1)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-md)"
+    },
+    "hns.operator.avatar": {
+      "asset": "assets/persona/avatar.png",
+      "size": "32px"
+    },
+    "hns.operator.widget": {
+      "background": "var(--hns-color-bg-layer2)",
+      "opacity": 0.9,
+      "position": "corner-bottom-right",
+      "size": "compact",
+      "animation": "none"
+    },
+    "hns.persona.banner": {
+      "asset": "assets/persona/banner.png",
+      "opacity": 0.2,
+      "position": "top",
+      "height": "64px"
+    },
+    "hns.persona.status_avatar": {
+      "asset": "assets/persona/avatar.png",
+      "size": "28px",
+      "position": "top-right"
+    },
+    "hns.persona.decoration": {
+      "asset": "assets/decorations/corners.png",
+      "opacity": 0.2,
+      "animation": "fade",
+      "position": "corners"
+    },
+    "common.button.primary": {
+      "background": "var(--hns-color-accent-primary)",
+      "label": "var(--hns-color-accent-contrast)",
+      "radius": "var(--hns-radius-md)",
+      "glow": "0.120"
+    },
+    "common.button.secondary": {
+      "background": "var(--hns-color-bg-layer2)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-md)"
+    },
+    "common.input.default": {
+      "background": "var(--hns-color-bg-layer2)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)",
+      "placeholder": "var(--hns-color-label-tertiary)"
+    },
+    "common.dialog.default": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l2)",
+      "radius": "var(--hns-radius-lg)",
+      "shadow": "var(--hns-shadow-l2)",
+      "overlay": "var(--hns-color-bg-overlay)"
+    },
+    "common.notification.default": {
+      "background": "var(--hns-color-bg-layer2)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "label": "var(--hns-color-label-primary)",
+      "radius": "var(--hns-radius-sm)"
+    },
+    "common.tooltip.default": {
+      "background": "var(--hns-color-bg-raised)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)"
+    },
+    "common.scrollbar.default": {
+      "thumb": "var(--hns-color-border-l2)",
+      "track": "transparent",
+      "width": "8px"
+    },
+    "common.navigation.sidebar": {
+      "background": "var(--hns-color-bg-layer2)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "0"
+    },
+    "common.navigation.topbar": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "label": "var(--hns-color-label-primary)"
+    },
+    "common.panel.background": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-md)",
+      "shadow": "var(--hns-shadow-l1)"
+    },
+    "common.panel.border": {
+      "border": "1px solid var(--hns-color-border-l1)"
+    },
+    "common.window.background": {
+      "background": "var(--hns-color-bg-base)",
+      "overlay": "none"
+    }
+  },
+  "animation": {
+    "type": "fade",
+    "intensity": 0.3
+  }
+}

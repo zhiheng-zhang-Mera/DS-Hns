@@ -1,0 +1,912 @@
+'use strict'
+
+/**
+ * Appearance panel — the HNS theme system's only user-facing surface.
+ *
+ * Design rules this file implements (engineering spec §1.1 / §13 / §23.1):
+ *   - the user types natural language and nothing else;
+ *   - no slot, token, manifest, capability or registry concept is ever shown;
+ *   - the theme list shows locks for protected themes and nothing else internal;
+ *   - a generated theme is only ever *previewed* first, with exactly two
+ *     decisions available: "Looks Good" (approve -> install) and "Modify";
+ *   - deleting a theme is one action.
+ *
+ * The panel talks to the engine exclusively through `window.megaTools.theme`,
+ * which is a data-only bridge (see ui/preload.cjs).
+ */
+;(function attachThemePanel(global) {
+  const $ = (id) => document.getElementById(id)
+
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  }
+
+  function themeApi() {
+    return global.megaTools && global.megaTools.theme ? global.megaTools.theme : null
+  }
+
+  /** Per-dock state. Deliberately small: the engine owns all theme truth. */
+  const state = {
+    status: null,
+    capability: null,
+    draft: null,
+    busy: false,
+    message: null,
+    error: null,
+    detail: null,
+    quickPrompts: []
+  }
+
+  /**
+   * In-flight panel work, as a queue.
+   *
+   * A single "latest promise" is not enough: an action triggered while earlier
+   * work is still running would silently replace it, and a caller awaiting a
+   * settled panel could observe a half-applied state. Every tracked promise is
+   * kept until it settles.
+   */
+  const inflight = new Set()
+
+  function track(promise) {
+    const tracked = Promise.resolve(promise)
+      .catch((error) => {
+        setError(error)
+      })
+      .finally(() => {
+        inflight.delete(tracked)
+      })
+    inflight.add(tracked)
+    return tracked
+  }
+
+  /** Resolve once every piece of tracked panel work has settled. */
+  async function settled() {
+    // New work may be queued while awaiting (a chained action), so drain to empty.
+    for (let guard = 0; guard < 25 && inflight.size; guard += 1) {
+      await Promise.all([...inflight])
+    }
+  }
+
+  function setMessage(text, kind = '') {
+    state.message = text ? { text: String(text), kind } : null
+    renderMessage()
+  }
+
+  function setError(error) {
+    state.error = error ? String(error.message || error) : null
+    renderMessage()
+  }
+
+  function renderMessage() {
+    const node = $('themeMessage')
+    if (!node) return
+    if (state.error) {
+      node.textContent = state.error
+      node.className = 'theme-message error'
+      return
+    }
+    if (state.message) {
+      node.textContent = state.message.text
+      node.className = `theme-message ${state.message.kind || ''}`.trim()
+      return
+    }
+    node.textContent = ''
+    node.className = 'theme-message'
+  }
+
+  function setBusy(busy) {
+    state.busy = Boolean(busy)
+    for (const id of ['themeCreate', 'themeApply', 'themeApprove', 'themeModify', 'themeDiscard', 'themeImport']) {
+      const node = $(id)
+      if (node) node.disabled = state.busy
+    }
+    const node = $('themeBusy')
+    if (node) node.hidden = !state.busy
+  }
+
+  // -------------------------------------------------------------------------
+  // Painting: the engine pushes a declarative payload; the dock applies it.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Apply a paint payload to the live dock surface.
+   *
+   * The payload is data (CSS custom properties + slot styles). It is applied by
+   * setting CSS variables and toggling class names — never by injecting markup
+   * or script, which is what keeps a generated theme declarative (spec §19).
+   */
+  function paint(payload) {
+    if (!payload) return false
+    const root = document.documentElement
+    if (typeof payload.css === 'string' && payload.css) {
+      // appending a <style> element node rather than evaluating script; the
+      // declarations come from the validated token schema only.
+      let sheet = document.getElementById('hnsThemeSheet')
+      if (!sheet) {
+        sheet = document.createElement('style')
+        sheet.id = 'hnsThemeSheet'
+        document.head.appendChild(sheet)
+      }
+      sheet.textContent = `:root {\n${payload.css}\n}`
+    }
+
+    const slots = payload.slots || {}
+    const setVar = (name, value) => {
+      if (value === undefined || value === null || value === '') root.style.removeProperty(name)
+      else root.style.setProperty(name, String(value))
+    }
+
+    const shell = slots['hns.window.shell'] || {}
+    setVar('--hns-slot-shell-bg', shell.background)
+    setVar('--hns-slot-shell-border', shell.border)
+    setVar('--hns-slot-shell-radius', shell.radius)
+
+    const panel = slots['hns.process.panel'] || {}
+    setVar('--hns-slot-panel-bg', panel.background)
+    setVar('--hns-slot-panel-border', panel.border)
+    setVar('--hns-slot-panel-radius', panel.radius)
+    setVar('--hns-slot-panel-shadow', panel.shadow)
+
+    const card = slots['hns.worker.card'] || {}
+    setVar('--hns-slot-card-bg', card.background)
+    setVar('--hns-slot-card-border', card.border)
+    setVar('--hns-slot-card-radius', card.radius)
+
+    const queue = slots['hns.process.queue'] || {}
+    setVar('--hns-slot-queue-bg', queue.background)
+    setVar('--hns-slot-queue-border', queue.border)
+
+    const badge = slots['hns.status.badge'] || {}
+    setVar('--hns-slot-badge-bg', badge.background)
+    setVar('--hns-slot-badge-border', badge.border)
+    setVar('--hns-slot-badge-radius', badge.radius)
+
+    const button = slots['common.button.primary'] || {}
+    setVar('--hns-slot-button-bg', button.background)
+    setVar('--hns-slot-button-label', button.label)
+    setVar('--hns-slot-button-radius', button.radius)
+
+    const input = slots['common.input.default'] || {}
+    setVar('--hns-slot-input-bg', input.background)
+    setVar('--hns-slot-input-border', input.border)
+    setVar('--hns-slot-input-radius', input.radius)
+
+    const header = slots['hns.worker.header'] || {}
+    setVar('--hns-slot-header-bg', header.background)
+
+    // Personalization layer: opacity/decoration only, always confined to the
+    // dock's own decoration element so it can never cover an interaction region.
+    const persona = payload.persona || {}
+    document.body.classList.toggle('theme-persona', Boolean(persona.enabled))
+    document.body.dataset.themeEffect = String(payload.effectLevel ?? 0)
+    setVar('--hns-persona-decoration-opacity', persona.enabled ? persona.decorationOpacity : 0)
+    setVar('--hns-persona-banner-opacity', persona.enabled ? persona.bannerOpacity : 0)
+    setVar('--hns-persona-avatar', persona.avatarAsset && persona.avatarAsset !== 'none' ? `url("${persona.avatarAsset}")` : 'none')
+    setVar('--hns-persona-banner-asset', persona.bannerAsset && persona.bannerAsset !== 'none' ? `url("${persona.bannerAsset}")` : 'none')
+
+    const decoration = slots['hns.persona.decoration'] || {}
+    setVar('--hns-decoration-asset', decoration.asset && decoration.asset !== 'none' ? `url("${decoration.asset}")` : 'none')
+    setVar('--hns-decoration-opacity', decoration.opacity)
+
+    document.body.classList.toggle('theme-preview', Boolean(payload.preview))
+    document.body.dataset.themeId = payload.id || ''
+    document.body.dataset.effectLevel = String(payload.effectLevel ?? 0)
+
+    const marker = $('themeActiveMarker')
+    if (marker) marker.textContent = payload.preview ? `${esc(payload.name)} · 预览中` : esc(payload.name || payload.id || '')
+    return true
+  }
+  // -------------------------------------------------------------------------
+  // Live slot geometry: what the UI inspector / preview validator consumes.
+  // -------------------------------------------------------------------------
+
+  /** Slot id -> CSS selector of the element that represents it in the dock. */
+  const SLOT_SELECTORS = {
+    'hns.window.shell': '#detail',
+    'hns.worker.card': '#summary',
+    'hns.process.panel': '#queue',
+    'hns.process.queue': '#queue',
+    'hns.worker.header': '.dock-header',
+    'hns.hardware.cpu': '#hardware',
+    'hns.hardware.gpu': '#hardware',
+    'hns.hardware.memory': '#hardware',
+    'hns.hardware.power': '#hardware',
+    'hns.log.panel': '#queue',
+    'hns.status.badge': '#summary',
+    'common.button.primary': '#taskForm button[type="submit"]',
+    'common.button.secondary': '#clearPending',
+    'common.input.default': '#prompt',
+    'common.dialog.default': '#settingsOverlay',
+    'common.notification.default': '#themeMessage',
+    'common.navigation.sidebar': '#rail',
+    'common.navigation.topbar': '.dock-header',
+    'common.panel.background': '#detail',
+    'hns.tray.icon': '#rail'
+  }
+
+  /** Protected regions, measured so the validator can check occlusion. */
+  const REGION_SELECTORS = {
+    'queue-create': '#taskForm',
+    'queue-list': '#queue',
+    'worker-summary': '#summary',
+    'hardware-grid': '#hardware',
+    'status-strip': '#summary',
+    'settings-form': '#settingsOverlay'
+  }
+
+  function boundingBox(element) {
+    if (!element) return null
+    try {
+      const rect = element.getBoundingClientRect()
+      if (!rect || (!rect.width && !rect.height)) return { x: 0, y: 0, width: 0, height: 0 }
+      return {
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      }
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Report live geometry to the main process. Called when the engine probes the
+   * UI (before a theme is designed) and on every layout change, so the snapshot
+   * the designer reads describes the dock as it actually is.
+   */
+  function reportRegions() {
+    const api = themeApi()
+    if (!api || typeof api.reportRegions !== 'function') return
+    const slots = {}
+    for (const [slotId, selector] of Object.entries(SLOT_SELECTORS)) {
+      const element = document.querySelector(selector)
+      const box = boundingBox(element)
+      if (box) slots[slotId] = box
+    }
+    const regions = {}
+    for (const [regionId, selector] of Object.entries(REGION_SELECTORS)) {
+      const element = document.querySelector(selector)
+      const box = boundingBox(element)
+      if (box) regions[regionId] = box
+    }
+    // Merge the protected-region geometry into the same map the inspector reads.
+    for (const [regionId, box] of Object.entries(regions)) slots[regionId] = box
+    slots.componentTree = {
+      root: '#detail',
+      expanded: document.body.classList.contains('expanded'),
+      theme: document.body.dataset.themeId || null,
+      regions: Object.keys(regions)
+    }
+    try {
+      api.reportRegions(slots)
+    } catch {
+      // Geometry reporting is best-effort observation; never a dock failure.
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Rendering
+  // -------------------------------------------------------------------------
+
+  function renderThemes() {
+    const node = $('themeList')
+    if (!node) return
+    const themes = state.status?.themes || []
+    if (!themes.length) {
+      node.innerHTML = '<div class="muted">主题列表不可用</div>'
+      return
+    }
+    node.innerHTML = themes.map((theme) => {
+      const lock = theme.protected ? '<span class="theme-lock" title="受保护的系统主题，不可删除">🔒</span>' : ''
+      const active = theme.active ? ' active' : ''
+      const broken = theme.broken ? ' broken' : ''
+      const tags = []
+      if (theme.source === 'generated') tags.push('生成')
+      if (theme.source === 'duplicated') tags.push('副本')
+      if (theme.source === 'imported') tags.push('导入')
+      if (theme.source === 'builtin-demo') tags.push('Demo')
+      if (theme.broken) tags.push('损坏')
+      return `<div class="theme-item${active}${broken}" data-theme="${esc(theme.id)}">
+        <button class="theme-apply" data-apply="${esc(theme.id)}" title="应用该主题">
+          <span class="theme-name">${esc(theme.name)}${lock}</span>
+          <span class="theme-meta">${esc(tags.join(' · ') || (theme.source === 'system' ? '系统' : theme.source))}${
+            theme.persona?.enabled ? ` · 角色 ${esc(theme.persona.character || '')}` : ''
+          }</span>
+        </button>
+        <div class="theme-actions">
+          <button class="theme-icon" data-detail="${esc(theme.id)}" title="主题详情">i</button>
+          <button class="theme-icon" data-duplicate="${esc(theme.id)}" title="创建副本">⧉</button>
+          ${theme.source === 'builtin-demo' ? `<button class="theme-icon" data-restore="${esc(theme.id)}" title="恢复出厂">↺</button>` : ''}
+          <button class="theme-icon danger" data-delete="${esc(theme.id)}" ${theme.protected || theme.source === 'system' ? 'disabled' : ''} title="${
+            theme.protected || theme.source === 'system' ? '受保护，不可删除' : '删除主题'
+          }">🗑</button>
+        </div>
+      </div>`
+    }).join('')
+  }
+
+  function renderActive() {
+    const status = state.status
+    const node = $('themeActive')
+    if (!node) return
+    if (!status) {
+      node.textContent = '—'
+      return
+    }
+    const effect = status.effect || {}
+    const degraded = status.degraded ? ` · 已降级(${esc(effect.label || '')})` : ''
+    const previewing = status.previewing ? ' · 预览中' : ''
+    node.textContent = `${status.activeName || status.active || '—'}${degraded}${previewing}`
+  }
+
+  function validationSummary(validation) {
+    if (!validation) return ''
+    const rows = (validation.checks || []).map((check) => {
+      const kind = check.ok ? 'ok' : check.severity === 'warning' ? 'warn' : 'fail'
+      const mark = check.ok ? '✓' : check.severity === 'warning' ? '!' : '✗'
+      return `<li class="${kind}"><b>${mark}</b><span>${esc(check.label)}</span><em>${esc(check.detail || '')}</em></li>`
+    }).join('')
+    const header = validation.ok
+      ? `<div class="preview-verdict ok">校验通过 · ${validation.passed}/${validation.total}</div>`
+      : `<div class="preview-verdict fail">校验未通过 · ${validation.passed}/${validation.total}</div>`
+    const warningCount = (validation.warnings || []).length
+    const warnings = warningCount
+      ? `<div class="preview-warnings">${warningCount} 项未能现场测量（不影响安装）</div>`
+      : ''
+    return `${header}${warnings}<ul class="preview-checks">${rows}</ul>`
+  }
+
+  function renderPreview() {
+    const box = $('themePreview')
+    if (!box) return
+    const draft = state.draft
+    box.hidden = !draft
+    if (!draft) return
+    const node = $('themePreviewBody')
+    if (!node) return
+    try {
+      renderPreviewBody(node, draft)
+    } catch (error) {
+      // A rendering failure must not break the panel; the draft stays usable and
+      // the user still gets the two decisions that matter.
+      node.textContent = `${draft.name || draft.themeId || 'preview'} — 预览渲染降级`
+      state.previewError = String(error && error.message || error)
+      if (typeof global.__hnsThemeDebug === 'function') global.__hnsThemeDebug({ stage: 'preview-error', message: state.previewError })
+      setError(error)
+    }
+  }
+
+  function renderPreviewBody(node, draft) {
+    const adjustments = (draft.contrastAdjustments || []).length
+      ? `<div class="preview-note">为保证可读性，已自动调整 ${draft.contrastAdjustments.length} 处颜色。</div>`
+      : ''
+    const history = (draft.history || []).length
+      ? `<div class="preview-history">修改记录：${draft.history.map((entry) => esc(entry.prompt)).join(' ｜ ')}</div>`
+      : ''
+    node.innerHTML = `
+      <div class="preview-head">
+        <div>
+          <div class="preview-name">${esc(draft.name || draft.themeId || '新主题')}</div>
+          <div class="preview-intent">${esc(draft.designSummary || '')}</div>
+        </div>
+        <div class="preview-badge">${esc(draft.engine || 'local')}</div>
+      </div>
+      ${validationSummary(draft.validation)}
+      ${adjustments}
+      ${history}`
+    const approve = $('themeApprove')
+    if (approve) approve.disabled = !(draft.validation && draft.validation.ok) || state.busy
+  }
+
+  function renderDetail() {
+    const box = $('themeDetail')
+    if (!box) return
+    const detail = state.detail
+    box.hidden = !detail
+    if (!detail) return
+    const node = $('themeDetailBody')
+    if (!node) return
+    const manifest = detail.manifest || {}
+    const persona = detail.persona || {}
+    node.innerHTML = `
+      <div class="detail-grid">
+        <div><span>ID</span><b>${esc(manifest.id || '')}</b></div>
+        <div><span>来源</span><b>${esc(manifest.source || '')}</b></div>
+        <div><span>版本</span><b>${esc(manifest.version || '')}</b></div>
+        <div><span>Theme API</span><b>${esc(manifest.theme_api_version || '')}</b></div>
+        <div><span>受保护</span><b>${manifest.protected ? '是（不可删除）' : '否'}</b></div>
+        <div><span>可编辑</span><b>${manifest.editable === false ? '否' : '是'}</b></div>
+        <div><span>槽位</span><b>${esc(detail.slotCount ?? 0)}</b></div>
+        <div><span>Token</span><b>${esc(Object.keys(detail.tokens || {}).length)}</b></div>
+        <div><span>动效</span><b>${esc((detail.animation?.type || 'none') + ' @ ' + (detail.animation?.intensity ?? 0))}</b></div>
+        <div><span>角色</span><b>${persona.enabled ? esc(`${persona.character || ''} @ ${persona.prominence}`) : '关闭'}</b></div>
+        <div><span>派生自</span><b>${esc(manifest.derived_from || '—')}</b></div>
+        <div><span>官方配色</span><b>${esc(manifest.official_palette || '—')}</b></div>
+      </div>
+      ${manifest.generated_prompt ? `<div class="detail-prompt">生成提示词：${esc(manifest.generated_prompt)}</div>` : ''}
+      ${(manifest.revision_history || []).length ? `<div class="detail-history">修改历史 ${manifest.revision_history.length} 次</div>` : ''}`
+  }
+
+  function renderCapability() {
+    const node = $('themeCapability')
+    if (!node) return
+    const capability = state.capability
+    if (!capability) {
+      node.textContent = ''
+      return
+    }
+    const slots = Object.keys(capability.slots || {}).length
+    const writable = Object.values(capability.slots || {}).filter((slot) => slot.permission !== 'STRUCTURAL').length
+    node.innerHTML = `<span>Theme API ${esc(capability.theme_api_version)}</span>
+      <span>可主题化槽位 ${writable}/${slots}</span>
+      <span>状态 ${esc((capability.states || []).length)} 种</span>
+      <span>官方 UI ${capability.capabilities?.can_theme_official_ui ? '可换肤' : '仅配色提示'}</span>`
+  }
+
+  function render() {
+    renderActive()
+    renderThemes()
+    renderPreview()
+    renderDetail()
+    renderCapability()
+    renderMessage()
+  }
+
+  // -------------------------------------------------------------------------
+  // Actions
+  // -------------------------------------------------------------------------
+
+  async function loadStatus() {
+    const api = themeApi()
+    if (!api) return null
+    const result = await api.snapshot()
+    if (result && result.ok) {
+      state.status = result.status
+      state.quickPrompts = result.status?.quickPrompts || []
+      renderQuickPrompts()
+    }
+    return result
+  }
+
+  async function loadCapability() {
+    const api = themeApi()
+    if (!api) return null
+    const result = await api.capabilities()
+    if (result && result.ok) {
+      state.capability = result.capability
+      renderCapability()
+    }
+    return result
+  }
+
+  function renderQuickPrompts() {
+    const node = $('themeQuick')
+    if (!node) return
+    node.innerHTML = state.quickPrompts
+      .map((prompt) => `<button type="button" class="theme-quick" data-quick="${esc(prompt)}">${esc(prompt)}</button>`)
+      .join('')
+  }
+
+  function setDraftFrom(result) {
+    state.draft = {
+      draftId: result.draftId,
+      themeId: result.themeId,
+      name: result.name,
+      designSummary: result.designSummary,
+      validation: result.validation,
+      intent: result.intent,
+      engine: result.engine,
+      revision: result.revision || 0,
+      contrastAdjustments: result.contrastAdjustments || [],
+      history: result.history || state.draft?.history || []
+    }
+  }
+
+  async function applyTheme(id) {
+    const api = themeApi()
+    if (!api) return
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.apply(id)
+      if (!result?.ok) {
+        if (result?.recovered) {
+          setMessage(`主题不可用，已自动回退 Dark：${result.reason || ''}`, 'warn')
+        } else {
+          setMessage(`应用失败：${result?.reason || '未知原因'}`, 'error')
+        }
+      } else {
+        setMessage(`已应用：${result.status?.name || id}`, 'ok')
+      }
+      await loadStatus()
+      render()
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createFromPrompt(prompt) {
+    const api = themeApi()
+    if (!api) return
+    const text = String(prompt || '').trim()
+    if (!text) {
+      setMessage('请先描述你想要的效果', 'warn')
+      return
+    }
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.create({ prompt: text })
+      if (!result?.ok) {
+        setMessage(`生成失败：${result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      setDraftFrom(result)
+      state.detail = null
+      await loadStatus()
+      setMessage('预览已应用到右侧 Dock —— 请直接查看效果', 'ok')
+      reportRegions()
+    } catch (error) {
+      setError(error)
+    } finally {
+      // The busy flag is cleared *before* the final render: `setBusy` owns the
+      // action buttons' disabled state, and rendering first would let it overwrite
+      // the preview's own "Looks Good is only available when validation passes".
+      setBusy(false)
+      render()
+    }
+  }
+
+  async function reviseCurrent(prompt) {
+    const api = themeApi()
+    if (!api || !state.draft) return
+    const text = String(prompt || '').trim()
+    if (!text) {
+      setMessage('请描述需要修改的地方', 'warn')
+      return
+    }
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.revise({ draftId: state.draft.draftId, prompt: text })
+      if (!result?.ok) {
+        setMessage(`修改失败：${result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      const previous = state.draft
+      setDraftFrom(result)
+      state.draft.history = (previous.history || []).concat([{ prompt: text, changed: result.changed || [] }])
+      await loadStatus()
+      setMessage(
+        result.changed && result.changed.length
+          ? `已按你的意见调整：${result.changed.join('、')}`
+          : '已重新生成预览，未识别到需要变更的维度',
+        result.changed && result.changed.length ? 'ok' : 'warn'
+      )
+      reportRegions()
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+      render()
+    }
+  }
+
+  async function approveCurrent() {
+    const api = themeApi()
+    if (!api || !state.draft) return
+    // Guard the action itself, not just the button: installation may only happen
+    // for a preview that passed validation (engineering spec §10.1).
+    if (!state.draft.validation || !state.draft.validation.ok) {
+      setMessage('预览未通过校验，无法安装', 'warn')
+      return
+    }
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.approve({ draftId: state.draft.draftId })
+      if (!result?.ok) {
+        setMessage(`安装失败：${result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      state.draft = null
+      await loadStatus()
+      render()
+      setMessage(`已安装并启用：${result.name || result.id}`, 'ok')
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function discardCurrent() {
+    const api = themeApi()
+    if (!api || !state.draft) return
+    setBusy(true)
+    try {
+      setError(null)
+      await api.discard({ draftId: state.draft.draftId })
+      state.draft = null
+      await loadStatus()
+      render()
+      setMessage('已放弃本次预览，未安装任何内容', '')
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deleteTheme(id) {
+    const api = themeApi()
+    if (!api) return
+    const record = (state.status?.themes || []).find((theme) => theme.id === id)
+    if (record && (record.protected || record.source === 'system')) {
+      setMessage('Dark 和 Light 是受保护的系统主题，无法删除', 'warn')
+      return
+    }
+    if (typeof global.confirm === 'function' && !global.confirm(`删除主题「${record?.name || id}」？该操作只影响这个主题本身。`)) return
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.remove(id)
+      if (!result?.ok) {
+        setMessage(`删除失败：${result?.message || result?.reason || '未知原因'}`, 'error')
+      } else {
+        setMessage(
+          result.switchedTo ? `已删除，当前主题已切换到 Dark` : `已删除：${record?.name || id}`,
+          'ok'
+        )
+      }
+      await loadStatus()
+      render()
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function duplicateTheme(id) {
+    const api = themeApi()
+    if (!api) return
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.duplicate(id, null)
+      if (!result?.ok) {
+        setMessage(`创建副本失败：${result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      await loadStatus()
+      render()
+      setMessage(`已创建自包含副本：${result.id}`, 'ok')
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function restoreTheme(id) {
+    const api = themeApi()
+    if (!api) return
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.restore(id)
+      if (!result?.ok) {
+        setMessage(`恢复失败：${result?.message || result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      await loadStatus()
+      render()
+      setMessage('已恢复出厂内置 Demo 主题', 'ok')
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function importTheme() {
+    const api = themeApi()
+    if (!api) return
+    setBusy(true)
+    try {
+      setError(null)
+      const result = await api.importPackage()
+      if (!result?.ok) {
+        if (result?.reason !== 'cancelled') setMessage(`导入失败：${result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      await loadStatus()
+      render()
+      setMessage(`已导入自包含主题包：${result.id}`, 'ok')
+    } catch (error) {
+      setError(error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function showDetail(id) {
+    const api = themeApi()
+    if (!api) return
+    try {
+      setError(null)
+      const result = await api.detail(id)
+      if (!result?.ok) {
+        setMessage(`读取详情失败：${result?.reason || '未知原因'}`, 'error')
+        return
+      }
+      state.detail = result
+      renderDetail()
+      reportRegions()
+    } catch (error) {
+      setError(error)
+    }
+  }
+
+  async function observeNow() {
+    const api = themeApi()
+    if (!api) return null
+    try {
+      reportRegions()
+      const result = await api.observe(null)
+      return result
+    } catch (error) {
+      setError(error)
+      return null
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Wiring
+  // -------------------------------------------------------------------------
+
+  function bindControls() {
+    const createButton = $('themeCreate')
+    if (createButton) createButton.onclick = () => track(createFromPrompt($('themePrompt').value))
+    const prompt = $('themePrompt')
+    if (prompt) {
+      prompt.onkeydown = (event) => {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault()
+          track(createFromPrompt(prompt.value))
+        }
+      }
+    }
+
+    const modifyButton = $('themeModify')
+    if (modifyButton) {
+      modifyButton.onclick = () => {
+        const box = $('themeModifyBox')
+        if (!box) return
+        box.hidden = !box.hidden
+        const input = $('themeModifyPrompt')
+        if (input && !box.hidden && typeof input.focus === 'function') input.focus()
+      }
+    }
+
+    const modifySend = $('themeModifySend')
+    if (modifySend) modifySend.onclick = () => track(reviseCurrent($('themeModifyPrompt').value))
+
+    const approveButton = $('themeApprove')
+    if (approveButton) approveButton.onclick = () => track(approveCurrent())
+
+    const discardButton = $('themeDiscard')
+    if (discardButton) discardButton.onclick = () => track(discardCurrent())
+
+    const importButton = $('themeImport')
+    if (importButton) importButton.onclick = () => track(importTheme())
+
+    const observeButton = $('themeObserve')
+    if (observeButton) {
+      observeButton.onclick = async () => {
+        setBusy(true)
+        const result = await observeNow()
+        setBusy(false)
+        if (result && result.ok) {
+          const visual = result.snapshot && result.snapshot.visual
+          setMessage(visual
+            ? `已观察 ${result.snapshot.page_names.length} 个页面并采集界面快照`
+            : '已采集界面结构（视觉快照不可用，不影响生成）', 'ok')
+        }
+      }
+    }
+
+    const list = $('themeList')
+    if (list) {
+      list.addEventListener('click', (event) => {
+        const target = event.target?.closest?.('button')
+        if (!target) return
+        const apply = target.dataset.apply
+        const detail = target.dataset.detail
+        const duplicate = target.dataset.duplicate
+        const remove = target.dataset.delete
+        const restore = target.dataset.restore
+        if (apply) track(applyTheme(apply))
+        else if (detail) track(showDetail(detail))
+        else if (duplicate) track(duplicateTheme(duplicate))
+        else if (remove) track(deleteTheme(remove))
+        else if (restore) track(restoreTheme(restore))
+      })
+    }
+
+    const quick = $('themeQuick')
+    if (quick) {
+      quick.addEventListener('click', (event) => {
+        const prompt = event.target?.dataset?.quick
+        if (!prompt) return
+        const input = $('themePrompt')
+        if (input) input.value = prompt
+        track(createFromPrompt(prompt))
+      })
+    }
+
+    // Geometry reporting: on layout changes only, so the observation stays fresh
+    // without polling.
+    if (typeof global.ResizeObserver === 'function') {
+      try {
+        const observer = new global.ResizeObserver(() => reportRegions())
+        const detail = $('detail')
+        if (detail) observer.observe(detail)
+      } catch {
+        // ResizeObserver support is best-effort.
+      }
+    }
+    if (typeof global.addEventListener === 'function') global.addEventListener('resize', reportRegions)
+  }
+
+  function attach() {
+    const panel = $('appearancePanel')
+    if (!panel) return null
+    bindControls()
+    const api = themeApi()
+    if (!api) {
+      panel.dataset.unavailable = '1'
+      setMessage('主题系统不可用：主进程未加载主题引擎', 'error')
+      return null
+    }
+
+    if (typeof api.onApply === 'function') api.onApply((payload) => paint(payload))
+    if (typeof api.onChanged === 'function') {
+      api.onChanged(() => {
+        loadStatus().then(render).catch(() => {})
+      })
+    }
+    if (typeof api.onProbeRegions === 'function') api.onProbeRegions(() => reportRegions())
+
+    // First paint: ask the engine for the active theme and apply it before the
+    // dock reports geometry, so the observer sees the themed layout.
+    track(
+      Promise.resolve()
+        .then(() => api.paint())
+        .then((result) => {
+          if (result && result.ok && result.payload) paint(result.payload)
+        })
+        .catch(() => {})
+        .then(() => Promise.all([loadStatus(), loadCapability()]))
+        .then(() => {
+          render()
+          reportRegions()
+        })
+    )
+
+    return {
+      paint,
+      reportRegions,
+      render,
+      refresh: () => loadStatus().then(render),
+      /** Resolves once the panel's current work (first paint, create, approve…) is done. */
+      settled
+    }
+  }
+
+  global.megaThemePanel = { attach, paint, reportRegions, state }
+})(window)
