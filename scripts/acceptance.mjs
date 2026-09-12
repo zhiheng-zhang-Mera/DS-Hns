@@ -423,12 +423,19 @@ async function run() {
         appearance: Boolean(document.getElementById('appearancePanel')),
         themeList: (document.getElementById('themeList') || {}).children ? document.getElementById('themeList').children.length : 0,
         skills: Boolean(document.getElementById('skillsPanel')),
+        // Two dock generations ship the appearance module differently: the original
+        // exposes the panel global, the bridged dock registers it as a named module.
+        panelModule: Boolean(window.megaThemePanel && window.megaThemePanel.attach),
         bridgeModules: window.megaThemeBridge ? window.megaThemeBridge.modules : null
       }
     `)
     check('the Appearance panel is present', panels.appearance)
     check('the theme list rendered', panels.themeList > 0, `${panels.themeList} entries`)
-    check('dock UI modules joined the theme bridge', Array.isArray(panels.bridgeModules) && panels.bridgeModules.length >= 1, JSON.stringify(panels.bridgeModules))
+    check(
+      'the appearance module is attached to the dock',
+      panels.panelModule || (Array.isArray(panels.bridgeModules) && panels.bridgeModules.includes('appearance')),
+      JSON.stringify({ panel: panels.panelModule, modules: panels.bridgeModules })
+    )
 
     // --- theme switching through the real engine -----------------------------
     // Start from a known theme so the assertion is about the transition, not about
@@ -440,21 +447,10 @@ async function run() {
     `)
     check('the Dark system theme is active with its own base colour', darkBase === '#0f1115', String(darkBase))
 
-    // Observe the payload the renderer actually receives while the switch happens.
-    await dock.page.evaluate(`
-      window.__seen = []
-      const bridge = window.megaThemeBridge
-      const originalPaint = bridge.paint
-      bridge.paint = function (payload) {
-        window.__seen.push({ id: payload && payload.id, cssHead: payload && payload.css ? payload.css.slice(0, 30) : null })
-        return originalPaint.apply(this, arguments)
-      }
-      return true
-    `)
-
     const applied = await dock.page.evaluate(`
       const engine = window.megaTools.theme
-      // Watch every payload the renderer receives while the switch happens.
+      // Watch every payload the renderer applies while the switch happens: the dock
+      // writes the shared token sheet, so its text is the observable on either dock.
       window.__acceptancePayloads = []
       const sheet = document.getElementById('hnsThemeSheet')
       const observer = sheet ? new MutationObserver(() => {
@@ -508,6 +504,8 @@ async function run() {
       return sheet ? /--hns-color-bg-base:\\s*#f7f8fa/.test(sheet.textContent) : false
     `)
     check('the injected token sheet matches the active theme', lightSheet)
+    const payloads = await dock.page.evaluate(`return (window.__acceptancePayloads || []).length`)
+    check('the renderer applied a theme payload on the switch', payloads > 0, `${payloads} sheet writes`)
     const lightPanel = await dock.page.evaluate(`
       return getComputedStyle(document.getElementById('appearancePanel')).backgroundColor
     `)
