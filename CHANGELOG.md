@@ -27,6 +27,15 @@ behaviour that changed, not the files that were touched.
   `pointer-events: none`，并置于对话区内所以永远不会压住 Composer）；主题没带角色图时用
   同一主题的人设头像顶上，而不是留一个空图层。
 
+**Work Mode 的官方界面现在真的能用了。** 真机逐像素排查发现：切到 Work 时窗口内容与 Daily
+几乎完全一致（官方界面根本没显示），把 Daily 视图移出窗口后又只剩一片空白。根因是官方 UI
+原来是与 Daily 同尺寸的兄弟 `WebContentsView`，靠 `setVisible` 切换——这个构建里被隐藏的兄弟
+视图仍会被绘制，而重新显示的视图会丢掉合成面。现在官方 Harness UI 改为**窗口自身的页面**
+（`mainWindow.loadURL`），Daily 是覆盖其上的子视图，切到 Work 就是移除这个子视图、露出下面的
+官方界面；官方页面从不重新加载，所以模式切换不丢会话。真机验证：Work 下窗口为浅色官方界面、
+`official.inWindow=true` 且宽度为窗口内容宽度 1474px、子视图只有 1 个（Mega 轨道条）、页面
+`visibilityState=visible` 且存在可编辑元素；20 次往返后官方文档身份与地址不变。
+
 **Mega 默认收起全部模块。** Dock 的每个模块（Interface Mode / Appearance / Skills / 队列 /
 硬件 / Sub-worker / 余额 / 拓展状态）默认折叠，选择按模块保存；收起栏的 `H`/`D` 模式切换
 始终可用，所以收起模块不影响模式入口。

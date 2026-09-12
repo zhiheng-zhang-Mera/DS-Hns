@@ -74,6 +74,15 @@ let officialView = null
 let nativeView = null
 let megaDockView = null
 let officialSurfaces = null
+/**
+ * Which frontend is the one on screen.
+ *
+ * `setVisible(false)` on a sibling view is not enough here: the inactive view is
+ * still drawn (and still covers the other one, because the native view is added
+ * after the official one). The layout therefore *parks* the inactive view outside
+ * the window instead of trusting visibility alone - see `layoutIntegratedViews`.
+ */
+let activeFrontend = 'daily'
 /** The assembled Dual-UI runtime (state + adapter + sync + manager + probe). */
 let frontendModes = null
 let megaDockExpanded = false
@@ -679,8 +688,21 @@ function layoutIntegratedViews() {
   const officialWidth = Math.max(0, contentWidth - dockWidth)
   const height = Math.max(1, contentHeight)
 
+  /**
+   * The two frontends share one rectangle, and only the active one sits inside
+   * the window: the inactive view is parked just outside the content area at the
+   * same size, so it stops being drawn and cannot take input, while it keeps
+   * laying out at the right width for the moment it comes back.
+   *
+   * `setVisible(false)` alone is not enough here - the inactive view is still
+   * drawn and, because the native view is added after the official one, it still
+   * covers it. That is why Work Mode used to show the Daily interface.
+   */
+  const rect = { x: 0, y: 0, width: officialWidth, height }
+  const parked = { x: -(officialWidth + 16), y: 0, width: officialWidth, height }
+  const showNative = activeFrontend !== 'work'
   if (officialView) {
-    officialView.setBounds({ x: 0, y: 0, width: officialWidth, height })
+    officialView.setBounds(showNative ? parked : rect)
   }
   // Log only when the decision actually changes: this is the line that makes a
   // "the official UI is narrow in Work Mode" report answerable from the log.
@@ -688,12 +710,8 @@ function layoutIntegratedViews() {
     layoutIntegratedViews.lastKey = `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`
     logLine(`layout: content=${contentWidth}px official=${officialWidth}px dock=${dockWidth}px expanded=${megaDockExpanded}`)
   }
-  // The native frontend occupies exactly the same rectangle as the official
-  // renderer: switching modes changes which one is visible, never their bounds,
-  // so neither renderer is re-created and neither loses its scroll position
-  // (Update-Plan/Dual-UI.md 任务 15 / 任务 17).
   if (nativeView) {
-    nativeView.setBounds({ x: 0, y: 0, width: officialWidth, height })
+    nativeView.setBounds(showNative ? rect : parked)
   }
   if (megaDockView) {
     megaDockView.setBounds({ x: officialWidth, y: 0, width: dockWidth, height })
@@ -748,9 +766,36 @@ function configureOfficialWebContents(contents) {
 
 async function createOfficialHarnessView(readyUrl) {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  if (!WebContentsView || !mainWindow.contentView?.addChildView) {
-    throw new Error('Integrated layout unavailable: WebContentsView/contentView not supported by this Electron build')
-  }
+  /**
+   * The official Harness UI is the *window's own page*.
+   *
+   * It used to be a sibling `WebContentsView` next to the Daily view, toggled with
+   * `setVisible`. That does not hold up: the sibling is still drawn when it is
+   * meant to be hidden (so Work Mode showed the Daily interface), and a sibling
+   * that was hidden or moved out of the window comes back without a compositor
+   * surface (so Work Mode showed a blank page). The official UI is the one surface
+   * that must never be in doubt, so it uses the plain renderer a BrowserWindow
+   * gives us - the same path this product used before the integrated dock existed.
+   *
+   * Daily then floats *above* it as a child view, and switching is adding or
+   * removing that one view. The official page stays loaded throughout, so nothing
+   * about the Harness session is reset by a mode switch.
+   */
+  configureOfficialWebContents(mainWindow.webContents)
+  await mainWindow.loadURL(readyUrl)
+  return true
+}
+
+/** Is the official UI the window's own page (always, in the integrated build)? */
+function officialLivesInWindow() {
+  return INTEGRATED_MEGA_DOCK
+}
+
+/**
+ * Legacy official-view path: only used when the integrated dock is disabled and
+ * the window has its own content for something else.
+ */
+async function createOfficialHarnessChildView(readyUrl) {
   if (!officialView) {
     officialView = new WebContentsView({
       webPreferences: {
@@ -817,8 +862,26 @@ function setViewVisibility(view, visible) {
  */
 function applyFrontendVisibility({ mode }) {
   const daily = mode === frontendModes?.MODE?.DAILY || mode === 'daily'
+  activeFrontend = daily ? 'daily' : 'work'
   setViewVisibility(nativeView, daily)
   setViewVisibility(officialView, !daily)
+  // Daily is a child view covering the window page. Work removes it, which is what
+  // reveals the official Harness UI underneath - no visibility flag, no stacking
+  // race, and the official page keeps its state because it is never unloaded.
+  if (officialLivesInWindow() && nativeView && mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      if (daily) {
+        mainWindow.contentView.addChildView(nativeView)
+        // The dock is a child view too, and adding the native view put it on top:
+        // re-add the dock so its strip stays above everything.
+        if (megaDockView) mainWindow.contentView.addChildView(megaDockView)
+      } else {
+        mainWindow.contentView.removeChildView(nativeView)
+      }
+    } catch (error) {
+      logLine(`frontend view attach failed: ${error?.message || error}`)
+    }
+  }
   // Work Mode is the official UI, and the official UI needs the whole window:
   // with the dock expanded it is 560px narrower and silently drops its own
   // sidebar. Collapse the dock to its rail for the duration of Work Mode and put
@@ -834,6 +897,7 @@ function applyFrontendVisibility({ mode }) {
   setImmediate(() => {
     try {
       layoutIntegratedViews()
+      repaintFrontends()
     } catch (error) {
       logLine(`deferred layout failed: ${error?.message || error}`)
     }
@@ -848,6 +912,25 @@ function applyFrontendVisibility({ mode }) {
   }
   broadcastModeChange()
   return true
+}
+
+/**
+ * Schedule a full repaint of both frontends.
+ *
+ * A `WebContentsView` that was hidden (or moved out of the window) loses its
+ * compositor surface. When it comes back the page is static, so no new frame is
+ * produced and the view stays blank - which is the white page Work Mode used to
+ * show. `webContents.invalidate()` schedules exactly that repaint.
+ */
+function repaintFrontends() {
+  for (const view of [officialView, nativeView]) {
+    try {
+      const contents = view?.webContents
+      if (contents && !contents.isDestroyed() && typeof contents.invalidate === 'function') contents.invalidate()
+    } catch (error) {
+      logLine(`frontend repaint failed: ${error?.message || error}`)
+    }
+  }
 }
 
 /** Keep the dock's width out of the official UI's way while Work Mode is active. */
@@ -1120,9 +1203,43 @@ function registerNativeModeIpc() {
           return null
         }
       })(),
+      window: (() => {
+        try {
+          if (!mainWindow || mainWindow.isDestroyed()) return null
+          return { visible: mainWindow.isVisible(), minimized: mainWindow.isMinimized(), bounds: mainWindow.getBounds() }
+        } catch {
+          return null
+        }
+      })(),
       official: (() => {
+        // The official UI is the window's own page in the integrated build, so its
+        // "bounds" are the window's content area and nothing covers it.
+        if (officialLivesInWindow()) {
+          try {
+            const [width, height] = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : [0, 0]
+            return { x: 0, y: 0, width, height, inWindow: true }
+          } catch {
+            return null
+          }
+        }
         try {
           return officialView ? officialView.getBounds() : null
+        } catch {
+          return null
+        }
+      })(),
+      nativeAttached: (() => {
+        try {
+          return Boolean(nativeView && nativeView.getVisible())
+        } catch {
+          return null
+        }
+      })(),
+      childViews: (() => {
+        try {
+          return mainWindow && !mainWindow.isDestroyed() && mainWindow.contentView && Array.isArray(mainWindow.contentView.children)
+            ? mainWindow.contentView.children.length
+            : null
         } catch {
           return null
         }
@@ -1142,6 +1259,22 @@ function registerNativeModeIpc() {
         }
       })(),
       dockExpanded: megaDockExpanded
+      ,
+      activeFrontend,
+      officialVisible: (() => {
+        try {
+          return officialView ? officialView.getVisible() : null
+        } catch {
+          return null
+        }
+      })(),
+      nativeVisible: (() => {
+        try {
+          return nativeView ? nativeView.getVisible() : null
+        } catch {
+          return null
+        }
+      })()
     }
   })))
 }
@@ -1172,6 +1305,13 @@ function broadcastNativeRegions(payload) {
  */
 async function createOfficialSurfaces() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (!officialView) {
+    // The official UI is the window's own page, so there is no protected sibling
+    // to draw a frame around: a child view here would sit *on top* of the official
+    // UI, which is exactly what the Daily UX plan forbids.
+    logLine('official surfaces skipped: the official UI is the window page, and nothing is stacked above it')
+    return false
+  }
   if (officialSurfaces) return true
   officialSurfaces = createOfficialSurfaceViews({
     getWindow: () => mainWindow,

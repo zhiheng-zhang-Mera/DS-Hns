@@ -471,9 +471,9 @@ async function main() {
     const officialViewport = diagnostics && diagnostics.views ? diagnostics.views.official : null
     check(
       'GateC.width',
-      'Work Mode gives the official view its full width (the dock steps aside)',
-      officialViewport?.width >= 1200,
-      `official view ${JSON.stringify(officialViewport)} dockExpanded=${diagnostics?.views?.dockExpanded}`
+      'Work Mode shows the official UI in the window, at full width, with nothing stacked on it',
+      officialViewport?.inWindow === true && officialViewport?.width >= 1200 && diagnostics?.views?.nativeAttached === false,
+      `official ${JSON.stringify(officialViewport)} nativeAttached=${diagnostics?.views?.nativeAttached}`
     )
     const dockCollapsed = await dock.page.evaluate("document.body.classList.contains('collapsed')")
     check('GateC.dock', 'the dock collapsed to its rail for Work Mode', dockCollapsed === true, `collapsed=${dockCollapsed}`)
@@ -494,6 +494,13 @@ async function main() {
     )
     const officialProbe = await official.page.evaluate('({ title: document.title, ready: document.readyState, hasBody: Boolean(document.body && document.body.children.length) })')
     check('GateC.live', 'the official UI is a live, untouched document', officialProbe?.ready === 'complete' && officialProbe?.hasBody === true, JSON.stringify(officialProbe))
+    const officialInteractive = await official.page.evaluate('({ focusable: document.visibilityState, editable: document.querySelectorAll("textarea, [contenteditable=true], input").length })')
+    check(
+      'GateC.interactive',
+      'the official UI is the window page with nothing above it',
+      diagnostics?.views?.childViews === 1 && officialInteractive?.editable >= 1,
+      `childViews=${diagnostics?.views?.childViews} editable=${officialInteractive?.editable} visibility=${officialInteractive?.focusable}`
+    )
 
     // ---- Gate J: a native failure falls back to Work Mode without touching the
     // backend, the session or the harness. The failure is forced through the

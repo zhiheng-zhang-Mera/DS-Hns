@@ -183,6 +183,45 @@ Overlay）：五种锚点（右下/右侧/悬浮/侧栏/背景）、可隐藏、
 
 ---
 
+## 3.11 Work Mode：官方 UI 改为窗口自身页面（官方可用性修复）
+
+用户反馈「Work 状态官方 Web 未正常渲染」。真机排查（可见窗口 + 逐区域像素统计）确认：
+
+* 切到 Work 时窗口内容几乎没有变化（与 Daily 的像素统计逐项相同）→ 官方界面根本没显示；
+* 把 Daily 视图移出窗口后，Work 显示的是**一整片空白**（采样区间内没有任何一个像素低于
+  200 亮度）→ 官方视图即使被显示出来也没有合成面。
+
+根因是架构本身：官方 UI 原来是一个与 Daily 同尺寸的兄弟 `WebContentsView`，靠
+`setVisible` 切换。在这个 Electron 构建里，被隐藏的兄弟视图**仍会被绘制**（所以 Work 显示的
+是 Daily 界面），而被隐藏或被移出窗口的视图回来时**丢掉了合成面**（所以又变成空白）。这两点
+都不是可以靠调参解决的行为。
+
+现在的做法（`desktop-main.cjs`）：
+
+```text
+官方 Harness UI  =  BrowserWindow 自身的页面（mainWindow.loadURL）
+Daily Native UI  =  覆盖在它上面的子视图；切到 Work 就是把这个子视图移除
+Mega             =  始终在最上层的子视图（Work 下自动收起到 48px 轨道条）
+```
+
+这样官方界面用的是「普通 Electron 窗口页面」这条一直可靠的路径：它始终被加载、始终能绘制、
+始终可交互；模式切换只是增删 Daily 子视图，官方页面不会重新加载，所以 Harness 会话状态不会
+丢失（任务 19）。同尺寸兄弟视图的方案、以及依赖它成立时创建的 official_shell / official_overlay
+（它们会变成「压在官方界面之上」的视图）在这个配置下不再创建——这正是 daily 计划第 10 章要求
+的 Work 极简。Daily 主题仍然作用于 Dock 与 Native。
+
+真机验证（`scripts/dual-ui-acceptance.mjs`）：
+
+| 检查 | 结果 |
+| --- | --- |
+| 窗口像素：Daily 深色 / Work 浅色（官方界面确实显示） | PASS（Work 实测 mean 252、有文字与控件像素） |
+| `views.official.inWindow === true`，宽度 = 窗口内容宽度（1474px） | PASS |
+| Work 下子视图只有 1 个（Mega 轨道条），没有视图压在官方界面上 | PASS（`childViews=1`） |
+| 官方页面 `readyState=complete`、`visibilityState=visible`、存在可编辑元素 | PASS（`editable=3`） |
+| 20 次 Daily ↔ Work 往返：官方页面地址与身份不变、Harness 不重启 | PASS |
+
+---
+
 ## 3.10 （已撤回）daily-refactor §2 的三栏工作台
 
 以下结构已在 3.9 中撤回，保留记录以便对照：
@@ -279,7 +318,7 @@ node scripts\dual-ui-acceptance.mjs --root D:\DS-Hns --port 3097 --cdp 9337 ^
 
 | 项目 | 结果 |
 | --- | --- |
-| Dual-UI 真机验收 | **PASS（37/37 checks）** |
+| Dual-UI 真机验收 | **PASS（38/38 checks）** |
 
 该脚本启动真实 Electron（独立 app name / 独立 user data dir / 非 3097 端口），再通过
 CDP 驱动**真实**的 Dock 与 Native 渲染器：
@@ -308,6 +347,7 @@ CDP 驱动**真实**的 Dock 与 Native 渲染器：
 | 顶栏无状态 chip（任务 3） | A | PASS |
 | 语义 Surface `root/sidebar/conversation/composer/utility` 齐全（任务 14） | F | PASS |
 | 角色图层有真实图片、pointer-events:none、不越过 Composer（任务 15） | G | PASS |
+| Work 下官方 UI 是窗口页面、全宽、无视图压在上面、可交互 | F | PASS |
 
 补充说明（测量口径）：`GateC.width` 断言的是**主进程里官方视图的真实 bounds**
 （`hns:native-diagnostics` 的 `views.official`），而不是官方渲染器的 `innerWidth`。在后台
