@@ -18,6 +18,7 @@ const { PATHS } = require('./utils/paths')
 const { HarnessUpdater } = require('./updater/harness-updater')
 const { createThemeEngine } = require('./theme')
 const { createSkillService } = require('./skills/skill-service')
+const { createDockTarget } = require('./dock/target')
 
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
@@ -29,7 +30,7 @@ const CHANNELS = [
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
   'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
-  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint',
+  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint', 'mega:theme-artifacts',
   // ---- HNS skills management ----
   'mega:skills-snapshot', 'mega:skills-search', 'mega:skills-tags', 'mega:skills-detail',
   'mega:skills-install-source', 'mega:skills-install-catalog', 'mega:skills-pick-local',
@@ -45,7 +46,7 @@ const THEME_CHANNELS = [
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
   'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
-  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint'
+  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint', 'mega:theme-artifacts'
 ]
 
 /** Skills IPC channels, owned by the skills service. */
@@ -85,10 +86,26 @@ let dockWidth = DOCK_DEFAULT_WIDTH
 let dockUserHidden = false
 let themeEngine = null
 let skillService = null
+let dockReadyHandler = null
 // Latest geometry reported by the dock renderer (slot map + protected regions).
 let themeRegionCache = {}
 let themeTreeCache = null
 const mainWindowBindings = []
+
+/**
+ * The only way this extension reaches the dock renderer.
+ *
+ * The shell hands over a `dockAdapter` for the integrated `WebContentsView`; the
+ * legacy companion window below is the fallback backend of the same adapter
+ * (`mega/dock/target.js`). No caller after this point reads `dockWindow` to talk
+ * to the dock — that path is exactly how "theme apply succeeded, the dock never
+ * repainted" used to happen.
+ */
+const dockTarget = createDockTarget({
+  getLegacyWindow: () => dockWindow,
+  ctx: () => ctx,
+  log: (message) => log(message)
+})
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
 
@@ -153,13 +170,15 @@ function snapshot() {
       id: 'mega',
       mode: 'optional-feature-extension',
       shellOwner: 'alien',
-      dock: {
-        visible: Boolean(dockWindow && !dockWindow.isDestroyed() && dockWindow.isVisible()),
+      // Dock state comes from the adapter, so it is real in both generations:
+      // integrated mode reports its mode and live view geometry instead of the
+      // "no dockWindow, therefore no UI" answer the old test produced.
+      dock: dockTarget.getState({
         expanded: dockExpanded,
-        width: dockExpanded ? dockWidth : DOCK_COLLAPSED_WIDTH,
+        width: currentDockWidth(),
         expandedWidth: dockWidth,
         collapsedWidth: DOCK_COLLAPSED_WIDTH
-      },
+      }),
       tray: Boolean(tray)
     },
     scheduler: scheduler.describe(),
@@ -220,28 +239,12 @@ function snapshot() {
 }
 
 /**
- * The dock renderer the extension must talk to.
- *
- * In the shipped configuration the dock is a `WebContentsView` owned by the shell
- * (`desktop-main.cjs`), and the legacy companion `BrowserWindow` is disabled. The
- * renderer still reaches the extension through IPC because it initiates those calls,
- * but every *push* (a theme payload, a change notification) needs this target — and
- * pushing to the disabled companion window silently did nothing, which is how
- * "apply succeeds but the dock never repaints" happened.
+ * Every dock push goes through the adapter. The dock renderer initiates its own
+ * IPC calls, but a *push* (a change notification, a theme payload) needs a
+ * target, and the integrated dock is the target the product actually ships.
  */
-function dockWebContents() {
-  // The shell may hand over the view itself or a lazy accessor (the view is created
-  // after extensions start), so both forms are accepted.
-  const provided = ctx?.dockWebContents
-  const view = typeof provided === 'function' ? provided() : provided
-  if (view && typeof view.send === 'function' && !view.isDestroyed?.()) return view
-  if (dockWindow && !dockWindow.isDestroyed()) return dockWindow.webContents
-  return null
-}
-
 function notifyChanged() {
-  const contents = dockWebContents()
-  if (contents) contents.send('mega:changed')
+  dockTarget.send('mega:changed')
 }
 
 /**
@@ -250,8 +253,7 @@ function notifyChanged() {
  * renderer even when the ordinary dock snapshot push is coalesced.
  */
 function notifyThemeChanged() {
-  const contents = dockWebContents()
-  if (contents) contents.send(THEME_EVENT_CHANNEL)
+  dockTarget.send(THEME_EVENT_CHANNEL)
 }
 
 /**
@@ -259,9 +261,12 @@ function notifyThemeChanged() {
  * locate the protected regions. Bounded by a timeout: a renderer that never
  * answers degrades the snapshot to structure-only instead of stalling a design.
  */
-function requestThemeRegions(timeoutMs = 700) {
-  const wc = dockWindow && !dockWindow.isDestroyed() ? dockWindow.webContents : null
-  if (!wc) return Promise.resolve(null)
+function requestThemeRegions(timeoutMs = 1500) {
+  const wc = dockTarget.getWebContents()
+  if (!wc) {
+    log('dock region probe unavailable: no dock target')
+    return Promise.resolve(null)
+  }
   return new Promise((resolve) => {
     let settled = false
     const finish = (value) => {
@@ -272,30 +277,68 @@ function requestThemeRegions(timeoutMs = 700) {
       resolve(value)
     }
     const onReply = (_event, payload) => finish(payload)
-    const timer = setTimeout(() => finish(null), timeoutMs)
+    const timer = setTimeout(() => {
+      log(`dock region probe timed out after ${timeoutMs} ms`)
+      finish(null)
+    }, timeoutMs)
     timer.unref?.()
     try {
       ctx.electron.ipcMain.on('mega-theme:regions', onReply)
       wc.send('mega-theme:probe-regions')
-    } catch {
+    } catch (error) {
+      log(`dock region probe failed: ${error?.message || error}`)
       finish(null)
     }
   })
 }
 
 /**
+ * Live slot geometry, measured now.
+ *
+ * The dock pushes its geometry whenever it lays out, but an *observation* must
+ * not depend on whether such a push happened to land first: without this pull the
+ * snapshot's slot map could be empty and the observer would silently design
+ * against nothing. The probe re-measures in the renderer and answers with real
+ * bounding boxes.
+ */
+async function measureDockRegions() {
+  if (!dockTarget.hasTarget()) {
+    log(`dock regions unavailable: ${dockTarget.mode()} dock target missing; slot geometry falls back to the last push`)
+    return themeRegionCache
+  }
+  try {
+    const probed = await requestThemeRegions()
+    if (probed && typeof probed === 'object') {
+      themeRegionCache = probed
+      themeTreeCache = probed.componentTree || themeTreeCache
+      return probed
+    }
+  } catch (error) {
+    log(`dock region measurement failed: ${error?.message || error}`)
+  }
+  return themeRegionCache
+}
+
+/**
  * Visual observation. Only our own dock webContents is ever captured — the
  * official Harness renderer is never read, styled or screenshotted by us.
+ *
+ * A missing target is logged once instead of silently producing an empty
+ * snapshot: the theme system must be able to tell it is designing blind.
  */
 async function captureDockPages(pageIds = []) {
-  const wc = dockWindow && !dockWindow.isDestroyed() ? dockWindow.webContents : null
-  if (!wc || typeof wc.capturePage !== 'function') return {}
+  if (!dockTarget.hasTarget()) {
+    log(`dock capture unavailable: ${dockTarget.mode()} dock target missing; snapshot degrades to structure-only`)
+    return {}
+  }
   const screenshots = {}
   for (const pageId of pageIds) {
+    const image = await dockTarget.capturePage()
+    if (!image) continue
     try {
-      const image = await wc.capturePage()
-      const png = image && typeof image.toPNG === 'function' ? image.toPNG() : null
+      const png = typeof image.toPNG === 'function' ? image.toPNG() : null
       if (png && png.length) screenshots[pageId] = png
+      else if (png) log(`dock capture returned an empty image for ${pageId}`)
     } catch (error) {
       log(`dock capture failed for ${pageId}: ${error?.message || error}`)
     }
@@ -303,33 +346,14 @@ async function captureDockPages(pageIds = []) {
   return screenshots
 }
 
+/** Theme-facing dock state: real in both dock generations, via the adapter. */
 function themeDockState() {
-  return {
-    visible: Boolean(dockWindow && !dockWindow.isDestroyed() && dockWindow.isVisible()),
+  return dockTarget.getState({
     expanded: dockExpanded,
     width: currentDockWidth(),
-    expandedWidth: dockWidth
-  }
-}
-
-/**
- * The dock renderer the extension must talk to.
- *
- * In the shipped configuration the dock is a `WebContentsView` owned by the shell
- * (`desktop-main.cjs`), and the legacy companion `BrowserWindow` is disabled. The
- * renderer still reaches the extension through IPC because it initiates those calls,
- * but every *push* (a theme payload, a change notification) needs this target — and
- * pushing to the disabled companion window silently did nothing, which is how
- * "apply succeeds but the dock never repaints" happened.
- */
-function dockWebContents() {
-  // The shell may hand over the view itself or a lazy accessor (the view is created
-  // after extensions start), so both forms are accepted.
-  const provided = ctx?.dockWebContents
-  const view = typeof provided === 'function' ? provided() : provided
-  if (view && typeof view.send === 'function' && !view.isDestroyed?.()) return view
-  if (dockWindow && !dockWindow.isDestroyed()) return dockWindow.webContents
-  return null
+    expandedWidth: dockWidth,
+    collapsedWidth: DOCK_COLLAPSED_WIDTH
+  })
 }
 
 function ensureThemeEngine() {
@@ -338,21 +362,39 @@ function ensureThemeEngine() {
     log: (message) => log(`theme: ${message}`),
     scheduler,
     applyToRenderer: (payload) => {
-      const contents = dockWebContents()
-      if (contents) contents.send('mega:theme-apply', payload)
+      if (!dockTarget.send('mega:theme-apply', payload)) {
+        log('theme repaint could not reach the dock: no dock target')
+      }
     },
     onChanged: () => notifyThemeChanged(),
     capture: (pageIds) => captureDockPages(pageIds),
-    dockRegions: () => themeRegionCache,
+    dockRegions: () => measureDockRegions(),
     componentTree: () => themeTreeCache,
-    windowSize: () => {
-      if (!dockWindow || dockWindow.isDestroyed()) return null
-      const [width, height] = dockWindow.getContentSize()
-      return [width, height]
-    },
-    dockState: () => themeDockState()
+    // Integrated dock geometry comes from the shell's view bounds; a legacy
+    // window is read through its content size. Both through one accessor.
+    windowSize: () => dockTarget.getSize(),
+    dockState: () => themeDockState(),
+    // Is a screenshot possible right now? Only the adapter knows, and its answer
+    // is what turns "no picture" into a *recorded degradation* instead of a
+    // silent one. A hidden or absent dock is a known, allowed reason; a visible
+    // dock that yields no image is a capture defect and the snapshot says so.
+    visualExpected: () => visualExpectation()
   })
   return themeEngine
+}
+
+/** The visual-capture expectation handed to the snapshot service. */
+function visualExpectation() {
+  if (process.env.DSH_THEME_NO_VISUAL === '1') {
+    return { expected: false, reason: 'visual capture disabled by DSH_THEME_NO_VISUAL=1' }
+  }
+  if (!dockTarget.hasTarget()) {
+    return { expected: false, reason: 'the dock renderer is not available in this run' }
+  }
+  if (!dockTarget.getVisible()) {
+    return { expected: false, reason: 'the dock renderer is present but not visible' }
+  }
+  return { expected: true, reason: null }
 }
 
 function ensurePlayerWindow() {
@@ -437,28 +479,60 @@ function syncDockVisibility() {
   else dockWindow.hide()
 }
 
+/**
+ * Tell the shell how the dock should be laid out.
+ *
+ * The integrated dock is a `WebContentsView` whose geometry the shell owns, so a
+ * dock toggle that only flipped a local boolean left the reserved strip at its
+ * old width. The shell listens on `mega-shell:dock-state` and re-lays out both
+ * views. It is a no-op for the legacy window backend (the shell has no listener
+ * there) and harmless if the shell is absent.
+ */
+function notifyShellDockState() {
+  if (!mainAlive()) return false
+  try {
+    ctx.mainWindow.webContents.send('mega-shell:dock-state', {
+      expanded: dockExpanded,
+      width: currentDockWidth(),
+      expandedWidth: dockWidth
+    })
+    return true
+  } catch (error) {
+    log(`dock layout push failed: ${error?.message || error}`)
+    return false
+  }
+}
+
 function setDockExpanded(expanded, { focus = false } = {}) {
   dockExpanded = Boolean(expanded)
   dockUserHidden = false
   saveDockState()
   positionDock()
-  if (dockWindow && !dockWindow.isDestroyed()) {
+  // The legacy companion window follows the extension's own visibility rules.
+  const win = dockWindow && !dockWindow.isDestroyed() ? dockWindow : null
+  if (win) {
     if (dockCanShow()) {
       if (focus && dockExpanded) {
-        dockWindow.show()
-        dockWindow.focus()
+        win.show()
+        win.focus()
       } else {
-        dockWindow.showInactive()
+        win.showInactive()
       }
     }
-    const contents = dockWebContents()
-    if (contents) contents.send('mega:changed')
   }
-  return { expanded: dockExpanded, width: currentDockWidth() }
+  // The integrated dock is re-laid out by the shell, which owns its bounds.
+  notifyShellDockState()
+  dockTarget.send('mega:changed')
+  return dockTarget.getState({
+    expanded: dockExpanded,
+    width: currentDockWidth(),
+    expandedWidth: dockWidth,
+    collapsedWidth: DOCK_COLLAPSED_WIDTH
+  })
 }
 
 function toggleDock({ focus = true } = {}) {
-  if (!dockWindow || dockWindow.isDestroyed()) return false
+  if (!dockTarget.hasTarget()) return false
   if (dockUserHidden) {
     dockUserHidden = false
     return setDockExpanded(true, { focus })
@@ -802,7 +876,15 @@ function registerThemeIpc(engine) {
   })))
   ipcMain.handle('mega:theme-capabilities', guard(() => ({ ok: true, capability: orchestrator.capabilities() })))
   ipcMain.handle('mega:theme-paint', guard(() => ({ ok: true, payload: engine.paintPayload() })))
-  ipcMain.handle('mega:theme-create', guard((_event, payload = {}) => orchestrator.createTheme(payload || {})))
+  ipcMain.handle('mega:theme-create', guard(async (_event, payload = {}) => {
+    const result = await orchestrator.createTheme(payload || {})
+    // A theme designed without seeing the UI is allowed, but it is never
+    // silent: the reason is logged here and returned to the renderer.
+    if (result?.ok && result.observation?.degraded) {
+      log(`theme observation degraded (${result.observation.reason || 'unknown reason'}); the design used structure only`)
+    }
+    return result
+  }))
   ipcMain.handle('mega:theme-revise', guard((_event, payload = {}) => orchestrator.reviseTheme(payload || {})))
   ipcMain.handle('mega:theme-validate', guard((_event, payload = {}) => ({ ok: true, ...orchestrator.validate(payload || {}) })))
   ipcMain.handle('mega:theme-approve', guard((_event, payload = {}) => orchestrator.approve(payload || {})))
@@ -833,13 +915,28 @@ function registerThemeIpc(engine) {
   }))
   ipcMain.handle('mega:theme-observe', guard(async (_event, payload = {}) => {
     const observed = await orchestrator.observe({ pages: payload?.pages || null })
+    if (observed.degraded) {
+      log(`UI observation degraded (${observed.reason || 'unknown reason'})`)
+    }
     return {
       ok: true,
       capability: observed.manifest,
       snapshot: observed.snapshot,
-      dir: observed.snapshotDir
+      dir: observed.snapshotDir,
+      // The renderer must be able to show "structure only" instead of implying a
+      // full visual observation.
+      visual: observed.visual,
+      degraded: observed.degraded,
+      reason: observed.reason || null,
+      observedSlots: observed.observedSlots
     }
   }))
+  ipcMain.handle('mega:theme-artifacts', guard(() => ({
+    ok: true,
+    artifacts: engine.snapshotArtifacts ? engine.snapshotArtifacts() : null,
+    // Optional AI designer: reported so the UI can explain that it is off.
+    model: engine.modelAdapter ? engine.modelAdapter.describe() : { enabled: false, available: false }
+  })))
   ipcMain.handle('mega:theme-detail', guard((_event, payload = {}) => {
     const id = typeof payload === 'string' ? payload : payload?.id
     const inspected = engine.lifecycle.inspectTheme(id)
@@ -997,8 +1094,7 @@ function ensureSkillService() {
 }
 
 function notifySkillsChanged() {
-  const contents = dockWebContents()
-  if (contents) contents.send(SKILL_EVENT_CHANNEL)
+  dockTarget.send(SKILL_EVENT_CHANNEL)
 }
 
 async function start(context) {
@@ -1050,14 +1146,70 @@ async function start(context) {
     const engine = ensureThemeEngine()
     ctx.electron.ipcMain.on('mega-theme:regions', onThemeRegions)
     engine.start()
-    const paint = engine.paintPayload()
-    const contents = dockWebContents()
-    if (contents) contents.send('mega:theme-apply', paint)
+    pushThemePaint(engine)
   } catch (error) {
     log(`theme system unavailable, continuing with the built-in Dark palette: ${error?.stack || error}`)
   }
-  if (process.argv.includes('--mega-dock')) setDockExpanded(true, { focus: true })
+  // The integrated dock view is created *after* extensions start, so the first
+  // paint above has nowhere to go. The shell calls `onDockReady` once its
+  // renderer has loaded; that is when the active theme is actually delivered.
+  registerDockReadyHook()
+  // The dock can be asked to start expanded (`--mega-dock`, or the environment
+  // form used by tooling that only controls the child's environment).
+  if (process.argv.includes('--mega-dock') || process.env.DSH_MEGA_DOCK_EXPANDED === '1') {
+    setDockExpanded(true, { focus: false })
+  }
   log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency + unified theme system enabled')
+}
+
+/**
+ * Deliver the active theme to the dock renderer.
+ *
+ * A missing target is normal during boot (the shell has not created the view
+ * yet), so it is not logged as an error; the ready hook below closes that gap.
+ */
+function pushThemePaint(engine = themeEngine) {
+  if (!engine) return false
+  let paint = null
+  try {
+    paint = engine.paintPayload()
+  } catch (error) {
+    log(`theme payload unavailable: ${error?.message || error}`)
+    return false
+  }
+  if (!dockTarget.hasTarget()) return false
+  if (!dockTarget.send('mega:theme-apply', paint)) {
+    log('theme repaint could not reach the dock: push failed')
+    return false
+  }
+  return true
+}
+
+/**
+ * The shell's dock-ready notification (`ctx.onDockReady`). Registering here —
+ * and not at module scope — keeps the extension free of start-order side effects
+ * and lets `stop()` drop the handler it added.
+ */
+function registerDockReadyHook() {
+  const hook = ctx?.onDockReady
+  if (typeof hook !== 'function') return false
+  const handler = () => {
+    try {
+      pushThemePaint()
+      notifyChanged()
+    } catch (error) {
+      log(`dock ready handling failed: ${error?.message || error}`)
+    }
+  }
+  try {
+    hook(handler)
+    dockReadyHandler = handler
+    return true
+  } catch (error) {
+    log(`dock ready hook unavailable: ${error?.message || error}`)
+    dockReadyHandler = null
+    return false
+  }
 }
 
 function stop() {
@@ -1089,6 +1241,7 @@ function stop() {
   if (tray) {
     try { tray.destroy() } catch {}
   }
+  dockReadyHandler = null
   if (dockWindow && !dockWindow.isDestroyed()) dockWindow.destroy()
   if (playerWindow && !playerWindow.isDestroyed()) playerWindow.destroy()
   tray = null

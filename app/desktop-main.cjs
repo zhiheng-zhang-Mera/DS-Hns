@@ -64,6 +64,8 @@ let resolveHarnessUrl = null
 let rejectHarnessUrl = null
 let extensionManager = null
 let startupOutput = ''
+/** Extension callbacks registered through `ctx.onDockReady` (see the adapter). */
+const dockReadyCallbacks = []
 
 /**
  * Compatibility alias for machines that already store the DeepSeek API key as
@@ -439,6 +441,10 @@ function applyIntegratedDockState(payload = {}) {
 function registerIntegratedDockIpc() {
   if (!INTEGRATED_MEGA_DOCK) return
   ipcMain.removeAllListeners('mega-shell:dock-state')
+  // The dock renderer's preload reports its own state through the extension's
+  // main process, and the extension relays the *layout* decision here: the shell
+  // owns the view bounds, so a failed relay would leave the reserved strip at the
+  // wrong width. Both senders are accepted; the payload shape is identical.
   ipcMain.on('mega-shell:dock-state', (_event, payload) => applyIntegratedDockState(payload || {}))
 }
 
@@ -508,6 +514,9 @@ async function createIntegratedMegaDock() {
   layoutIntegratedViews()
   await megaDockView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'dock.html'))
   logLine('Mega dock attached as a reserved right-side WebContentsView; official UI no longer sits underneath it')
+  // The view exists now, so every push the extension made during boot (or will
+  // make after a reload) has a real target: hand over the ready notification.
+  notifyDockReady()
   return true
 }
 
@@ -554,24 +563,85 @@ function createWindow() {
   })
 }
 
+/**
+ * The dock target the extension talks to.
+ *
+ * The extension must not care whether the dock is a `WebContentsView` (current)
+ * or a legacy `BrowserWindow` (older builds), so the shell hands it a small
+ * adapter instead of a webContents: the webContents itself, the view's real
+ * bounds (a `WebContentsView` has no `getContentSize`), its visibility, and
+ * whether this is the integrated generation. `dockWebContents` is kept as the
+ * legacy single-value form for compatibility.
+ */
+function createDockAdapter() {
+  const webContents = () => (megaDockView && !megaDockView.webContents.isDestroyed() ? megaDockView.webContents : null)
+  return {
+    integrated: true,
+    webContents,
+    bounds: () => {
+      if (!megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
+      try {
+        return megaDockView.getBounds()
+      } catch {
+        return null
+      }
+    },
+    // The dock is a child view of the main window, so "visible" is a property of
+    // the window: this is the shell's own answer, not a guess.
+    visible: () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isMinimized()),
+    expanded: () => megaDockExpanded,
+    // The extension registers here to receive the dock-ready notification, which
+    // is what closes the boot gap: the view is created after extensions start, so
+    // the first paint push has no target yet.
+    onReady: (callback) => {
+      if (typeof callback !== 'function' || dockReadyCallbacks.includes(callback)) return false
+      dockReadyCallbacks.push(callback)
+      // A dock that is already loaded missed the notification by definition.
+      if (megaDockView && !megaDockView.webContents.isDestroyed()) {
+        setImmediate(() => notifyDockReady())
+      }
+      return true
+    }
+  }
+}
+
+/**
+ * Called once the integrated dock renderer has loaded.
+ *
+ * Callbacks stay registered: the dock renderer can reload (a crash recovery, a
+ * dev reload) and every reload must be repainted with the active theme, exactly
+ * like the first one.
+ */
+function notifyDockReady() {
+  for (const callback of [...dockReadyCallbacks]) {
+    try {
+      callback()
+    } catch (error) {
+      logLine(`dock ready callback failed: ${error?.stack || error}`)
+    }
+  }
+}
+
 async function startExtensions(nodeExe) {
   if (process.env.DSH_DISABLE_MEGA === '1') {
     logLine('Mega extensions disabled by DSH_DISABLE_MEGA=1')
     return false
   }
   try {
+    const dockAdapter = createDockAdapter()
     extensionManager = require('./extensions/manager.cjs')
     await extensionManager.start({
       root: ROOT,
       nodeExe,
       mainWindow,
       officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
-      // The dock is this shell's WebContentsView in the shipped configuration, so the
-      // extension is handed a way to reach its webContents. It must be lazy: the view
-      // is created *after* extensions start (it loads the extension's preload), so an
-      // eager value would always be null and every push — a theme payload, a change
-      // notification — would go nowhere.
-      dockWebContents: () => (megaDockView && !megaDockView.webContents.isDestroyed() ? megaDockView.webContents : null),
+      dockAdapter,
+      // Legacy single-value form: the extension's adapter accepts either.
+      dockWebContents: dockAdapter.webContents,
+      // The dock view is created *after* extensions start (it loads the
+      // extension's preload), so an eager value would always be null and every
+      // push — a theme payload, a change notification — would go nowhere.
+      onDockReady: dockAdapter.onReady,
       log: logLine,
       // The shell owns process lifecycle, so the tray's exit actions are routed
       // back here instead of the extension reaching into the managed child.
