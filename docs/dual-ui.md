@@ -122,6 +122,56 @@ Frontend 的图层再以 `var(--hns-native-*, var(--hns-asset-*, none))` 兜底�
 验收证据（真机运行，`GateH.assets`）：当前主题在 Native 面上一共 4 个图层是内联图片
 （wallpaper / decoration / personaBanner / personaAvatar）。
 
+## 3.9 Daily 工作台重构（Update-Plan/daily-refactorr.md §2）
+
+### 启动前端
+
+产品现在**默认挂载官方 Work UI**（`DEFAULT_STARTUP_MODE = 'work'`）：Daily 工作台仍在重构
+中，官方界面是稳定的入口。`DSH_FRONTEND_MODE=daily|work` 可以覆盖单次运行；用户上次选择
+的模式仍会被记录（用于两侧各自的会话记忆与切换恢复），但不再决定下次启动挂载哪一个前端。
+
+### Daily Workspace Shell（任务 1）
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Top Bar                                                  │
+├──────────────┬──────────────────────────┬────────────────┤
+│ Session      │ Conversation             │ Context Panel  │
+│ Sidebar      │                          │ (可折叠)        │
+│ 220–300px    │ flex: 1                  │ 300–460px      │
+│              ├──────────────────────────┤                │
+│              │ Composer                 │                │
+└──────────────┴──────────────────────────┴────────────────┘
+```
+
+实测（真机 1425×883 的 Daily 视图）：Sidebar **268px**、Conversation **785px**、Context
+Panel **348px**、Composer 与 Top Bar 均在位；Context Panel 折叠后为 **46px** 轨道条
+（保留展开按钮，不会变得无法恢复）。
+
+Top Bar（任务 3）显示且只显示工作上下文：Workspace（可切换）、Current Session、Model
+（可切换）、Permission Mode、Task Status（点击跳到 Context → Tasks）、Backend Status，
+外加模式切换与 Settings 入口。Updater / Sub-worker 细节 / 主题生成器 / 诊断都留在 Mega。
+其中「切模型」「切工作区」复用 Mega 的**同一个设置写入者**（`applySettingsPatch` /
+`pickWorkspaceDirectory`），Daily 不新增第二条设置通路。
+
+Context Panel（任务 1 的面板骨架 + 任务 10 的标签集合）目前有两个标签是活的：
+
+* **Tasks** — 原本属于 Dock 的工具/任务活动，现在归 Daily；
+* **Context** — 当前渲染器的有效配置（模式、会话、后端、工作区、模型、权限、对话事件数、
+  主题、HNS model/契约版本、兼容性、降级原因）。
+
+Files / Changes / Git / Terminal 是下一段（§7）的内容，现在显示明确的空状态并注明来源章节，
+不做成空黑块（任务 26 要求每个模块都有 loading/empty/error）。
+
+Settings 仍然是**页面而不是默认视图**（任务 2）：Daily 打开即工作区，Settings 从 Top Bar
+进入，Esc 或「返回工作区」退出。
+
+### Mega 默认收起全部模块
+
+Dock 的每个模块（Interface Mode / Appearance / Skills / 队列 / 硬件 / Sub-worker / 余额 /
+拓展状态）默认折叠，点标题或折叠按钮展开，选择按模块保存在本地。收起栏仍保留 `H`/`D`
+模式快速切换，所以关闭全部模块不会影响模式切换入口。
+
 ## 4. 验收
 
 ### 4.1 自动化 Gate（本轮已执行）
@@ -134,8 +184,8 @@ npm test          # node --test ..\tests\unit\*.test.js
 
 | 项目 | 结果 |
 | --- | --- |
-| `npm run check` | PASS（117/117，含 `app/frontend-mode/`、`app/native-ui/`、`theme/assets/resolver.js`、`scripts/dual-ui-acceptance.mjs`） |
-| `npm test` | 730 tests / 728 pass / 1 fail（+1 为下述多句柄时序项） |
+| `npm run check` | PASS（119/119，含 `app/frontend-mode/`、`app/native-ui/`、`theme/assets/resolver.js`、`scripts/dual-ui-acceptance.mjs`） |
+| `npm test` | 733 tests / 732 pass / 1 fail（下述多句柄时序项） |
 
 **唯一失败项与本改动无关**：`tests/unit/multi-supervisor.test.js` 的
 `并行验收: independent nodes really run at the same time on N workers` 在本机
@@ -166,7 +216,7 @@ node scripts\dual-ui-acceptance.mjs --root D:\DS-Hns --port 3097 --cdp 9337 ^
 
 | 项目 | 结果 |
 | --- | --- |
-| Dual-UI 真机验收 | **PASS（25/25 checks）** |
+| Dual-UI 真机验收 | **PASS（32/32 checks）** |
 
 该脚本启动真实 Electron（独立 app name / 独立 user data dir / 非 3097 端口），再通过
 CDP 驱动**真实**的 Dock 与 Native 渲染器：
@@ -189,6 +239,10 @@ CDP 驱动**真实**的 Dock 与 Native 渲染器：
 | 进入 Work 时 Mega 收起到轨道条 | C | PASS |
 | Work 内仍可手动展开 Mega | C | PASS |
 | 切回 Daily 恢复用户原本的展开状态 | C | PASS |
+| 启动即挂载官方 Work UI（构建默认） | A | PASS |
+| Daily 三栏宽度符合 220–300 / flex / 300–460 | A（daily-refactor 任务 1） | PASS |
+| Top Bar 与 Composer 在位；Daily 不落在 Settings 页 | A（任务 2 / 3） | PASS |
+| Context Panel 可折叠（348px ↔ 46px） | A（任务 1） | PASS |
 
 不在该脚本内、需要人工或需要 API Key 的 Gate：
 
@@ -234,7 +288,7 @@ renderer” 在当前官方版本上无法实现：官方 Web UI 没有 session 
 | 变量 | 默认 | 作用 |
 | --- | --- | --- |
 | — | `daily` | `data/state/frontend-mode.json` 记录当前模式，可手工改为 `work` 作为启动默认 |
-| `DSH_FRONTEND_MODE` | 未设置 | `daily` / `work`：强制本次运行的启动模式，且**不改写**用户已保存的偏好（验收/快捷方式用） |
+| `DSH_FRONTEND_MODE` | 未设置（= `work`） | `daily` / `work`：覆盖本次运行的启动前端。不设置时挂载官方 Work UI；已保存的偏好不会被改写，仍用于两侧的会话记忆 |
 | `DSH_OFFICIAL_OVERLAY` | 未设置 | `=1` 时创建已废弃的官方 Overlay（仅排查旧主题包） |
 | `DSH_MEGA_INTEGRATED_DOCK` | 开启 | `=0` 时回退到“官方窗口 + 独立 Mega 窗口”的旧形态，双前端不启用 |
 | `DSH_DISABLE_MEGA` | 未设置 | `=1` 时不加载 Mega 扩展（此时双前端 IPC 不可用，Work Mode 仍正常） |

@@ -13,18 +13,20 @@
 
   const TOOL_LABEL = { running: 'running', ok: 'done', error: 'failed' }
 
-  function render(state) {
-    const panel = byId('toolActivity')
-    if (!panel) return
+function render(state) {
     const tools = Array.isArray(state.toolEvents) ? state.toolEvents : []
     const tasks = Array.isArray(state.tasks) ? state.tasks : []
     const openTasks = tasks.filter((task) => ['RUNNING', 'PENDING', 'QUEUED'].includes(String(task.status).toUpperCase()))
     const runningTools = tools.filter((tool) => tool.status === 'running')
+    // The badge lives on the Context Panel's Tasks tab, so it is updated even
+    // when that tab's body is not the one currently mounted.
     const badge = byId('toolBadge')
     if (badge) {
       badge.textContent = String(runningTools.length + openTasks.length)
       badge.dataset.active = runningTools.length + openTasks.length > 0 ? '1' : '0'
     }
+    const panel = byId('toolActivity')
+    if (!panel) return
     if (!tools.length && !tasks.length) {
       panel.innerHTML = '<p class="empty">No tool or task activity in this session.</p>'
       return

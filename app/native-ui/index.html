@@ -30,6 +30,15 @@
     <div id="personaBannerLayer" aria-hidden="true"></div>
     <div id="personaAvatarLayer" aria-hidden="true"></div>
 
+    <!--
+      Top Bar (Update-Plan/daily-refactorr.md 任务 1 / 任务 3).
+
+      It carries the *working* context only: workspace, current session, model,
+      permission mode, task status, backend status, plus the two switches the plan
+      allows here (workspace, model) and a way into Settings. Updater,
+      Sub-worker detail, the theme generator and diagnostics deliberately stay in
+      Mega - they are system management, not daily work.
+    -->
     <header id="topbar">
       <div class="brand">
         <span class="brand-mark">HNS</span>
@@ -37,6 +46,15 @@
           <b id="sessionTitle">Daily Mode</b>
           <small id="sessionSub">HNS Native Frontend</small>
         </div>
+      </div>
+      <div class="topbar-status">
+        <button id="workspaceChip" type="button" class="chip chip-button" title="切换工作区">workspace: —</button>
+        <label class="topbar-field" title="模型">
+          <select id="modelSelect" aria-label="Model"></select>
+        </label>
+        <span id="permissionChip" class="chip" title="权限模式">permission: —</span>
+        <button id="taskChip" type="button" class="chip chip-button" title="查看任务状态">tasks: 0</button>
+        <span id="backendChip" class="chip" data-state="unknown" title="Backend 状态">backend: —</span>
       </div>
       <div class="topbar-actions">
         <span id="modeChip" class="chip" data-mode="daily" title="Interface mode">Daily</span>
@@ -74,25 +92,47 @@
         </form>
       </main>
 
-      <section id="toolPanel" aria-label="Tool and task activity">
+      <!--
+        Context Panel (Update-Plan/daily-refactorr.md 任务 1): 300-460px, foldable.
+        The tab set is the one the plan names; Files / Changes / Git / Terminal are
+        filled by the next stage (section 7 of the plan) and say so honestly until
+        then rather than showing an empty black box.
+      -->
+      <section id="contextPanel" aria-label="Context panel">
         <div class="panel-head">
-          <b>Activity</b>
-          <span id="toolBadge" class="count" data-active="0">0</span>
-          <button id="collapseActivity" type="button" class="panel-collapse" title="折叠模块" aria-label="折叠活动模块" aria-expanded="true">▾</button>
+          <b>Context</b>
+          <span id="contextHint" class="context-hint">Tasks</span>
+          <button id="collapseContext" type="button" class="panel-collapse" title="折叠 Context Panel" aria-label="折叠 Context Panel" aria-expanded="true">▾</button>
         </div>
-        <div id="toolActivity" class="tool-activity"></div>
+        <div class="context-tabs" role="tablist" aria-label="Context tabs">
+          <button type="button" class="context-tab" data-context-tab="files" role="tab">Files</button>
+          <button type="button" class="context-tab" data-context-tab="changes" role="tab">Changes</button>
+          <button type="button" class="context-tab" data-context-tab="git" role="tab">Git</button>
+          <button type="button" class="context-tab active" data-context-tab="tasks" role="tab">
+            Tasks<span id="toolBadge" class="count" data-active="0">0</span>
+          </button>
+          <button type="button" class="context-tab" data-context-tab="terminal" role="tab">Terminal</button>
+          <button type="button" class="context-tab" data-context-tab="context" role="tab">Context</button>
+        </div>
+        <div id="contextBody" class="context-body"></div>
       </section>
     </div>
 
-    <div id="settingsPanel" class="settings-overlay" hidden>
-      <div class="settings-sheet" role="dialog" aria-modal="true" aria-label="Settings">
-        <div class="settings-head">
-          <b>Settings</b>
-          <button id="closeSettings" type="button" class="icon-button" title="Close" aria-label="Close">×</button>
-        </div>
+    <!--
+      Settings is a PAGE, never the default view (Update-Plan/daily-refactorr.md
+      任务 2). Daily opens on the workspace; this page is reached from the top bar
+      and is read-only apart from the two settings the top bar owns.
+    -->
+    <div id="settingsPage" class="settings-page" role="dialog" aria-modal="true" aria-label="Settings page" hidden>
+      <div class="settings-head">
+        <b>Settings</b>
+        <button id="closeSettings" type="button" class="quiet" title="返回工作区" aria-label="Close settings">← 返回工作区</button>
+      </div>
+      <div class="settings-page-body">
         <div id="settingsBody" class="settings-body"></div>
         <p class="settings-note">
-          Themable surfaces, skins and characters live in Mega → Appearance. This page is read-only.
+          Daily 只负责日常工作所需的设置（工作区、模型、权限、后端状态）。
+          主题生成、皮肤与角色、Sub-worker、更新与诊断都在 Mega 系统控制中心。
         </p>
       </div>
     </div>
@@ -100,9 +140,11 @@
 
   <script src="state/store.js"></script>
   <script src="components/dom.js"></script>
+  <script src="components/topbar.js"></script>
   <script src="components/session-list.js"></script>
   <script src="components/conversation.js"></script>
   <script src="components/tool-activity.js"></script>
+  <script src="components/context-panel.js"></script>
   <script src="components/composer.js"></script>
   <script src="components/settings.js"></script>
   <script src="app.js"></script>

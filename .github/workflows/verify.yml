@@ -59,6 +59,8 @@ jobs:
             'app/native-ui/app.css',
             'app/native-ui/state/store.js',
             'app/native-ui/components/dom.js',
+            'app/native-ui/components/topbar.js',
+            'app/native-ui/components/context-panel.js',
             'app/native-ui/components/session-list.js',
             'app/native-ui/components/conversation.js',
             'app/native-ui/components/tool-activity.js',

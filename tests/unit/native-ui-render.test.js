@@ -72,6 +72,12 @@ function makeElement(id) {
 function installDom() {
   const elements = new Map()
   const documentHandlers = new Map()
+  // The Context Panel wires its tab bar through document.querySelectorAll.
+  const contextTabs = ['files', 'changes', 'git', 'tasks', 'terminal', 'context'].map((name) => {
+    const button = makeElement(`tab-${name}`)
+    button.dataset.contextTab = name
+    return button
+  })
   global.document = {
     readyState: 'complete',
     body: makeElement('body'),
@@ -83,6 +89,7 @@ function installDom() {
       return elements.get(id)
     },
     querySelector: (selector) => elements.get(selector) || makeElement(selector),
+    querySelectorAll: (selector) => (selector === '[data-context-tab]' ? contextTabs : []),
     addEventListener: (name, handler) => {
       if (!documentHandlers.has(name)) documentHandlers.set(name, [])
       documentHandlers.get(name).push(handler)
@@ -99,7 +106,8 @@ function installDom() {
     elements,
     element: (id) => document.getElementById(id),
     documentElement: global.document.documentElement,
-    body: global.document.body
+    body: global.document.body,
+    contextTabs
   }
 }
 
@@ -147,7 +155,9 @@ function loadNativeUi(snapshot = makeSnapshot(), { theme = null } = {}) {
     modeToggle: 0,
     themePaint: 0,
     reportFailure: [],
-    reportRegions: []
+    reportRegions: [],
+    settingsUpdate: [],
+    pickWorkspace: 0
   }
   const listeners = { mode: null, session: null, theme: null, probe: null }
   const errors = []
@@ -176,15 +186,21 @@ function loadNativeUi(snapshot = makeSnapshot(), { theme = null } = {}) {
       reportRegions: (payload) => { calls.reportRegions.push(payload) },
       onProbeRegions: (callback) => { listeners.probe = callback }
     },
-    diagnostics: { describe: async () => ({ adapter: { model: 1, contract: 1 }, compatibility: null }) }
+    diagnostics: { describe: async () => ({ adapter: { model: 1, contract: 1 }, compatibility: null }) },
+    settings: {
+      update: async (patch) => { calls.settingsUpdate.push(patch); return { ok: true } },
+      pickWorkspace: async () => { calls.pickWorkspace += 1; return { ok: true, workspace: 'D:\\picked' } }
+    }
   }
 
   for (const file of [
     'state/store.js',
     'components/dom.js',
+    'components/topbar.js',
     'components/session-list.js',
     'components/conversation.js',
     'components/tool-activity.js',
+    'components/context-panel.js',
     'components/composer.js',
     'components/settings.js',
     'app.js'
@@ -224,6 +240,13 @@ test('the native frontend renders a full snapshot without reporting a failure', 
   assert.match(activity, /file body/)
   assert.match(activity, /queued task/)
 
+  // Top bar (Daily refactor 任务 3): the working context, and nothing from Mega.
+  assert.match(dom.element('workspaceChip').textContent, /workspace: work$/)
+  assert.equal(dom.element('modelSelect').value, 'deepseek-v4-flash')
+  assert.equal(dom.element('permissionChip').textContent, 'permission: workspace-write')
+  assert.match(dom.element('taskChip').textContent, /tasks: \d+ running/)
+  assert.match(dom.element('backendChip').textContent, /backend: ready/)
+
   assert.equal(dom.element('composerInput').disabled, false)
   assert.equal(dom.element('composerSend').disabled, true, 'an empty composer cannot be sent')
   dom.element('composerInput').value = 'a message'
@@ -233,6 +256,7 @@ test('the native frontend renders a full snapshot without reporting a failure', 
   assert.match(dom.element('sessionTitle').textContent, /Fix the parser/)
   assert.equal(dom.element('modeChip').textContent, 'Daily')
   assert.equal(dom.element('banner').hidden, true, 'an inactive degradation is not a degradation')
+  assert.equal(dom.element('settingsPage').hidden, true, 'Daily opens on the workspace, not on Settings')
 })
 
 test('an unready backend disables the composer and explains why', async () => {
@@ -273,7 +297,7 @@ test('selecting a session, sending and stopping go through the bridge', async ()
   assert.deepEqual(calls.cancel, ['sess-a'])
 })
 
-test('the native mode toggle and the settings drawer are wired to the shell', async () => {
+test('the native mode toggle and the settings page are wired to the shell', async () => {
   const { dom, calls } = loadNativeUi()
   await settle()
   dom.element('toggleMode').fire('click')
@@ -282,12 +306,55 @@ test('the native mode toggle and the settings drawer are wired to the shell', as
 
   dom.element('openSettings').fire('click')
   await settle()
-  assert.equal(dom.element('settingsPanel').hidden, false)
+  assert.equal(dom.element('settingsPage').hidden, false)
+  assert.equal(dom.body.dataset.view, 'settings')
   assert.match(dom.element('settingsBody').innerHTML, /deepseek-v4-flash/)
   assert.match(dom.element('settingsBody').innerHTML, /workspace-write/)
   dom.element('closeSettings').fire('click')
   await settle()
-  assert.equal(dom.element('settingsPanel').hidden, true)
+  assert.equal(dom.element('settingsPage').hidden, true)
+  assert.equal(dom.body.dataset.view, 'workspace')
+})
+
+test('the Context Panel switches tabs and keeps the workspace intact', async () => {
+  const { dom } = loadNativeUi()
+  await settle()
+  // Tasks is the live tab: it renders the same activity the dock used to own.
+  assert.match(dom.element('toolActivity').innerHTML, /read_file/)
+  assert.equal(dom.element('contextHint').textContent, 'Tasks')
+
+  const gitTab = dom.contextTabs.find((tab) => tab.dataset.contextTab === 'git')
+  gitTab.fire('click')
+  await settle()
+  assert.equal(dom.element('contextHint').textContent, 'Git')
+  assert.match(dom.element('contextBody').innerHTML, /Git/)
+  assert.match(dom.element('contextBody').innerHTML, /Daily 重构 §7 任务 13/, 'an unimplemented tab says which stage fills it')
+  assert.equal(gitTab.classList.contains('active'), true)
+  assert.equal(dom.contextTabs.find((tab) => tab.dataset.contextTab === 'tasks').classList.contains('active'), false)
+
+  const contextTab = dom.contextTabs.find((tab) => tab.dataset.contextTab === 'context')
+  contextTab.fire('click')
+  await settle()
+  assert.match(dom.element('contextBody').innerHTML, /deepseek-v4-flash/)
+  assert.match(dom.element('contextBody').innerHTML, /ready/)
+})
+
+test('the top bar changes the model and the workspace through the bridge', async () => {
+  const { dom, calls } = loadNativeUi()
+  await settle()
+  dom.element('modelSelect').value = 'deepseek-v4-pro'
+  dom.element('modelSelect').fire('change', { target: { value: 'deepseek-v4-pro' } })
+  await settle()
+  assert.deepEqual(calls.settingsUpdate, [{ model: 'deepseek-v4-pro' }])
+
+  dom.element('workspaceChip').fire('click')
+  await settle()
+  assert.equal(calls.pickWorkspace, 1)
+
+  // The task chip jumps to the tab that shows them rather than opening a dialog.
+  dom.element('taskChip').fire('click')
+  await settle()
+  assert.equal(dom.element('contextHint').textContent, 'Tasks')
 })
 
 test('a theme payload lands as CSS variables and asset layers, never as markup', async () => {
@@ -352,16 +419,16 @@ test('both side modules collapse and remember the choice', async () => {
   const { dom } = loadNativeUi()
   await settle()
   assert.equal(dom.element('sidebar').dataset.collapsed, '')
-  assert.equal(dom.element('toolPanel').dataset.collapsed, '')
+  assert.equal(dom.element('contextPanel').dataset.collapsed, '')
 
   dom.element('collapseSessions').fire('click', { stopPropagation() {} })
   assert.equal(dom.element('sidebar').dataset.collapsed, '1')
   assert.equal(dom.element('collapseSessions').textContent, '▸')
   assert.equal(dom.element('collapseSessions').getAttribute('aria-expanded'), 'false')
-  assert.equal(dom.element('toolPanel').dataset.collapsed, '', 'the other module is untouched')
+  assert.equal(dom.element('contextPanel').dataset.collapsed, '', 'the other module is untouched')
 
-  dom.element('collapseActivity').fire('click', { stopPropagation() {} })
-  assert.equal(dom.element('toolPanel').dataset.collapsed, '1')
+  dom.element('collapseContext').fire('click', { stopPropagation() {} })
+  assert.equal(dom.element('contextPanel').dataset.collapsed, '1')
 
   dom.element('collapseSessions').fire('click', { stopPropagation() {} })
   assert.equal(dom.element('sidebar').dataset.collapsed, '', 'clicking again expands it')

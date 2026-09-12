@@ -1590,7 +1590,10 @@ function setupCollapsiblePanels() {
       toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
       toggle.title = collapsed ? '展开模块' : '折叠模块'
     }
-    apply(Boolean(saved[id]))
+    // The dock is a system control centre, not the workspace (Update-Plan/
+    // daily-refactorr.md §18): every module starts collapsed, so the panel opens
+    // as a short list of what is available. The user's own choices stick.
+    apply(saved[id] === undefined ? true : Boolean(saved[id]))
 
     const set = (collapsed) => {
       apply(collapsed)

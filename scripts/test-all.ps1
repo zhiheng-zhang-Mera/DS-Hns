@@ -53,6 +53,8 @@ $syntaxFiles = @(
   "$ROOT\app\native-ui\app.js",
   "$ROOT\app\native-ui\state\store.js",
   "$ROOT\app\native-ui\components\dom.js",
+  "$ROOT\app\native-ui\components\topbar.js",
+  "$ROOT\app\native-ui\components\context-panel.js",
   "$ROOT\app\native-ui\components\session-list.js",
   "$ROOT\app\native-ui\components\conversation.js",
   "$ROOT\app\native-ui\components\tool-activity.js",

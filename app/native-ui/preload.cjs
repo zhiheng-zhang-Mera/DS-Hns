@@ -59,5 +59,14 @@ contextBridge.exposeInMainWorld('hnsNative', {
   /** Capability + compatibility state, for the diagnostics strip. */
   diagnostics: {
     describe: () => ipcRenderer.invoke('hns:native-diagnostics')
+  },
+  /**
+   * The two settings the Daily top bar may change (Update-Plan/daily-refactorr.md
+   * 任务 3). They go through the Mega extension's single settings writer, so the
+   * dock and Daily can never disagree about what is configured.
+   */
+  settings: {
+    update: (patch) => ipcRenderer.invoke('hns:native-update-settings', patch || {}),
+    pickWorkspace: () => ipcRenderer.invoke('hns:native-pick-workspace')
   }
 })

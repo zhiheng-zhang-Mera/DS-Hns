@@ -33,7 +33,7 @@ import http from 'node:http'
 import path from 'node:path'
 
 function parseArgs(argv) {
-  const options = { port: 3097, cdp: 9337, switches: 20, keep: false, bootTimeoutMs: 180_000 }
+  const options = { port: 3097, cdp: 9337, switches: 20, keep: false, bootTimeoutMs: 180_000, 'frontend-mode': null }
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index]
     if (token === '--keep') options.keep = true
@@ -203,9 +203,10 @@ function bootShell() {
   env.DSH_APP_NAME = OPTIONS.appName
   env.DSH_USER_DATA_DIR = OPTIONS.userDataDir
   env.DSH_HARNESS_PORT = String(OPTIONS.port)
-  // A deterministic start: Daily is the documented default, and the run must not
-  // depend on (or disturb) whatever mode the user last left the product in.
-  env.DSH_FRONTEND_MODE = OPTIONS['frontend-mode'] || 'daily'
+  // The product's own startup mode is checked by default (its build default is the
+  // official Work UI). `--frontend-mode=daily` forces Daily for a run, and the last
+  // mode the user chose never decides which frontend this run mounts.
+  if (OPTIONS['frontend-mode']) env.DSH_FRONTEND_MODE = OPTIONS['frontend-mode']
   const entry = path.join(OPTIONS.root, 'app')
   return spawn(electronBinary(), [entry, `--remote-debugging-port=${OPTIONS.cdp}`, '--no-sandbox'], {
     cwd: entry,
@@ -259,6 +260,29 @@ const NATIVE_STATE = `(() => {
 })()`
 
 /** What the Mega dock shows for the same mode. */
+/** The Daily workspace layout, as the plan's Gate A describes it. */
+const DAILY_LAYOUT = `(() => {
+  const box = (id) => {
+    const element = document.getElementById(id)
+    if (!element) return null
+    const rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    return {
+      w: Math.round(rect.width),
+      h: Math.round(rect.height),
+      hidden: element.hidden === true || style.display === 'none'
+    }
+  }
+  return {
+    topbar: box('topbar'),
+    sidebar: box('sidebar'),
+    conversation: box('conversation'),
+    composer: box('composer'),
+    context: box('contextPanel'),
+    settings: box('settingsPage')
+  }
+})()`
+
 const DOCK_STATE = `(() => {
   const rail = document.getElementById('railMode')
   const snapshot = (typeof latestSnapshot !== 'undefined' ? latestSnapshot : null)
@@ -287,7 +311,32 @@ async function main() {
     check('GateA.official', 'the official Harness renderer is up', true, official.target.url)
 
     const first = await native.page.evaluate(NATIVE_STATE)
-    check('GateA.mode', 'the product starts in Daily Mode', first?.mode === 'daily', JSON.stringify(first))
+    const expectedStart = OPTIONS['frontend-mode'] || 'work'
+    check(
+      'GateA.startMode',
+      `the product starts on the configured frontend (${expectedStart})`,
+      first?.mode === expectedStart,
+      `mode=${first?.mode} expected=${expectedStart}`
+    )
+    // Gate A (Daily refactor): the workspace is what is on screen, with all four
+    // regions laid out at the widths the plan asks for.
+    const layout = await native.page.evaluate(DAILY_LAYOUT)
+    check('GateA.layout.sidebar', 'the session sidebar is 220-300px', layout?.sidebar?.w >= 220 && layout?.sidebar?.w <= 300, JSON.stringify(layout?.sidebar))
+    check('GateA.layout.conversation', 'the conversation takes the remaining width', layout?.conversation?.w > 400, JSON.stringify(layout?.conversation))
+    check('GateA.layout.context', 'the context panel is 300-460px', layout?.context?.w >= 300 && layout?.context?.w <= 460, JSON.stringify(layout?.context))
+    check('GateA.layout.composer', 'the composer is present in the workspace', layout?.composer?.w > 0 && layout?.composer?.h > 0, JSON.stringify(layout?.composer))
+    check('GateA.layout.topbar', 'the top bar is present', layout?.topbar?.h > 0, JSON.stringify(layout?.topbar))
+    check('GateA.notSettings', 'Daily does not open on a Settings page', layout?.settings?.hidden === true, JSON.stringify(layout?.settings))
+    const collapsedWidth = await native.page.evaluate(`(() => {
+      const toggle = document.getElementById('collapseContext')
+      const panel = document.getElementById('contextPanel')
+      const width = () => Math.round(panel.getBoundingClientRect().width)
+      toggle.click()
+      const collapsed = width()
+      toggle.click()
+      return { collapsed, restored: width() }
+    })()`)
+    check('GateA.context.foldable', 'the context panel folds and unfolds', collapsedWidth?.collapsed < 80 && collapsedWidth?.restored >= 300, JSON.stringify(collapsedWidth))
     check('GateH.theme', 'the active theme reached the native surface', Boolean(first?.themeId), `themeId=${first?.themeId}`)
     const paintedLayers = Object.entries(first?.layers || {}).filter(([, value]) => value?.inline).map(([key]) => key)
     check(
@@ -305,8 +354,20 @@ async function main() {
     // so the first state is polled rather than assumed.
     const dockStart = await poll(dock.page, DOCK_STATE, (value) => Boolean(value?.rail?.letter))
     check('GateG.api', 'the dock exposes the mode API', dockStart?.hasModeApi === true)
-    check('GateG.rail', 'the collapsed rail shows the current mode', dockStart?.rail?.letter === 'H' && dockStart?.rail?.mode === 'daily', JSON.stringify(dockStart?.rail))
-    check('GateG.selector', 'the expanded selector shows the current mode', dockStart?.daily === true && dockStart?.work === false)
+    const expectedLetter = first?.mode === 'daily' ? 'H' : 'D'
+    check(
+      'GateG.rail',
+      'the collapsed rail shows the current mode',
+      dockStart?.rail?.letter === expectedLetter && dockStart?.rail?.mode === first?.mode,
+      `${JSON.stringify(dockStart?.rail)} expected ${expectedLetter}`
+    )
+    check(
+      'GateG.selector',
+      'the expanded selector shows the current mode',
+      (first?.mode === 'daily' && dockStart?.daily === true && dockStart?.work === false) ||
+        (first?.mode === 'work' && dockStart?.work === true && dockStart?.daily === false),
+      JSON.stringify({ daily: dockStart?.daily, work: dockStart?.work })
+    )
     check('GateG.snapshot', 'the dock snapshot and the native model agree', dockStart?.snapshotMode === first?.mode, `${dockStart?.snapshotMode} vs ${first?.mode}`)
 
     const observed = []

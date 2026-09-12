@@ -31,6 +31,9 @@ const CHANNELS = [
   // ---- Native frontend model (the extensions owns the adapter/themes) ----
   'hns:native-snapshot', 'hns:native-create-session', 'hns:native-select-session',
   'hns:native-send', 'hns:native-cancel', 'hns:native-theme',
+  // Daily top bar actions (Update-Plan/daily-refactorr.md 任务 3): the same
+  // writers the dock uses, reached from the native frontend.
+  'hns:native-update-settings', 'hns:native-pick-workspace',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -1176,6 +1179,37 @@ function nativeDiagnostics() {
 /** The last Compatibility Report, produced on demand (任务 16 / 任务 17). */
 let lastCompatibilityReport = null
 
+/**
+ * The single writer for settings, shared by the dock and the Daily top bar
+ * (Update-Plan/daily-refactorr.md 任务 3: Daily may *switch* model/workspace, but
+ * there is still exactly one place that persists a setting).
+ */
+function applySettingsPatch(patch = {}) {
+  const envPatch = {}
+  if (typeof patch.permissionMode === 'string') envPatch.DSH_PERMISSION_MODE = patch.permissionMode
+  if (typeof patch.telemetryMode === 'string') envPatch.DSH_TELEMETRY_MODE = patch.telemetryMode
+  if (Object.prototype.hasOwnProperty.call(patch, 'apiKey')) envPatch.DEEPSEEK_API_KEY = String(patch.apiKey || '')
+  if (Object.keys(envPatch).length) settingsService.writeEnvFile(envPatch)
+  settingsService.applyPatch({
+    model: patch.model,
+    soundEnabled: patch.soundEnabled,
+    sound: patch.sound,
+    notifications: patch.notifications
+  })
+  notifyChanged()
+  return settingsService.publicSettings()
+}
+
+/** The workspace picker, shared by the dock and the Daily top bar. */
+async function pickWorkspaceDirectory(dialog) {
+  const result = await dialog.showOpenDialog(ctx.mainWindow, {
+    title: '选择 headless 队列工作区',
+    properties: ['openDirectory', 'createDirectory']
+  })
+  if (result.canceled || !result.filePaths.length) return null
+  return workspace.setWorkspaceRoot(result.filePaths[0])
+}
+
 async function runCompatibilityProbe({ to = null, surface = 'native' } = {}) {
   const runtime = nativeFrontend()
   if (!runtime?.probe) return null
@@ -1280,6 +1314,16 @@ function registerNativeIpc() {
     if (!themeEngine) return { ok: false, reason: 'theme_engine_unavailable' }
     return { ok: true, payload: themeEngine.paintPayload() }
   }))
+  // Daily top bar actions (Update-Plan/daily-refactorr.md 任务 3). They reuse the
+  // dock's single writer instead of inventing a second settings path.
+  ipcMain.handle('hns:native-update-settings', guard((_event, patch) => ({
+    ok: true,
+    settings: applySettingsPatch(patch || {})
+  })))
+  ipcMain.handle('hns:native-pick-workspace', guard(async () => {
+    const root = await pickWorkspaceDirectory(ctx.electron.dialog)
+    return { ok: Boolean(root), workspace: root || null }
+  }))
 
   // ---- Mega dock mode surface (任务 12 / 任务 13) ----
   ipcMain.handle('mega:mode-snapshot', guard(() => ({
@@ -1323,21 +1367,7 @@ function registerIpc() {
     notifyChanged()
     return value
   })
-  ipcMain.handle('mega:update-settings', (_event, patch = {}) => {
-    const envPatch = {}
-    if (typeof patch.permissionMode === 'string') envPatch.DSH_PERMISSION_MODE = patch.permissionMode
-    if (typeof patch.telemetryMode === 'string') envPatch.DSH_TELEMETRY_MODE = patch.telemetryMode
-    if (Object.prototype.hasOwnProperty.call(patch, 'apiKey')) envPatch.DEEPSEEK_API_KEY = String(patch.apiKey || '')
-    if (Object.keys(envPatch).length) settingsService.writeEnvFile(envPatch)
-    settingsService.applyPatch({
-      model: patch.model,
-      soundEnabled: patch.soundEnabled,
-      sound: patch.sound,
-      notifications: patch.notifications
-    })
-    notifyChanged()
-    return settingsService.publicSettings()
-  })
+  ipcMain.handle('mega:update-settings', (_event, patch = {}) => applySettingsPatch(patch || {}))
   // Single balance refresh entry point: the renderer only supplies which trigger
   // fired (module-open / manual / retry); the service owns the implementation.
   ipcMain.handle('mega:balance', async (_event, trigger = 'manual', options = {}) => {
@@ -1353,14 +1383,7 @@ function registerIpc() {
       return { ...balanceService.describe(), error: { code: 'REFRESH_FAILED', message: String(error?.message || error) } }
     }
   })
-  ipcMain.handle('mega:pick-workspace', async () => {
-    const result = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: '选择 headless 队列工作区',
-      properties: ['openDirectory', 'createDirectory']
-    })
-    if (result.canceled || !result.filePaths.length) return null
-    return workspace.setWorkspaceRoot(result.filePaths[0])
-  })
+  ipcMain.handle('mega:pick-workspace', () => pickWorkspaceDirectory(dialog))
   ipcMain.handle('mega:pick-sound', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
       title: '导入任务提示音',

@@ -39,30 +39,16 @@
   /* ------------------------------- rendering ------------------------------ */
 
   const COMPONENTS = [
+    ['topbar', () => ui.topbar.render(store.get())],
     ['sessionList', () => ui.sessionList.render(store.get())],
     ['conversation', () => ui.conversation.render(store.get())],
-    ['toolActivity', () => ui.toolActivity.render(store.get())],
+    ['contextPanel', () => ui.contextPanel.render(store.get())],
     ['composer', () => ui.composer.render(store.get())],
     ['settings', () => ui.settings.render(store.get())]
   ]
 
   function renderShell() {
     const state = store.get()
-    const title = byId('sessionTitle')
-    if (title) title.textContent = state.session?.title || 'Daily Mode'
-    const sub = byId('sessionSub')
-    if (sub) {
-      const pieces = []
-      if (state.session?.model) pieces.push(state.session.model)
-      if (state.session?.cwd) pieces.push(state.session.cwd)
-      if (state.session?.status) pieces.push(state.session.status)
-      sub.textContent = pieces.join(' · ')
-    }
-    const modeChip = byId('modeChip')
-    if (modeChip) {
-      modeChip.textContent = state.mode === 'work' ? 'Work' : 'Daily'
-      modeChip.dataset.mode = state.mode
-    }
     const banner = byId('banner')
     if (banner) {
       const message = state.error || state.notice || (state.degraded ? `Daily degraded: ${state.degraded.reason}` : null)
@@ -70,10 +56,13 @@
       banner.dataset.kind = state.error ? 'error' : state.degraded ? 'warn' : 'info'
       banner.textContent = message || ''
     }
-    const dialog = byId('settingsPanel')
-    if (dialog) dialog.hidden = !state.settingsOpen
+    // Settings is a page, never the default view (任务 2): the workspace is what
+    // is on screen unless the user asked for the page.
+    const page = byId('settingsPage')
+    if (page) page.hidden = !state.settingsOpen
     document.body.dataset.mode = state.mode
     document.body.dataset.backend = state.backend?.state || 'unknown'
+    document.body.dataset.view = state.settingsOpen ? 'settings' : 'workspace'
   }
 
   const RENDERERS = [['shell', renderShell], ...COMPONENTS]
@@ -377,6 +366,38 @@
   }
 
   /**
+   * Top bar actions (任务 3).
+   *
+   * Daily may change exactly two settings, and both go through the extension's
+   * single writer: switching the model and picking the workspace. Everything else
+   * the top bar shows is read-only, because system management belongs to Mega.
+   */
+  async function onModelChange(model) {
+    if (!model) return
+    try {
+      const result = await bridge.settings?.update?.({ model })
+      if (result && result.ok === false) {
+        store.set({ error: result.message || result.reason || 'model switch failed' })
+      }
+    } catch (error) {
+      store.set({ error: `Model switch failed: ${error?.message || error}` })
+    }
+    await refresh()
+  }
+
+  async function onPickWorkspace() {
+    try {
+      const result = await bridge.settings?.pickWorkspace?.()
+      if (result && result.ok === false) {
+        store.set({ error: result.message || result.reason || 'workspace switch failed' })
+      }
+    } catch (error) {
+      store.set({ error: `Workspace switch failed: ${error?.message || error}` })
+    }
+    await refresh()
+  }
+
+  /**
    * Collapsible side modules (UI-local state).
    *
    * Sessions and Activity are the two big modules around the conversation; a
@@ -406,7 +427,7 @@
 
   function setupCollapsiblePanels() {
     const saved = readPanelState()
-    for (const [panelId, buttonId] of [['sidebar', 'collapseSessions'], ['toolPanel', 'collapseActivity']]) {
+    for (const [panelId, buttonId] of [['sidebar', 'collapseSessions'], ['contextPanel', 'collapseContext']]) {
       const panel = byId(panelId)
       const button = byId(buttonId)
       if (!panel || !button) continue
@@ -431,6 +452,14 @@
 
   function bind() {
     setupCollapsiblePanels()
+    ui.topbar.mount({
+      onPickWorkspace,
+      onModelChange,
+      onShowTasks: () => ui.contextPanel.setActive('tasks') && render(),
+      onOpenSettings: () => store.set({ settingsOpen: true }),
+      onToggleMode
+    })
+    ui.contextPanel.mount({ onRefresh: () => refresh({ quiet: true }) })
     ui.sessionList.mount({ onCreate: onCreateSession })
     ui.composer.mount(store, { onSend, onStop })
     ui.settings.mount({
@@ -441,9 +470,11 @@
       const row = event.target?.closest?.('[data-session]')
       if (row) onSelectSession(row.dataset.session)
     })
-    const modeButton = byId('toggleMode')
-    if (modeButton) modeButton.addEventListener('click', onToggleMode)
-
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && store.get().settingsOpen) store.set({ settingsOpen: false })
+      })
+    }
     bridge?.mode?.onChange?.((payload) => {
       const degraded = payload?.degraded?.active ? payload.degraded : null
       store.set({

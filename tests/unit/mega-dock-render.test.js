@@ -280,31 +280,33 @@ test('every dock module is collapsible and remembers its state', async () => {
   const h = loadDock(makeSnapshot(), { panels })
   await settle()
 
-  // A chevron is installed into each module header, expanded by default.
+  // A chevron is installed into each module header. The dock is a system control
+  // centre, so every module starts collapsed; the user's own choices stick.
   for (const panel of panels) {
     assert.equal(panel.head.children.length, 1, `${panel.id} got a collapse control`)
     const toggle = panel.head.children[0]
     assert.equal(toggle.className, 'panel-collapse')
     assert.equal(toggle.dataset.panel, panel.id)
-    assert.equal(toggle.getAttribute('aria-expanded'), 'true')
-    assert.equal(toggle.textContent, '▾')
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false')
+    assert.equal(toggle.textContent, '▸')
+    assert.equal(panel.dataset.collapsed, '1')
   }
 
-  // Clicking the header collapses that module and only that module.
+  // Clicking the header expands that module and only that module.
   panels[0].head.fire('click', { target: panels[0].head })
-  assert.equal(panels[0].dataset.collapsed, '1')
-  assert.equal(panels[0].head.children[0].textContent, '▸')
-  assert.equal(panels[0].head.children[0].getAttribute('aria-expanded'), 'false')
-  assert.equal(panels[1].dataset.collapsed, '', 'the other module is untouched')
+  assert.equal(panels[0].dataset.collapsed, '')
+  assert.equal(panels[0].head.children[0].textContent, '▾')
+  assert.equal(panels[0].head.children[0].getAttribute('aria-expanded'), 'true')
+  assert.equal(panels[1].dataset.collapsed, '1', 'the other module is untouched')
 
   // A click aimed at one of the module's own controls must not collapse it.
   panels[1].head.fire('click', { target: { closest: (selector) => (selector.includes('button') ? {} : null) } })
-  assert.equal(panels[1].dataset.collapsed, '', 'a control click does not toggle the module')
+  assert.equal(panels[1].dataset.collapsed, '1', 'a control click does not toggle the module')
 
-  // The chevron toggles it back.
+  // The chevron folds it again.
   panels[0].head.children[0].fire('click', { stopPropagation() {} })
-  assert.equal(panels[0].dataset.collapsed, '')
-  assert.equal(panels[0].head.children[0].textContent, '▾')
+  assert.equal(panels[0].dataset.collapsed, '1')
+  assert.equal(panels[0].head.children[0].textContent, '▸')
 })
 
 test('the dock collapses when Work Mode needs the width, and comes back after', async () => {

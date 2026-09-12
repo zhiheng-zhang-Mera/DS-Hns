@@ -123,6 +123,43 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
   max-width: 46vw;
 }
 .topbar-actions { display: flex; align-items: center; gap: var(--hns-space-gap); }
+/* Top bar status: workspace · model · permission · tasks · backend (任务 3). */
+.topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.topbar-field { display: flex; align-items: center; }
+#modelSelect {
+  max-width: 190px;
+  padding: 3px 6px;
+  border-radius: var(--hns-radius-sm);
+  border: 1px solid var(--hns-color-border-l1);
+  background: var(--hns-color-bg-layer2);
+  color: var(--hns-color-label-primary);
+  font: inherit;
+  font-size: var(--hns-font-size-caption);
+}
+.chip-button {
+  border: 1px solid var(--hns-color-border-l1);
+  background: var(--hns-color-bg-layer2);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--hns-font-size-caption);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-button:hover { border-color: var(--hns-color-accent-primary); color: var(--hns-color-label-primary); }
+#backendChip[data-state="ready"] { color: var(--hns-state-completed, #3ecf8e); }
+#backendChip[data-state="degraded"] { color: var(--hns-state-blocked, #f0b429); }
+#backendChip[data-state="unreachable"] { color: var(--hns-state-failed, #ef5d5d); }
+#taskChip[data-active="1"] { color: var(--hns-color-accent-primary); border-color: var(--hns-color-accent-primary); }
 
 .banner {
   position: relative;
@@ -141,7 +178,8 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: 268px minmax(0, 1fr) 300px;
+  /* Session Sidebar 220-300px · Conversation flex · Context Panel 300-460px. */
+  grid-template-columns: 268px minmax(0, 1fr) 348px;
   gap: var(--hns-space-gap);
   padding: var(--hns-space-gap);
   min-height: 0;
@@ -150,7 +188,7 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 
 #sidebar,
 #conversation,
-#toolPanel {
+#contextPanel {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -200,9 +238,20 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
   cursor: pointer;
 }
 .panel-collapse:hover { color: var(--hns-color-label-primary); }
-/* Collapsing hides the module body, never the header that can bring it back. */
+/*
+ * Collapsing hides the module body, never the header that can bring it back
+ * (Daily refactor 任务 1: the Context Panel must be foldable, and 任务 27 asks for
+ * the same for the session column). A collapsed column keeps a narrow strip with
+ * its toggle, so the workspace gains the width but nothing becomes unreachable.
+ */
+#sidebar[data-collapsed="1"],
+#contextPanel[data-collapsed="1"] { width: 46px; padding: 6px; }
 #sidebar[data-collapsed="1"] > :not(.sidebar-head),
-#toolPanel[data-collapsed="1"] > :not(.panel-head) { display: none; }
+#contextPanel[data-collapsed="1"] > :not(.panel-head) { display: none; }
+#sidebar[data-collapsed="1"] .sidebar-head > :not(.panel-collapse),
+#contextPanel[data-collapsed="1"] .panel-head > :not(.panel-collapse) { display: none; }
+#sidebar[data-collapsed="1"] .sidebar-head,
+#contextPanel[data-collapsed="1"] .panel-head { justify-content: center; }
 .count {
   padding: 1px 8px;
   border-radius: var(--hns-slot-hns-status-badge-radius);
@@ -313,7 +362,54 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 .hint[data-state="blocked"] { color: var(--hns-state-blocked, #f0b429); }
 
 /* ---- activity panel ---- */
-#toolPanel { padding: var(--hns-space-gap); gap: var(--hns-space-gap); }
+#contextPanel { padding: var(--hns-space-gap); gap: var(--hns-space-gap); overflow: hidden; }
+/* Context tabs (任务 10) */
+.context-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.context-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--hns-color-border-l1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hns-color-label-tertiary);
+  font: inherit;
+  font-size: var(--hns-font-size-caption);
+  cursor: pointer;
+}
+.context-tab:hover { color: var(--hns-color-label-primary); }
+.context-tab.active {
+  color: var(--hns-color-accent-primary);
+  border-color: var(--hns-color-accent-primary);
+  background: var(--hns-color-accent-subtle);
+}
+.context-hint { font-size: var(--hns-font-size-caption); color: var(--hns-color-label-tertiary); }
+.context-body { flex: 1; min-height: 0; overflow-y: auto; }
+.context-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px dashed var(--hns-color-border-l2);
+  border-radius: var(--hns-radius-md);
+  color: var(--hns-color-label-secondary);
+  font-size: var(--hns-font-size-caption);
+}
+.context-empty b { color: var(--hns-color-label-primary); font-size: var(--hns-font-size-body); }
+.context-empty p { margin: 0; line-height: 1.5; }
+.context-rows { display: flex; flex-direction: column; gap: 2px; }
+.context-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--hns-color-border-l1);
+  font-size: var(--hns-font-size-caption);
+}
+.context-row b { color: var(--hns-color-label-tertiary); font-weight: var(--hns-font-weight-body); }
+.context-row span { color: var(--hns-color-label-primary); word-break: break-word; }
 .tool-activity { flex: 1; min-height: 0; overflow-y: auto; }
 .tool-activity h3 {
   margin: 0 0 4px;
@@ -387,27 +483,33 @@ button.icon-button {
   color: var(--hns-color-label-secondary);
 }
 
-/* ---- settings overlay ---- */
-.settings-overlay {
+/* ---- settings page (任务 2: a page, never the default view) ---- */
+.settings-page {
   position: absolute;
   inset: 0;
   z-index: 10;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
   background: var(--hns-color-bg-overlay);
+  background-color: var(--hns-color-bg-base);
   backdrop-filter: blur(var(--hns-effect-blur));
 }
-.settings-sheet {
-  width: min(560px, 88vw);
-  max-height: 78vh;
+.settings-page-body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--hns-space-panel);
-  background: var(--hns-color-bg-layer1);
-  border: 1px solid var(--hns-color-border-l2);
-  border-radius: var(--hns-radius-lg);
-  box-shadow: var(--hns-shadow-l2);
+  background: var(--hns-color-bg-base);
 }
-.settings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--hns-space-gap); }
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--hns-space-panel);
+  border-bottom: 1px solid var(--hns-color-border-l1);
+  background: var(--hns-color-bg-layer1);
+}
+.settings-head b { font-size: var(--hns-font-size-title); font-weight: var(--hns-font-weight-title); }
 .setting-row {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);

@@ -7,6 +7,22 @@ behaviour that changed, not the files that were touched.
 
 ### 真机验收后的修正（同一分支）
 
+**启动即挂载官方 Work UI。** Daily 工作台仍在重构，产品现在默认打开官方界面
+（`DEFAULT_STARTUP_MODE = work`），Daily 从 Dock 轨道条的 `H`/`D` 或 Top Bar 进入。
+`DSH_FRONTEND_MODE=daily|work` 可覆盖单次运行；用户上次选择的模式仍会记录，但不再决定下次
+启动挂载哪个前端。
+
+**Daily 主界面成为真正的工作台（daily-refactor §2）。** 新增顶部状态栏（Workspace / 当前
+会话 / 模型 / 权限 / 任务状态 / 后端状态，含切模型与切工作区——两者复用 Mega 的唯一设置
+写入者）、220–300px 会话侧栏、flex 对话区、300–460px **可折叠 Context Panel**（Tasks 与
+Context 两个标签已可用，Files / Changes / Git / Terminal 属于下一段并已给出明确的空状态）、
+Composer。Settings 仍是页面而不是默认视图。真机实测：侧栏 268px、对话 785px、Context
+348px，折叠后 46px。
+
+**Mega 默认收起全部模块。** Dock 的每个模块（Interface Mode / Appearance / Skills / 队列 /
+硬件 / Sub-worker / 余额 / 拓展状态）默认折叠，选择按模块保存；收起栏的 `H`/`D` 模式切换
+始终可用，所以收起模块不影响模式入口。
+
 **主题的图片现在真的会出现。** 之前主题能完整应用却「只有配色变化」：主题包用
 `assets/persona/banner.png` 这类包内相对路径声明图片，渲染器把它当 URL 去自己的文档里
 找；生成器写出的 `var(--hns-asset-wallpaper)` 又落在期望 URL 的 slot 属性上；asset token

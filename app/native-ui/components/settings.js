@@ -1,12 +1,13 @@
 'use strict'
 
 /**
- * Settings Entry (Update-Plan/Dual-UI.md 任务 7: Settings Entry).
+ * Settings Page (Update-Plan/Dual-UI.md 任务 7; Daily refactor 任务 2).
  *
- * Daily Mode shows the settings the adapter normalized (model, permission mode,
- * workspace) and links back to the Mega dock for everything richer. It never
- * writes a setting itself: the dock is the settings surface, so there is exactly
- * one writer.
+ * Settings is a *page*, never the default view: Daily opens on the workspace and
+ * this page is reached from the top bar (or from Mega). It shows the settings the
+ * adapter normalized and points at Mega for everything richer. It never writes a
+ * setting itself - the two the top bar owns go through the same main-process
+ * writer the dock uses, so there is exactly one settings path.
  */
 ;(function attachSettings(global) {
   const ui = global.hnsUI = global.hnsUI || {}
@@ -39,14 +40,9 @@
   function mount(handlers = {}) {
     const open = byId('openSettings')
     const close = byId('closeSettings')
-    const dialog = byId('settingsPanel')
-    if (open && dialog) open.addEventListener('click', () => handlers.onOpen?.())
-    if (close && dialog) close.addEventListener('click', () => handlers.onClose?.())
-    if (dialog) {
-      dialog.addEventListener('click', (event) => {
-        if (event.target === dialog) handlers.onClose?.()
-      })
-    }
+    const page = byId('settingsPage')
+    if (open && page && typeof open.addEventListener === 'function') open.addEventListener('click', () => handlers.onOpen?.())
+    if (close && typeof close.addEventListener === 'function') close.addEventListener('click', () => handlers.onClose?.())
   }
 
   ui.settings = { render, mount }

@@ -29,6 +29,7 @@ const { createAdapter } = require('../../app/frontend-mode/adapter.cjs')
 const { createSync } = require('../../app/frontend-mode/sync.cjs')
 const { createModeManager, STATE } = require('../../app/frontend-mode/manager.cjs')
 const { createCompatibilityProbe, VERDICT } = require('../../app/frontend-mode/probe.cjs')
+const { createFrontendModeRuntime, DEFAULT_STARTUP_MODE } = require('../../app/frontend-mode/index.cjs')
 
 /* ------------------------------- fixtures -------------------------------- */
 
@@ -124,6 +125,27 @@ test('normalizeMode accepts only the two canonical modes', () => {
   assert.equal(stateModule.normalizeMode('official'), 'daily')
   assert.equal(stateModule.otherMode('daily'), 'work')
   assert.equal(stateModule.otherMode('work'), 'daily')
+})
+
+test('the product opens on the official Work UI unless a run overrides it', () => {
+  assert.equal(DEFAULT_STARTUP_MODE, 'work', 'the build default is the official frontend')
+  const runtime = createFrontendModeRuntime({ stateFile: null, applyVisibility: () => {} })
+  assert.equal(runtime.manager.current(), 'work')
+  assert.equal(runtime.manager.machineState(), 'WORK_ACTIVE')
+
+  const overridden = createFrontendModeRuntime({ stateFile: null, startupMode: 'daily', applyVisibility: () => {} })
+  assert.equal(overridden.manager.current(), 'daily', 'DSH_FRONTEND_MODE wins for one run')
+
+  // A saved preference is remembered (it decides which session each side keeps),
+  // but it does not decide which frontend the next launch mounts.
+  const dir = tempDir('startup-mode')
+  const file = path.join(dir, 'mode.json')
+  const state = stateModule.createModeState({ file })
+  state.setMode('daily')
+  const resumed = createFrontendModeRuntime({ stateFile: file, applyVisibility: () => {} })
+  assert.equal(resumed.manager.current(), 'work')
+  assert.equal(resumed.state.describe().frontendMode, 'daily', 'the preference is preserved, not overwritten')
+  fs.rmSync(dir, { recursive: true, force: true })
 })
 
 /* -------------------------------- model ---------------------------------- */
