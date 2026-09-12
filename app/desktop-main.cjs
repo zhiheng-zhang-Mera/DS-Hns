@@ -23,8 +23,18 @@ const HARNESS_HOST = '127.0.0.1'
  * run) start beside the normal one instead of colliding on 3080. Unset, nothing
  * changes — the default launch line, the port and the startup check are identical.
  */
-const HARNESS_PORT = normalizeHarnessPort(process.env.DSH_HARNESS_PORT)
+/** Raw opt-in value, read once. */
+const HARNESS_PORT_RAW = Number(process.env.DSH_HARNESS_PORT)
+const HARNESS_PORT = normalizeHarnessPort(HARNESS_PORT_RAW)
+/** Only an explicit, usable port counts as an override. */
+const HARNESS_PORT_OVERRIDE = Number.isInteger(HARNESS_PORT_RAW) && HARNESS_PORT_RAW === HARNESS_PORT
 const HARNESS_URL = `http://${HARNESS_HOST}:${HARNESS_PORT}/`
+/**
+ * Arguments for the managed Harness child. The fixed prefix is the canonical
+ * launch line; `--port` is appended only when the port was explicitly overridden,
+ * so the default line stays byte-identical.
+ */
+const DSH_LAUNCH_ARGS = ['web', '--no-open', ...(HARNESS_PORT_OVERRIDE ? ['--port', String(HARNESS_PORT)] : [])]
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
 const STARTUP_BUFFER_LIMIT = 64 * 1024
@@ -270,7 +280,7 @@ function startHarness(nodeExe) {
   logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
   logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
 
-  harnessProcess = spawn(nodeExe, [DSH_ENTRY, 'web', '--no-open'], {
+  harnessProcess = spawn(nodeExe, [DSH_ENTRY, ...DSH_LAUNCH_ARGS], {
     cwd: ROOT,
     env: {
       ...process.env,

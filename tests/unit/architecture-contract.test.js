@@ -3,6 +3,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 
 const ROOT = path.resolve(__dirname, '..', '..')
 const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
@@ -168,11 +169,39 @@ test('the harness port is canonical by default and only overridable by opt-in', 
   // override exists so an acceptance run can start a second instance beside the
   // normal one instead of colliding on 3080.
   assert.match(main, /function normalizeHarnessPort/)
-  assert.match(main, /const HARNESS_PORT = normalizeHarnessPort\(process\.env\.DSH_HARNESS_PORT\)/)
+  assert.match(main, /const HARNESS_PORT = normalizeHarnessPort\(HARNESS_PORT_RAW\)/)
   assert.match(main, /if \(!Number\.isInteger\(parsed\) \|\| parsed < 1024 \|\| parsed > 65535\) return 3080/)
-  // Every consumer of the port reads the resolved constant, never the raw env.
-  assert.doesNotMatch(main, /Number\(process\.env\.DSH_HARNESS_PORT\)/)
+  // The port reaches the managed child only through the composed launch line.
+  assert.match(main, /const DSH_LAUNCH_ARGS = \['web', '--no-open', \.\.\.\(HARNESS_PORT_OVERRIDE \? \['--port', String\(HARNESS_PORT\)\] : \[\]\)\]/)
+  assert.match(main, /spawn\(nodeExe, \[DSH_ENTRY, \.\.\.DSH_LAUNCH_ARGS\]/)
+  // The env value is read once and everything else derives from it.
+  const envReads = main.match(/process\.env\.DSH_HARNESS_PORT/g) || []
+  assert.equal(envReads.length, 1, 'the port env var is read exactly once')
+  assert.match(main, /const HARNESS_PORT = normalizeHarnessPort\(HARNESS_PORT_RAW\)/)
+  assert.match(main, /const HARNESS_PORT_OVERRIDE = Number\.isInteger\(HARNESS_PORT_RAW\) && HARNESS_PORT_RAW === HARNESS_PORT/)
   assert.match(main, /allowedHarnessNavigation[\s\S]*?HARNESS_PORT/)
+})
+
+test('the launch line is byte-identical when the port is not overridden', () => {
+  const result = spawnSync(process.execPath, ['-e', `
+    const source = require('node:fs').readFileSync(${JSON.stringify(path.join(ROOT, 'app', 'desktop-main.cjs'))}, 'utf8')
+    const helper = source.match(/function normalizeHarnessPort[\\s\\S]*?\\n\\}/)[0]
+    const normalize = new Function(helper + '; return normalizeHarnessPort')()
+    const derive = (raw) => {
+      const port = normalize(raw)
+      const override = Number.isInteger(Number(raw)) && Number(raw) === port
+      return { port, args: ['web', '--no-open', ...(override ? ['--port', String(port)] : [])] }
+    }
+    console.log(JSON.stringify({ none: derive(undefined), canonical: derive('3080'), alternate: derive('3091'), junk: derive('nope') }))
+  `], { encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  const parsed = JSON.parse(result.stdout)
+  assert.deepEqual(parsed.none.args, ['web', '--no-open'], 'no override keeps the canonical line')
+  assert.equal(parsed.none.port, 3080)
+  assert.deepEqual(parsed.canonical.args, ['web', '--no-open', '--port', '3080'])
+  assert.deepEqual(parsed.alternate.args, ['web', '--no-open', '--port', '3091'])
+  assert.deepEqual(parsed.junk.args, ['web', '--no-open'], 'junk input falls back to the canonical line')
+  assert.equal(parsed.junk.port, 3080)
 })
 
 test('startup token capture tolerates chunk boundaries and either output stream', () => {
