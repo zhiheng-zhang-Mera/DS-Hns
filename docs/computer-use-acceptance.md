@@ -184,9 +184,11 @@ never as a pass.
 
 ```text
 cd app; npm run check      -> checked 153/153 files
-cd app; npm test           -> unit + architecture tests, see the CI run
-pwsh scripts\verify.ps1    -> includes the Computer Use section (plan 6, 7, 9-15,
-                              18-25, 29-34, 36, 37-43, 49 and the acceptance harness)
+cd app; npm test           -> tests 897 | pass 897 | fail 0 | skipped 0 (local, Node 24)
+pwsh scripts\verify.ps1    -> VERIFY: ALL CHECKS PASSED
+                              (includes the Computer Use section: plan 6, 7, 9-15,
+                              18-25, 29-34, 36, 37-43, 49, the panel wiring, the
+                              config block and the acceptance harness)
 ```
 
 The GitHub workflow `.github/workflows/verify.yml` adds a **Computer Use surface
@@ -194,3 +196,24 @@ gate**: the runtime modules, controllers, real drivers, dock panel, acceptance
 harness and this document must all exist, and `scripts/check-syntax.cjs` must
 cover `computer-use`, `computer-use/controllers` and `computer-use/drivers` —
 a green gate over unchecked code is worse than a red one.
+
+### CI runs on this branch
+
+```text
+b660f6a  feat(computer-use): a verifiable Computer Use runtime over real state
+         verify  failure  -> 2 pre-existing failures, both line-ending sensitive
+                              (tests/unit/theme-official-surfaces.test.js and
+                               tests/unit/dual-ui.test.js read desktop-main.cjs and
+                               match "\n"; a Windows checkout had rewritten it) —
+                              the same two failures are red on Theme-Cover's own
+                              last run (34695333024), so they predate this work
+941a019  fix(ci): keep source files LF so the source gate reads code, not line endings
+         verify  success  -> Syntax gate ✓  Unit + architecture tests ✓
+                             Theme surface gate ✓  Computer Use surface gate ✓
+```
+
+The line-ending fix is two-layered on purpose: `.gitattributes` pins LF for
+source/data/documentation files (only `*.cmd` stays CRLF) so a Windows checkout
+cannot rewrite them, and both tests normalize what they read so the gate reads
+code rather than the checkout's line-ending policy. No assertion was weakened.
+

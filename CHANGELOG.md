@@ -57,6 +57,11 @@ Vision / Shell / File 控制器、瞬态稳定、动作验证、miss 检测、�
   用例（真实 Chromium + 真实桌面 + 真实输入），结果与限制记在
   `docs/computer-use-acceptance.md`；CI 增加 Computer Use surface gate，并把
   `computer-use` 加入 verify 工作流的分支触发列表。
+* **顺带修好了一个一直红着的门**：Theme-Cover 分支的 verify 一直挂在两个与本次改动
+  无关的断言上（`theme-official-surfaces` / `dual-ui` 读 `desktop-main.cjs` 并用 `\n`
+  做多行匹配，Windows checkout 把行尾改成 CRLF 后必然失败）。现在 `.gitattributes`
+  把源码/数据/文档钉成 LF（只有 `*.cmd` 保持 CRLF），两个测试也各自归一化读入内容；
+  断言没有被削弱，computer-use 分支的 verify 已经是绿色。
 
 ## Theme-Cover — 双前端模式：Daily（HNS 原生界面）与 Work（官方界面）
 
