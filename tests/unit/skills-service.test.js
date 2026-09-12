@@ -416,6 +416,69 @@ test('a repository that is itself a skill resolves as one candidate', () => {
   }
 })
 
+test('a conventional skills/ collection wins over a root-level scaffold', () => {
+  const box = scratch()
+  try {
+    // The shape a real repository actually has: a `skills/` collection plus a
+    // starter `template/` scaffold at the root. The scaffold must not shadow the
+    // collection, or installing a public collection silently installs one template.
+    const repository = path.join(box.incoming, 'repo-main')
+    fs.mkdirSync(path.join(repository, 'skills', 'alpha'), { recursive: true })
+    fs.mkdirSync(path.join(repository, 'skills', 'beta'), { recursive: true })
+    fs.mkdirSync(path.join(repository, 'template'), { recursive: true })
+    fs.mkdirSync(path.join(repository, 'spec'), { recursive: true })
+    fs.writeFileSync(path.join(repository, 'skills', 'alpha', 'SKILL.md'), skillDoc('alpha', 'x'), 'utf8')
+    fs.writeFileSync(path.join(repository, 'skills', 'beta', 'SKILL.md'), skillDoc('beta', 'x'), 'utf8')
+    fs.writeFileSync(path.join(repository, 'template', 'SKILL.md'), skillDoc('starter-template', 'x'), 'utf8')
+    fs.writeFileSync(path.join(repository, 'spec', 'SKILL.md'), skillDoc('a-spec-fixture', 'x'), 'utf8')
+    fs.writeFileSync(path.join(repository, 'README.md'), '# readme', 'utf8')
+
+    const located = source.locateSkills(box.incoming)
+    assert.deepEqual(located.candidates.map((item) => item.name).sort(), ['alpha', 'beta'])
+  } finally {
+    box.cleanup()
+  }
+})
+
+test('a scaffold inside a collection is skipped by name', () => {
+  const box = scratch()
+  try {
+    const repository = path.join(box.incoming, 'repo-main')
+    for (const name of ['alpha', 'template']) {
+      fs.mkdirSync(path.join(repository, 'skills', name), { recursive: true })
+      fs.writeFileSync(path.join(repository, 'skills', name, 'SKILL.md'), skillDoc(name === 'template' ? 'starter-template' : 'alpha', 'x'), 'utf8')
+    }
+    const service = createSkillService({ root: box.root, log: () => {} })
+    const result = service.installLocal(path.join(box.incoming, 'repo-main'))
+    assert.equal(result.ok, true, result.reason)
+    // A `template/` bundle inside a collection is a starter, not a skill to install.
+    assert.deepEqual(result.installed.map((item) => item.upstreamName || item.name), ['alpha'])
+  } finally {
+    box.cleanup()
+  }
+})
+
+test('a repository with no collection still resolves from its own shape', () => {
+  const box = scratch()
+  try {
+    const repository = path.join(box.incoming, 'repo-main')
+    fs.mkdirSync(path.join(repository, 'my-skill'), { recursive: true })
+    fs.writeFileSync(path.join(repository, 'my-skill', 'SKILL.md'), skillDoc('my-skill', 'x'), 'utf8')
+    fs.writeFileSync(path.join(repository, 'SKILL.md'), skillDoc('repo-root-skill', 'x'), 'utf8')
+
+    // The repository root is a skill, which is the most specific answer.
+    const located = source.locateSkills(box.incoming)
+    assert.deepEqual(located.candidates.map((item) => item.name), ['repo-main'])
+
+    // Without a root SKILL.md the one-level-down scan finds the nested bundle.
+    fs.rmSync(path.join(repository, 'SKILL.md'))
+    const nested = source.locateSkills(box.incoming)
+    assert.deepEqual(nested.candidates.map((item) => item.name), ['my-skill'])
+  } finally {
+    box.cleanup()
+  }
+})
+
 // ---------------------------------------------------------------------------
 // catalog
 // ---------------------------------------------------------------------------

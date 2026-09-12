@@ -18,6 +18,7 @@
  *        --report <file.json> [--skills] [--github]
  */
 import { spawn, spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -36,6 +37,18 @@ function parseArgs(argv) {
   }
   options.root = path.resolve(options.root || process.cwd())
   options.report = path.resolve(options.report || path.join(options.root, 'temp', 'acceptance-report.json'))
+  /**
+   * Electron keys its single-instance lock by app name, so an acceptance run of
+   * *the same checkout the product is running from* would silently quit behind
+   * the live instance's lock and look like a harness that never came up. When the
+   * target is this checkout the run gives itself its own name; a separate
+   * checkout already derives one from its own root.
+   */
+  const ownRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+  options.ownRoot = ownRoot
+  options.sameCheckout = options.root === ownRoot
+  options.appName = options['app-name'] || `HNS Acceptance ${options.port}`
+  options.userDataDir = path.resolve(options['user-data-dir'] || path.join(options.root, 'data', `acceptance-${options.port}`))
   return options
 }
 
@@ -56,6 +69,28 @@ function note(text) {
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Turn a snippet into a function body.
+ *
+ * Expression first, statement second. `new Function` accepts an expression as a
+ * body too (whose value is undefined), so trying "is this a body?" first mislabels
+ * every expression; wrapping in `return (...)` and falling back on a parse error is
+ * the only reliable order.
+ */
+function toBody(snippet) {
+  const text = String(snippet).trim()
+  if (text.startsWith('return ')) return text
+  try {
+    // eslint-disable-next-line no-new-func
+    new Function(`return (${text})`)
+    return `return (${text})`
+  } catch {
+    // eslint-disable-next-line no-new-func
+    new Function(text)
+    return text
+  }
+}
 
 // ---------------------------------------------------------------------------
 // HTTP + CDP
@@ -132,10 +167,17 @@ class Page {
     })
   }
 
-  /** Evaluate an expression in the page and return its value. */
-  async evaluate(expression) {
+  /**
+   * Evaluate a snippet in the page.
+   *
+   * A snippet is either a full body (statements, ending in its own `return`) or a
+   * bare expression. The two are told apart by parsing each candidate with `new
+   * Function` — never by pattern-matching keywords, which mislabels any expression
+   * that merely contains a word like `const` in a string.
+   */
+  async evaluate(snippet) {
     const result = await this.send('Runtime.evaluate', {
-      expression: `(() => { ${expression} })()`,
+      expression: `(() => { ${toBody(snippet)} })()`,
       returnByValue: true,
       awaitPromise: true
     })
@@ -145,19 +187,19 @@ class Page {
     return result.result?.value
   }
 
-  async poll(expression, { timeoutMs = 25_000, intervalMs = 250 } = {}) {
+  async poll(snippet, { timeoutMs = 25_000, intervalMs = 250 } = {}) {
     const deadline = Date.now() + timeoutMs
     let last = null
     while (Date.now() < deadline) {
       try {
-        last = await this.evaluate(`return (${expression})`)
+        last = await this.evaluate(snippet)
         if (last) return last
       } catch (error) {
         last = String(error.message)
       }
       await sleep(intervalMs)
     }
-    throw new Error(`poll timed out: ${expression} (last=${JSON.stringify(last)})`)
+    throw new Error(`poll timed out: ${String(snippet).trim().slice(0, 120)} (last=${JSON.stringify(last)})`)
   }
 
   close() {
@@ -207,19 +249,28 @@ function launchShell() {
   const out = fs.openSync(path.join(logDir, 'acceptance.out.log'), 'a')
   const err = fs.openSync(path.join(logDir, 'acceptance.err.log'), 'a')
 
+  const env = {
+    ...process.env,
+    DSH_ROOT: OPTIONS.root,
+    DSH_HOME: path.join(OPTIONS.root, 'data'),
+    DSH_HARNESS_PORT: String(OPTIONS.port),
+    DSH_MEGA_INTEGRATED_DOCK: '1',
+    DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || 'sk-acceptance-placeholder',
+    npm_config_cache: path.join(OPTIONS.root, 'cache', 'npm'),
+    TEMP: path.join(OPTIONS.root, 'temp'),
+    TMP: path.join(OPTIONS.root, 'temp')
+  }
+  // The shell's single-instance lock lives in the userData directory, so an
+  // acceptance run always takes a profile of its own. Running the same checkout the
+  // product is running from needs a name and a profile too, or the run would sit
+  // silently behind the live instance's lock and look like a harness that never came up.
+  env.DSH_APP_NAME = OPTIONS.appName
+  env.DSH_USER_DATA_DIR = OPTIONS.userDataDir
+  env.DSH_ACCEPTANCE = '1'
+
   const child = spawn(electron, [entry, `--remote-debugging-port=${OPTIONS.cdp}`, '--no-sandbox'], {
     cwd: path.join(OPTIONS.root, 'app'),
-    env: {
-      ...process.env,
-      DSH_ROOT: OPTIONS.root,
-      DSH_HOME: path.join(OPTIONS.root, 'data'),
-      DSH_HARNESS_PORT: String(OPTIONS.port),
-      DSH_MEGA_INTEGRATED_DOCK: '1',
-      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || 'sk-acceptance-placeholder',
-      npm_config_cache: path.join(OPTIONS.root, 'cache', 'npm'),
-      TEMP: path.join(OPTIONS.root, 'temp'),
-      TMP: path.join(OPTIONS.root, 'temp')
-    },
+    env,
     stdio: ['ignore', out, err],
     windowsHide: false
   })
@@ -239,6 +290,15 @@ function killShell(child) {
 // skill install through the native directory picker
 // ---------------------------------------------------------------------------
 
+/** `pwsh` is not present on every Windows host; fall back to Windows PowerShell. */
+function resolvePowerShell() {
+  for (const candidate of ['pwsh', 'powershell.exe', 'powershell']) {
+    const probe = spawnSync(candidate, ['-NoProfile', '-Command', 'exit 0'], { stdio: 'ignore', windowsHide: true })
+    if (probe.status === 0) return candidate
+  }
+  return null
+}
+
 /**
  * Drive the real "local install" path: click the button, then type the path into
  * the native Windows folder picker and confirm it. This is the only part of the
@@ -246,12 +306,14 @@ function killShell(child) {
  * when the dialog never appeared at all.
  */
 async function pickLocalDirectory(page, directory) {
+  const shell = resolvePowerShell()
+  if (!shell) return false
   const script = `
     Add-Type -AssemblyName System.Windows.Forms
-    $shell = New-Object -ComObject WScript.Shell
+    $wsh = New-Object -ComObject WScript.Shell
     for ($i = 0; $i -lt 80; $i++) {
       Start-Sleep -Milliseconds 250
-      if ($shell.AppActivate('选择技能目录或 SKILL.md') -or $shell.AppActivate('Select')) { break }
+      if ($wsh.AppActivate('选择技能目录或 SKILL.md') -or $wsh.AppActivate('Select')) { break }
     }
     Start-Sleep -Milliseconds 500
     [System.Windows.Forms.SendKeys]::SendWait('^l')
@@ -262,7 +324,7 @@ async function pickLocalDirectory(page, directory) {
     Start-Sleep -Milliseconds 800
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
   `
-  const powershell = spawn('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], {
+  const child = spawn(shell, ['-NoProfile', '-NonInteractive', '-Command', script], {
     stdio: 'ignore',
     windowsHide: true
   })
@@ -270,11 +332,16 @@ async function pickLocalDirectory(page, directory) {
   await page.evaluate("document.getElementById('skillsPickDir').click(); return true")
   await new Promise((resolve) => {
     const timer = setTimeout(resolve, 30_000)
-    powershell.on('exit', () => {
+    child.on('exit', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+    child.on('error', () => {
       clearTimeout(timer)
       resolve()
     })
   })
+  return true
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +354,11 @@ async function run() {
   console.log(`harness port=${OPTIONS.port}  cdp port=${OPTIONS.cdp}  skills=${OPTIONS.skills}  github=${OPTIONS.github}`)
 
   const dataDir = path.join(OPTIONS.root, 'data')
+  // A fresh checkout has no runtime directories; the shell creates them only after
+  // it starts, and a missing `logs/` would swallow its own launch errors.
+  for (const dir of ['data', 'logs', 'temp', 'cache', 'workspace', 'runtime', 'assets', 'config']) {
+    fs.mkdirSync(path.join(OPTIONS.root, dir), { recursive: true })
+  }
   fs.mkdirSync(dataDir, { recursive: true })
 
   // --- the harness itself must boot on the alternate port -------------------
@@ -306,7 +378,20 @@ async function run() {
       if (!harnessReady) await sleep(1000)
     }
     check('the harness listens on the alternate port', harnessReady, `http://127.0.0.1:${OPTIONS.port}/`)
-    if (!harnessReady) throw new Error('harness did not start on the alternate port')
+    if (!harnessReady) {
+      // The shell quits silently when another instance already holds the app-name
+      // lock, so say that outright instead of leaving "did not start" unexplained.
+      const hint = shell.exitCode !== null ? ` (the shell exited with code ${shell.exitCode})` : ''
+      const tail = (() => {
+        try {
+          return fs.readFileSync(path.join(OPTIONS.root, 'logs', 'desktop-runtime.log'), 'utf8').split(/\r?\n/).slice(-3).join(' | ')
+        } catch {
+          return ''
+        }
+      })()
+      note(`shell instance identity: name="${OPTIONS.appName}" sameCheckout=${OPTIONS.sameCheckout}`)
+      throw new Error(`harness did not start on port ${OPTIONS.port}${hint}; last runtime log lines: ${tail || '(none)'}`)
+    }
 
     dock = await attachTo(OPTIONS.cdp, (url) => /dock\.html/i.test(url))
     check('the dock renderer is attached', Boolean(dock), dock.target.url)
@@ -346,8 +431,36 @@ async function run() {
     check('dock UI modules joined the theme bridge', Array.isArray(panels.bridgeModules) && panels.bridgeModules.length >= 1, JSON.stringify(panels.bridgeModules))
 
     // --- theme switching through the real engine -----------------------------
+    // Start from a known theme so the assertion is about the transition, not about
+    // whatever was active in this data directory.
+    const darkBase = await dock.page.evaluate(`
+      return window.megaTools.theme.apply('hns.system.dark').then(() => new Promise((resolve) => setTimeout(() => {
+        resolve(getComputedStyle(document.documentElement).getPropertyValue('--hns-color-bg-base').trim())
+      }, 600)))
+    `)
+    check('the Dark system theme is active with its own base colour', darkBase === '#0f1115', String(darkBase))
+
+    // Observe the payload the renderer actually receives while the switch happens.
+    await dock.page.evaluate(`
+      window.__seen = []
+      const bridge = window.megaThemeBridge
+      const originalPaint = bridge.paint
+      bridge.paint = function (payload) {
+        window.__seen.push({ id: payload && payload.id, cssHead: payload && payload.css ? payload.css.slice(0, 30) : null })
+        return originalPaint.apply(this, arguments)
+      }
+      return true
+    `)
+
     const applied = await dock.page.evaluate(`
       const engine = window.megaTools.theme
+      // Watch every payload the renderer receives while the switch happens.
+      window.__acceptancePayloads = []
+      const sheet = document.getElementById('hnsThemeSheet')
+      const observer = sheet ? new MutationObserver(() => {
+        window.__acceptancePayloads.push('sheet:' + sheet.textContent.slice(0, 40))
+      }) : null
+      if (observer) observer.observe(sheet, { childList: true, characterData: true, subtree: true })
       return engine.snapshot().then((result) => {
         if (!result || !result.ok) return { ok: false, reason: 'snapshot failed' }
         const light = result.status.themes.find((theme) => theme.id === 'hns.system.light')
@@ -356,12 +469,49 @@ async function run() {
       })
     `)
     check('applying the Light system theme succeeds', applied.ok && applied.applied, JSON.stringify(applied))
-    const lightTokens = await dock.page.poll(`
-      const style = getComputedStyle(document.documentElement)
-      const base = style.getPropertyValue('--hns-color-bg-base').trim()
-      return base && base !== ${JSON.stringify(tokens.base)} ? base : null
-    `)
+    let lightTokens = null
+    try {
+      lightTokens = await dock.page.poll(`
+        const base = getComputedStyle(document.documentElement).getPropertyValue('--hns-color-bg-base').trim()
+        return base && base !== '#0f1115' ? base : null
+      `, { timeoutMs: 15_000 })
+    } catch {
+      lightTokens = null
+    }
     check('the dock repainted with the new theme', Boolean(lightTokens), String(lightTokens))
+    if (!lightTokens) {
+      const diagnosed = await dock.page.evaluate(`
+        const sheet = document.getElementById('hnsThemeSheet')
+        const perSheet = []
+        for (const node of document.styleSheets) {
+          let rules = null
+          try { rules = node.cssRules } catch { perSheet.push({ href: 'blocked' }); continue }
+          perSheet.push({
+            href: (node.href || 'inline').split('/').pop(),
+            count: rules.length,
+            first: rules[0] ? { selector: rules[0].selectorText, base: rules[0].style ? rules[0].style.getPropertyValue('--hns-color-bg-base').trim() : null } : null
+          })
+        }
+        return window.megaTools.theme.snapshot().then((s) => ({
+          active: s.status.active,
+          computedBase: getComputedStyle(document.documentElement).getPropertyValue('--hns-color-bg-base').trim(),
+          perSheet,
+          sheetHead: sheet ? sheet.textContent.slice(0, 70) : null,
+          sheetConnected: sheet ? sheet.isConnected : null,
+          ownerNode: sheet && sheet.sheet ? 'sheet-present' : 'no-sheet-object'
+        }))
+      `)
+      note(`light repaint diagnosis: ${JSON.stringify(diagnosed)}`)
+    }
+    const lightSheet = await dock.page.evaluate(`
+      const sheet = document.getElementById('hnsThemeSheet')
+      return sheet ? /--hns-color-bg-base:\\s*#f7f8fa/.test(sheet.textContent) : false
+    `)
+    check('the injected token sheet matches the active theme', lightSheet)
+    const lightPanel = await dock.page.evaluate(`
+      return getComputedStyle(document.getElementById('appearancePanel')).backgroundColor
+    `)
+    check('a dock panel resolves its background from the new theme', Boolean(lightPanel) && lightPanel !== 'rgba(0, 0, 0, 0)', String(lightPanel))
 
     const backToDark = await dock.page.evaluate(`
       return window.megaTools.theme.apply('hns.system.dark').then((result) => ({ ok: Boolean(result && result.ok) }))
@@ -413,7 +563,11 @@ async function run() {
         check('a real GitHub repository installs over the network', live.ok, JSON.stringify(live).slice(0, 300))
         if (live.ok) {
           const names = live.installed
-          check('the collection installed more than one skill', names.length > 0, `${names.length} skills`)
+          // The repository ships a `template/` scaffold next to its real `skills/`
+          // collection. Installing only the scaffold looks like success, so a count
+          // above one is what actually distinguishes the collection from it.
+          check('the repository collection installs, not its starter scaffold', names.length > 1, `${names.length} skills: ${names.slice(0, 4).join(', ')}`)
+          check('the starter scaffold is not among the installed skills', !names.includes('template'), JSON.stringify(names))
           const sample = path.join(skillRoot, names[0], 'SKILL.md')
           check('a GitHub-installed skill is a directory bundle on disk', fs.existsSync(sample), sample)
           // 3. delete exactly the ones just installed, immediately, from the panel

@@ -10,6 +10,10 @@
  *   github     a repository URL, a `/tree/<ref>/<dir>` URL, a `/blob/<ref>/…/SKILL.md`
  *              URL, a `raw.githubusercontent.com` URL, or a bare `owner/repo`
  *
+ * Both resolve through the same tiered scanner, so a directory installed from disk
+ * and the same directory downloaded as a repository archive can never disagree
+ * about which of its files are the skills.
+ *
  * Every network read goes through one injectable `fetchBuffer`, so the whole
  * module is testable offline and the installer never reaches the network by
  * accident.
@@ -24,6 +28,16 @@ const GITHUB_HOSTS = new Set(['github.com', 'www.github.com'])
 const RAW_HOSTS = new Set(['raw.githubusercontent.com'])
 const DEFAULT_TIMEOUT_MS = 20_000
 const MAX_DOWNLOAD_BYTES = 48 * 1024 * 1024
+
+/**
+ * Directory names that are scaffolding rather than a skill. A repository that
+ * ships a starter `template/SKILL.md` beside its real `skills/` collection must
+ * not have the template installed instead of the collection.
+ */
+const SCAFFOLD_DIRS = new Set([
+  'template', 'templates', 'example', 'examples', 'sample', 'samples',
+  'spec', 'specs', 'docs', 'doc', 'test', 'tests', 'fixtures', 'fixture'
+])
 
 /**
  * Parse any supported GitHub reference.
@@ -180,102 +194,127 @@ function refsAsBranch(branch) {
 }
 
 /**
+ * Locate skill bundles under one directory, most specific answer only.
+ *
+ * People share a skill in every one of these shapes, and the shapes are strictly
+ * ordered because picking the wrong one is silent: installing a repository's
+ * starter `template/` instead of the nineteen skills beside it looks like success.
+ *
+ *   1. `subpath`, when the caller asked for a specific place in the tree
+ *   2. the directory *is* a skill (it has a `SKILL.md`)
+ *   3. a conventional `skills/` (or `skill/`) collection
+ *   4. sibling directories that are each a skill
+ *   5. flat `<name>.md` files in the directory itself
+ *
+ * Scaffolding is skipped at every level, and a directory deeper than one level is
+ * never descended into here: the caller re-runs this scan with that directory as
+ * its root, which is what keeps a repository's nested layout intact.
+ *
+ * @param {string} dir        directory to scan
+ * @param {object} [options]
+ * @param {string|null} [options.subpath]  slash-separated path inside `dir`
+ * @returns {{bundles: Array<{name: string, dir: string, file: string}>, files: Array<object>, isBundle: boolean}}
+ */
+function scanDirectory(dir, { subpath = null } = {}) {
+  if (subpath) {
+    const target = path.join(dir, ...subpath.split('/'))
+    const own = inspectForBundle(target)
+    if (own) return { bundles: [{ name: path.basename(target), dir: target, file: own.file }], files: [], isBundle: true }
+    const flat = inspectForSkillFile(target)
+    if (flat) return { bundles: [], files: [{ name: flat.name, dir: flat.dir, file: flat.file }], isBundle: true }
+    // A subpath may also name a whole collection, in which case its contents are
+    // the answer — still scaffold-filtered, so a subpath that points at a
+    // repository root does not resolve to that repository's `spec/`.
+    const within = scanDirectory(target)
+    if (within.bundles.length || within.files.length) return within
+  }
+
+  // The directory is itself a skill bundle.
+  if (inspectForBundle(dir)) return { bundles: [{ name: path.basename(dir), dir, file: path.join(dir, 'SKILL.md') }], files: [], isBundle: true }
+
+  // A conventional collection directory.
+  const collectionRoot = firstDirectory(dir, ['skills', 'skill'])
+  if (collectionRoot) {
+    const collection = collectFrom(collectionRoot, { skipScaffold: true })
+    if (collection.bundles.length) return { ...collection, isBundle: false }
+  }
+
+  // Sibling directories that are skills, one level down only.
+  const entries = safeReaddir(dir).filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !SCAFFOLD_DIRS.has(entry.name.toLowerCase()))
+  const siblings = entries
+    .filter((entry) => path.join(dir, entry.name) !== collectionRoot)
+    .flatMap((entry) => collectFrom(path.join(dir, entry.name), { skipScaffold: true }).bundles)
+  if (siblings.length) return { bundles: siblings, files: [], isBundle: false }
+
+  // Flat `<name>.md` skills in the directory itself.
+  return { ...collectFrom(dir, { skipScaffold: true }), isBundle: false }
+}
+
+/**
+ * Skills sitting directly under `dir`, split into the two shapes they come in:
+ * per-directory bundles (`<name>/SKILL.md`) and flat `<name>.md` files.
+ *
+ * @param {string} dir
+ * @param {object} [options]
+ * @param {boolean} [options.skipScaffold]
+ * @returns {{bundles: Array<object>, files: Array<object>}}
+ */
+function collectFrom(dir, { skipScaffold = false } = {}) {
+  const bundles = []
+  const files = []
+  for (const entry of safeReaddir(dir)) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      // Scaffold names are skipped at every depth, not just at the top: a starter
+      // `template/` sitting *inside* the `skills/` collection is just as much of a
+      // starter, and installing it beside the real skills is the bug this rule
+      // exists to prevent.
+      if (skipScaffold && SCAFFOLD_DIRS.has(entry.name.toLowerCase())) continue
+      const bundle = inspectForBundle(full)
+      if (bundle) bundles.push({ name: entry.name, dir: full, file: bundle.file })
+      continue
+    }
+    const flat = inspectForSkillFile(full)
+    if (flat) files.push({ name: flat.name, dir, file: full })
+  }
+  return { bundles, files }
+}
+
+/**
  * Locate skill candidates inside an extracted repository archive.
  *
- * A repository is a valid source in three shapes, in priority order:
- *   1. the requested subpath is a skill bundle or a skill file;
- *   2. the repository root is a skill bundle;
- *   3. the repository contains a collection of skills (a `skills/` directory, or
- *      any set of per-directory "SKILL.md" files).
+ * The codeload tarball normally wraps everything in one leading `<owner>-<ref>/`
+ * component, which the extractor strips before this runs. A tarball that kept its
+ * wrapper is handled too: when the extracted directory holds exactly one
+ * subdirectory, that subdirectory is treated as the repository root as well.
  *
- * The codeload tarball wraps everything in one leading `<owner>-<ref>/` component,
- * which the extractor strips before this runs.
+ * A candidate root that *is* a skill outranks anything found by descending from an
+ * outer directory. Without that precedence a kept wrapper made the outer directory
+ * look like a collection of the wrapped repository, so the wrapped repository
+ * itself was never tried and its own `SKILL.md` never won.
+ *
+ * @param {string} extractDir
+ * @param {object} [options]
+ * @param {string|null} [options.subpath]
+ * @returns {{candidates: Array<object>, top: string|null}}
  */
 function locateSkills(extractDir, { subpath = null } = {}) {
-  const top = readTopLevel(extractDir)
-  // Do NOT require a single top-level entry: a repository normally also has a
-  // README, a LICENSE and dotfiles at its root. Requiring exactly one entry made
-  // every realistic repository resolve to nothing.
-  const candidates = []
-  const pushCandidate = (dir, name) => {
-    candidates.push({ name: name || path.basename(dir), dir })
-  }
-
-  /** Skills sitting directly under `dir`: bundles and flat `<name>.md` files. */
-  const collectFrom = (dir) => {
-    const found = []
-    for (const entry of safeReaddir(dir)) {
-      const full = path.join(dir, entry.name)
-      if (entry.isDirectory()) {
-        const bundle = inspectForBundle(full)
-        if (bundle) found.push({ name: entry.name, dir: full, file: bundle.file })
-        continue
-      }
-      const flat = inspectForSkillFile(full)
-      if (flat) found.push({ name: flat.name, dir, file: full })
-    }
-    return found
-  }
-
-  const absorb = (found) => {
-    for (const item of found) candidates.push(item)
-    return candidates
-  }
-
-  /** Run the search against one repository root. */
-  const searchIn = (root) => {
-    // 1. An explicitly requested subpath wins.
-    if (subpath) {
-      const target = path.join(root, ...subpath.split('/'))
-      const bundle = inspectForBundle(target)
-      if (bundle) return absorb([{ name: path.basename(target), dir: bundle.dir, file: bundle.file }])
-      const flat = inspectForSkillFile(target)
-      if (flat) return absorb([{ name: flat.name, dir: flat.dir, file: flat.file }])
-      const nested = collectFrom(target)
-      if (nested.length) return absorb(nested)
-    }
-
-    // 2. The repository root is itself a skill.
-    const rootBundle = inspectForBundle(root)
-    if (rootBundle) return absorb([{ name: path.basename(root), dir: rootBundle.dir, file: rootBundle.file }])
-    const rootFile = inspectForSkillFile(path.join(root, 'SKILL.md'))
-    if (rootFile) return absorb([{ name: path.basename(root), dir: rootFile.dir, file: rootFile.file }])
-
-    // 3. The repository collects skills: flat at the top, inside a conventional
-    //    `skills/` directory, or one level down.
-    const direct = collectFrom(root)
-    if (direct.length) return absorb(direct)
-
-    const collectionRoot = firstDirectory(root, ['skills', 'skill'])
-    if (collectionRoot) {
-      const nested = collectFrom(collectionRoot)
-      if (nested.length) return absorb(nested)
-    }
-
-    for (const entry of safeReaddir(root)) {
-      if (!entry.isDirectory()) continue
-      const nested = collectFrom(path.join(root, entry.name))
-      if (nested.length) return absorb(nested)
-    }
-    return candidates
-  }
-
-  // The extractor normally strips the archive's wrapper component, so `extractDir`
-  // is the repository root. When it did not (a tarball that kept its wrapper), the
-  // single top-level directory is treated as the repository root as well.
   const directories = safeReaddir(extractDir).filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
   const roots = [extractDir]
   if (directories.length === 1) roots.push(path.join(extractDir, directories[0].name))
 
+  let first = null
   for (const root of roots) {
-    const found = searchIn(root)
-    if (found.length) return { candidates: found, top: root }
+    const found = scanDirectory(root, { subpath })
+    const candidates = [...found.bundles, ...found.files]
+    if (!candidates.length) continue
+    // `found.isBundle` is what makes this an answer rather than a coincidence: a
+    // nested `SKILL.md` one level down also matches `inspectForBundle(extractDir)`
+    // when the repository root happens to be the only subdirectory.
+    if (found.isBundle) return { candidates, top: root }
+    if (!first) first = { candidates, top: root }
   }
-  return { candidates, top: null }
-}
-
-function readTopLevel(dir) {
-  return safeReaddir(dir).map((entry) => entry.name)
+  return first || { candidates: [], top: null }
 }
 
 function safeReaddir(dir) {
@@ -298,7 +337,7 @@ function firstDirectory(root, names) {
   return null
 }
 
-/** A directory is a skill bundle when it holds a valid `SKILL.md`. */
+/** A directory is a skill bundle when it holds a `SKILL.md`. */
 function inspectForBundle(dir) {
   const file = path.join(dir, 'SKILL.md')
   if (!fs.existsSync(file)) return null
@@ -320,6 +359,9 @@ function inspectForSkillFile(target) {
 
 /**
  * Inspect a local path and produce installable candidates.
+ *
+ * Resolves through the same scanner as a downloaded repository, so a directory
+ * that installs as `['alpha', 'beta']` locally installs the same way from GitHub.
  *
  * @param {string} target
  * @returns {{ok: true, source: object, candidates: Array<object>} | {ok: false, reason: string}}
@@ -346,59 +388,29 @@ function inspectLocalPath(target) {
     }
   }
 
+  const found = scanDirectory(resolved)
+  const located = [...found.bundles, ...found.files]
+
   const candidates = []
   /** The most specific reason a skill-looking file was rejected. */
   const rejections = []
   const noteRejection = (label, reason) => {
     if (!rejections.some((item) => item.reason === reason)) rejections.push({ label, reason })
   }
-
-  // The directory itself is a skill bundle.
-  const ownFile = path.join(resolved, 'SKILL.md')
-  if (fs.existsSync(ownFile)) {
-    const parsed = format.readSkillFile(ownFile)
-    if (parsed.ok) candidates.push({ name: parsed.skill.name, dir: resolved, file: ownFile, skill: parsed.skill })
-    else noteRejection('SKILL.md', parsed.reason)
+  for (const item of located) {
+    const parsed = format.readSkillFile(item.file)
+    if (parsed.ok) candidates.push({ name: parsed.skill.name, dir: item.dir, file: item.file, skill: parsed.skill })
+    else noteRejection(path.relative(resolved, item.file) || path.basename(item.file), parsed.reason)
   }
 
-  // Or it collects skills one level down (and in a `skills/` child).
-  if (!candidates.length) {
-    for (const entry of safeReaddir(resolved)) {
-      if (!entry.isDirectory()) continue
-      const bundle = inspectForBundle(path.join(resolved, entry.name))
-      if (!bundle) continue
-      const parsed = format.readSkillFile(bundle.file)
-      if (parsed.ok) candidates.push({ name: parsed.skill.name, dir: bundle.dir, file: bundle.file, skill: parsed.skill })
-      else noteRejection(`${entry.name}/SKILL.md`, parsed.reason)
-    }
-    const collection = firstDirectory(resolved, ['skills', 'skill'])
-    if (collection && !candidates.length) {
-      for (const entry of safeReaddir(collection)) {
-        if (!entry.isDirectory()) continue
-        const bundle = inspectForBundle(path.join(collection, entry.name))
-        if (!bundle) continue
-        const parsed = format.readSkillFile(bundle.file)
-        if (parsed.ok) candidates.push({ name: parsed.skill.name, dir: bundle.dir, file: bundle.file, skill: parsed.skill })
-        else noteRejection(`${entry.name}/SKILL.md`, parsed.reason)
-      }
-    }
-  }
-
-  // Or it holds flat `<name>.md` skills.
-  if (!candidates.length) {
-    for (const entry of safeReaddir(resolved)) {
-      if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.md')) continue
-      if (entry.name.toLowerCase() === 'readme.md') continue
-      const file = path.join(resolved, entry.name)
-      const parsed = format.readSkillFile(file)
-      if (parsed.ok) candidates.push({ name: parsed.skill.name, dir: resolved, file, skill: parsed.skill })
-      else noteRejection(entry.name, parsed.reason)
-    }
+  // A directory that holds a `SKILL.md` which does not validate must not be
+  // reported as "no skill found": the file the user pointed at is right there.
+  if (!candidates.length && fs.existsSync(path.join(resolved, 'SKILL.md'))) {
+    const parsed = format.readSkillFile(path.join(resolved, 'SKILL.md'))
+    if (!parsed.ok) noteRejection('SKILL.md', parsed.reason)
   }
 
   if (!candidates.length) {
-    // A path that *looks* like a skill but failed validation must say why: "no skill
-    // found" would send the user looking for a missing file that is right there.
     if (rejections.length) {
       const detail = rejections.map((item) => `${item.label}: ${item.reason}`).join('；')
       return { ok: false, reason: `该路径下的技能文件未通过校验 → ${detail}` }
@@ -417,6 +429,7 @@ module.exports = {
   refCandidates,
   normalizeSubpath,
   archiveUrls,
+  scanDirectory,
   locateSkills,
   inspectLocalPath,
   inspectForBundle,

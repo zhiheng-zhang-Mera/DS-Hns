@@ -110,8 +110,26 @@ process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
-app.setName('DS-Harness')
-app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
+/**
+ * Instance identity. Electron's single-instance lock lives in the userData
+ * directory, so a second, isolated instance needs its own: `DSH_USER_DATA_DIR`
+ * names it outright, and a `DSH_ROOT` pointing at another checkout (or a run
+ * named through `DSH_APP_NAME`) derives one under that root. Unset, the shell is
+ * "DS-Harness" under `<root>/data/desktop-shell` and behaves exactly as before.
+ */
+const APP_NAME_OVERRIDE = String(process.env.DSH_APP_NAME || '').trim()
+const ISOLATED_ROOT = Boolean(process.env.DSH_ROOT) && path.resolve(process.env.DSH_ROOT) !== ROOT
+const APP_NAME = APP_NAME_OVERRIDE || (ISOLATED_ROOT ? `DS-Harness (${path.basename(process.env.DSH_ROOT) || 'isolated'})` : 'DS-Harness')
+const ISOLATED_INSTANCE = Boolean(APP_NAME_OVERRIDE) || ISOLATED_ROOT
+/** A filesystem-safe profile name so several isolated runs cannot share a lock. */
+const PROFILE_SLUG = (APP_NAME_OVERRIDE || path.basename(process.env.DSH_ROOT) || 'isolated').replace(/[^\w.-]+/g, '-')
+app.setName(APP_NAME)
+app.setPath(
+  'userData',
+  process.env.DSH_USER_DATA_DIR
+    ? path.resolve(process.env.DSH_USER_DATA_DIR)
+    : path.join(process.env.DSH_ROOT, 'data', ISOLATED_INSTANCE ? `desktop-shell-${PROFILE_SLUG}` : 'desktop-shell')
+)
 // Windows needs an explicit AppUserModelID so terminal task notifications and
 // taskbar grouping carry the DS-Harness identity instead of Electron's.
 try {
@@ -548,6 +566,12 @@ async function startExtensions(nodeExe) {
       nodeExe,
       mainWindow,
       officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
+      // The dock is this shell's WebContentsView in the shipped configuration, so the
+      // extension is handed a way to reach its webContents. It must be lazy: the view
+      // is created *after* extensions start (it loads the extension's preload), so an
+      // eager value would always be null and every push — a theme payload, a change
+      // notification — would go nowhere.
+      dockWebContents: () => (megaDockView && !megaDockView.webContents.isDestroyed() ? megaDockView.webContents : null),
       log: logLine,
       // The shell owns process lifecycle, so the tray's exit actions are routed
       // back here instead of the extension reaching into the managed child.

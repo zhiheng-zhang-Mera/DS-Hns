@@ -26,6 +26,13 @@
  * and cannot double-subscribe.
  */
 ;(function attachThemeBridge(global) {
+  /**
+   * CSP nonce for the runtime token sheet. It must match the value in
+   * `dock.html`'s `style-src`; a mismatch means the theme's tokens are blocked and
+   * every colour silently falls back to the Dark defaults.
+   */
+  const TOKEN_NONCE = 'hns-theme-tokens'
+
   const SLOT_VAR = {
     background: 'background',
     label: 'label',
@@ -91,12 +98,16 @@
     lastPayload = payload
     const root = document.documentElement
 
-    // The token block. Values are validated token data, never markup.
+    // The token block. Values are validated token data, never markup. The nonce is
+    // required: this page's CSP is `style-src 'self' 'nonce-hns-theme-tokens'`, which
+    // blocks a dynamically inserted <style> element that carries no nonce, so without
+    // it the theme's colours never applied even though its slot variables did.
     if (typeof payload.css === 'string' && payload.css) {
       let sheet = document.getElementById('hnsThemeSheet')
       if (!sheet) {
         sheet = document.createElement('style')
         sheet.id = 'hnsThemeSheet'
+        sheet.setAttribute('nonce', TOKEN_NONCE)
         document.head.appendChild(sheet)
       }
       sheet.textContent = `:root {\n${payload.css}\n}`
