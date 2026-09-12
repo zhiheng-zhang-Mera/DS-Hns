@@ -48,7 +48,15 @@ const SOURCE_DIRS = [
   'extensions/mega/ui',
   'extensions/mega/updater',
   'extensions/mega/utils',
-  'sub-worker'
+  'sub-worker',
+  // Computer Use runtime (Update-Plan/computer-use.md). The runtime core, its
+  // controllers and its real drivers are separate directories, listed
+  // explicitly because this collector is non-recursive by design: a new file
+  // must be added here (or its directory must be) or it silently escapes the
+  // gate.
+  'computer-use',
+  'computer-use/controllers',
+  'computer-use/drivers'
 ]
 
 /** Files outside the app directory that still ship as product code. */
@@ -56,7 +64,8 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'check-syntax.cjs'),
   path.join(ROOT, 'scripts', 'acceptance.mjs'),
   path.join(ROOT, 'scripts', 'dual-ui-acceptance.mjs'),
-  path.join(ROOT, 'scripts', 'sub-worker-acceptance.cjs')
+  path.join(ROOT, 'scripts', 'sub-worker-acceptance.cjs'),
+  path.join(ROOT, 'scripts', 'computer-use-acceptance.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

@@ -116,6 +116,32 @@ const dockReadyCallbacks = []
 let workerManager = null
 const subWorkerListeners = new Set()
 
+/**
+ * Computer Use Runtime (Update-Plan/computer-use.md).
+ *
+ * The shell owns the runtime exactly like it owns the Sub-worker manager: the
+ * Mega dock is only a control surface. The runtime is created lazily on first
+ * use so the default startup path stays as cheap as it is today, and every
+ * controller inside it runs behind its own fault boundary (plan §37/§38).
+ */
+let computerUseRuntime = null
+let computerUseHost = null
+
+/** IPC surface of the Computer Use panel. */
+const COMPUTER_USE_CHANNELS = [
+  'computer-use:snapshot',
+  'computer-use:health',
+  'computer-use:actions',
+  'computer-use:capabilities',
+  'computer-use:run',
+  'computer-use:cancel',
+  'computer-use:step',
+  'computer-use:execute',
+  'computer-use:log',
+  'computer-use:screenshots',
+  'computer-use:page'
+]
+
 /** IPC surface of the Sub-worker panel/Live View (plan §11, §12, §28). */
 const SUB_WORKER_CHANNELS = [
   'sub-worker:snapshot',
@@ -611,6 +637,148 @@ function registerSubWorkerIpc() {
 }
 
 /**
+ * The surface the agent is allowed to drive: whatever the user is actually
+ * looking at. Daily Mode shows the native renderer, Work Mode the official one,
+ * and if neither integrated view exists the window itself is the page.
+ */
+function activeAgentSurface() {
+  try {
+    if (nativeView && nativeView.getVisible?.() && nativeView.webContents) return nativeView.webContents
+    if (officialView && officialView.webContents) return officialView.webContents
+    if (mainWindow && !mainWindow.isDestroyed()) return mainWindow.webContents
+  } catch {
+    /* a destroyed view is simply not an agent surface */
+  }
+  return null
+}
+
+/**
+ * Plan §34: a destructive action with `destructive_actions: "confirm"` reaches
+ * this dialog. It is a real modal on purpose — the runtime never assumes
+ * consent it was not given.
+ */
+async function requestDestructiveConfirmation(request = {}) {
+  try {
+    const kinds = Array.isArray(request.kinds) ? request.kinds.join(', ') : String(request.kinds || 'destructive')
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      buttons: ['允许', '拒绝'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Computer Use 需要确认',
+      message: `任务请求执行危险操作：${kinds}`,
+      detail: `目标：${request.target || '(未指定)'}\n动作：${request.description || request.action || '(未知)'}\n任务：${request.goal || '(未知)'}\n\n这是 Execution Contract 中的 "destructive_actions: confirm" 门控。`
+    })
+    return result.response === 0
+  } catch (error) {
+    logLine(`computer use confirmation failed: ${error?.message || error}`)
+    return false
+  }
+}
+
+/**
+ * `config/app.json` may switch the Computer Use runtime off entirely (the same
+ * way the Mega extension has a kill switch). A missing or damaged config file
+ * means "enabled": the runtime is inert until something asks for it.
+ */
+function computerUseEnabled() {
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'app.json'), 'utf8'))
+    return config?.computerUse?.enabled !== false
+  } catch {
+    return true
+  }
+}
+
+/** Creates the Computer Use runtime on first use (idempotent). */
+function ensureComputerUseRuntime() {
+  if (!computerUseEnabled()) {
+    throw new Error('the Computer Use runtime is disabled by config/app.json (computerUse.enabled = false)')
+  }
+  if (computerUseRuntime) return computerUseRuntime
+  const { createComputerUseRuntime } = require('./computer-use/index.cjs')
+  const { createElectronHost } = require('./computer-use/host-electron.cjs')
+  computerUseHost = createElectronHost({
+    getWebContents: activeAgentSurface,
+    confirm: requestDestructiveConfirmation,
+    workspace: ROOT,
+    cwd: ROOT
+  })
+  computerUseRuntime = createComputerUseRuntime({
+    host: computerUseHost.host,
+    log: { mode: 'normal' }
+  })
+  for (const note of computerUseHost.notes) logLine(`computer use host note: ${note}`)
+  registerComputerUseIpc()
+  const degraded = computerUseRuntime.health().controllers.filter((controller) => !controller.available)
+  logLine(`computer use runtime ready (${COMPUTER_USE_CHANNELS.length} channels${degraded.length ? `; degraded: ${degraded.map((entry) => entry.controller).join(', ')}` : ''})`)
+  return computerUseRuntime
+}
+
+/**
+ * Every handler is failure isolated: a runtime problem is reported as data, so
+ * the panel never has to defend itself against a rejected main-process promise.
+ */
+function registerComputerUseIpc() {
+  for (const channel of COMPUTER_USE_CHANNELS) {
+    try {
+      ipcMain.removeHandler(channel)
+    } catch {}
+  }
+  const guard = (handler) => async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (error) {
+      logLine(`computer use ipc failed: ${error?.stack || error}`)
+      return { ok: false, error: String(error?.message || error), code: error?.code || null }
+    }
+  }
+  const runtime = () => ensureComputerUseRuntime()
+
+  ipcMain.handle('computer-use:snapshot', guard(() => runtime().snapshot()))
+  ipcMain.handle('computer-use:health', guard(() => runtime().health()))
+  ipcMain.handle('computer-use:actions', guard(() => runtime().actionTypes))
+  ipcMain.handle('computer-use:capabilities', guard(() => ({
+    capabilities: ['browser', 'desktop', 'shell', 'filesystem', 'vision'],
+    options: runtime().options,
+    hostNotes: computerUseHost ? computerUseHost.notes : []
+  })))
+  // Plan §35: the renderer hands over an execution contract; the runtime decides
+  // whether it is runnable and reports the criteria it verified.
+  ipcMain.handle('computer-use:run', guard(async (_event, contract, runOptions) => runtime().run(contract || {}, runOptions || {})))
+  ipcMain.handle('computer-use:step', guard(async (_event, contract) => runtime().executor.stepOnce(contract || {})))
+  ipcMain.handle('computer-use:execute', guard(async (_event, action) => runtime().executeAction(action || {})))
+  ipcMain.handle('computer-use:cancel', guard((_event, reason) => runtime().cancel(reason || 'cancelled from the Mega panel')))
+  ipcMain.handle('computer-use:log', guard((_event, count) => (runtime().log ? runtime().log.tail(Number.isInteger(count) ? count : 40) : [])))
+  ipcMain.handle('computer-use:screenshots', guard(() => (runtime().log ? runtime().log.screenshots() : [])))
+  ipcMain.handle('computer-use:page', guard(async () => {
+    const page = computerUseHost ? computerUseHost.refreshPage() : null
+    if (!page) return { attached: false, reason: 'no agent surface is available' }
+    const snapshot = await page.snapshot()
+    return { attached: true, url: snapshot.url, title: snapshot.title, readyState: snapshot.readyState, controls: snapshot.controls.length }
+  }))
+}
+
+/** Releases the runtime on exit: watchers closed, debugger detached, log flushed. */
+function disposeComputerUseOnExit(source = 'shell') {
+  if (!computerUseRuntime) return null
+  try {
+    computerUseRuntime.cancel(`shell teardown (${source})`)
+  } catch {}
+  try {
+    const page = computerUseRuntime.controllers?.browser?.page
+    page?.transport?.detach?.()
+  } catch {}
+  try {
+    computerUseRuntime.dispose()
+    logLine(`computer use runtime disposed (${source})`)
+  } catch (error) {
+    logLine(`computer use dispose failed: ${error?.message || error}`)
+  }
+  return true
+}
+
+/**
  * Shared teardown for every exit path: stop the extension (which stops the
  * scheduler and persists the queue/history), pause+flush+terminate the optional
  * Sub-worker, drop the integrated views, and terminate the managed Harness
@@ -630,6 +798,7 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
     logLine(`extension stop failed during exit: ${error?.message || error}`)
   }
   stopSubWorkerOnExit('shell teardown')
+  disposeComputerUseOnExit('shell teardown')
   try {
     destroyIntegratedViews()
   } catch {}
@@ -1664,6 +1833,17 @@ app.whenReady().then(async () => {
     // before any extension can ask for it. Creation is inert (no process), so
     // the default startup path is unchanged.
     await createWorkerManager(nodeExe)
+
+    // Computer Use is created only when the user first asks for it (opening the
+    // panel or running a contract): no driver is probed during a normal boot.
+    // The IPC surface is registered now so the panel can reach it, and every
+    // handler builds the runtime lazily on first call.
+    if (computerUseEnabled()) {
+      registerComputerUseIpc()
+      logLine('computer use: runtime available on demand (computer-use:* IPC)')
+    } else {
+      logLine('computer use: disabled by config/app.json')
+    }
 
     const extensionsReady = await startExtensions(nodeExe)
     // The native renderer is created after the extension so its preload's IPC

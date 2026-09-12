@@ -1,0 +1,26 @@
+<!doctype html>
+<!--
+  The "Submit order" target is painted by the canvas: no DOM node represents it,
+  so structure-first perception can only find the decoy button, which reports a
+  wrong target when it is clicked. The canvas paint is drawn into the device
+  framebuffer at the canvas rect (data-cu-paint="label|colour|width|height"), so
+  the only route to the real target is looking at the pixels and clicking them.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Checkout</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Checkout</h1>
+  <p id="hint">The order button is painted by the page.</p>
+  <canvas
+    id="order"
+    data-cu-paint="Submit order|#ff8800|200|48"
+    style="position:absolute;left:200px;top:160px"
+    data-cu-on-click="hide #wrong; show #ordered; text #ordered Ordered"></canvas>
+  <button id="decoy" type="button" data-cu-on-click="hide #ordered; show #wrong; text #wrong Wrong target">Submit order</button>
+  <p id="ordered" role="status" hidden></p>
+  <p id="wrong" role="alert" hidden></p>
+</body>
+</html>

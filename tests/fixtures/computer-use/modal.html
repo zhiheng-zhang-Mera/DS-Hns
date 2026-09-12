@@ -1,0 +1,27 @@
+<!doctype html>
+<!--
+  Modal dialog plus a blocking JavaScript dialog.
+
+  "Open modal" creates a real role="dialog" node with its own Dismiss button and
+  an overlay that covers every other control. "Publish" opens a blocking confirm
+  dialog: until it is answered the page reports loading and every control is not
+  actionable.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modal</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Modal</h1>
+  <button id="open-modal" type="button" data-cu-modal="Delete this file?">Open modal</button>
+  <button id="behind" type="button" data-cu-on-click="show #behind-state; text #behind-state Behind clicked">Behind</button>
+  <p id="behind-state" role="status" hidden></p>
+  <button
+    id="publish"
+    type="button"
+    data-cu-on-click="confirm Publish this change?"
+    data-cu-on-accept="show #published; text #published Published">Publish</button>
+  <p id="published" role="status" hidden></p>
+</body>
+</html>

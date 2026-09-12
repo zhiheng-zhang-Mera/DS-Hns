@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+  A control that relocates 250 ms after load.
+
+  A runtime that resolves the target once and clicks the stale coordinates must
+  miss; the moving button really is at a different place after the move. The
+  reference element never moves, so a click there is a stable control.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dynamic target</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Dynamic target</h1>
+  <button
+    id="moving"
+    type="button"
+    data-cu-move-after-ms="250"
+    data-cu-move-to="640,420"
+    data-cu-on-click="show #clicked; text #clicked Clicked">Moving button</button>
+  <div id="reference" style="position:absolute;left:40px;top:200px;width:160px;height:24px;background:#cbd5e1"></div>
+  <p id="clicked" role="status" hidden></p>
+</body>
+</html>

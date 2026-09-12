@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  A button that swallows its first click.
+
+  The click is delivered and the cursor really is over the control, but the page
+  ignores it: nothing changes until the second click. A runtime that only checks
+  "did my click land" believes the first attempt worked.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Swallowed click</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Swallowed click</h1>
+  <button id="arm" type="button" data-cu-eat-clicks="1" data-cu-on-click="show #state; text #state Armed">Arm</button>
+  <p id="state" role="status" hidden></p>
+</body>
+</html>

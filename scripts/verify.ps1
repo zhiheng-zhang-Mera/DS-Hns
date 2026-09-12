@@ -23,7 +23,10 @@ $system = Get-Content "$ROOT\app\extensions\mega\scheduler\system.js" -Raw
 $official = Get-Content "$ROOT\app\extensions\mega\deepseek\official-session-client.js" -Raw
 $create = $main.Substring($main.IndexOf('function createWindow()'), $main.IndexOf('async function startExtensions') - $main.IndexOf('function createWindow()'))
 $officialView = ($main -split 'function createOfficialHarnessView')[1]
-$officialView = ($officialView -split 'async function createIntegratedMegaDock')[0]
+# The official view's own body only: the Daily/native renderer further down the
+# file legitimately has a preload of its own, so the slice must stop at the next
+# function rather than at an unrelated marker much later in the file.
+$officialView = ($officialView -split 'function officialLivesInWindow')[0]
 Check 'Official main window has no preload' (-not ($create -match 'preload\s*:'))
 Check 'Official WebContentsView has no preload' (-not ($officialView -match 'preload\s*:'))
 Check 'Pure Alien kill switch exists' ($main -match 'DSH_DISABLE_MEGA')
@@ -201,6 +204,62 @@ Check 'Learned profiles are clamped to a documented band' (($swResCfg -match 'LE
 Check 'The supervisor recovers a parked pool' ($swManager -match 'pool recovery')
 Check 'The panel exposes the pool, resources and DAG' (($swUi -match 'id="swPool"') -and ($swUi -match 'id="swResources"') -and ($swUi -match 'id="swDag"') -and ($swUi -match 'id="swAdaptive"'))
 Check 'Multi-worker reference doc exists' (Test-Path "$ROOT\docs\multi-worker.md")
+
+Write-Output ''
+Write-Output '== Computer Use runtime (Update-Plan/computer-use.md) =='
+foreach ($file in @('index.cjs','constants.cjs','errors.cjs','ports.cjs','contract.cjs','criteria.cjs','action.cjs','target.cjs','world-state.cjs','state-machine.cjs','safety.cjs','routing.cjs','log.cjs','stabilization.cjs','verification.cjs','miss.cjs','recovery.cjs','stall.cjs','observer.cjs','executor.cjs','isolation.cjs','autonomy.cjs','host-electron.cjs')) {
+  Check "Computer Use core module $file present" (Test-Path "$ROOT\app\computer-use\$file")
+}
+foreach ($file in @('browser.cjs','desktop.cjs','vision.cjs','shell.cjs','file.cjs')) {
+  Check "Computer Use controller $file present" (Test-Path "$ROOT\app\computer-use\controllers\$file")
+}
+foreach ($file in @('cdp-page.cjs','win32.cjs','win32-input.ps1','uia.cjs','uia.ps1','screenshot.cjs','screenshot.ps1')) {
+  Check "Computer Use real driver $file present" (Test-Path "$ROOT\app\computer-use\drivers\$file")
+}
+$cuAction = Get-Content "$ROOT\app\computer-use\action.cjs" -Raw
+$cuTarget = Get-Content "$ROOT\app\computer-use\target.cjs" -Raw
+$cuExecutor = Get-Content "$ROOT\app\computer-use\executor.cjs" -Raw
+$cuSafety = Get-Content "$ROOT\app\computer-use\safety.cjs" -Raw
+$cuStab = Get-Content "$ROOT\app\computer-use\stabilization.cjs" -Raw
+$cuVerify = Get-Content "$ROOT\app\computer-use\verification.cjs" -Raw
+$cuRouting = Get-Content "$ROOT\app\computer-use\routing.cjs" -Raw
+$cuConstants = Get-Content "$ROOT\app\computer-use\constants.cjs" -Raw
+$cuLog = Get-Content "$ROOT\app\computer-use\log.cjs" -Raw
+$cuStall = Get-Content "$ROOT\app\computer-use\stall.cjs" -Raw
+$cuIndex = Get-Content "$ROOT\app\computer-use\index.cjs" -Raw
+$cuDesktop = Get-Content "$ROOT\app\computer-use\controllers\desktop.cjs" -Raw
+$cuBrowser = Get-Content "$ROOT\app\computer-use\controllers\browser.cjs" -Raw
+$cuVision = Get-Content "$ROOT\app\computer-use\controllers\vision.cjs" -Raw
+$cuWorld = Get-Content "$ROOT\app\computer-use\world-state.cjs" -Raw
+Check 'The full action surface exists (plan 6)' (($cuConstants -match 'SCREENSHOT_FULL') -and ($cuConstants -match 'ACCESSIBILITY_SET_VALUE') -and ($cuConstants -match 'WAIT_STATE') -and ($cuConstants -match 'SHELL_EXEC'))
+Check 'The explicit state machine is complete (plan 51)' (($cuConstants -match 'POST_ACTION_GRACE') -and ($cuConstants -match 'REVALIDATING') -and ($cuConstants -match 'STALLED') -and ($cuConstants -match 'const CU_TRANSITIONS'))
+Check 'Target resolution prefers structured identifiers (plan 7)' (($cuTarget -match 'DOM selector') -and ($cuTarget -match 'visual coordinate') -and ($cuTarget -match 'function revalidate'))
+Check 'Revalidation thresholds are 3 / 10 px and configurable (plan 10)' (($cuConstants -match 'stablePx: 3') -and ($cuConstants -match 'updatePx: 10'))
+Check 'Stabilization is bounded, never a sleep (plan 9/section 11/section 25)' (($cuStab -match 'function settle') -and ($cuStab -match 'function grace') -and ($cuConstants -match 'settleMaxMs: 300') -and ($cuConstants -match 'cooldownHardMaxMs: 500'))
+Check 'Waiting is event-driven, not fixed (plan 12)' (($cuStab -match 'async function waitFor') -and ($cuExecutor -match 'waitForEffect'))
+Check 'Every action is verified with three states (plan 14/section 46)' (($cuVerify -match 'VERDICTS.UNKNOWN') -and ($cuVerify -match 'VERDICTS.FAILURE') -and ($cuVerify -match 'VERDICTS.SUCCESS'))
+Check 'Miss detection exists and is distinct from failure (plan 17)' ((Get-Content "$ROOT\app\computer-use\miss.cjs" -Raw) -match 'no_state_change')
+Check 'The recovery ladder ends in a bounded failure (plan 18/section 19/section 21)' (($cuExecutor -match 'recoverFromStall') -and ($cuStall -match 'STALL_RECOVERY_LADDER') -and ($cuStall -match 'fail_with_context'))
+Check 'Screenshot escalation climbs one level at a time (plan 22)' (($cuVision -match 'function nextLevel') -and ($cuConstants -match 'REGION: 1'))
+Check 'Dynamic cooldown only uses the current step (plan 23/section 24)' (($cuStab -match 'function dynamicCooldown') -and (-not ($cuStab -match 'Chrome is slow')))
+Check 'No long-term learning anywhere in the runtime (plan 42)' (-not (($cuIndex + $cuExecutor + $cuWorld + $cuStab) -match 'userProfile|appProfile|latencyModel|reinforcement|learnedProfile'))
+Check 'Capability routing prefers api > shell > dom > accessibility > gui > vision (plan 29)' (($cuRouting -match 'api.*shell.*dom') -and ($cuRouting -match "case 'vision'"))
+Check 'Window safety refuses a click when the foreground window is wrong (plan 33)' (($cuSafety -match 'WINDOW_MISMATCH') -and ($cuSafety -match 'function checkWindow'))
+Check 'Focus safety verifies focus before typing (plan 31)' (($cuSafety -match 'function checkFocus') -and ($cuSafety -match 'FOCUS_MISMATCH'))
+Check 'Destructive actions are gated by the contract (plan 34)' (($cuSafety -match 'DESTRUCTIVE_FORBIDDEN') -and ($cuSafety -match 'DESTRUCTIVE_NEEDS_CONFIRMATION'))
+Check 'Secrets never reach the execution log (plan 32)' (($cuSafety -match 'function redactAction') -and ($cuLog -match 'redactDetails'))
+Check 'Screenshots are only retained by policy (plan 40)' (($cuLog -match 'function shouldRetain') -and ($cuLog -match 'transient capture'))
+Check 'A blocking modal pauses the action instead of being ignored (plan 30)' (($cuExecutor -match 'handleModal') -and ($cuSafety -match 'function inspectModals'))
+Check 'Controller failures stay inside their own boundary (plan 37/section 38)' ((Get-Content "$ROOT\app\computer-use\isolation.cjs" -Raw) -match 'function isolateController')
+Check 'Autonomous continuation is wired into the loop (plan 49)' ((Get-Content "$ROOT\app\computer-use\autonomy.cjs" -Raw) -match 'function createAutonomy' -and ($cuIndex -match 'autonomy.decide'))
+Check 'Every action goes through the executor (plan 43)' (($cuExecutor -match 'async function performAction') -and ($cuIndex -match 'executeAction'))
+Check 'The shell owns the runtime and its IPC' (($main -match 'ensureComputerUseRuntime') -and ($main -match 'COMPUTER_USE_CHANNELS') -and ($main -match 'disposeComputerUseOnExit'))
+Check 'The dock exposes the Computer Use panel' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="computerUsePanel"') -and (Test-Path "$ROOT\app\extensions\mega\ui\computer-use-panel.js"))
+Check 'The panel bridge is exposed through the preload' ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'megaComputerUse')
+Check 'Computer Use is configured in config/app.json' ((Get-Content "$ROOT\config\app.json" -Raw) -match '"computerUse"')
+Check 'Subdirectories are covered by the syntax gate' (((Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw) -match 'computer-use/controllers') -and ((Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw) -match 'computer-use/drivers'))
+Check 'Computer Use reference doc exists' (Test-Path "$ROOT\docs\computer-use.md")
+Check 'Real Computer Use acceptance harness exists' (Test-Path "$ROOT\scripts\computer-use-acceptance.cjs")
 
 if (-not $SkipTests) {
   Write-Output ''

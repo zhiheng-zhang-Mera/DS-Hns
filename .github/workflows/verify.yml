@@ -9,9 +9,9 @@ name: verify
 # top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
-    branches: [main, merging, Theme-Cover]
+    branches: [main, merging, Theme-Cover, computer-use]
   pull_request:
-    branches: [main, merging, Theme-Cover]
+    branches: [main, merging, Theme-Cover, computer-use]
 
 jobs:
   verify:
@@ -94,3 +94,63 @@ jobs:
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
           Write-Host "theme + dual-UI surface files present and covered by the syntax gate"
+
+      # Update-Plan/computer-use.md ships a runtime plus real Windows drivers and
+      # a panel. The syntax gate has to be told about the new directories, so the
+      # same silence-proof assertion is repeated here: a green gate over an
+      # unchecked controller would be worse than a red one.
+      - name: Computer Use surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/computer-use/index.cjs',
+            'app/computer-use/constants.cjs',
+            'app/computer-use/errors.cjs',
+            'app/computer-use/ports.cjs',
+            'app/computer-use/contract.cjs',
+            'app/computer-use/criteria.cjs',
+            'app/computer-use/action.cjs',
+            'app/computer-use/target.cjs',
+            'app/computer-use/world-state.cjs',
+            'app/computer-use/state-machine.cjs',
+            'app/computer-use/safety.cjs',
+            'app/computer-use/routing.cjs',
+            'app/computer-use/log.cjs',
+            'app/computer-use/stabilization.cjs',
+            'app/computer-use/verification.cjs',
+            'app/computer-use/miss.cjs',
+            'app/computer-use/recovery.cjs',
+            'app/computer-use/stall.cjs',
+            'app/computer-use/observer.cjs',
+            'app/computer-use/executor.cjs',
+            'app/computer-use/isolation.cjs',
+            'app/computer-use/autonomy.cjs',
+            'app/computer-use/host-electron.cjs',
+            'app/computer-use/controllers/browser.cjs',
+            'app/computer-use/controllers/desktop.cjs',
+            'app/computer-use/controllers/vision.cjs',
+            'app/computer-use/controllers/shell.cjs',
+            'app/computer-use/controllers/file.cjs',
+            'app/computer-use/drivers/cdp-page.cjs',
+            'app/computer-use/drivers/win32.cjs',
+            'app/computer-use/drivers/win32-input.ps1',
+            'app/computer-use/drivers/uia.cjs',
+            'app/computer-use/drivers/uia.ps1',
+            'app/computer-use/drivers/screenshot.cjs',
+            'app/computer-use/drivers/screenshot.ps1',
+            'app/extensions/mega/ui/computer-use-panel.js',
+            'scripts/computer-use-acceptance.cjs',
+            'docs/computer-use.md'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing computer use files: $($missing -join ', ')"; exit 1 }
+          $dirs = @('computer-use', 'computer-use/controllers', 'computer-use/drivers')
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in $dirs) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          $config = Get-Content config/app.json -Raw
+          if ($config -notmatch '"computerUse"') { Write-Error 'config/app.json has no computerUse block'; exit 1 }
+          $shell = Get-Content app/desktop-main.cjs -Raw
+          if ($shell -notmatch 'COMPUTER_USE_CHANNELS') { Write-Error 'the shell does not register the Computer Use IPC surface'; exit 1 }
+          Write-Host "computer use runtime, drivers, panel and acceptance harness present and covered by the syntax gate"

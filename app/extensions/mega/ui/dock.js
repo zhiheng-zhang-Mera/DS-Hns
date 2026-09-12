@@ -984,6 +984,7 @@ function render(snapshot) {
  */
 let themePanel = null
 let skillsPanel = null
+let computerUsePanel = null
 try {
   themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
 } catch (error) {
@@ -991,6 +992,13 @@ try {
 }
 try {
   skillsPanel = window.megaSkillsPanel?.attach ? window.megaSkillsPanel.attach() : null
+} catch (error) {
+  showError(error)
+}
+try {
+  // Update-Plan/computer-use.md: the panel is a control surface only. Every
+  // action it offers is an IPC call into the shell-owned runtime.
+  computerUsePanel = window.megaComputerUsePanel?.attach ? window.megaComputerUsePanel.attach() : null
 } catch (error) {
   showError(error)
 }
@@ -1003,6 +1011,7 @@ async function refresh() {
     // theme list and skill catalog.
     await themePanel?.refresh?.()
     await skillsPanel?.refresh?.()
+    await computerUsePanel?.refresh?.()
   } catch (error) {
     showError(error)
   }

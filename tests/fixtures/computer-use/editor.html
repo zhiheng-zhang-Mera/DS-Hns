@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+  The desktop application document.
+
+  The textarea is bound to doc.txt in the device filesystem: Ctrl+S with the
+  textarea focused writes the current value there and shows the saved node.
+  Nothing is persisted before the save, so the file check is meaningful.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Editor - doc.txt</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Editor</h1>
+  <textarea
+    id="doc"
+    data-cu-file="doc.txt"
+    aria-label="Document"
+    data-cu-on-save="show #saved; text #saved Saved to {file}"
+    style="width:400px;height:120px"></textarea>
+  <input id="plain" type="text" aria-label="Plain field" style="width:200px">
+  <p id="saved" role="status" hidden></p>
+</body>
+</html>

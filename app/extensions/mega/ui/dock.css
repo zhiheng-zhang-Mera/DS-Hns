@@ -584,3 +584,39 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
   font-family:var(--hns-font-family-mono);font-size:10px;line-height:1.5;color:var(--hns-color-label-secondary)}
 
 @media(max-width:620px){.skills-installbar{grid-template-columns:1fr}.skills-searchbar{grid-template-columns:1fr}}
+
+/* ---- Computer Use panel (Update-Plan/computer-use.md) -------------------
+   The panel mirrors the runtime's own vocabulary: controller health, the live
+   state machine, the per-step log (channel, verification, stabilization cost)
+   and the success criteria that decided the run. */
+.computer-use-panel .cu-health{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:8px 0}
+.cu-health-card{display:flex;flex-direction:column;gap:2px;padding:6px 8px;border-radius:8px;
+  background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);font-size:10px}
+.cu-health-card b{font-size:11px;color:var(--hns-color-label-primary)}
+.cu-health-card span{color:var(--hns-state-completed)}
+.cu-health-card.degraded{border-color:var(--hns-state-warning)}
+.cu-health-card.degraded span{color:var(--hns-state-warning)}
+.cu-page{margin:4px 0 8px;font-size:10px;color:var(--hns-color-label-tertiary);word-break:break-all}
+.cu-contract{margin:6px 0;border:1px solid var(--hns-color-border-l1);border-radius:10px;padding:6px 9px;background:var(--hns-color-bg-layer2)}
+.cu-contract summary{font-size:11px;color:var(--hns-color-label-secondary);cursor:pointer}
+.cu-contract .settings-form{margin-top:8px}
+.cu-capabilities{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:10px;color:var(--hns-color-label-secondary)}
+.cu-actions{display:flex;gap:6px;margin-top:8px}
+.cu-actions .danger{color:var(--hns-state-failed)}
+.cu-summary{margin-top:8px;font-size:11px;color:var(--hns-color-label-secondary)}
+.cu-criterion{margin:2px 0;font-size:10px;color:var(--hns-color-label-secondary)}
+.cu-error{margin:4px 0 0;font-size:10px;color:var(--hns-state-failed);word-break:break-word}
+.cu-steps{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.cu-step{display:grid;grid-template-columns:34px 1fr 78px 1fr;gap:6px;align-items:center;padding:5px 7px;
+  border-radius:8px;background:var(--hns-color-bg-layer1);border-left:3px solid var(--hns-color-border-l2);font-size:10px}
+.cu-step.cu-ok{border-left-color:var(--hns-state-completed)}
+.cu-step.cu-warn{border-left-color:var(--hns-state-warning)}
+.cu-step.cu-bad{border-left-color:var(--hns-state-failed)}
+.cu-step-no{color:var(--hns-color-label-tertiary)}
+.cu-step-action{color:var(--hns-color-label-primary);word-break:break-all}
+.cu-step-channel{color:var(--hns-color-label-tertiary)}
+.cu-step-verify{color:var(--hns-color-label-secondary);word-break:break-word}
+.cu-step-timing,.cu-step-retry,.cu-step-coord{grid-column:2 / span 3;font-size:9px;color:var(--hns-color-label-tertiary)}
+.cu-step-retry{color:var(--hns-state-warning)}
+.cu-step-coord{color:var(--hns-state-warning)}
+.cu-empty{margin:4px 0;font-size:10px;color:var(--hns-color-label-tertiary)}

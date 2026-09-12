@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  A page that stalls.
+
+  Clicking "Apply" freezes the page: no fixture script effect is applied from
+  then on, so #applied never appears. The liveness probe is still a real text
+  control -- typing into it changes its value and the DOM revision, which is how
+  a recovery path can tell "the application is stuck" from "everything is dead".
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Stalled</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Stalled</h1>
+  <button id="apply" type="button" data-cu-freeze="1" data-cu-on-click="show #applied; text #applied Applied">Apply</button>
+  <p id="applied" role="status" hidden></p>
+  <input id="alive" type="text" aria-label="Liveness probe" style="width:200px">
+</body>
+</html>

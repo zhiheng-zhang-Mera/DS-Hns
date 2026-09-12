@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  Two different reaction times.
+
+  The slow button shows its result 700 ms after the click, the fast one after
+  120 ms. A runtime that always sleeps the same amount either gives up on the
+  slow one or wastes time on the fast one.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Slow and fast</title>
+</head>
+<body style="background:#ffffff">
+  <h1 id="heading">Slow and fast</h1>
+  <button id="slow" type="button" data-cu-delay-ms="700" data-cu-on-click="show #slow-result; class-add #slow-result done; text #slow-result Slow finished">Start slow task</button>
+  <p id="slow-result" role="status" hidden></p>
+  <button id="fast" type="button" data-cu-delay-ms="120" data-cu-on-click="show #fast-result; class-add #fast-result done; text #fast-result Fast finished">Start fast task</button>
+  <p id="fast-result" role="status" hidden></p>
+</body>
+</html>

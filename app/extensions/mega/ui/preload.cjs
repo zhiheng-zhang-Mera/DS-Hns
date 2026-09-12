@@ -143,6 +143,28 @@ contextBridge.exposeInMainWorld('megaTools', {
 })
 
 /**
+ * Computer Use control surface (Update-Plan/computer-use.md).
+ *
+ * The dock edits an execution contract and reads the runtime's own reports; the
+ * runtime itself lives in the shell (main process) exactly like the Sub-worker
+ * manager, because it drives windows, real input and the browser. No execution
+ * logic and no filesystem path is exposed to the renderer.
+ */
+contextBridge.exposeInMainWorld('megaComputerUse', {
+  snapshot: () => ipcRenderer.invoke('computer-use:snapshot'),
+  health: () => ipcRenderer.invoke('computer-use:health'),
+  actions: () => ipcRenderer.invoke('computer-use:actions'),
+  capabilities: () => ipcRenderer.invoke('computer-use:capabilities'),
+  run: (contract, options) => ipcRenderer.invoke('computer-use:run', contract, options),
+  step: (contract) => ipcRenderer.invoke('computer-use:step', contract),
+  execute: (action) => ipcRenderer.invoke('computer-use:execute', action),
+  cancel: (reason) => ipcRenderer.invoke('computer-use:cancel', reason),
+  log: (count) => ipcRenderer.invoke('computer-use:log', count),
+  screenshots: () => ipcRenderer.invoke('computer-use:screenshots'),
+  page: () => ipcRenderer.invoke('computer-use:page')
+})
+
+/**
  * Optional Sub-worker control surface. The worker has no window of its own
  * (plan §3.2), so the Mega dock is its primary visual surface: these channels
  * drive the shell-owned WorkerManager and are the only way the panel talks to

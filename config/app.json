@@ -35,6 +35,34 @@
       "speculativeExecution": { "enabled": true }
     }
   },
+  "computerUse": {
+    "enabled": true,
+    "autonomyEnabled": false,
+    "limits": {
+      "maxSteps": 200,
+      "maxRetriesPerAction": 2,
+      "maxStallRecoveries": 2,
+      "stepTimeoutMs": 30000,
+      "runTimeoutMs": 1800000
+    },
+    "timing": {
+      "settleMinMs": 50,
+      "settlePreferredMs": 100,
+      "gracePreferredMs": 150,
+      "cooldownSoftMaxMs": 400,
+      "navigationCooldownMs": 800,
+      "eventPollMs": 40
+    },
+    "safety": {
+      "destructiveActions": "confirm",
+      "requireForegroundWindow": true,
+      "requireFocusForTyping": true
+    },
+    "vision": {
+      "retention": "failure",
+      "allowFullScreenFallback": true
+    }
+  },
   "timezones": {
     "local": "auto",
     "localLabel": "本地时间(系统时区)",

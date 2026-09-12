@@ -3,6 +3,61 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## computer-use — 完整 Computer Use 执行器（Update-Plan/computer-use.md）
+
+**DS-Hns 现在能接收执行契约并在真实计算机上把任务做完，而且做完之后能证明。** 新增
+`app/computer-use/` 运行时：统一 Action Executor、World State、Browser / Desktop /
+Vision / Shell / File 控制器、瞬态稳定、动作验证、miss 检测、恢复阶梯、stall 检测、
+能力路由、危险操作门控、执行日志，以及自主续跑（autonomyEnabled）。原则是
+**Structure first, Events second, Vision only when necessary**：结构化状态优先，
+视觉只在结构化信息无法定位目标时兜底。
+
+* **统一动作层**：CLICK / TYPE / HOTKEY / SCROLL / DRAG / DOM_* / ACCESSIBILITY_* /
+  BROWSER_* / SHELL_EXEC / FILE_* / SCREENSHOT_* 全部走同一个 Executor，上层无法绕过
+  它直接生成 pyautogui 脚本；动作契约自带 precondition、stabilization、
+  expected_effect、timeout_ms 与 retry，缺参动作在构建期就被拒绝。
+* **目标解析阶梯**：DOM selector → accessibility node → semantic element → window →
+  bbox → visual target → 坐标；点击前必须重新解析并比较位移（<3px 直接点、3–10px 用
+  刷新后的坐标、>10px 重新观察），过期坐标永不使用。
+* **瞬态稳定**：动作前 50–300ms settling（UI 仍在变化时按 +80ms 递进，上限
+  400–500ms）、动作后 80–250ms grace、条件等待代替 sleep；超过冷却上限就转入
+  WAIT_STATE 或重新观察，不会退化成 `sleep(2)`。动态冷却只看当前这一步的观测，
+  不学习任何 App 延迟画像。
+* **三态验证**：每个动作返回 success / failure / unknown；"脚本跑完了"不是完成，
+  完成由执行契约的 success_criteria 判定，无法判定的条件永远不会被当成满足。
+* **失败恢复**：retry（先重新验证目标）→ alternative interaction（鼠标点击失败转
+  accessibility invoke / DOM click）→ replan → 有界失败；连续 3 次无实质变化判定
+  stall，走结构化重观察 → 窗口检查 → 目标重解析 → 区域截图 → 换交互 → replan →
+  全屏截图 → FAIL_WITH_CONTEXT，绝不无限重试。
+* **感知与视觉**：浏览器经 CDP 读取 DOM / 可访问性树 / URL / 加载态 / 弹窗；桌面经
+  user32 + UI Automation 读取窗口、前台与控件（UIA 跨进程且昂贵，因此按步按需读取，
+  弹窗另外从窗口列表廉价识别）；截图分级 region → window → full，每级只在恢复时上升
+  一格，全屏还需要契约许可。
+* **画布场景真的靠视觉**：页内视觉目标用页面自身视口截图做颜色/模板匹配，再把设备像素
+  → CSS 像素 → 屏幕像素换算后用真实 SendInput 点击（canvas 验收用例证明这条链路）。
+* **安全门控**：意外弹窗暂停原动作、用它自己的控件关闭后再恢复；输入前验证焦点；
+  键盘/点击前验证前台窗口，前台不明就拒绝点击；密码/token 永不进入日志；危险操作
+  （删除/安装/发布/格式化等）由契约 allowed / confirm / forbidden 决定，`confirm`
+  没有确认通道时是拒绝而不是默认同意。
+* **故障隔离**：每个控制器独立异常边界，视觉控制器坏掉不影响浏览器与 Shell 任务，
+  页面关闭不影响桌面任务；单个感知源超时只让世界状态降级，并在日志里说明原因。
+* **执行日志**：逐步记录 action / target / channel / pre_state / stabilization_ms /
+  grace / wait / result / verification / retry_count；截图只在 debug、audit、失败或
+  显式请求时落盘，普通运行用完即弃。
+* **真实驱动**：koffi FFI 直调 user32/kernel32（鼠标、Unicode 键盘、窗口、剪贴板），
+  PowerShell 5.1 + UIAutomationClient 提供可重解析 `w:<hwnd>/0.3.2` 的自动化树，
+  GDI（BitBlt/PrintWindow）截图，PNG 复用仓库自带编解码器；三者在 koffi 或
+  PowerShell 缺失时都能优雅降级。
+* **接线**：主进程持有运行时并注册 `computer-use:*` IPC（懒创建、退出时释放），
+  Mega Dock 新增 **Computer Use** 面板（编辑契约、单步/执行、取消、控制器健康、实时
+  状态机与步骤日志），preload 暴露 `megaComputerUse`，`config/app.json` 增加
+  `computerUse` 配置块（默认关闭自主续跑，危险操作默认 confirm）。
+* **验收**：`tests/unit/computer-use-*.test.js` 用真实状态机的进程内设备覆盖 §53 全部
+  十个用例（可确定性复现）；`scripts/computer-use-acceptance.cjs` 在真机上跑同样十个
+  用例（真实 Chromium + 真实桌面 + 真实输入），结果与限制记在
+  `docs/computer-use-acceptance.md`；CI 增加 Computer Use surface gate，并把
+  `computer-use` 加入 verify 工作流的分支触发列表。
+
 ## Theme-Cover — 双前端模式：Daily（HNS 原生界面）与 Work（官方界面）
 
 ### 真机验收后的修正（同一分支）
