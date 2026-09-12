@@ -1,0 +1,36 @@
+name: verify
+
+# Syntax, unit and architecture gates.
+#
+# The full Electron acceptance (CDP attach, screenshots, native dialogs) is a
+# release step, not a per-push one: it needs a real Windows desktop session. It is
+# available from the repository as scripts\acceptance.mjs (see --help in its
+# header) and is documented in docs\.
+on:
+  push:
+    branches: [main, merging]
+  pull_request:
+    branches: [main, merging]
+
+jobs:
+  verify:
+    name: check + tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax gate
+        working-directory: app
+        run: npm run check
+
+      - name: Unit + architecture tests
+        working-directory: app
+        run: npm test

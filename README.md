@@ -129,8 +129,9 @@ Collapsed                              Expanded
 
 - **Collapsed rail** — 48 px vertical strip with MEGA identity, running count, queued count, hardware worker state and peak/off-peak state.
 - **Expanded dock** — 560 px by default: manual task creation with real queue ordering controls, hardware-adaptive concurrency, the account balance module, the extension status module and the settings layer.
+- **One dock target adapter** — the current build renders the dock as a `WebContentsView` inside the main window (`app\desktop-main.cjs`), while the legacy companion `BrowserWindow` remains a second backend. Both are reached through `app\extensions\mega\dock\target.js`, which owns the webContents, the bounds, the visibility and the screenshot for whichever generation is running. No theme, skills or IPC path reads `dockWindow` directly, so "apply succeeded but the dock never repainted" cannot come back through a second code path.
 - **State memory** — collapsed/expanded state and dock width are stored in `data/state/mega-dock.json`.
-- **No official viewport resize** — the official DSH BrowserWindow keeps its original size. If there is room on the right, the dock sits outside it; if not (for example a maximized window), the dock overlays the right edge as a separate BrowserWindow instead of shrinking the official renderer.
+- **Integrated layout** — the official dsh view and the dock are sibling `WebContentsView`s inside one native window, so the dock reserves its own strip and never sits on top of the official UI. `DSH_MEGA_INTEGRATED_DOCK=0` falls back to the legacy companion `BrowserWindow` (positioned outside the official window, or overlaying its right edge when the screen has no room); the theme system is unaware of the difference because both go through the dock target adapter above.
 - **One product window** — there is no separate Mega management window or page. Every Mega capability lives in the dock; the settings layer (⚙ in the dock header) is an in-dock overlay that reuses the existing IPC backend.
 - **Ctrl+Shift+M** — toggles the right dock between collapsed and expanded states.
 - **System tray** — double-click restores/focuses the main window; right-click offers only **Exit DS-Harness** and **Force Exit DS-Harness**.
@@ -210,6 +211,13 @@ Prompt → UI inspection → capability manifest → design intent → live prev
 
 - **Preview-first** — generating a theme stops at a live preview applied to the real dock.
   Nothing is registered or installed until **Looks Good**.
+- **It observes before it designs** — the pipeline starts with a real UI observation:
+  a screenshot of the running dock plus a geometry probe that measures the live slot
+  bounding boxes. When no picture is possible (the dock is hidden, the renderer is gone, a
+  headless run) the design still proceeds from structure alone, but the result is marked
+  `degraded` with a reason and logged — it is never silently structure-only. Accepted
+  screenshots must be real PNGs (signature, IHDR dimensions, sane size); an empty buffer or a
+  0x0 capture is rejected rather than counted as a visual observation.
 - **Self-contained packages** — `data/themes/user/<theme-id>/` holds its own
   `manifest.json`, `tokens.json`, `components.json`, `persona.json`, `preview.png`,
   `preview.html` and `assets/`. Compiled assets are embedded as inline data URIs at
@@ -286,12 +294,16 @@ official latest release of `@deepseek-ai/dsh`.
 - **Update** — pins `app\package.json`, hands the install to a detached runner and lets the
   shell exit gracefully. The runner then waits for DS-Harness to disappear (a real exit is
   required: Windows will not let npm replace a running harness), runs
-  `npm install --save-exact @deepseek-ai/dsh@<latest>`, verifies the installed version and CLI
-  entry, and relaunches DS-Harness.
-- **Failure isolation** — a failed install is rolled back to the previous `package.json` /
-  `package-lock.json` and repaired with a best-effort `npm install`, the outcome is written to
-  `data\state\mega-update.json`, and the app is relaunched either way. The dock shows the last
-  outcome ("上次更新成功 / 上次更新失败 / 上次更新未完成") after the restart.
+  `npm install --save-exact @deepseek-ai/dsh@<latest>`, verifies the installed version, the CLI
+  entry and a real `node lib/bin.js --help` boot, and relaunches DS-Harness.
+- **Upgrade and rollback are separate operations** — the rollback restores the previous
+  `package.json` / `package-lock.json` and then runs `npm ci --no-audit --no-fund` (the exact
+  lockfile reinstall), never the upgrade command again. The previous version is read from
+  `app\node_modules\@deepseek-ai\dsh\package.json`, not from the manifest pin, so the
+  installation that comes back is the one that was actually running.
+- **Three outcomes, not two** — `data\state\mega-update.json` records `succeeded`,
+  `failed_rolled_back` or `failed_rollback_failed`. The dock reports which one happened, and a
+  failed rollback is shown as *回滚未完成，当前安装可能已损坏* instead of a generic "更新失败".
 - **Pin matters** — `scripts\install-deps.ps1` runs `npm ci` whenever the installed version
   differs from `app\package.json`, so the pin is what stops an update from being silently
   reverted on the next start.
@@ -467,3 +479,21 @@ powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
 The verification checks both the Mega-derived feature logic and the Alien architectural contract.
+It runs three gates in order: `npm run check` (syntax for every shipped source file,
+`scripts\check-syntax.cjs`), `npm test` (unit + architecture tests, `node --test
+tests\unit\*.test.js`) and the architecture assertions in `scripts\verify.ps1` itself.
+`-SkipTests` runs only the architecture assertions. The same first two gates run in
+`.github\workflows\verify.yml` on every push and pull request to `main` and `merging`.
+
+The **release acceptance** — the real Electron shell, CDP attach, screenshots, theme
+switching, prompt-theme create/preview/approve/delete, system-theme protection, skills and
+the updater rollback — is a separate, longer run:
+
+```powershell
+node scripts\acceptance.mjs --root <checkout> --port 3091 --cdp 9331 --skills --report <file.json>
+```
+
+Add `--github` for the live repository install. It writes a JSON report
+(`commit`, `branch`, `passed`, `failed`, `warnings`, per-`modules` counts, `checks`, `notes`)
+and exits non-zero on any failure. It is not part of CI because it needs a real Windows
+desktop session; run it before merging to `main`.

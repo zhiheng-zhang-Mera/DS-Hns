@@ -80,6 +80,25 @@ Check 'Skill install is staged and validated before it lands' ((Get-Content "$RO
 Check 'Skill deletion is confined to the skill root' ((Get-Content "$ROOT\app\extensions\mega\skills\skill-service.js" -Raw) -match 'target_outside_root|outside_root')
 Check 'Skill archive extraction refuses traversal' ((Get-Content "$ROOT\app\extensions\mega\skills\tar.js" -Raw) -match 'safeRelativePath')
 Check 'Theme bridge is shared by the dock UI modules' ((Test-Path "$ROOT\app\extensions\mega\ui\theme-bridge.js") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'theme-bridge\.js'))
+# ---- Dock Target Adapter: one interface, two backends ----
+$dockTarget = Get-Content "$ROOT\app\extensions\mega\dock\target.js" -Raw
+Check 'Dock target adapter exists' (Test-Path "$ROOT\app\extensions\mega\dock\target.js")
+Check 'Dock adapter exposes the full target contract' (($dockTarget -match 'getWebContents') -and ($dockTarget -match 'getBounds') -and ($dockTarget -match 'getVisible') -and ($dockTarget -match 'capturePage') -and ($dockTarget -match '\bsend\b') -and ($dockTarget -match 'getState'))
+Check 'Dock adapter keeps both backends behind one interface' (($dockTarget -match 'INTEGRATED_MODE') -and ($dockTarget -match 'WINDOW_MODE'))
+$megaDockReads = ([regex]::Matches($mega, 'dockWindow\.webContents')).Count + ([regex]::Matches($mega, 'dockWindow\.isVisible')).Count + ([regex]::Matches($mega, 'dockWindow\.getContentSize')).Count
+Check 'Theme and dock pushes never read dockWindow directly' ($megaDockReads -eq 0) "($megaDockReads direct read(s))"
+Check 'Dock state reports its generation' ($mega -match 'dockTarget\.getState\(')
+Check 'Shell hands the extension a dock adapter' (($main -match 'dockAdapter') -and ($main -match 'function createDockAdapter'))
+Check 'Shell notifies the extension when the dock renderer is ready' (($main -match 'notifyDockReady') -and ($mega -match 'registerDockReadyHook'))
+# ---- updater rollback transaction ----
+$runner = Get-Content "$ROOT\app\extensions\mega\updater\update-runner.js" -Raw
+$rollbackBody = ($runner -split 'function restorePreviousInstallation')[1]
+$rollbackBody = ($rollbackBody -split 'function verifyInstall')[0]
+Check 'Upgrade and rollback are separate operations' (($runner -match 'function installTargetVersion') -and ($runner -match 'function restorePreviousInstallation'))
+Check 'Rollback reinstalls the lockfile, never the target' (($rollbackBody -match "'ci', '--no-audit', '--no-fund'") -and (-not ($rollbackBody -match 'rt\.target')) -and (-not ($rollbackBody -match 'PACKAGE_NAME\}@')))
+Check 'The previous installation is read from disk first' ($runner -match 'installedVersion: readInstalledVersion\(rt\)')
+Check 'The three rollback outcomes are distinct' (($runner -match 'failed_rolled_back') -and ($runner -match 'failed_rollback_failed') -and ($runner -match 'SUCCEEDED: .succeeded.'))
+Check 'The dock cannot mask a failed rollback' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw) -match 'rollback-failed') -and ((Get-Content "$ROOT\app\extensions\mega\updater\harness-updater.js" -Raw) -match 'rollbackFailed'))
 
 if (-not $SkipTests) {
   Write-Output ''
