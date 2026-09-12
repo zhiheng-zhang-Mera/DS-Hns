@@ -139,3 +139,15 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 两套真实验收（`acceptance.mjs` 60/60、`sub-worker-acceptance.cjs` 60/60）同样通过。
 `verify.yml` 的 Node 版本固定为 `22` 并注明原因（本机已在 22/24 两个版本验证）。
 
+### 7.2 云端绿灯
+
+| 提交 | Actions run | 结果 |
+| --- | --- | --- |
+| `5f65276` | `34678324162`（verify · `check + tests`） | **success**（1m28s） |
+
+随后把多 worker 场景的「资源采样」也改为确定性注入：CI 上真实采样反映的是**负载中的
+宿主机**，调度器按设计拒绝扩容，于是等待第 2/3 个 worker 的用例超时——这是调度器行为正确、
+测试依赖空闲开发机的问题。现在 rig 从一开始就注入健康样本（压力/恢复用例会覆盖成自己要
+断言的状态），`pump()` 超时会打印 pool/资源状态/调度决策，超时上限也放宽到 120s
+（hosted runner 派生 worker 进程慢数倍，断言的是「能否达到规模」而不是多快达到）。
+
