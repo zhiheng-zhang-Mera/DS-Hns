@@ -1,7 +1,8 @@
 # merging 分支验收记录
 
-本文件记录 `merging` 分支稳定化（`Update-Plan/fixing-merge.md`）的真实验收结果，
-供合并 `main` 之前复核。验收脚本：`scripts/acceptance.mjs`。
+本文件记录 `merging` 分支的验收结果：先是 `Update-Plan/fixing-merge.md` 稳定化，
+随后是「合并其余所有分支到 `merging`、只保留 `main` + `merging`」的集成验证。
+供合并 `main` 之前复核。验收脚本：`scripts/acceptance.mjs`、`scripts/sub-worker-acceptance.cjs`。
 
 ## 1. 代码 Gate（Gate A）
 
@@ -15,8 +16,8 @@ powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
 
 | 项目 | 结果 |
 | --- | --- |
-| `npm run check` | PASS（66 个源文件全部通过） |
-| `npm test` | PASS（389 tests / 389 pass / 0 fail） |
+| `npm run check` | PASS（89 个源文件全部通过，含 `app/sub-worker/`） |
+| `npm test` | PASS（629 tests / 629 pass / 0 fail） |
 | `scripts\verify.ps1` | PASS（`VERIFY: ALL CHECKS PASSED`，exit 0） |
 
 ## 2. 真实 Electron 验收
@@ -67,3 +68,43 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 - 报告 JSON 字段：`commit`、`branch`、`passed`、`failed`、`warnings`、`modules`、`updater`、`checks`、`notes`。
 - 证据文件：`data/theme-workspace/snapshot/ui-map.json` 与同目录 PNG（运行期产物，不提交）。
 - 更新日志：`logs/mega-update.log`；更新结果状态：`data/state/mega-update.json`。
+
+## 6. 分支集成验证（合并其余分支到 merging）
+
+`fe54634` 之后把 `Sub-worker`（`origin/Sub-worker`，含 `feat(sub-worker)` 与
+`feat(multi-sub)` 两个提交）合并进 `merging`；`UI-theme`、`auto-update`、`skills`
+在内容上已被 `merging` 包含（`git merge-base --is-ancestor` 成立），因此无需再次合并。
+
+合并冲突共 5 处，全部按「两个功能都必须保留」解决：
+
+| 文件 | 冲突 | 解决 |
+| --- | --- | --- |
+| `app/package.json` | `check` 脚本两套 | 保留 `scripts/check-syntax.cjs`（并把 `sub-worker` 目录纳入扫描） |
+| `app/desktop-main.cjs` | 端口解析、`dockReadyCallbacks`/Sub-worker 状态、launch 参数 | 保留更严格的端口 opt-in 与 `DSH_LAUNCH_ARGS`，同时保留 Sub-worker 状态与 IPC 列表 |
+| `app/extensions/mega/index.cjs` | 模块状态变量、snapshot 字段、`notifyChanged` 注释、`start()` 尾部 | 两者并存：主题状态 + Sub-worker 状态；`bindSubWorker()` 放在最后（故障隔离） |
+| `app/extensions/mega/ui/dock.js` | `renderUpdate`/`renderSubWorker`、Escape 处理 | 两个渲染器都调用；Escape 顺序为 Live View → 设置层 → 主题详情 |
+| `tests/unit/sub-worker-default-regression.test.js` | 断言旧的 `const HARNESS_PORT = … : 3080` | 改为断言 `normalizeHarnessPort()` 的 3080 默认值与新的 `DSH_LAUNCH_ARGS` 行 |
+
+合并后修复的三处真实问题（均为「两功能各自正确、合起来才暴露」）：
+
+1. `openSubWorkerLiveView()` 直接读 `dockWindow.webContents` 推送 Live View，绕过了 Dock Adapter，
+   导致集成 Dock 收不到 Live View，并使 `verify.ps1` 的「不得直接读取 dockWindow」检查失败；
+   现改为 `dockTarget.send('mega:sub-worker-live-view')`。
+2. `scripts/verify.ps1` 的端口默认值检查仍断言旧的 `HARNESS_PORT` 写法；已改为断言
+   `normalizeHarnessPort()` 的默认返回与 `DSH_LAUNCH_ARGS`。
+3. `scripts/sub-worker-acceptance.cjs` 会递归复制 `app/`，遇到 `node_modules` 链接时报
+   `EPERM`；现明确跳过 `node_modules` 与 `data`（脚本本来就为 scratch 根建立链接与全新数据目录）。
+
+合并后的验证：
+
+| 项目 | 结果 |
+| --- | --- |
+| `npm run check` | PASS（89/89 文件） |
+| `npm test` | PASS（629 tests / 629 pass / 0 fail） |
+| `scripts\verify.ps1` | PASS（exit 0） |
+| `scripts\acceptance.mjs`（真实 Electron + CDP） | PASS（60/60：core 8 · dock 4 · theme 39 · skills 8 · updater 1） |
+| `scripts\sub-worker-acceptance.cjs all`（真实 Worker + Harness） | PASS（60/60） |
+
+`sub-worker-acceptance.cjs` 的集成合并检查原先只在 `waitFor` 里等「worktree 目录出现」，
+而合并文件是在目录出现之后才写入的，因此偶发误报；现改为等待
+`e2e-alpha.txt` / `e2e-beta.txt` 真正出现（断言强度不变，仍然是两个文件都必须存在）。

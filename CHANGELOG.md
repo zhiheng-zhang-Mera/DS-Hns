@@ -3,6 +3,32 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## merging — Sub-worker execution layer merged in
+
+`merging` now carries every line of development that is not `main`:
+the Sub-worker / adaptive multi-worker layer (`Sub-worker`), on top of the theme,
+skills, updater and acceptance work that `UI-theme`, `auto-update` and `skills`
+had already contributed. Nothing was dropped: the whole merge was resolved by
+keeping both features where they collided, and the merged tree passes the syntax
+gate, the unit/architecture suite, the real Electron acceptance and the
+Sub-worker's own end-to-end acceptance.
+
+Fixed while integrating (both features were individually correct, only the
+combination was not):
+
+- The Sub-worker **Live View** push read `dockWindow.webContents` directly, so the
+  integrated dock never received it and the "no direct dockWindow reads"
+  architecture check failed. It now goes through the dock target adapter.
+- `scripts/sub-worker-acceptance.cjs` copied `app/` recursively and hit `EPERM` on
+  the `node_modules` link; it now skips `node_modules` and `data` (it links the
+  dependency tree and starts from a fresh data directory anyway).
+- Its integration-merge check waited for the integration worktree *directory*
+  while the merged files land a moment later, which made it flaky. It now waits
+  for the files themselves.
+- `scripts/verify.ps1` and the Sub-worker regression test asserted the old
+  `HARNESS_PORT` expression; both now assert the shipped
+  `normalizeHarnessPort()` / `DSH_LAUNCH_ARGS` behaviour.
+
 ## merging — stabilization pass
 
 Fixes the confirmed design and implementation gaps on `merging` before it can be

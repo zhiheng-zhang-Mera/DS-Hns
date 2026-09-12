@@ -22,6 +22,7 @@
     <div class="rail-stat"><small>RUN</small><b id="railRunning">0</b></div>
     <div class="rail-stat"><small>QUEUE</small><b id="railQueued">0</b></div>
     <div class="rail-stat"><small>HW</small><b id="railWorkers">—</b></div>
+    <div class="rail-stat"><small>SUB</small><b id="railSubWorker">OFF</b></div>
     <div id="railPeak" class="rail-mode">OFF</div>
   </aside>
 
@@ -199,6 +200,110 @@
       <div id="hardware" class="hardware-grid"></div>
     </section>
 
+    <section class="panel sub-worker-panel">
+      <div class="panel-head">
+        <div>
+          <div class="sw-title-row">
+            <h2>Sub-worker</h2>
+            <span id="swState" class="status-chip neutral">OFF</span>
+          </div>
+          <p>可选执行层：默认关闭。开启后才会启动独立 worker 进程；它只执行 Controller 下达的明确任务，不决定方向。</p>
+        </div>
+      </div>
+
+      <div id="swSummary" class="sub-worker-grid"></div>
+
+      <div class="sw-controls">
+        <button id="swEnable">Enable Sub-worker</button>
+        <button id="swStart" class="quiet">Start</button>
+        <button id="swStop" class="quiet">Stop</button>
+        <button id="swRestart" class="quiet">Restart</button>
+        <button id="swPause" class="quiet">Pause</button>
+        <button id="swResume" class="quiet">Resume</button>
+        <button id="swCancel" class="quiet">Cancel Task</button>
+        <button id="swTakeOver" class="quiet">Take Over</button>
+        <button id="swLive" class="quiet">Open Live View</button>
+      </div>
+
+      <div class="sw-adaptive">
+        <label class="check"><input id="swAdaptive" type="checkbox"> 自适应多进程（自适应 Worker 数量；关闭时保持 1 Worker 兼容模式）</label>
+        <div class="sw-adaptive-actions">
+          <button id="swAdaptiveApply" class="quiet">应用</button>
+          <button id="swTick" class="quiet" title="立即执行一次调度循环（采样资源 → 扩缩容 → 派发）">调度一次</button>
+          <span id="swResourceState" class="status-chip neutral">NORMAL</span>
+        </div>
+      </div>
+
+      <div id="swResources" class="hardware-grid"></div>
+      <div id="swLimits" class="sub-worker-grid"></div>
+
+      <h3 class="sw-subhead">Worker Pool</h3>
+      <div id="swPool" class="sw-pool"></div>
+
+      <h3 class="sw-subhead">Task DAG</h3>
+      <div id="swDag" class="sw-dag"></div>
+
+      <h3 class="sw-subhead">性能指标</h3>
+      <div id="swMetrics" class="hardware-grid"></div>
+
+      <details class="sw-dispatch" id="swDispatchBox">
+        <summary>派发任务（Controller 提供明确 specification）</summary>
+        <form id="swTaskForm" class="settings-form">
+          <label>objective <input id="swObjective" placeholder="Implement SQLite knowledge-store adapter" required></label>
+          <div class="settings-row">
+            <label>target_repo <input id="swTargetRepo" placeholder="D:\Project"></label>
+            <button type="button" id="swPickRepo" class="quiet">选择目录</button>
+          </div>
+          <div class="settings-row">
+            <label>risk_level
+              <select id="swRisk">
+                <option value="L0">L0 — Command Execution</option>
+                <option value="L1">L1 — Small Local Modification</option>
+                <option value="L2" selected>L2 — Module Implementation</option>
+                <option value="L3">L3 — Architecture Modification（会被拒绝）</option>
+                <option value="L4">L4 — Product / Research Direction（会被拒绝）</option>
+              </select>
+            </label>
+            <label>workspace_mode
+              <select id="swWorkspaceMode">
+                <option value="isolated_worktree" selected>isolated_worktree</option>
+                <option value="shared">shared</option>
+              </select>
+            </label>
+          </div>
+          <div class="settings-row">
+            <label>workspace（可选，shared 模式） <input id="swWorkspace" placeholder="D:\Project"></label>
+          </div>
+          <div class="settings-row">
+            <label>allowed_paths（每行一个 glob） <textarea id="swAllowed" rows="2" placeholder="src/**, tests/**"></textarea></label>
+            <label>forbidden_paths（每行一个 glob） <textarea id="swForbidden" rows="2" placeholder="src/ipc/**"></textarea></label>
+          </div>
+          <label>acceptance（每行一条） <textarea id="swAcceptance" rows="2" placeholder="All existing tests pass"></textarea></label>
+          <label>acceptance_commands（每行一条，可自动验证） <textarea id="swAcceptanceCommands" rows="2" placeholder="npm test"></textarea></label>
+          <div class="settings-row">
+            <label class="check"><input id="swPermWrite" type="checkbox" checked> write</label>
+            <label class="check"><input id="swPermShell" type="checkbox" checked> shell</label>
+            <label class="check"><input id="swPermCommit" type="checkbox"> git_commit</label>
+            <label class="check"><input id="swPermNetwork" type="checkbox"> network</label>
+            <label class="check"><input id="swRequiresVision" type="checkbox"> requires_vision</label>
+          </div>
+          <label>operations（JSON 数组，L1/L2 必须提供可执行 specification）
+            <textarea id="swOperations" rows="4" placeholder='[{"op":"read_file","path":"src/a.ts"},{"op":"run_tests","command":"npm test"}]'></textarea>
+          </label>
+          <div class="settings-actions">
+            <button type="submit">派发给 Sub-worker</button>
+            <button type="button" id="swResumeLast" class="quiet">恢复上次中断任务</button>
+            <button type="button" id="swReleaseWorktree" class="quiet" title="删除 hns-sub-worker 隔离工作区（其内容通常是待验收的成果）">释放隔离工作区</button>
+          </div>
+          <p id="swDispatchStatus" class="settings-status" role="status"></p>
+        </form>
+      </details>
+
+      <div id="swQueue" class="queue-list"></div>
+      <div id="swHistory" class="sw-history"></div>
+      <p id="swCrash" class="sw-crash" hidden></p>
+    </section>
+
     <section class="panel balance-panel">
       <div class="panel-head balance-head">
         <div>
@@ -238,6 +343,82 @@
 
     <p id="error" class="error"></p>
   </main>
+
+  <div id="liveView" class="live-view-overlay" hidden>
+    <div class="live-view-sheet" role="dialog" aria-modal="true" aria-label="Sub-worker Live View">
+      <div class="live-view-head">
+        <div>
+          <h2>Sub-worker Live View</h2>
+          <p class="lv-note">仅显示可审计的执行摘要、命令、文件与测试结果，不显示模型隐藏推理。</p>
+        </div>
+        <div class="live-view-head-actions">
+          <span id="lvState" class="status-chip neutral">OFF</span>
+          <button id="lvRefresh" class="icon-button" title="刷新" aria-label="刷新">⟳</button>
+          <button id="lvClose" class="icon-button" title="关闭 Live View" aria-label="关闭 Live View">×</button>
+        </div>
+      </div>
+
+      <div class="live-view-body">
+        <section class="lv-card">
+          <h3>Task</h3>
+          <div id="lvTask" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Status</h3>
+          <div id="lvStatus" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Execution Summary</h3>
+          <div id="lvSummary" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Changed Files</h3>
+          <div id="lvFiles" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Tests</h3>
+          <div id="lvTests" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Terminal</h3>
+          <pre id="lvTerminal" class="lv-terminal"></pre>
+        </section>
+        <section class="lv-card">
+          <h3>Warnings / Errors</h3>
+          <div id="lvIssues" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Result</h3>
+          <div id="lvResult" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Events</h3>
+          <div id="lvEvents" class="lv-content"></div>
+        </section>
+        <section class="lv-card">
+          <h3>Task History</h3>
+          <div id="lvHistory" class="lv-content"></div>
+        </section>
+      </div>
+
+      <div class="live-view-foot">
+        <div class="lv-actions">
+          <button id="lvPause" class="quiet">Pause</button>
+          <button id="lvResume" class="quiet">Resume</button>
+          <button id="lvCancel" class="quiet">Cancel Task</button>
+          <button id="lvStop" class="quiet">Stop Worker</button>
+          <button id="lvRestart" class="quiet">Restart</button>
+          <button id="lvTakeOver" class="quiet">Take Over</button>
+          <button id="lvLog" class="quiet">Task Log</button>
+        </div>
+        <form id="lvNoteForm" class="lv-note-form">
+          <input id="lvNote" placeholder="Send Note：Do not modify IPC. Only fix storage implementation.">
+          <button type="submit">Send Note</button>
+        </form>
+        <p id="lvNotice" class="settings-status" role="status"></p>
+      </div>
+    </div>
+  </div>
 
   <div id="settingsOverlay" class="settings-overlay" hidden>
     <div class="settings-sheet" role="dialog" aria-modal="true" aria-label="Mega 设置">
@@ -303,6 +484,32 @@
               <label class="check"><input id="interruptRunningAtPeak" type="checkbox"> 峰值时中断仅谷值任务</label>
             </div>
             <button type="submit">保存 Scheduler</button>
+          </form>
+        </details>
+
+        <details class="settings-group">
+          <summary>Sub-worker</summary>
+          <form id="subWorkerForm" class="settings-form">
+            <p class="settings-note">可选执行层。默认 <code>enabledOnStartup=false</code>，不改变现有启动体验。</p>
+            <div class="settings-row">
+              <label class="check"><input id="swEnabledOnStartup" type="checkbox"> 启动时自动启用 Sub-worker</label>
+              <label class="check"><input id="swAutoDelegate" type="checkbox"> Auto Delegate（默认关闭）</label>
+            </div>
+            <div class="settings-row">
+              <label>workspace_mode
+                <select id="swCfgWorkspaceMode">
+                  <option value="isolated_worktree">isolated_worktree</option>
+                  <option value="shared">shared</option>
+                </select>
+              </label>
+              <label>maxWorkers<input id="swMaxWorkers" type="number" min="1" max="1" value="1"><small>Phase 1 固定为 1</small></label>
+            </div>
+            <div class="settings-row">
+              <label class="check"><input id="swKeepChanges" type="checkbox"> Stop 时保留代码改动</label>
+              <label class="check"><input id="swAllowCommit" type="checkbox"> 允许 worker 提交（仍受保护分支限制）</label>
+              <label class="check"><input id="swShowNotifications" type="checkbox"> 显示系统通知</label>
+            </div>
+            <button type="submit">保存 Sub-worker</button>
           </form>
         </details>
 

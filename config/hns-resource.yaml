@@ -1,0 +1,82 @@
+# DS-HNS adaptive resource configuration (multi-sub.md §27, §44, §45)
+#
+# This file is the *shipped default*. The effective value of every key is:
+#   resource-config.cjs defaults  <  config/app.json#subWorker.resources
+#   <  this file  <  data/sub-worker/config.json   (the panel's save target)
+#
+# `auto` means "let the Hardware Profiler and the Runtime Monitor decide".
+# A number is an explicit override, still clamped by the safety limits HNS keeps
+# (for example the RAM reserve can never go below 2 GB).
+#
+# Both the snake_case spelling below and the camelCase internal spelling are
+# accepted, and a JSON document is accepted as well.
+
+workers:
+  min: 1
+  # Compatibility mode keeps 1 worker unless adaptive scaling is enabled in the
+  # panel; this is the ceiling the scheduler may grow to.
+  soft_max: auto
+  hard_max: auto
+
+resources:
+  cpu_reserve_percent: 20
+  ram_reserve_percent: 20
+  gpu_reserve_percent: 20
+  # The reserve is max(percent of total RAM, this minimum).
+  ram_reserve_min_gb: 4
+  disk_free_reserve_percent: 10
+
+scaling:
+  enabled: true
+  scale_up_step: 1
+  scale_down_step: 1
+  scale_up_delay_seconds: 30
+  scale_down_delay_seconds: 60
+  # An oversized-but-healthy pool is not under pressure, so it retires sooner.
+  idle_down_grace_seconds: 10
+  max_scale_up_per_cycle: 1
+
+thermal:
+  enabled: true
+
+speculative_execution:
+  enabled: true
+  max_duplicates: 2
+
+runtime:
+  heartbeat_seconds: 5
+  worker_timeout_seconds: 1800
+  sample_interval_seconds: 5
+  hang_detection_seconds: 120
+
+safety:
+  enable_safe_mode: true
+  keep_supervisor_alive: true
+  emergency_scale_down_immediate: true
+
+external_service:
+  # Workers that need the online API are capped separately from local workers.
+  api_concurrency_limit: 3
+  offline_falls_back_to_local_workers: true
+
+storage:
+  # Used only when neither the disk inventory nor the measured latency can tell.
+  assume_when_unknown: sata_ssd
+
+io:
+  # Measured 256 KiB write+fsync thresholds used to classify the storage device.
+  latency_nvme_ms: 4
+  latency_slow_ms: 25
+  latency_critical_ms: 60
+  queue_slow: 4
+
+battery:
+  plugged_in_soft_max: auto
+  # A laptop on battery gets a much smaller soft maximum.
+  on_battery_soft_max: 2
+
+user_activity:
+  enabled: true
+  active_cpu_budget_percent: 50
+  idle_cpu_budget_percent: 80
+  idle_after_seconds: 120

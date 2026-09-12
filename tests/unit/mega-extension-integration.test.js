@@ -129,7 +129,7 @@ async function waitFor(predicate, timeoutMs = 4000) {
   return false
 }
 
-function startExtension() {
+function startExtension(context = {}) {
   const handlers = new Map()
   const mega = require('../../app/extensions/mega/index.cjs')
   const scheduler = require('../../app/extensions/mega/scheduler/scheduler')
@@ -139,6 +139,8 @@ function startExtension() {
   const mainWindow = new electron.BrowserWindow()
   shell.windows.length = 0
   shell.loadedFiles.length = 0
+  shell.trayMenus.length = 0
+  shell.shutdownCalls.length = 0
   return mega.start({
     root: SCRATCH,
     nodeExe: process.execPath,
@@ -148,11 +150,16 @@ function startExtension() {
     shutdown: {
       graceful: (source) => shell.shutdownCalls.push(`graceful:${source}`),
       force: (source) => shell.shutdownCalls.push(`force:${source}`)
-    }
+    },
+    ...context
   }).then(() => ({ mega, scheduler, handlers, mainWindow }))
 }
 
-test('the product is one window with an exit-only tray and no Mega management page', async (t) => {
+function trayItem(label) {
+  return shell.trayMenus[0].find((item) => item && item.label === label)
+}
+
+test('the product is one window: the tray keeps its exit actions and adds Sub-worker controls, with no Mega management page', async (t) => {
   const { mega, handlers, mainWindow } = await startExtension()
   t.after(() => mega.stop())
 
@@ -160,7 +167,8 @@ test('the product is one window with an exit-only tray and no Mega management pa
   assert.equal(shell.windows.length, 1, 'no secondary Mega window may be created')
   assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['dock.html'])
 
-  // Tray: double-click restores/focuses, right-click offers only the two exit actions.
+  // Tray: double-click restores/focuses, and the menu carries Show/Mega, the
+  // Sub-worker submenu (plan §16) and the two original exit actions.
   assert.ok(shell.trayHandlers['double-click'], 'double-click must be wired to focus the main window')
   mainWindow.minimized = true
   mainWindow.focused = false
@@ -168,12 +176,25 @@ test('the product is one window with an exit-only tray and no Mega management pa
   assert.equal(mainWindow.minimized, false, 'a minimized window is restored')
   assert.equal(mainWindow.focused, true, 'the main window is brought to the front')
   assert.equal(shell.trayMenus.length, 1)
-  const labels = shell.trayMenus[0].map((item) => item.label)
-  assert.deepEqual(labels, ['Exit DS-Harness', 'Force Exit DS-Harness'])
+  const labels = shell.trayMenus[0].map((item) => item.label).filter(Boolean)
+  assert.deepEqual(labels, ['Show', 'Mega', 'Sub-worker', 'Exit DS-Harness', 'Force Exit DS-Harness'])
 
-  shell.trayMenus[0][0].click()
-  shell.trayMenus[0][1].click()
+  trayItem('Exit DS-Harness').click()
+  trayItem('Force Exit DS-Harness').click()
   assert.deepEqual(shell.shutdownCalls, ['graceful:tray', 'force:tray'], 'exit actions route to the shell, which owns the managed harness')
+
+  // The Sub-worker submenu is present and inert without a shell-owned manager:
+  // nothing may spawn a worker process while the feature is off (AC-01/AC-02).
+  const subWorkerItem = trayItem('Sub-worker')
+  assert.ok(Array.isArray(subWorkerItem.submenu), 'the Sub-worker entry is a submenu')
+  const subLabels = subWorkerItem.submenu.map((item) => item.label).filter(Boolean)
+  assert.deepEqual(subLabels, [
+    'Sub-worker: OFF', 'Task: Idle', 'Start', 'Stop', 'Restart', 'Pause', 'Resume',
+    'Cancel Current Task', 'Open Live View', 'Take Over Workspace'
+  ])
+  assert.equal(subWorkerItem.submenu.find((item) => item.label === 'Start').enabled, false)
+  assert.equal(subWorkerItem.submenu.find((item) => item.label === 'Stop').enabled, false)
+  assert.doesNotThrow(() => subWorkerItem.submenu.find((item) => item.label === 'Start').click())
 
   // The IPC surface has no dead tools/main-window channels.
   assert.equal(handlers.has('mega:open-tools'), false)
@@ -195,6 +216,67 @@ test('the product is one window with an exit-only tray and no Mega management pa
   assert.equal(snapshot.update.status, 'idle')
   assert.equal(snapshot.update.updateAvailable, false)
   assert.equal(snapshot.update.latestVersion, null)
+})
+
+test('the tray mirrors the shell-owned Sub-worker and routes its controls to it', async (t) => {
+  const calls = []
+  const manager = {
+    describe: () => ({
+      feature: 'optional-sub-worker',
+      available: true,
+      enabled: true,
+      state: 'RUNNING',
+      stage: 'IMPLEMENTING',
+      worker_id: 'sub-1',
+      task_id: 'boss-kb-031',
+      task: { task_id: 'boss-kb-031', objective: 'Implement SQLite adapter', stage: 'IMPLEMENTING' },
+      queue: [],
+      history: [],
+      events: [],
+      live: null,
+      config: { autoDelegate: false, workspaceMode: 'isolated_worktree' }
+    }),
+    start: async () => { calls.push('start'); return { ok: true } },
+    stop: async () => { calls.push('stop'); return { ok: true } },
+    restart: async () => { calls.push('restart'); return { ok: true } },
+    pause: () => { calls.push('pause'); return { ok: true } },
+    resume: () => { calls.push('resume'); return { ok: true } },
+    cancelTask: () => { calls.push('cancelTask'); return { ok: true } },
+    takeOver: async () => { calls.push('takeOver'); return { ok: true } }
+  }
+  let changeListener = null
+  const { handlers, mega } = await startExtension({
+    subWorker: manager,
+    onSubWorkerChange: (listener) => {
+      changeListener = listener
+      return () => { changeListener = null }
+    }
+  })
+  t.after(() => mega.stop())
+
+  const item = trayItem('Sub-worker')
+  assert.equal(item.submenu[0].label, 'Sub-worker: BUSY (RUNNING)', 'a busy worker is announced in the tray (§16)')
+  assert.equal(item.submenu[1].label, 'Task: boss-kb-031')
+  assert.equal(item.submenu.find((entry) => entry.label === 'Start').enabled, false, 'Start is unavailable while running')
+  assert.equal(item.submenu.find((entry) => entry.label === 'Stop').enabled, true)
+  assert.equal(item.submenu.find((entry) => entry.label === 'Pause').enabled, true)
+  assert.equal(item.submenu.find((entry) => entry.label === 'Resume').enabled, false, 'Resume only matters while paused')
+
+  item.submenu.find((entry) => entry.label === 'Pause').click()
+  item.submenu.find((entry) => entry.label === 'Stop').click()
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  assert.deepEqual(calls, ['pause', 'stop'], 'tray actions are routed to the shell-owned manager')
+
+  // "Open Live View" never opens a window: it reveals the pane inside the dock.
+  const before = shell.windows.length
+  item.submenu.find((entry) => entry.label === 'Open Live View').click()
+  assert.equal(shell.windows.length, before, 'the Live View must not create a window')
+
+  // The snapshot exposes the worker to the dock panel.
+  const snapshot = await handlers.get('mega:snapshot')()
+  assert.equal(snapshot.subWorker.state, 'RUNNING')
+  assert.equal(snapshot.subWorker.task.task_id, 'boss-kb-031')
+  assert.equal(typeof changeListener, 'function', 'the shell can push worker changes into the extension')
 })
 
 test('an ordinary Harness session, a scheduler task and a headless task each alert once', async (t) => {

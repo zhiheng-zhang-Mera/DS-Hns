@@ -14,6 +14,7 @@ const net = require('node:net')
 const path = require('node:path')
 const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
+const { WorkerManager } = require('./sub-worker/manager.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -66,6 +67,40 @@ let extensionManager = null
 let startupOutput = ''
 /** Extension callbacks registered through `ctx.onDockReady` (see the adapter). */
 const dockReadyCallbacks = []
+/**
+ * Optional Sub-worker execution layer. The manager object is created during
+ * startup, but NOTHING is spawned until the user enables the worker (or the
+ * persisted config asks for it): the default DS-Harness experience stays
+ * unchanged, with no extra process, no extra port and no extra data directory.
+ */
+let workerManager = null
+const subWorkerListeners = new Set()
+
+/** IPC surface of the Sub-worker panel/Live View (plan §11, §12, §28). */
+const SUB_WORKER_CHANNELS = [
+  'sub-worker:snapshot',
+  'sub-worker:start',
+  'sub-worker:stop',
+  'sub-worker:restart',
+  'sub-worker:pause',
+  'sub-worker:resume',
+  'sub-worker:cancel-task',
+  'sub-worker:assign-task',
+  'sub-worker:send-note',
+  'sub-worker:take-over',
+  'sub-worker:clear-handoff',
+  'sub-worker:resume-last',
+  'sub-worker:update-config',
+  'sub-worker:live-view',
+  'sub-worker:read-log',
+  'sub-worker:pick-target-repo',
+  'sub-worker:release-worktree',
+  // Adaptive multi-worker surface (Update-Plan/multi-sub.md).
+  'sub-worker:submit-plan',
+  'sub-worker:resource-config',
+  'sub-worker:tick',
+  'sub-worker:plans'
+]
 
 /**
  * Compatibility alias for machines that already store the DeepSeek API key as
@@ -300,6 +335,8 @@ function startHarness(nodeExe) {
   logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
   logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
 
+  // The fixed prefix is the canonical launch line; `--port` is appended only when
+  // the port was explicitly overridden, so the default line stays byte-identical.
   harnessProcess = spawn(nodeExe, [DSH_ENTRY, ...DSH_LAUNCH_ARGS], {
     cwd: ROOT,
     env: {
@@ -349,9 +386,199 @@ function stopHarness() {
 }
 
 /**
+ * Sub-worker status fan-out. The Mega extension subscribes here so the dock and
+ * the tray always reflect the worker's real state instead of polling it.
+ */
+function subscribeSubWorker(listener) {
+  if (typeof listener !== 'function') return () => {}
+  subWorkerListeners.add(listener)
+  return () => subWorkerListeners.delete(listener)
+}
+
+function notifySubWorkerChange(event) {
+  for (const listener of [...subWorkerListeners]) {
+    try {
+      listener(event)
+    } catch (error) {
+      logLine(`sub-worker listener failed: ${error?.message || error}`)
+    }
+  }
+  maybeNotifySubWorker(event)
+}
+
+/** Desktop notification for a finished/crashed worker task. */
+function maybeNotifySubWorker(event) {
+  if (!workerManager || !event || event.type !== 'notification') return
+  const config = workerManager.describe().config || {}
+  if (config.showNotifications === false) return
+  try {
+    if (typeof Notification?.isSupported === 'function' && !Notification.isSupported()) return
+    const notification = new Notification({
+      title: String(event.notification?.title || 'Sub-worker'),
+      body: String(event.notification?.body || ''),
+      silent: false
+    })
+    notification.on('click', () => {
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          if (mainWindow.isMinimized()) mainWindow.restore()
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      } catch {}
+    })
+    notification.show()
+  } catch (error) {
+    logLine(`sub-worker notification failed: ${error?.message || error}`)
+  }
+}
+
+/**
+ * Create the Sub-worker manager and reclaim any worker orphaned by a previous
+ * shell that was killed outright. Creating the manager is inert: no process is
+ * spawned here.
+ */
+async function createWorkerManager(nodeExe) {
+  workerManager = new WorkerManager({
+    root: ROOT,
+    nodeExe,
+    runtimeProcess,
+    log: logLine,
+    notify: notifySubWorkerChange
+  })
+  workerManager.hydrate()
+  const recovery = await runtimeProcess.recoverStaleWorker({
+    root: ROOT,
+    entry: path.join(__dirname, 'sub-worker', 'runtime.cjs'),
+    log: logLine
+  })
+  if (recovery.killed) logLine(`reclaimed an orphaned sub-worker process (pid ${recovery.childPid})`)
+  logLine(`sub-worker manager ready; state=${workerManager.describe().state} enabledOnStartup=${workerManager.describe().config.enabledOnStartup}`)
+  registerSubWorkerIpc()
+  return workerManager
+}
+
+/**
+ * Pause -> flush -> terminate the worker process tree -> persist history. Used
+ * by both exit paths, and it must never be able to block the exit.
+ */
+function stopSubWorkerOnExit(source = 'shell') {
+  if (!workerManager) return null
+  try {
+    // `prepareExit` pauses a busy worker and flushes state/queue synchronously;
+    // awaiting it here could stall app.exit(), which is never acceptable.
+    workerManager.prepareExit()
+  } catch (error) {
+    logLine(`sub-worker flush before exit failed: ${error?.message || error}`)
+  }
+  try {
+    const result = workerManager.forceStop(source)
+    logLine(`sub-worker terminated for exit (${source})`)
+    return result
+  } catch (error) {
+    logLine(`sub-worker stop failed during exit: ${error?.message || error}`)
+    return null
+  }
+}
+
+/**
+ * Every Sub-worker IPC handler is failure isolated: a worker problem is
+ * reported as data, never as a rejected main-process promise.
+ */
+function registerSubWorkerIpc() {
+  for (const channel of SUB_WORKER_CHANNELS) {
+    try {
+      ipcMain.removeHandler(channel)
+    } catch {}
+  }
+  const guard = (handler) => async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (error) {
+      logLine(`sub-worker ipc failed: ${error?.stack || error}`)
+      return { ok: false, error: String(error?.message || error) }
+    }
+  }
+
+  ipcMain.handle('sub-worker:snapshot', guard(() => workerManager.describe()))
+  ipcMain.handle('sub-worker:start', guard(() => workerManager.start({ reason: 'panel' })))
+  ipcMain.handle('sub-worker:stop', guard(async () => {
+    const result = await workerManager.stop({ reason: 'panel' })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker stopped from the panel' })
+    return result
+  }))
+  ipcMain.handle('sub-worker:restart', guard(async () => {
+    const result = await workerManager.restart({ reason: 'panel' })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker restarted from the panel' })
+    return result
+  }))
+  ipcMain.handle('sub-worker:pause', guard((_event, reason) => workerManager.pause(reason || 'paused from Mega')))
+  ipcMain.handle('sub-worker:resume', guard((_event, reason) => workerManager.resume(reason || 'resumed from Mega')))
+  ipcMain.handle('sub-worker:cancel-task', guard((_event, reason) => workerManager.cancelTask(reason || 'cancelled from Mega')))
+  ipcMain.handle('sub-worker:assign-task', guard((_event, task) => workerManager.assignTask(task || {})))
+  ipcMain.handle('sub-worker:send-note', guard((_event, note) => workerManager.sendNote(note)))
+  ipcMain.handle('sub-worker:take-over', guard(async (_event, reason) => {
+    const result = await workerManager.takeOver({ reason: reason || 'user take over' })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Workspace handed over to the Controller' })
+    return result
+  }))
+  ipcMain.handle('sub-worker:clear-handoff', guard(() => workerManager.clearHandoff()))
+  ipcMain.handle('sub-worker:resume-last', guard(() => workerManager.resumeLastTask()))
+  ipcMain.handle('sub-worker:update-config', guard((_event, patch) => {
+    const next = workerManager.updateConfig(patch || {})
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker configuration updated' })
+    return next
+  }))
+  ipcMain.handle('sub-worker:live-view', guard((_event, taskId) => workerManager.liveViewFor(taskId || null)))
+  ipcMain.handle('sub-worker:read-log', guard((_event, taskId) => workerManager.readTaskLog(taskId)))
+  ipcMain.handle('sub-worker:pick-target-repo', guard(async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Sub-worker 目标仓库',
+      properties: ['openDirectory']
+    })
+    if (result.canceled || !result.filePaths.length) return null
+    return result.filePaths[0]
+  }))
+  // Releasing the isolated worktree is an explicit Controller action: the
+  // worktree normally holds the deliverable that is being reviewed.
+  ipcMain.handle('sub-worker:release-worktree', guard((_event, targetRepo, options) => {
+    const result = workerManager.releaseWorktree(targetRepo, options || {})
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker worktree release requested' })
+    return result
+  }))
+  // Adaptive multi-worker surface: a plan is a DAG the scheduler parallelises.
+  ipcMain.handle('sub-worker:submit-plan', guard((_event, plan, options) => workerManager.submitPlan(plan || {}, options || {})))
+  ipcMain.handle('sub-worker:plans', guard(() => workerManager.describe().plans))
+  ipcMain.handle('sub-worker:resource-config', guard((_event, patch) => {
+    // Resource keys live beside the subWorker keys in the persisted config and
+    // are resolved by resource-config.cjs, so one update path covers both.
+    const next = workerManager.updateConfig({ ...(patch || {}) })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker resource configuration updated' })
+    return { config: next, resources: workerManager.resourceConfig, source: workerManager.resourceConfigSource }
+  }))
+  // One scheduler loop on demand: sample → scale → dispatch (multi-sub.md §42).
+  ipcMain.handle('sub-worker:tick', guard(() => {
+    const decision = workerManager.tick({ force: true })
+    notifySubWorkerChange({ type: 'state_changed', summary: 'Sub-worker scheduler ticked' })
+    return {
+      state: decision?.state || null,
+      desired: decision?.desired ?? null,
+      direction: decision?.direction || null,
+      reason: decision?.reason || null
+    }
+  }))
+  logLine(`sub-worker IPC registered (${SUB_WORKER_CHANNELS.length} channels)`)
+}
+
+/**
  * Shared teardown for every exit path: stop the extension (which stops the
- * scheduler and persists the queue/history), drop the integrated views, and
- * terminate the managed Harness child tree.
+ * scheduler and persists the queue/history), pause+flush+terminate the optional
+ * Sub-worker, drop the integrated views, and terminate the managed Harness
+ * child tree.
+ *
+ * Order matters (plan §25): state is persisted by the extension stop, then the
+ * worker is paused/flushed and its process tree is terminated, and only then is
+ * the managed Harness stopped.
  */
 function teardownManagedResources({ destroyWindows = false } = {}) {
   try {
@@ -362,6 +589,7 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
   } catch (error) {
     logLine(`extension stop failed during exit: ${error?.message || error}`)
   }
+  stopSubWorkerOnExit('shell teardown')
   try {
     destroyIntegratedViews()
   } catch {}
@@ -649,6 +877,12 @@ async function startExtensions(nodeExe) {
         graceful: (source) => gracefulExit(source || 'tray'),
         force: (source) => forceExit(source || 'tray')
       },
+      // The optional Sub-worker is shell-owned too: Mega renders and controls
+      // it, but the WorkerManager (and therefore the worker process) belongs to
+      // the desktop shell. `subWorker: null` means the feature is unavailable,
+      // and the dock must degrade gracefully.
+      subWorker: workerManager,
+      onSubWorkerChange: subscribeSubWorker,
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
@@ -678,10 +912,21 @@ app.whenReady().then(async () => {
     if (INTEGRATED_MEGA_DOCK) await createOfficialHarnessView(readyUrl)
     else await mainWindow.loadURL(readyUrl)
 
+    // The Sub-worker layer is created here, after the official UI is ready and
+    // before any extension can ask for it. Creation is inert (no process), so
+    // the default startup path is unchanged.
+    await createWorkerManager(nodeExe)
+
     const extensionsReady = await startExtensions(nodeExe)
     if (extensionsReady && INTEGRATED_MEGA_DOCK) await createIntegratedMegaDock()
     layoutIntegratedViews()
     mainWindow.show()
+
+    // Only an explicit persisted opt-in starts a worker process at boot.
+    if (workerManager?.describe?.().config?.enabledOnStartup) {
+      const started = await workerManager.start({ reason: 'enabledOnStartup' })
+      logLine(`sub-worker auto-start (enabledOnStartup): ${JSON.stringify(started)}`)
+    }
   } catch (error) {
     await dialog.showMessageBox({
       type: 'error',

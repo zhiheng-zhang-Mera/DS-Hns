@@ -1,4 +1,4 @@
-param([switch]$SkipTests)
+param([switch]$SkipTests, [switch]$Acceptance)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'env.ps1')
 $script:failures = 0
@@ -100,11 +100,106 @@ Check 'The previous installation is read from disk first' ($runner -match 'insta
 Check 'The three rollback outcomes are distinct' (($runner -match 'failed_rolled_back') -and ($runner -match 'failed_rollback_failed') -and ($runner -match 'SUCCEEDED: .succeeded.'))
 Check 'The dock cannot mask a failed rollback' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw) -match 'rollback-failed') -and ((Get-Content "$ROOT\app\extensions\mega\updater\harness-updater.js" -Raw) -match 'rollbackFailed'))
 
+Write-Output ''
+Write-Output '== Optional Sub-worker execution layer =='
+foreach ($file in @('manager.cjs','runtime.cjs','protocol.cjs','state.cjs','permissions.cjs','event-bus.cjs','reporter.cjs','task-runner.cjs')) {
+  Check "Sub-worker module $file present" (Test-Path "$ROOT\app\sub-worker\$file")
+}
+$swProtocol = Get-Content "$ROOT\app\sub-worker\protocol.cjs" -Raw
+$swState = Get-Content "$ROOT\app\sub-worker\state.cjs" -Raw
+$swPerm = Get-Content "$ROOT\app\sub-worker\permissions.cjs" -Raw
+$swRuntime = Get-Content "$ROOT\app\sub-worker\runtime.cjs" -Raw
+$swManager = Get-Content "$ROOT\app\sub-worker\manager.cjs" -Raw
+$swRun = Get-Content "$ROOT\app\sub-worker\task-runner.cjs" -Raw
+$swBus = Get-Content "$ROOT\app\sub-worker\event-bus.cjs" -Raw
+$swPreload = Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw
+$swUi = (Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) + "`n" + (Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw)
+$appConfig = Get-Content "$ROOT\config\app.json" -Raw
+Check 'Sub-worker is disabled by default' ($appConfig -match '"enabledOnStartup":\s*false')
+Check 'Phase 1 stays single worker' ($appConfig -match '"maxWorkers":\s*1')
+Check 'Auto Delegate defaults to off' ($appConfig -match '"autoDelegate":\s*false')
+Check 'Worker runtime is plain Node (no Electron)' ((-not ($swRuntime -match "require\('electron'\)")) -and (-not ($swManager -match "require\('electron'\)")))
+Check 'Sub-worker never opens a window' (-not ($swUi -match 'new BrowserWindow'))
+Check 'Structured task protocol is versioned' (($swProtocol -match 'PROTOCOL_VERSION = 1') -and ($swProtocol -match 'validateTask'))
+Check 'Result protocol is implemented' (($swProtocol -match 'function createResult') -and ($swProtocol -match 'needs_controller_review'))
+Check 'L3/L4 are rejected by contract' ($swProtocol -match "ALLOWED_RISK_LEVELS")
+Check 'Vision capability is refused explicitly' ($swPerm -match 'UNSUPPORTED_CAPABILITY')
+Check 'High-risk commands are denied' (($swPerm -match 'DENIED_COMMAND_PATTERNS') -and ($swPerm -match 'git\\s\+push') -and ($swPerm -match 'taskkill'))
+Check 'Protected branches are guarded' (($swPerm -match 'PROTECTED_BRANCHES') -and ($swPerm -match 'isProtectedBranch'))
+Check 'Path allow/forbid guard exists' (($swPerm -match 'function checkPath') -and ($swPerm -match 'CRITICAL_DELETE_PATTERNS'))
+Check 'Worker state machine is explicit' (($swProtocol -match 'WORKER_STATES') -and ($swState -match 'const TRANSITIONS') -and ($swState -match 'canTransition'))
+Check 'Isolated worktree automation exists' (($swManager -match 'WorktreeManager') -and ($swManager -match 'hns-sub-worker'))
+Check 'Single-writer workspace lock exists' (($swState -match 'workspaceLockFile') -and ($swManager -match 'loadWorkspaceLock'))
+Check 'Worker crash is isolated from the shell' (($swManager -match 'handleExit') -and ($swManager -match 'CRASHED'))
+Check 'Task runner emits auditable events' (($swRun -match "'file_write'") -and ($swRun -match "'command_finished'") -and ($swRun -match "'test_result'"))
+Check 'Command output is redacted' ($swBus -match 'redactSecrets')
+Check 'Typed runtime ownership + orphan reclaim' ((Get-Content "$ROOT\app\runtime-process.cjs" -Raw) -match 'recoverStaleWorker')
+Check 'Tray exposes Sub-worker controls' ($mega -match 'subWorkerTrayItem')
+Check 'Mega Sub-worker panel exists' (($swUi -match 'id="swState"') -and ($swUi -match 'Enable Sub-worker'))
+Check 'Live View exists inside the dock' (($swUi -match 'id="liveView"') -and ($swUi -match 'Execution Summary'))
+Check 'Live View declares its audit-only scope' ($swUi -match 'lv-note')
+Check 'Live View supports Pause/Stop/Send Note/Take Over' (($swUi -match 'id="lvPause"') -and ($swUi -match 'id="lvStop"') -and ($swUi -match 'id="lvNote"') -and ($swUi -match 'id="lvTakeOver"'))
+Check 'Preload exposes the Sub-worker bridge' ($swPreload -match 'megaSubWorker')
+Check 'Shell registers Sub-worker IPC' (($main -match 'SUB_WORKER_CHANNELS') -and ($main -match 'registerSubWorkerIpc'))
+Check 'Exit terminates the worker before the Harness' ($main -match 'stopSubWorkerOnExit\(')
+Check 'Harness port default is unchanged' (($main -match 'if \(!Number\.isInteger\(parsed\) \|\| parsed < 1024 \|\| parsed > 65535\) return 3080') -and ($main -match "const DSH_LAUNCH_ARGS = \['web', '--no-open'"))
+Check 'Real acceptance harness exists' (Test-Path "$ROOT\scripts\sub-worker-acceptance.cjs")
+Check 'Sub-worker reference doc exists' (Test-Path "$ROOT\docs\sub-worker.md")
+
+Write-Output ''
+Write-Output '== Adaptive multi-process execution (multi-sub.md) =='
+foreach ($file in @('yaml.cjs','resource-config.cjs','profiler.cjs','resources.cjs','dag.cjs','ownership.cjs','snapshot.cjs','metrics.cjs','pool.cjs','scheduler.cjs','integration.cjs')) {
+  Check "Multi-worker module $file present" (Test-Path "$ROOT\app\sub-worker\$file")
+}
+$swYaml = Get-Content "$ROOT\app\sub-worker\yaml.cjs" -Raw
+$swResCfg = Get-Content "$ROOT\app\sub-worker\resource-config.cjs" -Raw
+$swProfiler = Get-Content "$ROOT\app\sub-worker\profiler.cjs" -Raw
+$swResources = Get-Content "$ROOT\app\sub-worker\resources.cjs" -Raw
+$swPool = Get-Content "$ROOT\app\sub-worker\pool.cjs" -Raw
+$swSched = Get-Content "$ROOT\app\sub-worker\scheduler.cjs" -Raw
+$swDag = Get-Content "$ROOT\app\sub-worker\dag.cjs" -Raw
+$swOwn = Get-Content "$ROOT\app\sub-worker\ownership.cjs" -Raw
+$swIntegr = Get-Content "$ROOT\app\sub-worker\integration.cjs" -Raw
+$swMetrics = Get-Content "$ROOT\app\sub-worker\metrics.cjs" -Raw
+$swCfgFile = Test-Path "$ROOT\config\hns-resource.yaml"
+Check 'Adaptive mode is off by default' ($appConfig -match '"adaptiveWorkers":\s*false')
+Check 'The resource configuration file is shipped' ($swCfgFile)
+Check 'A dependency-free YAML subset reader exists' (($swYaml -match 'function parseYaml') -and ($swYaml -match 'anchors and aliases are not supported'))
+Check 'Installation tiers are documented' (($swResCfg -match 'INSTALLATION_TIERS') -and ($swResCfg -match "workstation") -and ($swResCfg -match 'maxRecommendedWorkers'))
+Check 'The hardware profiler degrades gracefully' (($swProfiler -match 'degraded') -and ($swProfiler -match 'classifyStorageFromLatency') -and ($swProfiler -match 'usable_ram_gb'))
+Check 'Storage is never misread as a rotating disk' ($swProfiler -match 'does not imply a rotating disk')
+Check 'The resource scheduler composes limits with min' (($swResources -match 'function limitSet') -and ($swResources -match 'binding'))
+Check 'All five performance states exist' (($swResources -match "PERFORMANCE_STATES") -and ($swResources -match 'SAFE_MODE') -and ($swResources -match 'THROTTLED'))
+Check 'Scale-up and scale-down are hysteretic' (($swResources -match 'scaleUpAllowed') -and ($swResources -match 'scaleDownAllowed') -and ($swResources -match 'idleSurplusSince'))
+Check 'The pool is persistent with heartbeat telemetry' (($swPool -match 'class WorkerPool') -and ($swPool -match 'noteTelemetry') -and ($swPool -match 'task is being reused|reused'))
+Check 'Hang detection needs several signals' (($swPool -match 'STALLED') -and ($swPool -match 'no output for') -and ($swPool -match 'no CPU progress'))
+Check 'The DAG validates cycles and scores critical paths' (($swDag -match 'findCycle') -and ($swDag -match 'critical_path_score') -and ($swDag -match 'dependent_count'))
+Check 'File conflict control and ownership exist' (($swOwn -match 'filterConflicts') -and ($swOwn -match 'class FileOwnershipRegistry') -and ($swOwn -match 'scopesOverlap'))
+Check 'Merge conflicts are reported, never guessed' ($swOwn -match 'both .* and .* changed this file')
+Check 'Per-node worktrees and integration exist' (($swIntegr -match 'integrationWorktreePath') -and ($swIntegr -match 'mergeContributions'))
+Check 'Speculative execution is gated by state and flag' (($swSched -match 'selectSpeculative') -and ($swSched -match "NORMAL', 'BOOST'"))
+Check 'Metrics include throughput and parallel efficiency' (($swMetrics -match 'effectiveThroughput') -and ($swMetrics -match 'parallelEfficiency') -and ($swMetrics -match 'EWMA_ALPHA'))
+Check 'Learned profiles are clamped to a documented band' (($swResCfg -match 'LEARNED_RAM_BAND') -and ($swResCfg -match 'LEARNED_MIN_SAMPLES'))
+Check 'The supervisor recovers a parked pool' ($swManager -match 'pool recovery')
+Check 'The panel exposes the pool, resources and DAG' (($swUi -match 'id="swPool"') -and ($swUi -match 'id="swResources"') -and ($swUi -match 'id="swDag"') -and ($swUi -match 'id="swAdaptive"'))
+Check 'Multi-worker reference doc exists' (Test-Path "$ROOT\docs\multi-worker.md")
+
 if (-not $SkipTests) {
   Write-Output ''
   Write-Output '== Unit + architecture tests =='
   Push-Location "$ROOT\app"
   try { npm test; if ($LASTEXITCODE -ne 0) { $script:failures++ } } finally { Pop-Location }
+}
+
+if ($Acceptance) {
+  Write-Output ''
+  Write-Output '== Real end-to-end acceptance (launches the Electron shell twice, isolated root) =='
+  $node = (Get-Command node).Source
+  Push-Location $ROOT
+  try {
+    & $node "$ROOT\scripts\sub-worker-acceptance.cjs" all
+    if ($LASTEXITCODE -ne 0) { $script:failures++ }
+  } finally { Pop-Location }
 }
 
 if ($script:failures -eq 0) { Write-Output 'VERIFY: ALL CHECKS PASSED' } else { Write-Output "VERIFY: $script:failures check(s) FAILED" }

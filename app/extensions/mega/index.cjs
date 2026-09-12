@@ -87,6 +87,7 @@ let dockUserHidden = false
 let themeEngine = null
 let skillService = null
 let dockReadyHandler = null
+let unsubscribeSubWorker = null
 // Latest geometry reported by the dock renderer (slot map + protected regions).
 let themeRegionCache = {}
 let themeTreeCache = null
@@ -193,6 +194,10 @@ function snapshot() {
     balance: balanceService.describe(),
     // Official harness alignment (Mega 拓展状态): installed vs official latest.
     update: updater ? updater.describe() : null,
+    // Optional Sub-worker: Mega is the only visual surface for it (plan §11).
+    // When the shell did not provide a manager the panel reports "unavailable"
+    // instead of breaking the dock.
+    subWorker: subWorkerSnapshot(),
     // Mega no longer mirrors the official Harness session history: the official
     // UI owns it, and the terminal observer only watches it for alerts.
     terminalAlerts: terminalDispatcher.describe(),
@@ -236,6 +241,38 @@ function snapshot() {
       }
     })()
   }
+}
+
+/** Sub-worker snapshot for the Mega panel and the tray (plan §11, §12, §16). */
+function subWorkerSnapshot() {
+  try {
+    if (!ctx?.subWorker?.describe) {
+      return {
+        feature: 'optional-sub-worker',
+        available: false,
+        enabled: false,
+        state: 'OFF',
+        worker_id: null,
+        mode: 'Executor',
+        task: null,
+        queue: [],
+        history: [],
+        live: null,
+        events: [],
+        config: {},
+        reason: 'the desktop shell did not provide a Sub-worker manager'
+      }
+    }
+    return ctx.subWorker.describe()
+  } catch (error) {
+    log(`sub-worker snapshot failed: ${error?.message || error}`)
+    return { feature: 'optional-sub-worker', available: false, enabled: false, state: 'OFF', error: String(error?.message || error) }
+  }
+}
+
+/** True when the shell handed the extension a working worker manager. */
+function subWorkerAvailable() {
+  return Boolean(ctx?.subWorker?.describe && ctx.subWorker.start && ctx.subWorker.stop)
 }
 
 /**
@@ -395,6 +432,31 @@ function visualExpectation() {
     return { expected: false, reason: 'the dock renderer is present but not visible' }
   }
   return { expected: true, reason: null }
+}
+
+/**
+ * Sub-worker events can be frequent (every command output line). The tray menu
+ * and the dock refresh are therefore coalesced into one update per window
+ * instead of one IPC round-trip per event.
+ */
+let subWorkerRefreshTimer = null
+function scheduleSubWorkerRefresh() {
+  if (subWorkerRefreshTimer) return
+  subWorkerRefreshTimer = setTimeout(() => {
+    subWorkerRefreshTimer = null
+    try {
+      applyTrayMenu()
+    } catch (error) {
+      log(`tray refresh failed: ${error?.message || error}`)
+    }
+    notifyChanged()
+  }, 400)
+  if (typeof subWorkerRefreshTimer.unref === 'function') subWorkerRefreshTimer.unref()
+}
+
+function bindSubWorker() {
+  if (typeof ctx?.onSubWorkerChange !== 'function') return
+  unsubscribeSubWorker = ctx.onSubWorkerChange(() => scheduleSubWorkerRefresh())
 }
 
 function ensurePlayerWindow() {
@@ -594,17 +656,123 @@ function focusMain() {
 }
 
 /**
- * The tray menu is intentionally exit-only: the main window (with the Mega dock
- * inside it) is the single product surface, so there is no second Mega window to
- * navigate to and no dock toggling from the tray.
+ * The tray keeps the two exit actions it always had, and now also carries the
+ * Sub-worker controls required by the optional execution layer (plan §16): the
+ * worker has no window of its own, so the tray is one of its two entry points.
+ * Every worker action is failure isolated - a worker problem can never prevent
+ * the user from reaching Exit.
  */
 function applyTrayMenu() {
   if (!tray || !ctx?.electron?.Menu) return
   const { Menu } = ctx.electron
   tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Show', click: () => focusMain() },
+    { label: 'Mega', click: () => openMegaDock() },
+    { type: 'separator' },
+    subWorkerTrayItem(),
+    { type: 'separator' },
     { label: 'Exit DS-Harness', click: () => requestShutdown('graceful') },
     { label: 'Force Exit DS-Harness', click: () => requestShutdown('force') }
   ]))
+}
+
+/** Show the single product window and expand the integrated Mega panel inside it. */
+function openMegaDock() {
+  focusMain()
+  return setDockExpanded(true, { focus: true })
+}
+
+function openSubWorkerLiveView() {
+  try {
+    openMegaDock()
+    // The Live View is a dock push like every other one: it goes through the
+    // target adapter, so it reaches the integrated dock rather than only the
+    // legacy companion window.
+    if (!dockTarget.send('mega:sub-worker-live-view')) {
+      log('live view could not reach the dock: no dock target')
+      return false
+    }
+    return true
+  } catch (error) {
+    log(`open live view failed: ${error?.message || error}`)
+    return false
+  }
+}
+
+function safeWorkerCall(label, fn) {
+  try {
+    const result = fn()
+    if (result && typeof result.then === 'function') {
+      result.catch((error) => log(`sub-worker ${label} failed: ${error?.message || error}`))
+    }
+    return result
+  } catch (error) {
+    log(`sub-worker ${label} failed: ${error?.message || error}`)
+    return null
+  }
+}
+
+/** Busy-aware Sub-worker submenu (§16: "Sub-worker: BUSY / Task: ..."). */
+function subWorkerTrayItem() {
+  const snapshot = subWorkerSnapshot()
+  const state = String(snapshot.state || 'OFF').toUpperCase()
+  const busy = ['ASSIGNED', 'RUNNING', 'PAUSING', 'PAUSED', 'BLOCKED', 'STOPPING'].includes(state)
+  const running = Boolean(snapshot.enabled)
+  const taskId = snapshot.task_id || snapshot.task?.task_id || null
+  const header = state === 'OFF'
+    ? 'Sub-worker: OFF'
+    : (busy ? `Sub-worker: BUSY (${state})` : `Sub-worker: ${state}`)
+
+  const template = [
+    { label: header, enabled: false },
+    { label: `Task: ${taskId || 'Idle'}`, enabled: false },
+    { type: 'separator' },
+    {
+      label: 'Start',
+      enabled: subWorkerAvailable() && !running,
+      click: () => safeWorkerCall('start', () => ctx.subWorker.start({ reason: 'tray' }))
+    },
+    {
+      label: 'Stop',
+      enabled: subWorkerAvailable() && running,
+      click: () => safeWorkerCall('stop', () => ctx.subWorker.stop({ reason: 'tray' }))
+    },
+    {
+      label: 'Restart',
+      enabled: subWorkerAvailable() && (running || state !== 'OFF'),
+      click: () => safeWorkerCall('restart', () => ctx.subWorker.restart({ reason: 'tray' }))
+    },
+    { type: 'separator' },
+    {
+      label: 'Pause',
+      enabled: subWorkerAvailable() && running && !['PAUSED', 'PAUSING'].includes(state),
+      click: () => safeWorkerCall('pause', () => ctx.subWorker.pause('paused from tray'))
+    },
+    {
+      label: 'Resume',
+      enabled: subWorkerAvailable() && running && ['PAUSED', 'PAUSING'].includes(state),
+      click: () => safeWorkerCall('resume', () => ctx.subWorker.resume('resumed from tray'))
+    },
+    {
+      label: 'Cancel Current Task',
+      enabled: subWorkerAvailable() && running && busy,
+      click: () => safeWorkerCall('cancel', () => ctx.subWorker.cancelTask('cancelled from tray'))
+    },
+    {
+      label: 'Open Live View',
+      enabled: subWorkerAvailable(),
+      click: () => openSubWorkerLiveView()
+    },
+    {
+      label: state === 'CRASHED' ? 'Restart Worker' : 'Take Over Workspace',
+      enabled: subWorkerAvailable(),
+      click: () => (state === 'CRASHED'
+        ? safeWorkerCall('restart', () => ctx.subWorker.restart({ reason: 'crash recovery (tray)' }))
+        : safeWorkerCall('take over', () => ctx.subWorker.takeOver({ reason: 'take over from tray' })))
+    }
+  ]
+
+  return { label: 'Sub-worker', submenu: template }
 }
 
 /**
@@ -1159,7 +1327,12 @@ async function start(context) {
   if (process.argv.includes('--mega-dock') || process.env.DSH_MEGA_DOCK_EXPANDED === '1') {
     setDockExpanded(true, { focus: false })
   }
+  // Optional Sub-worker: bound last, after the official UI, the dock and the
+  // theme system are up, so an unavailable or failing worker can never delay
+  // them (plan §22 fault isolation).
+  bindSubWorker()
   log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency + unified theme system enabled')
+  if (subWorkerAvailable()) log(`optional Sub-worker available (state ${subWorkerSnapshot().state})`)
 }
 
 /**
@@ -1229,6 +1402,12 @@ function stop() {
   try { ctx?.electron?.ipcMain?.removeListener('mega-theme:regions', onThemeRegions) } catch {}
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
+  try { unsubscribeSubWorker?.() } catch {}
+  unsubscribeSubWorker = null
+  if (subWorkerRefreshTimer) {
+    clearTimeout(subWorkerRefreshTimer)
+    subWorkerRefreshTimer = null
+  }
   notificationService.setCreateNotification(null)
   notificationService.setOnClick(null)
   if (ctx?.mainWindow && shortcutHandler && !ctx.mainWindow.isDestroyed()) {
@@ -1251,4 +1430,4 @@ function stop() {
   ctx = null
 }
 
-module.exports = { start, stop, toggleDock, setDockExpanded, requestShutdown }
+module.exports = { start, stop, toggleDock, setDockExpanded, requestShutdown, openSubWorkerLiveView }

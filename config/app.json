@@ -19,6 +19,22 @@
       "toolsShortcut": "Ctrl+Shift+M"
     }
   },
+  "subWorker": {
+    "enabledOnStartup": false,
+    "maxWorkers": 1,
+    "autoDelegate": false,
+    "workspaceMode": "isolated_worktree",
+    "keepChangesOnStop": true,
+    "allowGitCommit": false,
+    "showNotifications": true,
+    "adaptiveWorkers": false,
+    "resources": {
+      "workers": { "min": 1, "softMax": "auto", "hardMax": "auto" },
+      "resources": { "cpuReservePercent": 20, "ramReservePercent": 20, "ramReserveMinGb": 4 },
+      "scaling": { "enabled": true, "scaleUpDelaySeconds": 30, "scaleDownDelaySeconds": 60 },
+      "speculativeExecution": { "enabled": true }
+    }
+  },
   "timezones": {
     "local": "auto",
     "localLabel": "本地时间(系统时区)",

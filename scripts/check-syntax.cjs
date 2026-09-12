@@ -34,13 +34,15 @@ const SOURCE_DIRS = [
   'extensions/mega/tracker',
   'extensions/mega/ui',
   'extensions/mega/updater',
-  'extensions/mega/utils'
+  'extensions/mega/utils',
+  'sub-worker'
 ]
 
 /** Files outside the app directory that still ship as product code. */
 const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'check-syntax.cjs'),
-  path.join(ROOT, 'scripts', 'acceptance.mjs')
+  path.join(ROOT, 'scripts', 'acceptance.mjs'),
+  path.join(ROOT, 'scripts', 'sub-worker-acceptance.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

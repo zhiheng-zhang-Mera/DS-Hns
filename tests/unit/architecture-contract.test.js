@@ -66,7 +66,7 @@ test('collapsed rail remains useful and expanded dock contains queue and hardwar
   assert.match(dockJs, /hardwareCap/)
 })
 
-test('the tray exposes only exit actions and no secondary Mega window exists', () => {
+test('the tray keeps its exit actions, adds the documented Sub-worker controls and has no secondary Mega window', () => {
   assert.match(main, /Tray, Menu, nativeImage, screen/)
   assert.match(mega, /function createTray\(/)
   assert.match(mega, /function applyTrayMenu\(/)
@@ -87,6 +87,18 @@ test('the tray exposes only exit actions and no secondary Mega window exists', (
   assert.match(dockHtml, /id="settingsOverlay"/)
   assert.match(dockHtml, /id="openSettings"/)
   assert.equal(/new BrowserWindow/.test(dockJs), false)
+  // The tray is a second entry point for the optional Sub-worker (plan §16):
+  // the worker has no window of its own, so Start/Stop/Restart/Pause and the
+  // Live View shortcut must be reachable without opening the dock first.
+  assert.match(mega, /function subWorkerTrayItem\(/)
+  assert.match(mega, /submenu: template/)
+  for (const action of ['Start', 'Stop', 'Restart', 'Pause', 'Resume', 'Open Live View', 'Cancel Current Task', 'Take Over Workspace', 'Restart Worker']) {
+    assert.ok(mega.includes(`'${action}'`), `the tray Sub-worker submenu must offer ${action}`)
+  }
+  // The busy line required by §16 is part of the submenu header.
+  assert.match(mega, /Sub-worker: BUSY/)
+  assert.match(mega, /Task: \$\{taskId \|\| 'Idle'\}/)
+  assert.match(dockHtml, /id="liveView"/)
 })
 
 test('拓展状态 module aligns the main harness without touching the official renderer', () => {
