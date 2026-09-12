@@ -73,15 +73,32 @@ async function waitFor(predicate, { timeoutMs = 40_000, intervalMs = 60, label =
   throw new Error(`timed out waiting for ${label}`)
 }
 
-/** Drive the supervisor's own loop without waiting for its timer. */
-async function pump(manager, predicate, { timeoutMs = 40_000, label = 'condition' } = {}) {
+/**
+ * Drive the supervisor's own loop without waiting for its timer.
+ *
+ * The timeout is generous because a hosted CI runner spawns each worker process
+ * several times slower than a developer machine; the assertion is about the pool
+ * *reaching* a size, not about how quickly it does so. A timeout reports the
+ * pool and the scheduler decision, so a failure says why growth stopped instead
+ * of only that it did.
+ */
+async function pump(manager, predicate, { timeoutMs = 120_000, label = 'condition' } = {}) {
   const deadline = Date.now() + timeoutMs
+  let last = null
   while (Date.now() < deadline) {
     manager.tick({ force: true })
     if (predicate()) return true
+    const described = manager.describe()
+    last = {
+      pool: described.pool,
+      state: described.resource_state,
+      decision: described.decision,
+      ceiling: described.max_workers,
+      hardwareMax: described.hardware ? described.hardware.max_recommended_workers : null
+    }
     await sleep(120)
   }
-  throw new Error(`timed out pumping for ${label}`)
+  throw new Error(`timed out pumping for ${label}: ${JSON.stringify(last)}`)
 }
 
 function git(args, cwd) {
@@ -134,6 +151,12 @@ async function rig(name, { adaptive = true, resources = {}, start = true } = {})
       ...resources
     }
   })
+  // Feed the scheduler a healthy sample from the start. Growth must not depend on
+  // how busy the *host* is: on a hosted runner the real sample reports a loaded
+  // machine, the scheduler correctly refuses to scale up, and every multi-worker
+  // scenario here would time out. The pressure/recovery test overrides this
+  // injection with the states it is actually asserting on.
+  manager.setResourceInjection(() => healthySample())
   if (start) await manager.start({ reason: 'test' })
   return { root, target, manager, logs }
 }
