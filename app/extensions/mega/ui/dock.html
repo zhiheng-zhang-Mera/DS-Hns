@@ -101,6 +101,62 @@
       </div>
     </section>
 
+    <section class="panel skills-panel" id="skillsPanel">
+      <div class="panel-head">
+        <div>
+          <div class="balance-title-row">
+            <h2>Skills · 技能管理</h2>
+            <span id="skillsStatus" class="status-chip neutral">读取中…</span>
+          </div>
+          <p>搜索并安装技能，或从本地目录 / GitHub 链接添加；安装后对 Harness 立即生效，无需重启。</p>
+        </div>
+        <div class="balance-actions">
+          <button id="skillsRefresh" class="quiet" title="重新读取技能目录">刷新</button>
+          <button id="skillsPickDir" class="quiet" title="从本地目录安装">本地安装</button>
+        </div>
+      </div>
+
+      <div class="skills-installbar">
+        <input id="skillSource" type="text" spellcheck="false" placeholder="粘贴 GitHub 链接或 owner/repo，例如 anthropics/skills">
+        <button id="skillInstallSource" type="button">安装</button>
+      </div>
+
+      <div class="skills-searchbar">
+        <input id="skillQuery" type="search" spellcheck="false" placeholder="快速搜索技能：名称、用途、标签…">
+        <label class="check"><input id="skillLiveSearch" type="checkbox">同时搜索 GitHub</label>
+      </div>
+      <div id="skillsTags" class="skills-tags"></div>
+
+      <div class="skills-tabs" role="tablist">
+        <button id="skillsTabBrowse" class="skills-tab active" type="button" role="tab">发现</button>
+        <button id="skillsTabInstalled" class="skills-tab" type="button" role="tab">已安装</button>
+        <span id="skillsCount" class="skills-count"></span>
+      </div>
+
+      <div class="skills-toolbar">
+        <label class="check"><input id="skillSelectAll" type="checkbox">全选</label>
+        <span id="skillSelectedCount" class="skills-count">已选 0</span>
+        <div class="skills-toolbar-actions">
+          <button id="skillDeleteSelected" class="quiet danger" type="button" disabled>批量删除</button>
+        </div>
+      </div>
+
+      <div id="skillsList" class="skills-list"></div>
+
+      <div id="skillDetail" class="skill-detail" hidden>
+        <div class="skill-detail-head">
+          <div>
+            <b id="skillDetailName"></b>
+            <span id="skillDetailMeta" class="skills-count"></span>
+          </div>
+          <button type="button" class="theme-icon" id="skillDetailClose" title="关闭">×</button>
+        </div>
+        <pre id="skillDetailBody" class="skill-detail-body"></pre>
+      </div>
+
+      <p id="skillsMessage" class="theme-message" role="status"></p>
+    </section>
+
     <section class="panel">
       <div class="panel-head">
         <div>
@@ -248,7 +304,9 @@
   </div>
 
   <script src="balance-module.js"></script>
+  <script src="theme-bridge.js"></script>
   <script src="theme-panel.js"></script>
+  <script src="skills-panel.js"></script>
   <script src="dock.js"></script>
 </body>
 </html>

@@ -449,6 +449,9 @@ function paletteToTokens({ intent, palette, mode, specimen }) {
     'color.accent.primary': accent,
     'color.accent.secondary': accent2,
     'color.accent.contrast': color.bestOn(accent, ['#ffffff', '#0d1016']) || labelInverse,
+    // A low-emphasis tint of the accent, used by tag/badge surfaces. Mixed rather
+    // than shaded so it stays tied to the accent's hue in both polarities.
+    'color.accent.subtle': color.mix(layer2, accent, dark ? 0.24 : 0.16) || layer2,
     ...stateTokens(mode),
     'font.family': '-apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
     'font.family.mono': 'Consolas, "SF Mono", "JetBrains Mono", monospace',
@@ -758,6 +761,41 @@ function design({ intent, darkTokens, withAssets = false } = {}) {
         animation: resolvedMode === 'dark' && intent.motion !== 'none' ? 'fade' : 'none',
         position: 'corners'
       },
+      // Skills management surface. Emitted by the generator too, so a user-created
+      // theme restyles the Skills panel exactly like a built-in one — the
+      // bidirectional adaptation requirement, not just a built-in bonus.
+      'hns.skill.card': {
+        background: 'var(--hns-color-bg-layer1)',
+        border: '1px solid var(--hns-color-border-l1)',
+        radius: 'var(--hns-radius-md)',
+        shadow: tokens['effect.glow'] === '0' ? 'none' : 'var(--hns-shadow-l1)',
+        label: 'var(--hns-color-label-primary)'
+      },
+      'hns.skill.header': {
+        background: 'var(--hns-color-bg-layer2)',
+        label: 'var(--hns-color-label-primary)',
+        border: '1px solid var(--hns-color-border-l1)'
+      },
+      'hns.skill.badge': {
+        background: 'var(--hns-color-bg-layer2)',
+        label: 'var(--hns-color-label-secondary)',
+        border: '1px solid var(--hns-color-border-l1)',
+        radius: 'var(--hns-radius-sm)'
+      },
+      'hns.skill.tag': {
+        background: 'var(--hns-color-accent-subtle)',
+        label: 'var(--hns-color-label-secondary)',
+        border: '1px solid var(--hns-color-border-l1)',
+        radius: '999px'
+      },
+      'hns.skill.search': {
+        background: 'var(--hns-color-bg-layer2)',
+        label: 'var(--hns-color-label-primary)',
+        border: '1px solid var(--hns-color-border-l1)',
+        radius: 'var(--hns-radius-sm)',
+        placeholder: 'var(--hns-color-label-tertiary)'
+      },
+      'hns.skill.danger': { color: 'var(--hns-state-failed)' },
       'common.button.primary': {
         background: 'var(--hns-color-accent-primary)',
         label: 'var(--hns-color-accent-contrast)',

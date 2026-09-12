@@ -105,103 +105,37 @@
   }
 
   // -------------------------------------------------------------------------
-  // Painting: the engine pushes a declarative payload; the dock applies it.
+  // Painting and geometry: delegated to the shared theme bridge.
+  //
+  // The bridge is the one integration point every dock UI module uses, so a new
+  // panel (Skills) adapts to the active theme and becomes visible to theme
+  // validation without this file changing. See ui/theme-bridge.js.
   // -------------------------------------------------------------------------
 
-  /**
-   * Apply a paint payload to the live dock surface.
-   *
-   * The payload is data (CSS custom properties + slot styles). It is applied by
-   * setting CSS variables and toggling class names — never by injecting markup
-   * or script, which is what keeps a generated theme declarative (spec §19).
-   */
-  function paint(payload) {
-    if (!payload) return false
-    const root = document.documentElement
-    if (typeof payload.css === 'string' && payload.css) {
-      // appending a <style> element node rather than evaluating script; the
-      // declarations come from the validated token schema only.
-      let sheet = document.getElementById('hnsThemeSheet')
-      if (!sheet) {
-        sheet = document.createElement('style')
-        sheet.id = 'hnsThemeSheet'
-        document.head.appendChild(sheet)
-      }
-      sheet.textContent = `:root {\n${payload.css}\n}`
-    }
+  /** Slot ids this panel renders; the bridge writes their styles for us. */
+  const APPEARANCE_SLOTS = [
+    'hns.window.shell',
+    'hns.process.panel',
+    'hns.worker.card',
+    'hns.process.queue',
+    'hns.status.badge',
+    'common.button.primary',
+    'common.button.secondary',
+    'common.input.default',
+    'common.dialog.default',
+    'common.notification.default',
+    'common.navigation.sidebar',
+    'common.navigation.topbar',
+    'common.panel.background',
+    'hns.worker.header',
+    'hns.operator.widget',
+    'hns.persona.banner',
+    'hns.persona.decoration',
+    'hns.tray.icon'
+  ]
 
-    const slots = payload.slots || {}
-    const setVar = (name, value) => {
-      if (value === undefined || value === null || value === '') root.style.removeProperty(name)
-      else root.style.setProperty(name, String(value))
-    }
-
-    const shell = slots['hns.window.shell'] || {}
-    setVar('--hns-slot-shell-bg', shell.background)
-    setVar('--hns-slot-shell-border', shell.border)
-    setVar('--hns-slot-shell-radius', shell.radius)
-
-    const panel = slots['hns.process.panel'] || {}
-    setVar('--hns-slot-panel-bg', panel.background)
-    setVar('--hns-slot-panel-border', panel.border)
-    setVar('--hns-slot-panel-radius', panel.radius)
-    setVar('--hns-slot-panel-shadow', panel.shadow)
-
-    const card = slots['hns.worker.card'] || {}
-    setVar('--hns-slot-card-bg', card.background)
-    setVar('--hns-slot-card-border', card.border)
-    setVar('--hns-slot-card-radius', card.radius)
-
-    const queue = slots['hns.process.queue'] || {}
-    setVar('--hns-slot-queue-bg', queue.background)
-    setVar('--hns-slot-queue-border', queue.border)
-
-    const badge = slots['hns.status.badge'] || {}
-    setVar('--hns-slot-badge-bg', badge.background)
-    setVar('--hns-slot-badge-border', badge.border)
-    setVar('--hns-slot-badge-radius', badge.radius)
-
-    const button = slots['common.button.primary'] || {}
-    setVar('--hns-slot-button-bg', button.background)
-    setVar('--hns-slot-button-label', button.label)
-    setVar('--hns-slot-button-radius', button.radius)
-
-    const input = slots['common.input.default'] || {}
-    setVar('--hns-slot-input-bg', input.background)
-    setVar('--hns-slot-input-border', input.border)
-    setVar('--hns-slot-input-radius', input.radius)
-
-    const header = slots['hns.worker.header'] || {}
-    setVar('--hns-slot-header-bg', header.background)
-
-    // Personalization layer: opacity/decoration only, always confined to the
-    // dock's own decoration element so it can never cover an interaction region.
-    const persona = payload.persona || {}
-    document.body.classList.toggle('theme-persona', Boolean(persona.enabled))
-    document.body.dataset.themeEffect = String(payload.effectLevel ?? 0)
-    setVar('--hns-persona-decoration-opacity', persona.enabled ? persona.decorationOpacity : 0)
-    setVar('--hns-persona-banner-opacity', persona.enabled ? persona.bannerOpacity : 0)
-    setVar('--hns-persona-avatar', persona.avatarAsset && persona.avatarAsset !== 'none' ? `url("${persona.avatarAsset}")` : 'none')
-    setVar('--hns-persona-banner-asset', persona.bannerAsset && persona.bannerAsset !== 'none' ? `url("${persona.bannerAsset}")` : 'none')
-
-    const decoration = slots['hns.persona.decoration'] || {}
-    setVar('--hns-decoration-asset', decoration.asset && decoration.asset !== 'none' ? `url("${decoration.asset}")` : 'none')
-    setVar('--hns-decoration-opacity', decoration.opacity)
-
-    document.body.classList.toggle('theme-preview', Boolean(payload.preview))
-    document.body.dataset.themeId = payload.id || ''
-    document.body.dataset.effectLevel = String(payload.effectLevel ?? 0)
-
-    const marker = $('themeActiveMarker')
-    if (marker) marker.textContent = payload.preview ? `${esc(payload.name)} · 预览中` : esc(payload.name || payload.id || '')
-    return true
-  }
-  // -------------------------------------------------------------------------
-  // Live slot geometry: what the UI inspector / preview validator consumes.
-  // -------------------------------------------------------------------------
-
-  /** Slot id -> CSS selector of the element that represents it in the dock. */
-  const SLOT_SELECTORS = {
+  /** Panel-owned elements that theme validation must be able to see. */
+  const APPEARANCE_SLOT_SELECTORS = {
     'hns.window.shell': '#detail',
     'hns.worker.card': '#summary',
     'hns.process.panel': '#queue',
@@ -224,8 +158,7 @@
     'hns.tray.icon': '#rail'
   }
 
-  /** Protected regions, measured so the validator can check occlusion. */
-  const REGION_SELECTORS = {
+  const APPEARANCE_REGION_SELECTORS = {
     'queue-create': '#taskForm',
     'queue-list': '#queue',
     'worker-summary': '#summary',
@@ -234,55 +167,35 @@
     'settings-form': '#settingsOverlay'
   }
 
-  function boundingBox(element) {
-    if (!element) return null
-    try {
-      const rect = element.getBoundingClientRect()
-      if (!rect || (!rect.width && !rect.height)) return { x: 0, y: 0, width: 0, height: 0 }
-      return {
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        width: Math.round(rect.width),
-        height: Math.round(rect.height)
-      }
-    } catch {
-      return null
-    }
+  /** The bridge handle for this panel; assigned during attach(). */
+  let bridge = null
+
+  function bridgeApi() {
+    return global.megaThemeBridge || null
   }
 
-  /**
-   * Report live geometry to the main process. Called when the engine probes the
-   * UI (before a theme is designed) and on every layout change, so the snapshot
-   * the designer reads describes the dock as it actually is.
-   */
+  /** Apply a payload; kept as a thin delegate so callers stay unchanged. */
+  function paint(payload) {
+    const shared = bridgeApi()
+    if (!shared) return false
+    const applied = shared.paint(payload)
+    updateActiveMarker(payload)
+    return applied
+  }
+
+  /** The one Appearance-specific reaction to a payload: the active-theme marker. */
+  function updateActiveMarker(payload) {
+    const marker = $('themeActiveMarker')
+    if (!marker || !payload) return
+    marker.textContent = payload.preview
+      ? `${esc(payload.name)} · 预览中`
+      : esc(payload.name || payload.id || '')
+  }
+
   function reportRegions() {
-    const api = themeApi()
-    if (!api || typeof api.reportRegions !== 'function') return
-    const slots = {}
-    for (const [slotId, selector] of Object.entries(SLOT_SELECTORS)) {
-      const element = document.querySelector(selector)
-      const box = boundingBox(element)
-      if (box) slots[slotId] = box
-    }
-    const regions = {}
-    for (const [regionId, selector] of Object.entries(REGION_SELECTORS)) {
-      const element = document.querySelector(selector)
-      const box = boundingBox(element)
-      if (box) regions[regionId] = box
-    }
-    // Merge the protected-region geometry into the same map the inspector reads.
-    for (const [regionId, box] of Object.entries(regions)) slots[regionId] = box
-    slots.componentTree = {
-      root: '#detail',
-      expanded: document.body.classList.contains('expanded'),
-      theme: document.body.dataset.themeId || null,
-      regions: Object.keys(regions)
-    }
-    try {
-      api.reportRegions(slots)
-    } catch {
-      // Geometry reporting is best-effort observation; never a dock failure.
-    }
+    const shared = bridgeApi()
+    if (!shared) return null
+    return shared.reportRegions()
   }
 
   // -------------------------------------------------------------------------
@@ -867,6 +780,28 @@
     const panel = $('appearancePanel')
     if (!panel) return null
     bindControls()
+
+    const shared = bridgeApi()
+    if (shared && typeof shared.registerModule === 'function') {
+      // Joining the bridge is what makes this panel both a theme consumer and a
+      // theme *target*: the bridge paints us and reports our geometry to the
+      // engine, and it does the same for the Skills panel.
+      bridge = shared.registerModule({
+        id: 'appearance',
+        slots: APPEARANCE_SLOTS,
+        slotSelectors: APPEARANCE_SLOT_SELECTORS,
+        regionSelectors: APPEARANCE_REGION_SELECTORS,
+        onPaint: (payload) => {
+          // The dock chrome is restyled entirely through the slot CSS variables the
+          // bridge writes; the marker is this panel's only own reaction.
+          updateActiveMarker(payload)
+        },
+        onChanged: () => {
+          loadStatus().then(render).catch(() => {})
+        }
+      })
+    }
+
     const api = themeApi()
     if (!api) {
       panel.dataset.unavailable = '1'
@@ -874,22 +809,16 @@
       return null
     }
 
-    if (typeof api.onApply === 'function') api.onApply((payload) => paint(payload))
-    if (typeof api.onChanged === 'function') {
-      api.onChanged(() => {
-        loadStatus().then(render).catch(() => {})
-      })
-    }
-    if (typeof api.onProbeRegions === 'function') api.onProbeRegions(() => reportRegions())
-
     // First paint: ask the engine for the active theme and apply it before the
-    // dock reports geometry, so the observer sees the themed layout.
+    // dock reports geometry, so the observer sees the themed layout. When the
+    // bridge is present it owns the subscription, and this is only the initial
+    // fetch.
     track(
       Promise.resolve()
-        .then(() => api.paint())
-        .then((result) => {
+        .then(() => (bridge ? bridge.refresh() : api.paint().then((result) => {
           if (result && result.ok && result.payload) paint(result.payload)
-        })
+          return result
+        })))
         .catch(() => {})
         .then(() => Promise.all([loadStatus(), loadCapability()]))
         .then(() => {

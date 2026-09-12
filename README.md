@@ -233,6 +233,40 @@ Prompt → UI inspection → capability manifest → design intent → live prev
 See [`docs/theme-system.md`](docs/theme-system.md) for the full implementation note,
 the slot/permission model, the validation checklist and the recovery rules.
 
+### Skills management
+
+The dock also manages the agent's **skills**, because a skill is live agent
+configuration and installing one should not mean hand-editing `data\skills\`.
+
+```text
+Skills · 技能管理
+├── [ GitHub 链接或 owner/repo ]            → [安装]
+├── 快速搜索技能…                            ☐ 同时搜索 GitHub
+├── 标签筛选
+├── [发现] [已安装]        全选  已选 N/M  [批量删除]
+└── 技能卡片：名称 · 来源 · 描述 · 标签 ·  [i] [⧉ 合集] [🗑]
+```
+
+- **Five ways in, two ways out** — search the catalog, paste a GitHub link
+  (`owner/repo`, `/tree/`, `/blob/`, raw, `git@…`), pick a local folder, install a
+  bundled starter skill, or install a whole collection; delete one skill, delete a
+  whole collection, or select many and delete in bulk.
+- **It is the harness's format, not ours** — the panel accepts exactly what
+  `@deepseek-ai/dsh-skill-filesystem` loads (kebab-case name, required `name` and
+  `description`, `SKILL.md` bundle or `<name>.md`, invocation flags). Anything the
+  dock reports as installed is something the running harness will actually load.
+- **Staged and validated** — nothing reaches the skill root until the staged copy has
+  been validated, so a failed install cannot leave a half-written skill behind.
+- **No restart** — `data\skills` is a watched first-party DSH root, so an install or a
+  delete takes effect on the next catalog read.
+- **Nothing escapes** — archive extraction refuses `..`, absolute paths, symlinks and
+  devices, and caps entry count and bytes; deletion is confined to the skill root.
+- **Honest results** — renames, skipped skills and per-item batch failures are all
+  reported instead of being swallowed.
+
+See [`docs/skills-management.md`](docs/skills-management.md) for the format contract,
+source resolution, security rules and the theme integration.
+
 ### Extension status and harness alignment
 
 The dock's **拓展状态** module reports what the Mega extension is doing and which harness is
@@ -326,13 +360,22 @@ app/
         terminal-dispatch.js     single alert pipeline: ringtone + notification
         sound-service.js         ringtones
       deepseek/
+      skills/                    HNS skills management (backend)
+        skill-format.js          harness-compatible skill file format + validation
+        tar.js                   dependency-free tar reader (traversal-safe)
+        skill-source.js          GitHub / local source resolution
+        skill-catalog.js         bundled + curated catalog, optional GitHub search
+        skill-service.js         list / install / delete / collections / surfaces
       utils/
       ui/
         dock.html                collapsible right-side dock + settings overlay
         dock.js
         dock.css                 dock palette bridged to the Theme API tokens
+        theme-bridge.js          shared theme integration for dock UI modules
         theme-panel.js           Appearance panel (theme creation / preview / list)
+        skills-panel.js          Skills panel (search / install / delete)
         apply-theme-css.cjs      regenerates the dock.css token bridge
+        apply-skills-css.cjs     appends the Skills panel stylesheet
         balance-module.js        shared Balance module open detection
         preload.cjs
   package.json
@@ -360,6 +403,7 @@ Windows
 │   ├── Official Harness
 │   └── Mega Dock
 │       ├── Appearance (unified theme system)
+│       ├── Skills (search / install / delete)
 │       ├── Queue
 │       ├── Hardware
 │       ├── Balance
@@ -390,8 +434,10 @@ Recent Session panel.
 These rules are enforced by `tests/unit/architecture-contract.test.js`.
 Installer/reuse/API-key behavior is enforced by `tests/unit/installer-contract.test.js`.
 Theme-system behavior is enforced by `tests/unit/theme-validator.test.js`,
-`tests/unit/theme-designer.test.js`, `tests/unit/theme-engine.test.js` and
-`tests/unit/theme-panel.test.js`.
+`tests/unit/theme-designer.test.js`, `tests/unit/theme-engine.test.js`,
+`tests/unit/theme-panel.test.js` and `tests/unit/theme-bridge.test.js`.
+Skills management is enforced by `tests/unit/skills-service.test.js` and
+`tests/unit/skills-panel.test.js`.
 
 ## Normal start
 
@@ -408,8 +454,10 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
 Mega dock: `Ctrl+Shift+M`. Mega settings: ⚙ in the dock header.
-Themes: the **Appearance** panel at the top of the dock — type a description, preview it on
-the dock, then **Looks Good** to install or **Modify** to refine it in natural language.
+Themes: the **Appearance** panel — type a description, preview it on the dock, then
+**Looks Good** to install or **Modify** to refine it in natural language.
+Skills: the **Skills** panel — search, paste a GitHub link, or pick a local folder to
+install; delete one skill, a whole collection, or a multi-selection.
 Exit: tray right-click → **Exit DS-Harness** (graceful) or **Force Exit DS-Harness**.
 
 ## Verification

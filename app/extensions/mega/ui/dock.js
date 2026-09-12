@@ -451,13 +451,23 @@ function render(snapshot) {
 }
 
 /**
- * Appearance module: the theme panel owns its own state and talks to the theme
- * engine directly, so a theme failure can never stop the queue/hardware/balance
- * modules from rendering.
+ * Dock UI modules. Each is optional and each owns its own state, so a failure in
+ * one (theme system, skills) can never stop the queue/hardware/balance modules from
+ * rendering.
+ *
+ * Both modules join the shared `theme-bridge`, which is also what makes them visible
+ * to theme validation: whichever panels exist report their own geometry, so a new
+ * panel cannot be silently occluded by a theme.
  */
 let themePanel = null
+let skillsPanel = null
 try {
   themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
+} catch (error) {
+  showError(error)
+}
+try {
+  skillsPanel = window.megaSkillsPanel?.attach ? window.megaSkillsPanel.attach() : null
 } catch (error) {
   showError(error)
 }
@@ -466,9 +476,10 @@ async function refresh() {
   try {
     showError()
     render(await window.megaTools.snapshot())
-    // The dock snapshot carries only a compact theme status; the panel keeps the
-    // full list, capability manifest and preview state.
+    // The dock snapshot carries only compact statuses; the panels keep the full
+    // theme list and skill catalog.
     await themePanel?.refresh?.()
+    await skillsPanel?.refresh?.()
   } catch (error) {
     showError(error)
   }
@@ -710,6 +721,11 @@ document.addEventListener('click', async (event) => {
 })
 
 window.megaTools.onChanged(refresh)
+// The main process pushes this after a skill install or delete, including ones it
+// performed itself (a local pick), so the list cannot drift from the filesystem.
+window.megaTools.skills?.onChanged?.(() => {
+  skillsPanel?.refresh?.()
+})
 refresh()
 setInterval(refresh, 5000)
 setInterval(updateLivePeriod, 1000)

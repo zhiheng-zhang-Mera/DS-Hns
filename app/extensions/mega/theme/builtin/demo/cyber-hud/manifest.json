@@ -13,13 +13,13 @@
   "supported_apps": [
     "hns"
   ],
-  "created_at": "2026-09-11T23:51:16.822Z",
+  "created_at": "2026-09-12T00:44:30.652Z",
   "installed_at": null,
   "generated_prompt": "赛博全息 HUD，黑灰蓝，扫描线，微光，人物不要抢屏",
   "revision_history": [
     {
       "revision": 1,
-      "at": "2026-09-11T23:51:16.822Z",
+      "at": "2026-09-12T00:44:30.652Z",
       "prompt": "赛博全息 HUD，黑灰蓝，扫描线，微光，人物不要抢屏",
       "design_language": "cyber_hud",
       "palette": "steel_blue",

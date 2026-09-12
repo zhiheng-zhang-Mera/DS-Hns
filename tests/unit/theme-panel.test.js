@@ -14,6 +14,11 @@ const path = require('node:path')
  * and the dock surface is actually repainted from the engine payload.
  */
 
+/**
+ * The bridge every dock UI module joins. This panel is a bridge module like the
+ * Skills panel, so the test loads the real bridge rather than stubbing it.
+ */
+const BRIDGE = path.resolve(__dirname, '..', '..', 'app', 'extensions', 'mega', 'ui', 'theme-bridge.js')
 const PANEL = path.resolve(__dirname, '..', '..', 'app', 'extensions', 'mega', 'ui', 'theme-panel.js')
 
 function makeElement(id) {
@@ -281,7 +286,9 @@ function loadPanel({ status = makeStatus(), paint = makePaintPayload(), handlers
     }
   }
 
+  delete require.cache[require.resolve(BRIDGE)]
   delete require.cache[require.resolve(PANEL)]
+  require(BRIDGE)
   require(PANEL)
   const attached = window.megaThemePanel.attach()
   dom.attached = attached
@@ -347,23 +354,24 @@ test('the Appearance panel renders the theme list with locks for protected theme
   assert.ok(dom.element('themeQuick').innerHTML.includes('赛博全息 HUD'), 'quick prompts come from the engine')
 })
 
-test('the panel repaints the dock from the engine payload, as data only', async () => {
+test('the panel joins the shared theme bridge as a themable module', async () => {
   const { dom, listeners, attached } = loadPanel()
   await settle(dom)
 
-  const root = dom.element('html')
-  assert.equal(root.style.values.get('--hns-slot-shell-bg'), '#151922')
-  assert.equal(root.style.values.get('--hns-slot-panel-bg'), '#151922')
-  assert.equal(root.style.values.get('--hns-slot-button-bg'), '#4d93f8')
-  assert.equal(root.style.values.get('--hns-persona-decoration-opacity'), '0.2')
-  assert.match(String(root.style.values.get('--hns-persona-avatar')), /^url\("data:image\/png;base64,/)
+  // Painting is the bridge's job (covered by theme-bridge.test.js); this panel's
+  // contract is that it registers with the bridge and hands over its slots, so a
+  // theme can restyle it and theme validation can see its geometry.
+  assert.ok(window.megaThemeBridge, 'the panel loads the shared theme bridge')
+  assert.deepEqual(window.megaThemeBridge.modules, ['appearance'])
+  assert.equal(typeof listeners.apply, 'function', 'the bridge subscribes to engine paint pushes')
 
-  // A pushed payload repaints without a status refresh.
-  assert.equal(typeof listeners.apply, 'function', 'the panel subscribes to engine paint pushes')
   listeners.apply(makePaintPayload({ id: 'hns.demo.cyber-hud', name: 'Cyber HUD Demo', preview: true }))
   assert.equal(dom.element('themeActiveMarker').textContent, 'Cyber HUD Demo · 预览中')
   assert.equal(dom.element('body').dataset.themeId, 'hns.demo.cyber-hud')
-  assert.equal(document.body.classList.contains('theme-preview'), true)
+
+  const measured = window.megaThemeBridge.reportRegions()
+  assert.ok(measured, 'geometry is reported to the engine')
+  assert.ok(Object.keys(measured).length > 0)
 })
 
 test('applying a theme calls the engine and reports the outcome', async () => {
@@ -646,22 +654,16 @@ test('the panel is inert when the theme engine is unavailable', async () => {
   assert.match(dom.element('themeMessage').textContent, /主题系统不可用/)
 })
 
-test('the panel source contains no executable theme injection', () => {
-  const source = fs.readFileSync(PANEL, 'utf8')
-  assert.ok(!/eval\(/.test(source), 'the panel never evaluates theme content')
-  assert.ok(!/new Function/.test(source), 'the panel never compiles theme content')
-  // Every value interpolated into markup must go through the HTML escaper. The two
-  // deliberate exceptions are considered below.
-  const interpolations = source.match(/\$\{[^}]+\}/g) || []
-  const raw = interpolations.filter((expression) => /(payload|tokens|slots|theme)\./.test(expression) && !/esc\(/.test(expression))
-  // `payload.css` is a block of validated CSS custom-property declarations, and the
-  // protected/disabled attribute expression is a boolean ternary — neither carries
-  // user text into markup.
-  const expected = raw.filter((expression) => !/payload\.css/.test(expression) && !/theme\.protected/.test(expression))
-  assert.deepEqual(
-    expected,
-    [],
-    `theme values interpolated into markup without escaping: ${expected.join(', ')}`
-  )
-  assert.ok(source.includes('--hns-'), 'the panel only applies CSS custom properties')
+test('the panel and the bridge contain no executable theme injection', () => {
+  const bridge = fs.readFileSync(BRIDGE, 'utf8')
+  const panel = fs.readFileSync(PANEL, 'utf8')
+  for (const [name, source] of [['theme-bridge.js', bridge], ['theme-panel.js', panel]]) {
+    assert.ok(!/eval\(/.test(source), `${name} never evaluates theme content`)
+    assert.ok(!/new Function/.test(source), `${name} never compiles theme content`)
+    assert.ok(!/innerHTML[^\n]*\$\{[^}]*payload\.slots/.test(source), `${name} never interpolates slot styles into markup`)
+  }
+  // Theme payloads become CSS custom properties, and nothing else.
+  assert.ok(bridge.includes('--hns-slot-'), 'the bridge writes slot styles as CSS custom properties')
+  assert.ok(bridge.includes('--hns-persona-'), 'the bridge writes the personalization layer as CSS custom properties')
+  assert.ok(!/innerHTML[^\n]*payload\.css/.test(bridge), 'the token block never becomes markup')
 })

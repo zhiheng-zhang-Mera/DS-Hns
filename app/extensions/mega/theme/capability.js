@@ -72,6 +72,12 @@ const SLOT_PAGES = Object.freeze({
   'hns.log.panel': 'log',
   'hns.log.level': 'log',
   'hns.status.badge': 'dashboard',
+  'hns.skill.card': 'skills',
+  'hns.skill.header': 'skills',
+  'hns.skill.badge': 'skills',
+  'hns.skill.tag': 'skills',
+  'hns.skill.search': 'skills',
+  'hns.skill.danger': 'skills',
   'common.button.primary': 'settings',
   'common.button.secondary': 'settings',
   'common.input.default': 'settings',
@@ -92,6 +98,8 @@ const PROTECTED_REGIONS = Object.freeze([
   { id: 'worker-summary', label: 'worker/process summary', page: 'dashboard', critical: true },
   { id: 'hardware-grid', label: 'hardware monitor grid', page: 'hardware', critical: true },
   { id: 'status-strip', label: 'state badges', page: 'dashboard', critical: true },
+  { id: 'skills-search', label: 'skill search box', page: 'skills', critical: true },
+  { id: 'skills-list', label: 'installed skill list', page: 'skills', critical: true },
   { id: 'settings-form', label: 'settings controls', page: 'settings', critical: false }
 ])
 

@@ -17,6 +17,7 @@ const workspace = require('./utils/workspace')
 const { PATHS } = require('./utils/paths')
 const { HarnessUpdater } = require('./updater/harness-updater')
 const { createThemeEngine } = require('./theme')
+const { createSkillService } = require('./skills/skill-service')
 
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
@@ -28,7 +29,12 @@ const CHANNELS = [
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
   'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
-  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint'
+  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint',
+  // ---- HNS skills management ----
+  'mega:skills-snapshot', 'mega:skills-search', 'mega:skills-tags', 'mega:skills-detail',
+  'mega:skills-install-source', 'mega:skills-install-catalog', 'mega:skills-pick-local',
+  'mega:skills-remove', 'mega:skills-remove-many', 'mega:skills-remove-collection',
+  'mega:skills-set-invocation'
 ]
 
 /** Renderer events pushed by the theme engine (never injected into the official UI). */
@@ -41,6 +47,17 @@ const THEME_CHANNELS = [
   'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
   'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint'
 ]
+
+/** Skills IPC channels, owned by the skills service. */
+const SKILL_CHANNELS = [
+  'mega:skills-snapshot', 'mega:skills-search', 'mega:skills-tags', 'mega:skills-detail',
+  'mega:skills-install-source', 'mega:skills-install-catalog', 'mega:skills-pick-local',
+  'mega:skills-remove', 'mega:skills-remove-many', 'mega:skills-remove-collection',
+  'mega:skills-set-invocation'
+]
+
+/** Renderer event pushed when the installed skill set changes. */
+const SKILL_EVENT_CHANNEL = 'mega:skills-changed'
 
 
 /** Canonical terminal state -> existing ringtone event. */
@@ -67,6 +84,7 @@ let dockExpanded = false
 let dockWidth = DOCK_DEFAULT_WIDTH
 let dockUserHidden = false
 let themeEngine = null
+let skillService = null
 // Latest geometry reported by the dock renderer (slot map + protected regions).
 let themeRegionCache = {}
 let themeTreeCache = null
@@ -181,7 +199,23 @@ function snapshot() {
         log(`theme status unavailable: ${error?.message || error}`)
         return null
       }
-    })() : null
+    })() : null,
+    // Compact skills status. The full list and the search catalog live behind the
+    // dedicated skills channels so this snapshot stays small.
+    skills: (() => {
+      try {
+        const snapshot = ensureSkillService().snapshot()
+        return {
+          root: snapshot.root,
+          counts: snapshot.counts,
+          collections: snapshot.collections.length,
+          catalog: snapshot.catalog
+        }
+      } catch (error) {
+        log(`skills status unavailable: ${error?.message || error}`)
+        return null
+      }
+    })()
   }
 }
 
@@ -684,6 +718,7 @@ function registerIpc() {
   ipcMain.handle('mega:dock-expand', (_event, expanded) => setDockExpanded(Boolean(expanded), { focus: Boolean(expanded) }))
 
   registerThemeIpc()
+  registerSkillIpc()
 }
 
 /**
@@ -784,6 +819,141 @@ function safeThemeStatus(engine) {
   }
 }
 
+/**
+ * HNS skills management IPC.
+ *
+ * The dock never touches the skill directory: every read and every mutation goes
+ * through the service, which owns validation, the staging-first install and the
+ * confinement of deletion to the skill root. Handlers answer with plain data and
+ * never throw at the renderer, because a failed skill operation must leave the
+ * dock usable.
+ */
+function registerSkillIpc() {
+  const { ipcMain, dialog } = ctx.electron
+  const service = ensureSkillService()
+
+  for (const channel of SKILL_CHANNELS) ipcMain.removeHandler(channel)
+
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`skills ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: 'skills_error', message: String(error?.message || error) }
+    }
+  }
+
+  const notify = () => notifySkillsChanged()
+
+  ipcMain.handle('mega:skills-snapshot', guard(() => ({ ok: true, ...service.snapshot() })))
+  ipcMain.handle('mega:skills-tags', guard(() => ({ ok: true, tags: service.tags() })))
+  ipcMain.handle('mega:skills-detail', guard((_event, payload = {}) => {
+    const name = typeof payload === 'string' ? payload : payload?.name
+    return service.detail(String(name || ''))
+  }))
+  ipcMain.handle('mega:skills-search', guard((_event, payload = {}) => service.search(payload?.query || '', {
+    includeLive: Boolean(payload?.includeLive),
+    tags: Array.isArray(payload?.tags) ? payload.tags : []
+  })))
+
+  /**
+   * Install from a pasted source: a GitHub URL, `owner/repo`, a local path, or a
+   * bundled catalog id. The service decides which, so the UI has one entry point.
+   */
+  ipcMain.handle('mega:skills-install-source', guard(async (_event, payload = {}) => {
+    const source = String(payload?.source || '').trim()
+    if (!source) return { ok: false, reason: 'source_required', installed: [], skipped: [] }
+    const conflict = payload?.conflict === 'overwrite' || payload?.conflict === 'skip' ? payload.conflict : 'rename'
+    const prefix = typeof payload?.prefix === 'string' ? payload.prefix : undefined
+
+    // An existing local path is unambiguous: installing it needs no network.
+    if (looksLikeLocalPath(source)) {
+      const result = service.installLocal(source, { conflict, prefix: prefix ?? null })
+      notify()
+      return result
+    }
+    const bundled = service.catalog.get(source)
+    if (bundled && bundled.origin === 'bundled') {
+      const result = service.installBundled(source, { conflict })
+      notify()
+      return result
+    }
+    const result = await service.installRemote(source, { conflict, prefix })
+    notify()
+    return result
+  }))
+
+  ipcMain.handle('mega:skills-install-catalog', guard(async (_event, payload = {}) => {
+    const id = String(payload?.id || '')
+    if (!id) return { ok: false, reason: 'id_required', installed: [], skipped: [] }
+    const conflict = payload?.conflict === 'overwrite' || payload?.conflict === 'skip' ? payload.conflict : 'rename'
+    const only = typeof payload?.only === 'string' && payload.only ? payload.only : null
+    const result = await service.installCatalogEntry(id, { conflict, only })
+    notify()
+    return result
+  }))
+
+  ipcMain.handle('mega:skills-pick-local', guard(async () => {
+    const result = await dialog.showOpenDialog(ctx.mainWindow, {
+      title: '选择技能目录或 SKILL.md',
+      properties: ['openDirectory', 'openFile'],
+      filters: [{ name: 'Skill', extensions: ['md'] }]
+    })
+    if (result.canceled || !result.filePaths.length) return { ok: false, reason: 'cancelled', canceled: true }
+    const target = result.filePaths[0]
+    const installed = service.installLocal(target, { conflict: 'rename' })
+    notify()
+    return { ok: installed.ok, canceled: false, path: target, result: installed, reason: installed.reason }
+  }))
+
+  ipcMain.handle('mega:skills-remove', guard((_event, payload = {}) => {
+    const name = typeof payload === 'string' ? payload : payload?.name
+    const result = service.deleteSkill(String(name || ''))
+    notify()
+    return result
+  }))
+  ipcMain.handle('mega:skills-remove-many', guard((_event, payload = {}) => {
+    const names = Array.isArray(payload) ? payload : Array.isArray(payload?.names) ? payload.names : []
+    const result = service.deleteSkills(names)
+    notify()
+    return result
+  }))
+  ipcMain.handle('mega:skills-remove-collection', guard((_event, payload = {}) => {
+    const collection = typeof payload === 'string' ? payload : payload?.collection
+    const result = service.deleteCollection(String(collection || ''))
+    notify()
+    return result
+  }))
+  ipcMain.handle('mega:skills-set-invocation', guard((_event, payload = {}) => {
+    const name = String(payload?.name || '')
+    const result = service.setInvocation(name, {
+      modelInvocable: typeof payload?.modelInvocable === 'boolean' ? payload.modelInvocable : undefined,
+      userInvocable: typeof payload?.userInvocable === 'boolean' ? payload.userInvocable : undefined
+    })
+    notify()
+    return result
+  }))
+}
+
+/** Does this source look like a filesystem path rather than a repo reference? */
+function looksLikeLocalPath(value) {
+  const text = String(value || '')
+  if (/^[a-zA-Z]:[\\/]/.test(text)) return true
+  if (text.startsWith('\\\\') || text.startsWith('/')) return true
+  if (text.startsWith('.\\') || text.startsWith('./') || text.startsWith('..')) return true
+  return fs.existsSync(text)
+}
+
+function ensureSkillService() {
+  if (skillService) return skillService
+  skillService = createSkillService({ log: (message) => log(`skills: ${message}`) })
+  return skillService
+}
+
+function notifySkillsChanged() {
+  if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send(SKILL_EVENT_CHANNEL)
+}
+
 async function start(context) {
   if (started) return
   started = true
@@ -853,6 +1023,7 @@ function stop() {
   // must not repaint a renderer that is about to be destroyed.
   try { themeEngine?.stop?.() } catch {}
   themeEngine = null
+  skillService = null
   themeRegionCache = {}
   themeTreeCache = null
   try { ctx?.electron?.ipcMain?.removeListener('mega-theme:regions', onThemeRegions) } catch {}

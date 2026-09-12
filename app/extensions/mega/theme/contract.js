@@ -75,6 +75,7 @@ const HNS_PAGES = Object.freeze([
   { id: 'process', name: 'Process View', surface: 'dock' },
   { id: 'hardware', name: 'Hardware Monitor', surface: 'dock' },
   { id: 'log', name: 'Log View', surface: 'dock' },
+  { id: 'skills', name: 'Skills', surface: 'dock' },
   { id: 'settings', name: 'Settings', surface: 'dock' },
   { id: 'tray', name: 'Tray / Popup', surface: 'shell' },
   { id: 'official', name: 'Official Harness UI', surface: 'official' }
@@ -123,11 +124,18 @@ const SLOTS = Object.freeze({
   'hns.operator.avatar': slot('asset_ref', PERMISSION.SAFE, ['asset', 'size']),
   'hns.operator.widget': slot('component_style', PERMISSION.STYLE, ['background', 'opacity', 'position', 'size', 'animation']),
 
+  // ---- skills management surface ----
+  'hns.skill.card': slot('component_style', PERMISSION.SAFE, ['background', 'border', 'radius', 'shadow', 'label']),
+  'hns.skill.header': slot('component_style', PERMISSION.SAFE, ['background', 'label', 'border']),
+  'hns.skill.badge': slot('component_style', PERMISSION.SAFE, ['background', 'label', 'border', 'radius']),
+  'hns.skill.tag': slot('component_style', PERMISSION.SAFE, ['background', 'label', 'border', 'radius']),
+  'hns.skill.search': slot('component_style', PERMISSION.SAFE, ['background', 'label', 'border', 'radius', 'placeholder']),
+  'hns.skill.danger': slot('color', PERMISSION.SAFE, ['color']),
+
   // ---- persona layer ----
   'hns.persona.banner': slot('asset_ref', PERMISSION.STYLE, ['asset', 'opacity', 'position', 'height']),
   'hns.persona.status_avatar': slot('asset_ref', PERMISSION.STYLE, ['asset', 'size', 'position']),
   'hns.persona.decoration': slot('image_or_color', PERMISSION.STYLE, ['asset', 'opacity', 'animation', 'position']),
-
   // ---- structural slots: described, never generated ----
   'hns.layout.dock_width': slot('struct', PERMISSION.STRUCTURAL, []),
   'hns.layout.navigation_hierarchy': slot('struct', PERMISSION.STRUCTURAL, []),
@@ -184,6 +192,7 @@ const TOKENS = Object.freeze({
   'color.accent.primary': token('--hns-color-accent-primary', PROPERTY_KIND.COLOR, 'color', '#4d93f8'),
   'color.accent.secondary': token('--hns-color-accent-secondary', PROPERTY_KIND.COLOR, 'color', '#7aa7ff'),
   'color.accent.contrast': token('--hns-color-accent-contrast', PROPERTY_KIND.COLOR, 'color', '#0d1016'),
+  'color.accent.subtle': token('--hns-color-accent-subtle', PROPERTY_KIND.COLOR, 'color', '#1a2740'),
 
   'state.idle': token('--hns-state-idle', PROPERTY_KIND.COLOR, 'state', '#8b93a1'),
   'state.running': token('--hns-state-running', PROPERTY_KIND.COLOR, 'state', '#4d93f8'),

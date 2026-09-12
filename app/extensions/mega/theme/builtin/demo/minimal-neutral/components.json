@@ -107,6 +107,40 @@
       "animation": "none",
       "position": "corners"
     },
+    "hns.skill.card": {
+      "background": "var(--hns-color-bg-layer1)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-md)",
+      "shadow": "var(--hns-shadow-l1)",
+      "label": "var(--hns-color-label-primary)"
+    },
+    "hns.skill.header": {
+      "background": "var(--hns-color-bg-layer2)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)"
+    },
+    "hns.skill.badge": {
+      "background": "var(--hns-color-bg-layer2)",
+      "label": "var(--hns-color-label-secondary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)"
+    },
+    "hns.skill.tag": {
+      "background": "var(--hns-color-accent-subtle)",
+      "label": "var(--hns-color-label-secondary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "999px"
+    },
+    "hns.skill.search": {
+      "background": "var(--hns-color-bg-layer2)",
+      "label": "var(--hns-color-label-primary)",
+      "border": "1px solid var(--hns-color-border-l1)",
+      "radius": "var(--hns-radius-sm)",
+      "placeholder": "var(--hns-color-label-tertiary)"
+    },
+    "hns.skill.danger": {
+      "color": "var(--hns-state-failed)"
+    },
     "common.button.primary": {
       "background": "var(--hns-color-accent-primary)",
       "label": "var(--hns-color-accent-contrast)",

@@ -199,6 +199,19 @@ test('the designer keeps every HNS state token distinct', () => {
   }
 })
 
+test('the designer writes the skills surface too, so any theme restyles that panel', () => {
+  const draft = designer.design({ intent: designer.interpret('赛博全息 HUD') })
+  const skillSlots = Object.keys(draft.components.slots).filter((slotId) => slotId.startsWith('hns.skill.'))
+  assert.deepEqual(
+    skillSlots.sort(),
+    ['hns.skill.badge', 'hns.skill.card', 'hns.skill.danger', 'hns.skill.header', 'hns.skill.search', 'hns.skill.tag'],
+    'a generated theme covers the whole Skills panel, not only the panels that existed when it was written'
+  )
+  for (const slotId of skillSlots) {
+    assert.ok(contract.SLOTS[slotId], `${slotId} is an exposed slot`)
+  }
+})
+
 test('designer.design is deterministic for the same intent', () => {
   const intent = designer.interpret('赛博全息 HUD，黑灰蓝')
   const first = designer.design({ intent })

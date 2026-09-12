@@ -70,6 +70,16 @@ Check 'Theme panel renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\the
 Check 'Theme bridge is exposed through the preload' ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'mega:theme-create')
 Check 'Theme recovery falls back to Dark' ((Get-Content "$ROOT\app\extensions\mega\theme\recovery.js" -Raw) -match 'RECOVERY|fallbackTheme')
 Check 'Theme system never touches the official renderer' (-not ((Get-Content "$ROOT\app\extensions\mega\theme\index.js" -Raw) -match 'officialWebContents|executeJavaScript|insertCSS'))
+# ---- HNS skills management ----
+Check 'Skill format layer exists' (Test-Path "$ROOT\app\extensions\mega\skills\skill-format.js")
+Check 'Skill service exists' (Test-Path "$ROOT\app\extensions\mega\skills\skill-service.js")
+Check 'Skills panel exists in the dock' ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="skillsPanel"')
+Check 'Skills panel renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\skills-panel.js")
+Check 'Skills bridge is exposed through the preload' ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'mega:skills-install-source')
+Check 'Skill install is staged and validated before it lands' ((Get-Content "$ROOT\app\extensions\mega\skills\skill-service.js" -Raw) -match 'stageCandidate')
+Check 'Skill deletion is confined to the skill root' ((Get-Content "$ROOT\app\extensions\mega\skills\skill-service.js" -Raw) -match 'target_outside_root|outside_root')
+Check 'Skill archive extraction refuses traversal' ((Get-Content "$ROOT\app\extensions\mega\skills\tar.js" -Raw) -match 'safeRelativePath')
+Check 'Theme bridge is shared by the dock UI modules' ((Test-Path "$ROOT\app\extensions\mega\ui\theme-bridge.js") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'theme-bridge\.js'))
 
 if (-not $SkipTests) {
   Write-Output ''

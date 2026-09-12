@@ -13,13 +13,13 @@
   "supported_apps": [
     "hns"
   ],
-  "created_at": "2026-09-11T23:51:15.473Z",
+  "created_at": "2026-09-12T00:44:29.285Z",
   "installed_at": null,
   "generated_prompt": "极简、干净的浅色中性主题，低装饰，不要角色，文字清晰优先",
   "revision_history": [
     {
       "revision": 1,
-      "at": "2026-09-11T23:51:15.473Z",
+      "at": "2026-09-12T00:44:29.285Z",
       "prompt": "极简、干净的浅色中性主题，低装饰，不要角色，文字清晰优先",
       "design_language": "minimal_neutral",
       "palette": "silver",

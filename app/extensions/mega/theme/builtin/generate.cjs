@@ -78,6 +78,14 @@ function slotMap(options) {
     'hns.log.panel': { background: layer1, border, radius, label },
     'hns.log.level': { color: secondary, label: secondary, weight: '500' },
     'hns.status.badge': { background: layer2, label, border, radius },
+    // Skills management surface. The system themes style it from their own tokens so
+    // the panel is themed without the theme having to know it exists.
+    'hns.skill.card': { background: layer1, border, radius, shadow: 'none', label },
+    'hns.skill.header': { background: layer2, label, border },
+    'hns.skill.badge': { background: layer2, label: secondary, border, radius },
+    'hns.skill.tag': { background: 'var(--hns-color-accent-subtle)', label: secondary, border, radius: '999px' },
+    'hns.skill.search': { background: layer2, label, border, radius, placeholder: tertiary },
+    'hns.skill.danger': { color: 'var(--hns-state-failed)' },
     // System themes are deliberately asset-free: they are the flat, always-working
     // baseline, so every asset slot declares `none` instead of a missing file.
     'hns.tray.icon': { asset: 'none' },
@@ -140,6 +148,7 @@ const DARK_TOKENS = {
   'color.accent.primary': '#4d93f8',
   'color.accent.secondary': '#7aa7ff',
   'color.accent.contrast': '#0d1016',
+  'color.accent.subtle': '#1a2740',
   'state.idle': '#8b93a1',
   'state.running': '#4d93f8',
   'state.waiting': '#c9a227',
@@ -173,6 +182,7 @@ const LIGHT_TOKENS = {
   'color.accent.primary': '#2f6fe0',
   'color.accent.secondary': '#4a86ea',
   'color.accent.contrast': '#ffffff',
+  'color.accent.subtle': '#e8eefb',
   'state.idle': '#8a929f',
   'state.running': '#2f6fe0',
   'state.waiting': '#a07a10',

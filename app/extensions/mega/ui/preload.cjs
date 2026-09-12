@@ -84,6 +84,29 @@ contextBridge.exposeInMainWorld('megaTools', {
      * critical controls stay visible and unoccluded.
      */
     reportRegions: (payload) => ipcRenderer.send('mega-theme:regions', payload),
+    // The main process asks for a geometry probe on this exact channel; a mismatch
+    // here silently disabled live measurement of critical regions.
     onProbeRegions: (callback) => ipcRenderer.on('mega-theme:probe-regions', () => callback())
+  },
+  /**
+   * HNS skills management.
+   *
+   * The renderer never receives a skill path: it sends an intent (search, install
+   * this source, remove these names) and receives plain data. All validation and all
+   * filesystem work stay in the main process.
+   */
+  skills: {
+    snapshot: () => ipcRenderer.invoke('mega:skills-snapshot'),
+    tags: () => ipcRenderer.invoke('mega:skills-tags'),
+    detail: (name) => ipcRenderer.invoke('mega:skills-detail', { name }),
+    search: (payload = {}) => ipcRenderer.invoke('mega:skills-search', payload),
+    installSource: (payload = {}) => ipcRenderer.invoke('mega:skills-install-source', payload),
+    installCatalog: (payload = {}) => ipcRenderer.invoke('mega:skills-install-catalog', payload),
+    pickLocal: () => ipcRenderer.invoke('mega:skills-pick-local'),
+    remove: (name) => ipcRenderer.invoke('mega:skills-remove', { name }),
+    removeMany: (names) => ipcRenderer.invoke('mega:skills-remove-many', { names }),
+    removeCollection: (collection) => ipcRenderer.invoke('mega:skills-remove-collection', { collection }),
+    setInvocation: (payload = {}) => ipcRenderer.invoke('mega:skills-set-invocation', payload),
+    onChanged: (callback) => ipcRenderer.on('mega:skills-changed', () => callback())
   }
 })
