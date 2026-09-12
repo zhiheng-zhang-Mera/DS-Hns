@@ -21,6 +21,14 @@ const ROOT = path.resolve(APP, '..')
 /** Directories searched for checked sources, relative to the app directory. */
 const SOURCE_DIRS = [
   '.',
+  // Dual-UI (Update-Plan/Dual-UI.md): the frontend-mode runtime and the native
+  // frontend. Listed explicitly because this collector is non-recursive by
+  // design - a new file must be added here, or the directory it lives in must
+  // be, or it silently escapes the gate.
+  'frontend-mode',
+  'native-ui',
+  'native-ui/components',
+  'native-ui/state',
   'extensions',
   'extensions/mega/autonomy',
   'extensions/mega/billing',
@@ -47,6 +55,7 @@ const SOURCE_DIRS = [
 const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'check-syntax.cjs'),
   path.join(ROOT, 'scripts', 'acceptance.mjs'),
+  path.join(ROOT, 'scripts', 'dual-ui-acceptance.mjs'),
   path.join(ROOT, 'scripts', 'sub-worker-acceptance.cjs')
 ]
 

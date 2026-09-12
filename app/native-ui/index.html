@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!--
+    HNS Native Frontend (Update-Plan/Dual-UI.md 任务 6).
+
+    This document is the Daily Mode product surface. It is a completely separate
+    renderer from the official Harness Web UI: it reads the HNS model through the
+    preload bridge in `preload.cjs`, and it has no reference to, selector against,
+    or styling of the official renderer (任务 8 / Gate I).
+
+    The token nonce exists for the same reason it does in the Mega dock: the theme
+    engine installs the active theme's tokens as a runtime <style> element, and a
+    nonce keeps `style-src` strict instead of opening it with 'unsafe-inline'.
+  -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self' 'nonce-hns-native-tokens'; img-src 'self' data:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'">
+  <title>DS-Harness · Daily</title>
+  <link rel="stylesheet" href="themes/base.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body data-mode="daily">
+  <div id="hnsNative" data-hns-surface="hns_native">
+    <!-- Theme layers: background wallpaper, character, decoration (任务 15). -->
+    <div id="backgroundLayer" aria-hidden="true"></div>
+    <div id="characterLayer" aria-hidden="true"></div>
+    <div id="decorationLayer" aria-hidden="true"></div>
+
+    <header id="topbar">
+      <div class="brand">
+        <span class="brand-mark">HNS</span>
+        <div class="brand-text">
+          <b id="sessionTitle">Daily Mode</b>
+          <small id="sessionSub">HNS Native Frontend</small>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="modeChip" class="chip" data-mode="daily" title="Interface mode">Daily</span>
+        <button id="toggleMode" type="button" class="quiet" title="Switch to the official Work Mode">Work Mode</button>
+        <button id="openSettings" type="button" class="icon-button" title="Settings" aria-label="Settings">⚙</button>
+      </div>
+    </header>
+
+    <p id="banner" class="banner" role="status" hidden></p>
+
+    <div id="layout">
+      <aside id="sidebar" aria-label="Sessions">
+        <div class="sidebar-head">
+          <b>Sessions</b>
+          <span id="sessionCount" class="count">0</span>
+        </div>
+        <button id="newSession" type="button" class="primary">New session</button>
+        <div id="sessionList" class="session-list" role="list"></div>
+      </aside>
+
+      <main id="conversation" aria-label="Conversation">
+        <div id="timeline" class="timeline" role="log" aria-live="polite"></div>
+        <p id="runningState" class="running" hidden></p>
+        <form id="composer" class="composer" autocomplete="off">
+          <div class="composer-row">
+            <textarea id="composerInput" rows="2" spellcheck="false"
+                      placeholder="Message the Harness..." aria-label="Message"></textarea>
+            <div class="composer-buttons">
+              <button id="composerSend" type="submit" class="primary" disabled>Send</button>
+              <button id="composerStop" type="button" class="quiet danger" hidden>Stop</button>
+            </div>
+          </div>
+          <p id="composerHint" class="hint" role="status"></p>
+        </form>
+      </main>
+
+      <section id="toolPanel" aria-label="Tool and task activity">
+        <div class="panel-head">
+          <b>Activity</b>
+          <span id="toolBadge" class="count" data-active="0">0</span>
+        </div>
+        <div id="toolActivity" class="tool-activity"></div>
+      </section>
+    </div>
+
+    <div id="settingsPanel" class="settings-overlay" hidden>
+      <div class="settings-sheet" role="dialog" aria-modal="true" aria-label="Settings">
+        <div class="settings-head">
+          <b>Settings</b>
+          <button id="closeSettings" type="button" class="icon-button" title="Close" aria-label="Close">×</button>
+        </div>
+        <div id="settingsBody" class="settings-body"></div>
+        <p class="settings-note">
+          Themable surfaces, skins and characters live in Mega → Appearance. This page is read-only.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="state/store.js"></script>
+  <script src="components/dom.js"></script>
+  <script src="components/session-list.js"></script>
+  <script src="components/conversation.js"></script>
+  <script src="components/tool-activity.js"></script>
+  <script src="components/composer.js"></script>
+  <script src="components/settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

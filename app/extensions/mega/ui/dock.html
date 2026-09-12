@@ -19,6 +19,13 @@
   <aside id="rail" title="展开 Mega Dock">
     <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
     <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>
+    <!--
+      Dual-UI quick switch (Update-Plan/Dual-UI.md 任务 12).
+      The collapsed rail must offer a one-click mode switch with the current mode
+      obvious at a glance: H = Daily (HNS Native), D = Work (official UI).
+    -->
+    <button id="railMode" class="rail-mode-switch" data-mode="daily"
+            title="Daily Mode · HNS Native Frontend（点击切换到 Work）" aria-label="切换前端模式">H</button>
     <div class="rail-stat"><small>RUN</small><b id="railRunning">0</b></div>
     <div class="rail-stat"><small>QUEUE</small><b id="railQueued">0</b></div>
     <div class="rail-stat"><small>HW</small><b id="railWorkers">—</b></div>
@@ -44,6 +51,30 @@
     </header>
 
     <section id="summary" class="summary-grid"></section>
+
+    <!--
+      Interface Mode (Update-Plan/Dual-UI.md 任务 13): the expanded control centre
+      for the two frontends. Both buttons and the collapsed rail read and write the
+      same shell-owned state, so they can never disagree.
+    -->
+    <section class="panel mode-panel" id="modePanel">
+      <div class="panel-head">
+        <div>
+          <h2>Interface Mode</h2>
+          <p>两种前端共用同一个 Harness：切换只改变可见界面，不会重启任务或丢失会话。</p>
+        </div>
+        <span id="modeStatus" class="status-chip neutral">Daily</span>
+      </div>
+      <div class="mode-selector" role="tablist" aria-label="Interface mode">
+        <button id="modeDaily" type="button" class="mode-option active" role="tab" data-mode="daily">
+          <b>Daily</b><small>HNS Native Frontend · 完整主题 / 角色 / 皮肤</small>
+        </button>
+        <button id="modeWork" type="button" class="mode-option" role="tab" data-mode="work">
+          <b>Work</b><small>Official DeepSeek Harness UI · 兼容模式</small>
+        </button>
+      </div>
+      <p id="modeNote" class="mode-note" role="status"></p>
+    </section>
 
     <section class="panel appearance-panel" id="appearancePanel">
       <div class="panel-head">

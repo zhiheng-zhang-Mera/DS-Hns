@@ -47,6 +47,21 @@ contextBridge.exposeInMainWorld('megaTools', {
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),
   toggleDock,
   setDockExpanded,
+  /**
+   * Dual-UI frontend mode (Update-Plan/Dual-UI.md 任务 12 / 任务 13).
+   *
+   * Daily / Work switching is a *shell* concern (it owns the two renderers), so
+   * the dock only ever asks: read the mode, set the mode, toggle it. The switch
+   * never restarts the Harness and never resets a session.
+   */
+  mode: {
+    snapshot: () => ipcRenderer.invoke('mega:mode-snapshot'),
+    set: (mode) => ipcRenderer.invoke('mega:mode-set', { mode: String(mode || '') }),
+    toggle: () => ipcRenderer.invoke('mega:mode-toggle'),
+    /** Run the DSH Compatibility Probe and return its report (任务 16 / 任务 17). */
+    compatibility: () => ipcRenderer.invoke('mega:mode-compatibility'),
+    onChanged: (callback) => ipcRenderer.on('mega:mode-changed', (_event, payload) => callback(payload))
+  },
   // In integrated mode the rail should always remain reachable, so "hide"
   // degrades to collapse instead of removing the whole in-window view.
   hideDock: () => setDockExpanded(false),

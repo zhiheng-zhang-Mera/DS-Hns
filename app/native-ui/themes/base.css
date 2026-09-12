@@ -1,0 +1,99 @@
+/*
+ * HNS Native Frontend — base theme (Update-Plan/Dual-UI.md 任务 14).
+ *
+ * The native surface's default token set. Every value here is a CSS custom
+ * property, which is what makes a generated theme able to restyle Daily Mode
+ * completely: the theme engine installs its own token block on `:root` at
+ * runtime, and anything it does not declare keeps these defaults.
+ *
+ * The names are the Theme API's names (see
+ * app/extensions/mega/theme/contract.js), so a theme author writes one token
+ * vocabulary for the dock, the official shell and the native frontend.
+ *
+ * `themes/` also holds the per-surface asset slots a theme may fill:
+ *   --hns-native-background   wallpaper layer   (theme slot hns.window.background)
+ *   --hns-native-character    character layer   (theme slot hns.character.primary)
+ *   --hns-native-decoration   decoration layer  (theme slot hns.persona.decoration)
+ */
+:root {
+  color-scheme: dark;
+
+  /* ---- colors ---- */
+  --hns-color-bg-base: #0b0e14;
+  --hns-color-bg-layer1: #11151f;
+  --hns-color-bg-layer2: #161b27;
+  --hns-color-bg-raised: #1b2130;
+  --hns-color-bg-overlay: rgba(6, 8, 12, .72);
+  --hns-color-label-primary: #e8ecf4;
+  --hns-color-label-secondary: #a7b1c2;
+  --hns-color-label-tertiary: #6f7889;
+  --hns-color-label-inverse: #0b0e14;
+  --hns-color-border-l1: #232b3b;
+  --hns-color-border-l2: #2f394d;
+  --hns-color-accent-primary: #4d93f8;
+  --hns-color-accent-secondary: #7f6bff;
+  --hns-color-accent-subtle: rgba(77, 147, 248, .16);
+  --hns-color-accent-contrast: #08111f;
+
+  /* ---- typography ---- */
+  --hns-font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --hns-font-family-mono: "Cascadia Mono", Consolas, monospace;
+  --hns-font-size-title: 15px;
+  --hns-font-size-body: 13px;
+  --hns-font-size-caption: 11px;
+  --hns-font-weight-title: 600;
+  --hns-font-weight-body: 400;
+
+  /* ---- spacing / shape ---- */
+  --hns-space-unit: 4px;
+  --hns-space-gap: 8px;
+  --hns-space-panel: 14px;
+  --hns-radius-sm: 6px;
+  --hns-radius-md: 10px;
+  --hns-radius-lg: 14px;
+  --hns-shadow-l1: 0 2px 8px rgba(0, 0, 0, .28);
+  --hns-shadow-l2: 0 10px 28px rgba(0, 0, 0, .42);
+  --hns-opacity-panel: .92;
+  --hns-effect-blur: 0px;
+  --hns-effect-glow: none;
+
+  /* ---- surface asset slots (filled by the active theme) ---- */
+  --hns-native-background: none;
+  --hns-native-background-opacity: 1;
+  --hns-native-character: none;
+  --hns-native-character-opacity: 0;
+  --hns-native-decoration: none;
+  --hns-native-decoration-opacity: 0;
+  --hns-native-persona-avatar: none;
+}
+
+/*
+ * Slot styles: the generic `--hns-slot-<slot>-<property>` vocabulary the theme
+ * bridge writes. Declaring the defaults here means a component consumes one
+ * variable name whether or not a theme ever wrote it.
+ */
+:root {
+  --hns-slot-hns-window-shell-background: var(--hns-color-bg-layer1);
+  --hns-slot-hns-window-shell-border: 1px solid var(--hns-color-border-l1);
+  --hns-slot-hns-window-shell-radius: var(--hns-radius-lg);
+  --hns-slot-hns-process-panel-background: var(--hns-color-bg-layer1);
+  --hns-slot-hns-process-panel-border: 1px solid var(--hns-color-border-l1);
+  --hns-slot-hns-process-panel-radius: var(--hns-radius-md);
+  --hns-slot-hns-process-panel-shadow: var(--hns-shadow-l1);
+  --hns-slot-hns-process-queue-background: var(--hns-color-bg-layer2);
+  --hns-slot-hns-process-queue-border: 1px solid var(--hns-color-border-l1);
+  --hns-slot-common-input-default-background: var(--hns-color-bg-layer2);
+  --hns-slot-common-input-default-border: 1px solid var(--hns-color-border-l2);
+  --hns-slot-common-input-default-radius: var(--hns-radius-md);
+  --hns-slot-common-input-default-label: var(--hns-color-label-primary);
+  --hns-slot-common-input-default-placeholder: var(--hns-color-label-tertiary);
+  --hns-slot-common-button-primary-background: var(--hns-color-accent-primary);
+  --hns-slot-common-button-primary-label: var(--hns-color-accent-contrast);
+  --hns-slot-common-button-primary-radius: var(--hns-radius-sm);
+  --hns-slot-hns-status-badge-background: var(--hns-color-bg-raised);
+  --hns-slot-hns-status-badge-border: 1px solid var(--hns-color-border-l2);
+  --hns-slot-hns-status-badge-radius: 999px;
+  --hns-slot-common-navigation-sidebar-background: var(--hns-color-bg-layer1);
+  --hns-slot-common-navigation-sidebar-border: 1px solid var(--hns-color-border-l1);
+  --hns-slot-common-navigation-sidebar-radius: var(--hns-radius-md);
+}

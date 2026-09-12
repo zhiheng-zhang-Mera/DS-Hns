@@ -1,0 +1,377 @@
+'use strict'
+
+/**
+ * Dual-UI acceptance run (Update-Plan/Dual-UI.md Gate A / C / D / E / G / H).
+ *
+ * Boots the real Electron shell on a non-canonical port with its own data
+ * directory and its own app name, then drives the *real* Mega dock and native
+ * frontend over the Chrome DevTools Protocol:
+ *
+ *   Gate A  the shell, the Harness, the dock and the native frontend all start
+ *   Gate C  the official renderer is present and was never reloaded or navigated
+ *   Gate D  Daily -> Work -> Daily repeated N times: no crash, no session loss,
+ *           no Harness restart, no renderer re-creation
+ *   Gate E  the active session survives every switch (what the frontends can
+ *           guarantee; see docs/dual-ui.md for the documented limitation about
+ *           steering the official renderer's own selection)
+ *   Gate G  the collapsed rail switch and the expanded selector agree, and both
+ *           agree with the native renderer's real mode
+ *   Gate H  the active theme reaches the native surface (tokens + asset layers)
+ *
+ * Usage:
+ *   node scripts\dual-ui-acceptance.mjs --root <checkout> --port 3097 --cdp 9337 \
+ *        --switches 20 --report temp\dual-ui-acceptance.json [--keep]
+ *
+ * Gate B (send a message and receive a reply) needs a configured DeepSeek API key
+ * and is intentionally out of scope: this script never spends model tokens.
+ * Gate F (switching while a task runs) and Gate J (forcing a renderer crash) are
+ * recorded in docs/dual-ui.md instead.
+ */
+import { spawn, spawnSync } from 'node:child_process'
+import fs from 'node:fs'
+import http from 'node:http'
+import path from 'node:path'
+
+function parseArgs(argv) {
+  const options = { port: 3097, cdp: 9337, switches: 20, keep: false, bootTimeoutMs: 180_000 }
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index]
+    if (token === '--keep') options.keep = true
+    else if (token.startsWith('--')) options[token.slice(2)] = argv[++index]
+  }
+  options.root = path.resolve(options.root || process.cwd())
+  options.switches = Math.max(1, Number(options.switches) || 20)
+  options.report = path.resolve(options.report || path.join(options.root, 'temp', 'dual-ui-acceptance.json'))
+  options.appName = options['app-name'] || `HNS Dual-UI ${options.port}`
+  options.userDataDir = path.resolve(options['user-data-dir'] || path.join(options.root, 'data', `dual-ui-${options.port}`))
+  return options
+}
+
+const OPTIONS = parseArgs(process.argv.slice(2))
+const CHECKS = []
+const NOTES = []
+
+function check(id, name, ok, detail = '') {
+  CHECKS.push({ id, name, ok: Boolean(ok), detail: String(detail) })
+  process.stdout.write(`[${ok ? 'PASS' : 'FAIL'}] ${id} ${name}${detail ? ` - ${detail}` : ''}\n`)
+  return Boolean(ok)
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function httpJson(url) {
+  return new Promise((resolve, reject) => {
+    const request = http.get(url, { timeout: 2000 }, (response) => {
+      let text = ''
+      response.setEncoding('utf8')
+      response.on('data', (chunk) => { text += chunk })
+      response.on('end', () => {
+        try {
+          resolve(JSON.parse(text))
+        } catch (error) {
+          reject(error)
+        }
+      })
+    })
+    request.on('timeout', () => request.destroy(new Error('timeout')))
+    request.on('error', reject)
+  })
+}
+
+/** Minimal CDP client: attach to one target and evaluate expressions in it. */
+class Page {
+  constructor(webSocketDebuggerUrl) {
+    this.url = webSocketDebuggerUrl
+    this.nextId = 1
+    this.pending = new Map()
+    this.socket = null
+  }
+
+  async connect() {
+    this.socket = new WebSocket(this.url)
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('CDP socket timeout')), 10_000)
+      this.socket.addEventListener('open', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      this.socket.addEventListener('error', (event) => {
+        clearTimeout(timer)
+        reject(new Error(`CDP socket error: ${event?.message || 'unknown'}`))
+      })
+    })
+    this.socket.addEventListener('message', (event) => {
+      let payload = null
+      try {
+        payload = JSON.parse(event.data)
+      } catch {
+        return
+      }
+      if (payload.id && this.pending.has(payload.id)) {
+        const { resolve, reject } = this.pending.get(payload.id)
+        this.pending.delete(payload.id)
+        if (payload.error) reject(new Error(payload.error.message || 'CDP error'))
+        else resolve(payload.result)
+      }
+    })
+  }
+
+  send(method, params = {}) {
+    const id = this.nextId++
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error(`CDP ${method} timed out`))
+      }, 20_000)
+      this.pending.set(id, {
+        resolve: (value) => { clearTimeout(timer); resolve(value) },
+        reject: (error) => { clearTimeout(timer); reject(error) }
+      })
+      this.socket.send(JSON.stringify({ id, method, params }))
+    })
+  }
+
+  async evaluate(expression) {
+    const result = await this.send('Runtime.evaluate', {
+      expression: `(() => { return (${expression}); })()`,
+      returnByValue: true,
+      awaitPromise: true
+    })
+    if (result.exceptionDetails) {
+      throw new Error(`page exception: ${result.exceptionDetails.exception?.description || result.exceptionDetails.text}`)
+    }
+    return result.result?.value
+  }
+
+  close() {
+    try { this.socket?.close() } catch { /* best effort */ }
+  }
+}
+
+async function targets() {
+  try {
+    return await httpJson(`http://127.0.0.1:${OPTIONS.cdp}/json/list`)
+  } catch {
+    return []
+  }
+}
+
+async function attach(matcher, { timeoutMs = OPTIONS.bootTimeoutMs } = {}) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const list = await targets()
+    const target = list.find((entry) => entry.type === 'page' && matcher(String(entry.url || '')))
+    if (target?.webSocketDebuggerUrl) {
+      const page = new Page(target.webSocketDebuggerUrl)
+      await page.connect()
+      return { page, target }
+    }
+    await sleep(500)
+  }
+  throw new Error('timed out waiting for a renderer target')
+}
+
+function electronBinary() {
+  const candidates = [
+    path.join(OPTIONS.root, 'app', 'node_modules', 'electron', 'dist', 'electron.exe'),
+    path.join(OPTIONS.root, 'app', 'node_modules', 'electron', 'dist', 'electron')
+  ]
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return 'electron'
+}
+
+function bootShell() {
+  const env = { ...process.env }
+  env.DSH_APP_NAME = OPTIONS.appName
+  env.DSH_USER_DATA_DIR = OPTIONS.userDataDir
+  env.DSH_HARNESS_PORT = String(OPTIONS.port)
+  const entry = path.join(OPTIONS.root, 'app')
+  return spawn(electronBinary(), [entry, `--remote-debugging-port=${OPTIONS.cdp}`, '--no-sandbox'], {
+    cwd: entry,
+    env,
+    stdio: ['ignore', 'ignore', 'ignore'],
+    windowsHide: true
+  })
+}
+
+function killShell(child) {
+  if (!child) return
+  try {
+    spawnSync('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+  } catch {
+    try { child.kill('SIGKILL') } catch { /* best effort */ }
+  }
+}
+
+/** What the native renderer reports about itself. */
+const NATIVE_STATE = `(() => {
+  const app = window.hnsNativeApp
+  if (!app) return null
+  const state = app.store.get()
+  const banner = document.getElementById('banner')
+  return {
+    mode: state.mode,
+    modeState: state.modeState,
+    activeSessionId: state.activeSessionId,
+    sessions: (state.sessions || []).length,
+    messages: (state.messages || []).length,
+    tasks: (state.tasks || []).length,
+    backend: state.backend && state.backend.state,
+    themeId: document.body.dataset.themeId || null,
+    characterVisible: (getComputedStyle(document.documentElement).getPropertyValue('--hns-native-character') || '').trim(),
+    degraded: state.degraded ? state.degraded.reason : null,
+    banner: banner && !banner.hidden ? banner.textContent : null
+  }
+})()`
+
+/** What the Mega dock shows for the same mode. */
+const DOCK_STATE = `(() => {
+  const rail = document.getElementById('railMode')
+  const snapshot = (typeof latestSnapshot !== 'undefined' ? latestSnapshot : null)
+  return {
+    rail: rail ? { letter: rail.textContent, mode: rail.dataset.mode, disabled: Boolean(rail.disabled) } : null,
+    chip: document.getElementById('modeStatus') ? document.getElementById('modeStatus').textContent : null,
+    daily: Boolean(document.getElementById('modeDaily') && document.getElementById('modeDaily').classList.contains('active')),
+    work: Boolean(document.getElementById('modeWork') && document.getElementById('modeWork').classList.contains('active')),
+    note: document.getElementById('modeNote') ? document.getElementById('modeNote').textContent : null,
+    snapshotMode: snapshot && snapshot.frontend ? snapshot.frontend.mode : null,
+    hasModeApi: Boolean(window.megaTools && window.megaTools.mode)
+  }
+})()`
+
+async function main() {
+  const child = bootShell()
+  let native = null
+  let dock = null
+  let official = null
+  try {
+    native = await attach((url) => url.includes('native-ui/index.html'))
+    check('GateA.native', 'the native frontend renderer is up', true, native.target.url)
+    dock = await attach((url) => url.includes('mega/ui/dock.html'))
+    check('GateA.dock', 'the Mega dock renderer is up', true, dock.target.url)
+    official = await attach((url) => /^http:\/\/127\.0\.0\.1:/.test(url) && !url.includes('/api/'))
+    check('GateA.official', 'the official Harness renderer is up', true, official.target.url)
+
+    const first = await native.page.evaluate(NATIVE_STATE)
+    check('GateA.mode', 'the product starts in Daily Mode', first?.mode === 'daily', JSON.stringify(first))
+    check('GateH.theme', 'the active theme reached the native surface', Boolean(first?.themeId), `themeId=${first?.themeId} character=${first?.characterVisible}`)
+    check('GateA.backend', 'the native frontend reports a backend', Boolean(first?.backend), `backend=${first?.backend} sessions=${first?.sessions}`)
+    const startSession = first?.activeSessionId || null
+    const officialUrlAtStart = official.target.url
+    const nativeIdsAtStart = (await targets()).filter((entry) => String(entry.url).includes('native-ui/index.html')).map((entry) => entry.id).sort().join(',')
+
+    const dockStart = await dock.page.evaluate(DOCK_STATE)
+    check('GateG.api', 'the dock exposes the mode API', dockStart?.hasModeApi === true)
+    check('GateG.rail', 'the collapsed rail shows the current mode', dockStart?.rail?.letter === 'H' && dockStart?.rail?.mode === 'daily', JSON.stringify(dockStart?.rail))
+    check('GateG.selector', 'the expanded selector shows the current mode', dockStart?.daily === true && dockStart?.work === false)
+    check('GateG.snapshot', 'the dock snapshot and the native model agree', dockStart?.snapshotMode === first?.mode, `${dockStart?.snapshotMode} vs ${first?.mode}`)
+
+    const observed = []
+    let failures = 0
+    // The first toggle always leaves the mode the product actually started in,
+    // so the expectation is derived from the observed mode rather than assumed.
+    const partner = first?.mode === 'daily' ? 'work' : 'daily'
+    for (let index = 0; index < OPTIONS.switches; index += 1) {
+      const expected = index % 2 === 0 ? partner : first?.mode
+      try {
+        await dock.page.evaluate('window.megaTools.mode.toggle()')
+        await sleep(400)
+        const nativeState = await native.page.evaluate(NATIVE_STATE)
+        const dockState = await dock.page.evaluate(DOCK_STATE)
+        const consistent = nativeState?.mode === expected && dockState?.snapshotMode === expected
+        if (!consistent) failures += 1
+        observed.push({
+          step: index + 1,
+          expected,
+          native: nativeState?.mode,
+          dock: dockState?.snapshotMode,
+          rail: dockState?.rail?.letter,
+          session: nativeState?.activeSessionId,
+          degraded: nativeState?.degraded || null
+        })
+      } catch (error) {
+        failures += 1
+        observed.push({ step: index + 1, expected, error: String(error?.message || error) })
+      }
+    }
+    check('GateD.switches', `${OPTIONS.switches} round trips stay consistent`, failures === 0, `failures=${failures}`)
+    const nativeIdsAfter = (await targets()).filter((entry) => String(entry.url).includes('native-ui/index.html')).map((entry) => entry.id).sort().join(',')
+    check('GateD.alive', 'the native renderer was never re-created', nativeIdsAfter === nativeIdsAtStart, `${nativeIdsAtStart} -> ${nativeIdsAfter}`)
+    const afterSwitches = await native.page.evaluate(NATIVE_STATE)
+    check('GateE.session', 'the active session survived every switch', (afterSwitches?.activeSessionId || null) === startSession, `${startSession} -> ${afterSwitches?.activeSessionId}`)
+    check('GateD.noDegrade', 'no switch degraded the native frontend', !afterSwitches?.degraded && !observed.some((entry) => entry.degraded), JSON.stringify(observed.find((entry) => entry.degraded) || null))
+
+    const officialTargets = (await targets()).filter((entry) => /^http:\/\/127\.0\.0\.1:/.test(String(entry.url)) && !String(entry.url).includes('/api/'))
+    check(
+      'GateC.identity',
+      'the official renderer is still the same document at the same address',
+      officialTargets.length === 1 && officialTargets[0].id === official.target.id && officialTargets[0].url === officialUrlAtStart,
+      `${officialUrlAtStart} -> ${officialTargets[0]?.url}`
+    )
+    const officialProbe = await official.page.evaluate('({ title: document.title, ready: document.readyState, hasBody: Boolean(document.body && document.body.children.length) })')
+    check('GateC.live', 'the official UI is a live, untouched document', officialProbe?.ready === 'complete' && officialProbe?.hasBody === true, JSON.stringify(officialProbe))
+
+    // ---- Gate J: a native failure falls back to Work Mode without touching the
+    // backend, the session or the harness. The failure is forced through the
+    // renderer's own report path, which is exactly what a crash would use.
+    await native.page.evaluate("window.hnsNative.session.reportFailure('acceptance: forced native failure')")
+    await sleep(700)
+    const degradedState = await native.page.evaluate(NATIVE_STATE)
+    check('GateJ.fallback', 'a native failure falls back to Work Mode', degradedState?.mode === 'work', JSON.stringify(degradedState))
+    check('GateJ.reported', 'the degradation is visible, not silent', Boolean(degradedState?.degraded), String(degradedState?.degraded))
+    const afterDegrade = await targets()
+    check(
+      'GateJ.harness',
+      'the fallback did not restart or replace any renderer',
+      afterDegrade.some((entry) => entry.id === official.target.id) && afterDegrade.filter((entry) => String(entry.url).includes('native-ui/index.html')).map((entry) => entry.id).sort().join(',') === nativeIdsAtStart,
+      'official + native targets are the same instances'
+    )
+    // Recover: the dock switches back, and the degrade flag clears.
+    await dock.page.evaluate("window.megaTools.mode.set('daily')")
+    await sleep(700)
+    const recovered = await native.page.evaluate(NATIVE_STATE)
+    check('GateJ.recover', 'the user can return to Daily after a fallback', recovered?.mode === 'daily' && !recovered?.degraded, JSON.stringify(recovered))
+
+    NOTES.push(`switches=${OPTIONS.switches}`)
+    NOTES.push(`first=${JSON.stringify(observed[0] || null)}`)
+    NOTES.push(`last=${JSON.stringify(observed[observed.length - 1] || null)}`)
+  } catch (error) {
+    check('run', 'the acceptance run completed', false, String(error?.stack || error))
+  } finally {
+    try { native?.page?.close() } catch { /* best effort */ }
+    try { dock?.page?.close() } catch { /* best effort */ }
+    try { official?.page?.close() } catch { /* best effort */ }
+    if (!OPTIONS.keep) killShell(child)
+  }
+
+  const failed = CHECKS.filter((entry) => !entry.ok)
+  const report = {
+    plan: 'Update-Plan/Dual-UI.md',
+    at: new Date().toISOString(),
+    root: OPTIONS.root,
+    port: OPTIONS.port,
+    cdp: OPTIONS.cdp,
+    switches: OPTIONS.switches,
+    ok: failed.length === 0,
+    passed: CHECKS.length - failed.length,
+    total: CHECKS.length,
+    checks: CHECKS,
+    notes: NOTES
+  }
+  try {
+    fs.mkdirSync(path.dirname(OPTIONS.report), { recursive: true })
+    fs.writeFileSync(OPTIONS.report, JSON.stringify(report, null, 2))
+    process.stdout.write(`report: ${OPTIONS.report}\n`)
+  } catch (error) {
+    process.stdout.write(`report write failed: ${error?.message || error}\n`)
+  }
+  process.stdout.write(`Dual-UI acceptance: ${report.passed}/${report.total} checks passed\n`)
+  process.exit(report.ok ? 0 : 1)
+}
+
+main().catch((error) => {
+  process.stderr.write(`dual-ui acceptance crashed: ${error?.stack || error}\n`)
+  process.exit(2)
+})

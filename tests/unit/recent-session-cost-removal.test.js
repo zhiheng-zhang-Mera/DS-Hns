@@ -31,7 +31,12 @@ test('the Mega UI renders no session list and no cost metric', () => {
 
 test('snapshot exposes no session payload and no session projection module remains', () => {
   const megaIndex = read('app/extensions/mega/index.cjs')
-  assert.equal(/\bsessions:/.test(megaIndex), false, 'snapshot.sessions must be gone')
+  // The *dock* snapshot must not mirror the official session history. The
+  // Dual-UI native frontend has its own HNS model (Update-Plan/Dual-UI.md
+  // 任务 9) which legitimately carries `sessions`; that is a different consumer,
+  // so this assertion is scoped to the dock snapshot builder.
+  const dockSnapshot = megaIndex.split('function snapshot()')[1].split('\nfunction ')[0]
+  assert.equal(/\bsessions:/.test(dockSnapshot), false, 'dock snapshot.sessions must be gone')
   assert.equal(/sessionReader\.listSessions\(\{ limit: 40 \}\)/.test(megaIndex), false)
   assert.equal(/toSessionViews/.test(megaIndex), false, 'the UI-only session projection is deleted')
   assert.equal(fs.existsSync(path.join(ROOT, 'app/extensions/mega/tracker/session-view.js')), false)

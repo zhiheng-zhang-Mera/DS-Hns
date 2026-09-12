@@ -183,7 +183,12 @@ function createOfficialSurfaceViews({
       if (payload) paintSurface(SURFACE.OFFICIAL_SHELL, payload)
     })
     win.contentView.addChildView(shellView)
-    shellView.webContents.loadFile(path.join(__dirname, '..', 'extensions', 'mega', 'ui', 'hns-shell.html'))
+    // The surface documents live under the app directory (this module is
+    // `app/official-surface-views.cjs`), so the path is `app/extensions/...`.
+    // Getting this wrong is invisible to a unit test that stubs `loadFile`, so
+    // `tests/unit/theme-official-surfaces.test.js` resolves it against the real
+    // filesystem.
+    shellView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'hns-shell.html'))
       .catch((error) => note(SURFACE.OFFICIAL_SHELL, `load failed: ${error?.message || error}`))
     record({ surface: SURFACE.OFFICIAL_SHELL, event: 'created' })
     return shellView
@@ -236,7 +241,7 @@ function createOfficialSurfaceViews({
       if (layout) applyLayout(layout)
     })
     win.contentView.addChildView(overlayView)
-    overlayView.webContents.loadFile(path.join(__dirname, '..', 'extensions', 'mega', 'ui', 'official-overlay.html'))
+    overlayView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'official-overlay.html'))
       .catch((error) => note(SURFACE.OFFICIAL_OVERLAY, `load failed: ${error?.message || error}`))
     record({ surface: SURFACE.OFFICIAL_OVERLAY, event: 'created' })
     return overlayView

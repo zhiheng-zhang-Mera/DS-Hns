@@ -6,6 +6,12 @@
 **全局主题生成（Update-Plan/General-Theme.md）** 已在本分支落地：主题系统不再是"颜色/参数生成器"，
 而是完整的视觉主题生成器 —— 四个 Surface、官方外壳、官方覆盖层、真实人物/皮肤/装饰资产、
 Asset Plan、UI 观察、Overlay Layout 与 Safety、分 Surface 预览与增量修订。
+
+> **Update（Update-Plan/Dual-UI.md）**：官方 Overlay 已退出主架构，默认不再创建
+> （`DSH_OFFICIAL_OVERLAY=1` 才创建）。Daily Mode 现在是 HNS 自有前端，主题 / 角色 /
+> 皮肤正式作用于它，Work Mode 只保留外围 shell。本文中关于 Overlay 的部分仍然描述
+> 那套代码与安全上限（代码保留、可显式启用），但**产品默认路径**请看
+> `docs/dual-ui.md`。
 详见第 13 节。
 
 ---

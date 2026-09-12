@@ -3,6 +3,44 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## Theme-Cover — 双前端模式：Daily（HNS 原生界面）与 Work（官方界面）
+
+DS-Hns 现在有两个共享同一个 Harness backend 的前端，默认进入 Daily。切换只改变哪个
+渲染器可见，两个渲染器从启动到退出一直存在，因此不会重启 Harness、不会取消任务、
+不会丢失会话。
+
+**Daily Mode 是 DS-Hns 自己的界面。** 新增 `app/native-ui/`（独立的 HTML/CSS/JS +
+沙箱 preload）与 `app/frontend-mode/`（模式状态、状态机、HNS Model、兼容适配器、
+同步、兼容性探针）。会话列表、创建/选择会话、对话时间线、用户与助手消息、工具与任务
+结果、Composer、发送、停止、运行中状态、设置入口、错误显示都可用；它只读 HNS Model，
+拿不到官方 DOM、官方 class 或官方选择器。
+
+**Work Mode 是未经修改的官方界面。** 官方 Overlay 已退出主架构
+（`DSH_OFFICIAL_OVERLAY=1` 才创建，默认不创建），官方渲染器之上不再有任何透明层，
+点击、输入、滚动、菜单全部原样可用。官方渲染器依旧只被 resize 与导航，从不被注入
+脚本或样式。
+
+**主题、角色、皮肤迁移到 Daily。** 同一份主题 payload 现在同时下发给 Mega dock 和
+Native Renderer：token 变成 CSS 变量，背景/角色/装饰进入各自的图层，且这些图层都是
+`pointer-events: none`。Work Mode 只保留外围 shell，不做深度换肤。
+
+**Mega 成为两种模式的控制中心。** 收起栏有一个按钮（`H` = Daily，`D` = Work），
+展开面板有 `Interface Mode [Daily] [Work]` 选择器与模式说明；两者读同一份 shell
+持有的状态，切换请求在飞行中会被禁用，不可能出现状态不一致。
+
+**故障回退。** Native 渲染器崩溃、组件渲染失败或快照失败会保留 backend 并自动切回
+Work Mode（`DAILY_DEGRADED`），不会重启 Harness、不会取消任务、不会删除会话。
+
+**新版本兼容性探针。** 八项契约（routes / session / messages / tasks / events /
+tool_events / settings / error_behavior）各自给出 `compatible` / `changed` /
+`blocked`，产出 Compatibility Report；`nativeFrontend = blocked` 时不自动升级、保持
+当前稳定版本、Work Mode 继续工作，并生成兼容修复任务。
+
+已知限制：官方 Web UI 不提供 session 深链接，因此 Daily → Work 无法改写官方界面当前
+显示的会话（并且禁止注入脚本去实现它）。切换本身仍保证会话、任务与 Harness 连续，
+该限制会在切换告警与 `sync.officialNavigation()` 中如实报告。详见
+`docs/dual-ui.md`。
+
 ## Theme-Cover — the theme system becomes a full visual theme generator
 
 The theme engine could already restyle the HNS dock from a prompt, but it could

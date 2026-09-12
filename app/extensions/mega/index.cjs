@@ -26,6 +26,11 @@ const CHANNELS = [
   'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
   'mega:update-check', 'mega:update-apply',
   'mega:dock-toggle', 'mega:dock-expand',
+  // ---- Dual-UI frontend modes (Update-Plan/Dual-UI.md 任务 12 / 任务 13) ----
+  'mega:mode-snapshot', 'mega:mode-set', 'mega:mode-toggle', 'mega:mode-degrade', 'mega:mode-compatibility',
+  // ---- Native frontend model (the extensions owns the adapter/themes) ----
+  'hns:native-snapshot', 'hns:native-create-session', 'hns:native-select-session',
+  'hns:native-send', 'hns:native-cancel', 'hns:native-theme',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -93,6 +98,14 @@ let unsubscribeSubWorker = null
 // Latest geometry reported by the dock renderer (slot map + protected regions).
 let themeRegionCache = {}
 let themeTreeCache = null
+/** Latest slot geometry reported by the *native* renderer (Daily Mode). */
+let nativeRegionCache = {}
+/** True while this frontend has a prompt in flight (drives the composer state). */
+let nativeSending = false
+/** Unsubscribe handle for the shell's native-region relay. */
+let unsubscribeNativeRegions = null
+/** Last mode status the shell pushed, for the dock snapshot and diagnostics. */
+let modeStatusCache = null
 const mainWindowBindings = []
 
 /**
@@ -160,6 +173,62 @@ const officialSurfaceTarget = {
       return { available: false, reason: String(error?.message || error) }
     }
   }
+}
+
+/**
+ * Dual-UI accessors (Update-Plan/Dual-UI.md 任务 3 / 任务 5 / 任务 14).
+ *
+ * The shell owns the two renderers and the mode manager; the extension owns the
+ * theme engine, the HNS model adapter and the scheduler. These three helpers are
+ * the whole interface between them.
+ */
+function nativeFrontend() {
+  return ctx?.nativeFrontend || null
+}
+
+function nativeMode() {
+  try {
+    return nativeFrontend()?.manager?.current() || ctx?.nativeMode?.current?.() || 'daily'
+  } catch {
+    return 'daily'
+  }
+}
+
+/** The push target for the native renderer; a no-op when it is not attached. */
+function nativeThemeTarget() {
+  const target = ctx?.nativeThemeTarget
+  return {
+    available: () => Boolean(target?.available?.()),
+    send: (channel, payload) => {
+      if (!target || typeof target.send !== 'function') return false
+      try {
+        return target.send(channel, payload) !== false
+      } catch (error) {
+        log(`native renderer push failed on ${channel}: ${error?.message || error}`)
+        return false
+      }
+    }
+  }
+}
+
+/**
+ * Live slot geometry for theme observation (任务 14).
+ *
+ * Daily Mode observes the native renderer; Work Mode observes the dock. The
+ * protected official renderer is never measured either way.
+ */
+async function observedRegions() {
+  if (nativeMode() === 'daily' && nativeThemeTarget().available()) {
+    nativeThemeTarget().send('hns:native-probe-regions')
+    // Give the renderer a beat to answer before the snapshot reads the cache; a
+    // silent renderer still degrades to "structure only" rather than stalling.
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, 120)
+      timer.unref?.()
+    })
+    if (nativeRegionCache && Object.keys(nativeRegionCache).length) return nativeRegionCache
+  }
+  return measureDockRegions()
 }
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
@@ -236,6 +305,29 @@ function snapshot() {
       }),
       tray: Boolean(tray)
     },
+    /**
+     * Dual-UI frontend mode (Update-Plan/Dual-UI.md 任务 12 / 任务 13).
+     *
+     * The dock is the shared control centre for both frontends: this block is
+     * what lets the collapsed rail and the expanded panel show the same, real
+     * mode instead of guessing it.
+     */
+    frontend: (() => {
+      try {
+        const status = modeStatusCache || ctx?.nativeMode?.describe?.() || null
+        return {
+          mode: status?.mode || nativeMode(),
+          state: status?.state || null,
+          degraded: status?.degraded?.active ? status.degraded : null,
+          modes: ['daily', 'work'],
+          available: Boolean(ctx?.nativeMode),
+          sync: status?.sync || null
+        }
+      } catch (error) {
+        log(`frontend mode snapshot failed: ${error?.message || error}`)
+        return { mode: 'daily', state: null, degraded: null, modes: ['daily', 'work'], available: false, sync: null }
+      }
+    })(),
     scheduler: scheduler.describe(),
     // Active queue only: tasks that may still be executed (MEGA-01).
     tasks: scheduler.listTasks({ limit: 200 }),
@@ -336,6 +428,9 @@ function subWorkerAvailable() {
  */
 function notifyChanged() {
   dockTarget.send('mega:changed')
+  // The native renderer is a second consumer of the same facts; pushing here is
+  // what keeps Daily Mode live without a poll it does not need.
+  pushNativeSnapshot()
 }
 
 /**
@@ -456,11 +551,15 @@ function ensureThemeEngine() {
       if (!dockTarget.send('mega:theme-apply', payload)) {
         log('theme repaint could not reach the dock: no dock target')
       }
+      // The native frontend is the Daily Mode theme surface (任务 14 / 任务 15):
+      // the same declarative payload reaches it, so one theme styles the dock,
+      // the official frame and (when visible) the native frontend.
+      nativeThemeTarget().send('hns:native-theme-apply', payload)
     },
     onChanged: () => notifyThemeChanged(),
     capture: (pageIds) => captureDockPages(pageIds),
-    dockRegions: () => measureDockRegions(),
-    componentTree: () => themeTreeCache,
+    dockRegions: () => observedRegions(),
+    componentTree: () => (nativeMode() === 'daily' ? (nativeRegionCache.componentTree || themeTreeCache) : themeTreeCache),
     // Integrated dock geometry comes from the shell's view bounds; a legacy
     // window is read through its content size. Both through one accessor.
     windowSize: () => dockTarget.getSize(),
@@ -980,6 +1079,232 @@ function onThemeRegions(_event, payload) {
   themeTreeCache = payload?.componentTree || null
 }
 
+/**
+ * The native frontend's data plane (Update-Plan/Dual-UI.md 任务 7 / 任务 8).
+ *
+ * The renderer asks for one snapshot and receives the normalized HNS model: no
+ * route names, no journal events, no official selectors. Every read goes through
+ * the Compatibility Adapter, and a missing adapter degrades to an explicit
+ * "unavailable" answer rather than a blank screen that looks like "no data".
+ */
+async function nativeSnapshot({ sessionId = null } = {}) {
+  const runtime = nativeFrontend()
+  if (!runtime?.adapter) {
+    return {
+      ok: false,
+      reason: 'native_frontend_unavailable',
+      backend: { state: 'unknown', healthy: false, reason: 'the shell did not provide the Dual-UI runtime' },
+      sessions: [],
+      sessionsDegraded: true,
+      messages: [],
+      toolEvents: [],
+      tasks: [],
+      composer: { ready: false, canSend: false, canStop: false, running: false, placeholder: 'Unavailable', reason: 'no adapter' },
+      settings: { available: false, models: [] }
+    }
+  }
+  const sync = runtime.sync
+  const requested = sessionId || (sync?.activeSession ? sync.activeSession() : null)
+  let snapshot
+  try {
+    snapshot = await runtime.adapter.snapshot({ sessionId: requested, sending: nativeSending })
+    // First contact: adopt the newest backend session so the sidebar and the
+    // composer agree about what "current" means (任务 10).
+    if (!requested && snapshot?.sessions?.length) {
+      sync?.adoptNewest?.(snapshot.sessions)
+      if (sync?.activeSession?.() && sync.activeSession() !== snapshot.session?.id) {
+        snapshot = await runtime.adapter.snapshot({ sessionId: sync.activeSession(), sending: nativeSending })
+      }
+    }
+  } catch (error) {
+    log(`native snapshot failed: ${error?.message || error}`)
+    return {
+      ok: false,
+      reason: 'adapter_failed',
+      backend: { state: 'unreachable', healthy: false, reason: String(error?.message || error) },
+      sessions: [],
+      sessionsDegraded: true,
+      messages: [],
+      toolEvents: [],
+      tasks: [],
+      composer: { ready: false, canSend: false, canStop: false, running: false, placeholder: 'Unavailable', reason: String(error?.message || error) },
+      settings: { available: false, models: [] }
+    }
+  }
+  const status = nativeFrontend()?.manager?.describe?.() || null
+  return {
+    ...snapshot,
+    mode: status?.mode || nativeMode(),
+    modeState: status?.state || null,
+    degraded: status?.degraded?.active ? status.degraded : null,
+    diagnostics: nativeDiagnostics()
+  }
+}
+
+/** Diagnostics for the native settings drawer and for acceptance evidence. */
+function nativeDiagnostics() {
+  const runtime = nativeFrontend()
+  let adapter = null
+  try {
+    adapter = runtime?.adapter?.describe?.() || null
+  } catch (error) {
+    adapter = { error: String(error?.message || error) }
+  }
+  return {
+    adapter,
+    mode: (() => {
+      try {
+        return runtime?.manager?.describe?.() || null
+      } catch {
+        return null
+      }
+    })(),
+    theme: (() => {
+      try {
+        return themeEngine ? { active: themeEngine.describe().active, effectLevel: themeEngine.describe().effectLevel } : null
+      } catch {
+        return null
+      }
+    })(),
+    compatibility: lastCompatibilityReport
+  }
+}
+
+/** The last Compatibility Report, produced on demand (任务 16 / 任务 17). */
+let lastCompatibilityReport = null
+
+async function runCompatibilityProbe({ to = null, surface = 'native' } = {}) {
+  const runtime = nativeFrontend()
+  if (!runtime?.probe) return null
+  try {
+    const report = await runtime.probe.run({ to, surface })
+    lastCompatibilityReport = report
+    return report
+  } catch (error) {
+    log(`compatibility probe failed: ${error?.message || error}`)
+    return null
+  }
+}
+
+/** Push a fresh snapshot to the native renderer when it is the visible surface. */
+let nativeSnapshotTimer = null
+function pushNativeSnapshot() {
+  if (!nativeThemeTarget().available()) return false
+  if (nativeMode() !== 'daily') return false
+  // Coalesce: `notifyChanged` fires on every scheduler/terminal event, and a
+  // snapshot reads the backend. One push per window keeps that honest without
+  // turning a busy queue into a poll storm.
+  if (nativeSnapshotTimer) return false
+  nativeSnapshotTimer = setTimeout(() => {
+    nativeSnapshotTimer = null
+    deliverNativeSnapshot()
+  }, 250)
+  nativeSnapshotTimer.unref?.()
+  return true
+}
+
+function deliverNativeSnapshot() {
+  if (!nativeThemeTarget().available()) return
+  if (nativeMode() !== 'daily') return
+  nativeSnapshot()
+    .then((snapshot) => nativeThemeTarget().send('hns:native-changed', snapshot))
+    .catch((error) => log(`native snapshot push failed: ${error?.message || error}`))
+}
+
+/**
+ * IPC owned by the extension for the native renderer, plus the dock's mode
+ * surface (任务 12 / 任务 13). Channel ownership is deliberate: the shell answers
+ * "which renderer is visible", the extension answers "what does the model say".
+ */
+function registerNativeIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`native ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: 'native_ipc_failed', message: String(error?.message || error) }
+    }
+  }
+
+  ipcMain.handle('hns:native-snapshot', guard((_event, payload) => nativeSnapshot(payload || {})))
+  ipcMain.handle('hns:native-create-session', guard(async () => {
+    const runtime = nativeFrontend()
+    if (!runtime?.adapter) return { ok: false, reason: 'native_frontend_unavailable' }
+    const created = await runtime.adapter.createSession({})
+    if (created?.ok && created.sessionId) {
+      runtime.sync?.recordActiveSession?.(created.sessionId, { mode: 'daily' })
+    }
+    pushNativeSnapshot()
+    return created
+  }))
+  ipcMain.handle('hns:native-select-session', guard((_event, payload) => {
+    const sessionId = String(payload?.sessionId || '')
+    if (!sessionId) return { ok: false, reason: 'no_session' }
+    nativeFrontend()?.sync?.recordActiveSession?.(sessionId, { mode: 'daily' })
+    pushNativeSnapshot()
+    return { ok: true, sessionId }
+  }))
+  ipcMain.handle('hns:native-send', guard(async (_event, payload) => {
+    const runtime = nativeFrontend()
+    if (!runtime?.adapter) return { ok: false, reason: 'native_frontend_unavailable' }
+    const sessionId = String(payload?.sessionId || runtime.sync?.activeSession?.() || '')
+    const prompt = String(payload?.prompt || '')
+    if (!sessionId) return { ok: false, reason: 'no_session', message: 'select or create a session first' }
+    nativeSending = true
+    try {
+      const result = await runtime.adapter.sendPrompt({ sessionId, prompt })
+      if (result?.ok) runtime.sync?.recordActiveSession?.(sessionId, { mode: 'daily' })
+      return result
+    } finally {
+      nativeSending = false
+      // The durable message arrives from the journal a beat later; this push is
+      // what makes it appear without the renderer polling for it.
+      const timer = setTimeout(() => pushNativeSnapshot(), 400)
+      timer.unref?.()
+    }
+  }))
+  ipcMain.handle('hns:native-cancel', guard(async (_event, payload) => {
+    const runtime = nativeFrontend()
+    if (!runtime?.adapter) return { ok: false, reason: 'native_frontend_unavailable' }
+    const sessionId = String(payload?.sessionId || runtime.sync?.activeSession?.() || '')
+    if (!sessionId) return { ok: false, reason: 'no_session' }
+    const result = await runtime.adapter.cancelRun(sessionId)
+    pushNativeSnapshot()
+    return result
+  }))
+  ipcMain.handle('hns:native-theme', guard(() => {
+    if (!themeEngine) return { ok: false, reason: 'theme_engine_unavailable' }
+    return { ok: true, payload: themeEngine.paintPayload() }
+  }))
+
+  // ---- Mega dock mode surface (任务 12 / 任务 13) ----
+  ipcMain.handle('mega:mode-snapshot', guard(() => ({
+    ok: true,
+    mode: nativeMode(),
+    status: nativeFrontend()?.manager?.describe?.() || null,
+    compatibility: lastCompatibilityReport
+  })))
+  ipcMain.handle('mega:mode-set', guard(async (_event, payload) => {
+    const mode = String(payload?.mode || payload || '')
+    if (!ctx.nativeMode?.switchTo) return { ok: false, reason: 'mode_switch_unavailable' }
+    const result = await ctx.nativeMode.switchTo(mode)
+    notifyChanged()
+    return { ok: result?.ok !== false, mode: nativeMode(), result }
+  }))
+  ipcMain.handle('mega:mode-toggle', guard(async () => {
+    if (!ctx.nativeMode?.toggle) return { ok: false, reason: 'mode_switch_unavailable' }
+    const result = await ctx.nativeMode.toggle()
+    notifyChanged()
+    return { ok: result?.ok !== false, mode: nativeMode(), result }
+  }))
+  ipcMain.handle('mega:mode-degrade', guard((_event, payload) => {
+    if (!ctx.nativeMode?.degrade) return { ok: false, reason: 'mode_switch_unavailable' }
+    return ctx.nativeMode.degrade(payload?.reason || 'requested from the dock')
+  }))
+  ipcMain.handle('mega:mode-compatibility', guard(() => runCompatibilityProbe()))
+}
+
 function registerIpc() {
   const { ipcMain, dialog } = ctx.electron
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
@@ -1075,6 +1400,7 @@ function registerIpc() {
   const engine = ensureThemeEngine()
   registerThemeIpc(engine)
   registerSkillIpc()
+  registerNativeIpc()
 }
 
 /**
@@ -1428,6 +1754,13 @@ async function start(context) {
   try {
     const engine = ensureThemeEngine()
     ctx.electron.ipcMain.on('mega-theme:regions', onThemeRegions)
+    // Native slot geometry arrives through the shell's relay; the theme engine
+    // observes the surface that is actually on screen (任务 14).
+    if (typeof ctx.onNativeRegions === 'function') {
+      unsubscribeNativeRegions = ctx.onNativeRegions((payload) => {
+        nativeRegionCache = payload && typeof payload === 'object' ? payload : {}
+      })
+    }
     engine.start()
     pushThemePaint(engine)
   } catch (error) {
@@ -1437,6 +1770,22 @@ async function start(context) {
   // paint above has nowhere to go. The shell calls `onDockReady` once its
   // renderer has loaded; that is when the active theme is actually delivered.
   registerDockReadyHook()
+  // Mode changes are a first-class event for this extension: the theme engine
+  // must repaint the surface that just became visible, and the dock must keep
+  // its switch honest.
+  try {
+    ctx.nativeMode?.onModeChange?.((status) => {
+      if (typeof status === 'object' && status) modeStatusCache = status
+      try {
+        pushThemePaint()
+      } catch (error) {
+        log(`theme repaint after a mode change failed: ${error?.message || error}`)
+      }
+      pushNativeSnapshot()
+    })
+  } catch (error) {
+    log(`mode change subscription failed: ${error?.message || error}`)
+  }
   // The dock can be asked to start expanded (`--mega-dock`, or the environment
   // form used by tooling that only controls the child's environment).
   if (process.argv.includes('--mega-dock') || process.env.DSH_MEGA_DOCK_EXPANDED === '1') {
@@ -1500,6 +1849,39 @@ function registerDockReadyHook() {
   }
 }
 
+/**
+ * Data the shell's Dual-UI runtime reads back from this extension
+ * (Update-Plan/Dual-UI.md 任务 9).
+ *
+ * The scheduler, the settings service and the updater are owned here, so the
+ * adapter asks the extension for them instead of the shell reaching into
+ * extension modules. Every read is failure isolated: a broken service yields an
+ * empty answer, which the adapter reports as a degraded contract.
+ */
+function describeNativeData() {
+  let tasks = []
+  let settings = null
+  let harnessVersion = null
+  let latestVersion = null
+  try {
+    tasks = scheduler.listTasks({ limit: 200 })
+  } catch (error) {
+    log(`native task read failed: ${error?.message || error}`)
+  }
+  try {
+    settings = settingsService.publicSettings()
+  } catch (error) {
+    log(`native settings read failed: ${error?.message || error}`)
+  }
+  try {
+    harnessVersion = updater?.describe?.().currentVersion || null
+    latestVersion = updater?.describe?.().latestVersion || null
+  } catch (error) {
+    log(`native version read failed: ${error?.message || error}`)
+  }
+  return { tasks, settings, harnessVersion, latestVersion }
+}
+
 function stop() {
   if (!started) return
   started = false
@@ -1519,6 +1901,15 @@ function stop() {
   try { scheduler.stop() } catch {}
   try { unsubscribeSubWorker?.() } catch {}
   unsubscribeSubWorker = null
+  try { unsubscribeNativeRegions?.() } catch {}
+  unsubscribeNativeRegions = null
+  if (nativeSnapshotTimer) {
+    clearTimeout(nativeSnapshotTimer)
+    nativeSnapshotTimer = null
+  }
+  nativeRegionCache = {}
+  modeStatusCache = null
+  lastCompatibilityReport = null
   if (subWorkerRefreshTimer) {
     clearTimeout(subWorkerRefreshTimer)
     subWorkerRefreshTimer = null
@@ -1545,4 +1936,4 @@ function stop() {
   ctx = null
 }
 
-module.exports = { start, stop, toggleDock, setDockExpanded, requestShutdown, openSubWorkerLiveView }
+module.exports = { start, stop, toggleDock, setDockExpanded, requestShutdown, openSubWorkerLiveView, describeNativeData }

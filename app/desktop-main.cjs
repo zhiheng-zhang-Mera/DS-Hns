@@ -16,6 +16,7 @@ const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
+const frontendMode = require('./frontend-mode/index.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -46,6 +47,20 @@ const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
 const OFFICIAL_VIEW_MIN_WIDTH = 360
+/**
+ * The official Overlay (Update-Plan/Dual-UI.md 任务 1).
+ *
+ * DEPRECATED and DISABLED by default. The overlay was the previous official
+ * theming architecture; Dual-UI replaces it with the native frontend, so the
+ * product no longer stacks a transparent view above the official renderer. The
+ * code is kept (and the module still supports it) behind an explicit opt-in so
+ * an old theme package can still be inspected, but nothing creates it unless
+ * DSH_OFFICIAL_OVERLAY=1 is set on purpose.
+ */
+const OFFICIAL_OVERLAY_ENABLED = process.env.DSH_OFFICIAL_OVERLAY === '1'
+/** The native frontend is the Daily Mode surface; a window narrower than this
+ * would clip its sidebar, so Daily falls back to Work Mode instead of squeezing. */
+const NATIVE_VIEW_MIN_WIDTH = 720
 
 /** Accept only a real usable port; anything else silently keeps the default. */
 function normalizeHarnessPort(value) {
@@ -56,8 +71,11 @@ function normalizeHarnessPort(value) {
 
 let mainWindow = null
 let officialView = null
+let nativeView = null
 let megaDockView = null
 let officialSurfaces = null
+/** The assembled Dual-UI runtime (state + adapter + sync + manager + probe). */
+let frontendModes = null
 let megaDockExpanded = false
 let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 let harnessProcess = null
@@ -653,6 +671,13 @@ function layoutIntegratedViews() {
   if (officialView) {
     officialView.setBounds({ x: 0, y: 0, width: officialWidth, height })
   }
+  // The native frontend occupies exactly the same rectangle as the official
+  // renderer: switching modes changes which one is visible, never their bounds,
+  // so neither renderer is re-created and neither loses its scroll position
+  // (Update-Plan/Dual-UI.md 任务 15 / 任务 17).
+  if (nativeView) {
+    nativeView.setBounds({ x: 0, y: 0, width: officialWidth, height })
+  }
   if (megaDockView) {
     megaDockView.setBounds({ x: officialWidth, y: 0, width: dockWidth, height })
   }
@@ -725,6 +750,311 @@ async function createOfficialHarnessView(readyUrl) {
   return true
 }
 
+/* ---------------------------------------------------------------------------
+ * Dual-UI runtime: Frontend Modes, the native renderer and the mode manager
+ * (Update-Plan/Dual-UI.md 任务 2 / 任务 3 / 任务 5 / 任务 6 / 任务 15 / 任务 20).
+ *
+ * The shell owns the two renderers, so it owns the switch. Both views are
+ * created once and kept alive for the whole session: a mode change only sets
+ * visibility, bounds and z-order (任务 15 / 任务 17). Nothing here restarts the
+ * Harness, resets a session or touches the official DOM (任务 5).
+ * ------------------------------------------------------------------------- */
+
+function frontendModeStatePath() {
+  return path.join(ROOT, 'data', 'state', 'frontend-mode.json')
+}
+
+/**
+ * Show or hide one renderer without destroying it.
+ *
+ * `setVisible` is the modern View API; the offscreen fallback exists only so an
+ * Electron build without it degrades to "not painted" instead of throwing.
+ */
+function setViewVisibility(view, visible) {
+  if (!view) return false
+  try {
+    if (typeof view.setVisible === 'function') {
+      view.setVisible(Boolean(visible))
+      return true
+    }
+  } catch (error) {
+    logLine(`view visibility failed: ${error?.message || error}`)
+  }
+  try {
+    // No `setVisible`: a zero-area view paints nothing and takes no input while
+    // the renderer process and its state stay alive.
+    const bounds = typeof view.getBounds === 'function' ? view.getBounds() : null
+    if (!visible && bounds) view.setBounds({ x: -4096, y: -4096, width: 1, height: 1 })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The manager's view hook (任务 5 / 任务 10).
+ *
+ * Daily:  native visible, official hidden.
+ * Work:   official visible, native hidden - and the official UI is exactly what
+ *         the harness rendered, because nothing is stacked above it.
+ */
+function applyFrontendVisibility({ mode }) {
+  const daily = mode === frontendModes?.MODE?.DAILY || mode === 'daily'
+  setViewVisibility(nativeView, daily)
+  setViewVisibility(officialView, !daily)
+  // A too-narrow window cannot show the native sidebar legibly; the manager is
+  // told so it can decide, but the switch itself never fails because of it.
+  if (daily) {
+    const [width] = mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : [0, 0]
+    if (width && width < NATIVE_VIEW_MIN_WIDTH) {
+      logLine(`native frontend is narrow (${width}px < ${NATIVE_VIEW_MIN_WIDTH}px); the layout degrades to a single column`)
+    }
+  }
+  broadcastModeChange()
+  return true
+}
+
+/** Build the Dual-UI runtime. Safe to call once, before the views exist. */
+function createFrontendModes() {
+  if (frontendModes) return frontendModes
+  frontendModes = frontendMode.createFrontendModeRuntime({
+    stateFile: frontendModeStatePath(),
+    applyVisibility: (payload) => applyFrontendVisibility(payload),
+    tasks: () => (extensionManager?.describeNativeData?.()?.tasks) || [],
+    settings: () => (extensionManager?.describeNativeData?.()?.settings) || null,
+    installedVersion: () => (extensionManager?.describeNativeData?.()?.harnessVersion) || null,
+    latestVersion: async () => (extensionManager?.describeNativeData?.()?.latestVersion) || null,
+    log: (message) => logLine(`[frontend-mode] ${message}`)
+  })
+  return frontendModes
+}
+
+/**
+ * Create the native frontend view (任务 6).
+ *
+ * It is a sibling WebContentsView with its own preload and its own sandbox, and
+ * it is created exactly once. Daily is the default mode, so it is shown first.
+ */
+async function createNativeFrontendView() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+    logLine('native frontend unavailable: WebContentsView/contentView not supported by this Electron build')
+    return false
+  }
+  if (nativeView) {
+    layoutIntegratedViews()
+    return true
+  }
+  nativeView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, 'native-ui', 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  })
+  nativeView.surface = SURFACE.HNS_NATIVE
+  try {
+    nativeView.setBackgroundColor('#0b0e14')
+  } catch {}
+  nativeView.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  nativeView.webContents.on('render-process-gone', (_event, details) => {
+    logLine(`native frontend renderer gone: ${JSON.stringify(details)}`)
+    // 任务 20: the backend is preserved and the product falls back to Work Mode.
+    try {
+      frontendModes?.manager?.degrade(`native renderer gone: ${details?.reason || 'unknown'}`)
+    } catch (error) {
+      logLine(`native degradation handling failed: ${error?.message || error}`)
+    }
+  })
+  mainWindow.contentView.addChildView(nativeView)
+  layoutIntegratedViews()
+  await nativeView.webContents.loadFile(path.join(__dirname, 'native-ui', 'index.html'))
+  logLine('native frontend attached as a sibling WebContentsView (Daily Mode); Work Mode keeps the official renderer')
+  return true
+}
+
+/**
+ * The adapter the Mega extension uses to reach the native renderer.
+ *
+ * Same shape as `createDockAdapter()`: the extension never learns how the view
+ * is stored, and it can only push a theme payload or a change notification.
+ */
+function createNativeThemeAdapter() {
+  const webContents = () => (nativeView && !nativeView.webContents.isDestroyed() ? nativeView.webContents : null)
+  return {
+    integrated: true,
+    available: () => Boolean(webContents()),
+    webContents,
+    /** Push a channel to the native renderer; never throws, never queues. */
+    send: (channel, payload) => {
+      const target = webContents()
+      if (!target) return false
+      try {
+        if (payload === undefined) target.send(channel)
+        else target.send(channel, payload)
+        return true
+      } catch (error) {
+        logLine(`native renderer send failed on ${channel}: ${error?.message || error}`)
+        return false
+      }
+    },
+    bounds: () => {
+      if (!nativeView) return null
+      try {
+        return nativeView.getBounds()
+      } catch {
+        return null
+      }
+    },
+    visible: () => Boolean(nativeView && frontendModes?.manager?.current() === 'daily'),
+    describe: () => ({
+      available: Boolean(webContents()),
+      bounds: (() => {
+        try {
+          return nativeView ? nativeView.getBounds() : null
+        } catch {
+          return null
+        }
+      })(),
+      mode: frontendModes?.manager?.current() || null
+    })
+  }
+}
+
+/** The mode adapter the Mega extension uses: read and switch, never own. */
+function createNativeModeAdapter() {
+  return {
+    describe: () => (frontendModes ? frontendModes.manager.describe() : { mode: 'daily', state: 'DAILY_ACTIVE', available: false }),
+    current: () => frontendModes?.manager?.current() || 'daily',
+    /**
+     * Switch the frontend mode.
+     *
+     * The session list is read first so "Work -> Daily" reopens the session the
+     * backend actually has (任务 10), not a stale remembered id.
+     */
+    switchTo: async (mode) => {
+      if (!frontendModes) return { ok: false, reason: 'frontend mode runtime unavailable' }
+      let sessions = []
+      try {
+        const listed = await frontendModes.adapter.listSessions()
+        sessions = listed?.sessions || []
+      } catch (error) {
+        logLine(`mode switch could not read sessions: ${error?.message || error}`)
+      }
+      return frontendModes.manager.switchTo(mode, { sessions, reason: 'dock' })
+    },
+    toggle: async () => {
+      if (!frontendModes) return { ok: false, reason: 'frontend mode runtime unavailable' }
+      let sessions = []
+      try {
+        const listed = await frontendModes.adapter.listSessions()
+        sessions = listed?.sessions || []
+      } catch (error) {
+        logLine(`mode toggle could not read sessions: ${error?.message || error}`)
+      }
+      return frontendModes.manager.toggle({ sessions, reason: 'dock' })
+    },
+    /** 任务 20: a native failure moves the product to Work Mode. */
+    degrade: (reason) => (frontendModes ? frontendModes.manager.degrade(reason) : { ok: false, reason: 'frontend mode runtime unavailable' }),
+    onModeChange: (callback) => (typeof callback === 'function' ? frontendModeSubscribe(callback) : () => {})
+  }
+}
+
+/** Mode-change fan-out to the dock renderer and to the extension. */
+const frontendModeListeners = new Set()
+function frontendModeSubscribe(listener) {
+  if (typeof listener !== 'function') return () => {}
+  frontendModeListeners.add(listener)
+  return () => frontendModeListeners.delete(listener)
+}
+
+function broadcastModeChange(payload = null) {
+  const status = payload || (frontendModes ? frontendModes.manager.describe() : null)
+  if (!status) return
+  for (const listener of [...frontendModeListeners]) {
+    try {
+      listener(status)
+    } catch (error) {
+      logLine(`frontend mode listener failed: ${error?.message || error}`)
+    }
+  }
+  // The native renderer and the dock both need to know: the first to stop doing
+  // hidden work, the second to keep its switch honest.
+  try {
+    if (nativeView && !nativeView.webContents.isDestroyed()) {
+      nativeView.webContents.send('hns:native-mode-changed', status)
+    }
+  } catch {}
+  try {
+    if (megaDockView && !megaDockView.webContents.isDestroyed()) {
+      megaDockView.webContents.send('mega:mode-changed', status)
+    }
+  } catch {}
+}
+
+/**
+ * Shell-owned mode IPC.
+ *
+ * Channel ownership is deliberate: the shell answers mode questions (it owns the
+ * views and the state machine) while the Mega extension answers model questions
+ * (it owns the adapter, the scheduler and the theme engine).
+ */
+function registerNativeModeIpc() {
+  if (!INTEGRATED_MEGA_DOCK) return
+  for (const channel of ['hns:native-mode', 'hns:native-set-mode', 'hns:native-toggle-mode', 'hns:native-failure', 'hns:native-regions', 'hns:native-diagnostics']) {
+    try {
+      ipcMain.removeHandler(channel)
+    } catch {}
+  }
+  const guard = (handler) => async (_event, ...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      logLine(`frontend mode ipc failed: ${error?.message || error}`)
+      return { ok: false, reason: 'mode_ipc_failed', message: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('hns:native-mode', guard(() => (frontendModes ? frontendModes.manager.describe() : { mode: 'daily', state: 'DAILY_ACTIVE', available: false })))
+  ipcMain.handle('hns:native-set-mode', guard((mode) => createNativeModeAdapter().switchTo(String(mode || ''))))
+  ipcMain.handle('hns:native-toggle-mode', guard(() => createNativeModeAdapter().toggle()))
+  ipcMain.handle('hns:native-failure', guard((payload) => {
+    const reason = payload?.reason || 'native frontend failure'
+    logLine(`native frontend reported a failure: ${reason}`)
+    return frontendModes ? frontendModes.manager.degrade(reason) : { ok: false, reason: 'frontend mode runtime unavailable' }
+  }))
+  ipcMain.removeAllListeners('hns:native-regions')
+  ipcMain.on('hns:native-regions', (_event, payload) => {
+    try {
+      if (nativeView && !nativeView.webContents.isDestroyed()) {
+        broadcastNativeRegions(payload || {})
+      }
+    } catch (error) {
+      logLine(`native region relay failed: ${error?.message || error}`)
+    }
+  })
+  ipcMain.handle('hns:native-diagnostics', guard(() => ({
+    ok: true,
+    frontend: frontendModes ? frontendModes.describe() : null,
+    surfaces: createOfficialSurfaceAdapter().describe()
+  })))
+}
+
+/** Region reports are relayed to whoever asked for them (the theme engine). */
+const nativeRegionListeners = new Set()
+function broadcastNativeRegions(payload) {
+  for (const listener of [...nativeRegionListeners]) {
+    try {
+      listener(payload)
+    } catch (error) {
+      logLine(`native region listener failed: ${error?.message || error}`)
+    }
+  }
+}
+
 /**
  * The Official Shell + Official Overlay views (Update-Plan 任务 2 / 任务 3).
  *
@@ -750,9 +1080,17 @@ async function createOfficialSurfaces() {
   })
   try {
     officialSurfaces.createShell()
-    officialSurfaces.createOverlay()
+    // 任务 1: the official Overlay is DEPRECATED and is not created by default.
+    // Work Mode must be untouched official UI, so nothing is stacked above it
+    // unless an operator explicitly asks for the legacy architecture.
+    if (OFFICIAL_OVERLAY_ENABLED) {
+      officialSurfaces.createOverlay()
+      logLine('DEPRECATED: official_overlay created because DSH_OFFICIAL_OVERLAY=1; the overlay architecture is retired')
+    } else {
+      logLine('official_overlay disabled by default (Update-Plan/Dual-UI.md P0 task 1); only the official_shell frame is attached')
+    }
     officialSurfaces.applyLayout()
-    logLine('official_shell + official_overlay views attached (visual-only, input passthrough)')
+    logLine(`official_shell view attached (visual-only, input passthrough); overlay=${OFFICIAL_OVERLAY_ENABLED ? 'legacy-opt-in' : 'disabled'}`)
     return true
   } catch (error) {
     logLine(`official surfaces failed to attach; the official renderer keeps running unthemed: ${error?.stack || error}`)
@@ -805,7 +1143,7 @@ function destroyIntegratedViews() {
     logLine(`official surface teardown failed: ${error?.message || error}`)
   }
   officialSurfaces = null
-  for (const view of [megaDockView, officialView]) {
+  for (const view of [megaDockView, nativeView, officialView]) {
     if (!view) continue
     try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
     try {
@@ -813,6 +1151,7 @@ function destroyIntegratedViews() {
     } catch {}
   }
   megaDockView = null
+  nativeView = null
   officialView = null
 }
 
@@ -842,6 +1181,7 @@ function createWindow() {
   mainWindow.on('restore', layoutIntegratedViews)
   mainWindow.on('closed', () => {
     megaDockView = null
+    nativeView = null
     officialView = null
     mainWindow = null
   })
@@ -1003,6 +1343,22 @@ async function startExtensions(nodeExe) {
       officialSurfaces: officialSurfaceAdapter,
       // Legacy single-value form: the extension's adapter accepts either.
       dockWebContents: dockAdapter.webContents,
+      // ---- Dual-UI (Update-Plan/Dual-UI.md) --------------------------------
+      // The native frontend. The extension owns the theme engine and the HNS
+      // model, so it is handed the *target* (to push a theme payload) and the
+      // mode adapter (to read/switch), never the view itself.
+      nativeThemeTarget: createNativeThemeAdapter(),
+      nativeMode: createNativeModeAdapter(),
+      // The assembled Dual-UI runtime: adapter (HNS model), sync, probe and the
+      // manager's status. The extension reads it; the shell owns it.
+      nativeFrontend: frontendModes,
+      // Native slot geometry is measured by the native renderer and relayed
+      // here; the extension subscribes to feed the theme validator.
+      onNativeRegions: (listener) => {
+        if (typeof listener !== 'function') return () => {}
+        nativeRegionListeners.add(listener)
+        return () => nativeRegionListeners.delete(listener)
+      },
       // The dock view is created *after* extensions start (it loads the
       // extension's preload), so an eager value would always be null and every
       // push — a theme payload, a change notification — would go nowhere.
@@ -1046,6 +1402,14 @@ app.whenReady().then(async () => {
       new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
     ])
     const readyUrl = await waitForHarness()
+    // The Dual-UI backend client talks to the same authenticated Harness the
+    // official renderer uses; publishing the origin is what lets the native
+    // frontend read `session/list` without ever touching the official renderer.
+    try {
+      process.env.DSH_OFFICIAL_ORIGIN = new URL(readyUrl).origin
+    } catch {}
+    createFrontendModes()
+    registerNativeModeIpc()
     if (INTEGRATED_MEGA_DOCK) await createOfficialHarnessView(readyUrl)
     else await mainWindow.loadURL(readyUrl)
     // The two official surfaces are attached after the official renderer exists
@@ -1059,6 +1423,26 @@ app.whenReady().then(async () => {
     await createWorkerManager(nodeExe)
 
     const extensionsReady = await startExtensions(nodeExe)
+    // The native renderer is created after the extension so its preload's IPC
+    // handlers (model + theme) already exist when it boots, and before the dock
+    // so the dock stays the topmost strip.
+    if (INTEGRATED_MEGA_DOCK && extensionsReady) {
+      try {
+        await createNativeFrontendView()
+        // Daily is the default mode: apply the persisted mode once both
+        // renderers exist. Nothing is re-created here, only made visible.
+        applyFrontendVisibility({ mode: frontendModes?.manager?.current() || 'daily' })
+      } catch (error) {
+        logLine(`native frontend failed to attach; Work Mode remains the live surface: ${error?.stack || error}`)
+        frontendModes?.manager?.degrade(`native frontend attach failed: ${error?.message || error}`)
+      }
+    } else if (INTEGRATED_MEGA_DOCK) {
+      // The Mega extension serves the HNS model and the theme payload for Daily
+      // Mode. Without it, showing an empty native surface would be worse than the
+      // honest answer: stay on the official UI and say why.
+      logLine('Dual-UI: the Mega extension did not start, so Daily Mode cannot be served; staying in Work Mode')
+      frontendModes?.manager?.degrade('the native frontend data plane is unavailable (Mega extension not loaded)')
+    }
     if (extensionsReady && INTEGRATED_MEGA_DOCK) await createIntegratedMegaDock()
     layoutIntegratedViews()
     mainWindow.show()

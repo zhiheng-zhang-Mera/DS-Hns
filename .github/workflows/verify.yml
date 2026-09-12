@@ -45,6 +45,26 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
+            'app/frontend-mode/state.cjs',
+            'app/frontend-mode/model.cjs',
+            'app/frontend-mode/backend.cjs',
+            'app/frontend-mode/adapter.cjs',
+            'app/frontend-mode/sync.cjs',
+            'app/frontend-mode/manager.cjs',
+            'app/frontend-mode/probe.cjs',
+            'app/frontend-mode/index.cjs',
+            'app/native-ui/index.html',
+            'app/native-ui/preload.cjs',
+            'app/native-ui/app.js',
+            'app/native-ui/app.css',
+            'app/native-ui/state/store.js',
+            'app/native-ui/components/dom.js',
+            'app/native-ui/components/session-list.js',
+            'app/native-ui/components/conversation.js',
+            'app/native-ui/components/tool-activity.js',
+            'app/native-ui/components/composer.js',
+            'app/native-ui/components/settings.js',
+            'app/native-ui/themes/base.css',
             'app/extensions/mega/theme/surface.js',
             'app/extensions/mega/theme/assets/planner.js',
             'app/extensions/mega/theme/assets/generator.js',
@@ -59,9 +79,16 @@ jobs:
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
           if ($missing) { Write-Error "missing theme surface files: $($missing -join ', ')"; exit 1 }
-          $dirs = @('extensions/mega/theme/assets', 'extensions/mega/theme/official')
+          $dirs = @(
+            'extensions/mega/theme/assets',
+            'extensions/mega/theme/official',
+            'frontend-mode',
+            'native-ui',
+            'native-ui/components',
+            'native-ui/state'
+          )
           $check = Get-Content scripts/check-syntax.cjs -Raw
           foreach ($dir in $dirs) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
-          Write-Host "theme surface files present and covered by the syntax gate"
+          Write-Host "theme + dual-UI surface files present and covered by the syntax gate"

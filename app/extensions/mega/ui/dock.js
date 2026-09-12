@@ -968,6 +968,7 @@ function render(snapshot) {
   renderSettings(snapshot)
   renderUpdate(snapshot)
   renderSubWorker(snapshot)
+  renderMode(snapshot)
 
   updateLivePeriod()
 }
@@ -1447,6 +1448,90 @@ $('subWorkerForm').onsubmit = async (event) => {
 if (subWorkerApi()?.onOpenLiveView) {
   subWorkerApi().onOpenLiveView(() => openLiveView())
 }
+
+/**
+ * Dual-UI mode switch (Update-Plan/Dual-UI.md 任务 12 / 任务 13).
+ *
+ * The dock is the shared control centre for both frontends: the collapsed rail
+ * carries the one-click switch (H = Daily, D = Work) and the expanded panel
+ * carries the labelled selector. Both render from the same shell-owned state, and
+ * both ask the shell to switch - they never decide the mode themselves, so the
+ * rail and the panel can never disagree.
+ */
+const MODE_LABEL = { daily: 'Daily', work: 'Work' }
+const MODE_LETTER = { daily: 'H', work: 'D' }
+const MODE_DESCRIPTION = {
+  daily: 'HNS Native Frontend · 完整主题 / 角色 / 皮肤已启用',
+  work: 'Official DeepSeek Harness UI · 兼容模式（不做深度换肤）'
+}
+
+function modeOf(snapshot) {
+  const mode = String(snapshot?.frontend?.mode || 'daily')
+  return MODE_LABEL[mode] ? mode : 'daily'
+}
+
+function renderMode(snapshot) {
+  const frontend = snapshot?.frontend || {}
+  const mode = modeOf(snapshot)
+  const other = mode === 'daily' ? 'work' : 'daily'
+  const available = frontend.available !== false
+
+  const rail = $('railMode')
+  if (rail) {
+    rail.textContent = MODE_LETTER[mode]
+    rail.dataset.mode = mode
+    rail.title = `当前：${MODE_LABEL[mode]} Mode（点击切换到 ${MODE_LABEL[other]}）`
+    rail.disabled = !available
+  }
+  const chip = $('modeStatus')
+  if (chip) {
+    chip.textContent = MODE_LABEL[mode]
+    chip.dataset.mode = mode
+  }
+  for (const button of [$('modeDaily'), $('modeWork')]) {
+    if (!button) continue
+    const isActive = button.dataset.mode === mode
+    button.classList.toggle('active', isActive)
+    button.disabled = !available
+    button.setAttribute('aria-selected', isActive ? 'true' : 'false')
+  }
+  const note = $('modeNote')
+  if (note) {
+    if (!available) {
+      note.textContent = '前端模式切换不可用：桌面 shell 未提供模式管理器。'
+      note.dataset.state = 'blocked'
+    } else if (frontend.degraded) {
+      note.textContent = `Daily 已降级并回退到 Work：${frontend.degraded.reason}`
+      note.dataset.state = 'error'
+    } else {
+      note.textContent = MODE_DESCRIPTION[mode]
+      note.dataset.state = ''
+    }
+  }
+}
+
+/** One switch request at a time: a second click cannot start a parallel switch. */
+let modeSwitchPending = false
+async function requestMode(mode) {
+  if (modeSwitchPending) return
+  if (!MODE_LABEL[mode]) return
+  modeSwitchPending = true
+  try {
+    await window.megaTools.mode?.set?.(mode)
+    await refresh()
+  } catch (error) {
+    showError(error)
+  } finally {
+    modeSwitchPending = false
+  }
+}
+
+if ($('railMode')) $('railMode').onclick = () => requestMode(modeOf(latestSnapshot) === 'daily' ? 'work' : 'daily')
+if ($('modeDaily')) $('modeDaily').onclick = () => requestMode('daily')
+if ($('modeWork')) $('modeWork').onclick = () => requestMode('work')
+// The shell pushes the mode after every switch, so an external change (the
+// native frontend's own toggle) keeps the dock in step without a poll.
+window.megaTools.mode?.onChanged?.(() => refresh())
 
 window.megaTools.onChanged(refresh)
 // The main process pushes this after a skill install or delete, including ones it

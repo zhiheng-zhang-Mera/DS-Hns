@@ -315,7 +315,15 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // The official view is created first (centre), then the surfaces...
   assert.match(main, /await createOfficialHarnessView\(readyUrl\)/)
   assert.match(main, /await createOfficialSurfaces\(\)/)
-  assert.match(main, /official_shell \+ official_overlay views attached/)
+  // ...and, since Update-Plan/Dual-UI.md 任务 1, the shell is the only surface
+  // created by default: the overlay is DEPRECATED and explicitly opt-in, because
+  // Work Mode must stay untouched official UI.
+  assert.match(main, /official_shell view attached \(visual-only, input passthrough\)/)
+  assert.match(main, /const OFFICIAL_OVERLAY_ENABLED = process\.env\.DSH_OFFICIAL_OVERLAY === '1'/)
+  assert.match(main, /if \(OFFICIAL_OVERLAY_ENABLED\) \{\n\s*officialSurfaces\.createOverlay\(\)/)
+  const surfacesFactory = main.slice(main.indexOf('async function createOfficialSurfaces('), main.indexOf('async function createIntegratedMegaDock'))
+  const overlayCalls = surfacesFactory.match(/officialSurfaces\.createOverlay\(\)/g) || []
+  assert.equal(overlayCalls.length, 1, 'the overlay is created in exactly one place, inside the opt-in guard')
   // ...and the extension receives an adapter whose only operation is a paint.
   assert.match(main, /function createOfficialSurfaceAdapter\(\)/)
   assert.match(main, /officialSurfaceAdapter,/)
@@ -330,6 +338,29 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // The shell still creates the official window with no preload at all.
   const createWindowBody = main.slice(main.indexOf('function createWindow()'), main.indexOf('async function startExtensions'))
   assert.equal(/preload\s*:/.test(createWindowBody), false)
+})
+
+test('the shell creates the native renderer once and switches by visibility only (任务 15 / 任务 17)', () => {
+  const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+  const create = main.slice(main.indexOf('async function createNativeFrontendView'), main.indexOf('function createNativeThemeAdapter'))
+  // Exactly one construction, guarded by the "already exists" early return.
+  const constructions = create.match(/new WebContentsView\(/g) || []
+  assert.equal(constructions.length, 1, 'the native view is constructed in exactly one place')
+  assert.match(create, /if \(nativeView\) \{\n\s*layoutIntegratedViews\(\)\n\s*return true/)
+  assert.match(create, /preload: path\.join\(__dirname, 'native-ui', 'preload\.cjs'\)/)
+  assert.match(create, /loadFile\(path\.join\(__dirname, 'native-ui', 'index\.html'\)\)/)
+
+  // Switching is bounds/visibility only: no renderer is created or destroyed.
+  const apply = main.slice(main.indexOf('function applyFrontendVisibility'), main.indexOf('function createFrontendModes'))
+  assert.match(apply, /setViewVisibility\(nativeView, daily\)/)
+  assert.match(apply, /setViewVisibility\(officialView, !daily\)/)
+  assert.equal(/new WebContentsView|destroy\(|close\(\)/.test(apply), false, 'a switch never touches renderer lifetime')
+
+  // The deprecated overlay is not created on the default startup path.
+  assert.match(main, /officialSurfaceAdapter,/)
+  assert.match(main, /nativeThemeTarget: createNativeThemeAdapter\(\)/)
+  assert.match(main, /nativeMode: createNativeModeAdapter\(\)/)
+  assert.match(main, /nativeFrontend: frontendModes/)
 })
 
 test('the two surface documents carry no script, and are input-transparent', () => {
@@ -357,5 +388,25 @@ test('the two surface documents carry no script, and are input-transparent', () 
   const shell = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'hns-shell.html'), 'utf8')
   for (const id of ['frame', 'frame-asset', 'band', 'separator', 'glow', 'window-hole']) {
     assert.ok(shell.includes(`id="${id}"`), `the shell document has a ${id} layer`)
+  }
+})
+
+test('every document a surface view loads resolves to a real file on disk', () => {
+  // A stub that records `loadFile(path)` cannot tell a correct path from a
+  // broken one. This resolves each `path.join(__dirname, ...)` the module builds
+  // against the app directory and asserts the file exists - the check that
+  // catches "the surface silently degraded with ERR_FILE_NOT_FOUND".
+  const appDir = path.join(ROOT, 'app')
+  const source = fs.readFileSync(modulePath, 'utf8')
+  const targets = []
+  for (const match of source.matchAll(/path\.join\(__dirname,([^)]*)\)/g)) {
+    const parts = [...match[1].matchAll(/'([^']*)'/g)].map((entry) => entry[1])
+    if (!parts.length) continue
+    targets.push(path.join(appDir, ...parts))
+  }
+  assert.ok(targets.length >= 2, `expected the shell and overlay documents, found ${targets.length}`)
+  for (const target of targets) {
+    assert.equal(fs.existsSync(target), true, `surface document missing on disk: ${target}`)
+    assert.equal(path.relative(appDir, target).startsWith('..'), false, `surface document must live under app/: ${target}`)
   }
 })

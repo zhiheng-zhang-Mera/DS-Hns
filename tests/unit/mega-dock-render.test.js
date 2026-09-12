@@ -46,7 +46,12 @@ function makeElement(id) {
       for (const handler of handlers.get(name) || []) handler(event)
     },
     closest: () => null,
-    querySelector: () => null
+    querySelector: () => null,
+    // A real element carries attributes; the Dock's mode switch sets
+    // `aria-selected` on its two selector buttons.
+    attributes: {},
+    setAttribute(name, value) { this.attributes[name] = String(value) },
+    getAttribute(name) { return this.attributes[name] ?? null }
   }
 }
 

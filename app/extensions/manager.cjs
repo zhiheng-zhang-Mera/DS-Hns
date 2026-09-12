@@ -40,4 +40,24 @@ function stop() {
   active = []
 }
 
-module.exports = { start, stop }
+/**
+ * Data the shell's Dual-UI runtime needs but does not own.
+ *
+ * The scheduler, the settings service and the updater belong to the Mega
+ * extension, so the shell asks for them here instead of reaching into the
+ * extension's modules. A missing extension yields an empty answer, which the
+ * adapter reports as a degraded - never as a crash.
+ */
+function describeNativeData() {
+  for (const item of active) {
+    try {
+      const data = item.extension?.describeNativeData?.()
+      if (data) return data
+    } catch {
+      // A failing extension must not take the shell's read path down with it.
+    }
+  }
+  return { tasks: [], settings: null, harnessVersion: null, latestVersion: null }
+}
+
+module.exports = { start, stop, describeNativeData }

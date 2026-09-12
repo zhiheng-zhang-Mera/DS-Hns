@@ -100,6 +100,49 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .rail-mode.peak{background:var(--hns-color-bg-layer2);color:var(--hns-state-failed);border-color:color-mix(in srgb,var(--hns-state-failed) 28%,transparent)}
 .rail-mode.offpeak{background:var(--hns-color-bg-layer2);color:var(--hns-state-completed);border-color:color-mix(in srgb,var(--hns-state-completed) 24%,transparent)}
 
+/*
+ * Dual-UI mode switch (Update-Plan/Dual-UI.md 任务 12 / 任务 13).
+ *
+ * Collapsed rail: one button, the current mode written on it (H = Daily,
+ * D = Work). Expanded panel: the two-option selector with the mode description.
+ * Both read the same shell-owned state, so they cannot disagree.
+ */
+.rail-mode-switch{
+  width:36px;height:36px;margin:2px auto 0;display:grid;place-items:center;
+  border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;
+  background:var(--hns-color-bg-layer2);
+  color:var(--hns-color-accent-primary);
+  border:1px solid color-mix(in srgb,var(--hns-color-accent-primary) 32%,transparent);
+}
+.rail-mode-switch[data-mode="work"]{
+  color:var(--hns-color-accent-secondary);
+  border-color:color-mix(in srgb,var(--hns-color-accent-secondary) 36%,transparent);
+}
+.rail-mode-switch:hover{background:var(--hns-color-bg-raised)}
+
+.mode-panel .panel-head h2{margin:0;font-size:13px}
+.mode-panel .panel-head p{margin:4px 0 0;font-size:11px;color:var(--hns-color-label-tertiary);line-height:1.5}
+.mode-selector{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 0}
+.mode-option{
+  display:flex;flex-direction:column;gap:3px;align-items:flex-start;
+  padding:10px;border-radius:10px;cursor:pointer;text-align:left;
+  background:var(--hns-color-bg-layer2);
+  border:1px solid var(--hns-color-border-l1);
+  color:var(--hns-color-label-primary);
+  font:inherit;
+}
+.mode-option b{font-size:12px;letter-spacing:.02em}
+.mode-option small{font-size:10px;color:var(--hns-color-label-tertiary);line-height:1.45}
+.mode-option.active{
+  border-color:var(--hns-color-accent-primary);
+  background:color-mix(in srgb,var(--hns-color-accent-primary) 12%,var(--hns-color-bg-layer2));
+}
+.mode-option.active small{color:var(--hns-color-label-secondary)}
+.mode-option:disabled{opacity:.55;cursor:not-allowed}
+.mode-note{margin:8px 0 0;font-size:10px;line-height:1.5;color:var(--hns-color-label-tertiary)}
+.mode-note[data-state="blocked"]{color:var(--hns-state-blocked)}
+.mode-note[data-state="error"]{color:var(--hns-state-failed)}
+
 #detail{flex:1;min-width:0;height:100%;overflow:auto;padding:14px;background:var(--hns-color-bg-base)}
 .collapsed #detail{display:none}
 .collapsed #rail{border-right:0}
