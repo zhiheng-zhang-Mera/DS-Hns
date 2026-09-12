@@ -130,7 +130,17 @@ function editTask(target, overrides = {}) {
   }
 }
 
-async function waitForResult(manager, timeoutMs = 30_000) {
+/**
+ * Wait for a dispatched task to finish.
+ *
+ * The default is 45 s rather than 30 s because this waits on a *real* worker
+ * process that has to be spawned, handshaken, and — for the worktree scenarios —
+ * have a `git worktree add` run against a scratch repository. On a hosted 2-vCPU
+ * Windows runner that is several times slower than a developer machine, and a
+ * timeout there measures the runner rather than the manager. The assertion is
+ * about the result arriving, not about how fast it arrives.
+ */
+async function waitForResult(manager, timeoutMs = 45_000) {
   await waitFor(() => manager.describe().history.length > 0 && manager.currentTask === null, {
     timeoutMs,
     label: 'a task result'

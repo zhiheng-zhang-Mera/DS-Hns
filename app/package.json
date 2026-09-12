@@ -9,7 +9,7 @@
     "desktop": "electron desktop-main.cjs",
     "desktop:alien": "set DSH_DISABLE_MEGA=1&& electron desktop-main.cjs",
     "check": "node ../scripts/check-syntax.cjs",
-    "test": "node --test ../tests/unit/*.test.js"
+    "test": "node --test --test-concurrency=2 ../tests/unit/*.test.js"
   },
   "dependencies": {
     "@deepseek-ai/dsh": "0.1.5-rc.1"
