@@ -163,6 +163,18 @@ test('startup detects any listener on 3080 instead of treating authenticated 401
   assert.doesNotMatch(main, /if \(await requestHarness\(HARNESS_URL\)\)/)
 })
 
+test('the harness port is canonical by default and only overridable by opt-in', () => {
+  // The default launch line, the port and the startup guard are unchanged; the
+  // override exists so an acceptance run can start a second instance beside the
+  // normal one instead of colliding on 3080.
+  assert.match(main, /function normalizeHarnessPort/)
+  assert.match(main, /const HARNESS_PORT = normalizeHarnessPort\(process\.env\.DSH_HARNESS_PORT\)/)
+  assert.match(main, /if \(!Number\.isInteger\(parsed\) \|\| parsed < 1024 \|\| parsed > 65535\) return 3080/)
+  // Every consumer of the port reads the resolved constant, never the raw env.
+  assert.doesNotMatch(main, /Number\(process\.env\.DSH_HARNESS_PORT\)/)
+  assert.match(main, /allowedHarnessNavigation[\s\S]*?HARNESS_PORT/)
+})
+
 test('startup token capture tolerates chunk boundaries and either output stream', () => {
   assert.match(main, /STARTUP_BUFFER_LIMIT/)
   assert.match(main, /startupOutput = `\$\{startupOutput\}\$\{clean\}`/)

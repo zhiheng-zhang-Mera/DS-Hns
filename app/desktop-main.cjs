@@ -17,7 +17,13 @@ const runtimeProcess = require('./runtime-process.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
-const HARNESS_PORT = 3080
+/**
+ * Canonical Harness port. `DSH_HARNESS_PORT` is an additive opt-in for isolated
+ * runs: it lets a second DS-Harness instance (a scratch checkout, an acceptance
+ * run) start beside the normal one instead of colliding on 3080. Unset, nothing
+ * changes — the default launch line, the port and the startup check are identical.
+ */
+const HARNESS_PORT = normalizeHarnessPort(process.env.DSH_HARNESS_PORT)
 const HARNESS_URL = `http://${HARNESS_HOST}:${HARNESS_PORT}/`
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
@@ -28,6 +34,13 @@ const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
 const OFFICIAL_VIEW_MIN_WIDTH = 360
+
+/** Accept only a real usable port; anything else silently keeps the default. */
+function normalizeHarnessPort(value) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1024 || parsed > 65535) return 3080
+  return parsed
+}
 
 let mainWindow = null
 let officialView = null
