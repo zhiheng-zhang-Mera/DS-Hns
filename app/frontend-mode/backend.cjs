@@ -43,8 +43,6 @@ const OPTIONAL_ROUTES = Object.freeze([
   'session/update'
 ])
 
-const JOURNAL_TAIL_BYTES = 2 * 1024 * 1024
-
 function readJsonLines(file, { tailBytes = 0 } = {}) {
   let text = ''
   try {
@@ -230,18 +228,6 @@ function createBackendBridge({ client = null, sessionsRoot = PATHS.SESSIONS, log
     /** Raw durable events for one session, newest-last. */
     readJournal: readJournalFor,
 
-    /**
-     * Events committed after `sinceSeq`. Used to advance a live conversation
-     * without re-parsing the whole log on every poll.
-     */
-    tailJournal(sessionId, sinceSeq = -1) {
-      const result = readJournalFor(sessionId, { tailBytes: JOURNAL_TAIL_BYTES })
-      if (!result.ok) return result
-      const floor = Number.isFinite(Number(sinceSeq)) ? Number(sinceSeq) : -1
-      const events = result.events.filter((event) => Number.isFinite(Number(event?.seq)) && Number(event.seq) > floor)
-      return { ...result, events }
-    },
-
     /** A session id by journal presence (used when RPC list is unavailable). */
     journalSessions() {
       try {
@@ -258,7 +244,7 @@ function createBackendBridge({ client = null, sessionsRoot = PATHS.SESSIONS, log
      * `session/list` is the cheapest authenticated read, so it doubles as the
      * liveness check. Optional routes are reported but never gate readiness.
      */
-    async capabilities({ probeOptional = false } = {}) {
+    async capabilities() {
       const started = Date.now()
       const result = {
         ok: false,
@@ -289,16 +275,6 @@ function createBackendBridge({ client = null, sessionsRoot = PATHS.SESSIONS, log
         // honest report is "unreachable", not "incompatible".
         result.missing = []
       }
-      if (probeOptional && result.ok) {
-        for (const route of OPTIONAL_ROUTES) {
-          try {
-            await client.call(route, { probe: true })
-          } catch {
-            // Optional routes are only ever reported as absent through `missing`
-            // when the transport answered with a protocol error.
-          }
-        }
-      }
       result.latencyMs = Date.now() - started
       return result
     },
@@ -318,7 +294,6 @@ function createBackendBridge({ client = null, sessionsRoot = PATHS.SESSIONS, log
 module.exports = {
   REQUIRED_ROUTES,
   OPTIONAL_ROUTES,
-  JOURNAL_TAIL_BYTES,
   readJsonLines,
   createBackendBridge
 }

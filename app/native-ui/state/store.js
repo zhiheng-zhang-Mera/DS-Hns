@@ -82,6 +82,8 @@
       draft: '',
       sending: false,
       pendingEcho: null,
+      /** Sidebar search text (UI-local, like a scroll position). */
+      sessionQuery: '',
       settingsOpen: false,
       error: null,
       notice: null,

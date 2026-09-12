@@ -7,17 +7,25 @@ behaviour that changed, not the files that were touched.
 
 ### 真机验收后的修正（同一分支）
 
-**启动即挂载官方 Work UI。** Daily 工作台仍在重构，产品现在默认打开官方界面
-（`DEFAULT_STARTUP_MODE = work`），Daily 从 Dock 轨道条的 `H`/`D` 或 Top Bar 进入。
-`DSH_FRONTEND_MODE=daily|work` 可覆盖单次运行；用户上次选择的模式仍会记录，但不再决定下次
-启动挂载哪个前端。
+**Daily 重新做成 chat-first 工作台（Update-Plan/Daily-UX.md）。** 上一轮的固定三栏
+「工作台」被判定为方向错误（三个常驻列 + 状态 chip 顶栏像监控面板），本轮以 `2479bf5` 为
+逻辑基线撤回该 UX 层，保留 Dual UI runtime、主题图片修复、Work 全宽、Mega 模块折叠等正确
+部分，并把 Daily 重做成 chat-first：
 
-**Daily 主界面成为真正的工作台（daily-refactor §2）。** 新增顶部状态栏（Workspace / 当前
-会话 / 模型 / 权限 / 任务状态 / 后端状态，含切模型与切工作区——两者复用 Mega 的唯一设置
-写入者）、220–300px 会话侧栏、flex 对话区、300–460px **可折叠 Context Panel**（Tasks 与
-Context 两个标签已可用，Files / Changes / Git / Terminal 属于下一段并已给出明确的空状态）、
-Composer。Settings 仍是页面而不是默认视图。真机实测：侧栏 268px、对话 785px、Context
-348px，折叠后 46px。
+* Daily 恢复为默认启动前端（`DSH_FRONTEND_MODE=work` 可覆盖单次运行）；
+* 布局为 会话侧栏（220–280px，可收起）+ 对话区（flex）+ 固定底部 Composer，对话区占绝对主体；
+* 顶栏收缩到 Workspace / Model / 模式切换 / Settings，权限、任务数、后端状态等次要状态移入
+  工具抽屉的 Context 标签，不再堆成 dashboard；
+* Context Panel 改为**默认关闭的 Utility Drawer**：右侧按钮打开，`open` 以浮层覆盖对话
+  （不压缩对话宽度），`pinned` 才参与布局，320–460px；
+* 会话侧栏产品化：新建、搜索、运行中/最近/已归档分组、重命名（走 Harness `session/rename`）、
+  删除（需确认）、当前会话高亮；
+* Composer 支持多行、发送、停止与权限预设（与 Mega 共用同一个设置写入者）；
+* 主题语义 Surface：`root / sidebar / conversation / composer / utility`（Mega 为 `mega`），
+  主题针对稳定 surface 而不是 CSS class；
+* 角色成为 Daily 原生图层（右下/右侧/悬浮/侧栏/背景五种锚点，可隐藏、可移动、可缩放，
+  `pointer-events: none`，并置于对话区内所以永远不会压住 Composer）；主题没带角色图时用
+  同一主题的人设头像顶上，而不是留一个空图层。
 
 **Mega 默认收起全部模块。** Dock 的每个模块（Interface Mode / Appearance / Skills / 队列 /
 硬件 / Sub-worker / 余额 / 拓展状态）默认折叠，选择按模块保存；收起栏的 `H`/`D` 模式切换

@@ -44,11 +44,6 @@ function normalizeMode(value, fallback = DEFAULT_MODE) {
   return MODES.includes(text) ? text : fallback
 }
 
-/** Is this one of the two canonical frontend modes? */
-function isMode(value) {
-  return MODES.includes(String(value ?? '').trim().toLowerCase())
-}
-
 /** The other mode: `daily <-> work`. */
 function otherMode(mode) {
   return normalizeMode(mode) === MODE.DAILY ? MODE.WORK : MODE.DAILY
@@ -197,7 +192,6 @@ module.exports = {
   STATE_VERSION,
   normalizeMode,
   normalizeSessionId,
-  isMode,
   otherMode,
   createModeState
 }

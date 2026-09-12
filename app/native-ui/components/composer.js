@@ -26,6 +26,12 @@
       input.placeholder = composer.placeholder || 'Message the Harness...'
       send.disabled = !composer.canSend || !String(input.value || '').trim()
       stop.hidden = !composer.canStop
+      const permission = byId('permissionSelect')
+      if (permission) {
+        const configured = state.settings?.permissionMode
+        if (configured && permission.value !== configured) permission.value = configured
+        permission.disabled = !composer.ready
+      }
       if (hint) {
         hint.textContent = composer.ready
           ? (composer.reason || 'Enter to send · Shift+Enter for a new line')
@@ -60,6 +66,13 @@
       submit(store)
     })
     if (stop) stop.addEventListener('click', () => handlers.onStop?.())
+    const permission = byId('permissionSelect')
+    if (permission && typeof permission.addEventListener === 'function') {
+      permission.addEventListener('change', (event) => {
+        const value = event && event.target ? event.target.value : ''
+        if (value) handlers.onPermissionChange?.(value)
+      })
+    }
     render(store.get())
   }
 

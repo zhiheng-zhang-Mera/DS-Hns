@@ -268,6 +268,8 @@ const DAILY_LAYOUT = `(() => {
     const rect = element.getBoundingClientRect()
     const style = getComputedStyle(element)
     return {
+      x: Math.round(rect.left),
+      y: Math.round(rect.top),
       w: Math.round(rect.width),
       h: Math.round(rect.height),
       hidden: element.hidden === true || style.display === 'none'
@@ -278,8 +280,17 @@ const DAILY_LAYOUT = `(() => {
     sidebar: box('sidebar'),
     conversation: box('conversation'),
     composer: box('composer'),
-    context: box('contextPanel'),
-    settings: box('settingsPage')
+    timeline: box('timelineWrap'),
+    drawer: box('utilityDrawer'),
+    settings: box('settingsPage'),
+    utility: document.body.dataset.utility,
+    character: document.body.dataset.character,
+    characterAnchor: document.body.dataset.characterAnchor,
+    characterBox: box('characterLayer'),
+    characterImage: getComputedStyle(document.getElementById('characterLayer')).backgroundImage.slice(0, 24),
+    characterPointer: getComputedStyle(document.getElementById('characterLayer')).pointerEvents,
+    surfaces: ['root', 'sidebar', 'conversation', 'composer', 'utility'].filter((name) => document.querySelector('[data-hns-surface="' + name + '"]') !== null),
+    topbarChips: ['permissionChip', 'taskChip', 'backendChip'].filter((id) => document.getElementById(id) !== null)
   }
 })()`
 
@@ -311,32 +322,71 @@ async function main() {
     check('GateA.official', 'the official Harness renderer is up', true, official.target.url)
 
     const first = await native.page.evaluate(NATIVE_STATE)
-    const expectedStart = OPTIONS['frontend-mode'] || 'work'
+    const expectedStart = OPTIONS['frontend-mode'] || 'daily'
     check(
       'GateA.startMode',
       `the product starts on the configured frontend (${expectedStart})`,
       first?.mode === expectedStart,
       `mode=${first?.mode} expected=${expectedStart}`
     )
-    // Gate A (Daily refactor): the workspace is what is on screen, with all four
-    // regions laid out at the widths the plan asks for.
+    // Gate C (Daily-UX): chat first. Sidebar, conversation and composer, with the
+    // conversation dominant and no permanent third column.
     const layout = await native.page.evaluate(DAILY_LAYOUT)
-    check('GateA.layout.sidebar', 'the session sidebar is 220-300px', layout?.sidebar?.w >= 220 && layout?.sidebar?.w <= 300, JSON.stringify(layout?.sidebar))
-    check('GateA.layout.conversation', 'the conversation takes the remaining width', layout?.conversation?.w > 400, JSON.stringify(layout?.conversation))
-    check('GateA.layout.context', 'the context panel is 300-460px', layout?.context?.w >= 300 && layout?.context?.w <= 460, JSON.stringify(layout?.context))
-    check('GateA.layout.composer', 'the composer is present in the workspace', layout?.composer?.w > 0 && layout?.composer?.h > 0, JSON.stringify(layout?.composer))
-    check('GateA.layout.topbar', 'the top bar is present', layout?.topbar?.h > 0, JSON.stringify(layout?.topbar))
-    check('GateA.notSettings', 'Daily does not open on a Settings page', layout?.settings?.hidden === true, JSON.stringify(layout?.settings))
-    const collapsedWidth = await native.page.evaluate(`(() => {
-      const toggle = document.getElementById('collapseContext')
-      const panel = document.getElementById('contextPanel')
-      const width = () => Math.round(panel.getBoundingClientRect().width)
-      toggle.click()
-      const collapsed = width()
-      toggle.click()
-      return { collapsed, restored: width() }
+    check('GateC.sidebar', 'the session sidebar is 220-280px', layout?.sidebar?.w >= 220 && layout?.sidebar?.w <= 280, JSON.stringify(layout?.sidebar))
+    check(
+      'GateC.conversation',
+      'the conversation is the dominant region of the Daily surface',
+      layout?.conversation?.w > (layout?.sidebar?.w || 0) * 2,
+      `conversation=${layout?.conversation?.w} sidebar=${layout?.sidebar?.w}`
+    )
+    check('GateC.composer', 'the composer is present and usable', layout?.composer?.w > 200 && layout?.composer?.h > 0, JSON.stringify(layout?.composer))
+    check('GateC.notSettings', 'Daily does not open on a Settings page', layout?.settings?.hidden === true, JSON.stringify(layout?.settings))
+    check('GateD.closed', 'the utility drawer starts closed', layout?.utility === 'closed', `utility=${layout?.utility}`)
+    check(
+      'GateA.slimTopbar',
+      'the top bar carries no status chips',
+      layout?.topbar?.h > 0 && layout?.topbar?.h < 80 && (layout?.topbarChips || []).length === 0,
+      `height=${layout?.topbar?.h} chips=${JSON.stringify(layout?.topbarChips)}`
+    )
+    check(
+      'GateF.surfaces',
+      'the semantic theme surfaces exist',
+      (layout?.surfaces || []).length === 5,
+      JSON.stringify(layout?.surfaces)
+    )
+
+    // Gate D: the drawer opens over the conversation (no squeeze), and only
+    // squeezes it when the user pins it.
+    const drawer = await native.page.evaluate(`(() => {
+      const width = (id) => Math.round(document.getElementById(id).getBoundingClientRect().width)
+      const before = width('conversation')
+      document.getElementById('utilityHandle').click()
+      const opened = { state: document.body.dataset.utility, conversation: width('conversation') }
+      document.getElementById('pinUtility').click()
+      const pinned = { state: document.body.dataset.utility, conversation: width('conversation'), drawer: width('utilityDrawer') }
+      document.getElementById('pinUtility').click()
+      document.getElementById('closeUtility').click()
+      return { before, opened, pinned, after: { state: document.body.dataset.utility, conversation: width('conversation') } }
     })()`)
-    check('GateA.context.foldable', 'the context panel folds and unfolds', collapsedWidth?.collapsed < 80 && collapsedWidth?.restored >= 300, JSON.stringify(collapsedWidth))
+    check('GateD.open', 'the drawer opens from the right-edge handle', drawer?.opened?.state === 'open', JSON.stringify(drawer?.opened))
+    check(
+      'GateD.overlay',
+      'an open drawer does not squeeze the conversation',
+      drawer?.opened?.conversation === drawer?.before,
+      `${drawer?.before} -> ${drawer?.opened?.conversation}`
+    )
+    check('GateD.pinned', 'pinning makes the drawer a real column', drawer?.pinned?.state === 'pinned' && drawer?.pinned?.conversation < drawer?.before, JSON.stringify(drawer?.pinned))
+    check('GateD.unpinned', 'unpinning and closing returns to the plain chat layout', drawer?.after?.state === 'closed' && drawer?.after?.conversation === drawer?.before, JSON.stringify(drawer?.after))
+
+    // Gate G: the character is a native layer, never over the composer.
+    check(
+      'GateG.character',
+      'the character layer shows a real image, is pointer-transparent and clears the composer',
+      layout?.character === 'on' && layout?.characterPointer === 'none' && layout?.characterBox?.h > 0 &&
+        String(layout?.characterImage || '').includes('data:image') &&
+        (layout?.characterBox?.y ?? 0) + (layout?.characterBox?.h ?? 0) <= (layout?.composer?.y ?? 0) + 1,
+      JSON.stringify({ anchor: layout?.characterAnchor, image: layout?.characterImage, box: layout?.characterBox, composerY: layout?.composer?.y, pointer: layout?.characterPointer })
+    )
     check('GateH.theme', 'the active theme reached the native surface', Boolean(first?.themeId), `themeId=${first?.themeId}`)
     const paintedLayers = Object.entries(first?.layers || {}).filter(([, value]) => value?.inline).map(([key]) => key)
     check(
@@ -407,14 +457,23 @@ async function main() {
 
     // ---- Gate C: the official UI at the width it needs, with the dock aside ----
     await dock.page.evaluate("window.megaTools.mode.set('work')")
-    await sleep(900)
+    // Entering Work collapses the dock. The measurement is the shell's own view
+    // geometry: a renderer's `innerWidth` lags while its view is not composited
+    // (which is exactly what happens in a background window), so it is not a
+    // trustworthy proxy for "did the official UI get the width".
+    const diagnostics = await poll(
+      native.page,
+      'window.hnsNative.diagnostics.describe()',
+      (value) => value && value.views && value.views.official && value.views.official.width >= 1200,
+      { timeoutMs: 8000 }
+    )
     const officialTargets = (await targets()).filter((entry) => /^http:\/\/127\.0\.0\.1:/.test(String(entry.url)) && !String(entry.url).includes('/api/'))
-    const officialViewport = await official.page.evaluate('({ w: innerWidth, h: innerHeight })')
+    const officialViewport = diagnostics && diagnostics.views ? diagnostics.views.official : null
     check(
       'GateC.width',
-      'Work Mode gives the official UI its full width (the dock steps aside)',
-      officialViewport?.w >= 1200,
-      `official viewport ${officialViewport?.w}x${officialViewport?.h}`
+      'Work Mode gives the official view its full width (the dock steps aside)',
+      officialViewport?.width >= 1200,
+      `official view ${JSON.stringify(officialViewport)} dockExpanded=${diagnostics?.views?.dockExpanded}`
     )
     const dockCollapsed = await dock.page.evaluate("document.body.classList.contains('collapsed')")
     check('GateC.dock', 'the dock collapsed to its rail for Work Mode', dockCollapsed === true, `collapsed=${dockCollapsed}`)

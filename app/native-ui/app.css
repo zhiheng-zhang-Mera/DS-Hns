@@ -156,11 +156,6 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
   white-space: nowrap;
 }
 .chip-button:hover { border-color: var(--hns-color-accent-primary); color: var(--hns-color-label-primary); }
-#backendChip[data-state="ready"] { color: var(--hns-state-completed, #3ecf8e); }
-#backendChip[data-state="degraded"] { color: var(--hns-state-blocked, #f0b429); }
-#backendChip[data-state="unreachable"] { color: var(--hns-state-failed, #ef5d5d); }
-#taskChip[data-active="1"] { color: var(--hns-color-accent-primary); border-color: var(--hns-color-accent-primary); }
-
 .banner {
   position: relative;
   z-index: 2;
@@ -173,13 +168,14 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 .banner[data-kind="error"] { color: var(--hns-state-failed, #ef5d5d); }
 .banner[data-kind="warn"] { color: var(--hns-state-blocked, #f0b429); }
 
-/* ---- layout ---- */
+/* ---- layout: chat first (Daily-UX 任务 4) -------------------------------- */
 #layout {
   position: relative;
   z-index: 2;
   display: grid;
-  /* Session Sidebar 220-300px · Conversation flex · Context Panel 300-460px. */
-  grid-template-columns: 268px minmax(0, 1fr) 348px;
+  /* Sidebar 220-280px (default 268) · Conversation takes everything else.
+     The utility drawer is NOT a column unless the user pins it. */
+  grid-template-columns: 268px minmax(0, 1fr);
   gap: var(--hns-space-gap);
   padding: var(--hns-space-gap);
   min-height: 0;
@@ -187,8 +183,7 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 }
 
 #sidebar,
-#conversation,
-#contextPanel {
+#conversation {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -218,11 +213,7 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
   color: var(--hns-color-label-tertiary);
 }
 
-/*
- * Collapsible panels: the native frontend keeps its two side modules (Sessions
- * and Activity) collapsible so a narrow window can give the conversation the
- * whole width. The state is UI-local and persisted in this renderer only.
- */
+/* The session column folds to a narrow strip; the state is UI-local. */
 .panel-collapse {
   width: 20px;
   height: 20px;
@@ -239,19 +230,14 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 }
 .panel-collapse:hover { color: var(--hns-color-label-primary); }
 /*
- * Collapsing hides the module body, never the header that can bring it back
- * (Daily refactor 任务 1: the Context Panel must be foldable, and 任务 27 asks for
- * the same for the session column). A collapsed column keeps a narrow strip with
- * its toggle, so the workspace gains the width but nothing becomes unreachable.
+ * Collapsing hides the module body, never the header that can bring it back: a
+ * collapsed column keeps a narrow strip with its toggle, so the conversation
+ * gains the width and nothing becomes unreachable.
  */
-#sidebar[data-collapsed="1"],
-#contextPanel[data-collapsed="1"] { width: 46px; padding: 6px; }
-#sidebar[data-collapsed="1"] > :not(.sidebar-head),
-#contextPanel[data-collapsed="1"] > :not(.panel-head) { display: none; }
-#sidebar[data-collapsed="1"] .sidebar-head > :not(.panel-collapse),
-#contextPanel[data-collapsed="1"] .panel-head > :not(.panel-collapse) { display: none; }
-#sidebar[data-collapsed="1"] .sidebar-head,
-#contextPanel[data-collapsed="1"] .panel-head { justify-content: center; }
+#sidebar[data-collapsed="1"] { width: 46px; padding: 6px; }
+#sidebar[data-collapsed="1"] > :not(.sidebar-head) { display: none; }
+#sidebar[data-collapsed="1"] .sidebar-head > :not(.panel-collapse) { display: none; }
+#sidebar[data-collapsed="1"] .sidebar-head { justify-content: center; }
 .count {
   padding: 1px 8px;
   border-radius: var(--hns-slot-hns-status-badge-radius);
@@ -274,6 +260,47 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
   border-radius: var(--hns-radius-sm);
   padding: 4px;
 }
+.session-search {
+  padding: 6px 8px;
+  border: 1px solid var(--hns-color-border-l1);
+  border-radius: var(--hns-radius-sm);
+  background: var(--hns-color-bg-layer2);
+  color: var(--hns-color-label-primary);
+  font: inherit;
+  font-size: var(--hns-font-size-caption);
+}
+.session-group {
+  margin: 6px 2px 2px;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--hns-color-label-tertiary);
+}
+.session-row { position: relative; }
+.session-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.session-row:hover .session-actions,
+.session-row:focus-within .session-actions { opacity: 1; }
+.session-action {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--hns-color-border-l1);
+  border-radius: 4px;
+  background: var(--hns-color-bg-layer1);
+  color: var(--hns-color-label-tertiary);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.session-action:hover { color: var(--hns-color-label-primary); }
+.session-action.danger:hover { color: var(--hns-state-failed, #ef5d5d); border-color: var(--hns-state-failed, #ef5d5d); }
 .session-row {
   display: flex;
   flex-direction: column;
@@ -294,6 +321,7 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 
 /* ---- conversation ---- */
 #conversation { padding: 0; }
+.timeline-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
 .timeline {
   flex: 1;
   min-height: 0;
@@ -360,9 +388,137 @@ body:not(.theme-persona) #personaAvatarLayer { display: none; }
 .composer-buttons { display: flex; flex-direction: column; gap: 4px; }
 .hint { margin: 6px 0 0; font-size: var(--hns-font-size-caption); color: var(--hns-color-label-tertiary); }
 .hint[data-state="blocked"] { color: var(--hns-state-blocked, #f0b429); }
+.composer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hns-space-gap);
+}
+.composer-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--hns-font-size-caption);
+  color: var(--hns-color-label-tertiary);
+}
+.composer-field select {
+  padding: 3px 6px;
+  border: 1px solid var(--hns-color-border-l1);
+  border-radius: var(--hns-radius-sm);
+  background: var(--hns-color-bg-layer2);
+  color: var(--hns-color-label-primary);
+  font: inherit;
+  font-size: var(--hns-font-size-caption);
+}
 
-/* ---- activity panel ---- */
-#contextPanel { padding: var(--hns-space-gap); gap: var(--hns-space-gap); overflow: hidden; }
+/* ---- character layer (Daily-UX 任务 15) ---- */
+/*
+ * The character is a native Daily layer, never an overlay above another renderer.
+ * It lives inside the timeline area (or the sidebar, for the pet anchor), is
+ * always pointer-events:none and is sized/placed from user controls that fall
+ * back to the theme's own anchor/scale.
+ */
+#characterLayer {
+  position: absolute;
+  pointer-events: none;
+  background-image: var(--hns-native-character, var(--hns-asset-hns-character, none));
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: var(--hns-native-character-opacity, 0);
+  z-index: 1;
+  max-width: 100%;
+}
+body[data-character="off"] #characterLayer { display: none; }
+body[data-character-anchor="corner"] #characterLayer {
+  right: 8px;
+  bottom: 8px;
+  width: var(--hns-character-width, 240px);
+  height: var(--hns-character-height, 320px);
+  background-position: bottom right;
+}
+body[data-character-anchor="chat-edge"] #characterLayer {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--hns-character-width, 200px);
+  height: 60%;
+  background-position: center right;
+}
+body[data-character-anchor="floating"] #characterLayer {
+  right: 18px;
+  bottom: 18px;
+  width: var(--hns-character-width, 300px);
+  height: var(--hns-character-height, 400px);
+  background-position: bottom right;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .45));
+}
+body[data-character-anchor="sidebar"] #characterLayer {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 40%;
+  background-position: bottom center;
+}
+body[data-character-anchor="background"] #characterLayer {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-position: center bottom;
+  background-size: cover;
+  opacity: calc(var(--hns-native-character-opacity, 0) * .5);
+  z-index: 0;
+}
+
+/* ---- utility drawer (Daily-UX 任务 8 / 任务 9 / 任务 10) ---- */
+.utility-handle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 7;
+  padding: 12px 5px;
+  border: 1px solid var(--hns-color-border-l1);
+  border-right: none;
+  border-radius: var(--hns-radius-sm) 0 0 var(--hns-radius-sm);
+  background: var(--hns-color-bg-raised);
+  color: var(--hns-color-label-secondary);
+  writing-mode: vertical-rl;
+  font-size: var(--hns-font-size-caption);
+  letter-spacing: .18em;
+  cursor: pointer;
+}
+.utility-handle:hover { color: var(--hns-color-label-primary); }
+body[data-utility="open"] .utility-handle,
+body[data-utility="pinned"] .utility-handle { opacity: .25; }
+
+.utility-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  width: 380px;
+  max-width: min(460px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hns-space-gap);
+  padding: var(--hns-space-gap);
+  overflow: hidden;
+  background: var(--hns-color-bg-layer1);
+  border-left: 1px solid var(--hns-color-border-l1);
+  box-shadow: var(--hns-shadow-l2);
+  transform: translateX(100%);
+  transition: transform .16s ease;
+}
+body[data-utility="open"] .utility-drawer { transform: none; }
+/* Pinned: the drawer becomes a real column and the conversation keeps its floor. */
+body[data-utility="pinned"] .utility-drawer { position: static; transform: none; }
+body[data-utility="pinned"] #layout { grid-template-columns: 268px minmax(320px, 1fr) minmax(320px, 380px); }
+.drawer-head { display: flex; align-items: center; gap: 8px; }
+.drawer-head b { font-size: var(--hns-font-size-body); }
+.drawer-head .context-hint { flex: 1; }
+
 /* Context tabs (任务 10) */
 .context-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
 .context-tab {

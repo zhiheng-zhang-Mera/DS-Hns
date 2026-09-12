@@ -21,42 +21,35 @@
   <link rel="stylesheet" href="themes/base.css">
   <link rel="stylesheet" href="app.css">
 </head>
-<body data-mode="daily">
-  <div id="hnsNative" data-hns-surface="hns_native">
+<body data-mode="daily" data-utility="closed" data-character="on" data-character-anchor="corner">
+  <div id="hnsNative" data-hns-surface="root">
     <!-- Theme layers: background wallpaper, character, decoration (任务 15). -->
     <div id="backgroundLayer" aria-hidden="true"></div>
-    <div id="characterLayer" aria-hidden="true"></div>
     <div id="decorationLayer" aria-hidden="true"></div>
     <div id="personaBannerLayer" aria-hidden="true"></div>
     <div id="personaAvatarLayer" aria-hidden="true"></div>
 
     <!--
-      Top Bar (Update-Plan/daily-refactorr.md 任务 1 / 任务 3).
+      Slim Top Bar (Update-Plan/Daily-UX.md 任务 3).
 
-      It carries the *working* context only: workspace, current session, model,
-      permission mode, task status, backend status, plus the two switches the plan
-      allows here (workspace, model) and a way into Settings. Updater,
-      Sub-worker detail, the theme generator and diagnostics deliberately stay in
-      Mega - they are system management, not daily work.
+      Exactly four things plus the chat title: workspace, model, mode switch,
+      settings. Permission, task counts, backend status and diagnostics were moved
+      out - they are secondary status (the utility drawer) or system management
+      (Mega), and a top bar is not a monitoring dashboard.
     -->
-    <header id="topbar">
+    <header id="topbar" data-hns-surface="topbar">
       <div class="brand">
         <span class="brand-mark">HNS</span>
         <div class="brand-text">
-          <b id="sessionTitle">Daily Mode</b>
-          <small id="sessionSub">HNS Native Frontend</small>
+          <b id="sessionTitle">Daily</b>
+          <small id="sessionSub">未选择会话</small>
         </div>
       </div>
-      <div class="topbar-status">
+      <div class="topbar-actions">
         <button id="workspaceChip" type="button" class="chip chip-button" title="切换工作区">workspace: —</button>
         <label class="topbar-field" title="模型">
           <select id="modelSelect" aria-label="Model"></select>
         </label>
-        <span id="permissionChip" class="chip" title="权限模式">permission: —</span>
-        <button id="taskChip" type="button" class="chip chip-button" title="查看任务状态">tasks: 0</button>
-        <span id="backendChip" class="chip" data-state="unknown" title="Backend 状态">backend: —</span>
-      </div>
-      <div class="topbar-actions">
         <span id="modeChip" class="chip" data-mode="daily" title="Interface mode">Daily</span>
         <button id="toggleMode" type="button" class="quiet" title="Switch to the official Work Mode">Work Mode</button>
         <button id="openSettings" type="button" class="icon-button" title="Settings" aria-label="Settings">⚙</button>
@@ -66,20 +59,26 @@
     <p id="banner" class="banner" role="status" hidden></p>
 
     <div id="layout">
-      <aside id="sidebar" aria-label="Sessions">
+      <aside id="sidebar" data-hns-surface="sidebar" aria-label="Sessions">
         <div class="sidebar-head">
           <b>Sessions</b>
           <span id="sessionCount" class="count">0</span>
-          <button id="collapseSessions" type="button" class="panel-collapse" title="折叠模块" aria-label="折叠会话模块" aria-expanded="true">▾</button>
+          <button id="collapseSessions" type="button" class="panel-collapse" title="收起会话栏" aria-label="收起会话栏" aria-expanded="true">‹</button>
         </div>
         <button id="newSession" type="button" class="primary">New session</button>
+        <input id="sessionSearch" type="search" class="session-search" placeholder="搜索会话…" aria-label="搜索会话">
         <div id="sessionList" class="session-list" role="list"></div>
       </aside>
 
-      <main id="conversation" aria-label="Conversation">
-        <div id="timeline" class="timeline" role="log" aria-live="polite"></div>
+      <main id="conversation" data-hns-surface="conversation" aria-label="Conversation">
+        <!-- The character layer lives inside the timeline area, so "bottom" is the
+             bottom of the message area and never the composer (Daily-UX 任务 15). -->
+        <div id="timelineWrap" class="timeline-wrap">
+          <div id="timeline" class="timeline" role="log" aria-live="polite"></div>
+          <div id="characterLayer" aria-hidden="true"></div>
+        </div>
         <p id="runningState" class="running" hidden></p>
-        <form id="composer" class="composer" autocomplete="off">
+        <form id="composer" data-hns-surface="composer" class="composer" autocomplete="off">
           <div class="composer-row">
             <textarea id="composerInput" rows="2" spellcheck="false"
                       placeholder="Message the Harness..." aria-label="Message"></textarea>
@@ -88,40 +87,52 @@
               <button id="composerStop" type="button" class="quiet danger" hidden>Stop</button>
             </div>
           </div>
-          <p id="composerHint" class="hint" role="status"></p>
+          <div class="composer-meta">
+            <label class="composer-field" title="权限预设">
+              权限
+              <select id="permissionSelect" aria-label="Permission preset">
+                <option value="workspace-write">workspace-write</option>
+                <option value="read-only">read-only</option>
+                <option value="danger-full-access">danger-full-access</option>
+              </select>
+            </label>
+            <span id="composerHint" class="hint" role="status"></span>
+          </div>
         </form>
       </main>
-
-      <!--
-        Context Panel (Update-Plan/daily-refactorr.md 任务 1): 300-460px, foldable.
-        The tab set is the one the plan names; Files / Changes / Git / Terminal are
-        filled by the next stage (section 7 of the plan) and say so honestly until
-        then rather than showing an empty black box.
-      -->
-      <section id="contextPanel" aria-label="Context panel">
-        <div class="panel-head">
-          <b>Context</b>
-          <span id="contextHint" class="context-hint">Tasks</span>
-          <button id="collapseContext" type="button" class="panel-collapse" title="折叠 Context Panel" aria-label="折叠 Context Panel" aria-expanded="true">▾</button>
-        </div>
-        <div class="context-tabs" role="tablist" aria-label="Context tabs">
-          <button type="button" class="context-tab" data-context-tab="files" role="tab">Files</button>
-          <button type="button" class="context-tab" data-context-tab="changes" role="tab">Changes</button>
-          <button type="button" class="context-tab" data-context-tab="git" role="tab">Git</button>
-          <button type="button" class="context-tab active" data-context-tab="tasks" role="tab">
-            Tasks<span id="toolBadge" class="count" data-active="0">0</span>
-          </button>
-          <button type="button" class="context-tab" data-context-tab="terminal" role="tab">Terminal</button>
-          <button type="button" class="context-tab" data-context-tab="context" role="tab">Context</button>
-        </div>
-        <div id="contextBody" class="context-body"></div>
-      </section>
     </div>
 
     <!--
-      Settings is a PAGE, never the default view (Update-Plan/daily-refactorr.md
-      任务 2). Daily opens on the workspace; this page is reached from the top bar
-      and is read-only apart from the two settings the top bar owns.
+      Utility Drawer (Update-Plan/Daily-UX.md 任务 8 / 任务 9 / 任务 10).
+
+      Closed by default and opened from the right-edge handle. `open` overlays the
+      conversation; `pinned` participates in the layout. Either way the drawer is
+      never a permanent column that squeezes the chat.
+    -->
+    <button id="utilityHandle" type="button" class="utility-handle" title="工具抽屉（Files / Git / Tasks / Context）" aria-label="打开工具抽屉">工具</button>
+    <section id="utilityDrawer" data-hns-surface="utility" class="utility-drawer" aria-label="Utility drawer">
+      <div class="drawer-head">
+        <b>Utility</b>
+        <span id="contextHint" class="context-hint">Tasks</span>
+        <button id="pinUtility" type="button" class="panel-collapse" title="固定（参与布局）" aria-label="固定工具抽屉" aria-pressed="false">⇥</button>
+        <button id="closeUtility" type="button" class="icon-button" title="关闭" aria-label="关闭工具抽屉">×</button>
+      </div>
+      <div class="context-tabs" role="tablist" aria-label="Utility tabs">
+        <button type="button" class="context-tab" data-context-tab="files" role="tab">Files</button>
+        <button type="button" class="context-tab" data-context-tab="changes" role="tab">Changes</button>
+        <button type="button" class="context-tab" data-context-tab="git" role="tab">Git</button>
+        <button type="button" class="context-tab active" data-context-tab="tasks" role="tab">
+          Tasks<span id="toolBadge" class="count" data-active="0">0</span>
+        </button>
+        <button type="button" class="context-tab" data-context-tab="terminal" role="tab">Terminal</button>
+        <button type="button" class="context-tab" data-context-tab="context" role="tab">Context</button>
+      </div>
+      <div id="contextBody" class="context-body"></div>
+    </section>
+
+    <!--
+      Settings is a PAGE, never the default view (Update-Plan/Daily-UX.md 任务 3):
+      Daily opens on the conversation and this page is reached from the top bar.
     -->
     <div id="settingsPage" class="settings-page" role="dialog" aria-modal="true" aria-label="Settings page" hidden>
       <div class="settings-head">
@@ -145,6 +156,7 @@
   <script src="components/conversation.js"></script>
   <script src="components/tool-activity.js"></script>
   <script src="components/context-panel.js"></script>
+  <script src="components/character.js"></script>
   <script src="components/composer.js"></script>
   <script src="components/settings.js"></script>
   <script src="app.js"></script>

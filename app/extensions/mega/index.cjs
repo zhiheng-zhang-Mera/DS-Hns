@@ -34,6 +34,8 @@ const CHANNELS = [
   // Daily top bar actions (Update-Plan/daily-refactorr.md 任务 3): the same
   // writers the dock uses, reached from the native frontend.
   'hns:native-update-settings', 'hns:native-pick-workspace',
+  // Daily session sidebar actions.
+  'hns:native-rename-session', 'hns:native-delete-session',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -1323,6 +1325,24 @@ function registerNativeIpc() {
   ipcMain.handle('hns:native-pick-workspace', guard(async () => {
     const root = await pickWorkspaceDirectory(ctx.electron.dialog)
     return { ok: Boolean(root), workspace: root || null }
+  }))
+  ipcMain.handle('hns:native-rename-session', guard(async (_event, payload) => {
+    const runtime = nativeFrontend()
+    if (!runtime?.adapter) return { ok: false, reason: 'native_frontend_unavailable' }
+    const result = await runtime.adapter.renameSession(String(payload?.sessionId || ''), String(payload?.title || ''))
+    if (result?.ok) pushNativeSnapshot()
+    return result
+  }))
+  ipcMain.handle('hns:native-delete-session', guard((_event, payload) => {
+    const sessionId = String(payload?.sessionId || '')
+    if (!sessionId) return { ok: false, reason: 'no_session' }
+    // Deleting a session removes its durable journal, which cannot be undone, so
+    // the renderer asks for confirmation first and this handler only executes it.
+    const removed = sessionReader.deleteSessionsFor([sessionId])
+    nativeFrontend()?.sync?.recordActiveSession?.(null, { mode: 'daily' })
+    notifyChanged()
+    log(`native sidebar deleted session ${sessionId} (${removed} journal(s) removed)`)
+    return { ok: removed > 0, removed, reason: removed > 0 ? null : 'journal_not_found' }
   }))
 
   // ---- Mega dock mode surface (任务 12 / 任务 13) ----

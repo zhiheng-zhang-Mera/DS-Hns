@@ -127,24 +127,24 @@ test('normalizeMode accepts only the two canonical modes', () => {
   assert.equal(stateModule.otherMode('work'), 'daily')
 })
 
-test('the product opens on the official Work UI unless a run overrides it', () => {
-  assert.equal(DEFAULT_STARTUP_MODE, 'work', 'the build default is the official frontend')
+test('the product opens on Daily unless a run overrides it (Daily-UX 任务 1)', () => {
+  assert.equal(DEFAULT_STARTUP_MODE, 'daily', 'Daily is the product default')
   const runtime = createFrontendModeRuntime({ stateFile: null, applyVisibility: () => {} })
-  assert.equal(runtime.manager.current(), 'work')
-  assert.equal(runtime.manager.machineState(), 'WORK_ACTIVE')
+  assert.equal(runtime.manager.current(), 'daily')
+  assert.equal(runtime.manager.machineState(), 'DAILY_ACTIVE')
 
-  const overridden = createFrontendModeRuntime({ stateFile: null, startupMode: 'daily', applyVisibility: () => {} })
-  assert.equal(overridden.manager.current(), 'daily', 'DSH_FRONTEND_MODE wins for one run')
+  const overridden = createFrontendModeRuntime({ stateFile: null, startupMode: 'work', applyVisibility: () => {} })
+  assert.equal(overridden.manager.current(), 'work', 'DSH_FRONTEND_MODE=work wins for one run')
 
-  // A saved preference is remembered (it decides which session each side keeps),
-  // but it does not decide which frontend the next launch mounts.
+  // The mode a user last chose is remembered for session memory but does not
+  // decide which frontend the next launch mounts.
   const dir = tempDir('startup-mode')
   const file = path.join(dir, 'mode.json')
   const state = stateModule.createModeState({ file })
-  state.setMode('daily')
+  state.setMode('work')
   const resumed = createFrontendModeRuntime({ stateFile: file, applyVisibility: () => {} })
-  assert.equal(resumed.manager.current(), 'work')
-  assert.equal(resumed.state.describe().frontendMode, 'daily', 'the preference is preserved, not overwritten')
+  assert.equal(resumed.manager.current(), 'daily')
+  assert.equal(resumed.state.describe().frontendMode, 'work', 'the preference is preserved, not overwritten')
   fs.rmSync(dir, { recursive: true, force: true })
 })
 
@@ -247,9 +247,6 @@ test('the backend bridge lists sessions and reads the durable journal', async ()
   assert.equal(journal.ok, true)
   assert.equal(journal.file, file)
   assert.equal(journal.events.length, 7)
-
-  const tail = bridge.tailJournal('sess-1', 2)
-  assert.deepEqual(tail.events.map((event) => event.seq), [3, 4, 5, 6])
 
   const missing = bridge.readJournal('no-such-session')
   assert.equal(missing.ok, false)
@@ -538,7 +535,11 @@ test('the native frontend never reads or styles the official renderer (Gate I)',
     }
   }
   const html = read('app/native-ui/index.html')
-  assert.match(html, /data-hns-surface="hns_native"/)
+  // Semantic surfaces (Daily-UX 任务 14): the theme targets these names, not CSS
+  // class names of the moment.
+  for (const surface of ['root', 'sidebar', 'conversation', 'composer', 'utility']) {
+    assert.ok(html.includes(`data-hns-surface="${surface}"`), `the Daily document declares the ${surface} surface`)
+  }
   assert.match(html, /script-src 'self'/)
   assert.match(html, /style-src 'self' 'nonce-hns-native-tokens'/)
   const markup = html.replace(/<!--[\s\S]*?-->/g, '')

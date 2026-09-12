@@ -42,7 +42,7 @@
     ['topbar', () => ui.topbar.render(store.get())],
     ['sessionList', () => ui.sessionList.render(store.get())],
     ['conversation', () => ui.conversation.render(store.get())],
-    ['contextPanel', () => ui.contextPanel.render(store.get())],
+    ['utility', () => ui.utility.render(store.get())],
     ['composer', () => ui.composer.render(store.get())],
     ['settings', () => ui.settings.render(store.get())]
   ]
@@ -56,13 +56,12 @@
       banner.dataset.kind = state.error ? 'error' : state.degraded ? 'warn' : 'info'
       banner.textContent = message || ''
     }
-    // Settings is a page, never the default view (任务 2): the workspace is what
-    // is on screen unless the user asked for the page.
+    // Settings is a page, never the default view.
     const page = byId('settingsPage')
     if (page) page.hidden = !state.settingsOpen
     document.body.dataset.mode = state.mode
     document.body.dataset.backend = state.backend?.state || 'unknown'
-    document.body.dataset.view = state.settingsOpen ? 'settings' : 'workspace'
+    document.body.dataset.view = state.settingsOpen ? 'settings' : 'chat'
   }
 
   const RENDERERS = [['shell', renderShell], ...COMPONENTS]
@@ -144,15 +143,21 @@
     const character = slots['hns.character.primary'] || slots['official.overlay.character_primary'] || {}
     const decoration = slots['hns.persona.decoration'] || slots['official.overlay.corner_decoration'] || {}
     setAssetVar(root, '--hns-native-background', imageOf(background))
-    setAssetVar(root, '--hns-native-character', imageOf(character))
+    // The character layer shows the theme's character. A theme that ships no
+    // dedicated character (the built-in demos carry a persona avatar instead)
+    // still gets a figure in Daily rather than an empty layer.
+    const characterAsset = imageOf(character) || persona.avatarAsset || null
+    setAssetVar(root, '--hns-native-character', characterAsset)
     setAssetVar(root, '--hns-native-decoration', imageOf(decoration))
     setAssetVar(root, '--hns-native-persona-avatar', imageOf(slots['hns.operator.avatar']) || imageOf(slots['hns.persona.status_avatar']))
     setAssetVar(root, '--hns-native-persona-banner', imageOf(slots['hns.persona.banner']))
-    setVar(root, '--hns-native-character-opacity', character.opacity ?? 0)
+    setVar(root, '--hns-native-character-opacity', character.opacity ?? (characterAsset ? 0.9 : 0))
     setVar(root, '--hns-native-decoration-opacity', decoration.opacity ?? 0)
     setVar(root, '--hns-native-background-opacity', background.opacity ?? 1)
     setVar(root, '--hns-native-persona-banner-opacity', persona.enabled ? (persona.bannerOpacity || 0.25) : 0)
     setVar(root, '--hns-native-persona-avatar-opacity', persona.enabled ? Math.min(1, (persona.decorationOpacity || 0.2) * 5) : 0)
+    // The theme may place the character; a user choice overrides it (任务 15).
+    ui.character?.applyTheme(character)
   }
 
   /** The image a slot payload carries, whichever property name it used. */
@@ -184,13 +189,13 @@
   function reportRegions() {
     const measured = {}
     const map = {
-      'hns.window.shell': '#hnsNative',
-      'hns.process.panel': '#conversation',
-      'hns.process.queue': '#sessionList',
-      'hns.status.badge': '#modeChip',
+      'hns.window.shell': '[data-hns-surface="root"]',
+      'common.navigation.sidebar': '[data-hns-surface="sidebar"]',
+      'hns.process.panel': '[data-hns-surface="conversation"]',
       'common.input.default': '#composerInput',
       'common.button.primary': '#composerSend',
-      'common.navigation.sidebar': '#sidebar'
+      'hns.status.badge': '#modeChip',
+      'hns.process.queue': '[data-hns-surface="utility"]'
     }
     for (const [slotId, selector] of Object.entries(map)) {
       const node = document.querySelector(selector)
@@ -398,6 +403,55 @@
   }
 
   /**
+   * Sidebar session actions.
+   *
+   * Rename goes to the Harness (`session/rename`); delete removes the session's
+   * durable journal after an explicit confirmation, because it cannot be undone.
+   * Archiving is local by definition and lives in the session list itself.
+   */
+  async function onRenameSession(sessionId) {
+    const state = store.get()
+    const session = (state.sessions || []).find((entry) => String(entry.id) === String(sessionId))
+    if (!session) return
+    const title = global.prompt ? global.prompt('重命名会话', session.title || '') : null
+    if (title === null || !String(title).trim()) return
+    try {
+      const result = await bridge.session.rename?.(sessionId, String(title).trim())
+      if (result && result.ok === false) store.set({ error: result.message || result.reason || 'rename failed' })
+    } catch (error) {
+      store.set({ error: `Rename failed: ${error?.message || error}` })
+    }
+    await refresh()
+  }
+
+  async function onDeleteSession(sessionId) {
+    const state = store.get()
+    const session = (state.sessions || []).find((entry) => String(entry.id) === String(sessionId))
+    const question = `删除会话「${session ? session.title : sessionId}」？该会话的对话记录会被移除，且无法恢复。`
+    if (global.confirm && !global.confirm(question)) return
+    try {
+      const result = await bridge.session.remove?.(sessionId)
+      if (result && result.ok === false) store.set({ error: result.message || result.reason || 'delete failed' })
+      else if (state.activeSessionId === sessionId) store.set({ activeSessionId: null, session: null })
+    } catch (error) {
+      store.set({ error: `Delete failed: ${error?.message || error}` })
+    }
+    await refresh()
+  }
+
+  /** The composer's permission preset is the same settings write as Mega's. */
+  async function onPermissionChange(permissionMode) {
+    if (!permissionMode) return
+    try {
+      const result = await bridge.settings?.update?.({ permissionMode })
+      if (result && result.ok === false) store.set({ error: result.message || result.reason || 'permission switch failed' })
+    } catch (error) {
+      store.set({ error: `Permission switch failed: ${error?.message || error}` })
+    }
+    await refresh()
+  }
+
+  /**
    * Collapsible side modules (UI-local state).
    *
    * Sessions and Activity are the two big modules around the conversation; a
@@ -427,13 +481,13 @@
 
   function setupCollapsiblePanels() {
     const saved = readPanelState()
-    for (const [panelId, buttonId] of [['sidebar', 'collapseSessions'], ['contextPanel', 'collapseContext']]) {
+    for (const [panelId, buttonId] of [['sidebar', 'collapseSessions']]) {
       const panel = byId(panelId)
       const button = byId(buttonId)
       if (!panel || !button) continue
       const apply = (collapsed) => {
         panel.dataset.collapsed = collapsed ? '1' : ''
-        button.textContent = collapsed ? '▸' : '▾'
+        button.textContent = collapsed ? '›' : '‹'
         button.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
       }
       apply(Boolean(saved[panelId]))
@@ -452,27 +506,47 @@
 
   function bind() {
     setupCollapsiblePanels()
+    ui.character.mount()
     ui.topbar.mount({
       onPickWorkspace,
       onModelChange,
-      onShowTasks: () => ui.contextPanel.setActive('tasks') && render(),
       onOpenSettings: () => store.set({ settingsOpen: true }),
       onToggleMode
     })
-    ui.contextPanel.mount({ onRefresh: () => refresh({ quiet: true }) })
-    ui.sessionList.mount({ onCreate: onCreateSession })
-    ui.composer.mount(store, { onSend, onStop })
+    ui.utility.mount({ onRefresh: () => refresh({ quiet: true }) })
+    ui.sessionList.mount({
+      onCreate: onCreateSession,
+      onSearch: (value) => store.set({ sessionQuery: String(value || '') })
+    })
+    ui.composer.mount(store, { onSend, onStop, onPermissionChange })
     ui.settings.mount({
       onOpen: () => store.set({ settingsOpen: true }),
       onClose: () => store.set({ settingsOpen: false })
     })
     delegate(byId('sessionList'), (event) => {
-      const row = event.target?.closest?.('[data-session]')
+      const target = event.target
+      const action = target?.closest?.('[data-session-action]')
+      if (action) {
+        event.stopPropagation?.()
+        const id = action.dataset.id
+        if (action.dataset.sessionAction === 'rename') onRenameSession(id)
+        else if (action.dataset.sessionAction === 'archive') {
+          ui.sessionList.toggleArchived(id)
+          render()
+        } else if (action.dataset.sessionAction === 'delete') onDeleteSession(id)
+        return
+      }
+      const row = target?.closest?.('[data-session]')
       if (row) onSelectSession(row.dataset.session)
     })
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && store.get().settingsOpen) store.set({ settingsOpen: false })
+        if (event.key !== 'Escape') return
+        if (store.get().settingsOpen) store.set({ settingsOpen: false })
+        else if (ui.utility.state() !== 'closed') {
+          ui.utility.close()
+          ui.utility.render(store.get())
+        }
       })
     }
     bridge?.mode?.onChange?.((payload) => {
@@ -500,6 +574,7 @@
 
   async function boot() {
     bind()
+    ui.character.apply()
     render()
     try {
       const mode = await bridge?.mode?.get?.()

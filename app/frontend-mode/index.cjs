@@ -27,13 +27,12 @@ const probeModule = require('./probe.cjs')
 /**
  * The frontend this build opens in.
  *
- * The Daily workspace is still being refactored (Update-Plan/daily-refactorr.md),
- * so the product starts on the official Work UI and Daily is reached from the dock
- * rail or the Daily/Work switch. `DSH_FRONTEND_MODE` overrides this for a single
- * run. The mode the user last chose is still recorded, and it still decides which
- * session each side remembers.
+ * Daily is the product's default: it is the chat-first native workspace
+ * (Update-Plan/Daily-UX.md). Work is the official frontend, reached from the mode
+ * switch, and it is also where a Daily failure falls back to.
+ * `DSH_FRONTEND_MODE=work` overrides the startup frontend for a single run.
  */
-const DEFAULT_STARTUP_MODE = 'work'
+const DEFAULT_STARTUP_MODE = 'daily'
 
 /**
  * Build the lazily-created official session client.
@@ -92,7 +91,7 @@ function createFrontendModeRuntime({
   // acceptance run or a shortcut can ask for a deterministic mode, and the next
   // launch still honours whatever the user last chose.
   const forcedMode = stateModule.normalizeMode(startupMode, null) || DEFAULT_STARTUP_MODE
-  log(`startup mode ${forcedMode}${startupMode ? ' (from DSH_FRONTEND_MODE)' : ` (build default; the saved preference "${state.getMode()}" is kept for session memory)`}`)
+  log(`startup mode ${forcedMode}${startupMode ? ' (from DSH_FRONTEND_MODE)' : ' (build default)'}`)
   // The client is a lazy getter: the bridge resolves it on first use, so neither
   // startup nor a unit test depends on Electron's session store being available.
   const bridge = backendModule.createBackendBridge({ client: createLazyClient({ log }), log })

@@ -122,7 +122,70 @@ Frontend 的图层再以 `var(--hns-native-*, var(--hns-asset-*, none))` 兜底�
 验收证据（真机运行，`GateH.assets`）：当前主题在 Native 面上一共 4 个图层是内联图片
 （wallpaper / decoration / personaBanner / personaAvatar）。
 
-## 3.9 Daily 工作台重构（Update-Plan/daily-refactorr.md §2）
+## 3.9 Daily UX 重建（Update-Plan/Daily-UX.md）
+
+逻辑基线 `2479bf5`（保留 Dual UI runtime / 主题图片修复 / Work 全宽 / Mega 模块折叠 /
+失败回退），撤回 `3ec9231` 引入的错误 UX 层：固定三栏、常驻 Context Panel、状态 chip 顶栏、
+Work 默认启动。没有整仓回退，`git reset --hard` 未使用。
+
+### 布局：chat-first（任务 4–7）
+
+```text
+┌──────────────────────────────────────────────────────────┐
+│ Slim Top Bar: Workspace · Model · Daily/Work · Settings   │
+├──────────────┬───────────────────────────────────────────┤
+│ Session      │ Conversation（占绝对主体）                  │
+│ Sidebar      ├───────────────────────────────────────────┤
+│ 220–280px    │ Composer（固定底部，含权限预设）             │
+└──────────────┴───────────────────────────────────────────┘
+```
+
+真机实测（窗口 1474px、Dock 展开时）：侧栏 268px，对话 627px，Composer 在位；对话宽度
+> 侧栏 × 2。权限、任务数、后端状态等次要状态从顶栏移入抽屉的 Context 标签，顶栏实测高度
+54px 且不含任何状态 chip。
+
+### Utility Drawer（任务 8–10）
+
+Context 不再是第三列，而是默认关闭的抽屉：
+
+| 状态 | 行为 | 实测 |
+| --- | --- | --- |
+| `closed` | 默认；对话拿全部宽度 | conversation 627px |
+| `open` | 浮层覆盖右侧，不压缩对话 | 打开后 conversation 仍 627px |
+| `pinned` | 用户明确固定后才参与布局 | conversation 320px，drawer 380px |
+
+标签集合为 Files / Changes / Git / Tasks / Terminal / Context；Tasks（工具与任务活动）与
+Context（权限、任务、后端、契约、兼容性、角色控制）已可用，其余四个显示「下一阶段」的明确
+空状态。
+
+### 会话侧栏（任务 5）、Composer（任务 7）、Mega（任务 11–12）
+
+侧栏支持新建、搜索、运行中/最近/已归档分组、重命名（Harness `session/rename`）、删除
+（确认后删除该会话的 journal）、当前会话高亮与收起。归档是**本机**标记，UI 中明确标注
+「本机隐藏」，不改动后端会话。Composer 支持多行、发送、停止、权限预设（与 Mega 共用
+`applySettingsPatch` 这一个写入者）。Mega 只保留系统管理，不含主业务功能的副本。
+
+### 主题语义 Surface 与角色（任务 13–15）
+
+Daily 文档声明稳定 surface：`root / sidebar / conversation / composer / utility`，Mega 为
+`mega`；主题针对这些名字而不是会变的 CSS class。角色层在 Daily DOM 内（不是 WebContents
+Overlay）：五种锚点（右下/右侧/悬浮/侧栏/背景）、可隐藏、可移动、可缩放，全部
+`pointer-events: none`；层位于对话区内，所以底部永远不会越过 Composer（真机断言
+`character.y + height <= composer.y`）。主题若没有专门的角色图，回退到同一主题的人设头像，
+不再出现「图层在但什么都没有」。
+
+### 避免过度防御（任务 12 章）
+
+本轮同时删除了没有当前消费者的接口：`backend.tailJournal` / `adapter.tail`、
+`manager.subscribe` / `clearDegradation`、`probe.lastReport()`、`state.isMode`，以及
+`capabilities({probeOptional})` 这个没人用的选项。错误处理只保留在边界（IPC、文件系统、
+网络、子进程、渲染器崩溃），内部纯逻辑照常抛错。
+
+---
+
+## 3.10 （已撤回）daily-refactor §2 的三栏工作台
+
+以下结构已在 3.9 中撤回，保留记录以便对照：
 
 ### 启动前端
 
@@ -184,8 +247,8 @@ npm test          # node --test ..\tests\unit\*.test.js
 
 | 项目 | 结果 |
 | --- | --- |
-| `npm run check` | PASS（119/119，含 `app/frontend-mode/`、`app/native-ui/`、`theme/assets/resolver.js`、`scripts/dual-ui-acceptance.mjs`） |
-| `npm test` | 733 tests / 732 pass / 1 fail（下述多句柄时序项） |
+| `npm run check` | PASS（120/120，含 `app/frontend-mode/`、`app/native-ui/`、`theme/assets/resolver.js`、`scripts/dual-ui-acceptance.mjs`） |
+| `npm test` | 734 tests / 733 pass（第一次全量运行有 2 项主机时序波动，单独复跑均通过，详见下） |
 
 **唯一失败项与本改动无关**：`tests/unit/multi-supervisor.test.js` 的
 `并行验收: independent nodes really run at the same time on N workers` 在本机
@@ -216,7 +279,7 @@ node scripts\dual-ui-acceptance.mjs --root D:\DS-Hns --port 3097 --cdp 9337 ^
 
 | 项目 | 结果 |
 | --- | --- |
-| Dual-UI 真机验收 | **PASS（32/32 checks）** |
+| Dual-UI 真机验收 | **PASS（37/37 checks）** |
 
 该脚本启动真实 Electron（独立 app name / 独立 user data dir / 非 3097 端口），再通过
 CDP 驱动**真实**的 Dock 与 Native 渲染器：
@@ -239,10 +302,22 @@ CDP 驱动**真实**的 Dock 与 Native 渲染器：
 | 进入 Work 时 Mega 收起到轨道条 | C | PASS |
 | Work 内仍可手动展开 Mega | C | PASS |
 | 切回 Daily 恢复用户原本的展开状态 | C | PASS |
-| 启动即挂载官方 Work UI（构建默认） | A | PASS |
-| Daily 三栏宽度符合 220–300 / flex / 300–460 | A（daily-refactor 任务 1） | PASS |
-| Top Bar 与 Composer 在位；Daily 不落在 Settings 页 | A（任务 2 / 3） | PASS |
-| Context Panel 可折叠（348px ↔ 46px） | A（任务 1） | PASS |
+| Daily 默认启动（任务 1） | B | PASS |
+| 侧栏 220–280、对话为主体、Composer 在位（任务 4–7） | C | PASS |
+| 抽屉默认 closed；open 不压缩对话；pinned 才占列（任务 8–10） | D | PASS |
+| 顶栏无状态 chip（任务 3） | A | PASS |
+| 语义 Surface `root/sidebar/conversation/composer/utility` 齐全（任务 14） | F | PASS |
+| 角色图层有真实图片、pointer-events:none、不越过 Composer（任务 15） | G | PASS |
+
+补充说明（测量口径）：`GateC.width` 断言的是**主进程里官方视图的真实 bounds**
+（`hns:native-diagnostics` 的 `views.official`），而不是官方渲染器的 `innerWidth`。在后台
+窗口/未合成的会话里，渲染器自己的 `innerWidth` 可能滞后于实际布局（本轮实测确认：同一时刻
+视图 bounds 已是 1426px，而渲染器仍报 914px，`Page.captureScreenshot` 直接超时）。产品行为由
+视图几何决定，所以验收也以它为准。
+
+关于 734 项单元测试的两次波动：`multi-supervisor` 的并行加速断言在未修改的 `HEAD` 上同样
+失败（本机性能相关，已验证）；`sub-worker` 的 Live View 流式断言在并行负载下偶发失败，单独
+运行该文件 17/17 通过。两者都不是本轮改动引入的。
 
 不在该脚本内、需要人工或需要 API Key 的 Gate：
 
@@ -288,7 +363,7 @@ renderer” 在当前官方版本上无法实现：官方 Web UI 没有 session 
 | 变量 | 默认 | 作用 |
 | --- | --- | --- |
 | — | `daily` | `data/state/frontend-mode.json` 记录当前模式，可手工改为 `work` 作为启动默认 |
-| `DSH_FRONTEND_MODE` | 未设置（= `work`） | `daily` / `work`：覆盖本次运行的启动前端。不设置时挂载官方 Work UI；已保存的偏好不会被改写，仍用于两侧的会话记忆 |
+| `DSH_FRONTEND_MODE` | 未设置（= `daily`） | `daily` / `work`：覆盖本次运行的启动前端。不设置时挂载 Daily；已保存的偏好仍用于两侧的会话记忆 |
 | `DSH_OFFICIAL_OVERLAY` | 未设置 | `=1` 时创建已废弃的官方 Overlay（仅排查旧主题包） |
 | `DSH_MEGA_INTEGRATED_DOCK` | 开启 | `=0` 时回退到“官方窗口 + 独立 Mega 窗口”的旧形态，双前端不启用 |
 | `DSH_DISABLE_MEGA` | 未设置 | `=1` 时不加载 Mega 扩展（此时双前端 IPC 不可用，Work Mode 仍正常） |

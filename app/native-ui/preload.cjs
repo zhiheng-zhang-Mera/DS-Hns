@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld('hnsNative', {
     select: (sessionId) => ipcRenderer.invoke('hns:native-select-session', { sessionId: String(sessionId || '') }),
     send: (sessionId, prompt) => ipcRenderer.invoke('hns:native-send', { sessionId: String(sessionId || ''), prompt: String(prompt || '') }),
     cancel: (sessionId) => ipcRenderer.invoke('hns:native-cancel', { sessionId: String(sessionId || '') }),
+    rename: (sessionId, title) => ipcRenderer.invoke('hns:native-rename-session', { sessionId: String(sessionId || ''), title: String(title || '') }),
+    remove: (sessionId) => ipcRenderer.invoke('hns:native-delete-session', { sessionId: String(sessionId || '') }),
     /** The main process pushes a fresh snapshot whenever the backend advanced. */
     onChange: (callback) => on('hns:native-changed', callback),
     /** A native-side failure is reported so the shell can fall back to Work Mode. */

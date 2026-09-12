@@ -64,6 +64,13 @@ function makeElement(id) {
     closest: (selector) => (selector === '[data-session]' && element.dataset.session ? element : null),
     querySelector: () => null,
     getBoundingClientRect: () => ({ left: 4, top: 8, width: 120, height: 40 }),
+    children: [],
+    parentElement: null,
+    appendChild(child) {
+      this.children.push(child)
+      if (child) child.parentElement = this
+      return child
+    },
     focus() { this.focused = true }
   }
   return element
@@ -201,6 +208,7 @@ function loadNativeUi(snapshot = makeSnapshot(), { theme = null } = {}) {
     'components/conversation.js',
     'components/tool-activity.js',
     'components/context-panel.js',
+    'components/character.js',
     'components/composer.js',
     'components/settings.js',
     'app.js'
@@ -240,12 +248,11 @@ test('the native frontend renders a full snapshot without reporting a failure', 
   assert.match(activity, /file body/)
   assert.match(activity, /queued task/)
 
-  // Top bar (Daily refactor 任务 3): the working context, and nothing from Mega.
+  // Slim top bar (Daily-UX 任务 3): workspace, model, mode, settings - and none
+  // of the status chips that used to make it read like a dashboard.
   assert.match(dom.element('workspaceChip').textContent, /workspace: work$/)
   assert.equal(dom.element('modelSelect').value, 'deepseek-v4-flash')
-  assert.equal(dom.element('permissionChip').textContent, 'permission: workspace-write')
-  assert.match(dom.element('taskChip').textContent, /tasks: \d+ running/)
-  assert.match(dom.element('backendChip').textContent, /backend: ready/)
+  assert.equal(dom.element('modeChip').textContent, 'Daily')
 
   assert.equal(dom.element('composerInput').disabled, false)
   assert.equal(dom.element('composerSend').disabled, true, 'an empty composer cannot be sent')
@@ -257,6 +264,7 @@ test('the native frontend renders a full snapshot without reporting a failure', 
   assert.equal(dom.element('modeChip').textContent, 'Daily')
   assert.equal(dom.element('banner').hidden, true, 'an inactive degradation is not a degradation')
   assert.equal(dom.element('settingsPage').hidden, true, 'Daily opens on the workspace, not on Settings')
+  assert.equal(dom.body.dataset.utility, 'closed', 'the utility drawer starts closed')
 })
 
 test('an unready backend disables the composer and explains why', async () => {
@@ -313,30 +321,50 @@ test('the native mode toggle and the settings page are wired to the shell', asyn
   dom.element('closeSettings').fire('click')
   await settle()
   assert.equal(dom.element('settingsPage').hidden, true)
-  assert.equal(dom.body.dataset.view, 'workspace')
+  assert.equal(dom.body.dataset.view, 'chat')
 })
 
-test('the Context Panel switches tabs and keeps the workspace intact', async () => {
+test('the utility drawer switches tabs and holds the secondary status', async () => {
   const { dom } = loadNativeUi()
   await settle()
   // Tasks is the live tab: it renders the same activity the dock used to own.
   assert.match(dom.element('toolActivity').innerHTML, /read_file/)
-  assert.equal(dom.element('contextHint').textContent, 'Tasks')
+  assert.match(dom.element('contextHint').textContent, /^Tasks · /)
 
   const gitTab = dom.contextTabs.find((tab) => tab.dataset.contextTab === 'git')
   gitTab.fire('click')
   await settle()
-  assert.equal(dom.element('contextHint').textContent, 'Git')
+  assert.match(dom.element('contextHint').textContent, /^Git · /)
   assert.match(dom.element('contextBody').innerHTML, /Git/)
-  assert.match(dom.element('contextBody').innerHTML, /Daily 重构 §7 任务 13/, 'an unimplemented tab says which stage fills it')
+  assert.match(dom.element('contextBody').innerHTML, /下一阶段/, 'an unimplemented tab says where it comes from')
   assert.equal(gitTab.classList.contains('active'), true)
   assert.equal(dom.contextTabs.find((tab) => tab.dataset.contextTab === 'tasks').classList.contains('active'), false)
 
   const contextTab = dom.contextTabs.find((tab) => tab.dataset.contextTab === 'context')
   contextTab.fire('click')
   await settle()
-  assert.match(dom.element('contextBody').innerHTML, /deepseek-v4-flash/)
-  assert.match(dom.element('contextBody').innerHTML, /ready/)
+  // Secondary status: permission, tasks and backend live here now, not in the top bar.
+  assert.match(dom.element('contextBody').innerHTML, /workspace-write/)
+  assert.match(dom.element('contextBody').innerHTML, /后端/)
+  assert.match(dom.element('contextBody').innerHTML, /权限模式/)
+  assert.match(dom.element('contextBody').innerHTML, /characterControls/)
+})
+
+const ui_state = (body) => body.dataset.utility
+
+test('the drawer opens, pins and closes without touching the conversation', async () => {
+  const { dom } = loadNativeUi()
+  await settle()
+  assert.equal(ui_state(dom.body), 'closed')
+
+  dom.element('utilityHandle').fire('click')
+  assert.equal(ui_state(dom.body), 'open')
+  dom.element('pinUtility').fire('click')
+  assert.equal(ui_state(dom.body), 'pinned')
+  assert.equal(dom.element('pinUtility').getAttribute('aria-pressed'), 'true')
+  dom.element('closeUtility').fire('click')
+  assert.equal(ui_state(dom.body), 'closed')
+  assert.equal(dom.element('composer').hidden, false, 'the composer is never hidden by the drawer')
 })
 
 test('the top bar changes the model and the workspace through the bridge', async () => {
@@ -351,10 +379,12 @@ test('the top bar changes the model and the workspace through the bridge', async
   await settle()
   assert.equal(calls.pickWorkspace, 1)
 
-  // The task chip jumps to the tab that shows them rather than opening a dialog.
-  dom.element('taskChip').fire('click')
+  // The permission preset lives in the composer and writes through the same
+  // settings path Mega uses.
+  dom.element('permissionSelect').value = 'read-only'
+  dom.element('permissionSelect').fire('change', { target: { value: 'read-only' } })
   await settle()
-  assert.equal(dom.element('contextHint').textContent, 'Tasks')
+  assert.deepEqual(calls.settingsUpdate.at(-1), { permissionMode: 'read-only' })
 })
 
 test('a theme payload lands as CSS variables and asset layers, never as markup', async () => {
@@ -415,22 +445,17 @@ test('a mode change carries the degradation, and an inactive one never does', as
   assert.equal(dom.element('modeChip').textContent, 'Daily')
 })
 
-test('both side modules collapse and remember the choice', async () => {
+test('the session column folds and remembers the choice', async () => {
   const { dom } = loadNativeUi()
   await settle()
   assert.equal(dom.element('sidebar').dataset.collapsed, '')
-  assert.equal(dom.element('contextPanel').dataset.collapsed, '')
 
   dom.element('collapseSessions').fire('click', { stopPropagation() {} })
   assert.equal(dom.element('sidebar').dataset.collapsed, '1')
-  assert.equal(dom.element('collapseSessions').textContent, '▸')
+  assert.equal(dom.element('collapseSessions').textContent, '›')
   assert.equal(dom.element('collapseSessions').getAttribute('aria-expanded'), 'false')
-  assert.equal(dom.element('contextPanel').dataset.collapsed, '', 'the other module is untouched')
-
-  dom.element('collapseContext').fire('click', { stopPropagation() {} })
-  assert.equal(dom.element('contextPanel').dataset.collapsed, '1')
 
   dom.element('collapseSessions').fire('click', { stopPropagation() {} })
   assert.equal(dom.element('sidebar').dataset.collapsed, '', 'clicking again expands it')
-  assert.equal(dom.element('collapseSessions').textContent, '▾')
+  assert.equal(dom.element('collapseSessions').textContent, '‹')
 })

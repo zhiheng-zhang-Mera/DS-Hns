@@ -284,7 +284,7 @@ function createCompatibilityProbe({
     }
   }
 
-  return { VERDICT, CHECKS, run, verdict, describe, lastReport: () => lastReport }
+  return { VERDICT, CHECKS, run, verdict, describe }
 }
 
 function safeString(value) {

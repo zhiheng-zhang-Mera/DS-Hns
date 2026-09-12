@@ -277,16 +277,14 @@ function createAdapter({ bridge = null, harnessVersion = null, tasks = () => [],
       if (!result?.ok) return { ok: false, reason: result?.reason || 'cancel_failed', message: result?.message || null }
       return { ok: true }
     },
-    /** Incremental journal read for the live conversation. */
-    tail(sessionId, sinceSeq) {
-      if (!bridge || typeof bridge.tailJournal !== 'function') return { ok: false, reason: 'adapter_unavailable', events: [] }
-      try {
-        const result = bridge.tailJournal(sessionId, sinceSeq)
-        if (!result?.ok) return { ok: false, reason: result?.reason || 'journal_missing', events: [] }
-        return { ok: true, events: result.events }
-      } catch (error) {
-        return unavailable('session/tail', error, { events: [] })
-      }
+    /** Rename a session through the backend (sidebar rename). */
+    async renameSession(sessionId, title) {
+      const name = String(title || '').trim()
+      if (!sessionId || !name) return { ok: false, reason: 'invalid_rename', message: 'a rename needs a session and a title' }
+      if (!bridge || typeof bridge.renameSession !== 'function') return unavailable('session/rename', 'no backend bridge')
+      const result = await bridge.renameSession(sessionId, name).catch((error) => unavailable('session/rename', error))
+      if (!result?.ok) return { ok: false, reason: result?.reason || 'rename_failed', message: result?.message || null }
+      return { ok: true, sessionId, title: name }
     },
     describe() {
       return {

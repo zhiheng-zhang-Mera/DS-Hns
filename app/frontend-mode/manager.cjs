@@ -57,7 +57,6 @@ function createModeManager({
   let switching = false
   /** Transitions recorded for acceptance evidence (Gate D). */
   const transitions = []
-  const listeners = new Set()
 
   function record(entry) {
     transitions.push({ at: new Date().toISOString(), ...entry })
@@ -65,24 +64,11 @@ function createModeManager({
   }
 
   function emit(payload) {
-    for (const listener of [...listeners]) {
-      try {
-        listener(payload)
-      } catch (error) {
-        log(`mode listener failed: ${error?.message || error}`)
-      }
-    }
     try {
       onChange(payload)
     } catch (error) {
       log(`mode change notification failed: ${error?.message || error}`)
     }
-  }
-
-  function subscribe(listener) {
-    if (typeof listener !== 'function') return () => {}
-    listeners.add(listener)
-    return () => listeners.delete(listener)
   }
 
   /** Ask the shell to make one renderer visible. A failure is never fatal. */
@@ -194,13 +180,6 @@ function createModeManager({
     return { ...result, degraded: { ...degraded } }
   }
 
-  /** Leave the degraded state: the user asked for Daily again. */
-  function clearDegradation() {
-    degraded = { active: false, reason: null, at: null }
-    if (machine === STATE.DAILY_DEGRADED) machine = ACTIVE_STATE[mode]
-    return { ...degraded }
-  }
-
   function describe() {
     return {
       mode,
@@ -216,14 +195,12 @@ function createModeManager({
 
   return {
     STATE,
-    subscribe,
     current: () => mode,
     machineState: () => machine,
     isDegraded: () => degraded.active,
     switchTo,
     toggle,
     degrade,
-    clearDegradation,
     describe
   }
 }

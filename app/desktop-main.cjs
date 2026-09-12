@@ -682,6 +682,12 @@ function layoutIntegratedViews() {
   if (officialView) {
     officialView.setBounds({ x: 0, y: 0, width: officialWidth, height })
   }
+  // Log only when the decision actually changes: this is the line that makes a
+  // "the official UI is narrow in Work Mode" report answerable from the log.
+  if (layoutIntegratedViews.lastKey !== `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`) {
+    layoutIntegratedViews.lastKey = `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`
+    logLine(`layout: content=${contentWidth}px official=${officialWidth}px dock=${dockWidth}px expanded=${megaDockExpanded}`)
+  }
   // The native frontend occupies exactly the same rectangle as the official
   // renderer: switching modes changes which one is visible, never their bounds,
   // so neither renderer is re-created and neither loses its scroll position
@@ -818,6 +824,20 @@ function applyFrontendVisibility({ mode }) {
   // sidebar. Collapse the dock to its rail for the duration of Work Mode and put
   // it back the way the user had it when Daily returns.
   applyDockPolicyForMode(daily ? 'daily' : 'work')
+  // Re-apply the layout *after* the visibility change. Chromium can keep the
+  // previous viewport for a view that was resized while hidden, which left the
+  // official UI rendering at the width it had before Work Mode widened it.
+  layoutIntegratedViews()
+  // A view that changed visibility in this tick can swallow the bounds change
+  // made in the same tick, leaving the official UI at its old width. Re-applying
+  // the layout once the visibility flip has settled is what actually resizes it.
+  setImmediate(() => {
+    try {
+      layoutIntegratedViews()
+    } catch (error) {
+      logLine(`deferred layout failed: ${error?.message || error}`)
+    }
+  })
   // A too-narrow window cannot show the native sidebar legibly; the manager is
   // told so it can decide, but the switch itself never fails because of it.
   if (daily) {
@@ -836,10 +856,21 @@ function applyDockPolicyForMode(mode) {
   try {
     if (mode === 'work') {
       if (megaDockExpandedBeforeWork === null) megaDockExpandedBeforeWork = megaDockExpanded
-      if (megaDockExpanded) extensionManager.setDockExpanded(false, { persist: false, focus: false })
+      if (megaDockExpanded) {
+        // The shell owns the view bounds, so it applies the layout itself instead
+        // of waiting for the dock renderer to push its state back: the official UI
+        // must be wide the moment Work Mode appears.
+        megaDockExpanded = false
+        layoutIntegratedViews()
+        extensionManager.setDockExpanded(false, { persist: false, focus: false })
+      }
     } else if (megaDockExpandedBeforeWork) {
       megaDockExpandedBeforeWork = null
-      if (!megaDockExpanded) extensionManager.setDockExpanded(true, { persist: false, focus: false })
+      if (!megaDockExpanded) {
+        megaDockExpanded = true
+        layoutIntegratedViews()
+        extensionManager.setDockExpanded(true, { persist: false, focus: false })
+      }
     } else {
       megaDockExpandedBeforeWork = null
     }
@@ -1077,7 +1108,41 @@ function registerNativeModeIpc() {
   ipcMain.handle('hns:native-diagnostics', guard(() => ({
     ok: true,
     frontend: frontendModes ? frontendModes.describe() : null,
-    surfaces: createOfficialSurfaceAdapter().describe()
+    surfaces: createOfficialSurfaceAdapter().describe(),
+    // The real view geometry, straight from the shell. This is the measurement a
+    // check should use for "did the official UI get the full width": a renderer's
+    // own `innerWidth` can lag while its view is not being composited.
+    views: {
+      content: (() => {
+        try {
+          return mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : null
+        } catch {
+          return null
+        }
+      })(),
+      official: (() => {
+        try {
+          return officialView ? officialView.getBounds() : null
+        } catch {
+          return null
+        }
+      })(),
+      native: (() => {
+        try {
+          return nativeView ? nativeView.getBounds() : null
+        } catch {
+          return null
+        }
+      })(),
+      dock: (() => {
+        try {
+          return megaDockView ? megaDockView.getBounds() : null
+        } catch {
+          return null
+        }
+      })(),
+      dockExpanded: megaDockExpanded
+    }
   })))
 }
 
