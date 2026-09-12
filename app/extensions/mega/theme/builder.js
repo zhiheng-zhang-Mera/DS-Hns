@@ -27,6 +27,9 @@ const assets = require('./asset-factory')
 const png = require('./png')
 const color = require('./color')
 const designer = require('./designer')
+const planner = require('./assets/planner')
+const generatorModule = require('./assets/generator')
+const assetValidator = require('./assets/validator')
 
 /** Package-relative asset paths written by the Builder. */
 const ASSET_LAYOUT = Object.freeze({
@@ -51,6 +54,9 @@ const TOKEN_ASSET_MAP = Object.freeze({
   'asset.decoration': 'decoration'
 })
 
+/** Plan asset kind -> the asset token it fills, for the plan-driven pass. */
+const PLAN_TOKEN_MAP = Object.freeze(designer.ASSET_KIND_TOKEN)
+
 function writeFile(file, contents) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, contents)
@@ -58,6 +64,89 @@ function writeFile(file, contents) {
 
 function writeJson(file, value) {
   writeFile(file, `${JSON.stringify(value, null, 2)}\n`)
+}
+
+/**
+ * Generate every asset the plan asked for (任务 4 / 任务 5 / 任务 6 / 任务 17).
+ *
+ * This is the plan-driven pass: the *only* place assets are produced for a
+ * theme, and the only place the fallback chain runs. Every outcome — produced,
+ * degraded to the procedural fallback, or disabled — is returned so the package
+ * can document it and the preview can report it.
+ *
+ * @returns {Promise<{assets: object[], byToken: object, byPlanPath: object, degraded: object[], disabled: object[], warnings: string[], generator: object|null}>}
+ */
+async function generatePlannedAssets({ draft, palette, style, seed, character, log = () => {} }) {
+  const plan = draft.asset_plan || null
+  const entries = plan?.asset_plan || []
+  const assets = []
+  const byToken = {}
+  const byPlanPath = {}
+  const degraded = []
+  const disabled = []
+  const warnings = []
+  if (!entries.length) {
+    return { assets, byToken, byPlanPath, degraded, disabled, warnings, generator: null }
+  }
+
+  const generator = generatorModule.createAssetGenerator({
+    imageGenerator: draft.image_generator || null,
+    log: (message) => log(`asset: ${message}`)
+  })
+
+  for (const entry of entries) {
+    let result = null
+    try {
+      result = await generator.generate({ entry, palette, style, seed, character })
+    } catch (error) {
+      // The generator already swallows its own failures; this is the outer belt
+      // for a bug in it. One asset must never be able to fail a theme build.
+      result = {
+        kind: entry.kind,
+        surface: entry.surface,
+        path: entry.path,
+        buffer: null,
+        disabled: true,
+        degraded: true,
+        reason: `asset pipeline error: ${error?.message || error}`,
+        warnings: [],
+        validation: null
+      }
+    }
+    const record = {
+      kind: result.kind || entry.kind,
+      surface: result.surface || entry.surface,
+      path: result.path || entry.path,
+      bytes: result.buffer ? result.buffer.length : 0,
+      provenance: result.provenance || null,
+      degraded: Boolean(result.degraded),
+      disabled: Boolean(result.disabled),
+      reason: result.reason || null,
+      validation: result.validation || null,
+      buffer: result.buffer || null
+    }
+    assets.push(record)
+    for (const warning of result.warnings || []) warnings.push(warning)
+    if (record.disabled) {
+      disabled.push(record)
+      log(`asset ${record.kind} disabled: ${record.reason}`)
+      continue
+    }
+    if (record.degraded) degraded.push(record)
+    if (record.buffer && record.path) byPlanPath[record.path] = record.buffer
+    const token = PLAN_TOKEN_MAP[record.kind]
+    if (token && record.buffer) {
+      byToken[token] = {
+        dataUri: `data:image/png;base64,${record.buffer.toString('base64')}`,
+        path: record.path,
+        bytes: record.buffer.length,
+        kind: record.kind,
+        surface: record.surface
+      }
+    }
+  }
+
+  return { assets, byToken, byPlanPath, degraded, disabled, warnings, generator }
 }
 
 /**
@@ -165,6 +254,211 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
 }
 
+/** Shared CSS for the per-surface preview documents. Values are escaped data. */
+function previewChrome({ name, surfaceId, permission, mode }) {
+  return `    :root { color-scheme: ${mode === 'light' ? 'light' : 'dark'}; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: #06070a; color: #e8ecf3; }
+    .stage { display: grid; gap: 10px; padding: 14px; }
+    .stage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .stage-head h1 { margin: 0; font-size: 14px; }
+    .stage-head span { font-size: 10px; opacity: .7; }
+    .surface { position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; }
+    .caption { font-size: 10px; opacity: .65; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; }
+    .legend b { font-weight: 600; padding: 1px 6px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; }
+    .protected { border-color: rgba(255,120,120,.5); }
+`
+}
+
+function previewDocument({ name, title, surfaceId, permission, mode, body, extraCss = '', legend = [] }) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(name)} — ${escapeHtml(title)}</title>
+<style>
+${previewChrome({ name, surfaceId, permission, mode })}${extraCss}</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stage-head">
+    <h1>${escapeHtml(name)} · ${escapeHtml(title)}</h1>
+    <span>surface=${escapeHtml(surfaceId)} · permission=${escapeHtml(permission)}</span>
+  </div>
+  <div class="legend">${legend.map((entry) => `<b>${escapeHtml(entry)}</b>`).join('')}</div>
+${body}
+</div>
+</body>
+</html>
+`
+}
+
+/**
+ * Per-surface previews (Update-Plan/General-Theme.md 任务 12 / 任务 13).
+ *
+ * Four documents, each showing exactly one thing:
+ *
+ *   hns-preview.html        the HNS dock wearing the theme
+ *   official-shell-preview  the frame DS-Hns draws around the official renderer
+ *   official-overlay-preview the visual layer above the official renderer
+ *   composite-preview       all of it stacked in the real z-order
+ *
+ * They are self-contained: every asset is an inline data URI, there is no script,
+ * and no value is fetched from anywhere. The composite preview is what a user
+ * judges before approving, and the overlay preview draws the *placements the
+ * layout produced*, so "the character sits bottom-right and does not cover the
+ * input box" is visible rather than asserted.
+ */
+function buildSurfacePreviews({ name, mode, tokens, components, persona, surfacePlan = {}, overlayPlan = {}, assetPlan = {}, previewAssets = {} }) {
+  const slot = (id) => components.slots?.[id] || {}
+  const asset = (key) => (previewAssets[key] && previewAssets[key] !== 'none' ? `url("${previewAssets[key]}")` : 'none')
+  const shell = slot('official.shell.frame')
+  const overlayCharacter = slot('official.overlay.character_primary') || {}
+  const overlaySkin = slot('official.overlay.skin') || {}
+  const overlayTexture = slot('official.overlay.texture') || {}
+  const overlayTint = slot('official.overlay.global_tint') || {}
+  const overlayVignette = slot('official.overlay.vignette') || {}
+  const overlayScanline = slot('official.overlay.scanline') || {}
+  const character = slot('hns.character.primary') || {}
+  const view = { width: 960, height: 600 }
+  const characterBox = overlayPlan.components?.character_primary?.size || { width: 260, height: 390 }
+  const anchor = overlayCharacter.anchor || overlayPlan.layout?.anchor || 'bottom-right'
+  const placement = overlayPlan.layout || {}
+  const positionCss = {
+    'top-left': 'top:8px;left:8px',
+    'top-center': 'top:8px;left:50%;transform:translateX(-50%)',
+    'top-right': 'top:8px;right:8px',
+    'center-left': 'top:50%;left:8px;transform:translateY(-50%)',
+    center: 'top:50%;left:50%;transform:translate(-50%,-50%)',
+    'center-right': 'top:50%;right:8px;transform:translateY(-50%)',
+    'bottom-left': 'bottom:8px;left:8px',
+    'bottom-center': 'bottom:8px;left:50%;transform:translateX(-50%)',
+    'bottom-right': 'bottom:8px;right:8px'
+  }[anchor] || 'bottom:8px;right:8px'
+
+  const toggles = [
+    ['global tint', overlayTint.opacity],
+    ['gradient', slot('official.overlay.gradient')?.opacity],
+    ['texture', overlayTexture.opacity],
+    ['skin', overlaySkin.opacity],
+    ['vignette', overlayVignette.opacity],
+    ['scanline', overlayScanline.opacity],
+    ['frame glow', slot('official.overlay.frame_glow')?.opacity],
+    ['character', overlayCharacter.opacity]
+  ].filter(([, value]) => Number(value) > 0).map(([label]) => label)
+
+  const hnsStateChips = contract.HNS_STATES
+    .map((state) => `<span class="chip" style="border-color:var(--hns-state-${state});color:var(--hns-state-${state})">${state}</span>`)
+    .join('')
+
+  const hnsDoc = previewDocument({
+    name,
+    title: 'HNS Preview',
+    surfaceId: 'hns_native',
+    permission: 'full',
+    mode,
+    legend: ['tokens', 'slots', persona?.enabled ? 'character' : 'no character'],
+    body: `  <div class="surface hns" style="background:var(--hns-color-bg-base);background-image:${asset('wallpaper')};background-size:cover;padding:16px;min-height:340px;display:grid;gap:10px">
+    <div class="panel" style="background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:var(--hns-radius-md);padding:12px;display:grid;gap:8px">
+      <strong style="font-size:13px">${escapeHtml(name)}</strong>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${hnsStateChips}</div>
+      <div style="display:flex;gap:8px"><input placeholder="new task" style="flex:1;background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);border-radius:var(--hns-radius-sm);color:inherit;padding:6px 8px"><button style="background:var(--hns-color-accent-primary);color:var(--hns-color-accent-contrast);border:0;border-radius:var(--hns-radius-md);padding:7px 12px">Add</button></div>
+    </div>
+    ${character.asset && character.asset !== 'none'
+      ? `<div style="align-self:end;justify-self:end;width:${Number(characterBox.width) || 200}px;max-width:38%;opacity:${Number(character.opacity) || 0.8};background-image:${asset('hns_character')};background-size:contain;background-repeat:no-repeat;background-position:bottom right;height:${Number(characterBox.height) || 300}px"></div>`
+      : '<div class="caption">no HNS character asset in this theme</div>'}
+  </div>
+  <span class="caption">hns_native is a full-permission surface: tokens, slot styles, persona and the real character asset all apply here.</span>`,
+    extraCss: `    .chip { border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; font-size: 10px; }\n`
+  })
+
+  const shellDoc = previewDocument({
+    name,
+    title: 'Official Shell Preview',
+    surfaceId: 'official_shell',
+    permission: 'full',
+    mode,
+    legend: ['background', 'border', 'radius', 'shadow', 'separator', 'frame', 'outer padding'],
+    body: `  <div class="surface" style="padding:${Number(tokens['official.shell.padding']?.replace('px', '')) || 6}px;background:${shell.background || 'var(--hns-color-bg-base)'}">
+    <div style="position:relative;height:300px;border:${escapeHtml(shell.border || '1px solid var(--hns-color-border-l2)')};border-radius:${escapeHtml(shell.radius || '10px')};box-shadow:${escapeHtml(shell.shadow || 'var(--hns-shadow-l1)')};background:#0d1016;display:grid;place-items:center">
+      <div style="text-align:center;color:#7b8698;font-size:11px;line-height:1.7">
+        <div>official renderer area (never styled, never scripted, never captured)</div>
+        <div style="opacity:.7">the shell draws the frame around it and reserves the outer padding</div>
+      </div>
+      <div style="position:absolute;top:50%;left:8px;right:8px;height:0;border-top:${escapeHtml(slot('official.shell.separator')?.border || '1px solid var(--hns-color-border-l1)')}"></div>
+    </div>
+  </div>
+  <span class="caption">official_shell is written by DS-Hns around the official view: it is input-transparent, so every pixel of the official UI keeps its own input.</span>`
+  })
+
+  const overlayDoc = previewDocument({
+    name,
+    title: 'Official Overlay Preview',
+    surfaceId: 'official_overlay',
+    permission: 'visual-only',
+    mode,
+    legend: toggles.length ? toggles : ['overlay disabled'],
+    body: `  <div class="surface" style="height:360px;background:#0d1016">
+    <div style="position:absolute;inset:0;display:grid;place-items:center;color:#6f7885;font-size:11px">official content stays interactive underneath</div>
+    <div style="position:absolute;inset:0;pointer-events:none">
+      <div style="position:absolute;inset:0;background:${escapeHtml(overlayTint.color || '#0b0d12')};opacity:${Number(overlayTint.opacity) || 0};mix-blend-mode:${escapeHtml(overlayTint.blend || 'normal')}"></div>
+      <div style="position:absolute;inset:0;background-image:${asset('official_overlay_texture')};background-repeat:repeat;opacity:${Number(overlayTexture.opacity) || 0}"></div>
+      <div style="position:absolute;inset:0;background-image:${asset('official_skin')};background-size:100% 100%;opacity:${Number(overlaySkin.opacity) || 0}"></div>
+      <div style="position:absolute;inset:0;box-shadow:inset 0 0 120px 30px rgba(0,0,0,${Number(overlayVignette.opacity) || 0})"></div>
+      <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(to bottom, rgba(0,0,0,${Number(overlayScanline.opacity) || 0}) 0 1px, transparent 1px ${Number(overlayScanline.spacing) || 4}px)"></div>
+      <div style="position:absolute;inset:0;border:${Number(slot('official.overlay.frame_glow')?.width) || 2}px solid ${escapeHtml(slot('official.overlay.frame_glow')?.color || 'var(--hns-color-accent-primary)')};opacity:${Number(slot('official.overlay.frame_glow')?.opacity) || 0}"></div>
+      ${overlayCharacter.asset && overlayCharacter.asset !== 'none'
+        ? `<div style="position:absolute;${positionCss};width:${Number(characterBox.width) || 240}px;height:${Number(characterBox.height) || 360}px;max-height:82%;background-image:${asset('official_character')};background-size:contain;background-repeat:no-repeat;background-position:bottom ${anchor.includes('left') ? 'left' : 'right'};opacity:${Number(overlayCharacter.opacity) || 0.8}"></div>`
+        : ''}
+    </div>
+    <div style="position:absolute;left:8px;right:8px;bottom:8px;height:52px;border:1px dashed rgba(255,255,255,.25);display:grid;place-items:center;color:#8b93a1;font-size:10px">critical region: input + send (character must not cover this)</div>
+  </div>
+  <span class="caption">official_overlay is VISUAL ONLY: pointer, keyboard, focus and scroll all pass through to the official renderer. Ceilings: opacity ${escapeHtml(String(overlayPlan.limits?.overlay_opacity ?? 0.22))}, vignette ${escapeHtml(String(overlayPlan.limits?.vignette ?? 0.15))}, character coverage ${escapeHtml(String(overlayPlan.limits?.character_coverage ?? 0.22))}.</span>`
+  })
+
+  const compositeDoc = previewDocument({
+    name,
+    title: 'Full Composite Preview',
+    surfaceId: 'composite',
+    permission: 'n/a',
+    mode,
+    legend: ['z: official_shell', 'z: official_renderer (protected)', 'z: official_overlay', 'z: hns_native'],
+    body: `  <div style="display:grid;grid-template-columns:1fr 260px;gap:10px">
+    <div class="surface" style="height:360px;background:${shell.background || 'var(--hns-color-bg-base)'};padding:${Number(tokens['official.shell.padding']?.replace('px', '')) || 6}px">
+      <div style="position:relative;height:100%;border:${escapeHtml(shell.border || '1px solid var(--hns-color-border-l2)')};border-radius:${escapeHtml(shell.radius || '10px')};overflow:hidden;background:#0d1016">
+        <div style="position:absolute;inset:0;background-image:${asset('wallpaper')};background-size:cover"></div>
+        <div style="position:absolute;inset:0;display:grid;place-items:center;color:#6f7885;font-size:11px">official content (protected)</div>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;inset:0;background:${escapeHtml(overlayTint.color || '#0b0d12')};opacity:${Number(overlayTint.opacity) || 0}"></div>
+          <div style="position:absolute;inset:0;background-image:${asset('official_overlay_texture')};opacity:${Number(overlayTexture.opacity) || 0}"></div>
+          <div style="position:absolute;inset:0;background-image:${asset('official_skin')};background-size:100% 100%;opacity:${Number(overlaySkin.opacity) || 0}"></div>
+          ${overlayCharacter.asset && overlayCharacter.asset !== 'none'
+            ? `<div style="position:absolute;${positionCss};width:${Number(characterBox.width) || 240}px;height:${Number(characterBox.height) || 330}px;max-height:88%;background-image:${asset('official_character')};background-size:contain;background-repeat:no-repeat;background-position:bottom ${anchor.includes('left') ? 'left' : 'right'};opacity:${Number(overlayCharacter.opacity) || 0.8}"></div>`
+            : ''}
+          <div style="position:absolute;left:8px;right:8px;bottom:8px;height:44px;border:1px dashed rgba(255,255,255,.25)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="surface" style="background:var(--hns-color-bg-base);background-image:${asset('wallpaper')};background-size:cover;padding:10px;display:grid;gap:8px;align-content:start">
+      <strong style="font-size:11px">HNS dock</strong>
+      <div style="height:8px;background:var(--hns-color-bg-layer1);border-radius:4px"></div>
+      <div style="height:8px;background:var(--hns-color-bg-layer2);border-radius:4px"></div>
+      <div style="height:8px;background:var(--hns-color-accent-primary);border-radius:4px;opacity:.8"></div>
+    </div>
+  </div>
+  <span class="caption">Composite: the official shell frames the protected renderer, the overlay stacks above it, the HNS dock sits beside it. Surfaces written: ${escapeHtml((surfacePlan.surfaces || []).filter((entry) => entry.writes).map((entry) => entry.surface).join(', ') || 'none')}. Assets: ${escapeHtml(String(assetPlan.count || 0))} planned, ${escapeHtml(String((assetPlan.assets || []).filter((entry) => entry.disabled).length))} disabled.</span>`
+  })
+
+  return {
+    'hns-preview.html': hnsDoc,
+    'official-shell-preview.html': shellDoc,
+    'official-overlay-preview.html': overlayDoc,
+    'official-preview.html': overlayDoc,
+    'composite-preview.html': compositeDoc
+  }
+}
+
 /**
  * Render a PNG preview of the same mock so the theme list can show a picture
  * without a browser. Intentionally simple and deterministic.
@@ -235,6 +529,41 @@ function isDataUri(value) {
   return typeof value === 'string' && value.startsWith('data:image/')
 }
 
+/** `var(--hns-asset-x)` -> the compiled asset token value. */
+const ASSET_VAR_REFERENCE = /var\((--hns-asset-[a-z0-9-]+)\)/gi
+
+/**
+ * Resolve `var(--hns-asset-*)` references inside slot styles.
+ *
+ * The designer emits them so a plan-time slot style names an asset *token* rather
+ * than a file, and the validator therefore never sees a second, file-shaped asset
+ * reference. Compilation is where the reference becomes real.
+ */
+function resolveSlotAssetReferences(slots, tokens) {
+  const tokenByCss = {}
+  for (const tokenName of contract.TOKEN_NAMES) {
+    if (contract.TOKENS[tokenName].kind !== contract.PROPERTY_KIND.ASSET) continue
+    tokenByCss[contract.TOKENS[tokenName].css] = tokens[tokenName]
+  }
+  const out = {}
+  for (const [slotId, payload] of Object.entries(slots)) {
+    if (!payload || typeof payload !== 'object') {
+      out[slotId] = payload
+      continue
+    }
+    const next = {}
+    for (const [property, value] of Object.entries(payload)) {
+      if (typeof value !== 'string' || !value.includes('var(--hns-asset-')) {
+        next[property] = value
+        continue
+      }
+      next[property] = value.replace(ASSET_VAR_REFERENCE, (match, cssName) => tokenByCss[cssName] || 'none')
+    }
+    out[slotId] = next
+  }
+  return out
+}
+
 /**
  * Compile a draft design into a self-contained package on disk.
  *
@@ -250,12 +579,12 @@ function isDataUri(value) {
  * @param {string} [options.derivedFrom]
  * @param {object} [options.darkTokens]
  */
-function buildPackage(options) {
+async function buildPackage(options) {
   const {
     draft, id, name, outDir, source = 'generated',
     revisionHistory = [], generatedPrompt = null, derivedFrom = null,
     darkTokens = null, author = 'HNS Theme Engine', protectedFlag = false,
-    compiledBy = 'theme-builder'
+    compiledBy = 'theme-builder', log = () => {}
   } = options || {}
 
   if (!draft || !draft.tokens || !draft.components) {
@@ -266,13 +595,30 @@ function buildPackage(options) {
   }
 
   // ---- assets ----
+  //
+  // Two passes, in this order:
+  //   1. the plan-driven pipeline (assets/planner -> generator -> processor ->
+  //      validator, with the procedural fallback inside it). It produces the real
+  //      character, the official skin/texture/frame and the HNS character, and it
+  //      is the pass that can *disable* a single asset without failing the theme.
+  //   2. the legacy bundle, which fills whatever the plan does not cover (the tray
+  //      glyph, the overlay ornament, the persona banner). Those kinds have no
+  //      plan entry and no token of their own, but the packages that already ship
+  //      them must keep working unchanged.
   const persona = draft.persona || { enabled: false }
-  const bundle = assets.buildAssetBundle({
-    palette: draft.palette_values || {},
-    style: draft.style_tag || draft.design_language,
-    seed: `${draft.palette}:${draft.design_language}:${draft.intent?.density || 'compact'}`,
-    persona
+  const palette = draft.palette_values || {}
+  const style = draft.style_tag || draft.design_language
+  const seed = `${draft.palette}:${draft.design_language}:${draft.intent?.density || 'compact'}`
+  const generated = await generatePlannedAssets({
+    draft,
+    palette,
+    style,
+    seed,
+    character: persona.character,
+    log
   })
+  const legacyBundle = assets.buildAssetBundle({ palette, style, seed, persona })
+  const bundle = { ...legacyBundle, ...generated.byPlanPath }
 
   // ---- tokens ----
   //
@@ -287,6 +633,13 @@ function buildPackage(options) {
     const definition = contract.TOKENS[tokenName]
     const provided = draft.tokens[tokenName]
     if (definition.kind === contract.PROPERTY_KIND.ASSET) {
+      // A plan-produced asset wins over the legacy bundle for the same token.
+      const planned = generated.byToken[tokenName]
+      if (planned) {
+        tokens[tokenName] = planned.dataUri
+        assetFiles.push({ path: planned.path, bytes: planned.bytes })
+        continue
+      }
       const key = TOKEN_ASSET_MAP[tokenName]
       const assetPathKey = key ? ASSET_LAYOUT[key] : null
       const buffer = assetPathKey ? bundle[assetPathKey] : null
@@ -309,11 +662,16 @@ function buildPackage(options) {
   }
 
   // ---- components ----
+  //
+  // Slot styles may reference a theme asset. At design time that reference is a
+  // `var(--hns-asset-*)` token so the plans stay declarative; here it is resolved
+  // to the compiled value, because a renderer treats a slot's `asset` property as
+  // a URL, not as a custom-property reference.
   const animation = validator.normalizeAnimation(draft.components.animation || draft.animation)
   const components = {
     theme_api_version: contract.THEME_API_VERSION,
     generated_by: compiledBy,
-    slots: draft.components.slots || {},
+    slots: resolveSlotAssetReferences(draft.components.slots || {}, tokens),
     animation: { type: animation.type, intensity: animation.intensity }
   }
 
@@ -371,6 +729,57 @@ function buildPackage(options) {
     mode: draft.mode
   }
 
+  // ---- plans (任务 15) ----
+  //
+  // Every package documents its own decisions: which surfaces it writes and with
+  // what permission, which overlay features are on and how strongly, and one entry
+  // per asset with where it came from, whether it degraded and what the validator
+  // measured. The asset entries are recorded from the *results*, not the plan, so
+  // the file on disk describes the package that exists.
+  const assetPlanDocument = planner.recordAssetResults(draft.asset_plan, generated.assets.map((entry) => ({
+    kind: entry.kind,
+    path: entry.path,
+    bytes: entry.bytes,
+    provenance: entry.provenance,
+    degraded: entry.degraded,
+    disabled: entry.disabled,
+    reason: entry.reason,
+    validation: entry.validation
+  })))
+  const surfacePlanDocument = {
+    version: 1,
+    generated_at: new Date().toISOString(),
+    ...(draft.surface_plan || {}),
+    surfaces: (draft.surface_plan?.surfaces || []).map((surface) => ({
+      ...surface,
+      // The compiled package is the evidence that a surface was really written.
+      asset_count: assetPlanDocument.assets.filter((asset) => asset.surface === surface.surface).length
+    }))
+  }
+  const overlayPlanDocument = {
+    version: 1,
+    generated_at: new Date().toISOString(),
+    ...(draft.overlay_plan || {}),
+    // The enforced strengths, from the compiled tokens, are what the renderer
+    // will actually use; the plan's own numbers are kept for comparison.
+    compiled: {
+      tint_opacity: Number(tokens['official.tint.opacity']) || 0,
+      vignette_opacity: Number(tokens['official.vignette.opacity']) || 0,
+      scanline_opacity: Number(tokens['official.scanline.opacity']) || 0,
+      frame_glow_opacity: Number(tokens['official.frame_glow.opacity']) || 0,
+      texture_opacity: Number(tokens['official.texture.opacity']) || 0,
+      character_opacity: Number(tokens['official.character.opacity']) || 0,
+      character_coverage: Number(tokens['official.character.coverage']) || 0
+    }
+  }
+  const degradation = {
+    degraded: generated.degraded.length > 0,
+    disabled: generated.disabled.map((entry) => ({ kind: entry.kind, surface: entry.surface, reason: entry.reason })),
+    degraded_assets: generated.degraded.map((entry) => ({ kind: entry.kind, surface: entry.surface, provenance: entry.provenance })),
+    warnings: generated.warnings.slice(),
+    image_generator: generated.generator ? generated.generator.describe() : { imageGenerator: false }
+  }
+
   // ---- materialize ----
   const root = path.resolve(outDir)
   try {
@@ -386,6 +795,9 @@ function buildPackage(options) {
     writeJson(path.join(root, 'tokens.json'), tokens)
     writeJson(path.join(root, 'components.json'), components)
     writeJson(path.join(root, 'persona.json'), personaDocument)
+    writeJson(path.join(root, 'surface-plan.json'), surfacePlanDocument)
+    writeJson(path.join(root, 'overlay-plan.json'), overlayPlanDocument)
+    writeJson(path.join(root, 'asset-plan.json'), assetPlanDocument)
     writeFile(path.join(root, 'preview.html'), buildPreviewHtml({
       name: manifest.name,
       mode: draft.mode,
@@ -398,6 +810,28 @@ function buildPackage(options) {
       mode: draft.mode,
       tokens
     }))
+    // Per-surface previews (任务 13). They are compiled *into* the package, and
+    // each one only shows the surface it names, so a user can judge the official
+    // overlay without having to reason about the dock.
+    const previewAssets = {}
+    for (const [tokenName, value] of Object.entries(tokens)) {
+      if (!isDataUri(value)) continue
+      const key = tokenName.replace(/^asset\./, '')
+      previewAssets[key] = value
+    }
+    for (const [file, data] of Object.entries(buildSurfacePreviews({
+      name: manifest.name,
+      mode: draft.mode,
+      tokens,
+      components,
+      persona: personaDocument,
+      surfacePlan: surfacePlanDocument,
+      overlayPlan: overlayPlanDocument,
+      assetPlan: assetPlanDocument,
+      previewAssets
+    }))) {
+      writeFile(path.join(root, 'preview', file), data)
+    }
     writeFile(path.join(root, 'README.md'), [
       `# ${manifest.name}`,
       '',
@@ -407,9 +841,12 @@ function buildPackage(options) {
       `- design_language: \`${manifest.design_language}\``,
       `- palette: \`${manifest.palette}\``,
       `- generated from prompt: ${manifest.generated_prompt ? `\`${manifest.generated_prompt}\`` : '_not recorded_'}`,
+      `- surfaces: ${(surfacePlanDocument.surfaces || []).filter((surface) => surface.writes).map((surface) => surface.surface).join(', ') || 'none'}`,
+      `- assets: ${assetPlanDocument.count} planned, ${assetPlanDocument.assets.filter((asset) => asset.disabled).length} disabled`,
       '',
       'This package is self-contained: it has no runtime dependency on any other theme.',
       '`derived_from` is historical metadata only and never participates in asset resolution.',
+      'The official renderer is never written by this package: `surface-plan.json` records it as protected.',
       ''
     ].join('\n'))
   } catch (error) {
@@ -421,9 +858,12 @@ function buildPackage(options) {
   }
 
   // ---- validate the compiled artifact, not the intent ----
-  const report = validator.validatePackage({ dir: root, darkTokens, expectedId: id })
+  const report = validator.validatePackage({ dir: root, darkTokens, expectedId: id, surfacePlan: surfacePlanDocument, overlayPlan: overlayPlanDocument })
   if (!report.ok) {
     return { ok: false, reason: 'validation_failed', issues: report.issues, dir: root, manifest }
+  }
+  if (degradation.warnings.length) {
+    log(`theme ${id} built with ${degradation.warnings.length} asset warning(s)`)
   }
 
   return {
@@ -434,7 +874,11 @@ function buildPackage(options) {
     components,
     persona: personaDocument,
     validation: report,
-    assets: Object.keys(bundle)
+    assets: Object.keys(bundle),
+    asset_plan: assetPlanDocument,
+    surface_plan: surfacePlanDocument,
+    overlay_plan: overlayPlanDocument,
+    degradation
   }
 }
 
@@ -446,9 +890,13 @@ function countSlots(components) {
 module.exports = {
   ASSET_LAYOUT,
   TOKEN_ASSET_MAP,
+  PLAN_TOKEN_MAP,
   buildPackage,
   buildPreviewHtml,
   buildPreviewPng,
+  buildSurfacePreviews,
+  generatePlannedAssets,
+  resolveSlotAssetReferences,
   countSlots,
   escapeHtml
 }

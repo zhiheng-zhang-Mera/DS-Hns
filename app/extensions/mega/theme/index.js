@@ -16,11 +16,19 @@
  *   orchestrator  the mandated Prompt -> ... -> Install pipeline
  */
 const contract = require('./contract')
+const surface = require('./surface')
 const capability = require('./capability')
 const color = require('./color')
 const validator = require('./validator')
 const png = require('./png')
 const assets = require('./asset-factory')
+const assetPlanner = require('./assets/planner')
+const assetGenerator = require('./assets/generator')
+const assetProcessor = require('./assets/processor')
+const assetValidator = require('./assets/validator')
+const assetFallback = require('./assets/fallback')
+const overlayLayout = require('./official/overlay-layout')
+const overlaySafety = require('./official/overlay-safety')
 const designer = require('./designer')
 const builder = require('./builder')
 const registryModule = require('./registry')
@@ -71,6 +79,10 @@ function makeLoadReader({ scheduler, log }) {
  * @param {Function} [options.windowSize]      () => [w, h]
  * @param {Function} [options.dockState]       () => dock state
  * @param {Function} [options.visualExpected]  () => { expected, reason } — is a screenshot possible right now?
+ * @param {Function} [options.officialBounds]  () => { x, y, width, height } — the protected official view's real bounds
+ * @param {Function} [options.imageGenerator]  async ({ prompt, spec, kind, surface }) => PNG bytes (optional)
+ * @param {Function} [options.paintSurfaces]   (payload, placement) => { ok } — paints official_shell + official_overlay
+ * @param {Function} [options.resetSurfaces]   () => { ok } — restores the default official frame
  * @param {Function} [options.modelInterpreter]
  * @param {Function} [options.log]
  * @param {Function} [options.onChanged]
@@ -84,11 +96,26 @@ function createThemeEngine({
   windowSize = () => null,
   dockState = () => null,
   visualExpected = () => null,
+  officialBounds = null,
+  imageGenerator = null,
+  paintSurfaces = null,
+  resetSurfaces = null,
   modelInterpreter = null,
   log = () => {},
   onChanged = () => {}
 } = {}) {
   const registry = registryModule.createRegistry({ log })
+
+  /**
+   * The overlay layout the latest design produced.
+   *
+   * The prepaint wrapper needs it to place the official overlay's character box,
+   * and it must be readable before the orchestrator exists (the wrapper is created
+   * first), so it is a small forward reference rather than a second source of
+   * truth: the orchestrator assigns it whenever it plans.
+   */
+  let currentPlacement = null
+  const latestPlacement = () => currentPlacement
 
   const recovery = recoveryModule.createRecoveryManager({
     log,
@@ -99,7 +126,20 @@ function createThemeEngine({
   const runtime = runtimeModule.createThemeRuntime({
     registry,
     recovery,
-    applyToRenderer,
+    // Every repaint reaches the official surfaces too. The wrapper is what makes
+    // "the theme is applied" and "the official shell and overlay are applied" one
+    // operation from the caller's point of view, while a surface failure can only
+    // disable the surfaces (任务 18) — the dock is painted first and always.
+    applyToRenderer: (payload) => {
+      applyToRenderer(payload)
+      if (typeof paintSurfaces !== 'function') return
+      try {
+        const placement = latestPlacement()
+        paintSurfaces(payload, placement)
+      } catch (error) {
+        log(`official surface paint failed (surfaces degraded, HNS theme kept): ${error?.message || error}`)
+      }
+    },
     readLoad: makeLoadReader({ scheduler, log }),
     log
   })
@@ -150,6 +190,11 @@ function createThemeEngine({
     onChanged,
     modelInterpreter: modelAdapter.interpreter,
     capturePreview: capture,
+    // The protected official view's bounds are a rectangle, nothing more: the
+    // layout engine needs to know where the frame is, never what is inside it.
+    officialBounds,
+    imageGenerator,
+    onPlanned: (planned) => { currentPlacement = planned?.placement || null },
     readLoad: () => {
       try { return runtime.describe().load } catch { return null }
     }
@@ -180,11 +225,23 @@ function createThemeEngine({
 
   return {
     contract,
+    surface,
     capability,
     color,
     validator,
     png,
     assets,
+    assetPipeline: {
+      planner: assetPlanner,
+      generator: assetGenerator,
+      processor: assetProcessor,
+      validator: assetValidator,
+      fallback: assetFallback
+    },
+    official: {
+      layout: overlayLayout,
+      safety: overlaySafety
+    },
     designer,
     builder,
     preview,
@@ -200,6 +257,35 @@ function createThemeEngine({
     paintPayload: () => runtime.rendererPayload(runtime.currentTheme(), { preview: Boolean(runtime.describe().previewing) }),
     describe: () => orchestrator.describe(),
     capabilities: () => orchestrator.capabilities(),
+    /** The three plan documents + the overlay layout for the latest design. */
+    plans: () => {
+      const latest = [...orchestrator.sessions().values()].pop() || null
+      return latest?.plans || null
+    },
+    /**
+     * Paint the two official surfaces (Update-Plan 任务 2 / 任务 3).
+     *
+     * The hook is optional and failure-isolated: with nothing wired the official
+     * surfaces simply are not painted, and a throwing hook can only disable them
+     * (任务 18) — never the HNS theme.
+     */
+    paintSurfaces: (payload, placement = null) => {
+      try {
+        return typeof paintSurfaces === 'function' ? paintSurfaces(payload, placement) : { ok: false, reason: 'no_surface_target' }
+      } catch (error) {
+        log(`official surface paint failed (surfaces disabled, HNS theme kept): ${error?.message || error}`)
+        return { ok: false, reason: 'surface_paint_failed', error: String(error?.message || error) }
+      }
+    },
+    /** Reset the official surfaces to the default frame. */
+    resetSurfaces: () => {
+      try {
+        return typeof resetSurfaces === 'function' ? resetSurfaces() : { ok: false, reason: 'no_surface_target' }
+      } catch (error) {
+        log(`official surface reset failed: ${error?.message || error}`)
+        return { ok: false, reason: 'surface_reset_failed' }
+      }
+    },
     /** On-disk truth for the latest snapshot: JSON + verified PNGs. */
     snapshotArtifacts: () => snapshot.artifacts(),
     modelAdapter,
@@ -207,7 +293,9 @@ function createThemeEngine({
       const adapter = modelAdapterModule.createModelAdapter({ interpret: fn, log: (message) => log(`model: ${message}`) })
       orchestrator.setModelInterpreter(adapter.interpreter)
       return adapter.describe()
-    }
+    },
+    setImageGenerator: (fn) => orchestrator.setImageGenerator(fn),
+    setOfficialBounds: (fn) => orchestrator.setOfficialBounds(fn)
   }
 }
 
@@ -224,11 +312,23 @@ module.exports = {
   makeLoadReader,
   // Re-exported so tests and the dock can use one import root.
   contract,
+  surface,
   capability,
   color,
   validator,
   png,
   assets,
+  assetPipeline: {
+    planner: assetPlanner,
+    generator: assetGenerator,
+    processor: assetProcessor,
+    validator: assetValidator,
+    fallback: assetFallback
+  },
+  official: {
+    layout: overlayLayout,
+    safety: overlaySafety
+  },
   designer,
   builder,
   recovery: recoveryModule,

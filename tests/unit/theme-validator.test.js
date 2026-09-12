@@ -63,11 +63,81 @@ function baseManifest(overrides = {}) {
 test('the Theme API exposes a versioned slot table', () => {
   assert.equal(contract.THEME_API_VERSION, '1.0')
   assert.ok(contract.SLOT_IDS.length >= 30, 'the slot vocabulary is materially larger than the generic list')
+  // `common` and `hns` address the hns_native surface; `official` addresses the
+  // official shell / overlay surfaces (and describes the protected renderer).
   for (const slotId of contract.SLOT_IDS) {
     const slot = contract.SLOTS[slotId]
-    assert.match(slotId, /^(common|hns)\./, `slot ${slotId} follows the <app>.<domain>.<component> naming rule`)
+    assert.match(slotId, /^(common|hns|official)\./, `slot ${slotId} follows the <app>.<domain>.<component> naming rule`)
     assert.ok(Object.values(contract.PERMISSION).includes(slot.permission), `slot ${slotId} declares a known permission`)
     assert.ok(Array.isArray(slot.properties))
+  }
+})
+
+test('the four Theme Surfaces are part of the contract and the protected one is never writable', () => {
+  const surface = require('../../app/extensions/mega/theme/surface')
+  assert.deepEqual([...contract.SURFACE_PERMISSION ? Object.keys(contract.SURFACE_PERMISSION) : []].sort(), ['FULL', 'PROTECTED', 'VISUAL_ONLY'])
+  assert.deepEqual([...surface.SURFACE_IDS].sort(), ['hns_native', 'official_overlay', 'official_renderer', 'official_shell'])
+  // Every surface is independently queryable and declares its own permission.
+  const byId = Object.fromEntries(surface.describe().map((entry) => [entry.id, entry]))
+  assert.equal(byId.hns_native.permission, 'full')
+  assert.equal(byId.official_shell.permission, 'full')
+  assert.equal(byId.official_overlay.permission, 'visual-only')
+  assert.equal(byId.official_renderer.permission, 'protected')
+  assert.equal(byId.hns_native.writable, true)
+  assert.equal(byId.official_shell.writable, true)
+  assert.equal(byId.official_overlay.writable, true)
+  assert.equal(byId.official_renderer.writable, false)
+  // The visual-only layer may not participate in input at all.
+  for (const key of ['pointer', 'keyboard', 'focus', 'scroll']) {
+    assert.equal(byId.official_overlay.input[key], false, `the overlay must not take ${key} input`)
+  }
+  assert.equal(byId.official_overlay.input.passthrough, true)
+})
+
+test('no theme writer can address the protected official renderer', () => {
+  const surface = require('../../app/extensions/mega/theme/surface')
+  for (const kind of ['asset', 'component', 'layout', 'override']) {
+    const verdict = surface.assertWritable(contract.SURFACE.OFFICIAL_RENDERER, { kind, assetKind: 'official_character' })
+    assert.equal(verdict.ok, false, `${kind} writes to the official renderer must be refused`)
+    assert.equal(verdict.code, 'surface_protected')
+  }
+  // ...and the refusal names the surface and the permission, so a caller can log it.
+  const verdict = surface.assertWritable('official_renderer')
+  assert.equal(verdict.surface, 'official_renderer')
+  assert.equal(verdict.permission, 'protected')
+  assert.match(verdict.reason, /PROTECTED/)
+  // An asset kind the surface does not accept is refused too, per surface.
+  assert.equal(surface.assertWritable('official_overlay', { kind: 'asset', assetKind: 'persona_avatar' }).ok, false)
+  assert.equal(surface.assertWritable('official_overlay', { kind: 'asset', assetKind: 'official_character' }).ok, true)
+  assert.equal(surface.assertWritable('official_shell', { kind: 'asset', assetKind: 'frame_decoration' }).ok, true)
+  // A payload that names a protected surface as a target is detected anywhere.
+  const hits = surface.violationsIn({ overlay_plan: { components: { character: { surface: 'official_renderer' } } } }, ['pkg'])
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].code, 'surface_protected')
+  assert.equal(surface.violationsIn({ note: 'official_renderer is protected' }, ['pkg']).length, 0)
+})
+
+test('the slots a surface owns are attributed to that surface, not to the dock', () => {
+  const capability = require('../../app/extensions/mega/theme/capability')
+  const surface = require('../../app/extensions/mega/theme/surface')
+  assert.equal(surface.surfaceOfSlot('hns.worker.card'), 'hns_native')
+  assert.equal(surface.surfaceOfSlot('official.shell.frame'), 'official_shell')
+  assert.equal(surface.surfaceOfSlot('official.overlay.character_primary'), 'official_overlay')
+  assert.equal(surface.surfaceOfSlot('official.renderer.dom'), 'official_renderer')
+  const manifest = capability.buildManifest({})
+  for (const slotId of contract.SLOT_IDS) {
+    assert.equal(
+      manifest.slots[slotId].surface,
+      surface.surfaceOfSlot(slotId),
+      `manifest slot ${slotId} declares the surface it actually belongs to`
+    )
+  }
+  // The protected renderer's slots are described but never generator-writable.
+  const rendererSlots = Object.entries(manifest.slots).filter(([, slot]) => slot.surface === contract.SURFACE.OFFICIAL_RENDERER)
+  assert.ok(rendererSlots.length >= 4, 'the protected surface is described honestly')
+  for (const [slotId, slot] of rendererSlots) {
+    assert.equal(slot.permission, contract.PERMISSION.STRUCTURAL, `${slotId} must be STRUCTURAL`)
+    assert.ok(!contract.GENERATOR_PERMISSIONS.includes(slot.permission))
   }
 })
 

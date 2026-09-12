@@ -36,6 +36,21 @@ function rgba(value, fallback) {
   return { r: parsed.r, g: parsed.g, b: parsed.b }
 }
 
+/**
+ * Shade a colour and hand back canvas-ready RGB.
+ *
+ * `color.shade()` already returns a `#rrggbb` string (it round-trips through
+ * `toHex`), so wrapping it in `toHex` again produced `#NaNNaNNaN` and silently
+ * collapsed every shaded surface to the grey fallback. This helper is the single
+ * correct way to get from a palette colour to a shaded RGB triple.
+ */
+function shadeRgb(value, amount, options) {
+  // Round-trip through hex so both a CSS string and a parsed palette colour work.
+  const source = color.toHex(value) || '#808080'
+  const shaped = color.shade(source, amount, options)
+  return rgba(shaped, source)
+}
+
 /** Smooth 0..1 ramp. */
 function smoothstep(edge0, edge1, x) {
   const t = color.clamp((x - edge0) / (edge1 - edge0 || 1), 0, 1)
@@ -86,7 +101,7 @@ function renderWallpaper({ palette, style = 'research', width = 960, height = 60
   const bottom = color.toHex(color.shade(colors.base, -0.03) || colors.base)
   const topRgb = rgba(top)
   const bottomRgb = rgba(bottom)
-  const gridRgb = rgba(color.toHex(color.shade(colors.label, -0.25) || colors.label))
+  const gridRgb = shadeRgb(colors.label, -0.25)
   const gridSize = Math.max(18, Math.round(width / 34))
 
   for (let y = 0; y < height; y += 1) {
@@ -181,14 +196,17 @@ function renderPanel({ palette, width = 320, height = 128, seed = 'panel', weave
   const colors = normalizePalette(palette)
   const canvas = png.createCanvas(width, height)
   const random = rngFrom(seed)
-  const base = color.toHex(color.shade(colors.layer1, -0.015) || colors.layer1)
+  const base = color.shade(colors.layer1, -0.015) || '#151922'
   const baseRgb = rgba(base)
   const accentRgb = colors.accent
+  // Two accent values, not one: a single-colour weave quantises to a flat image,
+  // and a themed panel is supposed to read as a surface *material*.
+  const accentSoft = shadeRgb(colors.accent, 0.18)
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const weaveAlpha = ((x + y) % 8 === 0 ? 1 : 0) * weave
       png.blendPixel(canvas, x, y, baseRgb, 1)
-      if (weaveAlpha > 0) png.blendPixel(canvas, x, y, accentRgb, weaveAlpha * 0.35)
+      if (weaveAlpha > 0) png.blendPixel(canvas, x, y, (x + y) % 16 === 0 ? accentSoft : accentRgb, weaveAlpha * 0.35)
       const noise = (random() - 0.5) * 0.016
       if (noise !== 0) png.blendPixel(canvas, x, y, noise > 0 ? { r: 255, g: 255, b: 255 } : { r: 0, g: 0, b: 0 }, Math.abs(noise))
     }
@@ -206,9 +224,9 @@ function renderPersona({ palette, style = 'silver_hair_assistant', width = 128, 
   const canvas = png.createCanvas(width, height)
   const tag = String(style || '').toLowerCase()
   const hairLight = /silver|white|platinum/.test(tag)
-  const hair = hairLight ? rgba('#dfe6f2') : rgba(color.toHex(color.shade(colors.accent, -0.24) || '#33415c'))
+  const hair = hairLight ? rgba('#dfe6f2') : shadeRgb(colors.accent, -0.24)
   const skin = rgba('#e8d5c8')
-  const cloth = rgba(color.toHex(color.shade(colors.layer2, -0.05) || colors.layer2))
+  const cloth = shadeRgb(colors.layer2, -0.05)
   const rim = colors.accent
   const visor = /cyber|hud|android|mecha/.test(tag)
 
@@ -345,8 +363,507 @@ function renderDecoration({ palette, width = 256, height = 256, seed = 'decorati
   return canvas
 }
 
-/** Icon set sheet: a small grid of geometric glyphs used by the dock rail. */
-function renderIconSheet({ palette, width = 128, height = 128, cell = 32 }) {
+/**
+ * Real character asset renderer (Update-Plan/General-Theme.md 任务 5).
+ *
+ * This is a genuine figure drawn as alpha-composited layers — silhouette, hair
+ * mass, torso, limbs, rim light, accent details — and *not* the abstract badge
+ * `renderPersona` produces. The five required framings are supported:
+ *
+ *   avatar     head + shoulders, square, used for compact portraits
+ *   bust       head + chest, portrait aspect
+ *   half_body  head down to the hips, portrait aspect (the workhorse)
+ *   full_body  the whole figure, tall portrait
+ *   silhouette pure dark shape, no interior detail, used as a background figure
+ *
+ * Every pixel outside the figure keeps alpha 0, because a character is placed
+ * over the official renderer (or the HNS dock) and must never paint a rectangle.
+ *
+ * `anchor` / `facing` / `styleTag` change the *pose and read*, not just the hue,
+ * so "银发机械助手，半身，右下角" produces a visibly different asset from a
+ * generic avatar: the framing comes from the declared asset kind, and the hair/
+ * visor treatment comes from the character vocabulary.
+ */
+function renderCharacter({
+  palette,
+  framing = 'half_body',
+  character = 'operator_assistant',
+  style = 'research',
+  width = null,
+  height = null,
+  seed = 'character',
+  facing = 'left',
+  silhouette = false
+}) {
+  const colors = normalizePalette(palette)
+  const frame = String(framing || 'half_body').toLowerCase()
+  const tag = String(character || '').toLowerCase()
+  const styleTag = `${String(style || '').toLowerCase()} ${tag}`
+
+  const portraits = {
+    avatar: { width: 256, height: 256, coverage: 'head' },
+    bust: { width: 384, height: 512, coverage: 'chest' },
+    half_body: { width: 512, height: 768, coverage: 'hips' },
+    full_body: { width: 512, height: 1024, coverage: 'feet' }
+  }
+  const spec = portraits[frame] || portraits.half_body
+  const w = Math.max(64, Math.round(Number(width) || spec.width))
+  const h = Math.max(64, Math.round(Number(height) || spec.height))
+  const canvas = png.createCanvas(w, h)
+  const random = rngFrom(`${seed}:${frame}:${tag}`)
+
+  const robot = /android|mecha|robot|droid|machine|机械/.test(styleTag)
+  const silverHair = /silver|white|platinum|银|white_hair/.test(styleTag)
+  const anime = /anime|manga|persona|girl|boy|二次元|动漫/.test(styleTag)
+  const light = color.isLight(palette?.label || '#e8ecf3')
+
+  // Layer colours. A silhouette keeps only the deepest value so the figure reads
+  // as a shape and can sit behind content without competing with it.
+  const shade = (value, amount) => shadeRgb(value, amount)
+  const outline = silhouette
+    ? { r: 6, g: 8, b: 12 }
+    : shade(colors.base, light ? -0.22 : -0.3)
+  const cloth = silhouette ? outline : shade(colors.layer2, -0.06)
+  const clothDark = silhouette ? outline : shade(colors.layer2, -0.16)
+  const clothLight = silhouette ? outline : shade(colors.layer2, 0.1)
+  const skin = silhouette ? outline : rgba(robot ? '#c9d3e2' : '#ecd8c9')
+  const skinShade = silhouette ? outline : rgba(robot ? '#9fb0c6' : '#d5bcab')
+  const hair = silhouette ? outline : rgba(silverHair ? '#e6ecf6' : (robot ? '#c2ccdb' : '#3b3f52'))
+  const hairShade = silhouette ? outline : rgba(silverHair ? '#b9c4d6' : '#2a2e3d')
+  const rim = silhouette ? outline : colors.accent
+  const detail = silhouette ? outline : colors.accent2
+  const visor = !silhouette && (robot || /cyber|hud|neon/.test(styleTag))
+
+  // ---- geometry -----------------------------------------------------------
+  // Vertical proportions are expressed as fractions of the *figure*, then mapped
+  // into the requested crop, so a half body is the bust block enlarged rather
+  // than a squashed full body.
+  const crops = {
+    head: { top: 0.16, bottom: 0.98, scale: 1 },
+    chest: { top: 0.08, bottom: 0.99, scale: 1.08 },
+    hips: { top: 0.04, bottom: 0.99, scale: 1.02 },
+    feet: { top: 0.02, bottom: 0.99, scale: 1 }
+  }
+  const crop = crops[spec.coverage]
+  // Figure occupies the middle 84% of the width: the remaining margin is what
+  // keeps the silhouette from being clipped when the layout engine scales it.
+  const figureHeight = h * (crop.bottom - crop.top)
+  const unit = Math.min(w * 0.84, figureHeight * 0.30) // head height
+  const cx = w * (facing === 'right' ? 0.46 : 0.54)
+  const headCy = h * crop.top + unit * 0.58
+  const headRx = unit * 0.42
+  const headRy = unit * 0.52
+
+  const ellipse = (ox, oy, rx, ry, colorRgb, alpha = 1) => {
+    const minX = Math.max(0, Math.floor(ox - rx))
+    const maxX = Math.min(w - 1, Math.ceil(ox + rx))
+    const minY = Math.max(0, Math.floor(oy - ry))
+    const maxY = Math.min(h - 1, Math.ceil(oy + ry))
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const dx = (x - ox) / rx
+        const dy = (y - oy) / ry
+        if (dx * dx + dy * dy <= 1) png.blendPixel(canvas, x, y, colorRgb, alpha)
+      }
+    }
+  }
+  const capsule = (x0, y0, x1, y1, radius, colorRgb, alpha = 1) => {
+    const steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0)))
+    for (let index = 0; index <= steps; index += 1) {
+      const t = index / steps
+      ellipse(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, radius, radius, colorRgb, alpha)
+    }
+  }
+  const band = (y0, y1, halfWidth, colorRgb, alpha = 1) => {
+    for (let y = Math.max(0, Math.floor(y0)); y <= Math.min(h - 1, Math.ceil(y1)); y += 1) {
+      const t = (y - y0) / Math.max(1, y1 - y0)
+      const bw = typeof halfWidth === 'function' ? halfWidth(t, y) : halfWidth
+      for (let x = Math.max(0, Math.floor(cx - bw)); x <= Math.min(w - 1, Math.ceil(cx + bw)); x += 1) {
+        png.blendPixel(canvas, x, y, colorRgb, alpha)
+      }
+    }
+  }
+  const polygon = (points, colorRgb, alpha = 1) => {
+    if (!points.length) return
+    const ys = points.map((point) => point[1])
+    const minY = Math.max(0, Math.floor(Math.min(...ys)))
+    const maxY = Math.min(h - 1, Math.ceil(Math.max(...ys)))
+    for (let y = minY; y <= maxY; y += 1) {
+      const crossings = []
+      for (let index = 0; index < points.length; index += 1) {
+        const [ax, ay] = points[index]
+        const [bx, by] = points[(index + 1) % points.length]
+        if ((ay <= y && by > y) || (by <= y && ay > y)) {
+          crossings.push(ax + ((y - ay) / (by - ay)) * (bx - ax))
+        }
+      }
+      crossings.sort((a, b) => a - b)
+      for (let index = 0; index + 1 < crossings.length; index += 2) {
+        for (let x = Math.max(0, Math.floor(crossings[index])); x <= Math.min(w - 1, Math.ceil(crossings[index + 1])); x += 1) {
+          png.blendPixel(canvas, x, y, colorRgb, alpha)
+        }
+      }
+    }
+  }
+
+  // ---- hair mass behind the head (drawn first, so the face sits on top) ----
+  const hairWidth = headRx * (anime ? 1.9 : 1.5)
+  const hairLength = unit * (anime ? 1.55 : 0.85)
+  polygon([
+    [cx - hairWidth, headCy - headRy * 0.9],
+    [cx + hairWidth, headCy - headRy * 0.9],
+    [cx + hairWidth * 0.92, headCy + hairLength],
+    [cx + headRx * 0.4, headCy + hairLength * 1.08],
+    [cx - headRx * 0.5, headCy + hairLength * 0.98],
+    [cx - hairWidth * 0.98, headCy + hairLength * 0.86]
+  ], hairShade)
+
+  // ---- torso: shoulders -> hips, tapered, with a collar notch ----
+  const shoulderY = headCy + headRy * 1.16
+  const torsoBottom = spec.coverage === 'head' ? shoulderY + unit * 0.5 : h * crop.bottom
+  const shoulderHalf = unit * (robot ? 0.98 : 0.82)
+  const waistHalf = unit * 0.56
+  band(shoulderY, torsoBottom, (t) => shoulderHalf + (waistHalf - shoulderHalf) * Math.pow(t, 0.72), cloth)
+  // chest plane reads as cloth, the shoulder caps catch the light
+  band(shoulderY + (torsoBottom - shoulderY) * 0.06, shoulderY + (torsoBottom - shoulderY) * 0.34, (t) => shoulderHalf * (0.96 - t * 0.2), clothLight, 0.35)
+  ellipse(cx - shoulderHalf * 0.86, shoulderY + unit * 0.06, unit * 0.2, unit * 0.17, clothLight, 0.85)
+  ellipse(cx + shoulderHalf * 0.86, shoulderY + unit * 0.06, unit * 0.2, unit * 0.17, clothLight, 0.85)
+
+  if (spec.coverage === 'hips' || spec.coverage === 'feet') {
+    // Arms hang beside the torso; a mechanical character gets visibly jointed
+    // segments so the "机械" part of the prompt is actually visible.
+    const armTop = shoulderY + unit * 0.12
+    const armBottom = spec.coverage === 'feet' ? h * 0.62 : torsoBottom - unit * 0.1
+    for (const sign of [-1, 1]) {
+      const x = cx + sign * (shoulderHalf * 0.92)
+      capsule(x, armTop, x + sign * unit * 0.1, armBottom, unit * 0.135, clothDark)
+      if (robot) {
+        capsule(x + sign * unit * 0.06, armTop + unit * 0.34, x + sign * unit * 0.12, armBottom - unit * 0.24, unit * 0.16, clothLight, 0.55)
+      }
+      capsule(x + sign * unit * 0.1, armBottom, x + sign * unit * 0.12, armBottom + unit * 0.16, unit * 0.11, skin, 1)
+    }
+  }
+
+  if (spec.coverage === 'feet') {
+    const legTop = h * 0.60
+    for (const sign of [-1, 1]) {
+      capsule(cx + sign * waistHalf * 0.5, legTop, cx + sign * waistHalf * 0.62, h * 0.93, unit * 0.15, clothDark)
+      capsule(cx + sign * waistHalf * 0.62, h * 0.9, cx + sign * waistHalf * 0.7, h * 0.97, unit * 0.09, shade(colors.base, -0.4))
+    }
+  }
+
+  // ---- head ----
+  ellipse(cx, headCy, headRx, headRy, skin)
+  // jaw taper: shave the lower corners so the head is not a pure ellipse
+  for (let y = Math.floor(headCy + headRy * 0.3); y <= Math.ceil(headCy + headRy); y += 1) {
+    const t = (y - (headCy + headRy * 0.3)) / (headRy * 0.7)
+    const cut = headRx * (0.98 - 0.42 * t * t)
+    for (let x = 0; x < w; x += 1) {
+      const dx = Math.abs(x - cx)
+      if (dx > cut && dx <= headRx * 1.02) {
+        const offset = (y * w + x) * 4
+        if (canvas.data[offset + 3] > 0 && dx * dx + ((y - headCy) / headRy) ** 2 <= 1) {
+          canvas.data[offset] = 0
+          canvas.data[offset + 1] = 0
+          canvas.data[offset + 2] = 0
+          canvas.data[offset + 3] = 0
+        }
+      }
+    }
+  }
+  // neck
+  band(headCy + headRy * 0.7, shoulderY + unit * 0.1, headRx * 0.42, skinShade)
+
+  // ---- face ----
+  if (!silhouette && spec.coverage !== 'feet') {
+    const eyeY = Math.round(headCy + headRy * 0.06)
+    const eyeDx = Math.round(headRx * 0.44)
+    const eyeColor = visor ? colors.accent : rgba('#2c3a52')
+    for (const sign of [-1, 1]) {
+      const eyeX = Math.round(cx + sign * eyeDx)
+      if (anime) {
+        // tall almond eye, the anime read
+        ellipse(eyeX, eyeY, headRx * 0.15, headRy * 0.2, eyeColor, 0.96)
+        ellipse(eyeX, eyeY - headRy * 0.07, headRx * 0.06, headRy * 0.07, rgba('#ffffff'), 0.85)
+      } else {
+        ellipse(eyeX, eyeY, headRx * 0.12, headRy * 0.06, eyeColor, 0.94)
+      }
+    }
+    // brows
+    for (const sign of [-1, 1]) {
+      capsule(
+        cx + sign * eyeDx - headRx * 0.12,
+        eyeY - headRy * 0.3,
+        cx + sign * eyeDx + headRx * 0.12,
+        eyeY - headRy * 0.34,
+        Math.max(1, headRy * 0.03),
+        hairShade,
+        0.8
+      )
+    }
+    // mouth
+    capsule(cx - headRx * 0.12, headCy + headRy * 0.52, cx + headRx * 0.12, headCy + headRy * 0.52, Math.max(1, headRy * 0.025), skinShade, 0.9)
+  }
+
+  // ---- hair front / fringe ----
+  if (!silhouette) {
+    const fringeDepth = headRy * (anime ? 0.62 : 0.42)
+    polygon([
+      [cx - headRx * 1.06, headCy - headRy * 0.18],
+      [cx - headRx * 1.02, headCy - headRy * 0.92],
+      [cx + headRx * 1.02, headCy - headRy * 0.92],
+      [cx + headRx * 1.06, headCy - headRy * 0.1],
+      [cx + headRx * 0.44, headCy - headRy * 0.34],
+      [cx + headRx * 0.1, headCy + fringeDepth * 0.36],
+      [cx - headRx * 0.34, headCy - headRy * 0.28]
+    ], hair)
+    // side locks, longer on the facing-away side
+    for (const sign of [-1, 1]) {
+      const length = sign === (facing === 'right' ? -1 : 1) ? unit * 0.95 : unit * 0.6
+      capsule(cx + sign * headRx * 0.98, headCy - headRy * 0.2, cx + sign * headRx * 1.04, headCy + length, headRx * 0.2, hairShade, 0.95)
+    }
+    if (silverHair) {
+      // highlight band: the "银发" read comes from a bright specular stripe
+      capsule(cx - headRx * 0.7, headCy - headRy * 0.66, cx + headRx * 0.5, headCy - headRy * 0.74, Math.max(1, headRy * 0.06), rgba('#ffffff'), 0.5)
+    }
+  }
+
+  // ---- mechanical / visor detail ----
+  if (visor) {
+    const visorY = headCy + headRy * 0.04
+    polygon([
+      [cx - headRx * 1.04, visorY - headRy * 0.2],
+      [cx + headRx * 1.04, visorY - headRy * 0.26],
+      [cx + headRx * 1.02, visorY + headRy * 0.18],
+      [cx - headRx * 1.02, visorY + headRy * 0.24]
+    ], colors.accent, 0.42)
+    capsule(cx - headRx * 1.0, visorY + headRy * 0.2, cx + headRx * 1.0, visorY + headRy * 0.16, Math.max(1, headRy * 0.035), detail, 0.75)
+  }
+  if (robot && !silhouette) {
+    // ear units + a chest core
+    for (const sign of [-1, 1]) ellipse(cx + sign * headRx * 1.06, headCy + headRy * 0.05, headRx * 0.16, headRy * 0.22, detail, 0.85)
+    ellipse(cx, shoulderY + unit * 0.42, unit * 0.11, unit * 0.11, colors.accent, 0.9)
+    ellipse(cx, shoulderY + unit * 0.42, unit * 0.06, unit * 0.06, rgba('#ffffff'), 0.7)
+  }
+  if (!silhouette) {
+    // belt / seam so the figure is not a flat slab
+    capsule(cx - waistHalf * 0.9, shoulderY + (torsoBottom - shoulderY) * 0.78, cx + waistHalf * 0.9, shoulderY + (torsoBottom - shoulderY) * 0.78, Math.max(1, unit * 0.03), detail, 0.5)
+  }
+
+  // ---- rim light along the light side ----
+  if (!silhouette) {
+    for (let y = 0; y < h; y += 1) {
+      let firstSolid = -1
+      let lastSolid = -1
+      for (let x = 0; x < w; x += 1) {
+        if (canvas.data[(y * w + x) * 4 + 3] > 8) {
+          if (firstSolid < 0) firstSolid = x
+          lastSolid = x
+        }
+      }
+      if (firstSolid < 0) continue
+      const edgeX = facing === 'right' ? firstSolid : lastSolid
+      const direction = facing === 'right' ? 1 : -1
+      for (let step = 0; step < 4; step += 1) {
+        const x = edgeX + direction * step
+        if (x < 0 || x >= w) break
+        if (canvas.data[(y * w + x) * 4 + 3] <= 8) break
+        png.blendPixel(canvas, x, y, rim, 0.4 * (1 - step / 4))
+        png.blendPixel(canvas, x, y, rim, 0.18 * (1 - step / 4))
+      }
+    }
+    // a couple of drifting accents so the figure is not perfectly symmetric
+    for (let index = 0; index < 8; index += 1) {
+      const px = Math.round(cx + (random() - 0.5) * unit * 2.4)
+      const py = Math.round(headCy + random() * (torsoBottom - headCy))
+      if (px < 0 || py < 0 || px >= w || py >= h) continue
+      if (canvas.data[(py * w + px) * 4 + 3] === 0) continue
+      png.blendPixel(canvas, px, py, detail, 0.22)
+    }
+  }
+
+  return canvas
+}
+
+/**
+ * Official skin: the re-skin of the official renderer's *frame*. Drawn as a
+ * transparent-edged plate with a corner treatment and a faint centre wash, so
+ * the official content underneath stays readable (Update-Plan 任务 6).
+ */
+function renderOfficialSkin({ palette, style = 'research', width = 1280, height = 800, seed = 'skin' }) {
+  const colors = normalizePalette(palette)
+  const canvas = png.createCanvas(width, height)
+  const random = rngFrom(`${seed}:skin`)
+  const tag = String(style || '').toLowerCase()
+  const cyber = /cyber|hud|neon|tech/.test(tag)
+  const minimal = /minimal|neutral|plain/.test(tag)
+
+  const dark = shadeRgb(colors.base, -0.03)
+  const edge = Math.max(6, Math.round(Math.min(width, height) * 0.05))
+  const thin = Math.max(1, Math.round(Math.min(width, height) * 0.004))
+
+  // Frame band: opaque enough to read as a skin, but only along the edges.
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const edgeDistance = Math.min(x, y, width - 1 - x, height - 1 - y)
+      if (edgeDistance > edge) continue
+      const t = 1 - edgeDistance / edge
+      const alpha = Math.pow(t, 0.8) * (minimal ? 0.5 : 0.72)
+      png.blendPixel(canvas, x, y, dark, alpha)
+      const accentLine = edgeDistance <= thin * 2
+      if (accentLine && !minimal) png.blendPixel(canvas, x, y, colors.accent, 0.42 * t)
+      if (cyber && edgeDistance % 4 === 0 && edgeDistance <= edge * 0.5) {
+        png.blendPixel(canvas, x, y, colors.accent2, 0.16 * t)
+      }
+    }
+  }
+  // centre wash: a very light gradient, never enough to fight the content
+  const wash = minimal ? 0.05 : 0.11
+  for (let y = 0; y < height; y += 1) {
+    const v = y / (height - 1)
+    for (let x = 0; x < width; x += 1) {
+      const u = x / (width - 1)
+      const radial = Math.hypot(u - 0.5, v - 0.55) / 0.72
+      const falloff = Math.max(0, 1 - radial)
+      if (falloff <= 0) continue
+      png.blendPixel(canvas, x, y, colors.layer2, falloff * wash)
+    }
+  }
+  // corner brackets
+  const bracket = Math.round(Math.min(width, height) * 0.11)
+  const drawBracket = (ox, oy, sx, sy) => {
+    for (let step = 0; step <= bracket; step += 1) {
+      png.blendPixel(canvas, ox + sx * step, oy, colors.accent, 0.6)
+      png.blendPixel(canvas, ox + sx * step, oy + sy, colors.accent, 0.3)
+      png.blendPixel(canvas, ox, oy + sy * step, colors.accent, 0.6)
+      png.blendPixel(canvas, ox + sx, oy + sy * step, colors.accent, 0.3)
+    }
+  }
+  drawBracket(thin * 3, thin * 3, 1, 1)
+  drawBracket(width - 1 - thin * 3, thin * 3, -1, 1)
+  drawBracket(thin * 3, height - 1 - thin * 3, 1, -1)
+  drawBracket(width - 1 - thin * 3, height - 1 - thin * 3, -1, -1)
+  if (cyber) {
+    for (let index = 0; index < 24; index += 1) {
+      const px = Math.round(random() * width)
+      const py = Math.round(thin * 3 + random() * bracket)
+      png.blendPixel(canvas, px, py, colors.accent2, 0.35)
+    }
+  }
+  return canvas
+}
+
+/** Overlay texture: a tileable pattern the overlay paints at low opacity. */
+function renderOverlayTexture({ palette, style = 'research', width = 512, height = 512, seed = 'texture' }) {
+  const colors = normalizePalette(palette)
+  const canvas = png.createCanvas(width, height)
+  const random = rngFrom(`${seed}:texture`)
+  const tag = String(style || '').toLowerCase()
+  const cyber = /cyber|hud|neon|tech/.test(tag)
+  const grid = Math.max(24, Math.round(width / 16))
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const noise = (random() - 0.5) * 0.1
+      if (noise > 0) png.blendPixel(canvas, x, y, colors.label, noise * 0.5)
+      else png.blendPixel(canvas, x, y, { r: 0, g: 0, b: 0 }, -noise * 0.5)
+      if (x % grid === 0 || y % grid === 0) png.blendPixel(canvas, x, y, colors.accent, 0.14)
+      if (cyber && y % 3 === 0) png.blendPixel(canvas, x, y, colors.accent2, 0.05)
+    }
+  }
+  // weave: diagonal highlight so the texture is visible at low opacity
+  for (let index = -height; index < width; index += 12) {
+    for (let y = 0; y < height; y += 1) {
+      const x = index + y
+      if (x < 0 || x >= width) continue
+      png.blendPixel(canvas, x, y, colors.accent, 0.06)
+    }
+  }
+  return canvas
+}
+
+/** HUD decoration: a corner-anchored bracket cluster, transparent elsewhere. */
+function renderHudDecoration({ palette, style = 'research', width = 512, height = 512, seed = 'hud' }) {
+  const colors = normalizePalette(palette)
+  const canvas = png.createCanvas(width, height)
+  const tag = String(style || '').toLowerCase()
+  const heavy = /cyber|hud|neon|industrial|console/.test(tag)
+  const arm = width * (heavy ? 0.42 : 0.32)
+  const thickness = Math.max(2, Math.round(width * 0.008))
+  // Two accent values so the ornament reads as a drawn bracket rather than a
+  // single flat glyph (and so a quantised colour count sees real structure).
+  const outer = colors.accent
+  const inner = shadeRgb(colors.accent, 0.22)
+  const segment = (x0, y0, x1, y1, alpha, colorRgb = outer) => {
+    const steps = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0)))
+    for (let index = 0; index <= steps; index += 1) {
+      const t = index / steps
+      const px = Math.round(x0 + (x1 - x0) * t)
+      const py = Math.round(y0 + (y1 - y0) * t)
+      for (let dy = 0; dy < thickness; dy += 1) {
+        for (let dx = 0; dx < thickness; dx += 1) {
+          png.blendPixel(canvas, px + dx, py + dy, colorRgb, alpha)
+        }
+      }
+    }
+  }
+  segment(0, 0, arm, 0, 0.85)
+  segment(0, 0, 0, arm, 0.85)
+  segment(0, arm * 0.6, arm * 0.6, arm * 0.6, 0.4, inner)
+  segment(arm * 0.6, 0, arm * 0.6, arm * 0.6, 0.4, inner)
+  if (heavy) {
+    segment(arm * 0.18, arm * 0.18, arm * 0.75, arm * 0.18, 0.3, inner)
+    segment(arm * 0.18, arm * 0.18, arm * 0.18, arm * 0.75, 0.3, inner)
+    for (let index = 0; index < 10; index += 1) {
+      const px = Math.round(arm * 0.9 + index * (width * 0.02))
+      png.blendPixel(canvas, px, Math.round(arm * 0.2), colors.accent2, 0.6)
+    }
+  }
+  return canvas
+}
+
+/**
+ * Frame decoration for the official shell: a full-frame border with bracket and
+ * rule details, transparent in the middle so the official view is untouched.
+ */
+function renderFrameDecoration({ palette, style = 'research', width = 1280, height = 800, seed = 'frame' }) {
+  const colors = normalizePalette(palette)
+  const canvas = png.createCanvas(width, height)
+  const tag = String(style || '').toLowerCase()
+  const cyber = /cyber|hud|neon|tech/.test(tag)
+  const thickness = Math.max(2, Math.round(Math.min(width, height) * 0.005))
+  // A second, softer accent for the inner lip, so the frame is a drawn moulding
+  // rather than one flat stroke.
+  const inner = shadeRgb(colors.accent2, -0.1)
+  for (let x = 0; x < width; x += 1) {
+    for (let d = 0; d < thickness; d += 1) {
+      png.blendPixel(canvas, x, d, colors.accent, 0.7 - d / thickness * 0.4)
+      png.blendPixel(canvas, x, height - 1 - d, colors.accent, 0.7 - d / thickness * 0.4)
+    }
+  }
+  for (let y = 0; y < height; y += 1) {
+    for (let d = 0; d < thickness; d += 1) {
+      png.blendPixel(canvas, d, y, colors.accent, 0.55 - d / thickness * 0.3)
+      png.blendPixel(canvas, width - 1 - d, y, colors.accent, 0.55 - d / thickness * 0.3)
+    }
+  }
+  for (let x = 0; x < width; x += 1) {
+    png.blendPixel(canvas, x, thickness, inner, 0.4)
+    png.blendPixel(canvas, x, height - 1 - thickness, inner, 0.4)
+  }
+  for (let y = 0; y < height; y += 1) {
+    png.blendPixel(canvas, thickness, y, inner, 0.32)
+    png.blendPixel(canvas, width - 1 - thickness, y, inner, 0.32)
+  }
+  if (cyber) {
+    for (let x = 0; x < width; x += 8) {
+      png.blendPixel(canvas, x, 0, colors.accent2, 0.5)
+      png.blendPixel(canvas, x, height - 1, colors.accent2, 0.5)
+    }
+  }
+  return canvas
+}
+
+/** Icon set sheet: a small grid of geometric glyphs used by the dock rail. */function renderIconSheet({ palette, width = 128, height = 128, cell = 32 }) {
   const colors = normalizePalette(palette)
   const canvas = png.createCanvas(width, height)
   const glyphColor = colors.label
@@ -454,6 +971,162 @@ function assetPath(...parts) {
   return path.posix.join('assets', ...parts)
 }
 
+/**
+ * Asset kind vocabulary (Update-Plan 任务 5 + 任务 6).
+ *
+ * Every entry is the *specification* of one real, placeable asset: what surface
+ * it targets, the framing/framing-independent size, whether it must carry real
+ * transparency, which layout mode places it, and a prompt fragment the image
+ * generator receives. The planner consumes this table and nothing else, so a new
+ * asset kind is added here and is immediately plannable, generatable, placeable
+ * and previewable.
+ */
+const REAL_ASSET_CATALOG = Object.freeze({
+  wallpaper: {
+    kind: 'wallpaper',
+    label: 'Wallpaper',
+    surface: 'hns_native',
+    framing: 'background',
+    width: 1440,
+    height: 900,
+    transparent: false,
+    layout: 'background',
+    anchor: 'center',
+    requiresCharacter: false,
+    prompt: 'full-bleed abstract wallpaper in the theme palette, no text, no watermark'
+  },
+  official_skin: {
+    kind: 'official_skin',
+    label: 'Official Skin',
+    surface: 'official_overlay',
+    framing: 'plate',
+    width: 1600,
+    height: 1000,
+    transparent: true,
+    layout: 'framed',
+    anchor: 'center',
+    requiresCharacter: false,
+    prompt: 'edge and frame skin for an application window, transparent centre, no text'
+  },
+  official_overlay_texture: {
+    kind: 'official_overlay_texture',
+    label: 'Overlay Texture',
+    surface: 'official_overlay',
+    framing: 'tile',
+    width: 512,
+    height: 512,
+    transparent: true,
+    layout: 'background',
+    anchor: 'center',
+    requiresCharacter: false,
+    prompt: 'seamless technical texture tile, subtle, transparent-friendly, no text'
+  },
+  hns_character: {
+    kind: 'hns_character',
+    label: 'HNS Character',
+    surface: 'hns_native',
+    framing: 'half_body',
+    width: 512,
+    height: 768,
+    transparent: true,
+    layout: 'corner',
+    anchor: 'bottom-right',
+    requiresCharacter: true,
+    prompt: 'character portrait, transparent background, full figure inside the frame'
+  },
+  official_character: {
+    kind: 'official_character',
+    label: 'Official Character',
+    surface: 'official_overlay',
+    framing: 'half_body',
+    width: 512,
+    height: 768,
+    transparent: true,
+    layout: 'corner',
+    anchor: 'bottom-right',
+    requiresCharacter: true,
+    prompt: 'character portrait for an overlay, transparent background, no text, must not cover the centre'
+  },
+  hud_decoration: {
+    kind: 'hud_decoration',
+    label: 'HUD Decoration',
+    surface: 'official_overlay',
+    framing: 'corner',
+    width: 512,
+    height: 512,
+    transparent: true,
+    layout: 'corner',
+    anchor: 'bottom-right',
+    requiresCharacter: false,
+    prompt: 'corner HUD bracket ornament, transparent elsewhere, no text'
+  },
+  frame_decoration: {
+    kind: 'frame_decoration',
+    label: 'Frame Decoration',
+    surface: 'official_shell',
+    framing: 'frame',
+    width: 1600,
+    height: 1000,
+    transparent: true,
+    layout: 'framed',
+    anchor: 'center',
+    requiresCharacter: false,
+    prompt: 'window frame ornament with transparent centre, no text'
+  },
+  panel_texture: {
+    kind: 'panel_texture',
+    label: 'Panel Texture',
+    surface: 'hns_native',
+    framing: 'tile',
+    width: 320,
+    height: 128,
+    transparent: false,
+    layout: 'background',
+    anchor: 'center',
+    requiresCharacter: false,
+    prompt: 'subtle panel texture, no text'
+  },
+  icon_set: {
+    kind: 'icon_set',
+    label: 'Icon Set',
+    surface: 'hns_native',
+    framing: 'sheet',
+    width: 128,
+    height: 128,
+    transparent: true,
+    layout: 'background',
+    anchor: 'center',
+    requiresCharacter: false,
+    prompt: 'geometric icon sheet, transparent background, no text'
+  },
+  persona_avatar: {
+    kind: 'persona_avatar',
+    label: 'Persona Avatar',
+    surface: 'hns_native',
+    framing: 'avatar',
+    width: 256,
+    height: 256,
+    transparent: true,
+    layout: 'corner',
+    anchor: 'bottom-right',
+    requiresCharacter: true,
+    prompt: 'character avatar, transparent background, head and shoulders'
+  }
+})
+
+/** Every asset kind the generator can produce. */
+const REAL_ASSET_KINDS = Object.freeze(Object.keys(REAL_ASSET_CATALOG))
+
+/** Character framings required by 任务 5. */
+const CHARACTER_FRAMINGS = Object.freeze(['avatar', 'bust', 'half_body', 'full_body', 'silhouette'])
+
+/** Map a character framing onto the on-screen body the framing implies. */
+function framingOf(kind) {
+  const normalized = String(kind || '').toLowerCase()
+  if (CHARACTER_FRAMINGS.includes(normalized)) return normalized
+  return REAL_ASSET_CATALOG[normalized]?.framing || 'half_body'
+}
+
 module.exports = {
   rngFrom,
   smoothstep,
@@ -465,7 +1138,16 @@ module.exports = {
   renderDecoration,
   renderIconSheet,
   renderTrayIcon,
+  renderCharacter,
+  renderOfficialSkin,
+  renderOverlayTexture,
+  renderHudDecoration,
+  renderFrameDecoration,
   buildAssetBundle,
   buildInlineAssets,
-  assetPath
+  assetPath,
+  REAL_ASSET_CATALOG,
+  REAL_ASSET_KINDS,
+  CHARACTER_FRAMINGS,
+  framingOf
 }

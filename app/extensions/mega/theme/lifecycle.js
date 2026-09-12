@@ -98,8 +98,12 @@ function createLifecycle({
    * Start (or update) a live preview. The draft lives in the workspace only —
    * it is never registered and never appears in the theme list before approval
    * (THEME_INTERFACE_SPEC §5).
+   *
+   * The build is asynchronous because the asset pipeline is: a real character is
+   * generated, validated and encoded before the preview may claim to show one.
+   * Every caller awaits it (`orchestrator.createTheme`, `reviseTheme`).
    */
-  function previewDraft({ draft, id, name, prompt, intent, draftId = null } = {}) {
+  async function previewDraft({ draft, id, name, prompt, intent, draftId = null } = {}) {
     if (!draft) return { ok: false, reason: 'draft_required' }
     const workspaceId = draftId || `draft-${Date.now().toString(36)}`
     const dir = path.join(registry.workspaceDir(), 'temp', workspaceId)
@@ -119,14 +123,15 @@ function createLifecycle({
 
     // The draft is materialized in the temp workspace so the same package
     // validator that guards installation also guards the preview.
-    const built = builder.buildPackage({
+    const built = await builder.buildPackage({
       draft,
       id: id || `draft.${workspaceId}`,
       name: record.name,
       outDir: dir,
       source: 'generated',
       generatedPrompt: record.prompt,
-      darkTokens: registry.darkTokens()
+      darkTokens: registry.darkTokens(),
+      log
     })
 
     if (!built.ok) {
@@ -138,6 +143,10 @@ function createLifecycle({
     record.components = built.components
     record.persona = built.persona
     record.validation = built.validation
+    record.assetPlan = built.asset_plan || null
+    record.surfacePlan = built.surface_plan || null
+    record.overlayPlan = built.overlay_plan || null
+    record.degradation = built.degradation || null
 
     const previewTheme = {
       id: built.manifest.id,
@@ -150,7 +159,11 @@ function createLifecycle({
       },
       persona: built.persona,
       dir,
-      validation: built.validation
+      validation: built.validation,
+      assetPlan: built.asset_plan || null,
+      surfacePlan: built.surface_plan || null,
+      overlayPlan: built.overlay_plan || null,
+      degradation: built.degradation || null
     }
 
     drafts.set(workspaceId, record)
@@ -164,14 +177,18 @@ function createLifecycle({
       dir,
       preview: previewTheme,
       validation: built.validation,
-      contrastAdjustments: draft.contrast_adjustments || []
+      contrastAdjustments: draft.contrast_adjustments || [],
+      assetPlan: built.asset_plan || null,
+      surfacePlan: built.surface_plan || null,
+      overlayPlan: built.overlay_plan || null,
+      degradation: built.degradation || null
     }
   }
 
   /** Re-preview with a revised design (incremental, same draft id). */
-  function reviseDraft({ draftId, draft, prompt, intent, name } = {}) {
+  async function reviseDraft({ draftId, draft, prompt, intent, name } = {}) {
     const record = drafts.get(draftId)
-    const next = previewDraft({
+    const next = await previewDraft({
       draft,
       id: record?.themeId,
       name: name || record?.name,
@@ -365,6 +382,10 @@ function createLifecycle({
    * records the history.
    */
   function duplicateTheme(id, { name } = {}) {
+    return duplicateThemeAsync(id, { name })
+  }
+
+  async function duplicateThemeAsync(id, { name } = {}) {
     const record = registry.list().find((entry) => entry.id === id)
     if (!record) return { ok: false, reason: 'not_found', id }
     const newId = registry.uniqueUserId(name || `${record.name} copy`)
@@ -402,7 +423,7 @@ function createLifecycle({
       intent: { density: 'normal', motion: 'none', decoration: 'medium_low' }
     }
 
-    const built = builder.buildPackage({
+    const built = await builder.buildPackage({
       draft,
       id: newId,
       name: name || `${record.name} copy`,
@@ -411,7 +432,8 @@ function createLifecycle({
       generatedPrompt: record.generated_prompt,
       derivedFrom: id,
       revisionHistory: sourceEvents,
-      darkTokens: registry.darkTokens()
+      darkTokens: registry.darkTokens(),
+      log
     })
     if (!built.ok) return { ok: false, reason: built.reason, id, issues: built.issues }
 

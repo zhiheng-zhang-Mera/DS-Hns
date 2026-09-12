@@ -9,9 +9,9 @@ name: verify
 # top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
-    branches: [main, merging]
+    branches: [main, merging, Theme-Cover]
   pull_request:
-    branches: [main, merging]
+    branches: [main, merging, Theme-Cover]
 
 jobs:
   verify:
@@ -36,3 +36,32 @@ jobs:
       - name: Unit + architecture tests
         working-directory: app
         run: npm test
+
+      # The four-surface work (Update-Plan/General-Theme.md) adds modules in
+      # subdirectories the syntax gate has to be told about explicitly, and two
+      # HTML documents that are part of the product. A silent gap there would be a
+      # green gate over unchecked code, so the directories are asserted here too.
+      - name: Theme surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/extensions/mega/theme/surface.js',
+            'app/extensions/mega/theme/assets/planner.js',
+            'app/extensions/mega/theme/assets/generator.js',
+            'app/extensions/mega/theme/assets/processor.js',
+            'app/extensions/mega/theme/assets/validator.js',
+            'app/extensions/mega/theme/assets/fallback.js',
+            'app/extensions/mega/theme/official/overlay-layout.js',
+            'app/extensions/mega/theme/official/overlay-safety.js',
+            'app/official-surface-views.cjs',
+            'app/extensions/mega/ui/hns-shell.html',
+            'app/extensions/mega/ui/official-overlay.html'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing theme surface files: $($missing -join ', ')"; exit 1 }
+          $dirs = @('extensions/mega/theme/assets', 'extensions/mega/theme/official')
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in $dirs) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          Write-Host "theme surface files present and covered by the syntax gate"

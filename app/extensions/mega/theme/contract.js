@@ -40,6 +40,32 @@ const PERMISSION = Object.freeze({
  */
 const GENERATOR_PERMISSIONS = Object.freeze([PERMISSION.SAFE, PERMISSION.STYLE])
 
+/**
+ * The four Theme Surfaces (Update-Plan/General-Theme.md 任务 1).
+ *
+ * Declared here — the contract layer — because they are part of the Theme API
+ * vocabulary, exactly like slots and tokens. `surface.js` owns the behaviour
+ * (permissions, the write gate, the layout vocabulary); this file owns the names,
+ * so a theme package that declares a surface is validated against the same
+ * constant the runtime paints.
+ */
+const SURFACE = Object.freeze({
+  HNS_NATIVE: 'hns_native',
+  OFFICIAL_SHELL: 'official_shell',
+  OFFICIAL_OVERLAY: 'official_overlay',
+  OFFICIAL_RENDERER: 'official_renderer'
+})
+
+/** How much of a surface the theme system may write. */
+const SURFACE_PERMISSION = Object.freeze({
+  FULL: 'full',
+  VISUAL_ONLY: 'visual-only',
+  PROTECTED: 'protected'
+})
+
+/** The official renderer is never writable by any theme writer. */
+const PROTECTED_SURFACES = Object.freeze([SURFACE.OFFICIAL_RENDERER])
+
 /** Property categories understood by the builder. */
 const PROPERTY_KIND = Object.freeze({
   COLOR: 'color',
@@ -84,6 +110,11 @@ const HNS_PAGES = Object.freeze([
 /**
  * Slot table. `type` describes what the runtime accepts, `permission` what the
  * generator is allowed to do, `properties` the writable property names.
+ *
+ * Naming is `<app>.<domain>.<component>[.<property>]`, where `<app>` is one of
+ * `common`, `hns` (the hns_native surface) or `official` (the official_shell /
+ * official_overlay surfaces, plus the protected official_renderer slots that are
+ * described only).
  */
 const SLOTS = Object.freeze({
   // ---- common / generic slots (THEME_INTERFACE_SPEC §3) ----
@@ -136,6 +167,37 @@ const SLOTS = Object.freeze({
   'hns.persona.banner': slot('asset_ref', PERMISSION.STYLE, ['asset', 'opacity', 'position', 'height']),
   'hns.persona.status_avatar': slot('asset_ref', PERMISSION.STYLE, ['asset', 'size', 'position']),
   'hns.persona.decoration': slot('image_or_color', PERMISSION.STYLE, ['asset', 'opacity', 'animation', 'position']),
+  // The HNS surface's real character asset (Update-Plan 任务 5): a transparent
+  // bust / half body / full body placed by the layout engine, not the small
+  // abstract avatar of the persona layer.
+  'hns.character.primary': slot('asset_ref', PERMISSION.STYLE, ['asset', 'opacity', 'position', 'scale', 'anchor', 'crop', 'layout']),
+
+  // ---- official shell surface (our own frame around the official renderer) ----
+  'official.shell.background': slot('image_or_color', PERMISSION.SAFE, ['background', 'overlay']),
+  'official.shell.border': slot('component_style', PERMISSION.SAFE, ['border', 'radius']),
+  'official.shell.radius': slot('component_style', PERMISSION.SAFE, ['radius', 'background']),
+  'official.shell.shadow': slot('component_style', PERMISSION.STYLE, ['shadow', 'background']),
+  'official.shell.separator': slot('component_style', PERMISSION.SAFE, ['border', 'color']),
+  'official.shell.frame': slot('component_style', PERMISSION.STYLE, ['border', 'radius', 'padding', 'shadow', 'background']),
+  'official.shell.padding': slot('component_style', PERMISSION.SAFE, ['padding', 'background']),
+
+  // ---- official overlay surface (visual-only layer above the renderer) ----
+  'official.overlay.global_tint': slot('image_or_color', PERMISSION.STYLE, ['color', 'opacity', 'blend']),
+  'official.overlay.gradient': slot('component_style', PERMISSION.STYLE, ['angle', 'stops', 'opacity']),
+  'official.overlay.texture': slot('image_or_color', PERMISSION.STYLE, ['asset', 'opacity', 'scale', 'blend', 'tile']),
+  'official.overlay.skin': slot('image_or_color', PERMISSION.STYLE, ['asset', 'opacity', 'blend', 'layout', 'inset']),
+  'official.overlay.vignette': slot('component_style', PERMISSION.STYLE, ['opacity', 'color', 'size']),
+  'official.overlay.scanline': slot('component_style', PERMISSION.STYLE, ['opacity', 'color', 'spacing', 'width']),
+  'official.overlay.frame_glow': slot('component_style', PERMISSION.STYLE, ['opacity', 'color', 'glow', 'width']),
+  'official.overlay.corner_decoration': slot('image_or_color', PERMISSION.STYLE, ['asset', 'opacity', 'position', 'scale', 'anchor']),
+  'official.overlay.character_primary': slot('asset_ref', PERMISSION.STYLE, ['asset', 'opacity', 'position', 'scale', 'anchor', 'crop', 'layout']),
+  'official.overlay.character_secondary': slot('asset_ref', PERMISSION.STYLE, ['asset', 'opacity', 'position', 'scale', 'anchor', 'crop', 'layout']),
+
+  // ---- protected official renderer: described, never written ----
+  'official.renderer.dom': slot('struct', PERMISSION.STRUCTURAL, []),
+  'official.renderer.stylesheet': slot('struct', PERMISSION.STRUCTURAL, []),
+  'official.renderer.script': slot('struct', PERMISSION.STRUCTURAL, []),
+  'official.renderer.events': slot('struct', PERMISSION.STRUCTURAL, []),
   // ---- structural slots: described, never generated ----
   'hns.layout.dock_width': slot('struct', PERMISSION.STRUCTURAL, []),
   'hns.layout.navigation_hierarchy': slot('struct', PERMISSION.STRUCTURAL, []),
@@ -234,7 +296,33 @@ const TOKENS = Object.freeze({
   'asset.icon_set': token('--hns-asset-icon-set', PROPERTY_KIND.ASSET, 'asset', 'none'),
   'asset.persona_avatar': token('--hns-asset-persona-avatar', PROPERTY_KIND.ASSET, 'asset', 'none'),
   'asset.persona_banner': token('--hns-asset-persona-banner', PROPERTY_KIND.ASSET, 'asset', 'none'),
-  'asset.decoration': token('--hns-asset-decoration', PROPERTY_KIND.ASSET, 'asset', 'none')
+  'asset.decoration': token('--hns-asset-decoration', PROPERTY_KIND.ASSET, 'asset', 'none'),
+
+  // Real character / skin / decoration assets (Update-Plan 任务 5 + 任务 6).
+  // `hns_character.*` paints on the HNS dock surface; `official_*` paints on the
+  // official_overlay surface; nothing here can ever address official_renderer.
+  'asset.hns_character': token('--hns-asset-hns-character', PROPERTY_KIND.ASSET, 'asset', 'none'),
+  'asset.official_character': token('--hns-asset-official-character', PROPERTY_KIND.ASSET, 'asset', 'none'),
+  'asset.official_character_secondary': token('--hns-asset-official-character-secondary', PROPERTY_KIND.ASSET, 'asset', 'none'),
+  'asset.official_skin': token('--hns-asset-official-skin', PROPERTY_KIND.ASSET, 'asset', 'none'),
+  'asset.official_overlay_texture': token('--hns-asset-official-overlay-texture', PROPERTY_KIND.ASSET, 'asset', 'none'),
+  'asset.official_shell_frame': token('--hns-asset-official-shell-frame', PROPERTY_KIND.ASSET, 'asset', 'none'),
+
+  // Official overlay effect strengths. Validated by the Overlay Safety validator
+  // (任务 11) against the engineering limits; declared here so a package cannot
+  // invent an effect the runtime does not know.
+  'official.tint.opacity': token('--hns-official-tint-opacity', PROPERTY_KIND.NUMBER, 'effect', '0'),
+  'official.vignette.opacity': token('--hns-official-vignette-opacity', PROPERTY_KIND.NUMBER, 'effect', '0'),
+  'official.scanline.opacity': token('--hns-official-scanline-opacity', PROPERTY_KIND.NUMBER, 'effect', '0'),
+  'official.frame_glow.opacity': token('--hns-official-frame-glow-opacity', PROPERTY_KIND.NUMBER, 'effect', '0'),
+  'official.texture.opacity': token('--hns-official-texture-opacity', PROPERTY_KIND.NUMBER, 'effect', '0'),
+  'official.character.opacity': token('--hns-official-character-opacity', PROPERTY_KIND.NUMBER, 'effect', '0'),
+  'official.character.coverage': token('--hns-official-character-coverage', PROPERTY_KIND.NUMBER, 'effect', '0'),
+
+  // Official shell chrome strengths.
+  'official.shell.padding': token('--hns-official-shell-padding', PROPERTY_KIND.LENGTH, 'spacing', '0px'),
+  'official.shell.border_width': token('--hns-official-shell-border-width', PROPERTY_KIND.LENGTH, 'spacing', '0px'),
+  'official.shell.radius': token('--hns-official-shell-radius', PROPERTY_KIND.LENGTH, 'radius', '0px')
 })
 
 function token(css, kind, group, fallback) {
@@ -286,6 +374,9 @@ const STATE_MIN_DISTANCE = 24
 module.exports = {
   THEME_API_VERSION,
   THEME_API_MIN_SUPPORTED,
+  SURFACE,
+  SURFACE_PERMISSION,
+  PROTECTED_SURFACES,
   PERMISSION,
   GENERATOR_PERMISSIONS,
   PROPERTY_KIND,

@@ -13,6 +13,14 @@ const SANDBOX_MODULES = `
   const app = APP
   const engineModule = requireApp('extensions/mega/theme')
   const contract = requireApp('extensions/mega/theme/contract')
+  const surfaceModule = requireApp('extensions/mega/theme/surface')
+  const pngModule = requireApp('extensions/mega/theme/png')
+  const assetValidator = requireApp('extensions/mega/theme/assets/validator')
+  const overlayLayout = requireApp('extensions/mega/theme/official/overlay-layout')
+  const overlaySafety = requireApp('extensions/mega/theme/official/overlay-safety')
+  const crypto = require('node:crypto')
+  const fs = require('node:fs')
+  const path = require('node:path')
 `
 
 /**

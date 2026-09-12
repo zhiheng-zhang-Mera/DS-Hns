@@ -29,6 +29,7 @@
   const state = {
     status: null,
     capability: null,
+    surfaces: null,
     draft: null,
     busy: false,
     message: null,
@@ -306,10 +307,44 @@
         <div class="preview-badge">${esc(draft.engine || 'local')}</div>
       </div>
       ${validationSummary(draft.validation)}
+      ${renderSurfaceSummary(draft.plans)}
       ${adjustments}
       ${history}`
     const approve = $('themeApprove')
     if (approve) approve.disabled = !(draft.validation && draft.validation.ok) || state.busy
+  }
+
+  /**
+   * Per-surface preview summary (任务 13).
+   *
+   * The user sees four lines — HNS, official shell, official overlay, composite —
+   * and nothing about slots, tokens or plans. A disabled overlay says so, because
+   * a silently missing overlay is exactly what the safety validator exists to
+   * prevent.
+   */
+  function renderSurfaceSummary(plans) {
+    if (!plans || !Array.isArray(plans.surfaces)) return ''
+    const rows = plans.surfaces.map((surface) => {
+      const label = surface.surface === 'hns_native' ? 'HNS 界面'
+        : surface.surface === 'official_shell' ? '官方外壳'
+          : surface.surface === 'official_overlay' ? '官方覆盖层'
+            : '官方渲染器'
+      const state = surface.surface === 'official_renderer'
+        ? '受保护 · 永不修改'
+        : (surface.writes ? '已应用' : '保持默认')
+      const mark = surface.surface === 'official_renderer' ? '·' : (surface.writes ? '✓' : '○')
+      return `<li class="${surface.surface === 'official_renderer' ? 'warn' : (surface.writes ? 'ok' : '')}"><b>${mark}</b><span>${esc(label)}</span><em>${esc(state)}</em></li>`
+    })
+    if (plans.overlay) {
+      const overlayLabel = plans.overlay.enabled
+        ? `覆盖层开启 · 不透明度上限 ${esc(String(plans.overlay.safety?.checks?.find((check) => check.id === 'overlay_opacity')?.limit ?? 0.22))} · 人物占屏 ${esc((100 * (plans.overlay.characterCoverage || 0)).toFixed(1))}%`
+        : `覆盖层已关闭${plans.overlay.reason ? `（${esc(plans.overlay.reason)}）` : ''}`
+      rows.push(`<li class="${plans.overlay.enabled ? 'ok' : 'warn'}"><b>${plans.overlay.enabled ? '✓' : '!'}</b><span>官方覆盖层</span><em>${overlayLabel}</em></li>`)
+    }
+    if (plans.assets) {
+      rows.push(`<li class="ok"><b>✓</b><span>视觉资产</span><em>${esc(String(plans.assets.count))} 项 · 人物 ${plans.assets.character?.enabled ? '已生成' : '未启用'}</em></li>`)
+    }
+    return `<ul class="preview-checks preview-surfaces">${rows.join('')}</ul>`
   }
 
   function renderDetail() {
@@ -351,10 +386,16 @@
     }
     const slots = Object.keys(capability.slots || {}).length
     const writable = Object.values(capability.slots || {}).filter((slot) => slot.permission !== 'STRUCTURAL').length
+    const surfaces = Array.isArray(capability.themeable_surfaces) ? capability.themeable_surfaces : []
+    const overlay = surfaces.find((surface) => surface.id === 'official_overlay')
+    const shell = surfaces.find((surface) => surface.id === 'official_shell')
+    const official = surfaces.find((surface) => surface.id === 'official_renderer')
     node.innerHTML = `<span>Theme API ${esc(capability.theme_api_version)}</span>
       <span>可主题化槽位 ${writable}/${slots}</span>
       <span>状态 ${esc((capability.states || []).length)} 种</span>
-      <span>官方 UI ${capability.capabilities?.can_theme_official_ui ? '可换肤' : '仅配色提示'}</span>`
+      <span>官方外壳 ${shell?.writable ? '可换肤' : '默认'}</span>
+      <span>官方覆盖层 ${overlay?.writable ? '可显示' : '关闭'}</span>
+      <span>官方渲染器 ${official?.protected ? '受保护' : '未知'}</span>`
   }
 
   function render() {
@@ -390,6 +431,16 @@
       state.capability = result.capability
       renderCapability()
     }
+    // The live surface state is separate from the manifest: the manifest says what
+    // *may* be painted, this says what actually is.
+    if (typeof api.surfaces === 'function') {
+      try {
+        const surfaces = await api.surfaces()
+        if (surfaces && surfaces.ok) state.surfaces = surfaces
+      } catch {
+        state.surfaces = null
+      }
+    }
     return result
   }
 
@@ -412,6 +463,11 @@
       engine: result.engine,
       revision: result.revision || 0,
       contrastAdjustments: result.contrastAdjustments || [],
+      // 任务 13: the per-surface preview and the plan summary the panel renders.
+      plans: result.plans || null,
+      preview: result.preview || null,
+      scope: result.scope || null,
+      preserved: result.preserved || [],
       history: result.history || state.draft?.history || []
     }
   }

@@ -39,7 +39,16 @@ $syntaxFiles = @(
   "$ROOT\app\extensions\mega\updater\update-runner.js",
   "$ROOT\app\extensions\mega\ui\preload.cjs",
   "$ROOT\app\extensions\mega\ui\balance-module.js",
-  "$ROOT\app\extensions\mega\ui\dock.js"
+  "$ROOT\app\extensions\mega\ui\dock.js",
+  "$ROOT\app\official-surface-views.cjs",
+  "$ROOT\app\extensions\mega\theme\surface.js",
+  "$ROOT\app\extensions\mega\theme\assets\planner.js",
+  "$ROOT\app\extensions\mega\theme\assets\generator.js",
+  "$ROOT\app\extensions\mega\theme\assets\processor.js",
+  "$ROOT\app\extensions\mega\theme\assets\validator.js",
+  "$ROOT\app\extensions\mega\theme\assets\fallback.js",
+  "$ROOT\app\extensions\mega\theme\official\overlay-layout.js",
+  "$ROOT\app\extensions\mega\theme\official\overlay-safety.js"
 )
 foreach ($file in $syntaxFiles) {
   & $node --check $file

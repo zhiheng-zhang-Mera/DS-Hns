@@ -8,42 +8,82 @@
  * designed, so a prompt can never target a slot the running program does not
  * actually expose.
  *
- * For HNS the manifest is honest about a deliberate architectural boundary:
- *   - `surface: "dock"`      the HNS dock (`app/extensions/mega/ui`) is fully
- *                            themable — it is our own renderer and stylesheets.
- *   - `surface: "shell"`     the Electron shell chrome (tray icon) is themable
- *                            through a declared asset slot.
- *   - `surface: "official"`  the official `@deepseek-ai/dsh` Web UI is owned by
- *                            the harness, and DS-Hns is contractually forbidden
- *                            from injecting CSS/JS into it (see README
- *                            "Black-screen protection rules" #2). It is exposed
- *                            read-only: the theme system may only carry a
- *                            `light`/`dark` palette hint, which the official
- *                            client applies through its own settings.
+ * For HNS the manifest is honest about a deliberate architectural boundary. The
+ * four Theme Surfaces (Update-Plan/General-Theme.md 任务 1) replace the old
+ * dock/shell/official triple, and each one declares its own permission:
+ *
+ *   hns_native        `full`        the HNS dock (`app/extensions/mega/ui`) —
+ *                                   our own renderer, our own stylesheets.
+ *   official_shell    `full`        the frame DS-Hns draws around the official
+ *                                   renderer, as its own WebContentsView.
+ *   official_overlay  `visual-only` a transparent WebContentsView above the
+ *                                   official renderer: paint only, never input.
+ *   official_renderer `protected`   the official `@deepseek-ai/dsh` WebContentsView
+ *                                   is owned by the harness, and DS-Hns is
+ *                                   contractually forbidden from injecting CSS, JS,
+ *                                   scripts or selectors into it (see README
+ *                                   "Black-screen protection rules" #2). It is
+ *                                   exposed read-only: the theme system may carry a
+ *                                   `light`/`dark` palette hint, which the official
+ *                                   client applies through its own settings, and
+ *                                   nothing else.
  */
 const contract = require('./contract')
+const surface = require('./surface')
+
+/** Every asset kind the generator can produce, as a plain id list. */
+const ASSET_KIND_NAMES = Object.freeze([
+  'wallpaper',
+  'panel_texture',
+  'icon_set',
+  'persona_avatar',
+  'hns_character',
+  'official_character',
+  'official_skin',
+  'official_overlay_texture',
+  'hud_decoration',
+  'frame_decoration'
+])
+
+/**
+ * Overlay safety ceilings, declared here so the capability manifest can publish
+ * them without importing the validator that enforces them (which would make the
+ * manifest depend on the overlay subsystem it is supposed to describe).
+ * `official/overlay-safety.js` holds the same numbers as its LIMITS table and a
+ * test asserts the two agree.
+ */
+const OFFICIAL_OVERLAY_LIMITS = Object.freeze({
+  overlay_opacity: 0.22,
+  vignette: 0.15,
+  scanline: 0.05,
+  character_coverage: 0.22,
+  critical_overlap: 0.08
+})
 
 /** Which product surfaces this build can actually theme. */
-const SURFACES = Object.freeze({
-  dock: {
-    id: 'dock',
-    themable: true,
-    description: 'HNS Mega dock renderer (own stylesheets, own CSP)',
-    renderer: 'app/extensions/mega/ui/dock.html'
-  },
-  shell: {
-    id: 'shell',
-    themable: true,
-    description: 'Electron shell chrome (tray icon)',
-    renderer: 'app/desktop-main.cjs'
-  },
-  official: {
-    id: 'official',
-    themable: false,
-    description: 'Official @deepseek-ai/dsh Web UI — owned by the harness; DS-Hns must not inject styles or scripts',
-    paletteHintOnly: true
-  }
-})
+const SURFACES = Object.freeze(Object.fromEntries(
+  surface.SURFACE_LIST.map((entry) => {
+    const copy = {
+      id: entry.id,
+      label: entry.label,
+      permission: entry.permission,
+      themable: entry.writable,
+      writable: entry.writable,
+      assetWritable: entry.assetWritable,
+      protected: entry.protected,
+      visualOnly: entry.visualOnly,
+      interactive: entry.interactive,
+      owner: entry.owner,
+      description: entry.description
+    }
+    if (entry.id === contract.SURFACE.OFFICIAL_RENDERER) {
+      // Kept for the clients that only ever asked the palette question.
+      copy.paletteHintOnly = true
+      copy.hint = true
+    }
+    return [entry.id, copy]
+  })
+))
 
 /** Slot id -> page id mapping used by the UI inspector and the snapshot package. */
 const SLOT_PAGES = Object.freeze({
@@ -85,7 +125,32 @@ const SLOT_PAGES = Object.freeze({
   'common.notification.default': 'dashboard',
   'common.tooltip.default': 'dashboard',
   'common.scrollbar.default': 'log',
-  'hns.tray.icon': 'tray'
+  'hns.tray.icon': 'tray',
+  'hns.character.primary': 'dashboard',
+  // Official surfaces. The shell and overlay pages are their own observations: the
+  // theme system paints them, so it must be able to report their geometry, while
+  // the official renderer's page stays read-only (it is never captured).
+  'official.shell.background': 'official',
+  'official.shell.border': 'official',
+  'official.shell.radius': 'official',
+  'official.shell.shadow': 'official',
+  'official.shell.separator': 'official',
+  'official.shell.frame': 'official',
+  'official.shell.padding': 'official',
+  'official.overlay.global_tint': 'official',
+  'official.overlay.gradient': 'official',
+  'official.overlay.texture': 'official',
+  'official.overlay.skin': 'official',
+  'official.overlay.vignette': 'official',
+  'official.overlay.scanline': 'official',
+  'official.overlay.frame_glow': 'official',
+  'official.overlay.corner_decoration': 'official',
+  'official.overlay.character_primary': 'official',
+  'official.overlay.character_secondary': 'official',
+  'official.renderer.dom': 'official',
+  'official.renderer.stylesheet': 'official',
+  'official.renderer.script': 'official',
+  'official.renderer.events': 'official'
 })
 
 /**
@@ -124,7 +189,9 @@ function buildManifest({ dockState = null, pages = null, load = null, engineVers
       permission: definition.permission,
       properties: definition.properties.slice(),
       page: slotPage(slotId),
-      surface: slotId.startsWith('hns.tray') ? 'shell' : 'dock'
+      // The surface is derived from the slot's own family, so the manifest and the
+      // package validator can never disagree about what a slot addresses.
+      surface: surface.surfaceOfSlot(slotId)
     }
   }
 
@@ -155,8 +222,20 @@ function buildManifest({ dockState = null, pages = null, load = null, engineVers
       assets: ['image/png', 'data-uri'],
       animations: contract.ANIMATION_PRESETS.slice(),
       animation_max_intensity: { ...contract.ANIMATION_MAX_INTENSITY },
+      // The official renderer is never themed; the surfaces *around* and *above*
+      // it are, which is a different statement from "the official UI is themable".
       can_theme_official_ui: false,
+      can_theme_official_shell: true,
+      can_theme_official_overlay: true,
+      official_overlay_visual_only: true,
+      official_overlay_input: { pointer: 'passthrough', keyboard: 'passthrough', focus: 'none', scroll: 'passthrough' },
       official_ui_palette_hint: ['light', 'dark'],
+      // Published as plain strings so this descriptor does not pull the whole
+      // asset pipeline (and its generators) into every manifest build.
+      character_framings: ['avatar', 'bust', 'half_body', 'full_body', 'silhouette'],
+      asset_kinds: ASSET_KIND_NAMES,
+      real_assets: true,
+      overlay_limits: { ...OFFICIAL_OVERLAY_LIMITS },
       max_package_bytes: 24 * 1024 * 1024
     },
     states: contract.HNS_STATES.slice(),
@@ -181,6 +260,7 @@ function structuralSlots() {
 
 module.exports = {
   SURFACES,
+  OFFICIAL_OVERLAY_LIMITS,
   SLOT_PAGES,
   PROTECTED_REGIONS,
   slotPage,

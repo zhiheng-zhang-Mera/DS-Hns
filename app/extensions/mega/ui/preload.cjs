@@ -80,6 +80,15 @@ contextBridge.exposeInMainWorld('megaTools', {
      * acceptance, which must judge the artifact rather than a boolean.
      */
     artifacts: () => ipcRenderer.invoke('mega:theme-artifacts'),
+    /**
+     * The four Theme Surfaces (Update-Plan 任务 1 / 任务 2 / 任务 3).
+     *
+     * Reports each surface's permission, whether the official shell/overlay views
+     * are actually on screen with real bounds, whether the official overlay is
+     * enabled, and — for the protected official renderer — that nothing was painted
+     * into it. Read-only data; the renderer cannot address a surface from here.
+     */
+    surfaces: () => ipcRenderer.invoke('mega:theme-surfaces'),
     detail: (id) => ipcRenderer.invoke('mega:theme-detail', { id }),
     // Engine -> renderer paint pushes and change notifications.
     onApply: (callback) => ipcRenderer.on('mega:theme-apply', (_event, payload) => callback(payload)),

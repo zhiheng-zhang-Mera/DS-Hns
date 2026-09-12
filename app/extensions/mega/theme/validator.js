@@ -23,6 +23,7 @@ const path = require('node:path')
 
 const contract = require('./contract')
 const color = require('./color')
+const surfaceModule = require('./surface')
 
 /** Fields no theme package may ever declare (runtime theme dependencies). */
 const FORBIDDEN_MANIFEST_FIELDS = Object.freeze([
@@ -39,8 +40,14 @@ const FORBIDDEN_FILE_PATTERNS = Object.freeze([
   /\.(?:js|cjs|mjs|ts|tsx|jsx|py|rb|sh|ps1|psm1|bat|cmd|exe|dll|node|jar|vbs|wsf)$/i
 ])
 
-/** Asset sub-directories a self-contained package may carry. */
-const ASSET_DIRS = Object.freeze(['wallpapers', 'icons', 'panels', 'persona', 'decorations'])
+/**
+ * Asset sub-directories a self-contained package may carry.
+ *
+ * `characters` and `official` were added with the real-visual-asset pipeline
+ * (Update-Plan 任务 5 / 任务 6): the HNS character, the official character, the
+ * official skin and the overlay texture need their own homes inside the package.
+ */
+const ASSET_DIRS = Object.freeze(['wallpapers', 'icons', 'panels', 'persona', 'decorations', 'characters', 'official'])
 
 const REQUIRED_MANIFEST_FIELDS = Object.freeze(['id', 'name', 'version', 'source', 'theme_api_version', 'supported_apps'])
 
@@ -357,7 +364,7 @@ function listFiles(root, { maxFiles = 4096 } = {}) {
  * @param {object} [options.darkTokens] resolved Dark token set used as fallback
  * @param {string} [options.expectedId] the id the directory is registered under
  */
-function validatePackage({ dir, darkTokens, expectedId } = {}) {
+function validatePackage({ dir, darkTokens, expectedId, surfacePlan = null, overlayPlan = null } = {}) {
   const issues = []
   if (!dir || typeof dir !== 'string') {
     return summarize([error('package_missing', 'no theme directory was supplied')])
@@ -501,6 +508,70 @@ function validatePackage({ dir, darkTokens, expectedId } = {}) {
   for (const file of files) {
     if (FORBIDDEN_FILE_PATTERNS.some((pattern) => pattern.test(file))) {
       issues.push(error('executable_payload', `theme packages must be declarative; found executable file "${file}"`, { file }))
+    }
+  }
+
+  // ---- surface plans (任务 1 / 任务 15) ----
+  //
+  // The plan documents are what a package *declares it will write*, so they are
+  // the right place to refuse a write into the protected official renderer. They
+  // are validated here — on the compiled artifact — because a hand-written or
+  // imported package never passes through the builder's own gates.
+  const planDocuments = {}
+  for (const [name, supplied] of [['surface-plan.json', surfacePlan], ['overlay-plan.json', overlayPlan]]) {
+    const file = path.join(dir, name)
+    let documented = supplied
+    if (documented === null || documented === undefined) {
+      if (!fs.existsSync(file)) {
+        issues.push(warn('plan_missing', `theme has no ${name}; the package does not declare which surfaces it writes`))
+        continue
+      }
+      try {
+        documented = JSON.parse(fs.readFileSync(file, 'utf8'))
+      } catch (parseError) {
+        issues.push(error('plan_unparsable', `${name} is not valid JSON: ${parseError.message}`))
+        continue
+      }
+    }
+    planDocuments[name] = documented
+    for (const hit of surfaceModule.violationsIn(documented, [])) {
+      issues.push(error(
+        'surface_protected',
+        `${name}: ${hit.path} targets the PROTECTED official renderer (${hit.value})`,
+        { ...hit, document: name }
+      ))
+    }
+  }
+  const declaredSurfaces = planDocuments['surface-plan.json']
+  if (declaredSurfaces) {
+    for (const entry of declaredSurfaces.surfaces || []) {
+      if (!surfaceModule.isSurface(entry.surface)) {
+        issues.push(error('surface_unknown', `surface-plan declares an unknown surface "${entry.surface}"`, { surface: entry.surface }))
+        continue
+      }
+      if (entry.writes === true && !surfaceModule.isWritable(entry.surface)) {
+        issues.push(error(
+          'surface_write_denied',
+          `surface-plan claims to write "${entry.surface}", which is ${surfaceModule.permissionOf(entry.surface)}`,
+          { surface: entry.surface }
+        ))
+      }
+      if (entry.surface === contract.SURFACE.OFFICIAL_RENDERER && entry.writes !== false) {
+        issues.push(error('surface_protected', 'surface-plan must record the official renderer as not written'))
+      }
+    }
+  }
+  const declaredOverlay = planDocuments['overlay-plan.json']
+  if (declaredOverlay && declaredOverlay.enabled === true) {
+    for (const key of ['pointer', 'keyboard', 'focus', 'scroll']) {
+      const value = declaredOverlay.input?.[key]
+      if (value !== 'passthrough' && value !== 'none') {
+        issues.push(error(
+          'overlay_input_not_passthrough',
+          `overlay-plan declares ${key}="${value}"; the overlay is visual-only and must pass every input through`,
+          { input: key, value: value ?? null }
+        ))
+      }
     }
   }
 

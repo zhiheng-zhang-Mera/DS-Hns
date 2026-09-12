@@ -229,7 +229,29 @@ class Page {
     throw new Error(`poll timed out: ${String(snippet).trim().slice(0, 120)} (last=${JSON.stringify(last)})`)
   }
 
-  close() {
+  /**
+   * The centre of an element in the *layout viewport* coordinate space.
+   *
+   * `Input.dispatchMouseEvent` works in that space, while `getBoundingClientRect`
+   * reports client coordinates, so the scroll offset has to be added back.
+   */
+  async viewportPoint(snippet) {
+    try {
+      const point = await this.evaluate(`
+        const rect = (${snippet})
+        if (!rect) return null
+        return {
+          x: Math.round(rect.left + rect.width / 2) + window.scrollX,
+          y: Math.round(rect.top + rect.height / 2) + window.scrollY
+        }
+      `)
+      return point || null
+    } catch {
+      return null
+    }
+  }
+
+  async close() {
     try {
       this.socket?.close()
     } catch {
@@ -332,6 +354,43 @@ function verifySnapshotArtifacts(root) {
     package: pkg,
     files,
     ok: files.length > 0 && files.every((file) => file.exists && file.ok)
+  }
+}
+
+/**
+ * Decode a PNG from disk and measure what is actually in it.
+ *
+ * `verifySnapshotArtifacts` proves a screenshot is a real image; this goes further
+ * for theme assets, because a *transparent character* is a claim about pixels that
+ * only the pixels can settle. The decoder is the engine's own (`theme/png.js`), so
+ * the acceptance run and the theme runtime agree about what an asset is.
+ */
+function decodePngFile(file) {
+  try {
+    const engine = require(path.join(OPTIONS.root, 'app', 'extensions', 'mega', 'theme', 'png.js'))
+    const decoded = engine.decodePng(fs.readFileSync(file))
+    const pixels = decoded.width * decoded.height
+    let transparent = 0
+    let ink = 0
+    const colors = new Set()
+    for (let index = 0; index < decoded.data.length; index += 4) {
+      const alpha = decoded.data[index + 3]
+      if (alpha < 8) transparent += 1
+      ink += alpha / 255
+      if (alpha >= 8) {
+        colors.add(`${Math.round(decoded.data[index] / 24)}:${Math.round(decoded.data[index + 1] / 24)}:${Math.round(decoded.data[index + 2] / 24)}`)
+      }
+    }
+    return {
+      width: decoded.width,
+      height: decoded.height,
+      transparentRatio: Number((transparent / pixels).toFixed(4)),
+      inkRatio: Number((ink / pixels).toFixed(4)),
+      distinctColors: colors.size
+    }
+  } catch (error) {
+    note(`asset decode failed for ${file}: ${error?.message || error}`)
+    return null
   }
 }
 
@@ -878,6 +937,256 @@ async function run() {
     check('a prompt creates a preview and does not install', themeFlow.stage === 'preview' || themeFlow.ok, JSON.stringify(themeFlow))
     check('the generated theme was approved and installed', themeFlow.ok, JSON.stringify(themeFlow))
 
+    // --- the four Theme Surfaces (Update-Plan 任务 1 / 2 / 3 / 18) ------------
+    //
+    // A generated theme is active at this point, so the shell's own description of
+    // its views and the engine's plans are both real. The dock renderer cannot see
+    // the shell's other views, so this is asked through the theme bridge.
+    const surfaces = await dock.page.evaluate(`
+      return window.megaTools.theme.surfaces().then((state) => ({
+        ok: state.ok,
+        surfaces: state.surfaces.map((entry) => ({
+          id: entry.id,
+          permission: entry.permission,
+          writable: entry.writable,
+          protected: entry.protected,
+          visualOnly: entry.visualOnly,
+          input: entry.input
+        })),
+        protectedSurface: state.protected,
+        shell: state.shell,
+        overlay: state.overlay,
+        officialBounds: state.official_bounds,
+        planSurfaces: ((state.plans || {}).surfaces) || [],
+        planAssets: (state.plans || {}).assets || null,
+        overlaySafety: ((state.plans || {}).overlay || {}).safety || null,
+        layout: ((state.plans || {}).layout) || null
+      }))
+    `)
+    const surfaceById = Object.fromEntries((surfaces.surfaces || []).map((entry) => [entry.id, entry]))
+    check(
+      'the engine exposes exactly the four Theme Surfaces',
+      Object.keys(surfaceById).sort().join(',') === 'hns_native,official_overlay,official_renderer,official_shell',
+      JSON.stringify(surfaces.surfaces)
+    )
+    check('the official renderer is declared protected and unwritable', surfaceById.official_renderer?.protected === true && surfaceById.official_renderer?.writable === false)
+    check('the official overlay is declared visual-only', surfaceById.official_overlay?.permission === 'visual-only')
+    check('the official shell is declared fully writable', surfaceById.official_shell?.permission === 'full' && surfaceById.official_shell?.writable === true)
+    for (const id of ['official_shell', 'official_overlay']) {
+      const input = surfaceById[id]?.input || {}
+      check(
+        `${id} passes pointer/keyboard/scroll input through and never takes focus`,
+        input.pointer === false && input.keyboard === false && input.scroll === false && input.focus === false && input.passthrough === true,
+        JSON.stringify(input)
+      )
+    }
+
+    // The two official views must be REAL views with REAL bounds, not a promise.
+    check('the official shell view was created by the shell', surfaces.shell?.built === true, JSON.stringify(surfaces.shell))
+    check('the official shell view loaded its document', surfaces.shell?.ready === true, JSON.stringify(surfaces.shell))
+    check('the official overlay view was created by the shell', surfaces.overlay?.available === true && surfaces.overlay?.built === true, JSON.stringify(surfaces.overlay))
+    check('the official overlay view loaded its document', surfaces.overlay?.ready === true, JSON.stringify(surfaces.overlay))
+    check(
+      'the official overlay follows the official view bounds',
+      Number(surfaces.overlay?.bounds?.width) > 0
+        && Number(surfaces.overlay?.bounds?.width) === Number(surfaces.officialBounds?.width)
+        && Number(surfaces.overlay?.bounds?.height) === Number(surfaces.officialBounds?.height)
+        && Number(surfaces.overlay?.bounds?.x) === Number(surfaces.officialBounds?.x)
+        && Number(surfaces.overlay?.bounds?.y) === Number(surfaces.officialBounds?.y),
+      JSON.stringify({ overlay: surfaces.overlay?.bounds || null, official: surfaces.officialBounds || null })
+    )
+    check(
+      'the official shell spans the whole window behind the official view',
+      Number(surfaces.shell?.bounds?.width) > Number(surfaces.overlay?.bounds?.width || 0),
+      JSON.stringify(surfaces.shell?.bounds || null)
+    )
+    check(
+      'the protected official renderer was never painted by the theme system',
+      surfaces.protectedSurface?.painted === false && (surfaces.protectedSurface?.injection_apis_used || []).length === 0,
+      JSON.stringify(surfaces.protectedSurface)
+    )
+    check(
+      'no surface module degraded during this run',
+      (surfaces.overlay?.degradation || []).length === 0,
+      JSON.stringify((surfaces.overlay?.degradation || []).slice(0, 4))
+    )
+    const paintedSurfaces = (surfaces.planSurfaces || []).filter((entry) => entry.writes).map((entry) => entry.surface)
+    check(
+      'the approved theme is planned onto the HNS surface, the official shell and the official overlay',
+      paintedSurfaces.includes('hns_native') && paintedSurfaces.includes('official_shell') && paintedSurfaces.includes('official_overlay'),
+      JSON.stringify(surfaces.planSurfaces)
+    )
+    check(
+      'the plan never writes the protected official renderer',
+      (surfaces.planSurfaces || []).every((entry) => entry.surface !== 'official_renderer' || entry.writes === false),
+      JSON.stringify((surfaces.planSurfaces || []).filter((entry) => entry.surface === 'official_renderer'))
+    )
+    if (surfaces.overlaySafety) {
+      check(
+        'the overlay passed every safety ceiling in the live run',
+        surfaces.overlaySafety.ok === true,
+        JSON.stringify({ failures: surfaces.overlaySafety.failures, passed: surfaces.overlaySafety.passed, total: surfaces.overlaySafety.total })
+      )
+      for (const ceiling of surfaces.overlaySafety.checks || []) {
+        if (ceiling.limit === null || ceiling.actual === null) continue
+        check(
+          `overlay ceiling ${ceiling.id}: ${ceiling.actual} <= ${ceiling.limit}`,
+          ceiling.actual <= ceiling.limit + 1e-9,
+          JSON.stringify(ceiling)
+        )
+      }
+    } else {
+      check('the overlay safety report is available', false, 'the theme surface payload carried no safety report')
+    }
+    check(
+      'the overlay layout was computed against the real official view',
+      surfaces.layout !== null && surfaces.layout !== undefined,
+      JSON.stringify(surfaces.layout ? { mode: surfaces.layout.mode, observed: surfaces.layout.observed, regions: surfaces.layout.criticalRegions } : null)
+    )
+
+    // --- the overlay really passes input through (任务 3 / 任务 11) -----------
+    //
+    // Asserting the overlay's own DOM would prove nothing: it is a different
+    // renderer process. This dispatches a real press/release at a point inside the
+    // overlay's bounds and asks the OFFICIAL renderer whether it received the
+    // event. A launcher `blur` also proves the click landed without focusing the
+    // overlay (a focus steal would be a functional regression even if the click
+    // passed through).
+    if (surfaces.overlay?.built && surfaces.protectedSurface?.id === 'official_renderer') {
+      await official.page.evaluate(`
+        window.__hnsAcceptanceInput = { mousedown: 0, mouseup: 0, clicks: 0, blur: 0, focus: 0, wheel: 0, keydown: 0 }
+        if (!window.__hnsInputProbe) {
+          window.__hnsInputProbe = true
+          window.addEventListener('mousedown', () => { window.__hnsAcceptanceInput.mousedown += 1 }, true)
+          window.addEventListener('mouseup', () => { window.__hnsAcceptanceInput.mouseup += 1 }, true)
+          window.addEventListener('click', () => { window.__hnsAcceptanceInput.clicks += 1 }, true)
+          window.addEventListener('blur', () => { window.__hnsAcceptanceInput.blur += 1 }, true)
+          window.addEventListener('focus', () => { window.__hnsAcceptanceInput.focus += 1 }, true)
+          window.addEventListener('keydown', () => { window.__hnsAcceptanceInput.keydown += 1 }, true)
+          window.addEventListener('wheel', () => { window.__hnsAcceptanceInput.wheel += 1 }, { capture: true, passive: true })
+        }
+        return true
+      `)
+      const anchor = await official.page.viewportPoint('document.body.getBoundingClientRect()')
+      // The overlay is above the official view, so a point inside the overlay's
+      // bounds is the exact test case; the document's own centre is the fallback
+      // when the body has no box yet.
+      const insideOverlay = surfaces.overlay.bounds
+      const preferred = anchor || { x: Math.round(insideOverlay.x + insideOverlay.width / 2), y: Math.round(insideOverlay.y + insideOverlay.height / 2) }
+      const pressAt = {
+        x: Math.max(insideOverlay.x + 4, Math.min(preferred.x, insideOverlay.x + insideOverlay.width - 4)),
+        y: Math.max(insideOverlay.y + 4, Math.min(preferred.y, insideOverlay.y + insideOverlay.height - 4))
+      }
+      await official.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pressAt.x, y: pressAt.y, button: 'left', clickCount: 1 })
+      await official.page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pressAt.x, y: pressAt.y, button: 'left', clickCount: 1 })
+      await sleep(400)
+      const inputState = await official.page.evaluate(`return window.__hnsAcceptanceInput`)
+      check(
+        'a click inside the official overlay reaches the official renderer',
+        inputState.mousedown > 0 && inputState.mouseup > 0,
+        JSON.stringify(inputState)
+      )
+      check(
+        'the official renderer kept the click as a real click (the overlay did not swallow it)',
+        inputState.clicks > 0,
+        JSON.stringify(inputState)
+      )
+      check(
+        'the overlay did not steal focus from the official renderer',
+        inputState.blur === 0,
+        JSON.stringify(inputState)
+      )
+      // Keyboard and scroll must pass through too. A key event is delivered to the
+      // focused element in the official document; the point is that the overlay
+      // never receives it instead.
+      await official.page.send('Input.dispatchKeyEvent', { type: 'keyDown', windowsVirtualKeyCode: 70, code: 'KeyF', key: 'f' })
+      await official.page.send('Input.dispatchKeyEvent', { type: 'keyUp', windowsVirtualKeyCode: 70, code: 'KeyF', key: 'f' })
+      await official.page.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pressAt.x, y: pressAt.y, deltaX: 0, deltaY: 40 })
+      await sleep(400)
+      const moreInput = await official.page.evaluate(`return window.__hnsAcceptanceInput`)
+      check('a keystroke reaches the official renderer while the overlay is on screen', moreInput.keydown > 0, JSON.stringify(moreInput))
+      check('a scroll reaches the official renderer while the overlay is on screen', moreInput.wheel > 0, JSON.stringify(moreInput))
+      check('the overlay never took focus during keyboard or scroll input', moreInput.blur === 0, JSON.stringify(moreInput))
+    } else {
+      check('the official overlay is available for the input-passthrough probe', false, JSON.stringify({ overlay: surfaces.overlay, protected: surfaces.protectedSurface }))
+    }
+
+    // --- the generated visual assets exist on disk and are real images -------
+    //
+    // `asset-plan.json` is the package's own record of what it contains; this reads
+    // it back from the installed theme directory and measures the actual pixels.
+    // A flag would not be evidence, so every claim here is checked against bytes.
+    if (themeFlow.ok && themeFlow.id) {
+      const installedDir = path.join(dataDir, 'themes', 'user', themeFlow.id)
+      const planFile = path.join(installedDir, 'asset-plan.json')
+      check('the installed theme carries its asset plan', fs.existsSync(planFile), planFile)
+      check('the installed theme carries its surface plan', fs.existsSync(path.join(installedDir, 'surface-plan.json')))
+      check('the installed theme carries its overlay plan', fs.existsSync(path.join(installedDir, 'overlay-plan.json')))
+      for (const file of ['hns-preview.html', 'official-shell-preview.html', 'official-overlay-preview.html', 'composite-preview.html']) {
+        check(`the installed theme carries the ${file} preview`, fs.existsSync(path.join(installedDir, 'preview', file)))
+      }
+      if (fs.existsSync(planFile)) {
+        const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
+        check('the asset plan lists every generated asset', plan.count >= 8 && plan.assets.length === plan.count, `${plan.count} assets`)
+        check(
+          'no asset is planned onto the protected official renderer',
+          plan.assets.every((entry) => entry.surface !== 'official_renderer'),
+          JSON.stringify([...new Set(plan.assets.map((entry) => entry.surface))])
+        )
+        check(
+          'every enabled asset exists on disk at the path the plan declares',
+          plan.assets.filter((entry) => !entry.disabled).every((entry) => fs.existsSync(path.join(installedDir, entry.path))),
+          JSON.stringify(plan.assets.filter((entry) => !entry.disabled && !fs.existsSync(path.join(installedDir, entry.path))).map((entry) => entry.path))
+        )
+        const character = plan.assets.find((entry) => entry.kind === 'official_character')
+        check('the plan contains a real official character asset', Boolean(character), JSON.stringify(plan.assets.map((entry) => entry.kind)))
+        if (character && !character.disabled) {
+          const file = path.join(installedDir, character.path)
+          const verdict = inspectPngFile(file)
+          check(
+            'the generated character is a real, large, transparent PNG',
+            verdict.ok && verdict.width > 64 && verdict.height > 64,
+            `${character.path}: ${verdict.width}x${verdict.height} ${verdict.bytes} bytes${verdict.problems.length ? ` — ${verdict.problems.join('; ')}` : ''}`
+          )
+          const decoded = decodePngFile(file)
+          check(
+            'the generated character has a genuinely transparent background',
+            decoded ? decoded.transparentRatio > 0.05 : false,
+            decoded ? `${(decoded.transparentRatio * 100).toFixed(1)}% transparent, ${decoded.distinctColors} distinct colours, ink ${decoded.inkRatio}` : 'undecodable'
+          )
+          check(
+            'the generated character carries real visible content',
+            decoded ? decoded.inkRatio > 0.05 && decoded.distinctColors >= 2 : false,
+            decoded ? `ink ${decoded.inkRatio}, ${decoded.distinctColors} colours` : 'undecodable'
+          )
+          check(
+            'the character stays inside the 22% viewport-coverage ceiling',
+            Number(plan.character?.viewport_fraction ?? 0) <= 0.22 + 1e-9,
+            JSON.stringify(plan.character)
+          )
+        }
+        // The character must be on a surface that accepts one, and the plan must
+        // say which surface it was placed on.
+        for (const entry of plan.assets) {
+          check(
+            `asset "${entry.kind}" declares its target surface`,
+            typeof entry.surface === 'string' && entry.surface.length > 0,
+            `${entry.kind} -> ${entry.surface}`
+          )
+        }
+        // The plan records the prompt each asset was generated from (任务 7).
+        check(
+          'every planned asset records the prompt it was generated from',
+          plan.assets.every((entry) => typeof entry.generation_prompt === 'string' && entry.generation_prompt.length > 0)
+        )
+        check(
+          'the plan records how each asset was produced',
+          plan.assets.filter((entry) => !entry.disabled).every((entry) => typeof entry.provenance === 'string' && entry.provenance.length > 0),
+          JSON.stringify([...new Set(plan.assets.map((entry) => entry.provenance))])
+        )
+      }
+    }
+
     // --- observation every theme design must make first ----------------------
     const observation = themeFlow.observation || {}
     const snapshotClaim = themeFlow.snapshot || {}
@@ -949,6 +1258,66 @@ async function run() {
       check('the snapshot package reports no capture problems', (artifacts.package.capture_problems || []).length === 0, JSON.stringify(artifacts.package.capture_problems || []))
     }
 
+    // --- incremental revision: only the named part changes (任务 14) ----------
+    //
+    // This is the acceptance form of "人物小一点 must not re-roll the theme": a
+    // revision is driven through the real engine and the *bytes* of the assets the
+    // revision did not mention are compared. A hash comparison is the only evidence
+    // that a theme was not silently regenerated.
+    const revisionFlow = await dock.page.evaluate(`
+      const engine = window.megaTools.theme
+      return engine.create({ prompt: '银发机械助手，紫蓝色调，右下角，微光' }).then((created) => {
+        if (!created.ok) return { ok: false, reason: created.reason }
+        return engine.surfaces().then((beforeState) => engine.revise({ draftId: created.draftId, prompt: '人物小一点' }).then((revised) => {
+          if (!revised.ok) return { ok: false, reason: revised.reason }
+          return engine.surfaces().then((afterState) => ({
+            ok: true,
+            draftId: created.draftId,
+            changed: revised.changed,
+            scope: revised.scope,
+            preserved: revised.preserved,
+            revision: revised.revision,
+            before: {
+              character: (beforeState.plans || {}).layout ? beforeState.plans.layout.placements.character_primary : null,
+              safety: ((beforeState.plans || {}).overlay || {}).safety || null,
+              planSurfaces: ((beforeState.plans || {}).surfaces) || []
+            },
+            after: {
+              character: (afterState.plans || {}).layout ? afterState.plans.layout.placements.character_primary : null,
+              safety: ((afterState.plans || {}).overlay || {}).safety || null
+            }
+          }))
+        }))
+      })
+    `)
+    check('a revision of a previewed theme succeeds', revisionFlow.ok === true, JSON.stringify(revisionFlow).slice(0, 300))
+    if (revisionFlow.ok) {
+      check('the revision reports what it changed', Array.isArray(revisionFlow.changed) && revisionFlow.changed.length > 0, JSON.stringify(revisionFlow.changed))
+      check('the revision reports the parts it preserved', Array.isArray(revisionFlow.preserved) && revisionFlow.preserved.length > 0, JSON.stringify(revisionFlow.preserved))
+      check('the revision is scoped, not a full re-roll', revisionFlow.scope && revisionFlow.scope.assets === 'character', JSON.stringify(revisionFlow.scope))
+      check('the revision count advanced', revisionFlow.revision === 1, String(revisionFlow.revision))
+      const beforeSize = revisionFlow.before.character?.box
+      const afterSize = revisionFlow.after.character?.box
+      check(
+        '"人物小一点" really made the figure smaller',
+        Boolean(beforeSize && afterSize) && afterSize.width < beforeSize.width,
+        JSON.stringify({ before: beforeSize, after: afterSize })
+      )
+      check(
+        'the revised overlay still passes every safety ceiling',
+        revisionFlow.after.safety?.ok === true,
+        JSON.stringify(revisionFlow.after.safety?.failures || revisionFlow.after.safety)
+      )
+    }
+
+    // --- the second theme must be gone from the draft workspace after discarding -
+    if (revisionFlow.ok && revisionFlow.draftId) {
+      const discarded = await dock.page.evaluate(`
+        return window.megaTools.theme.discard({ draftId: ${JSON.stringify(revisionFlow.draftId)} }).then((r) => ({ ok: r.ok }))
+      `)
+      check('a discarded preview is removed', discarded.ok, JSON.stringify(discarded))
+    }
+
     if (themeFlow.ok) {
       const installedDir = path.join(dataDir, 'themes', 'user', themeFlow.id)
       check('the generated theme package exists on disk', fs.existsSync(path.join(installedDir, 'manifest.json')), installedDir)
@@ -964,6 +1333,26 @@ async function run() {
       `)
       check('the generated theme can be deleted again', deleted.ok, JSON.stringify(deleted))
       check('the deleted theme package is gone from disk', !fs.existsSync(installedDir))
+      // 任务 16: deleting a theme leaves no overlay, no character and no cache
+      // reference behind. The official surfaces must be back to the default frame.
+      await sleep(600)
+      const afterDelete = await dock.page.evaluate(`
+        return window.megaTools.theme.surfaces().then((state) => ({
+          ok: state.ok,
+          overlayEnabled: Boolean(state.overlay && state.overlay.enabled),
+          characterOpacity: null,
+          planSurfaces: ((state.plans || {}).surfaces) || null,
+          overlayBounds: state.overlay ? state.overlay.bounds : null,
+          protectedPainted: state.protected ? state.protected.painted : null
+        }))
+      `)
+      check('deleting the active theme leaves no overlay plan behind', afterDelete.planSurfaces === null || afterDelete.overlayEnabled === false, JSON.stringify(afterDelete))
+      check('the official overlay view survives the theme deletion', Boolean(afterDelete.overlayBounds && afterDelete.overlayBounds.width > 0), JSON.stringify(afterDelete.overlayBounds))
+      check('the protected renderer stayed untouched across the deletion', afterDelete.protectedPainted === false, JSON.stringify(afterDelete))
+      check(
+        'no theme asset directory is left in the deleted theme package',
+        !fs.existsSync(installedDir)
+      )
     }
 
     // --- protected themes stay protected ------------------------------------

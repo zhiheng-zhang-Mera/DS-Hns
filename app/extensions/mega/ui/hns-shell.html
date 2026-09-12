@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Official Shell surface — the frame DS-Hns draws AROUND the official renderer.
+
+  This document is rendered into its own WebContentsView that sits behind the
+  official view, and only its outer padding band is ever visible: the official
+  renderer covers the centre. Nothing here reads or writes the official DOM, and
+  the whole view is mouse-transparent (`setIgnoreMouseEvents(true)`), so the
+  shell can never take a click, a keystroke or a scroll away from the official UI.
+
+  CSP: no script is ever loaded from this document (it has no script at all), so
+  `script-src 'none'` is both accurate and the strongest statement available.
+  Styles are inline because the shell is a single self-contained frame.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'">
+<title>DS-Harness official shell</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --shell-background: #0f1115;
+    --shell-background-image: none;
+    --shell-border: 1px solid #232b3b;
+    --shell-radius: 10px;
+    --shell-shadow: none;
+    --shell-separator: 1px solid #232b3b;
+    --shell-padding: 6px;
+    --shell-frame-asset: none;
+    --shell-glow-opacity: 0;
+    --shell-glow-color: #4d93f8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    /* The shell is a frame: it never owns a hit target. */
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #frame {
+    position: absolute;
+    inset: 0;
+    background-color: var(--shell-background);
+    background-image: var(--shell-background-image);
+    background-size: cover;
+    background-position: center;
+  }
+  /* The frame band: the visible ring of the shell.
+     The `window-hole` child is punched out of the parent's paint area by
+     `overflow: hidden` on the parent plus the hole's own opaque-transparent
+     interior: WebKit paints the hole's rounded rect as a gap in the band, which
+     is exactly the "frame around the official view" shape. */
+  #band {
+    position: absolute;
+    inset: 0;
+    border: var(--shell-border);
+    border-radius: var(--shell-radius);
+    box-shadow: var(--shell-shadow);
+    overflow: hidden;
+  }
+  #window-hole {
+    position: absolute;
+    inset: var(--shell-padding);
+    border-radius: calc(var(--shell-radius) - 2px);
+    background: transparent;
+    box-shadow: 0 0 0 100vmax var(--shell-background);
+  }
+  #separator {
+    position: absolute;
+    left: var(--shell-padding);
+    right: var(--shell-padding);
+    top: 50%;
+    border-top: var(--shell-separator);
+    opacity: .5;
+  }
+  #frame-asset {
+    position: absolute;
+    inset: 0;
+    background-image: var(--shell-frame-asset);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    pointer-events: none;
+  }
+  #glow {
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--shell-glow-color);
+    border-radius: var(--shell-radius);
+    opacity: var(--shell-glow-opacity);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body data-surface="official_shell" data-permission="full">
+  <div id="frame"></div>
+  <div id="frame-asset"></div>
+  <div id="band">
+    <div id="window-hole"></div>
+  </div>
+  <div id="separator"></div>
+  <div id="glow"></div>
+</body>
+</html>

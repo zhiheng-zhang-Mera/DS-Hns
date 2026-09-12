@@ -99,7 +99,7 @@ const SCENARIO_LIST = [
         approve: code`
         ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '赛博全息 HUD，黑灰蓝，扫描线' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           const after = engine.describe()
           const record = after.themes.find((theme) => theme.id === approved.id)
           return {
@@ -213,7 +213,7 @@ const SCENARIO_LIST = [
         deleteActive: code`
         ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '赛博全息 HUD' })
-          engine.orchestrator.approve({ draftId: created.draftId })
+          await engine.orchestrator.approve({ draftId: created.draftId })
           const activeId = engine.describe().active
           const removed = engine.orchestrator.deleteTheme(activeId)
           const after = engine.describe()
@@ -268,7 +268,7 @@ const SCENARIO_LIST = [
           const fs = require('node:fs')
           const path = require('node:path')
           ${ENGINE}
-          const copied = engine.orchestrator.duplicateTheme('hns.demo.cyber-hud', { name: 'cyber copy' })
+          const copied = await engine.orchestrator.duplicateTheme('hns.demo.cyber-hud', { name: 'cyber copy' })
           if (!copied.ok) {
             return { ok: false, error: copied.reason, issues: (copied.issues || []).map((issue) => issue.message) }
           }
@@ -316,7 +316,7 @@ const SCENARIO_LIST = [
           const path = require('node:path')
           ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '二次元角色，紫蓝色调' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           // Corrupt the installed theme the way a disk failure would.
           fs.writeFileSync(path.join(approved.dir, 'manifest.json'), '{ broken', 'utf8')
           const record = engine.registry.list().find((theme) => theme.id === approved.id)
@@ -339,7 +339,7 @@ const SCENARIO_LIST = [
           const path = require('node:path')
           ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '赛博全息 HUD' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           // Remove the compiled asset files: the package is now incomplete.
           fs.rmSync(path.join(approved.dir, 'assets'), { recursive: true, force: true })
           const record = engine.registry.list().find((theme) => theme.id === approved.id)
@@ -400,7 +400,7 @@ const SCENARIO_LIST = [
           // Build a standalone package the way another installation would export it.
           const draft = engine.designer.design({ intent: engine.designer.interpret('极简浅色中性，低装饰') })
           const outDir = path.join(process.env.DSH_ROOT, 'incoming-theme')
-          const built = engine.builder.buildPackage({
+          const built = await engine.builder.buildPackage({
             draft, id: 'vendored.theme', name: 'Vendored Theme', outDir, source: 'generated'
           })
           const imported = engine.orchestrator.importTheme(outDir, { name: 'Vendored' })
@@ -446,7 +446,7 @@ const SCENARIO_LIST = [
           })
           engine.start()
           const created = await engine.orchestrator.createTheme({ prompt: '赛博全息 HUD，强烈动感，装饰丰富' })
-          engine.orchestrator.approve({ draftId: created.draftId })
+          await engine.orchestrator.approve({ draftId: created.draftId })
           const idle = engine.paintPayload()
 
           // Load spikes: the runtime must down-grade, not fail.
@@ -497,7 +497,7 @@ const SCENARIO_LIST = [
           return {
             app: manifest.app,
             apiVersion: manifest.theme_api_version,
-            surfaces: manifest.themeable_surfaces.map((s) => ({ id: s.id, themable: s.themable, hint: Boolean(s.paletteHintOnly) })),
+            surfaces: manifest.themeable_surfaces.map((s) => ({ id: s.id, themable: s.themable, hint: Boolean(s.paletteHintOnly), permission: s.permission, writable: s.writable })),
             states: manifest.states,
             animations: manifest.capabilities.animations,
             canThemeOfficial: manifest.capabilities.can_theme_official_ui,
@@ -520,7 +520,14 @@ const SCENARIO_LIST = [
       'assert.ok(value.manifest.writableCount >= 30)',
       'assert.equal(value.manifest.states.length, 10)',
       "assert.ok(value.manifest.animations.includes('soft_blur'))",
-      "assert.deepEqual(value.manifest.surfaces.find((s) => s.id === 'official'), { id: 'official', themable: false, hint: true }, 'the official UI is exposed as a palette hint only')",
+      'const surfaceIds = value.manifest.surfaces.map((s) => s.id).sort()',
+      "assert.deepEqual(surfaceIds, ['hns_native', 'official_overlay', 'official_renderer', 'official_shell'], 'the manifest exposes exactly the four Theme Surfaces')",
+      "const protectedSurface = value.manifest.surfaces.find((s) => s.id === 'official_renderer')",
+      "assert.equal(protectedSurface.permission, 'protected', 'the official renderer is protected')",
+      "assert.equal(protectedSurface.writable, false, 'the official renderer is never writable')",
+      "assert.equal(protectedSurface.hint, true, 'the official UI is still exposed as a palette hint only')",
+      "assert.equal(value.manifest.surfaces.find((s) => s.id === 'official_overlay').permission, 'visual-only', 'the official overlay is visual-only')",
+      "assert.equal(value.manifest.surfaces.find((s) => s.id === 'official_shell').writable, true, 'the official shell is writable')",
       "assert.ok(value.manifest.protectedRegions.includes('queue-create'))",
       "assert.ok(value.manifest.pages.includes('dashboard'))"
     ]
@@ -553,7 +560,7 @@ const SCENARIO_LIST = [
         userPayload: code`
         ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '二次元银发角色，紫蓝色调，装饰丰富' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           const paint = engine.paintPayload()
           const forbidden = /<script|javascript:|onerror=|onload=|eval\\(|new Function/i
           return {
@@ -594,7 +601,7 @@ const SCENARIO_LIST = [
           const path = require('node:path')
           ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '二次元银发角色，装饰丰富' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           const manifest = JSON.parse(fs.readFileSync(path.join(approved.dir, 'manifest.json'), 'utf8'))
           return {
             entries: fs.readdirSync(approved.dir).sort(),
@@ -641,7 +648,7 @@ const SCENARIO_LIST = [
           const path = require('node:path')
           ${ENGINE}
           const created = await engine.orchestrator.createTheme({ prompt: '深色工业监控台，冷灰钢蓝' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           engine.stop()
           const active = JSON.parse(fs.readFileSync(path.join(process.env.DSH_ROOT, 'data', 'state', 'theme-active.json'), 'utf8'))
           const registry = JSON.parse(fs.readFileSync(path.join(process.env.DSH_ROOT, 'data', 'state', 'theme-registry.json'), 'utf8'))
@@ -689,7 +696,7 @@ const SCENARIO_LIST = [
           const dataDir = path.join(process.env.DSH_ROOT, 'data')
           const before = fs.readdirSync(dataDir).sort()
           const created = await engine.orchestrator.createTheme({ prompt: '深色工业监控台，冷灰钢蓝' })
-          const approved = engine.orchestrator.approve({ draftId: created.draftId })
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
           const after = fs.readdirSync(dataDir).sort()
           const files = []
           const walk = (dir) => {
@@ -758,6 +765,210 @@ const SCENARIO_LIST = [
       "assert.equal(byRelative['system/light'].protected, true)",
       "assert.equal(byRelative['demo/cyber-hud'].protected, false)",
       "assert.equal(byRelative['demo/cyber-hud'].deletable, true)"
+    ]
+  },
+
+  // -------------------------------------------------------------------------
+  // the four-surface visual pipeline (Update-Plan/General-Theme.md 任务 1-16)
+  // -------------------------------------------------------------------------
+  {
+    kind: 'each',
+    test: 'a prompt observes the UI, plans four surfaces, generates real assets and previews before install',
+    steps: {
+      pipeline: {
+        surfaces: code`
+        ${ENGINE}
+          const created = await engine.orchestrator.createTheme({ prompt: '银发机械助手，半身，右下角，不挡主要内容' })
+          const surfaces = engine.orchestrator.capabilities().themeable_surfaces
+          return {
+            ok: created.ok,
+            reason: created.reason || null,
+            stage: created.stage,
+            surfaces: surfaces.map((s) => ({ id: s.id, permission: s.permission, writable: s.writable, protected: Boolean(s.protected) })),
+            planSurfaces: (created.plans && created.plans.surfaces) || [],
+            protectedSurface: created.plans && created.plans.protectedSurface
+          }`,
+        observation: code`
+        ${ENGINE}
+          const observed = await engine.orchestrator.observe({})
+          const ui = engine.orchestrator.buildUiObservation(observed)
+          return {
+            observed: Boolean(observed),
+            hasViewport: Boolean(ui.viewport && ui.viewport.width > 0),
+            officialObserved: ui.official_bounds_observed,
+            hasSafeRegion: Boolean(ui.safe_region && ui.safe_region.width > 0),
+            criticalCount: (ui.critical_regions || []).length,
+            criticalObserved: ui.critical_observed,
+            slotCount: ui.slot_count,
+            degraded: ui.degraded,
+            reason: ui.reason || null
+          }`,
+        assets: code`
+        ${ENGINE}
+          const created = await engine.orchestrator.createTheme({ prompt: '银发机械助手，半身，右下角，不挡主要内容' })
+          if (!created.ok) return { ok: false, reason: created.reason }
+          const dir = engine.lifecycle.drafts().get(created.draftId).dir
+          const planFile = path.join(dir, 'asset-plan.json')
+          const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'))
+          const character = plan.assets.find((entry) => entry.kind === 'official_character')
+          const hnsCharacter = plan.assets.find((entry) => entry.kind === 'hns_character')
+          const bytes = character && !character.disabled ? fs.readFileSync(path.join(dir, character.path)) : null
+          const decoded = bytes ? pngModule.decodePng(bytes) : null
+          let transparent = 0
+          if (decoded) {
+            for (let index = 3; index < decoded.data.length; index += 4) if (decoded.data[index] < 8) transparent += 1
+          }
+          return {
+            ok: true,
+            count: plan.count,
+            surfaces: [...new Set(plan.assets.map((entry) => entry.surface))].sort(),
+            characterDisabled: character ? character.disabled : null,
+            characterTransparent: character ? character.transparency !== false && character.transparent === true : null,
+            characterValidation: character ? character.validation : null,
+            hnsCharacterPresent: Boolean(hnsCharacter),
+            bytes: bytes ? bytes.length : 0,
+            transparentRatio: decoded ? Number((transparent / (decoded.width * decoded.height)).toFixed(3)) : 0,
+            width: decoded ? decoded.width : 0,
+            height: decoded ? decoded.height : 0,
+            prompts: plan.assets.map((entry) => entry.generation_prompt).filter(Boolean).length
+          }`,
+        preview: code`
+        ${ENGINE}
+          const created = await engine.orchestrator.createTheme({ prompt: '赛博全息 HUD，扫描线' })
+          if (!created.ok) return { ok: false, reason: created.reason }
+          const preview = created.preview || {}
+          const dir = engine.lifecycle.drafts().get(created.draftId).dir
+          const files = ['hns-preview.html', 'official-shell-preview.html', 'official-overlay-preview.html', 'composite-preview.html']
+          return {
+            ok: true,
+            installedBeforeApproval: engine.lifecycle.listThemes().themes.some((theme) => theme.id === created.themeId),
+            stages: Object.keys(preview.surfaces || {}).sort(),
+            composite: Boolean(preview.surfaces && preview.surfaces.composite),
+            onDisk: files.map((file) => ({ file, present: fs.existsSync(path.join(dir, 'preview', file)) })),
+            installed: preview.installed === true
+          }`,
+        revision: code`
+        ${ENGINE}
+          const created = await engine.orchestrator.createTheme({ prompt: '银发机械助手，紫蓝色调，右下角' })
+          if (!created.ok) return { ok: false, reason: created.reason }
+          const draftDir = engine.lifecycle.drafts().get(created.draftId).dir
+          const before = JSON.parse(fs.readFileSync(path.join(draftDir, 'asset-plan.json'), 'utf8'))
+          const hashOf = (plan, kind) => {
+            const entry = plan.assets.find((item) => item.kind === kind)
+            if (!entry || entry.disabled) return null
+            return crypto.createHash('sha256').update(fs.readFileSync(path.join(draftDir, entry.path))).digest('hex')
+          }
+          const wallpaperBefore = hashOf(before, 'wallpaper')
+          const skinBefore = hashOf(before, 'official_skin')
+          const characterBefore = hashOf(before, 'official_character')
+          const revised = await engine.orchestrator.reviseTheme({ draftId: created.draftId, prompt: '人物小一点' })
+          if (!revised.ok) return { ok: false, reason: revised.reason }
+          const dirAfter = engine.lifecycle.drafts().get(created.draftId).dir
+          const after = JSON.parse(fs.readFileSync(path.join(dirAfter, 'asset-plan.json'), 'utf8'))
+          const hashAfter = (kind) => {
+            const entry = after.assets.find((item) => item.kind === kind)
+            if (!entry || entry.disabled) return null
+            return crypto.createHash('sha256').update(fs.readFileSync(path.join(dirAfter, entry.path))).digest('hex')
+          }
+          const sizeOf = (plan, kind) => {
+            const entry = plan.assets.find((item) => item.kind === kind)
+            return entry ? [entry.width, entry.height] : null
+          }
+          return {
+            ok: true,
+            changed: revised.changed,
+            scope: revised.scope,
+            preserved: revised.preserved,
+            wallpaperSame: wallpaperBefore !== null && wallpaperBefore === hashAfter('wallpaper'),
+            skinSame: skinBefore !== null && skinBefore === hashAfter('official_skin'),
+            characterSame: characterBefore !== null && characterBefore === hashAfter('official_character'),
+            characterBefore: sizeOf(before, 'official_character'),
+            characterAfter: sizeOf(after, 'official_character'),
+            revision: revised.revision
+          }`,
+        fallback: code`
+        ${ENGINE}
+          // A theme generation whose image capability always fails must still produce
+          // a complete, installable package.
+          engine.orchestrator.setImageGenerator(async () => { throw new Error('image capability unavailable') })
+          const created = await engine.orchestrator.createTheme({ prompt: '银发机械助手，右下角' })
+          if (!created.ok) return { ok: false, reason: created.reason }
+          const approved = await engine.orchestrator.approve({ draftId: created.draftId })
+          const dir = path.join(process.env.DSH_ROOT, 'data', 'themes', 'user', created.themeId)
+          const plan = JSON.parse(fs.readFileSync(path.join(dir, 'asset-plan.json'), 'utf8'))
+          const character = plan.assets.find((entry) => entry.kind === 'official_character')
+          return {
+            ok: true,
+            approved: approved.ok,
+            disabledCount: plan.assets.filter((entry) => entry.disabled).length,
+            degradedCount: plan.assets.filter((entry) => entry.degraded).length,
+            characterProvenance: character ? character.provenance : null,
+            characterDisabled: character ? character.disabled : null,
+            onDisk: fs.existsSync(path.join(dir, 'manifest.json'))
+          }`
+      }
+    },
+    asserts: [
+      'assert.equal(value.surfaces.ok, true, `theme creation failed: ${value.surfaces.reason}`)',
+      "assert.equal(value.surfaces.stage, 'preview', 'a prompt still stops at the preview')",
+      "assert.deepEqual(value.surfaces.surfaces.map((s) => s.id), ['hns_native', 'official_shell', 'official_overlay', 'official_renderer'])",
+      "const byId = Object.fromEntries(value.surfaces.surfaces.map((s) => [s.id, s]))",
+      "assert.equal(byId.hns_native.permission, 'full')",
+      "assert.equal(byId.official_shell.permission, 'full')",
+      "assert.equal(byId.official_overlay.permission, 'visual-only')",
+      "assert.equal(byId.official_renderer.permission, 'protected')",
+      "assert.equal(byId.official_renderer.writable, false, 'the official renderer is never writable')",
+      "assert.equal(value.surfaces.protectedSurface, 'official_renderer')",
+      "const renderer = value.surfaces.planSurfaces.find((s) => s.surface === 'official_renderer')",
+      "assert.equal(renderer.writes, false, 'the design plans no write into the official renderer')",
+      "assert.equal(renderer.protected, true)",
+      "for (const planned of value.surfaces.planSurfaces.filter((s) => s.surface !== 'official_renderer')) {",
+      "  assert.equal(planned.writes, true, `${planned.surface} is themed by this design`)",
+      "}",
+      '',
+      'assert.equal(value.observation.observed, true, \'the pipeline observed the UI\')',
+      'assert.equal(value.observation.hasViewport, true, \'the observation carries a viewport\')',
+      'assert.equal(value.observation.hasSafeRegion, true, \'the observation derives a safe region\')',
+      'assert.equal(typeof value.observation.degraded, \'boolean\')',
+      'assert.equal(value.observation.criticalCount > 0, true, \'the observation derives critical regions even without live geometry\')',
+      '',
+      'assert.equal(value.assets.ok, true, `asset planning failed: ${value.assets.reason}`)',
+      "assert.ok(value.assets.count >= 8, `the plan carries ${value.assets.count} assets`)",
+      "assert.deepEqual(value.assets.surfaces, ['hns_native', 'official_overlay', 'official_shell'], 'assets land on the three writable surfaces')",
+      "assert.equal(value.assets.characterTransparent, true, 'the official character is declared transparent')",
+      "assert.equal(value.assets.hnsCharacterPresent, true, 'the HNS surface gets a real character too')",
+      "assert.equal(value.assets.characterDisabled, false, 'the character was generated, not disabled')",
+      "assert.equal(value.assets.characterValidation.transparent, true, 'the generated character really is transparent')",
+      "assert.ok(value.assets.characterValidation.distinct_colors >= 2, 'the generated character is a real image')",
+      "assert.ok(value.assets.characterValidation.ink_ratio > 0.05, `the character carries visible content (ink ${value.assets.characterValidation.ink_ratio})`)",
+      "assert.ok(value.assets.transparentRatio > 0.1, `the character PNG on disk is transparent (${value.assets.transparentRatio})`)",
+      "assert.ok(value.assets.width > 64 && value.assets.height > 64, 'the character has a usable size')",
+      "assert.ok(value.assets.bytes > 1024, 'the character asset is a real file')",
+      "assert.equal(value.assets.prompts, value.assets.count, 'every planned asset carries the prompt it was generated from')",
+      '',
+      'assert.equal(value.preview.ok, true)',
+      "assert.equal(value.preview.installedBeforeApproval, false, 'nothing is installed before approval')",
+      "assert.equal(value.preview.installed, false)",
+      "assert.deepEqual(value.preview.stages, ['composite', 'hns_native', 'official_overlay', 'official_shell'])",
+      "assert.equal(value.preview.composite, true, 'the composite preview exists')",
+      "for (const file of value.preview.onDisk) {",
+      "  assert.equal(file.present, true, `${file.file} is compiled into the package`)",
+      "}",
+      '',
+      'assert.equal(value.revision.ok, true, `revision failed: ${value.revision.reason}`)',
+      "assert.equal(value.revision.revision, 1)",
+      "assert.equal(value.revision.wallpaperSame, true, 'a character-only revision keeps the wallpaper bytes')",
+      "assert.equal(value.revision.skinSame, true, 'a character-only revision keeps the official skin bytes')",
+      "assert.equal(value.revision.characterSame, false, 'the character itself was regenerated')",
+      "assert.ok(value.revision.characterAfter[0] < value.revision.characterBefore[0], '人物小一点 really made the figure smaller')",
+      "assert.ok(value.revision.preserved.includes('official_shell'), 'the revision reports what it preserved')",
+      '',
+      'assert.equal(value.fallback.ok, true, `fallback run failed: ${value.fallback.reason}`)',
+      "assert.equal(value.fallback.approved, true, 'a theme whose image capability fails is still installable')",
+      "assert.equal(value.fallback.characterDisabled, false, 'the procedural fallback produced the character')",
+      "assert.equal(value.fallback.characterProvenance, 'procedural-fallback')",
+      "assert.ok(value.fallback.degradedCount >= 1, 'the degradation is recorded rather than hidden')",
+      "assert.equal(value.fallback.onDisk, true, 'the package exists on disk')"
     ]
   }
 ]

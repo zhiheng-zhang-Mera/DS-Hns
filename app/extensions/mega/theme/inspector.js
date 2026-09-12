@@ -96,12 +96,23 @@ function buildSnapshotPackage({
   visualExpectation = null,
   captureProblems = []
 } = {}) {
+  // Page id -> the PNG file name inside the snapshot directory. The buffers
+  // themselves are only used by `persist`; they never enter the package.
+  //
+  // Built *before* `pages` on purpose: the per-page `screenshot` field used to be
+  // derived from the raw `screenshots` map, which holds PNG buffers, so the
+  // package serialised `"snapshot/<binary>"` — a mojibake path that named nothing
+  // on disk while still looking like a captured screenshot in the JSON.
+  const screenshotFiles = Object.fromEntries(
+    Object.keys(screenshots).map((pageId) => [pageId, `snapshot/${pageId}.png`])
+  )
+
   const pages = contract.HNS_PAGES.map((page) => ({
     name: page.name,
     id: page.id,
     surface: page.surface,
-    screenshot: screenshots[page.id] ? `snapshot/${screenshots[page.id]}` : null,
-    observed: page.surface === 'official' ? false : Boolean(screenshots[page.id]) || page.surface === 'dock',
+    screenshot: screenshotFiles[page.id] || null,
+    observed: page.surface === 'official' ? false : Boolean(screenshotFiles[page.id]) || page.surface === 'dock',
     note: page.surface === 'official'
       ? 'official UI is not captured: DS-Hns must not touch the official renderer'
       : null
@@ -129,10 +140,6 @@ function buildSnapshotPackage({
   const reason = visual
     ? VISUAL_REASON.CAPTURED
     : (captureProblems.length ? captureProblems[0] : (expectation?.reason || VISUAL_REASON.RENDERER_UNAVAILABLE))
-
-  const screenshotFiles = Object.fromEntries(
-    Object.keys(screenshots).map((pageId) => [pageId, `snapshot/${pageId}.png`])
-  )
 
   return {
     version: SNAPSHOT_VERSION,

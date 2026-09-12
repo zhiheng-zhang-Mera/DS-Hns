@@ -3,6 +3,11 @@
 本文件描述 `Boss-HNS-Unified-Theme-System` 工程书在 **HNS（DS-Hns）** 侧的落地实现。
 代码位于 `app/extensions/mega/theme/`（引擎）与 `app/extensions/mega/ui/theme-panel.js`（界面）。
 
+**全局主题生成（Update-Plan/General-Theme.md）** 已在本分支落地：主题系统不再是"颜色/参数生成器"，
+而是完整的视觉主题生成器 —— 四个 Surface、官方外壳、官方覆盖层、真实人物/皮肤/装饰资产、
+Asset Plan、UI 观察、Overlay Layout 与 Safety、分 Surface 预览与增量修订。
+详见第 13 节。
+
 ---
 
 ## 1. 落地位置与硬约束
@@ -81,24 +86,35 @@ User Prompt
 
 | 模块 | 职责 |
 | --- | --- |
-| `contract.js` | Theme API 版本、Slot 表与权限等级、Token 模式、HNS 状态词表 |
+| `contract.js` | Theme API 版本、Slot 表与权限等级、Token 模式、HNS 状态词表、四个 Surface 常量 |
+| `surface.js` | 统一 Surface 模型：四个 Surface 的权限、写入闸门（`assertWritable`）、被保护 Surface 的越权检测 |
 | `color.js` | 颜色解析、WCAG 对比度、感知距离（无第三方依赖） |
-| `png.js` | 纯 Node PNG 编码器（zlib + CRC32），主题资源生成不依赖原生模块 |
-| `asset-factory.js` | 程序化生成壁纸 / 面板纹理 / 角色头像 / banner / 装饰 / 图标 |
-| `validator.js` | Package Validator：manifest、资源、跨主题路径、可执行载荷、Slot 权限、可读性、状态可分性 |
+| `png.js` | 纯 Node PNG 编解码器（zlib + CRC32），主题资源生成与校验都不依赖原生模块 |
+| `asset-factory.js` | 程序化生成壁纸 / 面板纹理 / 头像 / banner / 装饰 / 图标 / 真实人物（5 种取景）/ 官方皮肤 / 覆盖层纹理 / HUD 装饰 / 边框装饰 |
+| `assets/planner.js` | Asset Plan / Surface Plan / Overlay Plan：决定生成什么、放在哪个 Surface、尺寸、透明、位置、安全区、生成提示词 |
+| `assets/generator.js` | 调用图像生成能力；失败重试 → 程序化回退 → 禁用单项；输出经处理器与校验器 |
+| `assets/processor.js` | 裁剪 / 缩放 / 透明化（knockout）/ 去边 / 压缩：纯 canvas → canvas |
+| `assets/validator.js` | 资产生成校验：PNG 结构、尺寸、透明度、可见内容（ink）、体积、尺寸漂移 |
+| `assets/fallback.js` | 程序化回退渲染器（`asset-factory` 的按类映射），保证生成失败不会导致主题失败 |
+| `official/overlay-layout.js` | Overlay Layout Engine：安全区/关键区、五种布局模式、人物缩放与对齐、装饰布局 |
+| `official/overlay-safety.js` | Overlay Safety：不透明度/覆盖率/关键区重叠/亮度/对比度损失/体积/越界，超限自动降级或禁用 |
+| `validator.js` | Package Validator：manifest、资源、跨主题路径、可执行载荷、Slot 权限、可读性、状态可分性、Surface Plan |
 | `registry.js` | 主题注册表、活动主题、内置主题隐藏标记 |
 | `recovery.js` | 载入守卫；任何失败 → Dark，最终兜底是模块内置常量 |
-| `designer.js` | Intent 解释、增量修订、对比度自动修复、Token 合成 |
-| `builder.js` | 编译自包含主题包（tokens/components/persona/assets/preview/README） |
-| `capability.js` | Theme Capability Manifest（含官方 UI 只读声明） |
+| `designer.js` | Intent 解释、增量修订、对比度自动修复、Token 合成、官方 Surface 槽位/效果派生、三份 Plan |
+| `builder.js` | 编译自包含主题包（tokens/components/persona/assets/plans/preview/README） |
+| `capability.js` | Theme Capability Manifest（四个 Surface 的权限声明 + Overlay 安全上限） |
 | `inspector.js` | UI Inspector + UI Snapshot Package |
 | `visual-artifact.js` | 截图实体校验（PNG 签名 / IHDR 尺寸 / 密度下限） |
 | `model-adapter.js` | 可选 AI 设计层（默认 disabled，失败即回退规则解释器） |
 | `preview.js` | 预览载荷（CSS 变量 + Slot 样式）与预览校验清单 |
 | `runtime.js` | 活动主题、预览状态、负载自适应降级 |
 | `lifecycle.js` | install / delete / duplicate / restore / import |
-| `orchestrator.js` | 上述管线的唯一入口 |
+| `orchestrator.js` | 上述管线的唯一入口（Prompt → Observe → Plan → Generate → Compose → Preview → Revise → Approve → Install） |
 | `index.js` | 引擎装配入口（`createThemeEngine`） |
+| `../../official-surface-views.cjs` | 官方外壳 / 官方覆盖层两个 `WebContentsView`：堆叠、跟随 bounds、输入穿透、故障隔离 |
+| `ui/hns-shell.html` | 官方外壳渲染文档（无脚本、无交互元素、pointer-events:none） |
+| `ui/official-overlay.html` | 官方覆盖层渲染文档（无脚本、无交互元素、pointer-events:none） |
 | `ui/theme-panel.js` | Appearance 面板（唯一样式化成 UI 的消费方） |
 | `../dock/target.js` | Dock Target Adapter：integrated `WebContentsView` 与 legacy `BrowserWindow` 的唯一入口 |
 
@@ -303,4 +319,119 @@ node scripts\acceptance.mjs --root <checkout> --port 3092 --cdp 9332 --report te
 
 Electron 的**单实例锁位于 userData 目录**，因此第二个实例必须用独立 profile，否则会在启动时
 静默退出，看起来像“Harness 没起来”。验收脚本会为每次运行自动分配独立 profile。
+
+---
+
+## 13. 全局主题生成（Update-Plan/General-Theme.md）
+
+### 13.1 四个 Surface
+
+| Surface | 权限 | 是什么 | 输入 |
+| --- | --- | --- | --- |
+| `hns_native` | `full` | HNS Dock 渲染器（自有 HTML/CSS/JS） | 正常 |
+| `official_shell` | `full` | DS-Hns 在官方渲染器**外围**绘制的框架（独立 `WebContentsView`，位于官方视图之下） | 穿透 |
+| `official_overlay` | `visual-only` | 官方渲染器**上方**的透明覆盖层（独立 `WebContentsView`） | 穿透 |
+| `official_renderer` | `protected` | 官方 `@deepseek-ai/dsh` 渲染器 | 全部保留 |
+
+- `surface.js` 是唯一权限来源：`assertWritable()` 是所有写入者（builder、asset pipeline、
+  overlay layout、package validator）共同经过的闸门；`official_renderer` 对任何 `kind` 都返回
+  `surface_protected`，任何以 `surface` / `target` 指向它的载荷都会被 `violationsIn()` 识别。
+- 官方渲染器**只被重设尺寸和堆叠**：外壳视图先于它加入（其中心被官方视图覆盖，只有外圈可见），
+  覆盖层后于它加入（因此位于最上层）。两个视图都在 `desktop-main.cjs` 中创建，都没有 preload、
+  没有脚本，扩展进程只拿到一个只能 `paint()` 的 adapter，拿不到官方 `webContents`。
+- 覆盖层强制 `setIgnoreMouseEvents(true)` + `focusable: false`，文档本身 `pointer-events:none`
+  且没有任何可聚焦元素。验收用 CDP 向覆盖层范围内的坐标派发真实点击/按键/滚轮，再由**官方渲染器**
+  确认收到事件，并确认没有发生 focus 抢占。
+
+### 13.2 管线
+
+```text
+Prompt
+  → Observe        HNS/Dock/Official bounds、窗口尺寸、slot 几何、可用角色区域、关键交互区
+  → Design Intent  规则解释器（可选 LLM 精修）
+  → Plan           surface_plan + overlay_plan + asset_plan
+  → Generate       真实图像生成 → 重试 → 程序化回退 → 禁用单项
+  → Compose        校验 + 处理（裁剪/缩放/透明化/压缩）
+  → Preview        分 Surface 预览 + Composite Preview（未批准绝不安装）
+  → Revise         增量修订：只重规划与重新生成被点名的部分
+  → Approve
+  → Install
+```
+
+`orchestrator.observe()` 产出的 UI 观察包含 `hns_bounds`、`dock_bounds`、`official_bounds`
+（`official_bounds_observed`）、`window`、`slot_geometry`、`character_regions`、`safe_region`、
+`critical_regions`，以及 `degraded` 与原因 —— 缺任何一项都必须如实标注，禁止静默降级。
+
+### 13.3 Overlay 安全上限（任务 11）
+
+```text
+overlay opacity          <= 0.22
+vignette                 <= 0.15
+scanline                 <= 0.05
+character viewport       <= 22%
+critical-region overlap  <= 8%
+```
+
+`official/overlay-safety.js` 同时提供 `check()`（报告）与 `enforce()`（修复）：超限时按梯级
+**降低强度并缩小人物**，每一步都写入 `adjustments`；若最低强度仍无法满足上限，则**整体禁用覆盖层**
+（只禁用覆盖层，主题仍然安装），并在 `degradation` 中给出原因。亮度与对比度损失按合成后的实际
+颜色测量，而不是断言。
+
+### 13.4 主题包结构（任务 15）
+
+```text
+data/themes/user/<theme-id>/
+├── manifest.json  tokens.json  components.json  persona.json
+├── surface-plan.json   四个 Surface 的权限与是否写入
+├── overlay-plan.json   覆盖层组件、强度、布局、安全结论
+├── asset-plan.json     每个资产的 kind / surface / 尺寸 / 透明 / 位置 / 安全区 / 生成提示词 / 校验结论
+├── preview.png  preview.html  README.md
+├── preview/
+│   ├── hns-preview.html
+│   ├── official-shell-preview.html
+│   ├── official-overlay-preview.html
+│   └── composite-preview.html
+└── assets/
+    ├── wallpapers/  panels/  icons/  persona/  decorations/  characters/  official/
+```
+
+`assets/characters/` 与 `assets/official/` 是本轮新增目录；`validator.ASSET_DIRS` 已包含它们，
+`check-syntax.cjs` 的 `SOURCE_DIRS` 已包含 `extensions/mega/theme/assets` 与
+`extensions/mega/theme/official`（该收集器是非递归的，新目录必须显式登记）。
+
+### 13.5 增量修订（任务 14）
+
+`orchestrator.revisionScope()` 把修订提示词归类到最小范围（`character` / `skin` / `shell` /
+`decoration` / `hns` / `all`），`reuseAssets()` 复用范围之外资产的**原条目与原字节**，
+`builder` 因此重新编译出完全相同的文件。"人物小一点"既缩小人物，也同步调整
+`planCharacterPlacement` 的尺寸，因此对比哈希能看到「壁纸/官方皮肤不变、人物改变」。
+
+### 13.6 测试
+
+```powershell
+cd app
+npm test          # 全部单测，含 4 个新增主题测试文件
+npm run check     # 全部 JS 语法检查（含 theme/assets、theme/official 两个新目录）
+```
+
+新增：
+
+- `tests/unit/theme-surface.test.js` — 四个 Surface、权限、写入闸门、越权载荷、manifest 归属
+- `tests/unit/theme-asset-pipeline.test.js` — 五种人物取景、真实透明度与内容测量、校验器拒绝假绿灯、
+  程序化回退、模型路径、失败只禁用单项、包内真实资产与三份 Plan
+- `tests/unit/theme-overlay-safety.test.js` — 安全区/关键区、五种布局模式、人物缩放避让、
+  上限数值校验、自动降级、无法满足时整体禁用、亮度/对比度测量
+- `tests/unit/theme-official-surfaces.test.js` — 两个官方视图的堆叠顺序、bounds 跟随、输入穿透、
+  被保护 Surface 拒绝、故障隔离、文档无脚本、shell 接线
+- `tests/unit/theme-engine.test.js`（由 `tests/helpers/theme-engine-scenarios.cjs` 生成）新增场景：
+  「prompt → observe → plan → 生成真实资产 → 分 Surface 预览 → 增量修订 → 回退仍可安装」
+
+Electron 侧验收（`scripts/acceptance.mjs`）新增：四个 Surface 的权限声明、两个官方视图的**真实
+bounds**、覆盖层跟随官方视图、保护 Surface 未被注入、Overlay 安全上限逐项核对、CDP 真实输入
+穿透（点击/按键/滚轮 + 无 focus 抢占）、安装包内三份 Plan 与四个预览文件、人物资产的真实像素
+测量、增量修订的哈希对比、删除后无残留。
+
+CI（`.github/workflows/verify.yml`）在 `main` / `merging` / `Theme-Cover` 上运行
+`npm run check` + `npm test`，并额外断言 11 个新增文件存在、两个新目录确实被语法闸门覆盖。
+
 

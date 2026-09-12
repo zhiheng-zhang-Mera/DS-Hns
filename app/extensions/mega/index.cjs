@@ -31,6 +31,7 @@ const CHANNELS = [
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
   'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
   'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint', 'mega:theme-artifacts',
+  'mega:theme-surfaces',
   // ---- HNS skills management ----
   'mega:skills-snapshot', 'mega:skills-search', 'mega:skills-tags', 'mega:skills-detail',
   'mega:skills-install-source', 'mega:skills-install-catalog', 'mega:skills-pick-local',
@@ -46,7 +47,8 @@ const THEME_CHANNELS = [
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
   'mega:theme-delete', 'mega:theme-duplicate', 'mega:theme-restore', 'mega:theme-import',
-  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint', 'mega:theme-artifacts'
+  'mega:theme-observe', 'mega:theme-detail', 'mega:theme-paint', 'mega:theme-artifacts',
+  'mega:theme-surfaces'
 ]
 
 /** Skills IPC channels, owned by the skills service. */
@@ -107,6 +109,58 @@ const dockTarget = createDockTarget({
   ctx: () => ctx,
   log: (message) => log(message)
 })
+
+/**
+ * The two official surfaces (Update-Plan 任务 2 / 任务 3).
+ *
+ * Same pattern as `dockTarget`, and for a stronger reason: the official renderer is
+ * protected, so the extension is handed an adapter that can paint a shell and an
+ * overlay and *nothing else*. It never receives the official `webContents`, so
+ * there is no reachable path from this file into the official UI.
+ *
+ * A missing adapter is not an error: the shell simply has no official surfaces to
+ * paint, and the HNS theme works exactly as before (任务 18).
+ */
+const officialSurfaceTarget = {
+  available: () => Boolean(ctx?.officialSurfaceAdapter),
+  paint: (payload, placement = null) => {
+    const adapter = ctx?.officialSurfaceAdapter
+    if (!adapter || typeof adapter.paint !== 'function') return { ok: false, reason: 'no_surface_target' }
+    return adapter.paint(payload, placement)
+  },
+  reset: () => {
+    const adapter = ctx?.officialSurfaceAdapter
+    if (!adapter || typeof adapter.reset !== 'function') return { ok: false, reason: 'no_surface_target' }
+    return adapter.reset()
+  },
+  layout: () => {
+    const adapter = ctx?.officialSurfaceAdapter
+    if (!adapter || typeof adapter.layout !== 'function') return { ok: false, reason: 'no_surface_target' }
+    return adapter.layout()
+  },
+  bounds: () => {
+    const adapter = ctx?.officialSurfaceAdapter
+    if (!adapter || typeof adapter.officialBounds !== 'function') return null
+    try {
+      const bounds = adapter.officialBounds()
+      if (!bounds || !Number(bounds.width) || !Number(bounds.height)) return null
+      return bounds
+    } catch {
+      return null
+    }
+  },
+  describe: () => {
+    const adapter = ctx?.officialSurfaceAdapter
+    if (!adapter || typeof adapter.describe !== 'function') {
+      return { available: false, reason: 'the shell did not provide an official surface adapter' }
+    }
+    try {
+      return adapter.describe()
+    } catch (error) {
+      return { available: false, reason: String(error?.message || error) }
+    }
+  }
+}
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
 
@@ -415,7 +469,20 @@ function ensureThemeEngine() {
     // is what turns "no picture" into a *recorded degradation* instead of a
     // silent one. A hidden or absent dock is a known, allowed reason; a visible
     // dock that yields no image is a capture defect and the snapshot says so.
-    visualExpected: () => visualExpectation()
+    visualExpected: () => visualExpectation(),
+    // The protected official view's bounds: a rectangle, used by the overlay
+    // layout engine to place the frame and the character. Never its contents.
+    officialBounds: () => officialSurfaceTarget.bounds(),
+    // The official shell + overlay targets. Failure-isolated: a surface problem
+    // disables the surfaces and leaves the HNS theme running (任务 18).
+    paintSurfaces: (payload, placement) => {
+      const result = officialSurfaceTarget.paint(payload, placement)
+      if (result && result.ok === false && result.reason && result.reason !== 'no_surface_target') {
+        log(`official surfaces not painted (${result.reason}); the official renderer is unaffected`)
+      }
+      return result
+    },
+    resetSurfaces: () => officialSurfaceTarget.reset()
   })
   return themeEngine
 }
@@ -1105,6 +1172,54 @@ function registerThemeIpc(engine) {
     // Optional AI designer: reported so the UI can explain that it is off.
     model: engine.modelAdapter ? engine.modelAdapter.describe() : { enabled: false, available: false }
   })))
+  /**
+   * The four-surface state (Update-Plan 任务 1 / 任务 2 / 任务 3).
+   *
+   * Answers the two questions acceptance has to be able to ask with evidence:
+   * "which surfaces exist and what may each be written with?" and "is the official
+   * overlay actually on screen, and is the protected renderer untouched?" The
+   * `protected` block is read from the shell, not computed here.
+   */
+  ipcMain.handle('mega:theme-surfaces', guard(() => {
+    const surfaceModule = require('./theme/surface')
+    const surfaces = surfaceModule.describe()
+    const overlayState = officialSurfaceTarget.describe()
+    const plans = engine.plans ? engine.plans() : null
+    return {
+      ok: true,
+      surfaces,
+      protected: overlayState.protected || {
+        id: 'official_renderer',
+        writable: false,
+        painted: false,
+        injection_apis_used: []
+      },
+      overlay: overlayState.available === false
+        ? { available: false, reason: overlayState.reason }
+        : {
+            available: true,
+            enabled: plans ? plans.overlay?.enabled !== false : false,
+            visual_only: true,
+            built: (overlayState.surfaces || []).some((surface) => surface.id === 'official_overlay' && surface.created),
+            ready: (overlayState.surfaces || []).some((surface) => surface.id === 'official_overlay' && surface.ready),
+            bounds: (overlayState.surfaces || []).find((surface) => surface.id === 'official_overlay')?.bounds || null,
+            input: { pointer: 'passthrough', keyboard: 'passthrough', focus: 'none', scroll: 'passthrough' },
+            degradation: overlayState.degradation || [],
+            safety: plans?.overlay?.safety || null,
+            layout: plans?.layout || null
+          },
+      shell: overlayState.available === false
+        ? { available: false, reason: overlayState.reason }
+        : {
+            available: true,
+            built: (overlayState.surfaces || []).some((surface) => surface.id === 'official_shell' && surface.created),
+            ready: (overlayState.surfaces || []).some((surface) => surface.id === 'official_shell' && surface.ready),
+            bounds: (overlayState.surfaces || []).find((surface) => surface.id === 'official_shell')?.bounds || null
+          },
+      official_bounds: overlayState.officialBounds || null,
+      plans
+    }
+  }))
   ipcMain.handle('mega:theme-detail', guard((_event, payload = {}) => {
     const id = typeof payload === 'string' ? payload : payload?.id
     const inspected = engine.lifecycle.inspectTheme(id)

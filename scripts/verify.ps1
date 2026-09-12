@@ -70,6 +70,24 @@ Check 'Theme panel renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\the
 Check 'Theme bridge is exposed through the preload' ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'mega:theme-create')
 Check 'Theme recovery falls back to Dark' ((Get-Content "$ROOT\app\extensions\mega\theme\recovery.js" -Raw) -match 'RECOVERY|fallbackTheme')
 Check 'Theme system never touches the official renderer' (-not ((Get-Content "$ROOT\app\extensions\mega\theme\index.js" -Raw) -match 'officialWebContents|executeJavaScript|insertCSS'))
+# ---- four Theme Surfaces (Update-Plan/General-Theme.md) ----
+Check 'Surface model exists' (Test-Path "$ROOT\app\extensions\mega\theme\surface.js")
+Check 'Surface model declares the four surfaces' (((Get-Content "$ROOT\app\extensions\mega\theme\surface.js" -Raw) -match 'hns_native') -and ((Get-Content "$ROOT\app\extensions\mega\theme\surface.js" -Raw) -match 'official_shell') -and ((Get-Content "$ROOT\app\extensions\mega\theme\surface.js" -Raw) -match 'official_overlay') -and ((Get-Content "$ROOT\app\extensions\mega\theme\surface.js" -Raw) -match 'official_renderer'))
+Check 'Surface model gates every write' ((Get-Content "$ROOT\app\extensions\mega\theme\surface.js" -Raw) -match 'function assertWritable')
+$officialSurfaces = Get-Content "$ROOT\app\official-surface-views.cjs" -Raw
+Check 'Official surface view manager exists' (Test-Path "$ROOT\app\official-surface-views.cjs")
+Check 'Official overlay is input-transparent and never focusable' (($officialSurfaces -match 'setIgnoreMouseEvents\(true') -and ($officialSurfaces -match 'focusable: false'))
+# The surface manager legitimately styles its OWN two views, so the rule is not
+# "no insertCSS": it is that no API is ever aimed at the official renderer, and
+# that no script is ever executed anywhere.
+Check 'Official surface manager never reaches into, or scripts, the official renderer' ((-not ($officialSurfaces -match 'officialView\.webContents|executeJavaScript')) -and ($officialSurfaces -match 'getBounds'))
+Check 'Official shell document exists and carries no script' ((Test-Path "$ROOT\app\extensions\mega\ui\hns-shell.html") -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\hns-shell.html" -Raw) -match '<script')))
+Check 'Official overlay document exists and carries no script' ((Test-Path "$ROOT\app\extensions\mega\ui\official-overlay.html") -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\official-overlay.html" -Raw) -match '<script')))
+Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
+Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
+Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")
+Check 'Overlay safety validator enforces the engineering ceilings' (((Get-Content "$ROOT\app\extensions\mega\theme\official\overlay-safety.js" -Raw) -match 'overlay_opacity: 0\.22') -and ((Get-Content "$ROOT\app\extensions\mega\theme\official\overlay-safety.js" -Raw) -match 'critical_overlap: 0\.08'))
+Check 'Surface subdirectories are covered by the syntax gate' (((Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw) -match 'extensions/mega/theme/assets') -and ((Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw) -match 'extensions/mega/theme/official'))
 # ---- HNS skills management ----
 Check 'Skill format layer exists' (Test-Path "$ROOT\app\extensions\mega\skills\skill-format.js")
 Check 'Skill service exists' (Test-Path "$ROOT\app\extensions\mega\skills\skill-service.js")

@@ -51,17 +51,46 @@ function parseColor(value) {
 }
 
 /** RGB -> #rrggbb. */
-function toHex({ r, g, b }) {
-  const part = (value) => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0')
-  return `#${part(r)}${part(g)}${part(b)}`
+function toHex(value) {
+  const parsed = toRgba(value)
+  if (!parsed) return null
+  const part = (channel) => clamp(Math.round(channel), 0, 255).toString(16).padStart(2, '0')
+  return `#${part(parsed.r)}${part(parsed.g)}${part(parsed.b)}`
+}
+
+/**
+ * Normalise anything colour-shaped into `{r,g,b,a}`.
+ *
+ * Both a CSS string and an already-parsed `{r,g,b,a}` object are accepted, because
+ * the theme engine really does pass both: a token is a string, while the asset
+ * generators work with the parsed palette. A non-colour (an object without
+ * channels, a malformed string) returns `null` so the caller can fall back instead
+ * of propagating `NaN` into a generated image.
+ */
+function toRgba(value) {
+  if (typeof value === 'string') return parseColor(value)
+  if (!value || typeof value !== 'object') return null
+  const r = Number(value.r)
+  const g = Number(value.g)
+  const b = Number(value.b)
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) return null
+  const a = value.a === undefined ? 1 : Number(value.a)
+  return {
+    r: clamp(r, 0, 255),
+    g: clamp(g, 0, 255),
+    b: clamp(b, 0, 255),
+    a: Number.isFinite(a) ? clamp(a, 0, 1) : 1
+  }
 }
 
 /** Compose a colour over an opaque base, honouring the alpha channel. */
 function flatten(color, base) {
-  const parsed = typeof color === 'string' ? parseColor(color) : color
+  // `toRgba` returns the value unchanged for a well-formed object; the `slice` is
+  // what stops this from handing the caller's own object back to be mutated.
+  const parsed = toRgba(color)
   if (!parsed) return null
   if (parsed.a >= 1) return { r: parsed.r, g: parsed.g, b: parsed.b, a: 1 }
-  const under = base || { r: 0, g: 0, b: 0, a: 1 }
+  const under = toRgba(base) || { r: 0, g: 0, b: 0, a: 1 }
   const a = parsed.a
   return {
     r: parsed.r * a + under.r * (1 - a),
@@ -209,6 +238,7 @@ module.exports = {
   clamp,
   isHex,
   parseColor,
+  toRgba,
   toHex,
   flatten,
   relativeLuminance,

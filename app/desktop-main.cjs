@@ -15,6 +15,7 @@ const path = require('node:path')
 const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
+const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -56,6 +57,7 @@ function normalizeHarnessPort(value) {
 let mainWindow = null
 let officialView = null
 let megaDockView = null
+let officialSurfaces = null
 let megaDockExpanded = false
 let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 let harnessProcess = null
@@ -654,6 +656,17 @@ function layoutIntegratedViews() {
   if (megaDockView) {
     megaDockView.setBounds({ x: officialWidth, y: 0, width: dockWidth, height })
   }
+  // The official surfaces follow the official view bounds (Update-Plan 任务 3):
+  // the overlay tracks it exactly, the shell spans the window so its frame band
+  // is drawn on all four sides. Called on resize/maximize/restore/dock-toggle, and
+  // its failure can only degrade the surfaces, never the window.
+  if (officialSurfaces) {
+    try {
+      officialSurfaces.applyLayout()
+    } catch (error) {
+      logLine(`official surface layout failed: ${error?.message || error}`)
+    }
+  }
 }
 
 function applyIntegratedDockState(payload = {}) {
@@ -712,6 +725,43 @@ async function createOfficialHarnessView(readyUrl) {
   return true
 }
 
+/**
+ * The Official Shell + Official Overlay views (Update-Plan 任务 2 / 任务 3).
+ *
+ * Ordering is the whole trick, and it is why this is one function rather than two:
+ * the shell must be added *before* the official view (so it paints behind it, and
+ * only its outer band is visible) and the overlay *after* it (so it stacks above).
+ * Both are input-transparent; neither has a preload, a script, or any reference to
+ * the official renderer.
+ *
+ * A failure here disables the two official surfaces and nothing else: the official
+ * renderer and the HNS dock are already live by this point (任务 18).
+ */
+async function createOfficialSurfaces() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  if (officialSurfaces) return true
+  officialSurfaces = createOfficialSurfaceViews({
+    getWindow: () => mainWindow,
+    getOfficialView: () => officialView,
+    getWindowSize: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : null),
+    getDockWidth: () => integratedDockWidth(),
+    log: (message) => logLine(`[surface] ${message}`),
+    electron: { WebContentsView }
+  })
+  try {
+    officialSurfaces.createShell()
+    officialSurfaces.createOverlay()
+    officialSurfaces.applyLayout()
+    logLine('official_shell + official_overlay views attached (visual-only, input passthrough)')
+    return true
+  } catch (error) {
+    logLine(`official surfaces failed to attach; the official renderer keeps running unthemed: ${error?.stack || error}`)
+    try { officialSurfaces.destroy() } catch {}
+    officialSurfaces = null
+    return false
+  }
+}
+
 async function createIntegratedMegaDock() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
   if (!WebContentsView || !mainWindow.contentView?.addChildView) {
@@ -749,6 +799,12 @@ async function createIntegratedMegaDock() {
 }
 
 function destroyIntegratedViews() {
+  try {
+    officialSurfaces?.destroy?.()
+  } catch (error) {
+    logLine(`official surface teardown failed: ${error?.message || error}`)
+  }
+  officialSurfaces = null
   for (const view of [megaDockView, officialView]) {
     if (!view) continue
     try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
@@ -834,6 +890,81 @@ function createDockAdapter() {
 }
 
 /**
+ * The official-surface target the extension talks to (Update-Plan 任务 2 / 任务 3).
+ *
+ * Same shape as `createDockAdapter()` and for the same reason: the extension must
+ * not learn how the shell stores its views, and it must have exactly one way to
+ * paint a surface. `official_renderer` is deliberately absent from every method —
+ * there is no argument the extension can pass that would reach it.
+ */
+function createOfficialSurfaceAdapter() {
+  return {
+    integrated: true,
+    /** Paint both official surfaces with a theme payload. Never throws. */
+    paint: (payload, placement = null) => {
+      if (!officialSurfaces) return { ok: false, reason: 'surfaces_unavailable' }
+      try {
+        return officialSurfaces.paintTheme(payload, placement)
+      } catch (error) {
+        logLine(`official surface paint failed (surface disabled, theme kept): ${error?.stack || error}`)
+        try { officialSurfaces.setEnabled(false) } catch {}
+        return { ok: false, reason: 'paint_failed', error: String(error?.message || error) }
+      }
+    },
+    /** Reset both surfaces to the default frame (theme deleted / fallback). */
+    reset: () => {
+      if (!officialSurfaces) return { ok: false, reason: 'surfaces_unavailable' }
+      try {
+        return officialSurfaces.reset()
+      } catch (error) {
+        logLine(`official surface reset failed: ${error?.message || error}`)
+        return { ok: false, reason: 'reset_failed' }
+      }
+    },
+    /** Re-layout after a resize/maximise/restore/dock change. */
+    layout: (next = null) => {
+      if (!officialSurfaces) return { ok: false, reason: 'surfaces_unavailable' }
+      try {
+        return officialSurfaces.applyLayout(next)
+      } catch (error) {
+        return { ok: false, reason: 'layout_failed', error: String(error?.message || error) }
+      }
+    },
+    /** Real bounds of the protected official view, for the layout engine. */
+    officialBounds: () => {
+      if (!officialView) return null
+      try {
+        return officialView.getBounds()
+      } catch {
+        return null
+      }
+    },
+    /** Honest diagnostics: what each surface is, and that none was injected into. */
+    describe: () => {
+      if (!officialSurfaces) {
+        return {
+          available: false,
+          surfaces: PAINTABLE.map((id) => ({ id, created: false, ready: false, bounds: null })),
+          protected: { id: SURFACE.OFFICIAL_RENDERER, writable: false, painted: false, injection_apis_used: [] }
+        }
+      }
+      return { available: true, ...officialSurfaces.describe(), officialBounds: (() => {
+        try { return officialView ? officialView.getBounds() : null } catch { return null }
+      })() }
+    },
+    /** Drain the surface's own degradation log so the extension can report it. */
+    degradation: () => {
+      if (!officialSurfaces) return []
+      try {
+        return officialSurfaces.describe().degradation
+      } catch {
+        return []
+      }
+    }
+  }
+}
+
+/**
  * Called once the integrated dock renderer has loaded.
  *
  * Callbacks stay registered: the dock renderer can reload (a crash recovery, a
@@ -857,6 +988,7 @@ async function startExtensions(nodeExe) {
   }
   try {
     const dockAdapter = createDockAdapter()
+    const officialSurfaceAdapter = createOfficialSurfaceAdapter()
     extensionManager = require('./extensions/manager.cjs')
     await extensionManager.start({
       root: ROOT,
@@ -864,6 +996,11 @@ async function startExtensions(nodeExe) {
       mainWindow,
       officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
       dockAdapter,
+      // The two official surfaces. The extension paints them with the same theme
+      // payload it paints the dock with; it never receives the official webContents,
+      // so there is nothing it could inject into it.
+      officialSurfaceAdapter,
+      officialSurfaces: officialSurfaceAdapter,
       // Legacy single-value form: the extension's adapter accepts either.
       dockWebContents: dockAdapter.webContents,
       // The dock view is created *after* extensions start (it loads the
@@ -911,6 +1048,10 @@ app.whenReady().then(async () => {
     const readyUrl = await waitForHarness()
     if (INTEGRATED_MEGA_DOCK) await createOfficialHarnessView(readyUrl)
     else await mainWindow.loadURL(readyUrl)
+    // The two official surfaces are attached after the official renderer exists
+    // (they need its bounds) and before the dock, so the dock is added last and
+    // stays on top of its own strip.
+    await createOfficialSurfaces()
 
     // The Sub-worker layer is created here, after the official UI is ready and
     // before any extension can ask for it. Creation is inert (no process), so

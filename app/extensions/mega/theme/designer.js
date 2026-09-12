@@ -22,6 +22,7 @@
 const contract = require('./contract')
 const color = require('./color')
 const assets = require('./asset-factory')
+const planner = require('./assets/planner')
 
 const PALETTE_WORDS = [
   { match: /黑|暗黑|深色|charcoal|black|obsidian|ink/, palette: 'charcoal', base: '#0d0f13', label: '深炭黑' },
@@ -176,9 +177,10 @@ function parseRevisionDeltas(prompt) {
 /** Apply parsed increments on top of a previous intent. */
 function applyDeltas(intent, deltas) {
   if (!deltas || !Object.keys(deltas).length) return intent
-  const next = { ...intent, persona: { ...intent.persona } }
+  const next = { ...intent, persona: { ...intent.persona }, official: { ...(intent.official || {}) } }
   if (deltas.personaDisabled) {
     next.persona = { enabled: false, prominence: 0, character: null }
+    next.official.overlay_character = false
   } else if (deltas.personaProminence) {
     const prominence = Math.max(0, Math.min(0.4, Number(next.persona.prominence || 0) + deltas.personaProminence))
     next.persona = {
@@ -187,6 +189,12 @@ function applyDeltas(intent, deltas) {
       prominence,
       character: next.persona.character || (prominence > 0 ? 'operator_assistant' : null)
     }
+    // "人物小一点" is a request about the *figure*, not only about the persona
+    // layer's prominence, so the character's planned size follows the same
+    // increment. Without this the revision would change a number nobody sees and
+    // regenerate a character at exactly the previous size.
+    const scale = Math.max(0.4, Math.min(1.6, Number(next.official.character_scale ?? 1) + deltas.personaProminence * 1.6))
+    next.official.character_scale = Number(scale.toFixed(3))
   }
   if (deltas.decoration) next.decoration = shiftEnum(DECORATION_ORDER, next.decoration || 'medium_low', deltas.decoration)
   if (deltas.density) next.density = shiftEnum(DENSITY_ORDER, next.density || 'compact', deltas.density)
@@ -477,6 +485,226 @@ function paletteToTokens({ intent, palette, mode, specimen }) {
 }
 
 /**
+ * How strong each overlay feature is for a given decoration level and motion.
+ *
+ * Baseline *strengths*, not the safety ceilings: `official/overlay-safety.js`
+ * clamps them again against the engineering limits, and it can only lower them.
+ * Keeping the baseline conservative here means the common case needs no downgrade.
+ */
+const OFFICIAL_EFFECT_SPECS = Object.freeze({
+  none: { tint: 0.05, vignette: 0.04, scanline: 0, texture: 0.06, glow: 0.12, character: 0.7 },
+  low: { tint: 0.07, vignette: 0.06, scanline: 0, texture: 0.1, glow: 0.2, character: 0.78 },
+  medium_low: { tint: 0.1, vignette: 0.09, scanline: 0.02, texture: 0.14, glow: 0.32, character: 0.84 },
+  high: { tint: 0.14, vignette: 0.12, scanline: 0.04, texture: 0.18, glow: 0.45, character: 0.9 }
+})
+
+/** The official shell's frame geometry, keyed by design language. */
+const OFFICIAL_SHELL_SPECS = Object.freeze({
+  minimal_neutral: { padding: '4px', borderWidth: '1px', radius: '6px' },
+  future_research_workstation: { padding: '6px', borderWidth: '1px', radius: '10px' },
+  cyber_hud: { padding: '8px', borderWidth: '2px', radius: '12px' },
+  industrial_console: { padding: '8px', borderWidth: '2px', radius: '6px' },
+  anime_persona: { padding: '6px', borderWidth: '1px', radius: '14px' }
+})
+
+/** Asset kind -> the token that carries it into the runtime. */
+const ASSET_KIND_TOKEN = Object.freeze({
+  wallpaper: 'asset.wallpaper',
+  panel_texture: 'asset.panel_texture',
+  icon_set: 'asset.icon_set',
+  persona_avatar: 'asset.persona_avatar',
+  hns_character: 'asset.hns_character',
+  official_character: 'asset.official_character',
+  official_skin: 'asset.official_skin',
+  official_overlay_texture: 'asset.official_overlay_texture',
+  frame_decoration: 'asset.official_shell_frame',
+  hud_decoration: 'asset.decoration'
+})
+
+/** Asset-kind -> package-relative file, filled in once the builder has the bytes. */
+const ASSET_KIND_PATH = Object.freeze({
+  wallpaper: 'assets/wallpapers/wallpaper.png',
+  panel_texture: 'assets/panels/panel.png',
+  icon_set: 'assets/icons/icon-set.png',
+  persona_avatar: 'assets/persona/persona-avatar.png',
+  hns_character: 'assets/characters/hns-character.png',
+  official_character: 'assets/official/official-character.png',
+  official_skin: 'assets/official/official-skin.png',
+  official_overlay_texture: 'assets/official/official-overlay-texture.png',
+  frame_decoration: 'assets/decorations/decoration-frame.png',
+  hud_decoration: 'assets/decorations/decoration-hud.png'
+})
+
+/**
+ * Derive the official surfaces' slot styles and effect tokens from a plan (任务 7).
+ *
+ * The planner decides the strengths; this function only *renders* them into the
+ * shapes the runtime and the package understand. Keeping the two apart is what
+ * lets the overlay safety validator re-plan and re-derive without the designer
+ * having to be re-entered.
+ */
+function officialSurfaceDesign({ designLanguage = 'future_research_workstation', decoration = 'medium_low', assetPlan = {}, overlayPlan = {} } = {}) {
+  const effects = OFFICIAL_EFFECT_SPECS[decoration] || OFFICIAL_EFFECT_SPECS.medium_low
+  const shellSpec = OFFICIAL_SHELL_SPECS[designLanguage] || OFFICIAL_SHELL_SPECS.future_research_workstation
+  const components = overlayPlan.components || {}
+  // The plan carries the ceilings it was planned against, so the derivation can
+  // never emit a strength the safety validator would have to reject. This is the
+  // same clamp, applied at the second place a value could escape: the token.
+  const ceilings = overlayPlan.limits || {}
+  const cap = (value, limit) => {
+    const numeric = Number(value)
+    const ceiling = Number(limit)
+    if (!Number.isFinite(numeric)) return 0
+    if (!Number.isFinite(ceiling)) return Math.max(0, numeric)
+    return Math.max(0, Math.min(numeric, ceiling))
+  }
+  const tintOpacity = cap(components.global_tint?.opacity, ceilings.overlay_opacity)
+  const vignetteOpacity = cap(components.vignette?.opacity, ceilings.vignette)
+  const scanlineOpacity = cap(components.scanline?.opacity, ceilings.scanline)
+  const glowOpacity = cap(components.frame_glow?.opacity, 0.6)
+  const textureOpacity = cap(components.texture?.opacity, ceilings.overlay_opacity)
+  const skinOpacity = cap(components.skin?.opacity, ceilings.overlay_opacity)
+  const characterOpacity = cap(components.character_primary?.opacity, 1)
+  const coverage = cap(components.character_primary?.coverage, ceilings.character_coverage)
+  const characterEnabled = components.character_primary?.enabled === true
+  const decorationEnabled = components.corner_decoration?.enabled === true
+  const skinEnabled = components.skin?.enabled !== false
+
+  const assets = {}
+  for (const entry of assetPlan.asset_plan || []) {
+    const token = ASSET_KIND_TOKEN[entry.kind]
+    if (!token) continue
+    // The path is declared here; the builder replaces it with the real data URI
+    // once the asset has been generated and validated.
+    assets[token] = entry.path || ASSET_KIND_PATH[entry.kind] || 'none'
+  }
+  // Slot styles reference the *asset token*, not a package path: a runtime value
+  // is a `var(--hns-asset-*)` reference, so validatePackage does not have to
+  // resolve a second, slot-shaped asset reference.
+  const tokenRef = (tokenName) => `var(${contract.TOKENS[tokenName].css})`
+  const hasAsset = (tokenName) => Boolean(assets[tokenName] && assets[tokenName] !== 'none')
+
+  const tokens = {
+    'official.shell.padding': shellSpec.padding,
+    'official.shell.border_width': shellSpec.borderWidth,
+    'official.shell.radius': shellSpec.radius,
+    'official.tint.opacity': String(Number(tintOpacity.toFixed(3))),
+    'official.vignette.opacity': String(Number(vignetteOpacity.toFixed(3))),
+    'official.scanline.opacity': String(Number(scanlineOpacity.toFixed(3))),
+    'official.frame_glow.opacity': String(Number(glowOpacity.toFixed(3))),
+    'official.texture.opacity': String(Number(textureOpacity.toFixed(3))),
+    'official.character.opacity': String(Number((characterEnabled ? characterOpacity : 0).toFixed(3))),
+    'official.character.coverage': String(Number(coverage.toFixed(4))),
+    ...assets
+  }
+
+  const slots = {
+    'official.shell.background': {
+      background: 'var(--hns-color-bg-base)',
+      overlay: `linear-gradient(160deg, var(--hns-color-bg-layer1), var(--hns-color-bg-base))`
+    },
+    'official.shell.border': { border: `${shellSpec.borderWidth} solid var(--hns-color-border-l1)`, radius: 'var(--hns-official-shell-radius)' },
+    'official.shell.radius': { radius: 'var(--hns-official-shell-radius)', background: 'transparent' },
+    'official.shell.shadow': { shadow: 'var(--hns-shadow-l2)', background: 'transparent' },
+    'official.shell.separator': { border: `1px solid var(--hns-color-border-l1)`, color: 'var(--hns-color-border-l2)' },
+    'official.shell.frame': {
+      border: `${shellSpec.borderWidth} solid var(--hns-color-border-l2)`,
+      radius: 'var(--hns-official-shell-radius)',
+      padding: 'var(--hns-official-shell-padding)',
+      shadow: 'var(--hns-shadow-l1)',
+      background: hasAsset('asset.official_shell_frame') ? tokenRef('asset.official_shell_frame') : 'transparent'
+    },
+    'official.shell.padding': { padding: 'var(--hns-official-shell-padding)', background: 'transparent' },
+    'official.overlay.global_tint': { color: 'var(--hns-color-bg-overlay)', opacity: tintOpacity, blend: 'normal' },
+    'official.overlay.gradient': { angle: Number(components.gradient?.angle) || 160, stops: JSON.stringify(components.gradient?.stops || []), opacity: Number(components.gradient?.opacity) || 0 },
+    'official.overlay.texture': {
+      asset: hasAsset('asset.official_overlay_texture') ? tokenRef('asset.official_overlay_texture') : 'none',
+      opacity: textureOpacity,
+      scale: 1,
+      blend: 'normal',
+      tile: true
+    },
+    'official.overlay.skin': {
+      asset: skinEnabled && hasAsset('asset.official_skin') ? tokenRef('asset.official_skin') : 'none',
+      opacity: skinEnabled ? skinOpacity : 0,
+      blend: 'normal',
+      layout: 'framed',
+      inset: 0
+    },
+    'official.overlay.vignette': { opacity: vignetteOpacity, color: 'var(--hns-color-bg-overlay)', size: 0.78 },
+    'official.overlay.scanline': { opacity: scanlineOpacity, color: '#000000', spacing: 4, width: 1 },
+    'official.overlay.frame_glow': { opacity: glowOpacity, color: 'var(--hns-color-accent-primary)', glow: String(glowOpacity), width: Math.round(2 + glowOpacity * 6) },
+    'official.overlay.corner_decoration': {
+      asset: decorationEnabled && hasAsset('asset.decoration') ? tokenRef('asset.decoration') : 'none',
+      opacity: decorationEnabled ? Number(components.corner_decoration?.opacity) || 0 : 0,
+      position: components.corner_decoration?.anchor || 'bottom-right',
+      scale: 1,
+      anchor: components.corner_decoration?.anchor || 'bottom-right'
+    },
+    'official.overlay.character_primary': characterEnabled && hasAsset('asset.official_character')
+      ? {
+          asset: tokenRef('asset.official_character'),
+          opacity: characterOpacity,
+          position: components.character_primary?.anchor || 'bottom-right',
+          scale: Number(components.character_primary?.scale) || 1,
+          anchor: components.character_primary?.anchor || 'bottom-right',
+          crop: components.character_primary?.crop || 'contain',
+          layout: 'corner'
+        }
+      : { asset: 'none', opacity: 0, position: null, scale: 0, anchor: null, crop: 'contain', layout: 'corner' },
+    'official.overlay.character_secondary': { asset: 'none', opacity: 0, position: null, scale: 0, anchor: null, crop: 'contain', layout: 'corner' }
+  }
+
+  // HNS-native character: the same figure on our own surface, where the persona
+  // layer used to carry only a small abstract avatar (任务 5).
+  const hnsCharacter = (assetPlan.asset_plan || []).find((entry) => entry.kind === 'hns_character')
+  if (hnsCharacter) {
+    slots['hns.character.primary'] = {
+      asset: tokenRef('asset.hns_character'),
+      opacity: Number(hnsCharacter.opacity) || effects.character,
+      position: hnsCharacter.anchor || 'bottom-right',
+      scale: Number(hnsCharacter.scale) || 1,
+      anchor: hnsCharacter.anchor || 'bottom-right',
+      crop: hnsCharacter.crop || 'contain',
+      layout: hnsCharacter.layout || 'corner'
+    }
+    tokens['official.character.coverage'] = String(Number(cap(hnsCharacter.position?.viewport_fraction || coverage, ceilings.character_coverage).toFixed(4)))
+  } else {
+    slots['hns.character.primary'] = { asset: 'none', opacity: 0, position: null, scale: 0, anchor: null, crop: 'contain', layout: 'corner' }
+  }
+
+  return { tokens, slots, effects }
+}
+
+/**
+ * Apply a re-planned overlay (post safety enforcement) to a draft.
+ *
+ * The overlay safety validator is the only thing allowed to change the plan after
+ * planning, so this is the single funnel for "the plan changed": the slot styles
+ * and effect tokens are re-derived from the *enforced* plan, and nothing else in
+ * the draft moves (任务 11 + 任务 14).
+ */
+function applyOverlayPlan(draft, { assetPlan = null, overlayPlan = null } = {}) {
+  if (!draft) return draft
+  const designLanguage = draft.design_language
+  const decoration = draft.intent?.decoration || 'medium_low'
+  const nextAssetPlan = assetPlan || draft.asset_plan || {}
+  const nextOverlayPlan = overlayPlan || draft.overlay_plan || {}
+  const derived = officialSurfaceDesign({ designLanguage, decoration, assetPlan: nextAssetPlan, overlayPlan: nextOverlayPlan })
+  return {
+    ...draft,
+    tokens: { ...draft.tokens, ...derived.tokens },
+    components: {
+      ...draft.components,
+      slots: { ...draft.components?.slots, ...derived.slots }
+    },
+    asset_plan: nextAssetPlan,
+    overlay_plan: nextOverlayPlan,
+    surface_plan: draft.surface_plan || {}
+  }
+}
+
+/**
  * Contrast remediation.
  *
  * The Designer must never be able to emit a draft that the validator will
@@ -636,8 +864,7 @@ function design({ intent, darkTokens, withAssets = false } = {}) {
   const contrastFix = enforceContrast(tokens)
   const finalTokens = contrastFix.tokens
   const assetTokens = {}
-  if (withAssets) {
-    // Preview-only convenience: inline the assets so the renderer can show a
+  if (withAssets) {    // Preview-only convenience: inline the assets so the renderer can show a
     // draft without touching the filesystem. The Theme Builder never uses this
     // path — it compiles real files into the package and rewrites these tokens
     // to package-relative `assets/...` references.
@@ -862,18 +1089,49 @@ function design({ intent, darkTokens, withAssets = false } = {}) {
     state_count: stateCount
   }
 
+  // ---- plans (任务 7 / 任务 8) -------------------------------------------------
+  //
+  // The designer is where Design Intent becomes concrete, so this is where the
+  // three plans are produced: which surfaces are written, which overlay features
+  // are on and how strongly, and one entry per asset with its exact surface,
+  // dimensions, transparency, placement, safe region and generation prompt.
+  //
+  // The observation is *not* available here (the orchestrator observes before it
+  // designs, and passes what it saw back in), so the plans start from the
+  // conservative fallback and are re-planned by the orchestrator with the real
+  // viewport and the real critical regions. Planning twice is deliberate: the
+  // first pass is what the package documents, the second is what the layout uses.
+  const planInput = { intent, design: { design_language: intent.design_language, style_tag: intent.style_tag, palette_label: intent.palette_label, palette_values: paletteValues, intent }, observation: null, limits: null }
+  const surfacePlan = planner.planSurfaces({ intent, observation: null })
+  const overlayPlan = planner.planOverlay(planInput)
+  const assetPlan = planner.planAssets(planInput)
+  const official = officialSurfaceDesign({
+    designLanguage: intent.design_language,
+    decoration: intent.decoration || 'medium_low',
+    assetPlan,
+    overlayPlan
+  })
+
   return {
     design_language: intent.design_language,
     palette,
     palette_label: intent.palette_label,
     mode: resolvedMode,
     style_tag: intent.style_tag,
-    tokens: { ...finalTokens, ...assetTokens },
+    tokens: { ...finalTokens, ...assetTokens, ...official.tokens },
     palette_values: paletteValues,
-    components: slottedComponents,
+    components: {
+      ...slottedComponents,
+      slots: { ...slottedComponents.slots, ...official.slots }
+    },
     persona,
     animation: slottedComponents.animation,
     contrast_adjustments: contrastFix.adjustments,
+    // 任务 7: the Design Intent output is no longer only palette/style/density/
+    // motion/persona.
+    surface_plan: surfacePlan,
+    overlay_plan: overlayPlan,
+    asset_plan: assetPlan,
     intent
   }
 }
@@ -899,10 +1157,16 @@ module.exports = {
   DENSITY_SPECS,
   MOTION_SPECS,
   DECORATION_OPACITY,
+  OFFICIAL_EFFECT_SPECS,
+  OFFICIAL_SHELL_SPECS,
+  ASSET_KIND_TOKEN,
+  ASSET_KIND_PATH,
   interpret,
   revise,
   design,
   describe,
   enforceContrast,
-  stateTokens
+  stateTokens,
+  officialSurfaceDesign,
+  applyOverlayPlan
 }

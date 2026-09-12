@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Official Overlay surface — the VISUAL-ONLY layer stacked above the official
+  renderer.
+
+  Hard rules this document implements (Update-Plan/General-Theme.md, "Overlay 限制"):
+
+    pointer input passthrough   the view is created with `setIgnoreMouseEvents(true)`
+                                and every element here is `pointer-events: none`, so
+                                no click can ever land on the overlay.
+    keyboard passthrough        the view is created with `focusable: false`, and this
+                                document never focuses anything.
+    no focus stealing           no tabindex, no form control, no autofocus.
+    no scroll interception      `overflow: hidden` on the root and no scroll
+                                container; wheel events belong to the official view.
+    no official DOM access      this document has no reference to any other
+                                renderer; it only paints the theme payload it is
+                                handed through `window.hnsSurface`.
+
+  CSP: no script source and no network source. The only asset allowed is an inline
+  `data:` image, which is what a compiled theme carries.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'">
+<title>DS-Harness official overlay</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ov-tint-color: transparent;
+    --ov-tint-opacity: 0;
+    --ov-gradient: none;
+    --ov-gradient-opacity: 0;
+    --ov-texture: none;
+    --ov-texture-opacity: 0;
+    --ov-skin: none;
+    --ov-skin-opacity: 0;
+    --ov-vignette-opacity: 0;
+    --ov-scanline-opacity: 0;
+    --ov-scanline-spacing: 4px;
+    --ov-glow-opacity: 0;
+    --ov-glow-color: #4d93f8;
+    --ov-glow-width: 2px;
+    --ov-decoration: none;
+    --ov-decoration-opacity: 0;
+    --ov-character: none;
+    --ov-character-opacity: 0;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    /* The single most important rule in this file: the overlay is never a hit
+       target, so every event falls through to the official renderer below. */
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  #tint { background-color: var(--ov-tint-color); opacity: var(--ov-tint-opacity); }
+  #gradient { background-image: var(--ov-gradient); opacity: var(--ov-gradient-opacity); }
+  #texture {
+    background-image: var(--ov-texture);
+    background-repeat: repeat;
+    background-size: 512px 512px;
+    opacity: var(--ov-texture-opacity);
+  }
+  #skin {
+    background-image: var(--ov-skin);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    opacity: var(--ov-skin-opacity);
+  }
+  #vignette { box-shadow: inset 0 0 140px 36px rgba(0, 0, 0, var(--ov-vignette-opacity)); }
+  #scanline {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, var(--ov-scanline-opacity)) 0 1px,
+      transparent 1px var(--ov-scanline-spacing)
+    );
+  }
+  #frame-glow {
+    border: var(--ov-glow-width) solid var(--ov-glow-color);
+    opacity: var(--ov-glow-opacity);
+  }
+  #decoration {
+    background-image: var(--ov-decoration);
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: var(--ov-decoration-opacity);
+  }
+  #character {
+    background-image: var(--ov-character);
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: var(--ov-character-opacity);
+  }
+  /* Every anchor the layout engine can emit. */
+  .anchor-bottom-right { background-position: bottom right; right: 8px; bottom: 8px; left: auto; top: auto; }
+  .anchor-bottom-left { background-position: bottom left; left: 8px; bottom: 8px; right: auto; top: auto; }
+  .anchor-bottom-center { background-position: bottom center; left: 50%; bottom: 8px; transform: translateX(-50%); }
+  .anchor-top-right { background-position: top right; right: 8px; top: 8px; }
+  .anchor-top-left { background-position: top left; left: 8px; top: 8px; }
+  .anchor-top-center { background-position: top center; left: 50%; top: 8px; transform: translateX(-50%); }
+  .anchor-center-right { background-position: center right; right: 8px; top: 50%; transform: translateY(-50%); }
+  .anchor-center-left { background-position: center left; left: 8px; top: 50%; transform: translateY(-50%); }
+  .anchor-center { background-position: center; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  /* A character box is sized from the layout engine's placement, in pixels. */
+  #character { position: absolute; }
+  /* Degradation levels: the overlay only ever reduces its own work. */
+  body[data-effect-level="2"] #texture,
+  body[data-effect-level="2"] #scanline,
+  body[data-effect-level="2"] #decoration { display: none; }
+  body[data-effect-level="1"] #scanline { display: none; }
+  body[data-overlay="disabled"] .layer { display: none !important; }
+</style>
+</head>
+<body data-surface="official_overlay" data-permission="visual-only" data-overlay="disabled">
+  <div class="layer" id="tint"></div>
+  <div class="layer" id="gradient"></div>
+  <div class="layer" id="texture"></div>
+  <div class="layer" id="skin"></div>
+  <div class="layer" id="vignette"></div>
+  <div class="layer" id="scanline"></div>
+  <div class="layer" id="frame-glow"></div>
+  <div class="layer" id="decoration"></div>
+  <div class="layer" id="character"></div>
+</body>
+</html>

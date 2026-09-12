@@ -3,6 +3,83 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## Theme-Cover — the theme system becomes a full visual theme generator
+
+The theme engine could already restyle the HNS dock from a prompt, but it could
+only change colours and parameters: the "official UI" was a read-only palette
+hint, characters were abstract procedural avatars, and there was nowhere to put a
+real figure or a skin. It now generates and places real visual assets on four
+surfaces, and the official renderer is still never touched.
+
+**Four surfaces instead of one dock.** `hns_native`, `official_shell`,
+`official_overlay` and `official_renderer` are now a single model
+(`app/extensions/mega/theme/surface.js`) with per-surface permissions: `full`,
+`full`, `visual-only`, `protected`. Every writer goes through one gate
+(`assertWritable`), and the protected renderer is refused for every write kind and
+every asset kind — including from a hand-written or imported package whose own
+surface plan claims a write into it.
+
+**The official area is now themable without being modified.** The shell draws a
+frame *behind* the official view (only its outer band is visible) and a
+transparent overlay *above* it. Both are separate `WebContentsView`s owned by the
+shell: no preload, no script, no CSS injected into the official renderer and no
+access to its DOM. The overlay is created with `setIgnoreMouseEvents(true)` and
+`focusable: false`, and its document has `pointer-events: none` and no focusable
+element, so clicks, keys and scrolling keep going to the official UI. The overlay
+tracks the official view's bounds exactly, and the acceptance run proves it by
+dispatching real input through the overlay's own area and asking the official
+renderer whether it arrived.
+
+**Real assets, not just colours.** A split asset pipeline — planner, generator,
+processor, validator, fallback — produces characters in five framings (avatar,
+bust, half body, full body, silhouette), an official skin, an overlay texture,
+HUD and frame decorations, and a wallpaper, all with genuine transparency where
+it is required. The generator calls an image capability when one is configured,
+retries, then falls back to the procedural renderer, then disables that one asset;
+a theme whose image generation fails completely still installs. Every produced
+artifact is decoded and measured — real dimensions, real alpha, real visible
+content — so an empty or flat buffer cannot pass as an asset.
+
+**Design is observation-driven.** A prompt no longer goes straight to a theme: the
+engine observes the HNS/Dock/Official bounds, the window size, the live slot
+geometry, the available character regions and the critical interaction regions,
+and only then produces a surface plan, an overlay plan and an asset plan. Each
+plan is compiled into the package, so an approved theme documents what it writes,
+where every asset came from and what the validator measured.
+
+**The overlay cannot make the official UI unusable.** An Overlay Layout Engine
+places the character and decorations against the safe region (viewport minus the
+critical regions: input, send, core body, primary controls), and an Overlay Safety
+validator enforces the engineering ceilings numerically — overlay opacity 0.22,
+vignette 0.15, scanline 0.05, character coverage 22%, critical overlap 8% — plus
+brightness, contrast loss, asset size and layout overflow. Over-strength designs
+are downgraded and the character is shrunk; if no allowed strength can clear a
+critical region, the overlay is disabled and the theme still installs.
+
+**Preview and revision.** Approving still installs, and nothing installs before
+it: the package now carries an HNS preview, an official shell preview, an official
+overlay preview and a composite preview, and the panel shows all four. A
+revision is scoped rather than a re-roll — "人物小一点" keeps the wallpaper, the
+official skin and the texture byte-for-byte and only regenerates the character,
+which the acceptance run verifies by comparing hashes. Deleting a theme leaves no
+overlay, no character and no cache reference behind.
+
+Also fixed while building this:
+
+- `inspector.buildSnapshotPackage()` wrote `pages[].screenshot` from the raw
+  screenshot **buffer** map, so the snapshot JSON contained a mojibake "path"
+  built from binary instead of `snapshot/<page>.png`. The per-page field now uses
+  the same file map the package publishes.
+- `color.flatten()` returned `null` channels for an already-parsed
+  `{r,g,b,a}` colour, so `shade()`/`toHex()` produced `#NaNNaNNaN` for every
+  parsed palette colour and the panel, decoration and official-skin renderers
+  silently fell back to a flat grey. `flatten`/`toHex` now normalise both a CSS
+  string and a parsed colour.
+- The asset renderers called `color.toHex(color.shade(...))`, double-converting an
+  already-hex value into `#NaNNaNNaN`; they now use one correct helper.
+- A character asset's planned height came from the HNS character's aspect ratio
+  for every surface, so an official bust was planned at the wrong height.
+
 ## merging — GitHub CI gate repaired
 
 The repository's `verify` workflow (Windows, Node 22) failed on every push. Two

@@ -122,10 +122,169 @@ function canvasToDataUri(canvas) {
   return `data:image/png;base64,${canvasToPng(canvas).toString('base64')}`
 }
 
+/**
+ * Decode PNG bytes back into a canvas.
+ *
+ * The runtime never needs this — the renderer paints whatever bytes it is given —
+ * but the *validator* does: "the asset is a real 512x768 image with a transparent
+ * background and actual content" cannot be asserted from a return value, only from
+ * the decoded pixels. A second, independent implementation of the format (this
+ * decoder vs. the encoder above) is deliberate: a bug in one must not be able to
+ * make the other report success.
+ *
+ * Supported: 8-bit greyscale / RGB / palette / greyscale+alpha / RGBA, all five
+ * scanline filters, non-interlaced. Everything else throws, and the caller treats
+ * a throw as "this is not a usable theme asset".
+ *
+ * @param {Buffer|Uint8Array} buffer
+ * @returns {{width: number, height: number, data: Buffer}}
+ */
+function decodePng(buffer) {
+  const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
+  if (data.length < 8 + 25 || !data.subarray(0, 8).equals(SIGNATURE)) {
+    throw new Error('not a PNG (bad signature)')
+  }
+  let offset = 8
+  let header = null
+  const idat = []
+  let palette = null
+  let transparency = null
+  while (offset + 8 <= data.length) {
+    const length = data.readUInt32BE(offset)
+    const type = data.subarray(offset + 4, offset + 8).toString('ascii')
+    const body = data.subarray(offset + 8, offset + 8 + length)
+    if (offset + 12 + length > data.length) throw new Error(`truncated PNG chunk ${type}`)
+    if (type === 'IHDR') {
+      header = {
+        width: body.readUInt32BE(0),
+        height: body.readUInt32BE(4),
+        depth: body[8],
+        colorType: body[9],
+        compression: body[10],
+        filter: body[11],
+        interlace: body[12]
+      }
+    } else if (type === 'PLTE') {
+      palette = Buffer.from(body)
+    } else if (type === 'tRNS') {
+      transparency = Buffer.from(body)
+    } else if (type === 'IDAT') {
+      idat.push(Buffer.from(body))
+    } else if (type === 'IEND') {
+      break
+    }
+    offset += 12 + length
+  }
+  if (!header) throw new Error('PNG has no IHDR chunk')
+  if (header.depth !== 8) throw new Error(`unsupported PNG bit depth ${header.depth}`)
+  if (header.interlace !== 0) throw new Error('interlaced PNG is not supported')
+  if (!idat.length) throw new Error('PNG has no IDAT data')
+
+  const channelsByType = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }
+  const channels = channelsByType[header.colorType]
+  if (!channels) throw new Error(`unsupported PNG colour type ${header.colorType}`)
+
+  const raw = zlib.inflateSync(Buffer.concat(idat))
+  const stride = header.width * channels
+  if (raw.length < (stride + 1) * header.height) throw new Error('PNG pixel data is truncated')
+
+  const out = Buffer.alloc(header.width * header.height * 4)
+  const previous = Buffer.alloc(stride)
+  const current = Buffer.alloc(stride)
+  for (let y = 0; y < header.height; y += 1) {
+    const filterType = raw[y * (stride + 1)]
+    raw.copy(current, 0, y * (stride + 1) + 1, y * (stride + 1) + 1 + stride)
+    for (let index = 0; index < stride; index += 1) {
+      const x = current[index]
+      const a = index >= channels ? current[index - channels] : 0
+      const b = previous[index]
+      const c = index >= channels ? previous[index - channels] : 0
+      let value
+      switch (filterType) {
+        case 0: value = x; break
+        case 1: value = x + a; break
+        case 2: value = x + b; break
+        case 3: value = x + ((a + b) >> 1); break
+        case 4: {
+          const p = a + b - c
+          const pa = Math.abs(p - a)
+          const pb = Math.abs(p - b)
+          const pc = Math.abs(p - c)
+          const predictor = pa <= pb && pa <= pc ? a : (pb <= pc ? b : c)
+          value = x + predictor
+          break
+        }
+        default: throw new Error(`unsupported PNG filter type ${filterType}`)
+      }
+      current[index] = value & 0xff
+    }
+    for (let px = 0; px < header.width; px += 1) {
+      const source = px * channels
+      const target = (y * header.width + px) * 4
+      switch (header.colorType) {
+        case 0:
+          out[target] = current[source]
+          out[target + 1] = current[source]
+          out[target + 2] = current[source]
+          out[target + 3] = 255
+          break
+        case 2:
+          out[target] = current[source]
+          out[target + 1] = current[source + 1]
+          out[target + 2] = current[source + 2]
+          out[target + 3] = 255
+          break
+        case 3: {
+          const index = current[source]
+          if (!palette || palette.length < (index + 1) * 3) throw new Error('PNG palette index out of range')
+          out[target] = palette[index * 3]
+          out[target + 1] = palette[index * 3 + 1]
+          out[target + 2] = palette[index * 3 + 2]
+          out[target + 3] = transparency && index < transparency.length ? transparency[index] : 255
+          break
+        }
+        case 4:
+          out[target] = current[source]
+          out[target + 1] = current[source]
+          out[target + 2] = current[source]
+          out[target + 3] = current[source + 1]
+          break
+        default:
+          out[target] = current[source]
+          out[target + 1] = current[source + 1]
+          out[target + 2] = current[source + 2]
+          out[target + 3] = current[source + 3]
+      }
+    }
+    current.copy(previous)
+  }
+  return { width: header.width, height: header.height, data: out, colorType: header.colorType }
+}
+
+/** Read only the header of a PNG buffer. Never throws for a non-PNG; returns null. */
+function readPngHeader(buffer) {
+  try {
+    const data = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
+    if (data.length < 24 || !data.subarray(0, 8).equals(SIGNATURE)) return null
+    if (data.subarray(12, 16).toString('ascii') !== 'IHDR') return null
+    return {
+      width: data.readUInt32BE(16),
+      height: data.readUInt32BE(20),
+      depth: data[24],
+      colorType: data[25],
+      interlace: data[28]
+    }
+  } catch {
+    return null
+  }
+}
+
 module.exports = {
   SIGNATURE,
   crc32,
   encodePng,
+  decodePng,
+  readPngHeader,
   createCanvas,
   blendPixel,
   fill,
