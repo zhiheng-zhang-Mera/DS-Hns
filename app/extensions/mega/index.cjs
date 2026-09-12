@@ -312,6 +312,26 @@ function themeDockState() {
   }
 }
 
+/**
+ * The dock renderer the extension must talk to.
+ *
+ * In the shipped configuration the dock is a `WebContentsView` owned by the shell
+ * (`desktop-main.cjs`), and the legacy companion `BrowserWindow` is disabled. The
+ * renderer still reaches the extension through IPC because it initiates those calls,
+ * but every *push* (a theme payload, a change notification) needs this target — and
+ * pushing to the disabled companion window silently did nothing, which is how
+ * "apply succeeds but the dock never repaints" happened.
+ */
+function dockWebContents() {
+  // The shell may hand over the view itself or a lazy accessor (the view is created
+  // after extensions start), so both forms are accepted.
+  const provided = ctx?.dockWebContents
+  const view = typeof provided === 'function' ? provided() : provided
+  if (view && typeof view.send === 'function' && !view.isDestroyed?.()) return view
+  if (dockWindow && !dockWindow.isDestroyed()) return dockWindow.webContents
+  return null
+}
+
 function ensureThemeEngine() {
   if (themeEngine) return themeEngine
   themeEngine = createThemeEngine({
@@ -740,7 +760,7 @@ function registerIpc() {
   ipcMain.handle('mega:dock-expand', (_event, expanded) => setDockExpanded(Boolean(expanded), { focus: Boolean(expanded) }))
 
   // One engine instance for the whole extension. The renderer paint callback closes
-  // over the process-wide dock window, so a second instance would look identical
+  // over the process-wide dock target, so a second instance would look identical
   // from the IPC side while owning a different active theme — which is exactly how
   // "apply succeeds, the dock never repaints" happened.
   const engine = ensureThemeEngine()
