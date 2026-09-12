@@ -191,6 +191,9 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .update-note{min-height:0;margin:8px 0 0;font-size:10px;line-height:1.4;color:var(--hns-color-label-secondary);word-break:break-word}
 .update-note:empty{display:none}
 .update-note[data-state="failed"]{color:var(--hns-state-failed)}
+/* Rollback failure is louder than an ordinary update failure: the installation
+   may be inconsistent, so it gets a filled warning strip instead of red text. */
+.update-note[data-state="rollback-failed"]{color:var(--hns-state-failed);background:color-mix(in srgb,var(--hns-state-failed) 12%,transparent);border:1px solid color-mix(in srgb,var(--hns-state-failed) 40%,transparent);border-radius:7px;padding:6px 8px;font-weight:600}
 
 /* Settings layer: an in-dock overlay (never a second window or page). */
 .settings-overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:center;padding:14px;background:rgba(16,24,40,.34);overflow:auto}

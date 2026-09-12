@@ -252,7 +252,26 @@ class HarnessUpdater {
     const marker = this.readMarker()
     if (!marker || typeof marker !== 'object') return null
     if (marker.pid === process.pid) return null
-    return { ...marker, status: marker.status === 'updating' ? 'interrupted' : marker.status }
+    const status = marker.status === 'updating' ? 'interrupted' : marker.status
+    const rollback = marker.rollback && typeof marker.rollback === 'object'
+      ? {
+          ok: Boolean(marker.rollback.ok),
+          code: marker.rollback.code || null,
+          restoredVersion: marker.rollback.restoredVersion || null,
+          installedVersion: marker.rollback.installedVersion ?? null,
+          message: marker.rollback.message || null
+        }
+      : null
+    return {
+      ...marker,
+      status,
+      rollback,
+      // The one outcome the user must not miss: the update failed *and* the
+      // previous version could not be restored, so the installation may be
+      // inconsistent until the next successful install.
+      rollbackFailed: status === 'failed_rollback_failed',
+      rolledBack: status === 'failed_rolled_back' && Boolean(rollback?.ok)
+    }
   }
 
   describe() {

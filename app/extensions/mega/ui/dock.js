@@ -226,10 +226,17 @@ const UPDATE_STATUS_CLASS = {
 
 const LAST_UPDATE_TEXT = {
   succeeded: '上次更新成功',
+  // The three outcomes are distinct on purpose: a failed update that came back
+  // to the previous version and a failed update that could not be rolled back
+  // are not the same message to a user.
   failed: '上次更新失败',
+  failed_rolled_back: '上次更新失败，已回滚到原版本',
+  failed_rollback_failed: '上次更新失败，且回滚未完成',
   interrupted: '上次更新未完成',
   updating: '上次更新进行中'
 }
+
+const ROLLBACK_NOTE = '⚠ 回滚未完成，当前安装可能已损坏；请重新执行一次对齐安装以修复。'
 
 function updateNoteText(update) {
   const last = update.lastUpdate
@@ -239,7 +246,12 @@ function updateNoteText(update) {
     const to = last.to ? ` → ${last.to}` : ''
     const when = last.finishedAt ? ` · ${fmtTime(last.finishedAt)}` : ''
     parts.push(`${LAST_UPDATE_TEXT[last.status] || '上次更新'}${from}${to}${when}`)
-    if (last.error?.message) parts.push(`原因：${last.error.message}`)
+    if (last.rollbackFailed) {
+      if (last.rollback?.code) parts.push(`回滚错误码：${last.rollback.code}`)
+      parts.push(ROLLBACK_NOTE)
+    } else if (last.error?.message) {
+      parts.push(`原因：${last.error.message}`)
+    }
   }
   if (update.error?.message) parts.push(`检查失败：${update.error.message}`)
   if (update.npmAvailable === false) parts.push('未找到 npm CLI，更新不可用。')
@@ -292,9 +304,12 @@ function renderUpdate(snapshot) {
   }
   if (note) {
     const fallback = updateNoteText(update)
-    const failed = update.status === 'failed' || update.lastUpdate?.status === 'failed'
+    // A plain "更新失败" must never mask "回滚未完成": that one gets its own state
+    // so the stylesheet can make it unmissable.
+    const rollbackFailed = Boolean(update.lastUpdate?.rollbackFailed)
+    const failed = update.status === 'failed' || rollbackFailed || Boolean(update.lastUpdate?.status?.startsWith('failed'))
     note.textContent = updateMessage ? updateMessage.text : fallback
-    note.dataset.state = updateMessage ? updateMessage.state : (failed ? 'failed' : '')
+    note.dataset.state = updateMessage ? updateMessage.state : (rollbackFailed ? 'rollback-failed' : (failed ? 'failed' : ''))
   }
 }
 

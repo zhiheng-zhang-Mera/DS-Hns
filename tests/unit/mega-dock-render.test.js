@@ -606,3 +606,57 @@ test('the last update outcome survives the restart and is reported in the dock',
   assert.equal(failed.dom.element('updateNote').dataset.state, 'failed')
   assert.match(failed.dom.element('updateNote').textContent, /npm install exited with code 1/)
 })
+
+test('a failed update says whether the previous version came back, and a broken rollback shouts', async () => {
+  const rolledBack = loadDock(makeSnapshot({
+    update: {
+      ...makeSnapshot().update,
+      status: 'failed',
+      lastUpdate: {
+        status: 'failed_rolled_back',
+        rolledBack: true,
+        rollbackFailed: false,
+        from: '0.1.2-rc.1',
+        to: '0.1.5-rc.1',
+        error: { message: 'npm install exited with code 1' },
+        rollback: { ok: true, restoredVersion: '0.1.2-rc.1' },
+        finishedAt: Date.UTC(2026, 0, 2, 7, 0, 0)
+      }
+    }
+  }))
+  await settle()
+  const rolledText = rolledBack.dom.element('updateNote').textContent
+  assert.match(rolledText, /已回滚到原版本/)
+  assert.equal(rolledBack.dom.element('updateNote').dataset.state, 'failed')
+
+  const brokenRollback = loadDock(makeSnapshot({
+    update: {
+      ...makeSnapshot().update,
+      status: 'failed',
+      lastUpdate: {
+        status: 'failed_rollback_failed',
+        rolledBack: false,
+        rollbackFailed: true,
+        from: '0.1.2-rc.1',
+        to: '0.1.5-rc.1',
+        error: {
+          code: 'INSTALL_FAILED_ROLLBACK_FAILED',
+          message: 'npm install exited with code 1',
+          rollback: { code: 'ROLLBACK_RESTORE_INCOMPLETE', message: 'npm ci exited with code 1' }
+        },
+        rollback: { ok: false, code: 'ROLLBACK_RESTORE_INCOMPLETE', message: 'npm ci exited with code 1' },
+        finishedAt: Date.UTC(2026, 0, 2, 7, 0, 0)
+      }
+    }
+  }))
+  await settle()
+  const brokenText = brokenRollback.dom.element('updateNote').textContent
+  assert.match(brokenText, /回滚未完成/)
+  assert.match(brokenText, /可能已损坏/, 'the user must be told the installation may be broken')
+  assert.match(brokenText, /ROLLBACK_RESTORE_INCOMPLETE/, 'the machine-readable reason is surfaced, not hidden')
+  assert.equal(
+    brokenRollback.dom.element('updateNote').dataset.state,
+    'rollback-failed',
+    'a broken rollback gets its own state so "更新失败" can not mask it'
+  )
+})

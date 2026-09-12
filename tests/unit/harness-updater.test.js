@@ -182,6 +182,44 @@ test('a marker left by an earlier process is reported, and an interrupted run is
   assert.equal(updater.describe().lastUpdate.status, 'interrupted', 'an update that never finished must not read as success')
 })
 
+test('the three rollback outcomes stay distinguishable in the status the dock reads', () => {
+  const updater = makeUpdater()
+  const markerPath = path.join(SCRATCH, 'data', 'state', 'mega-update.json')
+
+  fs.writeFileSync(markerPath, JSON.stringify({
+    status: 'failed_rolled_back',
+    from: '0.1.2-rc.1',
+    to: '0.1.5-rc.1',
+    pid: 999999,
+    error: { code: 'INSTALL_FAILED', message: 'npm install exited with code 1' },
+    rollback: { ok: true, restoredVersion: '0.1.2-rc.1' }
+  }))
+  const rolledBack = updater.describe().lastUpdate
+  assert.equal(rolledBack.status, 'failed_rolled_back')
+  assert.equal(rolledBack.rolledBack, true)
+  assert.equal(rolledBack.rollbackFailed, false)
+  assert.equal(rolledBack.rollback.restoredVersion, '0.1.2-rc.1')
+
+  fs.writeFileSync(markerPath, JSON.stringify({
+    status: 'failed_rollback_failed',
+    from: '0.1.2-rc.1',
+    to: '0.1.5-rc.1',
+    pid: 999999,
+    error: {
+      code: 'INSTALL_FAILED_ROLLBACK_FAILED',
+      message: 'npm install exited with code 1',
+      rollback: { code: 'ROLLBACK_RESTORE_INCOMPLETE', message: 'npm ci exited with code 1' }
+    },
+    rollback: { ok: false, code: 'ROLLBACK_RESTORE_INCOMPLETE', message: 'npm ci exited with code 1' }
+  }))
+  const broken = updater.describe().lastUpdate
+  assert.equal(broken.status, 'failed_rollback_failed')
+  assert.equal(broken.rollbackFailed, true, 'a broken rollback must never look like an ordinary failure')
+  assert.equal(broken.rolledBack, false)
+  assert.equal(broken.rollback.ok, false)
+  assert.equal(broken.rollback.code, 'ROLLBACK_RESTORE_INCOMPLETE')
+})
+
 test('the npm CLI is resolved from the bundled runtime or reported as unavailable', () => {
   freshRoot()
   assert.match(resolveNpmCli(path.join(SCRATCH, 'runtime', 'node-test', 'node.exe'), SCRATCH), /npm-cli\.js$/)
