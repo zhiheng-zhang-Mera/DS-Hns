@@ -186,7 +186,8 @@ function snapshot() {
 }
 
 function notifyChanged() {
-  if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send('mega:changed')
+  const contents = dockWebContents()
+  if (contents) contents.send('mega:changed')
 }
 
 /**
@@ -195,7 +196,8 @@ function notifyChanged() {
  * renderer even when the ordinary dock snapshot push is coalesced.
  */
 function notifyThemeChanged() {
-  if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send(THEME_EVENT_CHANNEL)
+  const contents = dockWebContents()
+  if (contents) contents.send(THEME_EVENT_CHANNEL)
 }
 
 /**
@@ -256,15 +258,34 @@ function themeDockState() {
   }
 }
 
+/**
+ * The dock renderer the extension must talk to.
+ *
+ * In the shipped configuration the dock is a `WebContentsView` owned by the shell
+ * (`desktop-main.cjs`), and the legacy companion `BrowserWindow` is disabled. The
+ * renderer still reaches the extension through IPC because it initiates those calls,
+ * but every *push* (a theme payload, a change notification) needs this target — and
+ * pushing to the disabled companion window silently did nothing, which is how
+ * "apply succeeds but the dock never repaints" happened.
+ */
+function dockWebContents() {
+  // The shell may hand over the view itself or a lazy accessor (the view is created
+  // after extensions start), so both forms are accepted.
+  const provided = ctx?.dockWebContents
+  const view = typeof provided === 'function' ? provided() : provided
+  if (view && typeof view.send === 'function' && !view.isDestroyed?.()) return view
+  if (dockWindow && !dockWindow.isDestroyed()) return dockWindow.webContents
+  return null
+}
+
 function ensureThemeEngine() {
   if (themeEngine) return themeEngine
   themeEngine = createThemeEngine({
     log: (message) => log(`theme: ${message}`),
     scheduler,
     applyToRenderer: (payload) => {
-      if (dockWindow && !dockWindow.isDestroyed()) {
-        dockWindow.webContents.send('mega:theme-apply', payload)
-      }
+      const contents = dockWebContents()
+      if (contents) contents.send('mega:theme-apply', payload)
     },
     onChanged: () => notifyThemeChanged(),
     capture: (pageIds) => captureDockPages(pageIds),
@@ -376,7 +397,8 @@ function setDockExpanded(expanded, { focus = false } = {}) {
         dockWindow.showInactive()
       }
     }
-    dockWindow.webContents.send('mega:changed')
+    const contents = dockWebContents()
+    if (contents) contents.send('mega:changed')
   }
   return { expanded: dockExpanded, width: currentDockWidth() }
 }
@@ -683,7 +705,12 @@ function registerIpc() {
   ipcMain.handle('mega:dock-toggle', () => toggleDock({ focus: true }))
   ipcMain.handle('mega:dock-expand', (_event, expanded) => setDockExpanded(Boolean(expanded), { focus: Boolean(expanded) }))
 
-  registerThemeIpc()
+  // One engine instance for the whole extension. The renderer paint callback closes
+  // over the process-wide dock target, so a second instance would look identical
+  // from the IPC side while owning a different active theme — which is exactly how
+  // "apply succeeds, the dock never repaints" happened.
+  const engine = ensureThemeEngine()
+  registerThemeIpc(engine)
 }
 
 /**
@@ -693,9 +720,8 @@ function registerIpc() {
  * failing theme operation returns `{ ok: false, reason }` so the dock can render
  * the failure, and the worst case is always "the active theme is Dark".
  */
-function registerThemeIpc() {
+function registerThemeIpc(engine) {
   const { ipcMain } = ctx.electron
-  const engine = ensureThemeEngine()
   const orchestrator = engine.orchestrator
 
   for (const channel of THEME_CHANNELS) ipcMain.removeHandler(channel)
@@ -834,7 +860,8 @@ async function start(context) {
     ctx.electron.ipcMain.on('mega-theme:regions', onThemeRegions)
     engine.start()
     const paint = engine.paintPayload()
-    if (dockWindow && !dockWindow.isDestroyed()) dockWindow.webContents.send('mega:theme-apply', paint)
+    const contents = dockWebContents()
+    if (contents) contents.send('mega:theme-apply', paint)
   } catch (error) {
     log(`theme system unavailable, continuing with the built-in Dark palette: ${error?.stack || error}`)
   }

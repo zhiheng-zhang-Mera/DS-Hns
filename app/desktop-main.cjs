@@ -17,8 +17,24 @@ const runtimeProcess = require('./runtime-process.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
-const HARNESS_PORT = 3080
+/**
+ * Canonical Harness port. `DSH_HARNESS_PORT` is an additive opt-in for isolated
+ * runs: it lets a second DS-Harness instance (a scratch checkout, an acceptance
+ * run) start beside the normal one instead of colliding on 3080. Unset, nothing
+ * changes — the default launch line, the port and the startup check are identical.
+ */
+/** Raw opt-in value, read once. */
+const HARNESS_PORT_RAW = Number(process.env.DSH_HARNESS_PORT)
+const HARNESS_PORT = normalizeHarnessPort(HARNESS_PORT_RAW)
+/** Only an explicit, usable port counts as an override. */
+const HARNESS_PORT_OVERRIDE = Number.isInteger(HARNESS_PORT_RAW) && HARNESS_PORT_RAW === HARNESS_PORT
 const HARNESS_URL = `http://${HARNESS_HOST}:${HARNESS_PORT}/`
+/**
+ * Arguments for the managed Harness child. The fixed prefix is the canonical
+ * launch line; `--port` is appended only when the port was explicitly overridden,
+ * so the default line stays byte-identical.
+ */
+const DSH_LAUNCH_ARGS = ['web', '--no-open', ...(HARNESS_PORT_OVERRIDE ? ['--port', String(HARNESS_PORT)] : [])]
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
 const STARTUP_BUFFER_LIMIT = 64 * 1024
@@ -28,6 +44,13 @@ const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
 const OFFICIAL_VIEW_MIN_WIDTH = 360
+
+/** Accept only a real usable port; anything else silently keeps the default. */
+function normalizeHarnessPort(value) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1024 || parsed > 65535) return 3080
+  return parsed
+}
 
 let mainWindow = null
 let officialView = null
@@ -87,8 +110,26 @@ process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
-app.setName('DS-Harness')
-app.setPath('userData', path.join(ROOT, 'data', 'desktop-shell'))
+/**
+ * Instance identity. Electron's single-instance lock lives in the userData
+ * directory, so a second, isolated instance needs its own: `DSH_USER_DATA_DIR`
+ * names it outright, and a `DSH_ROOT` pointing at another checkout (or a run
+ * named through `DSH_APP_NAME`) derives one under that root. Unset, the shell is
+ * "DS-Harness" under `<root>/data/desktop-shell` and behaves exactly as before.
+ */
+const APP_NAME_OVERRIDE = String(process.env.DSH_APP_NAME || '').trim()
+const ISOLATED_ROOT = Boolean(process.env.DSH_ROOT) && path.resolve(process.env.DSH_ROOT) !== ROOT
+const APP_NAME = APP_NAME_OVERRIDE || (ISOLATED_ROOT ? `DS-Harness (${path.basename(process.env.DSH_ROOT) || 'isolated'})` : 'DS-Harness')
+const ISOLATED_INSTANCE = Boolean(APP_NAME_OVERRIDE) || ISOLATED_ROOT
+/** A filesystem-safe profile name so several isolated runs cannot share a lock. */
+const PROFILE_SLUG = (APP_NAME_OVERRIDE || path.basename(process.env.DSH_ROOT) || 'isolated').replace(/[^\w.-]+/g, '-')
+app.setName(APP_NAME)
+app.setPath(
+  'userData',
+  process.env.DSH_USER_DATA_DIR
+    ? path.resolve(process.env.DSH_USER_DATA_DIR)
+    : path.join(process.env.DSH_ROOT, 'data', ISOLATED_INSTANCE ? `desktop-shell-${PROFILE_SLUG}` : 'desktop-shell')
+)
 // Windows needs an explicit AppUserModelID so terminal task notifications and
 // taskbar grouping carry the DS-Harness identity instead of Electron's.
 try {
@@ -257,7 +298,7 @@ function startHarness(nodeExe) {
   logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
   logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
 
-  harnessProcess = spawn(nodeExe, [DSH_ENTRY, 'web', '--no-open'], {
+  harnessProcess = spawn(nodeExe, [DSH_ENTRY, ...DSH_LAUNCH_ARGS], {
     cwd: ROOT,
     env: {
       ...process.env,
@@ -525,6 +566,12 @@ async function startExtensions(nodeExe) {
       nodeExe,
       mainWindow,
       officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
+      // The dock is this shell's WebContentsView in the shipped configuration, so the
+      // extension is handed a way to reach its webContents. It must be lazy: the view
+      // is created *after* extensions start (it loads the extension's preload), so an
+      // eager value would always be null and every push — a theme payload, a change
+      // notification — would go nowhere.
+      dockWebContents: () => (megaDockView && !megaDockView.webContents.isDestroyed() ? megaDockView.webContents : null),
       log: logLine,
       // The shell owns process lifecycle, so the tray's exit actions are routed
       // back here instead of the extension reaching into the managed child.

@@ -120,11 +120,15 @@
     const root = document.documentElement
     if (typeof payload.css === 'string' && payload.css) {
       // appending a <style> element node rather than evaluating script; the
-      // declarations come from the validated token schema only.
+      // declarations come from the validated token schema only. The nonce is
+      // required: this page's CSP blocks a dynamically inserted <style> element
+      // that carries none, so without it the theme's colours silently fell back to
+      // the Dark defaults even though its slot variables applied.
       let sheet = document.getElementById('hnsThemeSheet')
       if (!sheet) {
         sheet = document.createElement('style')
         sheet.id = 'hnsThemeSheet'
+        sheet.setAttribute('nonce', 'hns-theme-tokens')
         document.head.appendChild(sheet)
       }
       sheet.textContent = `:root {\n${payload.css}\n}`

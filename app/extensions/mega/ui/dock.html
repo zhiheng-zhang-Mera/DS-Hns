@@ -3,7 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;">
+  <!--
+    The token nonce exists because the theme engine installs the active theme's
+    tokens as a <style> element at runtime. Without it, `style-src 'self'` blocks
+    that sheet: the theme's slot variables still apply (they are element-level style
+    properties, which are not gated by style-src), but every colour token silently
+    falls back to the Dark defaults in dock.css. A nonce keeps the policy strict
+    instead of opening it with 'unsafe-inline'.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'nonce-hns-theme-tokens'; img-src 'self' data:;">
   <title>Mega Dock</title>
   <link rel="stylesheet" href="dock.css">
 </head>
