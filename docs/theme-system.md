@@ -234,3 +234,31 @@ cd app
 node extensions/mega/theme/builtin/generate.cjs        # Dark / Light
 node extensions/mega/theme/builtin/generate-demos.cjs  # 三个 Demo（走真实 Builder 管线）
 ```
+
+---
+
+## 12. 第二端口验收（真实 Electron + CDP）
+
+单测无法覆盖两件事：Dock 是否**真的**因主题载荷重绘，以及官方 Harness 渲染器是否**真的**
+未被主题系统碰过。`scripts/acceptance.mjs` 因此启动真实 Electron 外壳，走 CDP 驱动真实按钮，
+断言活的 DOM、真实文件系统与真实 GitHub。
+
+```powershell
+# 主实例（3080 / 默认 profile）继续运行；验收跑在第二个端口和独立 profile 上
+node scripts\acceptance.mjs --root <checkout> --port 3092 --cdp 9332 --report temp\acceptance-theme.json
+```
+
+| 开关 | 作用 |
+| --- | --- |
+| `--root` | 被验收的 checkout（工作树亦可） |
+| `--port` / `--cdp` | Harness 端口与 DevTools 端口，必须避开主实例 |
+| `--report` | 结果 JSON 落盘路径 |
+
+隔离由外壳的两个可选环境变量提供，未设置时默认行为与启动行完全不变：
+
+- `DSH_HARNESS_PORT` — Harness 端口（同时作为子进程 `--port` 传入）
+- `DSH_USER_DATA_DIR` / `DSH_APP_NAME` — 独立 profile 与实例名
+
+Electron 的**单实例锁位于 userData 目录**，因此第二个实例必须用独立 profile，否则会在启动时
+静默退出，看起来像“Harness 没起来”。验收脚本会为每次运行自动分配独立 profile。
+
