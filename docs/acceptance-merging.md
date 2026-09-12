@@ -108,3 +108,17 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 `sub-worker-acceptance.cjs` 的集成合并检查原先只在 `waitFor` 里等「worktree 目录出现」，
 而合并文件是在目录出现之后才写入的，因此偶发误报；现改为等待
 `e2e-alpha.txt` / `e2e-beta.txt` 真正出现（断言强度不变，仍然是两个文件都必须存在）。
+
+## 7. GitHub CI gate
+
+`.github/workflows/verify.yml` 在 push / pull_request 到 `main`、`merging` 时运行
+`npm run check` 与 `npm test`。Runner 目前只选 `windows-latest`：
+
+- DS-Hns 是 Windows 桌面产品，测试会真实执行 `.cmd` 启动器、安装器 PowerShell 脚本、
+  `taskkill.exe` 退出路径、PowerShell 硬件探测与 Windows 路径语义；
+- 在未实际跑通一次 Linux 全量测试之前，把 `ubuntu-latest` 放进矩阵只会产生
+  「没验证过的绿灯」，所以先不声明。
+
+`app/extensions/mega/updater/update-runner.js` 的子进程 PATH 由硬编码 `;` 改为
+`path.delimiter`，Windows 行为逐字节不变，非 Windows 环境（测试/CI）也能正确解析工具。
+
