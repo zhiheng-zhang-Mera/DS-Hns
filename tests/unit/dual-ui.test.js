@@ -20,7 +20,10 @@ const path = require('node:path')
  *   probe      eight contracts, a report, and "blocked" really means "hold"
  */
 const ROOT = path.resolve(__dirname, '..', '..')
-const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
+// Read with LF endings: several assertions below match multi-line source
+// patterns, and a checkout that rewrote line endings used to turn them into
+// line-ending assertions (invisible on Linux, red on a Windows runner).
+const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8').replace(/\r\n/g, '\n')
 
 const stateModule = require('../../app/frontend-mode/state.cjs')
 const model = require('../../app/frontend-mode/model.cjs')

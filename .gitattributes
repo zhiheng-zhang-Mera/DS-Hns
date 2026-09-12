@@ -1,2 +1,20 @@
 * text=auto
+
+# Windows shims must stay CRLF: cmd.exe is the one consumer that cares.
 *.cmd text eol=crlf
+
+# Everything else is LF in the working tree on every platform. The unit and
+# architecture gates read these files as text and match multi-line patterns, so
+# a checkout that rewrites line endings turns a source assertion into a
+# line-ending assertion. That failure mode is invisible on Linux and shows up
+# only as "the input did not match /\n/" on a Windows runner.
+*.cjs text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.ps1 text eol=lf
+*.html text eol=lf
+*.css text eol=lf

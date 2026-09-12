@@ -311,7 +311,10 @@ test('the module has no code path that can execute script in, or style, the offi
 })
 
 test('the shell wires the surfaces around the official view and hands over an adapter, not a webContents', () => {
-  const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+  // Read with LF endings: the assertions below are about the code, and a
+  // checkout that rewrote line endings used to turn them into line-ending
+  // assertions (invisible on Linux, red on a Windows runner).
+  const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8').replace(/\r\n/g, '\n')
   // The official view is created first (centre), then the surfaces...
   assert.match(main, /await createOfficialHarnessView\(readyUrl\)/)
   assert.match(main, /await createOfficialSurfaces\(\)/)
