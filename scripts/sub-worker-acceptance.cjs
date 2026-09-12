@@ -85,6 +85,13 @@ function prepareRoot(name, { port, enabledOnStartup, anchor = null, plan = null,
   fs.rmSync(root, { recursive: true, force: true })
   fs.mkdirSync(root, { recursive: true })
   copyRecursive(APP, path.join(root, 'app'))
+  // The shell also reads repository-level assets (tray/launcher icon, sounds):
+  // without them the tray silently degrades, which is not what these scenarios
+  // are testing.
+  for (const relative of ['assets', 'docs']) {
+    const source = path.join(REPO, relative)
+    if (fs.existsSync(source)) copyRecursive(source, path.join(root, relative))
+  }
   for (const dir of ['config', 'logs', 'runtime', 'workspace', 'cache', 'temp']) fs.mkdirSync(path.join(root, dir), { recursive: true })
   // The managed DSH child resolves its own port from the project config, so an
   // isolated run must move that too - otherwise it collides with the live

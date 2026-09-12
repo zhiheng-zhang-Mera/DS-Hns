@@ -21,7 +21,9 @@ combination was not):
   architecture check failed. It now goes through the dock target adapter.
 - `scripts/sub-worker-acceptance.cjs` copied `app/` recursively and hit `EPERM` on
   the `node_modules` link; it now skips `node_modules` and `data` (it links the
-  dependency tree and starts from a fresh data directory anyway).
+  dependency tree and starts from a fresh data directory anyway), and it copies the
+  repository-level `assets/` too — without the tray icon its scratch shell ran in a
+  degraded state that has nothing to do with what those scenarios verify.
 - Its integration-merge check waited for the integration worktree *directory*
   while the merged files land a moment later, which made it flaky. It now waits
   for the files themselves.

@@ -93,7 +93,8 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 2. `scripts/verify.ps1` 的端口默认值检查仍断言旧的 `HARNESS_PORT` 写法；已改为断言
    `normalizeHarnessPort()` 的默认返回与 `DSH_LAUNCH_ARGS`。
 3. `scripts/sub-worker-acceptance.cjs` 会递归复制 `app/`，遇到 `node_modules` 链接时报
-   `EPERM`；现明确跳过 `node_modules` 与 `data`（脚本本来就为 scratch 根建立链接与全新数据目录）。
+   `EPERM`；现明确跳过 `node_modules` 与 `data`（脚本本来就为 scratch 根建立链接与全新数据目录），
+   并额外复制仓库级 `assets/`（缺少托盘图标会让 scratch 外壳进入与被测行为无关的降级状态）。
 
 合并后的验证：
 
