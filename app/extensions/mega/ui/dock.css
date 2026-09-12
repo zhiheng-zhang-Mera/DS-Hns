@@ -177,6 +177,26 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 
 .panel{margin-bottom:10px;padding:12px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:12px;box-shadow:var(--hns-shadow-l1)}
 .panel-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:9px}
+.panel-head > :first-child{flex:1 1 auto;min-width:0}
+/*
+ * Collapsible modules (Update-Plan/Dual-UI.md follow-up).
+ *
+ * Every big module in the dock is collapsible, so a user who only needs the queue
+ * (or only the balance, or only the sub-worker) is not scrolling past the rest.
+ * The state is per module and persisted in the renderer, because it is UI-local
+ * state: it must survive a reload but never travel with the theme.
+ */
+.panel-collapse{
+  flex:0 0 auto;width:22px;height:22px;padding:0;display:grid;place-items:center;
+  border:1px solid var(--hns-color-border-l1);border-radius:6px;cursor:pointer;
+  background:var(--hns-color-bg-layer2);color:var(--hns-color-label-secondary);
+  font-size:10px;line-height:1
+}
+.panel-collapse:hover{color:var(--hns-color-label-primary);border-color:var(--hns-color-border-l2)}
+.panel[data-collapsed="1"]{padding-bottom:10px}
+.panel[data-collapsed="1"] > *:not(.panel-head){display:none}
+.panel[data-collapsed="1"] .panel-head{margin-bottom:0}
+.panel[data-collapsed="1"] .panel-head p{display:none}
 .panel-head h2{margin:0;font-size:14px}
 .panel-head p{margin:3px 0 0;font-size:10px;line-height:1.4;color:var(--hns-color-label-secondary)}
 .quiet{padding:6px 8px;font-size:11px;background:var(--hns-color-bg-layer2)}

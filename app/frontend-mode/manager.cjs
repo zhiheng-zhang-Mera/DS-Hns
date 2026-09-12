@@ -38,6 +38,7 @@ const ACTIVE_STATE = Object.freeze({
  * @param {object}   options.state            `createModeState()` instance
  * @param {object}   options.sync             `createSync()` instance
  * @param {Function} options.applyVisibility  ({ mode, from }) => void   (shell-owned)
+ * @param {string}   [options.initialMode]    startup mode for this run (not persisted)
  * @param {Function} [options.log]
  * @param {Function} [options.onChange]
  */
@@ -45,10 +46,11 @@ function createModeManager({
   state = null,
   sync = null,
   applyVisibility = () => {},
+  initialMode = null,
   log = () => {},
   onChange = () => {}
 } = {}) {
-  let mode = normalizeMode(state ? state.getMode() : DEFAULT_MODE)
+  let mode = normalizeMode(initialMode || (state ? state.getMode() : DEFAULT_MODE))
   let machine = ACTIVE_STATE[mode]
   let degraded = { active: false, reason: null, at: null }
   let pendingTarget = null

@@ -5,6 +5,29 @@ behaviour that changed, not the files that were touched.
 
 ## Theme-Cover — 双前端模式：Daily（HNS 原生界面）与 Work（官方界面）
 
+### 真机验收后的修正（同一分支）
+
+**主题的图片现在真的会出现。** 之前主题能完整应用却「只有配色变化」：主题包用
+`assets/persona/banner.png` 这类包内相对路径声明图片，渲染器把它当 URL 去自己的文档里
+找；生成器写出的 `var(--hns-asset-wallpaper)` 又落在期望 URL 的 slot 属性上；asset token
+还以裸 data URI 写进 CSS，导致 `background-image: var(...)` 无效。新增
+`theme/assets/resolver.js` 在绘制时统一解析（越界引用被拒绝、缺失文件回退到同角色 token
+再回退到 `none`），`preview.toCssVariables()` 以 `url("…")` 输出 asset token，Native
+Frontend 的壁纸 / 角色 / 装饰 / 人设图层再以主题变量兜底。真机验证：当前主题在 Daily 面
+上有 4 个图层是真实图片（wallpaper、decoration、persona banner、persona avatar）。
+
+**Work Mode 的官方 Web 界面恢复正常布局。** 官方 UI 在宽度不足时会隐藏自己的会话侧边栏，
+而展开的 Mega 会占用 560px（窗口 1489px → 官方只剩 914px）。现在进入 Work Mode 时 Mega
+自动收到轨道条，官方视图拿到 1426×884 的完整宽度；这是运行策略而不是偏好改写，Work 内
+仍可手动展开，切回 Daily 会恢复用户原本的状态。
+
+**每个大模块都可以折叠。** Dock 的 Interface Mode / Appearance / Skills / 手动队列 /
+硬件自适应并行 / Sub-worker / 余额 / 拓展状态，以及 Native Frontend 的 Sessions 与
+Activity，都有折叠按钮，状态按模块保存在本地。
+
+**可配置的启动模式。** `DSH_FRONTEND_MODE=daily|work` 强制本次运行的启动前端，且不会改写
+用户已保存的偏好（验收脚本与快捷方式使用）。
+
 DS-Hns 现在有两个共享同一个 Harness backend 的前端，默认进入 Daily。切换只改变哪个
 渲染器可见，两个渲染器从启动到退出一直存在，因此不会重启 Harness、不会取消任务、
 不会丢失会话。

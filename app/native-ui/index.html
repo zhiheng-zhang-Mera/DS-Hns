@@ -27,6 +27,8 @@
     <div id="backgroundLayer" aria-hidden="true"></div>
     <div id="characterLayer" aria-hidden="true"></div>
     <div id="decorationLayer" aria-hidden="true"></div>
+    <div id="personaBannerLayer" aria-hidden="true"></div>
+    <div id="personaAvatarLayer" aria-hidden="true"></div>
 
     <header id="topbar">
       <div class="brand">
@@ -50,6 +52,7 @@
         <div class="sidebar-head">
           <b>Sessions</b>
           <span id="sessionCount" class="count">0</span>
+          <button id="collapseSessions" type="button" class="panel-collapse" title="折叠模块" aria-label="折叠会话模块" aria-expanded="true">▾</button>
         </div>
         <button id="newSession" type="button" class="primary">New session</button>
         <div id="sessionList" class="session-list" role="list"></div>
@@ -75,6 +78,7 @@
         <div class="panel-head">
           <b>Activity</b>
           <span id="toolBadge" class="count" data-active="0">0</span>
+          <button id="collapseActivity" type="button" class="panel-collapse" title="折叠模块" aria-label="折叠活动模块" aria-expanded="true">▾</button>
         </div>
         <div id="toolActivity" class="tool-activity"></div>
       </section>

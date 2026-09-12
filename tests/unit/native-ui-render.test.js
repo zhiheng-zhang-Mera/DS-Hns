@@ -312,7 +312,9 @@ test('a theme payload lands as CSS variables and asset layers, never as markup',
   assert.equal(html.get('--hns-native-character'), 'url("data:image/png;base64,BBBB")')
   assert.equal(html.get('--hns-native-background'), 'url("data:image/png;base64,AAAA")')
   assert.equal(html.get('--hns-native-character-opacity'), '0.85')
-  assert.equal(html.get('--hns-native-decoration'), 'none')
+  // No asset on the slot: the property is *removed* so the stylesheet's
+  // `var(--hns-asset-decoration, none)` fallback can supply the theme token.
+  assert.equal(html.has('--hns-native-decoration'), false)
   assert.equal(dom.body.dataset.themeId, 'hns.demo.anime-persona')
   assert.equal(dom.body.classList.contains('theme-persona'), true)
   assert.equal(dom.element('timeline').innerHTML.includes('data:image/png'), false, 'a theme never becomes markup')
@@ -344,4 +346,24 @@ test('a mode change carries the degradation, and an inactive one never does', as
   listeners.mode({ mode: 'daily', state: 'DAILY_ACTIVE', degraded: { active: false, reason: null, at: null } })
   assert.equal(dom.element('banner').hidden, true, 'recovering clears the banner')
   assert.equal(dom.element('modeChip').textContent, 'Daily')
+})
+
+test('both side modules collapse and remember the choice', async () => {
+  const { dom } = loadNativeUi()
+  await settle()
+  assert.equal(dom.element('sidebar').dataset.collapsed, '')
+  assert.equal(dom.element('toolPanel').dataset.collapsed, '')
+
+  dom.element('collapseSessions').fire('click', { stopPropagation() {} })
+  assert.equal(dom.element('sidebar').dataset.collapsed, '1')
+  assert.equal(dom.element('collapseSessions').textContent, '▸')
+  assert.equal(dom.element('collapseSessions').getAttribute('aria-expanded'), 'false')
+  assert.equal(dom.element('toolPanel').dataset.collapsed, '', 'the other module is untouched')
+
+  dom.element('collapseActivity').fire('click', { stopPropagation() {} })
+  assert.equal(dom.element('toolPanel').dataset.collapsed, '1')
+
+  dom.element('collapseSessions').fire('click', { stopPropagation() {} })
+  assert.equal(dom.element('sidebar').dataset.collapsed, '', 'clicking again expands it')
+  assert.equal(dom.element('collapseSessions').textContent, '▾')
 })

@@ -227,7 +227,7 @@ test("every theme paint payload is declarative data, never executable content", 
     },
   })
 
-  assert.deepEqual(value.systemPayload.keys, ['animation', 'css', 'draftId', 'effectLabel', 'effectLevel', 'id', 'name', 'officialPalette', 'persona', 'preview', 'slots', 'tokens'].sort())
+  assert.deepEqual(value.systemPayload.keys, ['animation', 'assets', 'css', 'draftId', 'effectLabel', 'effectLevel', 'id', 'name', 'officialPalette', 'persona', 'preview', 'slots', 'tokens'].sort())
   assert.equal(value.systemPayload.cssIsVarDeclarationsOnly, true, 'the paint payload only carries CSS custom properties')
   assert.equal(value.systemPayload.tokensInCss, true)
   assert.equal(value.systemPayload.noExecutable, true)
@@ -390,4 +390,3 @@ test("a prompt observes the UI, plans four surfaces, generates real assets and p
   assert.ok(value.fallback.degradedCount >= 1, 'the degradation is recorded rather than hidden')
   assert.equal(value.fallback.onDisk, true, 'the package exists on disk')
 })
-

@@ -34,33 +34,58 @@ html, body {
 /* ---- theme layers: background, character, decoration (任务 15) ---- */
 #backgroundLayer,
 #characterLayer,
-#decorationLayer {
+#decorationLayer,
+#personaBannerLayer,
+#personaAvatarLayer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-repeat: no-repeat;
 }
+/*
+ * Every asset layer accepts a slot value first and falls back to the theme's
+ * token (`--hns-asset-*`), which is how the built-in packages declare their
+ * imagery. A theme that only fills tokens therefore still shows its wallpaper,
+ * character, decoration and persona instead of only its colours.
+ */
 #backgroundLayer {
-  background-image: var(--hns-native-background);
+  background-image: var(--hns-native-background, var(--hns-asset-wallpaper, none));
   background-size: cover;
   background-position: center;
   opacity: var(--hns-native-background-opacity);
   z-index: 0;
 }
 #characterLayer {
-  background-image: var(--hns-native-character);
+  background-image: var(--hns-native-character, var(--hns-asset-hns-character, none));
   background-size: contain;
   background-position: bottom right;
   opacity: var(--hns-native-character-opacity);
   z-index: 1;
 }
 #decorationLayer {
-  background-image: var(--hns-native-decoration);
+  background-image: var(--hns-native-decoration, var(--hns-asset-decoration, none));
   background-size: contain;
   background-position: top right;
   opacity: var(--hns-native-decoration-opacity);
   z-index: 1;
 }
+#personaBannerLayer {
+  background-image: var(--hns-native-persona-banner, var(--hns-asset-persona-banner, none));
+  background-size: 100% 72px;
+  background-position: top center;
+  opacity: var(--hns-native-persona-banner-opacity);
+  z-index: 1;
+}
+#personaAvatarLayer {
+  background-image: var(--hns-native-persona-avatar, var(--hns-asset-persona-avatar, none));
+  background-size: auto 96px;
+  background-position: bottom right 14px;
+  opacity: var(--hns-native-persona-avatar-opacity);
+  z-index: 1;
+}
+/* A persona decoration layer only exists when the theme declares a persona. */
+body:not(.theme-persona) #personaBannerLayer,
+body:not(.theme-persona) #personaAvatarLayer { display: none; }
 
 /* ---- chrome ---- */
 #topbar {
@@ -148,11 +173,36 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   font-size: var(--hns-font-size-caption);
   text-transform: uppercase;
   letter-spacing: .08em;
   color: var(--hns-color-label-tertiary);
 }
+
+/*
+ * Collapsible panels: the native frontend keeps its two side modules (Sessions
+ * and Activity) collapsible so a narrow window can give the conversation the
+ * whole width. The state is UI-local and persisted in this renderer only.
+ */
+.panel-collapse {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--hns-color-border-l1);
+  border-radius: var(--hns-radius-sm);
+  background: transparent;
+  color: var(--hns-color-label-tertiary);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.panel-collapse:hover { color: var(--hns-color-label-primary); }
+/* Collapsing hides the module body, never the header that can bring it back. */
+#sidebar[data-collapsed="1"] > :not(.sidebar-head),
+#toolPanel[data-collapsed="1"] > :not(.panel-head) { display: none; }
 .count {
   padding: 1px 8px;
   border-radius: var(--hns-slot-hns-status-badge-radius);

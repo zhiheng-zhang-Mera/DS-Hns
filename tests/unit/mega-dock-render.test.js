@@ -1,6 +1,10 @@
 'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const ROOT = path.resolve(__dirname, '..', '..')
 
 /**
  * Renderer level: execute the real dock renderer against a minimal DOM stub so
@@ -50,12 +54,14 @@ function makeElement(id) {
     // A real element carries attributes; the Dock's mode switch sets
     // `aria-selected` on its two selector buttons.
     attributes: {},
+    children: [],
+    appendChild(child) { this.children.push(child); return child },
     setAttribute(name, value) { this.attributes[name] = String(value) },
     getAttribute(name) { return this.attributes[name] ?? null }
   }
 }
 
-function installDom() {
+function installDom({ panels = [] } = {}) {
   const elements = new Map()
   const documentHandlers = new Map()
   const panel = makeElement('balance-panel')
@@ -80,6 +86,11 @@ function installDom() {
       return elements.get(id)
     },
     querySelector: (selector) => (selector === '.balance-panel' ? panel : null),
+    // The dock's collapsible-module setup walks the module list, so the stub
+    // hands it exactly the fixtures a test seeded. An empty list (the default for
+    // every other test) makes that setup a no-op.
+    querySelectorAll: (selector) => (selector === '#detail section.panel' ? panels : []),
+    createElement: (tag) => makeElement(tag),
     addEventListener: (name, handler) => {
       if (!documentHandlers.has(name)) documentHandlers.set(name, [])
       documentHandlers.get(name).push(handler)
@@ -93,6 +104,7 @@ function installDom() {
   return {
     elements,
     panel,
+    panels,
     observers,
     element: (id) => document.getElementById(id),
     fireDocument: (name, event) => document.fire(name, event),
@@ -191,8 +203,8 @@ function makeSnapshot(overrides = {}) {
   }
 }
 
-function loadDock(snapshot) {
-  const dom = installDom()
+function loadDock(snapshot, options = {}) {
+  const dom = installDom(options)
   const calls = {
     fetchBalance: [],
     addTask: [],
@@ -253,6 +265,60 @@ function loadDock(snapshot) {
 const settle = async () => {
   for (let i = 0; i < 4; i++) await new Promise((resolve) => setImmediate(resolve))
 }
+
+/** One fake `#detail section.panel` with a header, for the collapse tests. */
+function makePanel(id) {
+  const head = makeElement(`${id}-head`)
+  const panel = makeElement(id)
+  panel.querySelector = (selector) => (selector === '.panel-head' ? head : null)
+  panel.head = head
+  return panel
+}
+
+test('every dock module is collapsible and remembers its state', async () => {
+  const panels = [makePanel('modePanel'), makePanel('queuePanel')]
+  const h = loadDock(makeSnapshot(), { panels })
+  await settle()
+
+  // A chevron is installed into each module header, expanded by default.
+  for (const panel of panels) {
+    assert.equal(panel.head.children.length, 1, `${panel.id} got a collapse control`)
+    const toggle = panel.head.children[0]
+    assert.equal(toggle.className, 'panel-collapse')
+    assert.equal(toggle.dataset.panel, panel.id)
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true')
+    assert.equal(toggle.textContent, '▾')
+  }
+
+  // Clicking the header collapses that module and only that module.
+  panels[0].head.fire('click', { target: panels[0].head })
+  assert.equal(panels[0].dataset.collapsed, '1')
+  assert.equal(panels[0].head.children[0].textContent, '▸')
+  assert.equal(panels[0].head.children[0].getAttribute('aria-expanded'), 'false')
+  assert.equal(panels[1].dataset.collapsed, '', 'the other module is untouched')
+
+  // A click aimed at one of the module's own controls must not collapse it.
+  panels[1].head.fire('click', { target: { closest: (selector) => (selector.includes('button') ? {} : null) } })
+  assert.equal(panels[1].dataset.collapsed, '', 'a control click does not toggle the module')
+
+  // The chevron toggles it back.
+  panels[0].head.children[0].fire('click', { stopPropagation() {} })
+  assert.equal(panels[0].dataset.collapsed, '')
+  assert.equal(panels[0].head.children[0].textContent, '▾')
+})
+
+test('the dock collapses when Work Mode needs the width, and comes back after', async () => {
+  const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+  // The policy lives in the shell (it owns the mode) and is applied through the
+  // extension that owns the dock state, without overwriting the user preference.
+  assert.match(main, /function applyDockPolicyForMode/)
+  assert.match(main, /extensionManager\.setDockExpanded\(false, \{ persist: false, focus: false \}\)/)
+  assert.match(main, /extensionManager\.setDockExpanded\(true, \{ persist: false, focus: false \}\)/)
+  assert.match(main, /applyDockPolicyForMode\(daily \? 'daily' : 'work'\)/)
+  const mega = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'index.cjs'), 'utf8')
+  assert.match(mega, /function setDockExpanded\(expanded, \{ focus = false, persist = true \} = \{\}\)/)
+  assert.match(mega, /if \(persist\) saveDockState\(\)/)
+})
 
 test('the dock renders a snapshot (including legacy session data) without throwing', async () => {
   const h = loadDock(makeSnapshot())

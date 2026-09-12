@@ -139,6 +139,11 @@
     }
     // Character, wallpaper, skin and decoration all land here (任务 15): the
     // native document owns the layers, the theme only supplies the asset.
+    //
+    // A slot value wins; when a theme only fills its *tokens* (which is how the
+    // built-in packages declare their wallpaper, persona and decoration), the
+    // property is removed so the stylesheet falls back to `var(--hns-asset-*)`.
+    // Removing rather than writing `none` is what makes that fallback reachable.
     const persona = payload.persona || {}
     document.body.classList.toggle('theme-persona', Boolean(persona.enabled))
     document.body.dataset.themeId = payload.id || ''
@@ -149,13 +154,28 @@
     // silently losing it (任务 15).
     const character = slots['hns.character.primary'] || slots['official.overlay.character_primary'] || {}
     const decoration = slots['hns.persona.decoration'] || slots['official.overlay.corner_decoration'] || {}
-    setAssetVar(root, '--hns-native-background', background.asset)
-    setAssetVar(root, '--hns-native-character', character.asset)
-    setAssetVar(root, '--hns-native-decoration', decoration.asset)
+    setAssetVar(root, '--hns-native-background', imageOf(background))
+    setAssetVar(root, '--hns-native-character', imageOf(character))
+    setAssetVar(root, '--hns-native-decoration', imageOf(decoration))
+    setAssetVar(root, '--hns-native-persona-avatar', imageOf(slots['hns.operator.avatar']) || imageOf(slots['hns.persona.status_avatar']))
+    setAssetVar(root, '--hns-native-persona-banner', imageOf(slots['hns.persona.banner']))
     setVar(root, '--hns-native-character-opacity', character.opacity ?? 0)
     setVar(root, '--hns-native-decoration-opacity', decoration.opacity ?? 0)
     setVar(root, '--hns-native-background-opacity', background.opacity ?? 1)
-    setVar(root, '--hns-native-persona-avatar', persona.avatarAsset)
+    setVar(root, '--hns-native-persona-banner-opacity', persona.enabled ? (persona.bannerOpacity || 0.25) : 0)
+    setVar(root, '--hns-native-persona-avatar-opacity', persona.enabled ? Math.min(1, (persona.decorationOpacity || 0.2) * 5) : 0)
+  }
+
+  /** The image a slot payload carries, whichever property name it used. */
+  function imageOf(payload) {
+    if (!payload || typeof payload !== 'object') return null
+    for (const property of ['asset', 'image', 'background', 'overlay']) {
+      const value = payload[property]
+      if (typeof value !== 'string' || !value) continue
+      if (value === 'none' || /^(#|rgb|hsl|linear-gradient|radial-gradient|transparent$)/i.test(value)) continue
+      return value
+    }
+    return null
   }
 
   function setVar(root, name, value) {
@@ -164,7 +184,10 @@
   }
 
   function setAssetVar(root, name, asset) {
-    if (!asset || asset === 'none') setVar(root, name, 'none')
+    // No asset from the theme: drop the property so the stylesheet's
+    // `var(--hns-asset-*)` fallback can supply the token value.
+    if (!asset || asset === 'none') root.style.removeProperty(name)
+    else if (/^url\(|^var\(/i.test(asset)) setVar(root, name, asset)
     else setVar(root, name, `url("${String(asset).replace(/"/g, '%22')}")`)
   }
 
@@ -353,9 +376,61 @@
     }
   }
 
+  /**
+   * Collapsible side modules (UI-local state).
+   *
+   * Sessions and Activity are the two big modules around the conversation; a
+   * narrow window can fold either away. The choice is persisted per renderer and
+   * never synchronised, because it belongs to this frontend's layout and not to
+   * the shared session.
+   */
+  const PANEL_STATE_KEY = 'ds-hns.native.panels'
+
+  function readPanelState() {
+    try {
+      const raw = global.localStorage ? global.localStorage.getItem(PANEL_STATE_KEY) : null
+      const parsed = raw ? JSON.parse(raw) : {}
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+
+  function writePanelState(state) {
+    try {
+      global.localStorage?.setItem(PANEL_STATE_KEY, JSON.stringify(state))
+    } catch {
+      // Collapsing still works for this session when storage is unavailable.
+    }
+  }
+
+  function setupCollapsiblePanels() {
+    const saved = readPanelState()
+    for (const [panelId, buttonId] of [['sidebar', 'collapseSessions'], ['toolPanel', 'collapseActivity']]) {
+      const panel = byId(panelId)
+      const button = byId(buttonId)
+      if (!panel || !button) continue
+      const apply = (collapsed) => {
+        panel.dataset.collapsed = collapsed ? '1' : ''
+        button.textContent = collapsed ? '▸' : '▾'
+        button.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+      }
+      apply(Boolean(saved[panelId]))
+      button.addEventListener('click', (event) => {
+        event.stopPropagation?.()
+        const collapsed = panel.dataset.collapsed !== '1'
+        apply(collapsed)
+        const state = readPanelState()
+        state[panelId] = collapsed
+        writePanelState(state)
+      })
+    }
+  }
+
   /* --------------------------------- boot --------------------------------- */
 
   function bind() {
+    setupCollapsiblePanels()
     ui.sessionList.mount({ onCreate: onCreateSession })
     ui.composer.mount(store, { onSend, onStop })
     ui.settings.mount({

@@ -77,6 +77,17 @@ let officialSurfaces = null
 /** The assembled Dual-UI runtime (state + adapter + sync + manager + probe). */
 let frontendModes = null
 let megaDockExpanded = false
+/**
+ * Whether the Mega dock was expanded when Work Mode was entered.
+ *
+ * Work Mode must show the official UI at the width it was designed for; the dock
+ * reserves 560px of the window, which is enough to make the official UI drop its
+ * own session sidebar. Entering Work therefore collapses the dock to its rail and
+ * remembers what the user had, so returning to Daily restores it. Expanding the
+ * dock manually while in Work Mode is the user's explicit choice and is honoured
+ * until the next mode switch.
+ */
+let megaDockExpandedBeforeWork = null
 let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 let harnessProcess = null
 let shuttingDown = false
@@ -802,6 +813,11 @@ function applyFrontendVisibility({ mode }) {
   const daily = mode === frontendModes?.MODE?.DAILY || mode === 'daily'
   setViewVisibility(nativeView, daily)
   setViewVisibility(officialView, !daily)
+  // Work Mode is the official UI, and the official UI needs the whole window:
+  // with the dock expanded it is 560px narrower and silently drops its own
+  // sidebar. Collapse the dock to its rail for the duration of Work Mode and put
+  // it back the way the user had it when Daily returns.
+  applyDockPolicyForMode(daily ? 'daily' : 'work')
   // A too-narrow window cannot show the native sidebar legibly; the manager is
   // told so it can decide, but the switch itself never fails because of it.
   if (daily) {
@@ -814,11 +830,33 @@ function applyFrontendVisibility({ mode }) {
   return true
 }
 
+/** Keep the dock's width out of the official UI's way while Work Mode is active. */
+function applyDockPolicyForMode(mode) {
+  if (!INTEGRATED_MEGA_DOCK || !extensionManager?.setDockExpanded) return
+  try {
+    if (mode === 'work') {
+      if (megaDockExpandedBeforeWork === null) megaDockExpandedBeforeWork = megaDockExpanded
+      if (megaDockExpanded) extensionManager.setDockExpanded(false, { persist: false, focus: false })
+    } else if (megaDockExpandedBeforeWork) {
+      megaDockExpandedBeforeWork = null
+      if (!megaDockExpanded) extensionManager.setDockExpanded(true, { persist: false, focus: false })
+    } else {
+      megaDockExpandedBeforeWork = null
+    }
+  } catch (error) {
+    // A dock that refuses to move must never break the mode switch: the official
+    // UI would be narrower than ideal, and that is all.
+    logLine(`dock policy for ${mode} failed: ${error?.message || error}`)
+  }
+}
+
 /** Build the Dual-UI runtime. Safe to call once, before the views exist. */
 function createFrontendModes() {
   if (frontendModes) return frontendModes
   frontendModes = frontendMode.createFrontendModeRuntime({
     stateFile: frontendModeStatePath(),
+    // A configurable startup mode (任务 2). Unset, the saved preference wins.
+    startupMode: process.env.DSH_FRONTEND_MODE || null,
     applyVisibility: (payload) => applyFrontendVisibility(payload),
     tasks: () => (extensionManager?.describeNativeData?.()?.tasks) || [],
     settings: () => (extensionManager?.describeNativeData?.()?.settings) || null,

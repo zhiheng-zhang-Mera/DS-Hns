@@ -1533,6 +1533,89 @@ if ($('modeWork')) $('modeWork').onclick = () => requestMode('work')
 // native frontend's own toggle) keeps the dock in step without a poll.
 window.megaTools.mode?.onChanged?.(() => refresh())
 
+/**
+ * Collapsible modules.
+ *
+ * Every big module in the dock gets a chevron in its header, and clicking the
+ * header text toggles it too. The collapsed set is UI-local state kept in the
+ * renderer: it survives a reload, and it deliberately does not travel with a
+ * theme or with the Harness session.
+ */
+const PANEL_STATE_KEY = 'ds-hns.dock.panels'
+
+function readPanelState() {
+  try {
+    const raw = window.localStorage ? window.localStorage.getItem(PANEL_STATE_KEY) : null
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writePanelState(state) {
+  try {
+    window.localStorage?.setItem(PANEL_STATE_KEY, JSON.stringify(state))
+  } catch {
+    // Storage may be unavailable (private mode, a test stub); collapsing still
+    // works for this session.
+  }
+}
+
+function setupCollapsiblePanels() {
+  if (typeof document.querySelectorAll !== 'function') return []
+  if (typeof document.createElement !== 'function') return []
+  let panels = []
+  try {
+    panels = [...document.querySelectorAll('#detail section.panel')]
+  } catch {
+    return []
+  }
+  const saved = readPanelState()
+  const handles = []
+  for (const panel of panels) {
+    const id = panel.id
+    if (!id) continue
+    const head = typeof panel.querySelector === 'function' ? panel.querySelector('.panel-head') : null
+    if (!head) continue
+    const toggle = document.createElement('button')
+    toggle.type = 'button'
+    toggle.className = 'panel-collapse'
+    toggle.dataset.panel = id
+    head.appendChild(toggle)
+
+    const apply = (collapsed) => {
+      panel.dataset.collapsed = collapsed ? '1' : ''
+      toggle.textContent = collapsed ? '▸' : '▾'
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true')
+      toggle.title = collapsed ? '展开模块' : '折叠模块'
+    }
+    apply(Boolean(saved[id]))
+
+    const set = (collapsed) => {
+      apply(collapsed)
+      const state = readPanelState()
+      state[id] = Boolean(collapsed)
+      writePanelState(state)
+    }
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation()
+      set(!(panel.dataset.collapsed === '1'))
+    })
+    // Clicking the header text toggles too, but never when the click was aimed at
+    // one of the module's own controls.
+    head.addEventListener('click', (event) => {
+      const target = event.target
+      if (target && typeof target.closest === 'function' && target.closest('button, input, select, textarea, label, a')) return
+      set(!(panel.dataset.collapsed === '1'))
+    })
+    handles.push({ id, set })
+  }
+  return handles
+}
+
+const collapsiblePanels = setupCollapsiblePanels()
+
 window.megaTools.onChanged(refresh)
 // The main process pushes this after a skill install or delete, including ones it
 // performed itself (a local pick), so the list cannot drift from the filesystem.

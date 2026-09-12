@@ -60,4 +60,25 @@ function describeNativeData() {
   return { tasks: [], settings: null, harnessVersion: null, latestVersion: null }
 }
 
-module.exports = { start, stop, describeNativeData }
+/**
+ * Forward a dock-layout decision to the extension that owns the dock.
+ *
+ * The shell owns the views and therefore the mode, but the *dock state* (its
+ * width, its persisted preference) belongs to Mega. This is the one call the
+ * shell needs to keep the official UI at its proper width in Work Mode without
+ * taking ownership of the dock.
+ */
+function setDockExpanded(expanded, options = {}) {
+  for (const item of active) {
+    try {
+      if (typeof item.extension?.setDockExpanded === 'function') {
+        return item.extension.setDockExpanded(Boolean(expanded), options)
+      }
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+module.exports = { start, stop, describeNativeData, setDockExpanded }

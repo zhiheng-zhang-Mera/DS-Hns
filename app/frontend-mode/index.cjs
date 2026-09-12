@@ -54,6 +54,7 @@ function createLazyClient({ log = () => {} } = {}) {
 /**
  * @param {object}   options
  * @param {string}   options.stateFile        durable frontend-mode state path
+ * @param {string}   [options.startupMode]    force the startup mode for this run
  * @param {Function} options.applyVisibility  ({ mode, from }) => void (shell-owned views)
  * @param {Function} [options.tasks]          () => raw scheduler tasks
  * @param {Function} [options.settings]       () => raw settings snapshot
@@ -64,6 +65,7 @@ function createLazyClient({ log = () => {} } = {}) {
  */
 function createFrontendModeRuntime({
   stateFile = null,
+  startupMode = null,
   applyVisibility = () => {},
   tasks = () => [],
   settings = () => null,
@@ -74,12 +76,18 @@ function createFrontendModeRuntime({
 } = {}) {
   const state = stateModule.createModeState({ file: stateFile, log })
   state.read()
+  // `DSH_FRONTEND_MODE` (任务 2: a configurable startup mode) selects which
+  // frontend this run opens in without rewriting the user's saved preference: an
+  // acceptance run or a shortcut can ask for a deterministic mode, and the next
+  // launch still honours whatever the user last chose.
+  const forcedMode = startupMode ? stateModule.normalizeMode(startupMode, null) : null
+  if (forcedMode) log(`startup mode forced to ${forcedMode} (the saved preference is untouched)`)
   // The client is a lazy getter: the bridge resolves it on first use, so neither
   // startup nor a unit test depends on Electron's session store being available.
   const bridge = backendModule.createBackendBridge({ client: createLazyClient({ log }), log })
   const adapter = adapterModule.createAdapter({ bridge, harnessVersion: null, tasks, settings, log })
   const sync = syncModule.createSync({ state, adapter, navigateOfficial, log })
-  const manager = managerModule.createModeManager({ state, sync, applyVisibility, log })
+  const manager = managerModule.createModeManager({ state, sync, applyVisibility, log, initialMode: forcedMode })
   const probe = probeModule.createCompatibilityProbe({ adapter, tasks, settings, installedVersion, latestVersion, log })
 
   return {

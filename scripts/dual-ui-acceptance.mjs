@@ -171,6 +171,22 @@ async function attach(matcher, { timeoutMs = OPTIONS.bootTimeoutMs } = {}) {
   throw new Error('timed out waiting for a renderer target')
 }
 
+/** Evaluate `expression` until `ready(value)` is true, or the deadline passes. */
+async function poll(page, expression, ready, { timeoutMs = 15000, intervalMs = 300 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  let last = null
+  while (Date.now() < deadline) {
+    try {
+      last = await page.evaluate(expression)
+      if (ready(last)) return last
+    } catch (error) {
+      last = { error: String(error?.message || error) }
+    }
+    await sleep(intervalMs)
+  }
+  return last
+}
+
 function electronBinary() {
   const candidates = [
     path.join(OPTIONS.root, 'app', 'node_modules', 'electron', 'dist', 'electron.exe'),
@@ -187,6 +203,9 @@ function bootShell() {
   env.DSH_APP_NAME = OPTIONS.appName
   env.DSH_USER_DATA_DIR = OPTIONS.userDataDir
   env.DSH_HARNESS_PORT = String(OPTIONS.port)
+  // A deterministic start: Daily is the documented default, and the run must not
+  // depend on (or disturb) whatever mode the user last left the product in.
+  env.DSH_FRONTEND_MODE = OPTIONS['frontend-mode'] || 'daily'
   const entry = path.join(OPTIONS.root, 'app')
   return spawn(electronBinary(), [entry, `--remote-debugging-port=${OPTIONS.cdp}`, '--no-sandbox'], {
     cwd: entry,
@@ -211,6 +230,12 @@ const NATIVE_STATE = `(() => {
   if (!app) return null
   const state = app.store.get()
   const banner = document.getElementById('banner')
+  const layerImage = (id) => {
+    const el = document.getElementById(id)
+    if (!el) return null
+    const image = getComputedStyle(el).backgroundImage || ''
+    return { set: image !== 'none', inline: image.includes('data:image'), head: image.slice(0, 24) }
+  }
   return {
     mode: state.mode,
     modeState: state.modeState,
@@ -220,7 +245,14 @@ const NATIVE_STATE = `(() => {
     tasks: (state.tasks || []).length,
     backend: state.backend && state.backend.state,
     themeId: document.body.dataset.themeId || null,
-    characterVisible: (getComputedStyle(document.documentElement).getPropertyValue('--hns-native-character') || '').trim(),
+    layers: {
+      wallpaper: layerImage('backgroundLayer'),
+      character: layerImage('characterLayer'),
+      decoration: layerImage('decorationLayer'),
+      personaBanner: layerImage('personaBannerLayer'),
+      personaAvatar: layerImage('personaAvatarLayer')
+    },
+    wallpaperToken: (document.documentElement.style.getPropertyValue('--hns-asset-wallpaper') || '').trim().slice(0, 24),
     degraded: state.degraded ? state.degraded.reason : null,
     banner: banner && !banner.hidden ? banner.textContent : null
   }
@@ -256,13 +288,22 @@ async function main() {
 
     const first = await native.page.evaluate(NATIVE_STATE)
     check('GateA.mode', 'the product starts in Daily Mode', first?.mode === 'daily', JSON.stringify(first))
-    check('GateH.theme', 'the active theme reached the native surface', Boolean(first?.themeId), `themeId=${first?.themeId} character=${first?.characterVisible}`)
+    check('GateH.theme', 'the active theme reached the native surface', Boolean(first?.themeId), `themeId=${first?.themeId}`)
+    const paintedLayers = Object.entries(first?.layers || {}).filter(([, value]) => value?.inline).map(([key]) => key)
+    check(
+      'GateH.assets',
+      'the theme paints real imagery on the native surface, not just colours',
+      paintedLayers.length >= 1,
+      `inline image layers: ${paintedLayers.join(', ') || 'none'}`
+    )
     check('GateA.backend', 'the native frontend reports a backend', Boolean(first?.backend), `backend=${first?.backend} sessions=${first?.sessions}`)
     const startSession = first?.activeSessionId || null
     const officialUrlAtStart = official.target.url
     const nativeIdsAtStart = (await targets()).filter((entry) => String(entry.url).includes('native-ui/index.html')).map((entry) => entry.id).sort().join(',')
 
-    const dockStart = await dock.page.evaluate(DOCK_STATE)
+    // The dock target can exist a beat before its script has rendered anything,
+    // so the first state is polled rather than assumed.
+    const dockStart = await poll(dock.page, DOCK_STATE, (value) => Boolean(value?.rail?.letter))
     check('GateG.api', 'the dock exposes the mode API', dockStart?.hasModeApi === true)
     check('GateG.rail', 'the collapsed rail shows the current mode', dockStart?.rail?.letter === 'H' && dockStart?.rail?.mode === 'daily', JSON.stringify(dockStart?.rail))
     check('GateG.selector', 'the expanded selector shows the current mode', dockStart?.daily === true && dockStart?.work === false)
@@ -303,7 +344,28 @@ async function main() {
     check('GateE.session', 'the active session survived every switch', (afterSwitches?.activeSessionId || null) === startSession, `${startSession} -> ${afterSwitches?.activeSessionId}`)
     check('GateD.noDegrade', 'no switch degraded the native frontend', !afterSwitches?.degraded && !observed.some((entry) => entry.degraded), JSON.stringify(observed.find((entry) => entry.degraded) || null))
 
+    // ---- Gate C: the official UI at the width it needs, with the dock aside ----
+    await dock.page.evaluate("window.megaTools.mode.set('work')")
+    await sleep(900)
     const officialTargets = (await targets()).filter((entry) => /^http:\/\/127\.0\.0\.1:/.test(String(entry.url)) && !String(entry.url).includes('/api/'))
+    const officialViewport = await official.page.evaluate('({ w: innerWidth, h: innerHeight })')
+    check(
+      'GateC.width',
+      'Work Mode gives the official UI its full width (the dock steps aside)',
+      officialViewport?.w >= 1200,
+      `official viewport ${officialViewport?.w}x${officialViewport?.h}`
+    )
+    const dockCollapsed = await dock.page.evaluate("document.body.classList.contains('collapsed')")
+    check('GateC.dock', 'the dock collapsed to its rail for Work Mode', dockCollapsed === true, `collapsed=${dockCollapsed}`)
+    await dock.page.evaluate('window.megaTools.setDockExpanded(true)')
+    await sleep(700)
+    const restoredDock = await dock.page.evaluate("({ collapsed: document.body.classList.contains('collapsed'), w: innerWidth })")
+    check('GateC.restore', 'the user can still expand the dock inside Work Mode', restoredDock?.collapsed === false, JSON.stringify(restoredDock))
+    // Back to Daily: the dock returns to the user's own preference.
+    await dock.page.evaluate("window.megaTools.mode.set('daily')")
+    await sleep(900)
+    const backToDaily = await dock.page.evaluate("({ collapsed: document.body.classList.contains('collapsed'), mode: (typeof latestSnapshot !== 'undefined' && latestSnapshot.frontend) ? latestSnapshot.frontend.mode : null })")
+    check('GateC.preference', 'returning to Daily restores the user dock preference', backToDaily?.mode === 'daily' && backToDaily?.collapsed === false, JSON.stringify(backToDaily))
     check(
       'GateC.identity',
       'the official renderer is still the same document at the same address',

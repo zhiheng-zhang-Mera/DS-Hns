@@ -12,6 +12,11 @@ Asset Plan、UI 观察、Overlay Layout 与 Safety、分 Surface 预览与增量
 > 皮肤正式作用于它，Work Mode 只保留外围 shell。本文中关于 Overlay 的部分仍然描述
 > 那套代码与安全上限（代码保留、可显式启用），但**产品默认路径**请看
 > `docs/dual-ui.md`。
+
+> **Update（资产解析）**：绘制时现在会解析主题包声明的图片引用——`assets/...` 相对路径
+> 被内联为 data URI，`var(--hns-asset-*)` 被替换为编译后的 token 值，asset token 以
+> `url("…")` 形式写入 CSS（`theme/assets/resolver.js` + `preview.toCssVariables`）。
+> 在此之前，主题可以完整生效却只改变配色：所有图片引用都无法被渲染器解析。
 详见第 13 节。
 
 ---

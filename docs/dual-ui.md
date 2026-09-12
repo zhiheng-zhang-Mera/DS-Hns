@@ -76,6 +76,52 @@ Native Renderer 的 `render-process-gone`、渲染组件抛错、快照失败，
 `manager.degrade()` 保留 backend、切到 Work Mode 并记录 `DAILY_DEGRADED` 原因。
 不重启 Harness、不取消任务、不删除会话。
 
+### 3.6 Work Mode 的宽度策略（真机验收后新增）
+
+官方 Web UI 在宽度不足时会**隐藏自己的会话侧边栏**：Mega 展开时占用 560px，官方视图只剩
+914px（窗口 1489px），于是 Work Mode 看起来「官方界面没正常渲染」。现在：
+
+* 进入 Work Mode 时，Mega 自动收起到 48px 轨道条，官方视图拿到完整宽度（实测
+  1426×884），官方 UI 保持它原本的布局；
+* 收起是**运行策略**而不是偏好改写（`persist: false`）：用户在 Work Mode 里手动展开
+  Mega 仍然有效，切回 Daily 时会恢复用户原本的展开状态；
+* 轨道条上的 `H`/`D` 快速切换在两种模式下都可点击。
+
+### 3.7 模块折叠
+
+Dock 里的每个大模块（Interface Mode / Appearance / Skills / 手动队列 / 硬件自适应并行 /
+Sub-worker / 余额 / 拓展状态）现在都可以折叠：标题栏出现一个折叠按钮，点击标题文字也可以
+切换；折叠状态按模块保存在渲染器本地（`localStorage`），不随主题或会话同步。Native
+Frontend 的 Sessions 与 Activity 两个侧边模块同样可以折叠（窄窗口时把宽度让给对话）。
+
+### 3.8 主题资产真正落到画面上
+
+真机验收发现：主题「应用成功但只有配色变了」，因为**图片从来没有到达渲染器**——
+
+* 主题包用 `assets/persona/banner.png` 这类**包内相对路径**声明图片，渲染器把它当 URL
+  去自己的文档里找（找不到）；
+* 生成器写出的 `var(--hns-asset-wallpaper)` 引用落在 slot 的 `asset` 属性上，而这个属性
+  期望的是 URL 而不是自定义属性引用（声明无效）；
+* asset token 在 CSS 里以裸 data URI 输出，`background-image: var(--hns-asset-wallpaper)`
+  因此也不成立。
+
+现在 `app/extensions/mega/theme/assets/resolver.js` 在**绘制时**统一解析（dock / official
+shell / native 三个消费者共用同一份 payload）：
+
+| 声明形式 | 处理 |
+| --- | --- |
+| `data:image/...` | 原样使用 |
+| `assets/...` | 从主题包目录内联为 data URI（越界的 `../` 引用被拒绝） |
+| `var(--hns-asset-*)` | 替换为该 token 的编译值，未填写的引用降级为 `none` |
+| 文件缺失 | 回退到同角色 token，再回退到 `none`，并记入 `payload.assets.unresolved` |
+
+同时 `preview.toCssVariables()` 把 asset token 以 `url("data:...")` 形式输出，Native
+Frontend 的图层再以 `var(--hns-native-*, var(--hns-asset-*, none))` 兜底，所以「只填 token
+的主题」也能显示壁纸 / 角色 / 装饰 / 人设。
+
+验收证据（真机运行，`GateH.assets`）：当前主题在 Native 面上一共 4 个图层是内联图片
+（wallpaper / decoration / personaBanner / personaAvatar）。
+
 ## 4. 验收
 
 ### 4.1 自动化 Gate（本轮已执行）
@@ -88,8 +134,8 @@ npm test          # node --test ..\tests\unit\*.test.js
 
 | 项目 | 结果 |
 | --- | --- |
-| `npm run check` | PASS（116/116，含 `app/frontend-mode/`、`app/native-ui/`、`scripts/dual-ui-acceptance.mjs`） |
-| `npm test` | 718 tests / 717 pass / 1 fail |
+| `npm run check` | PASS（117/117，含 `app/frontend-mode/`、`app/native-ui/`、`theme/assets/resolver.js`、`scripts/dual-ui-acceptance.mjs`） |
+| `npm test` | 730 tests / 728 pass / 1 fail（+1 为下述多句柄时序项） |
 
 **唯一失败项与本改动无关**：`tests/unit/multi-supervisor.test.js` 的
 `并行验收: independent nodes really run at the same time on N workers` 在本机
@@ -120,7 +166,7 @@ node scripts\dual-ui-acceptance.mjs --root D:\DS-Hns --port 3097 --cdp 9337 ^
 
 | 项目 | 结果 |
 | --- | --- |
-| Dual-UI 真机验收 | **PASS（20/20 checks）** |
+| Dual-UI 真机验收 | **PASS（25/25 checks）** |
 
 该脚本启动真实 Electron（独立 app name / 独立 user data dir / 非 3097 端口），再通过
 CDP 驱动**真实**的 Dock 与 Native 渲染器：
@@ -138,6 +184,11 @@ CDP 驱动**真实**的 Dock 与 Native 渲染器：
 | 强制 native 失败 → 自动回退 Work Mode 且原因可见 | J | PASS |
 | 回退不重启/不替换任何渲染器实例 | J | PASS |
 | 用户可从回退状态切回 Daily，降级标记清除 | J | PASS |
+| 主题在 Native 面上真正画出图片（≥1 个图层为内联图片） | H | PASS |
+| Work Mode 下官方视图宽度 ≥ 1200（实测 1426×884） | C | PASS |
+| 进入 Work 时 Mega 收起到轨道条 | C | PASS |
+| Work 内仍可手动展开 Mega | C | PASS |
+| 切回 Daily 恢复用户原本的展开状态 | C | PASS |
 
 不在该脚本内、需要人工或需要 API Key 的 Gate：
 
@@ -183,6 +234,7 @@ renderer” 在当前官方版本上无法实现：官方 Web UI 没有 session 
 | 变量 | 默认 | 作用 |
 | --- | --- | --- |
 | — | `daily` | `data/state/frontend-mode.json` 记录当前模式，可手工改为 `work` 作为启动默认 |
+| `DSH_FRONTEND_MODE` | 未设置 | `daily` / `work`：强制本次运行的启动模式，且**不改写**用户已保存的偏好（验收/快捷方式用） |
 | `DSH_OFFICIAL_OVERLAY` | 未设置 | `=1` 时创建已废弃的官方 Overlay（仅排查旧主题包） |
 | `DSH_MEGA_INTEGRATED_DOCK` | 开启 | `=0` 时回退到“官方窗口 + 独立 Mega 窗口”的旧形态，双前端不启用 |
 | `DSH_DISABLE_MEGA` | 未设置 | `=1` 时不加载 Mega 扩展（此时双前端 IPC 不可用，Work Mode 仍正常） |

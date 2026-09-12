@@ -731,10 +731,13 @@ function notifyShellDockState() {
   }
 }
 
-function setDockExpanded(expanded, { focus = false } = {}) {
+function setDockExpanded(expanded, { focus = false, persist = true } = {}) {
   dockExpanded = Boolean(expanded)
   dockUserHidden = false
-  saveDockState()
+  // `persist: false` is the shell's mode policy (Work Mode collapses the dock so
+  // the official UI keeps its width). It must not overwrite the user's own
+  // preference, which is what a later Daily switch restores.
+  if (persist) saveDockState()
   positionDock()
   // The legacy companion window follows the extension's own visibility rules.
   const win = dockWindow && !dockWindow.isDestroyed() ? dockWindow : null

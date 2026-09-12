@@ -20,6 +20,7 @@
 const contract = require('./contract')
 const color = require('./color')
 const validator = require('./validator')
+const assetResolver = require('./assets/resolver')
 
 /** Human-readable → CSS variable declaration block for a resolved theme. */
 function toCssVariables(theme) {
@@ -29,24 +30,44 @@ function toCssVariables(theme) {
     const definition = contract.TOKENS[tokenName]
     const value = tokens[tokenName]
     if (value === undefined || value === null || value === '') continue
-    lines.push(`${definition.css}: ${value};`)
+    // An asset token is consumed as a `background-image` (directly, or through a
+    // slot that writes `var(--hns-asset-*)`), so it must arrive as a CSS `url()`.
+    // Emitting the bare data URI made every such declaration invalid, which is
+    // why a theme could apply completely and still show no imagery at all.
+    lines.push(`${definition.css}: ${cssValueOf(definition, value)};`)
   }
   return lines.join('\n')
+}
+
+/** One token value in the form its CSS declaration actually needs. */
+function cssValueOf(definition, value) {
+  const text = String(value)
+  if (definition.kind !== contract.PROPERTY_KIND.ASSET) return text
+  if (!text || text === 'none' || /^(url\(|var\(|inherit$|currentcolor$)/i.test(text)) return text
+  return `url("${text.replace(/"/g, '%22')}")`
 }
 
 /** Payload the dock renderer consumes to paint a theme. */
 function toRendererPayload(theme, { preview = false, draftId = null } = {}) {
   const animation = validator.normalizeAnimation(theme.components?.animation)
-  const persona = theme.persona || { enabled: false }
-  const slots = (theme.components?.slots) || {}
+  // Resolve every declared asset reference before anything consumes the payload:
+  // a package-relative `assets/...` path becomes an inline data URI, and a
+  // `var(--hns-asset-*)` reference becomes the compiled token value. Without this
+  // a theme applies its colours and silently loses every image (see
+  // `assets/resolver.js` for the full account).
+  const resolved = assetResolver.resolveThemeAssets(theme)
+  const persona = resolved.persona || theme.persona || { enabled: false }
+  const slots = resolved.slots || {}
   return {
     id: theme.id,
     name: theme.manifest?.name || theme.id,
     preview,
     draftId,
     css: toCssVariables(theme),
-    tokens: { ...theme.tokens },
+    tokens: { ...(resolved.tokens || theme.tokens || {}) },
     slots: { ...slots },
+    /** What the resolver did with this package's imagery (diagnostics only). */
+    assets: { resolved: resolved.resolved.slice(0, 64), unresolved: resolved.unresolved.slice(0, 32) },
     animation,
     persona: {
       enabled: Boolean(persona.enabled),
