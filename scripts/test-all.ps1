@@ -115,7 +115,8 @@ try {
   # is mounted through, asserted here for the same reason as the others.
   $coreTests = @(
     'core-model-capability.test.js',
-    'core-plugin-runtime.test.js'
+    'core-plugin-runtime.test.js',
+    'plugin-mounted-set.test.js'
   )
   foreach ($name in $coreTests) {
     if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {

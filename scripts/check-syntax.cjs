@@ -72,7 +72,10 @@ const SOURCE_DIRS = [
   'core/health-supervisor',
   // The provider that carries the DeepSeek-specific knowledge, so no generic
   // plugin has to.
-  'plugins/providers/deepseek'
+  'plugins/providers/deepseek',
+  // The mounted feature set: the plugins that wrap the subsystems which already
+  // exist. Listed because the collector is non-recursive.
+  'plugins/mounted'
 ]
 
 /** Files outside the app directory that still ship as product code. */
