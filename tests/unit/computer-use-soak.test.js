@@ -1653,9 +1653,10 @@ test('harness parity: the failure-injection scenarios in the harness match the u
 // E. Completion standard mapping (plan §26)
 //
 // The plan's completion checklist is the "no compression" guard: every item has
-// to have executable evidence in the suite. This walks the checklist out of
-// Update-Plan/24h.md and asserts the mapping covers it and that every mapped test
-// really exists in this file.
+// to have executable evidence in the suite. `readCompletionChecklist()` carries
+// the checklist text and cross-checks it against Update-Plan/24h.md whenever the
+// plan is present, then asserts the mapping below covers it and that every mapped
+// test really exists in this file.
 // ===========================================================================
 
 /** The §26 checklist, in plan order, mapped to the executable evidence. */
@@ -1685,18 +1686,65 @@ const COMPLETION_STANDARD = [
   { item: 'no false success on unknown state', tests: ['failure injection: the target disappears on click', 'scenario D: a workspace that drifts away is detected as a mismatch'] }
 ]
 
-/** The checklist lines under `# 26. Completion Standard` in the plan. */
+/**
+ * The §26 completion checklist, verbatim.
+ *
+ * It travels with the suite rather than being read from `Update-Plan/24h.md`
+ * because the plan directory is a *working* artefact: it is not part of the
+ * repository (`Update-Plan/` is ignored), so a gate that reads it would be red on
+ * every CI checkout while being green locally — the worst kind of gate. The text
+ * is therefore carried here, and `readCompletionChecklist()` cross-checks it
+ * against the plan whenever the plan is present, so drift is caught locally
+ * instead of being silently accepted.
+ */
+const COMPLETION_CHECKLIST = Object.freeze([
+  'focus trust 正确',
+  'modal fail-safe',
+  'bounded adaptive stabilization',
+  'action-specific verification',
+  'meaningful progress tracking',
+  'bounded stall recovery',
+  'owned process supervision',
+  'resource ceilings',
+  'screenshot retention bounded',
+  'log growth bounded',
+  'controller isolation',
+  'tool reconnect bounded',
+  'workspace continuity checked',
+  'filesystem mutation verified',
+  'shell operations bounded',
+  'recovery occurs at safe step boundaries',
+  'executor responsibilities reduced',
+  'no App Learning',
+  'no persistent UI location model',
+  'no business-level project knowledge',
+  'long-run soak tests stable',
+  'no silent hangs',
+  'no false success on unknown state'
+])
+
+/**
+ * The checklist the gate asserts against.
+ *
+ * When `Update-Plan/24h.md` is available (a developer checkout) it is parsed and
+ * compared with `COMPLETION_CHECKLIST`, so the two cannot drift; when it is not
+ * (CI, an installed copy) the carried text is the specification.
+ */
 function readCompletionChecklist() {
-  const plan = readSource('Update-Plan/24h.md')
+  const planPath = path.join(ROOT, 'Update-Plan', '24h.md')
+  if (!fs.existsSync(planPath)) return [...COMPLETION_CHECKLIST]
+  const plan = fs.readFileSync(planPath, 'utf8')
   const section = plan.split('# 26. Completion Standard')[1]
   assert.ok(section, 'Update-Plan/24h.md must still carry the §26 Completion Standard section')
   const body = section.split(/\n# 27\./)[0]
-  return body
+  const items = body
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.startsWith('- [ ]') || line.startsWith('- [x]'))
     .map((line) => line.replace(/^- \[[ x]\]\s*/, '').trim())
     .filter(Boolean)
+  assert.deepEqual(items, [...COMPLETION_CHECKLIST], 'the carried §26 checklist has drifted from Update-Plan/24h.md')
+  return items
 }
 
 test('the completion standard: every plan §26 checklist item has executable evidence (plan §26)', () => {
