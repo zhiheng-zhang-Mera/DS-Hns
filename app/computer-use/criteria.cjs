@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: success criteria (plan §36, §54.12).
+ * Computer Use Runtime: success criteria.
  *
  * "The script finished" is not completion. A run is complete when the criteria
  * the caller wrote down are *observably true* — a file exists, a URL changed, a
@@ -279,7 +279,7 @@ async function evaluateOne(criterion, facts) {
 }
 
 /**
- * Plan §36: the run is complete only when every criterion is satisfied. A
+ * The run is complete only when every criterion is satisfied. A
  * criterion the runtime could not check keeps the run from claiming success —
  * `unknown` is reported as `blocked`, not as `completed`.
  */

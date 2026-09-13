@@ -1,17 +1,17 @@
 'use strict'
 
 /**
- * Computer Use Runtime: desktop controller (plan §27, §3.2).
+ * Computer Use Runtime: desktop controller.
  *
  * UI Automation first, mouse and keyboard second, vision only after both have
- * failed (plan §27). The controller therefore reads windows, focus, dialogs and
+ * failed. The controller therefore reads windows, focus, dialogs and
  * controls from real structured sources, and treats raw input as the *rendering*
  * of an intent it has already validated: the window is checked, the focus is
  * checked, the target is re-located immediately before the click.
  *
  * Everything here is a thin, honest layer over two ports (a window/input driver
  * and an accessibility driver). If either is missing the controller says so and
- * the runtime routes around it (plan §37) instead of inventing a state.
+ * the runtime routes around it instead of inventing a state.
  */
 
 const { ACTION_TYPES, TIMING } = require('../constants.cjs')
@@ -71,13 +71,13 @@ function createDesktopController(options = {}) {
   }
 
   /**
-   * Plan §3.2 desktop structured state: the foreground window, its process,
+   * Desktop structured state: the foreground window, its process,
    * bounds, the accessibility tree, the focused control and any dialog.
    *
    * The UI Automation walk is the expensive part of perception (it crosses
    * process boundaries), so it is read when the caller actually needs it — a
    * desktop action, a dialog check, or the first observation of a run — and
-   * skipped for the polling inside a browser step's wait (plan §3.1: use the
+   * skipped for the polling inside a browser step's wait (use the
    * cheapest source that can answer the question).
    */
   async function snapshot(options = {}) {
@@ -92,7 +92,7 @@ function createDesktopController(options = {}) {
     // System dialogs are detected from the *window list*, which is cheap: a
     // Win32 dialog is a real window of class #32770, usually owned by another
     // window. This is what keeps "an unexpected modal blocks the action" true
-    // (plan §30) even when the accessibility tree is not being read.
+    // even when the accessibility tree is not being read.
     dialogs = [...detectDialogs(ax, foreground), ...detectWindowDialogs(windows, foreground)]
     const focused = ax.find((node) => node.focused) || null
     return {
@@ -116,12 +116,12 @@ function createDesktopController(options = {}) {
   }
 
   /**
-   * Plan §30: an unexpected modal is a first-class observation. A dialog is a
+   * An unexpected modal is a first-class observation. A dialog is a
    * top-level window of the dialog class, or an automation element whose control
    * type says so.
    */
   /**
-   * Plan §30 from the window list alone: a visible, owned `#32770` window is a
+   * From the window list alone: a visible, owned `#32770` window is a
    * system dialog (a permission prompt, a file picker, a confirmation box).
    */
   function detectWindowDialogs(windows, foreground) {
@@ -147,7 +147,7 @@ function createDesktopController(options = {}) {
   }
 
   /**
-   * Plan §30: which automation nodes are *dialogs* rather than ordinary
+   * Which automation nodes are *dialogs* rather than ordinary
    * window furniture. A Chromium window is full of panes and window nodes, so
    * "role window/pane" is not a dialog and treating it as one would make the
    * runtime refuse to act on perfectly ordinary applications.
@@ -183,7 +183,7 @@ function createDesktopController(options = {}) {
       const window = await resolveWindow(target.window)
       if (window) {
         // `windowHandle` is what the window-safety gate checks the foreground
-        // against, so a window target must carry it (plan §33).
+        // against, so a window target must carry it.
         return {
           kind: 'window',
           ref: `w:${window.handle}`,
@@ -274,7 +274,7 @@ function createDesktopController(options = {}) {
       case ACTION_TYPES.DOUBLE_CLICK:
       case ACTION_TYPES.RIGHT_CLICK: {
         const point = pointOf(action, resolved)
-        // Plan §10 at the last moment: the coordinate is re-read from the
+        // The coordinate is re-read from the
         // structured source immediately before the click, never reused blindly.
         const fresh = resolved && resolved.ref ? await revalidatePoint(resolved, point) : { point, movement: 0 }
         if (fresh.stale) {
@@ -368,7 +368,7 @@ function createDesktopController(options = {}) {
       case ACTION_TYPES.WAIT_EVENT:
       case ACTION_TYPES.WAIT_STATE: {
         // Desktop waits are window/element waits: poll the structured sources
-        // until the condition holds or the timeout expires (plan §12).
+        // until the condition holds or the timeout expires.
         const timeoutMs = action.timeoutMs || config.defaultWaitTimeoutMs
         const startedAt = clock.now()
         const condition = waitCondition(action, context)
@@ -399,7 +399,7 @@ function createDesktopController(options = {}) {
     throw new ComputerUseError(CODES.TARGET_NOT_FOUND, 'the focus target has neither an automation ref nor a window', { target: action.target })
   }
 
-  /** Re-reads the element's bounds right before a coordinate click (plan §10). */
+  /** Re-reads the element's bounds right before a coordinate click. */
   async function revalidatePoint(resolved, previousPoint) {
     if (!accessibility || !resolved.ref) return { point: previousPoint, movement: 0, stale: false }
     const current = await safe(() => accessibility.find({ ref: resolved.ref, byRef: true }, { limit: 1 }), null)
@@ -407,7 +407,7 @@ function createDesktopController(options = {}) {
     if (!node || !node.bounds) return { point: previousPoint, movement: 0, stale: false, detail: 'the element could not be re-read; using the verified coordinate' }
     const point = centerOf(node.bounds)
     const movement = Math.round(Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y))
-    // Plan §10: > updatePx means the coordinate is stale; the executor's own
+    // A movement past `updatePx` means the coordinate is stale; the executor's own
     // revalidation uses the same thresholds, this is the last-instant check.
     return { point, movement, stale: movement > 10 }
   }
@@ -465,7 +465,7 @@ function createDesktopController(options = {}) {
     }
   }
 
-  /** Facts for verification and criteria (plan §15). */
+  /** Facts for verification and criteria. */
   function facts() {
     return {
       windowExists: async (criterion) => {

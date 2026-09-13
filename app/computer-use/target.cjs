@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: target resolution and revalidation (plan §7, §10).
+ * Computer Use Runtime: target resolution and revalidation.
  *
  * A target is *how to find the thing*, never "x=821, y=440". The resolution
  * ladder is fixed and documented:
@@ -11,7 +11,7 @@
  * Coordinates are the last rung and are labelled as such in the log, because a
  * raw coordinate is the one identifier that silently rots when the UI moves.
  *
- * `revalidate()` is the other half of the same idea (plan §10): the coordinate a
+ * `revalidate()` is the other half of the same idea: the coordinate a
  * target resolved to once is not trusted at action time. The caller re-resolves,
  * compares the two boxes, and either acts, refreshes the coordinate or declares
  * the target stale and goes back to observing.
@@ -20,17 +20,17 @@
 const { TARGET_MOVEMENT } = require('./constants.cjs')
 const { CODES, ComputerUseError } = require('./errors.cjs')
 
-/** The ladder, cheapest and most stable first (plan §7). */
+/** The ladder, cheapest and most stable first. */
 const TARGET_KINDS = Object.freeze([
   { kind: 'selector', rank: 1, label: 'DOM selector' },
   { kind: 'accessibility', rank: 2, label: 'accessibility node' },
   { kind: 'semantic', rank: 3, label: 'semantic element' },
   // A window is a structured identifier too (title / handle / process), and it
-  // is what FOCUS / SWITCH_WINDOW / CLOSE_WINDOW address (plan §27).
+  // is what FOCUS / SWITCH_WINDOW / CLOSE_WINDOW address.
   { kind: 'window', rank: 4, label: 'window' },
   { kind: 'bbox', rank: 5, label: 'bounding box' },
   // A visual description (paint colour or template) is how a canvas, a WebGL
-  // surface or a custom-drawn control is addressed (plan §4/§48).
+  // surface or a custom-drawn control is addressed.
   { kind: 'visual', rank: 6, label: 'visual target' },
   { kind: 'point', rank: 7, label: 'visual coordinate' }
 ])
@@ -224,7 +224,7 @@ function describeTarget(target) {
  *     semantic(query) -> ElementDescriptor[],
  *     bbox(rect) -> ElementDescriptor[] }
  * A resolver that is missing or throws degrades the ladder instead of failing it
- * (plan §37) — the next rung gets its turn and the reason is recorded.
+ * — the next rung gets its turn and the reason is recorded.
  */
 function resolveTarget(target, world, resolvers = {}) {
   if (!target) return { ok: false, resolved: null, attempts: [], error: invalid('no target to resolve') }
@@ -246,7 +246,7 @@ function resolveTarget(target, world, resolvers = {}) {
             kind,
             resolved: buildResolved(candidate, kind, chosen, attempt.count),
             attempts,
-            // Plan §7: an explicit coordinate target is labelled, so a run can be
+            // An explicit coordinate target is labelled, so a run can be
             // audited for "did this really need to be a pixel click?".
             coordinateFallback: kind === 'point' || kind === 'bbox'
           }
@@ -303,7 +303,7 @@ function resolveKind(target, kind, world, resolvers) {
     }
     case 'visual': {
       // Vision is never resolved from the world state: it needs a capture, which
-      // the executor performs through the vision controller (plan §4/§48).
+      // the executor performs through the vision controller.
       if (typeof resolvers.visual === 'function') return firstHits(resolvers.visual(target.visual))
       return null
     }
@@ -368,7 +368,7 @@ function containsPoint(rect, x, y) {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height
 }
 
-/** Window matching by handle, process or title substring (plan §27). */
+/** Window matching by handle, process or title substring. */
 function matchesWindow(window, query) {
   if (!window || !query) return false
   if (query.handle !== undefined && String(window.handle) !== String(query.handle)) return false
@@ -403,7 +403,7 @@ function centerOf(rect) {
 }
 
 /**
- * Plan §10 — compare where a target was with where it is now.
+ * Compare where a target was with where it is now.
  *
  *   movement < 3 px     -> 'stable'  : act where it was
  *   3 px .. 10 px       -> 'updated' : act on the refreshed coordinate

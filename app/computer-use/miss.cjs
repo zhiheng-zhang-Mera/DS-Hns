@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: miss detection (plan §17).
+ * Computer Use Runtime: miss detection.
  *
  * The distinction this module exists for:
  *
@@ -9,11 +9,11 @@
  *
  * A click can land, return success from the OS, and still do nothing: the
  * control moved, an invisible overlay swallowed it, the page was not ready.
- * Miss detection collects the cheap signals the plan lists — no state change, no
+ * Miss detection collects the cheap signals available — no state change, no
  * focus change, no control state change, no expected event, the same visible
  * target, the same active element — and calls it.
  *
- * A detected miss is *not* a task failure (plan §18): it is the trigger for
+ * A detected miss is *not* a task failure: it is the trigger for
  * revalidate → retry, and on the second miss for a different interaction.
  */
 
@@ -109,7 +109,7 @@ function isFocusAction(action) {
  * A change in the *evidence* digest (DOM revision, event stream, value) is an
  * effect, even when it is not progress. Keeping the two notions apart is what
  * lets a cosmetic mutation satisfy verification while still counting toward a
- * stall (plan §17 vs §20).
+ * stall (an effect is not the same thing as progress).
  */
 function evidenceMoved(before, after) {
   if (!before || !after) return false

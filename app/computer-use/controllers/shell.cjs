@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: shell controller (plan §28, §29;
- * Update-Plan/24h.md Task 7, Task 11, Task 13).
+ * Computer Use Runtime: shell controller.
  *
  * "A task that can be done with the shell must not be forced through the GUI."
  * Creating a directory, running a build, running the tests — driving Explorer
@@ -11,15 +10,16 @@
  * Safety rules that are enforced here rather than documented:
  *  - commands are spawned with an args array, never interpolated into a shell
  *    string, unless the contract explicitly asks for a shell
- *  - a forbidden command pattern refuses the action (plan §34 classifies
- *    install/delete/publish/format), and a contract allow-list narrows further
+ *  - a forbidden command pattern refuses the action (the destructive kinds
+ *    install/delete/publish/format are classified), and a contract allow-list
+ *    narrows further
  *  - every run is bounded by a timeout and a captured-output ceiling, and the
  *    child is killed on timeout — a hung command must not hang the runtime
  *  - **the working directory is never inherited from `process.cwd()`**: it comes
- *    from the verified workspace, or the command is refused (24h.md Task 11)
+ *    from the verified workspace, or the command is refused
  *  - every process the runtime starts is registered, so the runtime can supervise
- *    what it owns and can never kill what it does not (24h.md Task 7)
- *  - stdout/stderr are redacted before they reach the log (plan §32)
+ *    what it owns and can never kill what it does not
+ *  - stdout/stderr are redacted before they reach the log
  */
 
 const { spawn } = require('node:child_process')
@@ -34,7 +34,7 @@ const { COMMAND_MODE, normalizeCommand, judge, invalidError } = require('../comm
 const MAX_OUTPUT_BYTES = 256 * 1024
 const DEFAULT_TIMEOUT_MS = 30_000
 
-/** Plan §34: patterns that are dangerous regardless of who asks. */
+/** Patterns that are dangerous regardless of who asks. */
 const DENIED_PATTERNS = [
   { pattern: /\bformat\s+[a-z]:/i, kind: 'FORMAT' },
   { pattern: /\bdiskpart\b/i, kind: 'FORMAT' },
@@ -48,7 +48,7 @@ const DENIED_PATTERNS = [
 function createShellController(options = {}) {
   const clock = options.clock || { now: () => Date.now() }
   /**
-   * The stated default working directory (Task 11).
+   * The stated default working directory.
    *
    * `cwd` is what the *host* declares: the runtime passes its verified
    * workspace, so every action it issues runs inside the workspace boundary and
@@ -57,7 +57,7 @@ function createShellController(options = {}) {
    * the controller uses the directory the process was started in, which is the
    * only directory such a host has ever had.
    *
-   * What Task 11 forbids is *silently* falling back when a workspace was
+   * What is forbidden is *silently* falling back when a workspace was
    * declared: that path goes through `resolveCwd`/`resolveExplicitCwd` and ends
    * in a refusal, never in an inherited directory. The distinction is recorded
    * per command in `cwdSource` (`contract`/`configured`/`explicit`/`process`).
@@ -74,7 +74,7 @@ function createShellController(options = {}) {
   const workspaceSource = options.workspace || null
   let lastResult = null
 
-  /** Plan §32: never let a token reach the log through a command's output. */
+  /** Never let a token reach the log through a command's output. */
   function redact(text) {
     return String(text)
       .replace(/(password|passwd|pwd|token|secret|api[-_]?key)\s*[:=]\s*\S+/gi, '$1=[redacted]')
@@ -90,7 +90,7 @@ function createShellController(options = {}) {
   /**
    * Resolve the working directory for a command.
    *
-   * Update-Plan/24h.md Task 11: a command never silently runs in the process's
+   * A command never silently runs in the process's
    * own cwd *when a workspace was declared*. Either the caller named a directory,
    * or the *verified workspace* is used, or the command is refused. A `cd` that
    * failed must not be able to send the next command somewhere unexpected.
@@ -116,8 +116,8 @@ function createShellController(options = {}) {
     if (guard && typeof guard.resolveCwd === 'function') {
       // A workspace was declared: its verdict is final. Neither the process's own
       // directory nor a configured string may stand in for a workspace that
-      // failed to verify — that is exactly the silent inheritance Task 11
-      // forbids. "If the workspace does not exist: BLOCK."
+      // failed to verify — that is exactly the silent inheritance this
+      // controller forbids. "If the workspace does not exist: BLOCK."
       return guard.resolveCwd({ cwd: null })
     }
     // No workspace was declared at all: the controller's own directory is the
@@ -163,7 +163,7 @@ function createShellController(options = {}) {
   /**
    * Runs a command and returns a plain receipt. Never throws for a non-zero
    * exit: a failing command is a *result* the verification layer judges, not an
-   * exception (plan §15 process verification).
+   * exception.
    */
   function runCommand(input = {}) {
     const command = String(input.command || '')
@@ -175,7 +175,7 @@ function createShellController(options = {}) {
     const maxOutput = Number.isFinite(input.outputBytes) && input.outputBytes > 0 ? Math.min(input.outputBytes, maxOutputBytes) : maxOutputBytes
     const cwdVerdict = resolveCwd(input.cwd)
     if (!cwdVerdict.ok) {
-      // Task 11/13: the refusal is a typed result, not an unbounded wait in an
+      // The refusal is a typed result, not an unbounded wait in an
       // unknown directory.
       return Promise.resolve({
         ok: false,
@@ -225,7 +225,7 @@ function createShellController(options = {}) {
         return
       }
 
-      // Task 7: the runtime registers what it starts, so it can supervise it and
+      // The runtime registers what it starts, so it can supervise it and
       // dispose of exactly what it owns.
       let registration = null
       if (processes) {
@@ -244,7 +244,7 @@ function createShellController(options = {}) {
           })
         } catch (error) {
           // At the process ceiling: refuse rather than start an unsupervised
-          // child (Task 8's resource ceiling).
+          // child (the registry's resource ceiling).
           registration = null
           const receipt = {
             ok: false,
@@ -274,7 +274,7 @@ function createShellController(options = {}) {
       let timedOut = false
       let settled = false
       // A long-running process is not on a leash: it is expected to still be
-      // running, and it is supervised rather than killed (Task 7, Scenario B/C).
+      // running, and it is supervised rather than killed.
       const timer = mode === COMMAND_MODE.LONG_RUNNING
         ? null
         : setTimeout(() => {
@@ -356,7 +356,7 @@ function createShellController(options = {}) {
   }
 
   /**
-   * Plan §34 + contract policy. Runs *before* the command executes.
+   * The destructive-pattern check plus contract policy. Runs *before* the command executes.
    */
   function assertCommandAllowed(action, contract) {
     const command = String(action.params.command || '')
@@ -403,7 +403,7 @@ function createShellController(options = {}) {
       throw new ComputerUseError(CODES.ACTION_UNSUPPORTED, `the shell controller cannot run ${action.type}`)
     }
     assertCommandAllowed(action, context.contract)
-    // Task 13: a shell action is normalized into an explicit contract — command,
+    // A shell action is normalized into an explicit contract — command,
     // cwd, timeout, expected exit, output ceiling, process mode — *before* it
     // runs. "Just run this" never becomes an unbounded wait: the timeout and the
     // mode are decided here, and the verdict is the runtime's own vocabulary.
@@ -460,7 +460,7 @@ function createShellController(options = {}) {
     }
   }
 
-  /** Facts for the verification and criteria layers (plan §15). */
+  /** Facts for the verification and criteria layers. */
   function facts() {
     return {
       lastShell: lastResult
@@ -491,7 +491,7 @@ function createShellController(options = {}) {
     resolveCwd,
     assertCommandAllowed,
     redact,
-    /** What the runtime owns right now (Task 7 / Task 19). */
+    /** What the runtime owns right now. */
     processes: () => (processes ? processes.snapshot() : { owned: [], ownedCount: 0, ceiling: 0, atCapacity: false })
   }
 }

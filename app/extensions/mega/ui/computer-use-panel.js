@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * DS-Hns Computer Use panel (Update-Plan/computer-use.md).
+ * DS-Hns Computer Use panel.
  *
  * The dock is a *control surface*, never an executor: it edits an execution
  * contract (goal, plan steps, success criteria, limits, safety) and hands it to
@@ -143,7 +143,7 @@
     }
 
     /**
-     * The runtime's own health report (Update-Plan/24h.md Task 19/Task 20).
+     * The runtime's own health report.
      *
      * The panel only *renders* it: status, why it is blocked, which capabilities
      * are degraded, what the runtime owns, how much resource pressure there is
@@ -268,7 +268,7 @@
     }
 
     /**
-     * The optional long-running state readers (Task 19). A bridge that does not
+     * The optional long-running state readers. A bridge that does not
      * expose them (or a runtime that is disabled) only costs detail: the health
      * snapshot alone still renders the count and the pressure.
      */

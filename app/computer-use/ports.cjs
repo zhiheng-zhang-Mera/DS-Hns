@@ -8,9 +8,9 @@
  * injects one implementation per port. That is what makes three things true at
  * once:
  *
- *  1. Fault isolation (plan §37/§38): a port that is missing, broken or slow
+ *  1. Fault isolation: a port that is missing, broken or slow
  *     degrades one controller instead of the whole runtime.
- *  2. Structure first (plan §3/§55): perception is read from structured ports
+ *  2. Structure first: perception is read from structured ports
  *     (DOM, accessibility, window state, filesystem), never from pixels by
  *     default.
  *  3. Testability without pretending: the acceptance harness injects a real
@@ -98,7 +98,7 @@ const { CODES, ComputerUseError } = require('./errors.cjs')
  * @property {object} [detail]
  */
 
-/** Page adapter (browser capability) — plan §26. */
+/** Page adapter (browser capability). */
 const PAGE_ADAPTER_METHODS = [
   'probe',
   'snapshot',
@@ -124,7 +124,7 @@ const PAGE_ADAPTER_METHODS = [
   'close'
 ]
 
-/** Desktop driver (windows, focus, mouse, keyboard) — plan §27. */
+/** Desktop driver (windows, focus, mouse, keyboard). */
 const DESKTOP_DRIVER_METHODS = [
   'probe',
   'listWindows',
@@ -146,13 +146,13 @@ const DESKTOP_DRIVER_METHODS = [
   'screenMetrics'
 ]
 
-/** Accessibility driver (UI Automation) — plan §3.2/§27. */
+/** Accessibility driver (UI Automation). */
 const ACCESSIBILITY_DRIVER_METHODS = ['probe', 'root', 'children', 'find', 'invoke', 'setValue', 'focus', 'value']
 
-/** Screenshot driver (vision fallback) — plan §4.2. */
+/** Screenshot driver (vision fallback). */
 const SCREENSHOT_DRIVER_METHODS = ['probe', 'captureRegion', 'captureWindow', 'captureFull']
 
-/** Command runner (shell capability) — plan §28. */
+/** Command runner (shell capability). */
 const SHELL_RUNNER_METHODS = ['probe', 'run']
 
 const PORTS = Object.freeze({
@@ -175,7 +175,7 @@ function unavailable(portName, message, details = {}) {
 /**
  * Checks that an injected port exposes the whole documented surface.
  * Returns `{ ok, missing }` instead of throwing, because the callers differ:
- * controllers degrade (plan §37) while a wiring bug should fail loudly.
+ * controllers degrade while a wiring bug should fail loudly.
  */
 function inspectPort(portName, candidate) {
   const port = PORTS[portName]

@@ -1,25 +1,24 @@
 'use strict'
 
 /**
- * Computer Use Runtime: transient stabilization (plan §8, §9, §10, §11, §12,
- * §13, §23, §24, §25; Update-Plan/24h.md Task 3, Task 16).
+ * Computer Use Runtime: transient stabilization.
  *
  * This module is the answer to the two failure modes every computer-use agent
  * hits: acting on a target that has already moved, and *concluding failure*
  * before the UI has had a chance to react.
  *
- * It is also the **only** place transient UI timing is decided (24h.md Task 16):
+ * It is also the **only** place transient UI timing is decided:
  * every caller asks this module when it is safe to act and when it is safe to
  * verify, instead of inventing its own delay.
  *
  * The policy is fixed and deliberately boring:
  *
- *   short forced delay  +  long conditional wait     (plan §12)
- *   minimum settle → check stability → revalidate → act   (plan §9/§10)
- *   act → bounded grace → observe events             (plan §11)
+ *   short forced delay  +  long conditional wait
+ *   minimum settle → check stability → revalidate → act
+ *   act → bounded grace → observe events
  *
  * Nothing here is remembered between tasks: the ladders below depend only on the
- * *current* step's observations (plan §23/§42). No application-specific latency
+ * *current* step's observations. No application-specific latency
  * profile appears in this file, and none ever will.
  */
 
@@ -27,7 +26,7 @@ const { TIMING, TARGET_MOVEMENT } = require('./constants.cjs')
 const { revalidate } = require('./target.cjs')
 
 /**
- * The complete signal vocabulary (24h.md Task 3).
+ * The complete signal vocabulary.
  *
  * Both spellings are accepted — the camelCase key and the hyphenated name the
  * recovery ladder emits — because the two existed side by side and a signal that
@@ -106,7 +105,7 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * Plan §12/§13: wait until a condition is true, polling on a short interval.
+   * Wait until a condition is true, polling on a short interval.
    * The wait is conditional — the timeout is the *ceiling*, not the duration.
    */
   async function waitFor(check, waitOptions = {}) {
@@ -129,18 +128,18 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * Plan §9/§10/§13/§24. Settles before acting:
+   * Settles before acting:
    *
    *   1. spend the action's minimum settle (short forced delay)
    *   2. observe; is the UI stable *and* is the target where it was?
    *   3. if not, add one dynamic cooldown step and re-check, feeding every signal
-   *      the observation produced into the cooldown (24h.md Task 3)
+   *      the observation produced into the cooldown
    *   4. past the ceiling, stop waiting and hand back `WAIT_STATE` so the caller
    *      escalates to a conditional wait or a re-observe instead of sleeping on
    *
    * The forced minimum can never push the wait past the action's own ceiling: the
    * ceiling is the bound, and a minimum that exceeds it is clamped to it rather
-   * than slept through (24h.md Task 3: "禁止无限 sleep").
+   * than slept through (never an unbounded sleep).
    *
    * @param {object} input
    * @param {object} input.action normalized action carrying its stabilization block
@@ -184,7 +183,8 @@ function createStabilizer(options = {}) {
       const comparison = revalidate(input.previous, currentResolution, thresholds)
       const elapsed = clock.now() - startedAt
       // A target that is already known to have moved or vanished is not something
-      // to wait for: re-observe now (plan §10: "movement > 10 px → re-observe").
+      // to wait for: re-observe now (a movement past the update threshold means
+      // the coordinate is stale).
       if (comparison.verdict === 'stale' || comparison.verdict === 'missing') {
         return note({
           kind: 'settle',
@@ -231,9 +231,9 @@ function createStabilizer(options = {}) {
           reason: 'the UI was still changing when the settle ceiling was reached'
         })
       }
-      // Plan §24: one dynamic step per unstable observation, never the whole
+      // One dynamic step per unstable observation, never the whole
       // remaining budget in one sleep. Every signal the observation produced is
-      // forwarded, so the step reflects *why* the UI is unstable (24h.md Task 3).
+      // forwarded, so the step reflects *why* the UI is unstable.
       const cooldown = dynamicCooldown(signalInputs(lastSignals))
       const step = Math.max(0, Math.min(cooldown.ms, maximumMs - elapsed))
       if (step > 0) await clock.sleep(step)
@@ -271,11 +271,11 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * Plan §11/§24: the dynamic cooldown depends only on what this step has just
+   * The dynamic cooldown depends only on what this step has just
    * observed. Each active signal adds one step (80 ms) and the ladder stops at
    * the soft ceiling — past it the caller must use an event wait instead.
    *
-   * Every signal in the vocabulary is consumed here (24h.md Task 3): a signal the
+   * Every signal in the vocabulary is consumed here: a signal the
    * stabilizer can detect but does not act on is a signal that does nothing.
    */
   function dynamicCooldown(state = {}) {
@@ -300,8 +300,8 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * Plan §11: a bounded grace period after acting, so a click that needs 120 ms
-   * to take effect is not mistaken for a miss (plan §17).
+   * A bounded grace period after acting, so a click that needs 120 ms
+   * to take effect is not mistaken for a miss.
    */
   async function grace(action, overrideMs) {
     const ms = Number.isFinite(overrideMs)
@@ -316,7 +316,7 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * Plan §13. Cheap stability signals only — no screenshot required:
+   * Cheap stability signals only — no screenshot required:
    * DOM revision, accessibility tree digest, the window's own state and the
    * target's bounding box and actionability.
    */
@@ -356,7 +356,7 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * The same signals, expanded into the named vocabulary (24h.md Task 3).
+   * The same signals, expanded into the named vocabulary.
    *
    * `stabilitySignals` answers "may I act"; this answers "why not", in the terms
    * the cooldown ladder and the recovery decision both consume.

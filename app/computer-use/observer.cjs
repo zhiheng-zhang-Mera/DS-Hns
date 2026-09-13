@@ -1,17 +1,17 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the observation layer (plan §3).
+ * Computer Use Runtime: the observation layer.
  *
- * Perception priority is fixed by the plan — structured state, then system
- * events, then targeted vision, then (only if nothing else works) a full
- * screenshot. This module implements the first two and hands the third to the
- * vision controller when a step actually asks for it.
+ * Perception priority is fixed — structured state, then system events, then
+ * targeted vision, then (only if nothing else works) a full screenshot. This
+ * module implements the first two and hands the third to the vision controller
+ * when a step actually asks for it.
  *
  * Every source is read behind its own fault boundary: a dead browser controller
  * degrades the world state (and says so in `sources` + `notes`) instead of
  * failing the observation. That is what lets a desktop-only task keep running
- * while the browser side is broken (plan §37, acceptance test 9).
+ * while the browser side is broken.
  */
 
 const { createWorldState } = require('./world-state.cjs')
@@ -22,7 +22,7 @@ function createObserver(options = {}) {
   const desktop = options.desktop || null
   const file = options.file || null
   // An observation that cannot answer within this window is reported as
-  // unavailable: the runtime keeps its own latency bounded (plan §37/§41).
+  // unavailable: the runtime keeps its own latency bounded.
   const sourceTimeoutMs = Number.isFinite(options.sourceTimeoutMs) ? options.sourceTimeoutMs : 8000
   const errors = []
   let previous = null
@@ -38,7 +38,7 @@ function createObserver(options = {}) {
     const desktopResult = await guard('desktop', async () => {
       if (!desktop || !probeAvailable(desktop)) return null
       // The accessibility walk is opt-out: `context.ax === false` asks for the
-      // cheap observation (windows and focus only). Plan §3.1 — use the
+      // cheap observation (windows and focus only). Use the
       // cheapest source that can answer the question being asked.
       return withSourceTimeout('desktop', () => desktop.snapshot({ ax: context.ax !== false }), timeoutMs)
     })
@@ -58,7 +58,7 @@ function createObserver(options = {}) {
     if (!desktopResult.ok) world.notes.push(`desktop observation failed: ${desktopResult.error}`)
     if (!systemResult.ok) world.notes.push(`system observation failed: ${systemResult.error}`)
 
-    // Plan §3.2 system events, computed from consecutive observations: an active
+    // System events, computed from consecutive observations: an active
     // window change and a focus change are events, not just state.
     if (previous) {
       if (previous.activeWindowHandle !== world.activeWindowHandle) {
@@ -78,7 +78,7 @@ function createObserver(options = {}) {
 
   /**
    * Watches a path so a "did the file change?" question can be answered by an
-   * event instead of a polled delay (plan §12).
+   * event instead of a polled delay.
    */
   function watchFile(target, onEvent) {
     if (!file || typeof file.watch !== 'function') return null
@@ -143,7 +143,7 @@ function createObserver(options = {}) {
   }
 
   /**
-   * Plan §37: a source that stops answering must not be able to hang the run.
+   * A source that stops answering must not be able to hang the run.
    * Each source gets a bounded window; a source that exceeds it is reported as
    * unavailable (with the reason) instead of blocking the observation forever.
    */

@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: long-running resource ceilings
- * (Update-Plan/24h.md Task 8, Task 18, §10 of the plan).
+ * Computer Use Runtime: long-running resource ceilings.
  *
  * A run that lasts hours accumulates things. Screenshots are the obvious one, but
  * the quieter leaks are the ones that end a long run: an observation history that
@@ -201,7 +200,7 @@ function createResourceBudget(options = {}) {
     // "At the ceiling" is about *pressure*, not about the ring being non-empty:
     // the runtime is at its ceiling when it has already had to evict captures and
     // the retained evidence is close to its own byte bound. That is what the
-    // health snapshot turns into a block reason (Task 8/19/20).
+    // health snapshot turns into a block reason.
     const atCeiling = droppedScreenshots > 0 && (
       screenshots.length >= limits.maxScreenshots ||
       evidenceBytes >= limits.maxEvidenceBytes * 0.9

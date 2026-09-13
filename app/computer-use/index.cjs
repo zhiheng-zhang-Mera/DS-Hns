@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * DS-Hns Computer Use Runtime (plan §1, §38, §54).
+ * DS-Hns Computer Use Runtime.
  *
  * One runtime, assembled from independently faulted controllers, that takes an
  * execution contract and drives it to a verified finish:
@@ -9,13 +9,13 @@
  *   Goal → Observe → Act → Verify → Recover if needed → Continue → Finish
  *
  * It is deliberately *not* a planner and *not* a learner. Long-term planning,
- * user profiles and application models belong to Boss or another upper agent
- * (plan §1/§42); this runtime adapts to the current state of the machine and
- * discards what it observed when the task ends (plan §5).
+ * user profiles and application models belong to the calling orchestration layer
+ * or another upper layer; this runtime adapts to the current state of the machine
+ * and discards what it observed when the task ends.
  *
  * The host injects ports — a browser page, a desktop driver, an accessibility
  * driver, a screenshot driver — and everything else is assembled here. A port
- * that is missing simply degrades its own controller (plan §37).
+ * that is missing simply degrades its own controller.
  */
 
 const path = require('node:path')
@@ -35,7 +35,7 @@ const { createShellController } = require('./controllers/shell.cjs')
 const { createFileController } = require('./controllers/file.cjs')
 const { createClock } = require('./ports.cjs')
 const { CODES, ComputerUseError } = require('./errors.cjs')
-// Long-running execution (Update-Plan/24h.md): the runtime owns its processes,
+// Long-running execution: the runtime owns its processes,
 // bounds its resources, keeps a workspace boundary and reports its own health.
 const { createProcessRegistry } = require('./processes.cjs')
 const { createResourceBudget } = require('./resources.cjs')
@@ -66,16 +66,16 @@ function createComputerUseRuntime(options = {}) {
     : createExecutionLog({ now: clock.now, dir: options.log ? options.log.dir : undefined, mode: options.log ? options.log.mode : 'normal', retention: runtimeOptions.screenshotRetention, runId: options.runId })
   const faults = []
 
-  // The runtime's long-running infrastructure (Update-Plan/24h.md). Each piece is
+  // The runtime's long-running infrastructure. Each piece is
   // created once and shared with the executor and the shell controller, so there
   // is exactly one registry, one resource budget and one workspace verdict.
   // The mutable objects stay in this scope and never leave it: `processes()` and
   // `resources()` below are the read-only snapshots the upper layer gets, so a
-  // report can never be used to settle, kill or re-policy the runtime (Task 19).
+  // report can never be used to settle, kill or re-policy the runtime.
   const processRegistry = options.processes || createProcessRegistry({ now: clock.now, maxOwned: runtimeOptions.maxOwnedProcesses })
   const resourceBudget = options.resources || createResourceBudget({ now: clock.now, maxScreenshots: runtimeOptions.maxScreenshots })
   /**
-   * The workspace boundary (Task 11).
+   * The workspace boundary.
    *
    * A contract may name one; a host may name one. When neither does, the runtime
    * still refuses to inherit `process.cwd()` — it uses a directory it owns inside
@@ -104,8 +104,7 @@ function createComputerUseRuntime(options = {}) {
   }
 
   /**
-   * The same fault discipline as `guard()`, for the read-only readers
-   * (Update-Plan/24h.md Task 19/Task 20).
+   * The same fault discipline as `guard()`, for the read-only readers.
    *
    * "Can this executor keep working right now?" is exactly the question that must
    * never be answered with a thrown exception: a probe that fails degrades the
@@ -203,7 +202,7 @@ function createComputerUseRuntime(options = {}) {
   let activeRun = null
 
   /**
-   * Plan §38 + Update-Plan/24h.md Task 19/20: the runtime's own health.
+   * The runtime's own health.
    *
    * The snapshot answers one question — can this executor keep working right
    * now? — and answers `blocked` (rather than `degraded`) when continuing would
@@ -211,10 +210,10 @@ function createComputerUseRuntime(options = {}) {
    * capability, no safety channel, a resource ceiling, or an uncertain state.
    *
    * A single failed controller is *not* a block: it degrades and the rest
-   * continues (Task 20).
+   * continues.
    */
   function health() {
-    // A reader must never throw at its caller (Task 19/20): if even the snapshot
+    // A reader must never throw at its caller: if even the snapshot
     // cannot be built, the answer is a reported degraded state, not an exception.
     return readThrough('health', () => {
       // The page is attached before probing, otherwise a health report taken
@@ -241,7 +240,7 @@ function createComputerUseRuntime(options = {}) {
         version: VERSION,
         state: executor.currentRun ? executor.currentRun.stateMachine.state : CU_STATES.IDLE,
         running: executor.running,
-        // The documented top-level shape (Task 19) alongside the detail.
+        // The documented top-level shape alongside the detail.
         status: healthStatus(snapshot.status),
         capabilities: snapshot.capabilities,
         lastProgressAt: snapshot.lastProgressAt,
@@ -260,7 +259,7 @@ function createComputerUseRuntime(options = {}) {
     }, degradedHealthSnapshot)
   }
 
-  /** Only the three documented values may ever be reported (Task 19). */
+  /** Only the three documented values may ever be reported. */
   function healthStatus(value) {
     return value === HEALTH_STATUS.BLOCKED || value === HEALTH_STATUS.DEGRADED || value === HEALTH_STATUS.HEALTHY
       ? value
@@ -269,7 +268,7 @@ function createComputerUseRuntime(options = {}) {
 
   /**
    * The answer when the health reader itself failed: degraded, with the reason,
-   * and never a fabricated `healthy` (Task 20).
+   * and never a fabricated `healthy`.
    */
   function degradedHealthSnapshot(message) {
     return {
@@ -298,7 +297,7 @@ function createComputerUseRuntime(options = {}) {
    * Can this runtime carry an action that needs `capability` right now?
    *
    * A missing capability is reported as `CAPABILITY_UNAVAILABLE` for *that
-   * action* instead of a runtime failure (Task 9).
+   * action* instead of a runtime failure.
    */
   function canExecute(actionType) {
     return readThrough('canExecute', () => {
@@ -313,8 +312,7 @@ function createComputerUseRuntime(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 19: per-capability availability, with the reason a
-   * capability is unavailable.
+   * Per-capability availability, with the reason a capability is unavailable.
    *
    * It reuses the frozen `ACTION_CAPABILITY` map and the very `capabilityVerdict`
    * the runtime consults before acting, so a capability report and an actual
@@ -374,7 +372,7 @@ function createComputerUseRuntime(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 19/Task 7: what this runtime owns right now.
+   * What this runtime owns right now.
    *
    * A snapshot, never the registry: a report cannot settle, kill or detach a
    * process, so reading the runtime's health can never change it.
@@ -404,13 +402,13 @@ function createComputerUseRuntime(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 19/Task 8: the resource budget as a snapshot.
+   * The resource budget as a snapshot.
    *
    * The budget object itself is never handed out, so a reader can neither raise
    * a ceiling nor force an eviction. `level` distinguishes "holding captures"
    * from the pressure the health snapshot blocks on: the budget reports
    * `atCeiling` once it has had to evict captures and the retained evidence is at
-   * its own bound (Task 8/19/20).
+   * its own bound.
    */
   function resources() {
     return readThrough('resources', () => {
@@ -446,8 +444,8 @@ function createComputerUseRuntime(options = {}) {
   }
 
   /**
-   * `processes()` and `resources()` are the Task 19 readers, and they are also
-   * read-only handles: a caller that already used `processes.ownedCount`,
+   * `processes()` and `resources()` are read-only handles: a caller that already
+   * used `processes.ownedCount`,
    * `processes.snapshot()` or `resources.snapshot()` keeps working, while the
    * mutating half of each component (`register`, `settle`, `kill`, `dispose`,
    * `release`, `enforce`) is unreachable from the runtime object.
@@ -467,7 +465,7 @@ function createComputerUseRuntime(options = {}) {
   })
 
   /**
-   * Update-Plan/24h.md Task 19/Task 5: the active run's progress heartbeat.
+   * The active run's progress heartbeat.
    *
    * With no run in flight the honest answer is "nothing is running" rather than
    * the best case: `active: false` and null timings. Only meaningful progress
@@ -538,7 +536,7 @@ function createComputerUseRuntime(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 7: stop one process this runtime owns.
+   * Stop one process this runtime owns.
    *
    * This is the *supervised* half of process ownership, and it is deliberately a
    * separate call from the `processes()` report: reading what the runtime owns can
@@ -565,7 +563,7 @@ function createComputerUseRuntime(options = {}) {
 
   /**
    * Runs one task, optionally continuing autonomously until the criteria hold
-   * or a bounded stop condition is reached (plan §49).
+   * or a bounded stop condition is reached.
    */
   async function run(contractInput, runOptions = {}) {
     let contract
@@ -621,7 +619,7 @@ function createComputerUseRuntime(options = {}) {
     }
   }
 
-  /** Phase 1 acceptance (plan §43): direct action execution through the executor. */
+  /** Acceptance: direct action execution through the executor. */
   async function executeAction(action, actionOptions = {}) {
     syncPage()
     // No contract is synthesized here: the executor wraps the single action into
@@ -700,7 +698,7 @@ function createComputerUseRuntime(options = {}) {
     } catch {
       /* nothing to release */
     }
-    // Task 7: the runtime disposes of every process it owns. A disposable child
+    // The runtime disposes of every process it owns. A disposable child
     // must not survive the runtime that started it.
     try {
       const disposed = processRegistry.dispose('runtime dispose')
@@ -724,7 +722,7 @@ function createComputerUseRuntime(options = {}) {
     health,
     canExecute,
     /**
-     * The long-running state readers (Update-Plan/24h.md Task 19/Task 20). All
+     * The long-running state readers. All
      * four are bounded snapshots, and none of them can throw: a failure is a
      * reported reason plus a fault. The mutable registry and budget stay private.
      */
@@ -732,7 +730,7 @@ function createComputerUseRuntime(options = {}) {
     processes,
     resources,
     progress,
-    // The supervised half of ownership (Task 7): reading can never change the
+    // The supervised half of ownership: reading can never change the
     // runtime, killing what it owns is an explicit, refused-if-not-owned call.
     killOwned,
     dispose,

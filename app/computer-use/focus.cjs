@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: focus trust
- * (Update-Plan/24h.md Task 1, §3 of the plan).
+ * Computer Use Runtime: focus trust.
  *
  *   attempted focus  ≠  verified focus
  *
@@ -38,7 +37,7 @@ const FOCUS_INVALIDATION = Object.freeze({
  * The reasons that always invalidate: nothing can keep a focus across these.
  *
  * `STEP_RESET` belongs here. A reference that outlives the step that verified it
- * is a stale reference, and a long run cannot afford them (Task 1/14).
+ * is a stale reference, and a long run cannot afford them.
  */
 const HARD_INVALIDATIONS = Object.freeze([
   FOCUS_INVALIDATION.WINDOW_CHANGED,
@@ -182,7 +181,7 @@ function createFocusTrust(options = {}) {
    * across a step boundary is exactly how a stale reference accumulates over a
    * long run — the element may be gone, the dialog may have been replaced, the
    * page may have re-rendered — so the token is *dropped* here and re-established
-   * by the next step's own verification (Task 1; Task 14's resume-safe boundary).
+   * by the next step's own verification (the resume-safe step boundary).
    *
    * `reset` defaults to true and exists so a caller that deliberately holds a
    * focus across a step (a modal pause that resumes the same step) can say so.

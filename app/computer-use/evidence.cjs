@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: verification evidence grading (Update-Plan/24h.md Task 4).
+ * Computer Use Runtime: verification evidence grading.
  *
  * `verification.cjs` answers *what happened* (success / failure / unknown).
  * This module answers the second question a long-running executor has to ask:
@@ -29,8 +29,8 @@
  * can destroy or publish something must say what success looks like before it
  * runs, otherwise nothing can distinguish success from a silent no-op.
  *
- * Nothing here is learned. The grade depends only on the action in front of it
- * (24h.md Global Constraints: no profiles, no App Learning).
+ * Nothing here is learned. The grade depends only on the action in front of it:
+ * no profiles, no application learning.
  */
 
 const { VERIFICATION_KINDS, DESTRUCTIVE_KINDS } = require('./constants.cjs')

@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: meaningful progress heartbeat
- * (Update-Plan/24h.md Task 5, §7 of the plan).
+ * Computer Use Runtime: meaningful progress heartbeat.
  *
  * A long-running executor has to answer one question continuously:
  *
@@ -26,8 +25,8 @@
  *   a repeated no-op (the same action, the same unchanged world)
  *   the runtime's own bookkeeping going round
  *
- * Nothing here is remembered across tasks (24h.md Global Constraints: no App
- * Learning, no business-level knowledge): the tracker is constructed per run and
+ * Nothing here is remembered across tasks (no application learning, no
+ * business-level knowledge): the tracker is constructed per run and
  * discarded with the world state.
  */
 
@@ -95,8 +94,8 @@ function createProgressTracker(options = {}) {
   /**
    * Record that an action was *issued*.
    *
-   * Issuing an action is not progress (24h.md Task 5: "repeated no-op 不更新
-   * progress"). It only moves `lastActionAt`, which is what the stall detector
+   * Issuing an action is not progress: a repeated no-op does not update
+   * progress. It only moves `lastActionAt`, which is what the stall detector
    * compares against `lastProgressAt` to distinguish "busy" from "making progress".
    */
   function action(detail = {}) {

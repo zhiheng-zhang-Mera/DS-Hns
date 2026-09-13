@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the bounded command execution contract
- * (Update-Plan/24h.md Task 13, §15 of the plan).
+ * Computer Use Runtime: the bounded command execution contract.
  *
  * "Just run this" is not an instruction a long-running executor can accept,
  * because it turns into an unbounded wait the moment the command decides not to
@@ -21,7 +20,7 @@
  *
  * `process mode` is the load-bearing field. A foreground command that outlives its
  * timeout is a failure and is terminated; a long-running one is expected to still
- * be there and is supervised rather than killed (24h.md Task 7, Scenario B/C).
+ * be there and is supervised rather than killed.
  */
 
 const { TIMING, STEP_RESULTS } = require('./constants.cjs')

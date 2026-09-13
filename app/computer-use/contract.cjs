@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the Execution Contract (plan §35).
+ * Computer Use Runtime: the Execution Contract.
  *
  * Everything a run is allowed to do arrives in one document: the goal, the
  * success criteria, the capabilities that may be used, the safety posture for
@@ -34,8 +34,8 @@ function contractError(message, details) {
 /**
  * Builds the validated contract.
  *
- * @param {object} input raw contract, as handed over by a user, Boss or an
- *   external agent
+ * @param {object} input raw contract, as handed over by a user or an
+ *   external planner
  * @param {object} [options] runtime options (limits and safety defaults)
  */
 function createContract(input = {}, options = {}) {
@@ -59,7 +59,7 @@ function createContract(input = {}, options = {}) {
     allowedCapabilities,
     safety: {
       destructiveActions: destructive,
-      // Plan §34: an explicit confirmation callback is the only way a
+      // An explicit confirmation callback is the only way a
       // "confirm" contract can proceed; without one the action is refused.
       confirm: typeof input.confirm === 'function' ? input.confirm : typeof safety.confirm === 'function' ? safety.confirm : null,
       requireForegroundWindow: safety.require_foreground_window === undefined ? true : Boolean(safety.require_foreground_window),
@@ -83,7 +83,7 @@ function createContract(input = {}, options = {}) {
       maxScreenshots: positiveInt(vision.max_screenshots ?? vision.maxScreenshots, 200)
     },
     plan: normalizePlan(input.plan || input.steps || []),
-    // Plan §49: autonomous continuation is opt-in per contract; the runtime can
+    // Autonomous continuation is opt-in per contract; the runtime can
     // be told to keep going through recovery without handing it the wheel.
     autonomyEnabled: input.autonomy_enabled === undefined && input.autonomyEnabled === undefined
       ? effective.autonomyEnabled
@@ -124,7 +124,7 @@ function normalizeRetention(input, fallback) {
 /**
  * Plan steps. A step is either a raw action contract or a small envelope:
  *   { id, description, action, repeat, maxAttempts, optional }
- * `optional` steps may fail without failing the run (plan §37 local failure
+ * `optional` steps may fail without failing the run (local failure
  * isolation), which is what makes a "best effort" hint expressible safely.
  */
 function normalizePlan(input) {

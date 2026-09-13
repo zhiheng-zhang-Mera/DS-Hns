@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: filesystem mutation verification
- * (Update-Plan/24h.md Task 12, Task 14, §14/§16 of the plan).
+ * Computer Use Runtime: filesystem mutation verification.
  *
  * Development work creates, edits, renames and deletes files. A command that exits
  * zero does not mean the file result is correct, so every high-value mutation has
@@ -15,7 +14,7 @@
  *   delete   the target is absent
  *   mkdir    the directory exists
  *
- * The same function is what makes recovery *resume-safe* (Task 14): when a runtime
+ * The same function is what makes recovery *resume-safe*: when a runtime
  * exception happens at a step boundary, the first thing the resumed run does is
  * re-observe the effect and ask "already complete, retry, or failed?" — instead of
  * blindly replaying a half-finished write.
@@ -200,7 +199,7 @@ function createMutationVerifier(options = {}) {
   }
 
   /**
-   * Resume-safe step boundary (Task 14).
+   * Resume-safe step boundary.
    *
    * Given a mutation step whose outcome was never recorded — the runtime crashed,
    * the controller died mid-write — re-observe the effect and decide. Blindly

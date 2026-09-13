@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the Windows desktop driver (plan §27).
+ * Computer Use Runtime: the Windows desktop driver.
  *
  * WHAT THIS IS
  * A real implementation of DESKTOP_DRIVER_METHODS on top of user32/kernel32:

@@ -1,19 +1,19 @@
 'use strict'
 
 /**
- * Computer Use Runtime: safety gate (plan §30, §31, §32, §33, §34).
+ * Computer Use Runtime: safety gate.
  *
  * Five refusals live here, and every one of them is a *check before acting*
  * rather than a promise in a document:
  *
- *  §34 destructive gate — DELETE / PURCHASE / SEND / PUBLISH / INSTALL / … are
+ *  destructive gate — DELETE / PURCHASE / SEND / PUBLISH / INSTALL / … are
  *      classified and then allowed, confirmed or refused by the contract.
- *  §33 window safety   — clicking screen coordinates while another window is in
+ *  window safety   — clicking screen coordinates while another window is in
  *      front is how a computer-use agent types a password into the wrong app.
- *  §31 focus safety    — typing without a verified focus is refused.
- *  §32 input safety    — secrets are never written to the log, and a long text
+ *  focus safety    — typing without a verified focus is refused.
+ *  input safety    — secrets are never written to the log, and a long text
  *      is verified after it lands.
- *  §30 modal handling  — a blocking dialog pauses the original action.
+ *  modal handling  — a blocking dialog pauses the original action.
  */
 
 const { DESTRUCTIVE_MODES } = require('./constants.cjs')
@@ -35,7 +35,7 @@ function createSafetyGuard(options = {}) {
   }
 
   /**
-   * Plan §34. Returns a decision instead of throwing so the executor can log
+   * Classifies a destructive action. Returns a decision instead of throwing so the executor can log
    * "refused" as a first-class step result; `assertActionAllowed` is the
    * throwing wrapper used right before execution.
    */
@@ -119,7 +119,7 @@ function createSafetyGuard(options = {}) {
   }
 
   /**
-   * Plan §33. `expectedWindow` is the window the action believes it is acting
+   * The window-safety check. `expectedWindow` is the window the action believes it is acting
    * on; when the foreground is something else, a coordinate click would land in
    * the wrong application and is refused.
    */
@@ -167,7 +167,7 @@ function createSafetyGuard(options = {}) {
   }
 
   /**
-   * Plan §31. Typing goes to whatever has focus, so the focus is verified
+   * The focus-safety check. Typing goes to whatever has focus, so the focus is verified
    * first: either the world reports the target as focused, or the caller
    * supplies a verified focus receipt from the FOCUS action it just ran.
    */
@@ -226,7 +226,7 @@ function createSafetyGuard(options = {}) {
   }
 
   /**
-   * Plan §30. A blocking modal is reported so the caller can pause the original
+   * The modal check. A blocking modal is reported so the caller can pause the original
    * action, handle the modal and resume — the gate never dismisses a dialog by
    * itself, because "which button is the safe one" is task knowledge.
    */
@@ -242,13 +242,13 @@ function createSafetyGuard(options = {}) {
         message: dialog.message || '',
         ref: dialog.ref || null,
         // Which surface owns the dialog decides how it is answered: a page modal
-        // through the DOM, a native dialog through UI Automation (plan §30).
+        // through the DOM, a native dialog through UI Automation.
         source: dialog.source || null,
         bounds: dialog.bounds || null,
         windowHandle: dialog.windowHandle || null,
         dismissible: dialog.dismissible === undefined ? null : Boolean(dialog.dismissible),
         // A file picker or a permission prompt is not the task's own dialog and
-        // is exactly the case the plan calls out as "unexpected modal".
+        // is exactly the case that counts as an "unexpected modal".
         unexpected: dialog.unexpected === undefined ? true : Boolean(dialog.unexpected)
       }))
     })
@@ -264,7 +264,7 @@ function createSafetyGuard(options = {}) {
     return decision
   }
 
-  /** Plan §32: what may be written to the execution log for this action. */
+  /** What may be written to the execution log for this action. */
   function redactAction(action) {
     const safe = {
       type: action.type,
@@ -283,7 +283,7 @@ function createSafetyGuard(options = {}) {
     return redactDetails(safe)
   }
 
-  /** Plan §37: never leak a secret through an error message. */
+  /** Never leak a secret through an error message. */
   function redactText(text) {
     return String(text)
       .replace(/(password|passwd|pwd|token|secret|api[-_]?key)\s*[:=]\s*\S+/gi, '$1=[redacted]')

@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: capability routing (plan §29).
+ * Computer Use Runtime: capability routing.
  *
  * "Only behave like a human when behaving like a human is the only way."
  *
@@ -12,7 +12,7 @@
  *   api  →  shell  →  dom / accessibility  →  gui  →  vision + gui
  *
  * Every decision carries a reason and an ordered alternative list, so the
- * recovery ladder (plan §19) has something concrete to escalate to instead of
+ * recovery ladder has something concrete to escalate to instead of
  * blindly retrying the same channel.
  */
 
@@ -249,9 +249,9 @@ function routingReason(channel, action) {
     case 'api':
       return action.type.startsWith('BROWSER_') ? 'browser API is the cheapest channel for a navigation action' : `${action.type} is carried by a host API`
     case 'shell':
-      return 'the shell is cheaper and more reliable than driving a GUI for this task (plan §28)'
+      return 'the shell is cheaper and more reliable than driving a GUI for this task'
     case 'file':
-      return 'the filesystem API answers the question directly - no GUI, no shell parsing (plan §28/§29)'
+      return 'the filesystem API answers the question directly - no GUI, no shell parsing'
     case 'dom':
       return 'the target resolved to a structured DOM element - no coordinates needed'
     case 'accessibility':
@@ -259,13 +259,13 @@ function routingReason(channel, action) {
     case 'gui':
       return 'no structured channel applies - using verified coordinates with window and focus safety'
     case 'vision':
-      return 'vision is required because structured state cannot address this target (plan §4.1)'
+      return 'vision is required because structured state cannot address this target'
     default:
       return `channel ${channel}`
   }
 }
 
-/** Ordered list of channels this action may fall back to (plan §18/§19). */
+/** Ordered list of channels this action may fall back to. */
 function fallbackChannels(action) {
   const plan = CHANNEL_PLANS[action.type] || []
   return [...plan]

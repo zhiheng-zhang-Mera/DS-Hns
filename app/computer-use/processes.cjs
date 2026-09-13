@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: owned development process supervision
- * (Update-Plan/24h.md Task 7, Task 13, §9 of the plan).
+ * Computer Use Runtime: owned development process supervision.
  *
  * A software-development task starts processes constantly: a build, a test run, a
  * linter, a dev server, a package manager, git. "Spawn and forget" is the failure
@@ -190,7 +189,7 @@ function createProcessRegistry(options = {}) {
   /**
    * Kill every process this runtime owns. Used by the runtime's own shutdown and
    * by the run's end: a disposable process must not survive the task that started
-   * it (24h.md Task 7: "runtime shutdown cleans owned disposable processes").
+   * it: a disposable process must not survive the task that started it.
    */
   async function dispose(reason = 'shutdown') {
     const ids = [...owned.keys()]

@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: stall detection (plan §20, §21).
+ * Computer Use Runtime: stall detection.
  *
  * A stall is not "an action failed". It is:
  *
@@ -12,7 +12,7 @@
  * meaningful state change escalates the run into stall recovery — structured
  * re-observe, window check, target re-resolution, targeted screenshot, an
  * alternative interaction — and the ladder is *bounded*, so the end of the road
- * is FAIL_WITH_CONTEXT rather than an infinite retry loop (plan §21).
+ * is FAIL_WITH_CONTEXT rather than an infinite retry loop.
  */
 
 const { STALL } = require('./constants.cjs')
@@ -64,7 +64,7 @@ function createStallDetector(options = {}) {
     }
   }
 
-  /** Plan §21: each stall recovery is counted, and the ladder has an end. */
+  /** Each stall recovery is counted, and the ladder has an end. */
   function registerRecovery() {
     recoveries += 1
     return {
@@ -102,7 +102,7 @@ function createStallDetector(options = {}) {
 }
 
 /**
- * Plan §21 — the stall recovery ladder, in order. The runtime walks it one rung
+ * The stall recovery ladder, in order. The runtime walks it one rung
  * per recovery attempt, and the last rung produces FAIL_WITH_CONTEXT: the run
  * stops with the context it gathered instead of retrying forever.
  */

@@ -1,13 +1,13 @@
 'use strict'
 
 /**
- * Computer Use Runtime: execution log (plan §39, §40; Update-Plan/24h.md Task 18).
+ * Computer Use Runtime: execution log.
  *
- * One JSON line per step, with the fields the plan asks for: step number,
+ * One JSON line per step, with the fields a post-mortem needs: step number,
  * action, target, the pre-state summary, how long stabilization took, the
  * result, the verification that decided it and the retry count. The log is
  * evidence, so it records what was observed and what was verified — never an
- * application profile, never a latency model (plan §42).
+ * application profile, never a latency model.
  *
  * A long run must be diagnosable *8 hours in* and must not grow without bound, so:
  *
@@ -19,7 +19,7 @@
  *    observation is a summary, not the tree);
  *  - errors, terminal evidence and important recovery events are always kept.
  *
- * Screenshots follow plan §40: they are written only in debug/audit mode, on a
+ * Screenshots are written only in debug/audit mode, on a
  * failing run, or when the caller explicitly asks for one. Otherwise a capture
  * is used and dropped, so a normal run does not accumulate a visual history.
  */
@@ -74,7 +74,7 @@ function createExecutionLog(options = {}) {
    * that sits in a stream buffer when the process dies is not evidence. It also
    * makes the size ceiling real — a buffered stream leaves the file on disk
    * shorter than the bytes already written, so a rotation check against it is
-   * simply wrong (Task 18).
+   * simply wrong.
    */
   function openStream(file) {
     try {
@@ -88,7 +88,7 @@ function createExecutionLog(options = {}) {
   }
 
   /**
-   * Size-based rotation (24h.md Task 18).
+   * Size-based rotation.
    *
    * The oldest rotated file is removed once the count ceiling is reached, so a
    * run that lasts hours cannot fill the disk with its own history.
@@ -150,7 +150,7 @@ function createExecutionLog(options = {}) {
         const line = `${JSON.stringify(record)}\n`
         // The ceiling is enforced against the file that is actually on disk, not
         // against this process's own arithmetic: a restarted process or a second
-        // writer makes an internal counter lie (Task 18).
+        // writer makes an internal counter lie.
         const onDisk = fileSize()
         if (onDisk !== null) written = onDisk
         // Rotate *before* the line that would cross the ceiling, so no single
@@ -180,11 +180,11 @@ function createExecutionLog(options = {}) {
   }
 
   /**
-   * Plan §39 — the per-step record. Missing fields are recorded as `null`
+   * The per-step record. Missing fields are recorded as `null`
    * rather than omitted, because "no verification happened" is exactly the
-   * condition the plan wants to be visible.
+   * condition the log wants to be visible.
    *
-   * The structured fields 24h.md Task 18 names are all present: `runId`, `taskId`,
+   * The structured fields a post-mortem needs are all present: `runId`, `taskId`,
    * `stepId`, `controller`, `action`, `verdict`, `duration`, `retry`, `reasonCode`.
    */
   function step(record = {}) {
@@ -216,7 +216,7 @@ function createExecutionLog(options = {}) {
       evidenceGrade: record.evidenceGrade || null,
       evidenceAccepted: record.evidenceAccepted === undefined ? null : Boolean(record.evidenceAccepted),
       retryCount: Number.isInteger(record.retryCount) ? record.retryCount : 0,
-      // Task 18 asks for a `retry` field by name as well as the count.
+      // A `retry` field is recorded by name as well as the count.
       retry: Number.isInteger(record.retryCount) ? record.retryCount : 0,
       attempts: Array.isArray(record.attempts) ? record.attempts : [],
       reasonCode: record.reasonCode || (error ? error.code : null),
@@ -258,7 +258,7 @@ function createExecutionLog(options = {}) {
   }
 
   /**
-   * Plan §40 — screenshot policy.
+   * Screenshot policy.
    * @returns {{retained:boolean, path:string|null, reason:string}}
    */
   function screenshot(buffer, detail = {}) {
@@ -272,7 +272,7 @@ function createExecutionLog(options = {}) {
       retained: decision.retain,
       decision: decision.reason,
       step: detail.step || null,
-      // Task 8: every capture carries why it exists, when, and which step it
+      // Every capture carries why it exists, when, and which step it
       // belongs to, so a retention decision is auditable rather than implicit.
       retention: decision.retain ? 'retained' : 'transient'
     }
@@ -340,7 +340,7 @@ function createExecutionLog(options = {}) {
   }
 }
 
-/** Plan §40 decision table, exported so the policy itself is testable. */
+/** Screenshot-retention decision table, exported so the policy itself is testable. */
 function shouldRetain({ mode, retention, reason, runFailed, explicit }) {
   if (explicit || reason === SCREENSHOT_RETENTION.REQUESTED) return { retain: true, reason: 'explicitly requested' }
   if (mode === SCREENSHOT_RETENTION.DEBUG) return { retain: true, reason: 'debug mode' }

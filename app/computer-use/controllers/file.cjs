@@ -1,13 +1,13 @@
 'use strict'
 
 /**
- * Computer Use Runtime: file controller (plan §0 capability list, §15, §38).
+ * Computer Use Runtime: file controller.
  *
  * Filesystem work is structured: it has a path, an operation and a checkable
- * outcome, so it needs no pixels and no GUI (plan §28/§29 — the cheapest
- * channel that can carry the task). This controller also *watches* files, which
+ * outcome, so it needs no pixels and no GUI — the cheapest
+ * channel that can carry the task. This controller also *watches* files, which
  * is how a "did the save actually happen?" question is answered with an event
- * instead of a polled sleep (plan §12).
+ * instead of a polled sleep.
  *
  * The workspace boundary is enforced, not advised: a contract that names a
  * workspace confines writes to it, and a delete outside it is refused.
@@ -164,7 +164,7 @@ function createFileController(options = {}) {
     return record
   }
 
-  /** Plan §3.2 system events: "file created / file modified" as real watches. */
+  /** System events: "file created / file modified" as real watches. */
   function watch(target, onEvent) {
     const resolved = path.resolve(String(target))
     if (watchers.has(resolved)) return watchers.get(resolved)
@@ -198,7 +198,7 @@ function createFileController(options = {}) {
 
   /**
    * Facts for verification and success criteria. `fileModifiedSince` answers the
-   * "did the save land?" question without a fixed sleep (plan §12).
+   * "did the save land?" question without a fixed sleep.
    */
   function facts() {
     return {

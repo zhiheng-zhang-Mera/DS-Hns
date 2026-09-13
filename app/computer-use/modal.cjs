@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: fail-safe modal handling
- * (Update-Plan/24h.md Task 2, Task 9 of the plan).
+ * Computer Use Runtime: fail-safe modal handling.
  *
  * A blocking dialog is where a computer-use agent does the most damage. The old
  * behaviour — "no semantic match, press the first button" — is exactly how an
@@ -27,7 +26,7 @@
  * guess, and it never falls back to "the first button".
  *
  * No dialog semantics are remembered between tasks: the classification is a pure
- * function of the labels in front of it (24h.md Global Constraints).
+ * function of the labels in front of it.
  */
 
 const { DESTRUCTIVE_KINDS, DESTRUCTIVE_MODES } = require('./constants.cjs')

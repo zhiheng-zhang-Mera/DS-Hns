@@ -6,28 +6,28 @@
  * Every failure carries a stable `code` so the execution log, the recovery
  * ladder and the acceptance harness can reason about *what* failed without
  * parsing English. `retryable` is the executor's only input for "is another
- * attempt worth spending" (plan §18) and `controllerId` is what lets a failure
- * stay inside one controller's fault boundary (plan §37/§38).
+ * attempt worth spending" and `controllerId` is what lets a failure stay inside
+ * one controller's fault boundary.
  */
 
 const CODES = Object.freeze({
-  // Contract and task intake (plan §35)
+  // Contract and task intake
   CONTRACT_INVALID: 'CONTRACT_INVALID',
   CONTRACT_GOAL_MISSING: 'CONTRACT_GOAL_MISSING',
   CONTRACT_LIMIT_EXCEEDED: 'CONTRACT_LIMIT_EXCEEDED',
-  // Plan selection (plan §52)
+  // Plan selection
   PLAN_EXHAUSTED: 'PLAN_EXHAUSTED',
   PLAN_INVALID: 'PLAN_INVALID',
-  // State machine (plan §51/§52)
+  // State machine
   STATE_INVALID: 'STATE_INVALID',
   STATE_TRANSITION_INVALID: 'STATE_TRANSITION_INVALID',
-  // Target resolution (plan §7/§10)
+  // Target resolution
   TARGET_INVALID: 'TARGET_INVALID',
   TARGET_NOT_FOUND: 'TARGET_NOT_FOUND',
   TARGET_STALE: 'TARGET_STALE',
   TARGET_NOT_ACTIONABLE: 'TARGET_NOT_ACTIONABLE',
   TARGET_AMBIGUOUS: 'TARGET_AMBIGUOUS',
-  // Controller availability and fault isolation (plan §37/§38)
+  // Controller availability and fault isolation
   CONTROLLER_UNAVAILABLE: 'CONTROLLER_UNAVAILABLE',
   CONTROLLER_FAILED: 'CONTROLLER_FAILED',
   CONTROLLER_TIMEOUT: 'CONTROLLER_TIMEOUT',
@@ -35,48 +35,48 @@ const CODES = Object.freeze({
   // A capability the action needs is not available right now. This is distinct
   // from CAPABILITY_NOT_ALLOWED (the contract withheld it) and from
   // CONTROLLER_UNAVAILABLE (the controller is gone): the capability exists and is
-  // permitted, but the channel that carries it is degraded. 24h.md Task 9.
+  // permitted, but the channel that carries it is degraded.
   CAPABILITY_UNAVAILABLE: 'CAPABILITY_UNAVAILABLE',
-  // Action execution (plan §6/§16)
+  // Action execution
   ACTION_UNSUPPORTED: 'ACTION_UNSUPPORTED',
   ACTION_INVALID: 'ACTION_INVALID',
   ACTION_TIMEOUT: 'ACTION_TIMEOUT',
-  // Verification and miss detection (plan §14/§17)
+  // Verification and miss detection
   VERIFICATION_FAILED: 'VERIFICATION_FAILED',
   VERIFICATION_UNKNOWN: 'VERIFICATION_UNKNOWN',
   ACTION_MISSED: 'ACTION_MISSED',
-  // Stabilization (plan §9/§10/§13)
+  // Stabilization
   UI_UNSTABLE: 'UI_UNSTABLE',
   WINDOW_MISMATCH: 'WINDOW_MISMATCH',
   FOCUS_MISMATCH: 'FOCUS_MISMATCH',
-  // Safety (plan §30/§31/§33/§34)
+  // Safety
   SAFETY_REFUSED: 'SAFETY_REFUSED',
   DESTRUCTIVE_FORBIDDEN: 'DESTRUCTIVE_FORBIDDEN',
   DESTRUCTIVE_NEEDS_CONFIRMATION: 'DESTRUCTIVE_NEEDS_CONFIRMATION',
   MODAL_BLOCKING: 'MODAL_BLOCKING',
-  // Stalls and bounds (plan §20/§21)
+  // Stalls and bounds
   STALL_DETECTED: 'STALL_DETECTED',
   STEP_LIMIT_REACHED: 'STEP_LIMIT_REACHED',
   RUN_TIMEOUT: 'RUN_TIMEOUT',
   RUN_CANCELLED: 'RUN_CANCELLED',
-  // Perception (plan §3/§4)
+  // Perception
   OBSERVATION_EMPTY: 'OBSERVATION_EMPTY',
   VISION_UNAVAILABLE: 'VISION_UNAVAILABLE',
   SCREENSHOT_FAILED: 'SCREENSHOT_FAILED',
-  // Long-running execution (Update-Plan/24h.md)
+  // Long-running execution
   //
   // Every one of these is a *bounded, reported* outcome rather than a hang: the
   // runtime either recovers, degrades or stops with evidence.
-  WORKSPACE_UNAVAILABLE: 'WORKSPACE_UNAVAILABLE',   // Task 11: no verified cwd -> BLOCK
-  WORKSPACE_MISMATCH: 'WORKSPACE_MISMATCH',         // Task 11: the cwd drifted out of the workspace
-  MUTATION_UNVERIFIED: 'MUTATION_UNVERIFIED',       // Task 12: the file effect could not be confirmed
-  COMMAND_INVALID: 'COMMAND_INVALID',               // Task 13: a shell action with no bounded contract
-  PROCESS_INVALID: 'PROCESS_INVALID',               // Task 7: a process operation with no handle
-  PROCESS_LOST: 'PROCESS_LOST',                     // Task 7: an owned process disappeared
-  RESOURCE_LIMIT: 'RESOURCE_LIMIT',                 // Task 8: the runtime's own ceiling was reached
-  RECONNECT_EXHAUSTED: 'RECONNECT_EXHAUSTED',       // Task 10: bounded reconnection gave up
-  EVIDENCE_INSUFFICIENT: 'EVIDENCE_INSUFFICIENT',   // Task 4: verified, but not strongly enough
-  STATE_INTEGRITY_UNCERTAIN: 'STATE_INTEGRITY_UNCERTAIN' // Task 20: stop rather than guess
+  WORKSPACE_UNAVAILABLE: 'WORKSPACE_UNAVAILABLE',   // no verified cwd -> BLOCK
+  WORKSPACE_MISMATCH: 'WORKSPACE_MISMATCH',         // the cwd drifted out of the workspace
+  MUTATION_UNVERIFIED: 'MUTATION_UNVERIFIED',       // the file effect could not be confirmed
+  COMMAND_INVALID: 'COMMAND_INVALID',               // a shell action with no bounded contract
+  PROCESS_INVALID: 'PROCESS_INVALID',               // a process operation with no handle
+  PROCESS_LOST: 'PROCESS_LOST',                     // an owned process disappeared
+  RESOURCE_LIMIT: 'RESOURCE_LIMIT',                 // the runtime's own ceiling was reached
+  RECONNECT_EXHAUSTED: 'RECONNECT_EXHAUSTED',       // bounded reconnection gave up
+  EVIDENCE_INSUFFICIENT: 'EVIDENCE_INSUFFICIENT',   // verified, but not strongly enough
+  STATE_INTEGRITY_UNCERTAIN: 'STATE_INTEGRITY_UNCERTAIN' // stop rather than guess
 })
 
 class ComputerUseError extends Error {
@@ -142,7 +142,7 @@ function defaultRetryable(code) {
 const SENSITIVE_KEY = /pass(word|phrase)|token|secret|api[-_]?key|credential|authorization|cookie/i
 
 /**
- * Plan §32: passwords and tokens are never written to the execution log. The
+ * Passwords and tokens are never written to the execution log. The
  * redaction is applied to error details as well, because a typed password can
  * easily end up quoted inside a failure message.
  */

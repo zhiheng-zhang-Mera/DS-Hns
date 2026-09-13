@@ -1,18 +1,18 @@
 'use strict'
 
 /**
- * Computer Use Runtime: vision controller (plan §4, §22, §48).
+ * Computer Use Runtime: vision controller.
  *
  * Vision is the fallback, never the default input source. The controller exists
- * for the cases the plan enumerates: a canvas, a WebGL surface, a custom-drawn
- * widget, a game UI, an image-only application, or a page whose structured state
- * contradicts what is on screen.
+ * for the cases that structured state cannot reach: a canvas, a WebGL surface, a
+ * custom-drawn widget, a game UI, an image-only application, or a page whose
+ * structured state contradicts what is on screen.
  *
  * Two things keep this honest:
  *  - screenshots are *levelled* (region → window → full), and the level only
- *    climbs during recovery (plan §22);
+ *    climbs during recovery;
  *  - a detected target is reported with a score and a bounding box that is then
- *    revalidated like any other coordinate (plan §10), so a visual hit never
+ *    revalidated like any other coordinate, so a visual hit never
  *    becomes an unverified click.
  *
  * The image processing is pure Node: PNG decode is the repository's own codec
@@ -67,7 +67,7 @@ function createVisionController(options = {}) {
   }
 
   /**
-   * Plan §4.2: capture at the requested level only. `captureFull` is refused
+   * Capture at the requested level only. `captureFull` is refused
    * unless the caller either asked for it explicitly or the contract allows the
    * escalation.
    */
@@ -115,7 +115,7 @@ function createVisionController(options = {}) {
   }
 
   /**
-   * Plan §48 — visual target detection, two documented strategies:
+   * Visual target detection, two documented strategies:
    *  1. `template` (a PNG path or buffer): sliding-window normalised match.
    *  2. `paint` ({color, width, height}): colour-region search, which is what a
    *     canvas-painted control actually looks like.
@@ -185,7 +185,7 @@ function createVisionController(options = {}) {
   }
 
   /**
-   * Plan §10 for visual targets: a detected rectangle is re-detected before it
+   * For visual targets: a detected rectangle is re-detected before it
    * is clicked. Same thresholds as every other target.
    */
   function revalidateVisual(previous, current, thresholds = { stablePx: 3, updatePx: 10 }) {
@@ -198,7 +198,7 @@ function createVisionController(options = {}) {
   }
 
   /**
-   * Plan §13/§15: a pixel comparison used as a *stability* signal and as visual
+   * A pixel comparison used as a *stability* signal and as visual
    * verification. The ratio is the share of sampled pixels that changed.
    */
   function compare(before, after, options_ = {}) {
@@ -233,7 +233,7 @@ function createVisionController(options = {}) {
   }
 
   /**
-   * Plan §22 — the escalation ladder. The level only ever climbs by one rung,
+   * The escalation ladder. The level only ever climbs by one rung,
    * and a full-screen capture additionally requires the contract's permission.
    */
   function nextLevel(currentLevel, context = {}) {
@@ -250,7 +250,7 @@ function createVisionController(options = {}) {
     const image = decode(capture_)
     if (!previous) {
       // No baseline: the fact cannot be established, and `null` is reported as
-      // `unknown` rather than as a change (plan §46).
+      // `unknown` rather than as a change.
       return null
     }
     const result = compare(previous, image, effect)

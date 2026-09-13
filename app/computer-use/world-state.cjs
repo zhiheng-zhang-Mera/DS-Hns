@@ -1,18 +1,18 @@
 'use strict'
 
 /**
- * Computer Use Runtime: World State (plan §5).
+ * Computer Use Runtime: World State.
  *
  * Perception from every source is folded into one short-lived structure that
  * serves the *current* task: what app is in front, what page is loaded, which
  * control has focus, which targets are reachable, what the system just did.
  *
- * Two rules from the plan are enforced here rather than promised in prose:
+ * Two rules are enforced here rather than promised in prose:
  *
- *  - The world state is discarded when the task ends (plan §5). `discard()`
+ *  - The world state is discarded when the task ends. `discard()`
  *    erases the contents, and nothing in this module writes to disk, so there
- *    is no path from "observed the UI" to "learned the application" (plan §42).
- *  - Progress is judged on *meaningful* change, not on any change (plan §20).
+ *    is no path from "observed the UI" to "learned the application".
+ *  - Progress is judged on *meaningful* change, not on any change.
  *    A spinner that mutates the DOM forever must not look like progress, while a
  *    toast, a navigation, a window switch or a control state flip must.
  */
@@ -38,7 +38,7 @@ const MEANINGFUL_FIELDS = Object.freeze([
 /**
  * Builds a world state from whatever the observation sources managed to
  * collect. Missing sources are recorded as unavailable, with their reason —
- * they must never be silently replaced by a guess (plan §3/§37).
+ * they must never be silently replaced by a guess.
  */
 function createWorldState(parts = {}) {
   const browser = parts.browser || {}
@@ -128,7 +128,7 @@ function defaultVisibleTargets(controls) {
 }
 
 /**
- * Plan §5 confidence: how much of the picture is actually structured and
+ * Confidence: how much of the picture is actually structured and
  * current. A screenshot-only world state is possible but is reported as low
  * confidence instead of being mistaken for structured knowledge.
  */
@@ -175,13 +175,13 @@ function pickMeaningful(world) {
 }
 
 /**
- * Plan §20/§13: did anything *meaningful* change between two observations?
+ * Did anything *meaningful* change between two observations?
  *
  * Two things are deliberately excluded. DOM revision churn, because an
  * animation loop must not be able to hide a stalled task. And the runtime's own
  * bookkeeping (`lastAction`), because the action we just issued is not a change
  * in the environment — counting it would make every step look like progress and
- * stall detection (plan §20) could never fire.
+ * stall detection could never fire.
  */
 function meaningfulChange(previous, next) {
   if (!previous) return { changed: true, fields: ['<first observation>'], meaningful: true }
@@ -199,7 +199,7 @@ function meaningfulChange(previous, next) {
 }
 
 /**
- * The broad evidence digest, used by verification (plan §15) rather than by
+ * The broad evidence digest, used by verification rather than by
  * stall detection: it includes DOM revision and the event stream, because a
  * mutation *is* evidence that something happened.
  */
@@ -213,7 +213,7 @@ function evidenceDigest(world) {
   })
 }
 
-/** Compact, log-safe summary (plan §39 — a step log carries a summary, not the tree). */
+/** Compact, log-safe summary (a step log carries a summary, not the tree). */
 function summarizeWorldState(world) {
   if (!world) return null
   return {
@@ -239,7 +239,7 @@ function summarizeWorldState(world) {
 }
 
 /**
- * Plan §5: a task's world state is dropped when the task ends. The object is
+ * A task's world state is dropped when the task ends. The object is
  * emptied (not just dereferenced) so a stale reference cannot keep observing.
  */
 function discardWorldState(world) {

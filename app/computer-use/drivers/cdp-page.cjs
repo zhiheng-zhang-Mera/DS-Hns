@@ -3,7 +3,7 @@
 /**
  * Computer Use Runtime: Chromium page adapter over the Chrome DevTools Protocol.
  *
- * This is the production implementation of the `page` port (plan §26, §3.2). It
+ * This is the production implementation of the `page` port. It
  * is written against a *transport*, not against Electron, so the same adapter
  * drives:
  *
@@ -14,7 +14,7 @@
  * and, in tests, an in-process device. The adapter never guesses: it reads the
  * DOM and the accessibility tree, dispatches *real* input events through CDP,
  * and reports what actually happened (including "the click was swallowed"),
- * which is what the miss detector (plan §17) and the verifier (plan §14) need.
+ * which is what the miss detector and the verifier need.
  *
  * Everything the adapter injects into the page is a small, documented helper:
  * a mutation counter and a ref registry. No page is ever asked to change its
@@ -312,7 +312,7 @@ function createCdpPage(options = {}) {
         focusedRef: active && state.refFor ? state.refFor(active) : null,
         viewport: { x: 0, y: 0, width: window.innerWidth, height: window.innerHeight },
         controls,
-        // Plan §30: a DOM modal is an open dialog the runtime has to notice. It
+        // A DOM modal is an open dialog the runtime has to notice. It
         // is reported separately from the interactive controls, because an
         // overlay is exactly what makes those controls unclickable.
         modals: Array.from(document.querySelectorAll('[role=dialog],[role=alertdialog],[aria-modal="true"]')).map((element) => ({
@@ -398,7 +398,7 @@ function createCdpPage(options = {}) {
   }
 
   /**
-   * Plan §17/§33 at the page level: before clicking, ask the page what is
+   * The page-level hit test: before clicking, ask the page what is
    * actually at that point. A covered element is reported as covered instead of
    * being clicked blindly.
    */
@@ -455,13 +455,13 @@ function createCdpPage(options = {}) {
       await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...base, clickCount: count })
     }
 
-    // Plan §17: "the action was issued" is not "the action had an effect".
+    // "The action was issued" is not "the action had an effect".
     // The page-side counter decides, not optimism.
     const after = await evaluate('window.__dshCu ? window.__dshCu.revision : 0')
     const missed = revisionBefore !== null && after === revisionBefore
     if (missed) {
       // One short grace before declaring a miss: a handler may schedule its
-      // mutation on a microtask or a rAF (plan §11).
+      // mutation on a microtask or a rAF.
       await clock.sleep(30)
       const later = await evaluate('window.__dshCu ? window.__dshCu.revision : 0')
       return { ok: true, point, ref, missed: later === revisionBefore, changed: later !== revisionBefore, revisionBefore, revisionAfter: later }
@@ -483,7 +483,7 @@ function createCdpPage(options = {}) {
 
   /**
    * Real typing. The value is inserted through CDP so the page sees genuine
-   * input events; the value is read back so the caller can verify it (plan §32).
+   * input events; the value is read back so the caller can verify it.
    */
   async function typeText(ref, text, typeOptions = {}) {
     await attach()
@@ -611,7 +611,7 @@ function createCdpPage(options = {}) {
   }
 
   /**
-   * Plan §12: conditional, event-driven waiting. The timeout is a ceiling; the
+   * Conditional, event-driven waiting. The timeout is a ceiling; the
    * wait ends the moment the condition is true.
    */
   async function waitFor(waitOptions = {}) {

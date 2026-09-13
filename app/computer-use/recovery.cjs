@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the recovery ladder (plan §18, §19, §21, §22;
- * Update-Plan/24h.md Task 17).
+ * Computer Use Runtime: the recovery ladder.
  *
  *   retry  →  revalidate  →  re-observe  →  alternative action  →  replan  →  escalate
  *
@@ -10,9 +9,9 @@
  * which rung comes next, what an alternative interaction is for a given action
  * (a swallowed mouse click becomes an accessibility invoke, which becomes a DOM
  * click), and when the budget is spent, so the runtime can fail locally with
- * context instead of looping (plan §21: 禁止无限 retry).
+ * context instead of looping (never an unbounded retry).
  *
- * It is also **not** allowed to change what the task is (24h.md Task 17). It can
+ * It is also **not** allowed to change what the task is. It can
  * never touch the goal, the success criteria or the plan; the most it can say is
  * that a human or an upper layer has to decide. Every decision therefore carries a
  * *verdict* from a closed vocabulary:
@@ -25,7 +24,7 @@
  *                           contract did not authorize)
  *   FAILED                  stop with the context that was gathered
  *
- * Screenshot escalation is part of the same ladder (plan §22): a first miss may
+ * Screenshot escalation is part of the same ladder: a first miss may
  * never buy a full-screen capture. The visual level climbs one rung at a time.
  */
 
@@ -45,7 +44,7 @@ const RECOVERY_STEPS = Object.freeze([
   'fail'
 ])
 
-/** The verdict vocabulary. Nothing else may be reported (Task 17). */
+/** The verdict vocabulary. Nothing else may be reported. */
 const RECOVERY_VERDICTS = Object.freeze({
   RETRYABLE: 'RETRYABLE',
   ALTERNATIVE_AVAILABLE: 'ALTERNATIVE_AVAILABLE',
@@ -77,9 +76,9 @@ const USER_ACTION_CODES = Object.freeze([
   CODES.WORKSPACE_UNAVAILABLE,
   CODES.WORKSPACE_MISMATCH,
   CODES.CAPABILITY_NOT_ALLOWED,
-  // Task 9: the channel this action needs is gone. Retrying spends the budget
+  // The channel this action needs is gone. Retrying spends the budget
   // against a capability that is not coming back on its own, so the honest
-  // answer is "a decision or a different channel is needed" (Task 20).
+  // answer is "a decision or a different channel is needed".
   CODES.CAPABILITY_UNAVAILABLE,
   CODES.STATE_INTEGRITY_UNCERTAIN
 ])
@@ -113,7 +112,7 @@ function createRecoveryController(options = {}) {
     const attemptsAllowed = action && action.retry ? action.retry.maxAttempts : maxRetriesPerAction
     const stallRecoveries = Number.isInteger(failure.stallRecoveries) ? failure.stallRecoveries : 0
     const visualLevel = failure.visualLevel || SCREENSHOT_LEVELS.NONE
-    // Plan §21 ("禁止无限 retry"): the ladder for one step is bounded by a round
+    // The ladder for one step is bounded by a round
     // count, independent of how the attempts were spent — retry, alternative
     // and replan all draw from the same small budget.
     const recoveryRounds = Number.isInteger(failure.recoveryRounds) ? failure.recoveryRounds : 0
@@ -158,7 +157,7 @@ function createRecoveryController(options = {}) {
     }
 
     // Rung 1 — a bounded retry, but only after revalidating the target
-    // (plan §18: "revalidate target → retry"). `attempt` is the attempt that
+    // (revalidate the target, then retry). `attempt` is the attempt that
     // just failed, so another is available only while attempt < maxAttempts.
     if (attempt < attemptsAllowed) {
       const escalateVisual = attempt > 1
@@ -183,7 +182,7 @@ function createRecoveryController(options = {}) {
       usedChannel: failure.usedChannel || failure.channel || null,
       point: failure.point || null,
       resolved: failure.resolved || null,
-      // Plan §35: the contract is the authority — an alternative that needs a
+      // The contract is the authority — an alternative that needs a
       // capability the contract withheld is not an alternative at all.
       allowedCapabilities: failure.allowedCapabilities || null,
       context: failure.context || {}
@@ -227,7 +226,7 @@ function createRecoveryController(options = {}) {
   }
 
   /**
-   * Plan §22: one rung at a time, and the full screen only when the contract
+   * One rung at a time, and the full screen only when the contract
    * allows it and the cheaper levels are exhausted.
    */
   function nextVisualLevel(current, ceiling = visualLevelCeiling) {
@@ -249,11 +248,11 @@ function createRecoveryController(options = {}) {
   }
 
   /**
-   * Records a stall recovery (plan §21) and reports the next ladder rung.
+   * Records a stall recovery and reports the next ladder rung.
    *
    * The ladder itself lives in `stall.cjs` so there is exactly one definition of
-   * what the rungs are (24h.md Task 6: the executor, the recovery module and the
-   * stall module must not each carry their own copy).
+   * what the rungs are: the executor, the recovery module and the
+   * stall module must not each carry their own copy.
    */
   function stallStep(index) {
     const position = Math.max(0, Math.min(Number(index) || 0, STALL_RECOVERY_LADDER.length - 1))
@@ -287,7 +286,7 @@ function createRecoveryController(options = {}) {
 }
 
 /**
- * Plan §18 — what else could carry the same intent.
+ * What else could carry the same intent.
  * The mapping is by *intent*, not by action type: "activate this element",
  * "put this text in this field", "point at this place".
  */

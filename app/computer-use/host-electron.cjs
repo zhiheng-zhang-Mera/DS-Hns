@@ -11,8 +11,7 @@
  *
  * Every port is built lazily and behind a try/catch: on a machine without
  * koffi, without PowerShell UI Automation, or without an interactive desktop,
- * the runtime still starts and simply reports which controllers are degraded
- * (plan §37/§38).
+ * the runtime still starts and simply reports which controllers are degraded.
  */
 
 const path = require('node:path')
@@ -87,7 +86,7 @@ function createElectronHost(options = {}) {
     host: {
       // The shell's visible surface can be replaced while the runtime is alive, so
       // the page is re-attached per run instead of being frozen at construction
-      // time (24h.md Task 10: reconstruct the transient execution context).
+      // time (reconstruct the transient execution context per run).
       getPage: currentPage,
       desktop: win32,
       accessibility: uia,

@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: self-health snapshot
- * (Update-Plan/24h.md Task 19, Task 20, §21/§22 of the plan).
+ * Computer Use Runtime: self-health snapshot.
  *
  * The upper layer needs one question answered cheaply and honestly:
  *
@@ -13,7 +12,7 @@
  * is still happening — and it answers `blocked` when continuing would mean acting
  * on a state the runtime cannot vouch for.
  *
- * The block conditions are deliberately narrow (24h.md Task 20): a single failed
+ * The block conditions are deliberately narrow: a single failed
  * action must not make a task fatal, and a single failed controller must not make
  * the runtime fatal. What stops the runtime is a condition under which *no*
  * correct action exists:
@@ -189,7 +188,7 @@ function buildHealthSnapshot(input = {}) {
  * Can this runtime execute an action that needs `capability`?
  *
  * A missing capability is `CAPABILITY_UNAVAILABLE` — a reported outcome for that
- * action, never a runtime crash (24h.md Task 9).
+ * action, never a runtime crash.
  */
 function capabilityVerdict(snapshot, capability) {
   if (!capability) return { ok: true, reason: 'the action declares no capability' }
@@ -198,7 +197,7 @@ function capabilityVerdict(snapshot, capability) {
   const ids = controllerIdsFor(capability)
   const known = ids.filter((id) => capabilities[id])
   // No controller claims this capability at all. That is *not* "fine": an action
-  // that needs a channel nobody carries cannot run (Task 9).
+  // that needs a channel nobody carries cannot run.
   if (!known.length) return { ok: false, reason: `no controller carries the "${capability}" capability` }
   if (capabilityIsUsable(capabilities, capability)) {
     const degraded = known.every((id) => capabilities[id].degraded)

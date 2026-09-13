@@ -1,22 +1,22 @@
 'use strict'
 
 /**
- * Computer Use Runtime: autonomous continuation (plan §49).
+ * Computer Use Runtime: autonomous continuation.
  *
  * "Keep going by yourself until the task is genuinely finished, or until a
  * bounded stop condition is reached — instead of asking a human to press
  * continue after every hiccup."
  *
- * The plan is explicit that this is a *flag wired into the loop*, not a new
+ * This is a *flag wired into the loop*, not a new
  * brain: `autonomyEnabled` decides whether a stopped run is re-issued with the
  * remaining plan, how many continuation rounds are allowed, and which stops are
- * final. Nothing here learns anything about the application (plan §42): the
+ * final. Nothing here learns anything about the application: the
  * decision uses only the run's own evidence and its remaining budget.
  */
 
 const { CODES } = require('./errors.cjs')
 
-/** Stops that no amount of continuation may override (plan §34/§35). */
+/** Stops that no amount of continuation may override. */
 const FINAL_CODES = Object.freeze([
   CODES.SAFETY_REFUSED,
   CODES.DESTRUCTIVE_FORBIDDEN,

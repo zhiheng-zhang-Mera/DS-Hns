@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: fault boundaries (plan §37, §38).
+ * Computer Use Runtime: fault boundaries.
  *
  *   ComputerUseRuntime
  *    ├─ BrowserController   ├─ VisionController

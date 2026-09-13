@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the explicit state machine (plan §51, §52).
+ * Computer Use Runtime: the explicit state machine.
  *
  * The loop is a state machine rather than a pile of nested callbacks for one
  * practical reason: a run has to be *auditable* while it is happening. The
@@ -39,7 +39,7 @@ function createStateMachine(options = {}) {
       try {
         options.onTransition({ from: history[history.length - 1].from, to: next, meta: meta || {} })
       } catch {
-        // A listener must never be able to break the run (plan §37).
+        // A listener must never be able to break the run.
       }
     }
     return current

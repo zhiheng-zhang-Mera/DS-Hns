@@ -1,19 +1,19 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the Action Contract (plan §6, §16).
+ * Computer Use Runtime: the Action Contract.
  *
  * Every interaction with the machine — a click, a keystroke, a shell command, a
  * screenshot — is described by *one* schema before anything happens. The
  * executor refuses to run an action it cannot validate, which is what keeps the
- * upper layers from smuggling a raw pyautogui-style script past the runtime
- * (plan §6: "上层不应直接生成 pyautogui 脚本").
+ * upper layers from smuggling a raw pyautogui-style script past the runtime:
+ * an upper layer must never generate a pyautogui script directly.
  *
  * The schema is intentionally declarative: a target (how to find the thing), a
  * precondition (what must already be true), a stabilization window (how long to
  * let the UI settle), an expected effect (how success will be *verified*) and a
  * bounded retry budget. Verification is part of the action, never an
- * afterthought (plan §14).
+ * afterthought.
  */
 
 const { ACTION_TYPES, ACTION_TYPE_LIST, ACTION_CAPABILITY, TIMING, RETRY, DESTRUCTIVE_KINDS } = require('./constants.cjs')
@@ -102,7 +102,7 @@ function isPlainObject(value) {
  * Accepted inputs:
  *   - a bare action type string ('BROWSER_REFRESH')
  *   - `{ type, target, ... }`
- *   - `{ action: { type, target, ... } }` (the YAML shape in plan §16)
+ *   - `{ action: { type, target, ... } }` (the documented YAML shape)
  */
 function normalizeAction(input, options = {}) {
   if (typeof input === 'string') return buildAction({ type: input }, options)
@@ -132,7 +132,7 @@ function buildAction(body, options = {}) {
     capability: ACTION_CAPABILITY[type] || 'desktop',
     target,
     params,
-    // Plan §16: precondition.target_exists / target_enabled are first-class.
+    // precondition.target_exists / target_enabled are first-class.
     precondition: normalizePrecondition(body.precondition),
     stabilization: normalizeStabilization(body.stabilization, options),
     expectedEffect: normalizeExpectedEffect(body.expected_effect || body.expectedEffect),
@@ -141,7 +141,7 @@ function buildAction(body, options = {}) {
     destructive: normalizeDestructive(body.destructive || body.safety),
     id: body.id ? String(body.id) : null,
     description: body.description ? String(body.description) : null,
-    // Plan §39: the log records what was asked for, not the secrets typed into it.
+    // The log records what was asked for, not the secrets typed into it.
     sensitive: Boolean(body.sensitive || body.secret)
   }
   validateAction(action)
@@ -177,9 +177,9 @@ function normalizePrecondition(input) {
 }
 
 /**
- * Plan §9/§16: the pre-action settling window. `minimum_ms` is what the author
+ * The pre-action settling window. `minimum_ms` is what the author
  * asks for; it is clamped into the documented band so an action cannot order a
- * two-second sleep and call it stabilization (plan §25).
+ * two-second sleep and call it stabilization.
  */
 function normalizeStabilization(input, options = {}) {
   const raw = isPlainObject(input) ? input : {}
@@ -228,7 +228,7 @@ function normalizeRetry(input, options = {}) {
   )
   return {
     maxAttempts,
-    // Plan §18: the second attempt must not be a blind repeat — it uses a
+    // The second attempt must not be a blind repeat — it uses a
     // different interaction channel where one exists.
     allowAlternative: raw.allow_alternative === undefined ? true : Boolean(raw.allow_alternative),
     backoffMs: clamp(numberOr(raw.backoff_ms ?? raw.backoffMs, TIMING.cooldownBaseMs), 0, TIMING.cooldownSoftMaxMs)
@@ -250,7 +250,7 @@ function normalizeDestructive(input) {
 }
 
 /**
- * Plan §16: an action that is missing the thing it must act on is rejected at
+ * An action that is missing the thing it must act on is rejected at
  * build time, not discovered halfway through an execution run.
  */
 function validateAction(action) {
@@ -296,7 +296,7 @@ function requiresTarget(action) {
     ACTION_TYPES.ACCESSIBILITY_SET_VALUE, ACTION_TYPES.FOCUS, ACTION_TYPES.SELECT].includes(action.type)
 }
 
-/** A short, log-safe description of the action (plan §39). */
+/** A short, log-safe description of the action. */
 function describeAction(action) {
   const parts = [action.type]
   if (action.target) parts.push(describeTarget(action.target))
@@ -314,14 +314,14 @@ function truncate(value, max) {
   return text.length > max ? `${text.slice(0, max)}...` : text
 }
 
-/** Plan §34: the executor asks this before running anything dangerous. */
+/** The executor asks this before running anything dangerous. */
 function destructiveKinds(action) {
   if (action.destructive && Array.isArray(action.destructive.kinds) && action.destructive.kinds.length) {
     return action.destructive.kinds.slice()
   }
   const kinds = []
   // A file deletion is a deletion, whether it is expressed as a structured
-  // action or as a shell command (plan §34).
+  // action or as a shell command.
   if (action.type === ACTION_TYPES.FILE_DELETE) kinds.push('DELETE')
   const command = String(action.params.command || '')
   if (action.type === ACTION_TYPES.SHELL_EXEC) {

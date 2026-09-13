@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: verification (plan §14, §15, §46).
+ * Computer Use Runtime: verification.
  *
  * Every meaningful action is verified, and every verification answers with one
  * of exactly three values:
@@ -44,7 +44,7 @@ function createVerifier(options = {}) {
     }
 
     if (!effects.length) {
-      // Plan §14/§15: an action that declares no effect still gets verified.
+      // An action that declares no effect still gets verified.
       // Some actions have an *implied* state to check rather than a change:
       // "focus this window" is verified by the window being in front, "close
       // this window" by the window being gone. Checking those directly is more
@@ -53,7 +53,7 @@ function createVerifier(options = {}) {
       if (implied) return finish(implied.verdict, implied.kind, [implied.evidence], clock.now())
 
       // Otherwise the implicit expectation is "something changed". This is
-      // exactly the check that catches a missed click (plan §17). It uses the
+      // exactly the check that catches a missed click. It uses the
       // *evidence* digest (DOM revision, event stream, value) rather than the
       // stricter progress signature: a mutation is evidence that the action had
       // an effect, while whether it was *progress* is the stall detector's
@@ -405,7 +405,7 @@ function targetPresent(world, action) {
   return Boolean(findControl(world, action))
 }
 
-/** Plan §17: "the control's own state changed" — the strongest direct signal. */
+/** "The control's own state changed" — the strongest direct signal. */
 function targetChange(action, before, after) {
   const first = findControl(before, action)
   const second = findControl(after, action)

@@ -18,9 +18,9 @@ Goal -> Observe -> Act -> Verify -> Recover if needed -> Continue -> Finish
 ```
 
 It is deliberately **not** a planner, **not** a learner and **not** a profile of
-your applications. Long-term planning belongs to Boss or another upper agent;
-this runtime adapts to the *current state* of the machine and discards what it
-observed when the task ends (plan §1, §5, §42).
+your applications. Long-term planning belongs to the calling orchestration layer
+or another upper layer; this runtime adapts to the *current state* of the machine
+and discards what it observed when the task ends.
 
 Design rules, in priority order:
 
@@ -43,24 +43,24 @@ app/computer-use/                     the runtime (Electron-free core)
   constants.cjs                       the closed vocabulary (actions, states, timings)
   errors.cjs                          typed failures with stable codes
   ports.cjs                           the interfaces a host injects
-  contract.cjs                        plan §35 execution contract
-  criteria.cjs                        plan §36 success criteria
-  action.cjs                          plan §6/§16 action contract
-  target.cjs                          plan §7/§10 target ladder + revalidation
-  world-state.cjs                     plan §5 world state, progress vs evidence
-  state-machine.cjs                   plan §51/§52 states and legal transitions
-  safety.cjs                          plan §30-§34 gates
-  routing.cjs                         plan §29 capability routing
-  log.cjs                             plan §39/§40 execution log + screenshot policy
-  stabilization.cjs                   plan §8-§13, §23-§25 settle/grace/cooldown
-  verification.cjs                    plan §14/§15/§46 three-state verification
-  miss.cjs                            plan §17 miss detection
-  recovery.cjs                        plan §18/§19/§21/§22 recovery ladder
-  stall.cjs                           plan §20/§21 stall detection and ladder
-  observer.cjs                        plan §3 structured observation with fault boundaries
-  executor.cjs                        plan §2/§43/§52 the closed loop
-  isolation.cjs                       plan §37/§38 per-controller fault boundaries
-  autonomy.cjs                        plan §49 autonomous continuation
+  contract.cjs                        the execution contract
+  criteria.cjs                        success criteria
+  action.cjs                          the action contract
+  target.cjs                          target ladder + revalidation
+  world-state.cjs                     world state, progress vs evidence
+  state-machine.cjs                   states and legal transitions
+  safety.cjs                          the safety gates
+  routing.cjs                         capability routing
+  log.cjs                             execution log + screenshot policy
+  stabilization.cjs                   settle/grace/cooldown
+  verification.cjs                    three-state verification
+  miss.cjs                            miss detection
+  recovery.cjs                        the recovery ladder
+  stall.cjs                           stall detection and ladder
+  observer.cjs                        structured observation with fault boundaries
+  executor.cjs                        the closed loop
+  isolation.cjs                       per-controller fault boundaries
+  autonomy.cjs                        autonomous continuation
   host-electron.cjs                   the only file that knows about Electron objects
   controllers/                        browser, desktop, vision, shell, file
   drivers/                            cdp-page, win32(+ps1), uia(+ps1), screenshot(+ps1)
@@ -105,8 +105,8 @@ contract and reads reports; it never drives the machine itself.
 }
 ```
 
-* **Success criteria decide completion.** "The script finished" is not completion
-  (plan §36). A contract without criteria is judged by the implicit criterion
+* **Success criteria decide completion.** "The script finished" is not completion.
+  A contract without criteria is judged by the implicit criterion
   "every planned step ran and was verified"; an empty contract can never report
   success.
 * **`confirm`** for a destructive action with no confirmation channel is a
@@ -114,11 +114,11 @@ contract and reads reports; it never drives the machine itself.
   panel supplies the contract's own callback.
 * **Nothing can widen its own contract.** The allowed capabilities are checked
   before every action, and an alternative interaction that would need a withheld
-  capability is not offered (plan §35).
+  capability is not offered.
 
 ---
 
-## 4. Action surface (plan §6 + file capability)
+## 4. Action surface (structured actions + file capability)
 
 ```text
 MOVE  CLICK  DOUBLE_CLICK  RIGHT_CLICK          TYPE  KEY_PRESS  HOTKEY
@@ -133,7 +133,7 @@ FILE_READ  FILE_WRITE  FILE_COPY  FILE_MOVE  FILE_DELETE  FILE_MKDIR  FILE_EXIST
 Every action carries `target`, `precondition`, `stabilization`, `expected_effect`,
 `timeout_ms` and `retry`. The executor refuses to run an action it cannot
 validate, so an upper layer cannot smuggle a raw pyautogui-style script past the
-runtime (plan §43).
+runtime.
 
 ---
 
@@ -166,7 +166,7 @@ structured re-observe -> window check -> target re-resolution -> targeted screen
 -> alternative interaction -> replan -> full screenshot -> FAIL_WITH_CONTEXT
 ```
 
-Capability routing (plan §29):
+Capability routing:
 
 ```text
 api  ->  file  ->  shell  ->  dom / accessibility  ->  gui  ->  vision + gui
@@ -180,7 +180,7 @@ needs the visual level the contract allows.
 
 ## 6. Perception and vision
 
-Priority is fixed (plan §3.1): structured state, then system events, then
+Priority is fixed: structured state, then system events, then
 targeted vision, then a full screenshot.
 
 * **Browser:** DOM, accessibility tree, URL/title/loading/revision, tabs, DOM
@@ -192,7 +192,7 @@ targeted vision, then a full screenshot.
   from the window list (`#32770` and other dialog classes).
 * **Vision levels:** region (1) → window (2) → full (3). The level climbs one
   rung per recovery and a full-screen capture additionally needs the contract's
-  permission (plan §22). A *visual target* (`{"visual": {"paint": {...}}}` or a
+  permission. A *visual target* (`{"visual": {"paint": {...}}}` or a
   template) inside a page is looked for in the page's own viewport capture, and
   the hit is converted device-pixels → CSS-pixels → screen-pixels before a real
   click is issued.
@@ -205,11 +205,11 @@ targeted vision, then a full screenshot.
 
 | Gate | Behaviour |
 | --- | --- |
-| §30 modal | A blocking dialog (page modal, JS dialog, `#32770`) pauses the action; the runtime dismisses it with the dialog's **own** control and resumes the original action. It never guesses which button is safe, and it refuses to dismiss dialogs in a loop. |
-| §31 focus | Typing requires verified focus: the target must be the focused element, or a verified FOCUS receipt. Otherwise the runtime inserts a FOCUS step instead of typing blind. |
-| §32 input | Passwords/tokens are redacted from the action, from the step log and from the world-state summary of *later* steps. The log records `[redacted]`. |
-| §33 window | A coordinate click is refused unless the expected window is in front; an unobservable foreground is a refusal, not a guess. |
-| §34 destructive | DELETE / FORMAT / INSTALL / PUBLISH … are classified, then allowed, confirmed (host dialog) or refused by the contract. The shell command deny-list is enforced independently. |
+| Modal | A blocking dialog (page modal, JS dialog, `#32770`) pauses the action; the runtime dismisses it with the dialog's **own** control and resumes the original action. It never guesses which button is safe, and it refuses to dismiss dialogs in a loop. |
+| Focus | Typing requires verified focus: the target must be the focused element, or a verified FOCUS receipt. Otherwise the runtime inserts a FOCUS step instead of typing blind. |
+| Input | Passwords/tokens are redacted from the action, from the step log and from the world-state summary of *later* steps. The log records `[redacted]`. |
+| Window | A coordinate click is refused unless the expected window is in front; an unobservable foreground is a refusal, not a guess. |
+| Destructive | DELETE / FORMAT / INSTALL / PUBLISH … are classified, then allowed, confirmed (host dialog) or refused by the contract. The shell command deny-list is enforced independently. |
 
 ---
 
@@ -228,7 +228,7 @@ One JSON line per step (`logs/computer-use/<task>.jsonl`):
 * A degraded source is part of the step's pre-state: a summary that hid "the
   desktop controller timed out" would hide the reason a step failed.
 * Screenshots are written only in debug/audit mode, on a failing run, or when
-  explicitly requested (plan §40); otherwise a capture is used and dropped.
+  explicitly requested; otherwise a capture is used and dropped.
 * No application profile, no latency model, no user data ever reaches the log.
 
 ---
@@ -283,7 +283,7 @@ also has a wall-clock ceiling, so a stuck environment cannot hang the run.
 
 ---
 
-## 10. Acceptance: the ten cases (plan §53)
+## 10. Acceptance: the ten cases
 
 | # | Case | What the runtime must prove |
 | --- | --- | --- |
@@ -368,7 +368,11 @@ Known limits, stated rather than hidden:
 
 ---
 
-## 13. Long-running execution (Update-Plan/24h.md Tasks 1–20)
+## 13. Long-running execution (original plan items 1–20)
+
+> The `Task N` labels below are the original plan's task numbers. They are kept
+> as historical labels for traceability; the guarantees themselves are stated in
+> full here and in the source that owns each one.
 
 The ten acceptance cases prove a *task* can finish. They do not prove an executor
 can run for hours, which is a different failure mode: nothing crashes, the state
@@ -501,7 +505,7 @@ guesses.
 
 ---
 
-## 14. Non-goals (plan §42)
+## 14. Non-goals
 
 No app-specific learning, no latency learning, no reinforcement learning, no
 user-behaviour modelling, no record-and-learn, no long-term accumulation of

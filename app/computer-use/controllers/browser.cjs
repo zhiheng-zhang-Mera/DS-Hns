@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: browser controller (plan §26, §3.2).
+ * Computer Use Runtime: browser controller.
  *
  * Order of preference is fixed: DOM, then accessibility, then the browser API,
  * and only then vision. That is why this controller works entirely against a
@@ -10,7 +10,7 @@
  *
  * The important property it gives the runtime is identity: a DOM click targets
  * a node, not a coordinate, so a button that moved by 80 ms of animation is
- * still the same button (plan §10). Coordinates only enter the picture when the
+ * still the same button. Coordinates only enter the picture when the
  * router has exhausted the structured channels.
  */
 
@@ -71,7 +71,7 @@ function createBrowserController(options = {}) {
   }
 
   /**
-   * Plan §3.2 structured state: URL, title, DOM, accessibility tree, controls,
+   * Structured browser state: URL, title, DOM, accessibility tree, controls,
    * loading/navigation state, tabs, focused element.
    */
   async function snapshot() {
@@ -96,7 +96,7 @@ function createBrowserController(options = {}) {
   }
 
   /**
-   * Plan §30: an unexpected modal is a structured observation, not a surprise.
+   * An unexpected modal is a structured observation, not a surprise.
    * Two shapes count — a native JS dialog (`dialogs`) and a DOM modal
    * (`modals`: a real `role="dialog"` node with its own dismiss control) — and
    * both are reported as blocking, so the executor pauses the original action
@@ -125,7 +125,7 @@ function createBrowserController(options = {}) {
     return dialogs
   }
 
-  /** Plan §3.2 accessibility tree, used when a DOM handle is not enough. */
+  /** The accessibility tree, used when a DOM handle is not enough. */
   async function accessibility() {
     const current = requirePage()
     if (typeof current.accessibility !== 'function') return []
@@ -186,7 +186,7 @@ function createBrowserController(options = {}) {
   /**
    * Executes one action through the DOM/API channel. The receipt says what was
    * actually done, including whether the page reacted at all (`missed`), which
-   * the miss detector consumes (plan §17).
+   * the miss detector consumes.
    */
   async function perform(action, context = {}) {
     const current = requirePage()
@@ -281,7 +281,7 @@ function createBrowserController(options = {}) {
   }
 
   /**
-   * Plan §12: a big wait is an event wait, not a sleep. The expected effect
+   * A big wait is an event wait, not a sleep. The expected effect
    * decides *what* is being waited for; without one the wait is on the page
    * becoming idle.
    */
@@ -333,7 +333,7 @@ function createBrowserController(options = {}) {
     }
   }
 
-  /** Plan §26: screenshot fallback for a canvas or an unreadable page. */
+  /** Screenshot fallback for a canvas or an unreadable page. */
   async function screenshot(clip) {
     const current = requirePage()
     if (typeof current.screenshot !== 'function') return null
