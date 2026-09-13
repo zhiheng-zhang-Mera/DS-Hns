@@ -19,6 +19,7 @@ const { HarnessUpdater } = require('./updater/harness-updater')
 const { createThemeEngine } = require('./theme')
 const { createSkillService } = require('./skills/skill-service')
 const { createDockTarget } = require('./dock/target')
+const { MEGA_FEATURES, FEATURE_GROUPS, featureFor, featureForChannel, createFeatureState } = require('./features.cjs')
 
 /**
  * A bilingual title for an OS window or file dialog.
@@ -289,6 +290,21 @@ function snapshot() {
       } catch (error) {
         log(`frontend snapshot failed: ${error?.message || error}`)
         return { kind: 'official', available: false, modes: [] }
+      }
+    })(),
+    /**
+     * Which features are switched on.
+     *
+     * The dock hides a disabled feature's panels and marked controls from this map, and the
+     * preload refuses its channels — so "off" is one fact with two consequences rather than
+     * a hidden div.
+     */
+    features: (() => {
+      try {
+        return features().enabledMap()
+      } catch (error) {
+        log(`feature snapshot failed: ${error?.message || error}`)
+        return {}
       }
     })(),
     scheduler: scheduler.describe(),
@@ -791,14 +807,38 @@ function applyTrayMenu() {
   if (!tray || !ctx?.electron?.Menu) return
   const { Menu } = ctx.electron
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show', click: () => focusMain() },
-    { label: 'Mega', click: () => openMegaDock() },
+    { label: bilingualTitle('显示主窗口', 'Show'), click: () => focusMain() },
+    { label: bilingualTitle('Mega 控制台', 'Mega'), click: () => openMegaDock() },
+    // The tray is the second entry point to the one manager, as the product rule requires:
+    // it reveals the same float the dock's own button opens, inside the same window.
+    { label: bilingualTitle('插件管理', 'Plugin manager'), click: () => openPluginManager() },
     { type: 'separator' },
     subWorkerTrayItem(),
     { type: 'separator' },
-    { label: 'Exit DS-Harness', click: () => requestShutdown('graceful') },
-    { label: 'Force Exit DS-Harness', click: () => requestShutdown('force') }
+    { label: bilingualTitle('退出 DS-Harness', 'Exit DS-Harness'), click: () => requestShutdown('graceful') },
+    { label: bilingualTitle('强制退出 DS-Harness', 'Force Exit DS-Harness'), click: () => requestShutdown('force') }
   ]))
+}
+
+/**
+ * Open the plugin manager float.
+ *
+ * It is not a window: the tray shows the product window, expands the dock and asks the dock
+ * renderer to reveal its overlay. A failure to reach the dock is reported rather than
+ * silently doing nothing, because the user asked for something.
+ */
+function openPluginManager() {
+  try {
+    openMegaDock()
+    if (!dockTarget.send('mega:open-plugin-manager')) {
+      log('the plugin manager could not reach the dock: no dock target')
+      return { ok: false, reason: 'no dock target' }
+    }
+    return { ok: true }
+  } catch (error) {
+    log(`open plugin manager failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error) }
+  }
 }
 
 /** Show the single product window and expand the integrated Mega panel inside it. */
@@ -1116,6 +1156,112 @@ async function runCompatibilityProbe({ to = null } = {}) {
   }
 }
 
+/**
+ * The feature registry's durable state.
+ *
+ * Created lazily so a unit test can require this file without touching `data/`, and so the
+ * first read happens when a channel or the snapshot actually needs it.
+ */
+let featureState = null
+function features() {
+  if (featureState) return featureState
+  featureState = createFeatureState({
+    file: path.join(PATHS.ROOT, 'data', 'state', 'mega-features.json'),
+    defaults: (ctx.config && ctx.config.mega && ctx.config.mega.features) || {},
+    log: (message) => log(`features: ${message}`)
+  })
+  return featureState
+}
+
+/** Is the feature that owns this channel switched on? */
+function featureAllows(channel) {
+  const feature = featureForChannel(channel)
+  if (!feature) return { ok: true, feature: null }
+  if (features().isEnabled(feature.id)) return { ok: true, feature }
+  return { ok: false, feature, reason: `the ${feature.id} feature is switched off`, code: 'FEATURE_DISABLED' }
+}
+
+/**
+ * Wrap `ipcMain.handle` so every channel registered after this point is gated.
+ *
+ * The gate is installed once, at extension start, and it is deliberately at this level
+ * rather than inside each handler: a feature's `channels` declaration is the single source of
+ * truth for what it answers, and a registration that forgot to check would be a switch that
+ * changes a panel but not the behaviour behind it.
+ */
+function installFeatureGate() {
+  const { ipcMain } = ctx.electron
+  if (ipcMain.__megaFeatureGate) return ipcMain.__megaFeatureGate
+  const original = ipcMain.handle.bind(ipcMain)
+  const gate = (channel, handler) => original(channel, async (...args) => {
+    const allowed = featureAllows(channel)
+    if (!allowed.ok) return { ok: false, reason: allowed.reason, code: allowed.code, feature: allowed.feature.id }
+    return handler(...args)
+  })
+  ipcMain.handle = gate
+  ipcMain.__megaFeatureGate = gate
+  return gate
+}
+
+/** Push the feature map to the dock: the preload gates on it, the panel draws it. */
+function pushFeatureState() {
+  const map = features().enabledMap()
+  try {
+    dockTarget.send('mega:features', { ok: true, features: map, described: features().describe() })
+  } catch (error) {
+    log(`feature state push failed: ${error?.message || error}`)
+  }
+  notifyChanged()
+}
+
+/** The feature manager's own channels. Not gated: switching features off is how you fix one. */
+function registerFeatureIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`feature ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: 'feature_ipc_failed', message: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:features-snapshot', guard(() => ({
+    ok: true,
+    features: features().describe(),
+    groups: FEATURE_GROUPS,
+    issues: features().issues()
+  })))
+  ipcMain.handle('mega:features-set', guard((_event, payload = {}) => {
+    const result = features().setEnabled(payload.id, payload.enabled !== false)
+    if (result.ok) {
+      applyFeatureVisibility(result.id)
+      pushFeatureState()
+    }
+    return result
+  }))
+}
+
+/**
+ * Act on a feature being switched off.
+ *
+ * Hiding the panel is the dock's job; this is the part the extension owns: a feature that
+ * does periodic work must stop doing it, not merely stop showing it.
+ */
+function applyFeatureVisibility(id) {
+  const feature = featureFor(id)
+  if (!feature) return { ok: false, reason: `no feature ${id}` }
+  const enabled = features().isEnabled(id)
+  if (enabled) return { ok: true, id, enabled }
+  if (id === 'mega.computer-use') {
+    // The runtime belongs to the shell; the dock asks it to stop through the same channel
+    // the panel's cancel button uses, and a refusal is reported rather than hidden.
+    try {
+      ctx.electron.ipcMain.emit('mega:feature-stopped', { id })
+    } catch {}
+  }
+  return { ok: true, id, enabled }
+}
+
 function registerIpc() {
   const { ipcMain, dialog } = ctx.electron
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
@@ -1191,6 +1337,9 @@ function registerIpc() {
   registerThemeIpc(engine)
   registerSkillIpc()
   registerCompatibilityIpc()
+  // The feature manager's own channels, registered last and never gated: switching a feature
+  // off is how a user fixes one, so the switch itself may not be behind a feature.
+  registerFeatureIpc()
 }
 
 /**
@@ -1509,7 +1658,12 @@ async function start(context) {
     log: (message) => log(`updater: ${message}`)
   })
   loadDockState()
+  // Every channel registered from here on is gated by the feature that declares it.
+  installFeatureGate()
   registerIpc()
+  // Tell the dock (and its preload) which features are on, before the first paint: a
+  // disabled feature's panels have to be absent from the very first snapshot.
+  pushFeatureState()
   // Desktop notifications are a unified lifecycle capability: bind the Electron
   // notification factory once, before any task can reach a terminal state.
   notificationService.setCreateNotification(ctx.electron?.Notification || null)

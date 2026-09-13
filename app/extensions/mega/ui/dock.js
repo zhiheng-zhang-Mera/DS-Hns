@@ -968,8 +968,50 @@ function render(snapshot) {
   renderSettings(snapshot)
   renderUpdate(snapshot)
   renderSubWorker(snapshot)
+  applyFeatureVisibility(snapshot && snapshot.features)
 
   updateLivePeriod()
+}
+
+/**
+ * Feature visibility.
+ *
+ * The registry declares which panels and controls each feature owns, and the snapshot
+ * carries which are switched on. This is the *hiding* half of "off": the behaviour half is
+ * the extension refusing the feature's channels and the preload refusing its bridge, so a
+ * hidden panel and a disabled feature cannot disagree.
+ */
+let featureSurfaces = null
+
+async function loadFeatureSurfaces() {
+  if (featureSurfaces) return featureSurfaces
+  try {
+    const snapshot = await window.megaTools?.features?.snapshot?.()
+    const map = {}
+    for (const feature of (snapshot && snapshot.features) || []) {
+      map[feature.id] = { panels: feature.panels || [], elements: feature.elements || [] }
+    }
+    featureSurfaces = map
+  } catch (error) {
+    showError(error)
+    featureSurfaces = {}
+  }
+  return featureSurfaces
+}
+
+function applyFeatureVisibility(map) {
+  if (!featureSurfaces) return
+  for (const [id, surfaces] of Object.entries(featureSurfaces)) {
+    const on = !map || map[id] !== false
+    for (const panel of surfaces.panels) {
+      const node = $(panel)
+      if (node) node.hidden = !on
+    }
+    for (const element of surfaces.elements) {
+      const node = $(element)
+      if (node) node.hidden = !on
+    }
+  }
 }
 
 /**
@@ -986,6 +1028,7 @@ let skillsPanel = null
 let computerUsePanel = null
 let engineeringPanel = null
 let pluginPanel = null
+let featureManager = null
 try {
   themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
 } catch (error) {
@@ -1019,9 +1062,20 @@ try {
   showError(error)
 }
 
+try {
+  // The plugin manager float: one place that manages the platform plugins and the feature
+  // plugins. It is an overlay inside this window, reachable from the dock's button and from
+  // the tray, and it survives every switch it offers.
+  featureManager = window.megaFeatureManager?.attach ? window.megaFeatureManager.attach() : null
+} catch (error) {
+  showError(error)
+}
+
 async function refresh() {
   try {
     showError()
+    // The feature registry decides which panels exist, so it is read before the first paint.
+    await loadFeatureSurfaces()
     render(await window.megaTools.snapshot())
     // The dock snapshot carries only compact statuses; the panels keep the full
     // theme list and skill catalog.

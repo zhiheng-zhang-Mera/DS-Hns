@@ -58,7 +58,9 @@ test('the dock hosts the settings layer and the shared Balance module controller
   assert.match(js, /setSettingsOpen/)
   assert.equal(/new BrowserWindow/.test(js), false)
   const preload = read('app/extensions/mega/ui/preload.cjs')
-  assert.match(preload, /fetchBalance: \(trigger = 'manual', options = \{\}\) => ipcRenderer\.invoke\('mega:balance', trigger, options\)/)
+  // One refresh path, and it is the balance feature's: switching that feature off refuses
+  // the call in the preload rather than leaving a second path that still reaches the shell.
+  assert.match(preload, /fetchBalance: gated\('mega\.balance', \(trigger = 'manual', options = \{\}\) => ipcRenderer\.invoke\('mega:balance', trigger, options\)\)/)
   const mega = read('app/extensions/mega/index.cjs')
   assert.match(mega, /balanceService\.refreshBalances\(/)
   assert.equal((mega.match(/refreshBalances\(/g) || []).length, 1, 'one balance refresh implementation')

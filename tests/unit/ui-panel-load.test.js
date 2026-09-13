@@ -29,6 +29,7 @@ const EXPECTED_GLOBALS = Object.freeze({
   'skills-panel.js': 'megaSkillsPanel',
   'computer-use-panel.js': 'megaComputerUsePanel',
   'bilingual.js': 'hnsBilingual',
+  'feature-manager.js': 'megaFeatureManager',
   'engineering-panel.js': 'megaEngineeringPanel',
   'plugin-panel.js': 'megaPluginPanel'
 })
@@ -162,6 +163,7 @@ test('every dock script loads in the dock\'s order and publishes its global', ()
     'skills-panel.js',
     'computer-use-panel.js',
     'bilingual.js',
+    'feature-manager.js',
     'engineering-panel.js',
     'plugin-panel.js',
     'dock.js'

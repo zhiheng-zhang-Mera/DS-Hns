@@ -151,9 +151,9 @@ test('Mega degrades to exactly its previous behaviour when no manager is provide
   // The panel reports "unavailable" rather than throwing or hiding the dock.
   assert.match(mega, /if \(!ctx\?\.subWorker\?\.describe\)/)
   assert.match(mega, /available: false/)
-  // The tray still carries the original exit actions in every state.
-  assert.match(mega, /\{ label: 'Exit DS-Harness'/)
-  assert.match(mega, /\{ label: 'Force Exit DS-Harness'/)
+  // The tray still carries the original exit actions in every state, now bilingual.
+  assert.match(mega, /\{ label: bilingualTitle\('退出 DS-Harness', 'Exit DS-Harness'\)/)
+  assert.match(mega, /\{ label: bilingualTitle\('强制退出 DS-Harness', 'Force Exit DS-Harness'\)/)
   // The Sub-worker panel is additive: the existing panels are untouched.
   const dockHtml = read('app/extensions/mega/ui/dock.html')
   for (const id of ['railRunning', 'railQueued', 'railWorkers', 'summary', 'queue', 'hardware', 'balanceCards', 'settingsOverlay']) {

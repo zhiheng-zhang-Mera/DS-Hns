@@ -177,10 +177,19 @@ test('the product is one window: the tray keeps its exit actions and adds Sub-wo
   assert.equal(mainWindow.focused, true, 'the main window is brought to the front')
   assert.equal(shell.trayMenus.length, 1)
   const labels = shell.trayMenus[0].map((item) => item.label).filter(Boolean)
-  assert.deepEqual(labels, ['Show', 'Mega', 'Sub-worker', 'Exit DS-Harness', 'Force Exit DS-Harness'])
+  // Bilingual like every other title in the product, and the plugin manager is the tray's
+  // second entry point to the one management surface (which is a float, not a window).
+  assert.deepEqual(labels, [
+    '显示主窗口 · Show',
+    'Mega 控制台 · Mega',
+    '插件管理 · Plugin manager',
+    'Sub-worker',
+    '退出 DS-Harness · Exit DS-Harness',
+    '强制退出 DS-Harness · Force Exit DS-Harness'
+  ])
 
-  trayItem('Exit DS-Harness').click()
-  trayItem('Force Exit DS-Harness').click()
+  trayItem('退出 DS-Harness · Exit DS-Harness').click()
+  trayItem('强制退出 DS-Harness · Force Exit DS-Harness').click()
   assert.deepEqual(shell.shutdownCalls, ['graceful:tray', 'force:tray'], 'exit actions route to the shell, which owns the managed harness')
 
   // The Sub-worker submenu is present and inert without a shell-owned manager:

@@ -70,8 +70,10 @@ test('the tray keeps its exit actions, adds the documented Sub-worker controls a
   assert.match(main, /Tray, Menu, nativeImage, screen/)
   assert.match(mega, /function createTray\(/)
   assert.match(mega, /function applyTrayMenu\(/)
-  assert.match(mega, /\{ label: 'Exit DS-Harness'/)
-  assert.match(mega, /\{ label: 'Force Exit DS-Harness'/)
+  // The exit actions are still there, and their labels are bilingual like every other
+  // title in the product (Chinese first, English second).
+  assert.match(mega, /\{ label: bilingualTitle\('退出 DS-Harness', 'Exit DS-Harness'\)/)
+  assert.match(mega, /\{ label: bilingualTitle\('强制退出 DS-Harness', 'Force Exit DS-Harness'\)/)
   // No navigation/control items and no Full Mega Tools product concept.
   for (const removed of ['Expand Mega Dock', 'Collapse Mega Dock', 'Show Mega Dock', 'Hide Mega Dock', 'Full Mega Tools']) {
     assert.equal(new RegExp(removed).test(mega), false, `tray menu must not offer ${removed}`)

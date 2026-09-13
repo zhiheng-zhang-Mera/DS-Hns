@@ -1,6 +1,63 @@
 'use strict'
 const { contextBridge, ipcRenderer } = require('electron')
 
+/**
+ * The feature map, kept in the preload because this file is the choke point.
+ *
+ * The main process refuses a disabled feature's *own* channels, but the shell owns several
+ * of the features the registry names (Computer Use, the engineering runtime, the plugins,
+ * the sub-worker). Gating them here is what makes one switch mean one thing everywhere: a
+ * renderer cannot reach a disabled feature through `window.megaTools` at all, whatever the
+ * shell would have answered.
+ */
+let featureMap = {}
+ipcRenderer.on('mega:features', (_event, payload) => {
+  featureMap = payload && typeof payload.features === 'object' && payload.features ? payload.features : {}
+})
+
+/** The refusal a disabled feature's bridge returns, shaped like the shell's own errors. */
+function featureOff(feature) {
+  return { ok: false, code: 'FEATURE_DISABLED', feature, reason: `the ${feature} feature is switched off in the plugin manager` }
+}
+
+/**
+ * Wrap one bridge: the call goes through unless its feature is switched off.
+ *
+ * @param {string} feature the registry id
+ * @param {Function} invoke what to do when the feature is on
+ */
+function gated(feature, invoke) {
+  return (...args) => {
+    if (featureMap[feature] === false) return Promise.resolve(featureOff(feature))
+    return invoke(...args)
+  }
+}
+
+/**
+ * Gate a whole bridge on one feature.
+ *
+ * Subscriptions (`onSomething`) are left alone: a gated subscription would return a refusal
+ * object where the caller expects an unsubscribe handle, and the events it delivers are the
+ * shell's own pushes rather than renderer actions. The *management* surfaces — `megaPlugins`
+ * and `megaTools.features` — are deliberately not gated at all: switching a feature off is
+ * how a user fixes one, so the switch may not be behind a feature.
+ */
+function gatedBridge(feature, bridge) {
+  const out = {}
+  for (const [name, value] of Object.entries(bridge)) {
+    out[name] = typeof value === 'function' && !/^on[A-Z]/.test(name) ? gated(feature, value) : value
+  }
+  return out
+}
+
+function featuresSnapshot() {
+  return ipcRenderer.invoke('mega:features-snapshot')
+}
+
+function setFeature(id, enabled) {
+  return ipcRenderer.invoke('mega:features-set', { id: String(id || ''), enabled: enabled !== false })
+}
+
 function syncShellDock(snapshotOrState) {
   const state = snapshotOrState?.extension?.dock || snapshotOrState || {}
   ipcRenderer.send('mega-shell:dock-state', {
@@ -31,17 +88,29 @@ async function toggleDock() {
 
 contextBridge.exposeInMainWorld('megaTools', {
   snapshot,
-  addTask: (payload) => ipcRenderer.invoke('mega:add-task', payload),
-  reorderTask: (id, move) => ipcRenderer.invoke('mega:reorder-task', id, move),
-  cancelTask: (id) => ipcRenderer.invoke('mega:cancel-task', id),
-  clearPending: () => ipcRenderer.invoke('mega:clear-pending'),
-  removeTasks: (ids) => ipcRenderer.invoke('mega:remove-tasks', ids),
-  updateScheduler: (patch) => ipcRenderer.invoke('mega:update-scheduler', patch),
-  refreshHardware: () => ipcRenderer.invoke('mega:refresh-hardware'),
+  addTask: gated('mega.queue', (payload) => ipcRenderer.invoke('mega:add-task', payload)),
+  reorderTask: gated('mega.queue', (id, move) => ipcRenderer.invoke('mega:reorder-task', id, move)),
+  cancelTask: gated('mega.queue', (id) => ipcRenderer.invoke('mega:cancel-task', id)),
+  clearPending: gated('mega.queue', () => ipcRenderer.invoke('mega:clear-pending')),
+  removeTasks: gated('mega.queue', (ids) => ipcRenderer.invoke('mega:remove-tasks', ids)),
+  updateScheduler: gated('mega.queue', (patch) => ipcRenderer.invoke('mega:update-scheduler', patch)),
+  refreshHardware: gated('mega.hardware', () => ipcRenderer.invoke('mega:refresh-hardware')),
   updateSettings: (patch) => ipcRenderer.invoke('mega:update-settings', patch),
-  fetchBalance: (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options),
+  fetchBalance: gated('mega.balance', (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options)),
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
+  /**
+   * The feature manager.
+   *
+   * Deliberately *not* gated: `setFeature` is how a switched-off feature is switched back
+   * on, and the map itself has to be readable while features are off.
+   */
+  features: {
+    snapshot: featuresSnapshot,
+    set: setFeature,
+    map: () => ({ ...featureMap }),
+    onChanged: (callback) => ipcRenderer.on('mega:features', (_event, payload) => callback(payload))
+  },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),
@@ -59,6 +128,13 @@ contextBridge.exposeInMainWorld('megaTools', {
   // degrades to collapse instead of removing the whole in-window view.
   hideDock: () => setDockExpanded(false),
   onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback()),
+  /**
+   * "Open the plugin manager."
+   *
+   * The tray asks the dock to reveal the float; the dock never opens a second window, so
+   * this is an event rather than a new surface.
+   */
+  onOpenPluginManager: (callback) => ipcRenderer.on('mega:open-plugin-manager', () => callback()),
   /**
    * HNS unified theme system.
    *
@@ -143,7 +219,7 @@ contextBridge.exposeInMainWorld('megaTools', {
  * manager, because it drives windows, real input and the browser. No execution
  * logic and no filesystem path is exposed to the renderer.
  */
-contextBridge.exposeInMainWorld('megaComputerUse', {
+contextBridge.exposeInMainWorld('megaComputerUse', gatedBridge('mega.computer-use', {
   snapshot: () => ipcRenderer.invoke('computer-use:snapshot'),
   health: () => ipcRenderer.invoke('computer-use:health'),
   actions: () => ipcRenderer.invoke('computer-use:actions'),
@@ -159,7 +235,7 @@ contextBridge.exposeInMainWorld('megaComputerUse', {
   log: (count) => ipcRenderer.invoke('computer-use:log', count),
   screenshots: () => ipcRenderer.invoke('computer-use:screenshots'),
   page: () => ipcRenderer.invoke('computer-use:page')
-})
+}))
 
 /**
  * Engineering runtime control surface (Update-Plan/24h-1.md).
@@ -170,13 +246,13 @@ contextBridge.exposeInMainWorld('megaComputerUse', {
  * returns as soon as it is accepted — the panel follows it through `status()` —
  * so the renderer stays responsive and can cancel.
  */
-contextBridge.exposeInMainWorld('megaEngineering', {
+contextBridge.exposeInMainWorld('megaEngineering', gatedBridge('mega.engineering', {
   status: () => ipcRenderer.invoke('engineering:status'),
   describe: (input) => ipcRenderer.invoke('engineering:describe', input),
   checkpoints: (input) => ipcRenderer.invoke('engineering:checkpoints', input),
   run: (input) => ipcRenderer.invoke('engineering:run', input),
   cancel: (input) => ipcRenderer.invoke('engineering:cancel', input)
-})
+}))
 
 /**
  * Plugin platform control surface (Update-Plan/accleration.md sections 45, 46).
@@ -207,7 +283,7 @@ contextBridge.exposeInMainWorld('megaPlugins', {
  * drive the shell-owned WorkerManager and are the only way the panel talks to
  * the executor. Every handler is failure isolated in the shell.
  */
-contextBridge.exposeInMainWorld('megaSubWorker', {
+contextBridge.exposeInMainWorld('megaSubWorker', gatedBridge('mega.sub-worker', {
   snapshot: () => ipcRenderer.invoke('sub-worker:snapshot'),
   start: () => ipcRenderer.invoke('sub-worker:start'),
   stop: () => ipcRenderer.invoke('sub-worker:stop'),
@@ -233,4 +309,4 @@ contextBridge.exposeInMainWorld('megaSubWorker', {
   // The tray's "Open Live View" (and anything else outside the dock) asks the
   // dock to reveal the Live View pane; the dock never opens a second window.
   onOpenLiveView: (callback) => ipcRenderer.on('mega:sub-worker-live-view', () => callback())
-})
+}))

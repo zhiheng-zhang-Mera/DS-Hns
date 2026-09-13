@@ -30,6 +30,9 @@ const SOURCE_DIRS = [
   'extensions/mega/autonomy',
   'extensions/mega/billing',
   'extensions/mega/deepseek',
+  // The extension's own root modules: the feature registry is one of them, and the
+  // collector is non-recursive, so the bare directory has to be listed.
+  'extensions/mega',
   'extensions/mega/dock',
   'extensions/mega/notifications',
   'extensions/mega/scheduler',

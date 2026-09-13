@@ -112,6 +112,9 @@ try {
     'plugin-mounted-set.test.js',
     'plugin-ui-wiring.test.js',
     'official-frontend.test.js',
+    'mega-features.test.js',
+    'mega-feature-wiring.test.js',
+    'mega-plugin-manager.test.js',
     'ui-bilingual.test.js',
     'ui-panel-load.test.js'
   )
