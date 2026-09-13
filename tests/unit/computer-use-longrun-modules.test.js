@@ -423,6 +423,78 @@ test('destructiveAllowed and isDestructiveKind follow the documented vocabulary 
 // Task 3 / 16 — adaptive stabilization (stabilization.cjs)
 // ---------------------------------------------------------------------------
 
+test('the post-action wait is adaptive, bounded and derived from the step itself (Task 3)', async () => {
+  const clock = createVirtualClock()
+  const stabilizer = createStabilizer({ clock })
+
+  // A quiet world with nothing pending ends the wait at the minimum, not at the
+  // ceiling: the wait is not a fixed sleep with extra steps.
+  const quiet = await stabilizer.afterAction({
+    action: { type: 'DOM_CLICK', stabilization: { minimumMs: 80, maximumMs: 250 } },
+    receipt: { changed: true },
+    world: { signature: 'same', revision: 3 },
+    previousWorld: { signature: 'same', revision: 3 },
+    observe: async () => ({ signature: 'same', revision: 3 })
+  })
+  assert.equal(quiet.verdict, 'quiet')
+  assert.ok(quiet.waitedMs <= TIMING.graceMinMs + TIMING.cooldownBaseMs, `a quiet post-action wait must stay short (${quiet.waitedMs}ms)`)
+
+  // A page that never stops loading is waited for, but never past the ceiling.
+  const busy = await stabilizer.afterAction({
+    action: { type: 'DOM_CLICK', stabilization: { minimumMs: 80, maximumMs: 250 } },
+    receipt: { changed: true },
+    world: { signature: 'a', revision: 1, loading: true },
+    previousWorld: { signature: 'a', revision: 1, loading: true },
+    observe: async () => ({ signature: `s${clock.now()}`, revision: clock.now(), loading: true })
+  })
+  assert.ok(busy.waitedMs <= TIMING.graceMaxMs, `the post-action wait must stay bounded (${busy.waitedMs}ms)`)
+  assert.ok(busy.attempts >= 1)
+
+  // A caller that can tell the effect landed ends the wait the moment it does.
+  let landed = false
+  const settled = await stabilizer.afterAction({
+    action: { type: 'DOM_CLICK', stabilization: { minimumMs: 50, maximumMs: 250 } },
+    offer: undefined,
+    receipt: { changed: true },
+    world: { signature: 'a', revision: 1, loading: true },
+    previousWorld: { signature: 'a', revision: 1, loading: true },
+    observe: async () => {
+      landed = true
+      return { signature: 'b', revision: 2, loading: false }
+    },
+    landed: () => landed
+  })
+  assert.equal(settled.verdict, 'landed')
+  assert.ok(settled.waitedMs < TIMING.graceMaxMs, 'the landed verdict must end the wait before the ceiling')
+
+  // The signals come from this step's own facts: a receipt that says the world
+  // changed, a loading page, a dialog, a pending navigation, a previous miss.
+  const derived = stabilizer.postActionSignals({
+    receipt: { changed: true },
+    world: { signature: 'b', revision: 2, loading: true, dialogs: [{ type: 'alert' }] },
+    previousWorld: { signature: 'a', revision: 1, windowSignature: 'w1' },
+    signals: { previousMiss: true, navigationPending: true }
+  })
+  assert.equal(derived.changed, true)
+  assert.equal(derived.signals.loading, true)
+  assert.equal(derived.signals.modalAppeared, true)
+  assert.equal(derived.signals.previousMiss, true)
+  assert.equal(derived.signals.navigationPending, true)
+  assert.ok(derived.reasons.includes('dom revision changed'))
+  assert.equal(derived.signals.stable, false, 'a pending signal means the world is not settled')
+
+  // Nothing in it comes from a remembered application: a receipt that changed
+  // nothing and an unchanged world report no change and no reasons.
+  const still = stabilizer.postActionSignals({
+    receipt: { changed: false },
+    world: { signature: 'a', revision: 1 },
+    previousWorld: { signature: 'a', revision: 1 }
+  })
+  assert.equal(still.changed, false)
+  assert.deepEqual(still.reasons, [])
+  assert.equal(still.signals.stable, true)
+})
+
 test('every documented signal adds one bounded cooldown step (Task 3)', () => {
   const stabilizer = createStabilizer({ clock: createVirtualClock() })
   const base = stabilizer.dynamicCooldown({}).ms
@@ -490,8 +562,7 @@ test('the forced minimum is clamped by the action\'s own maximum and never overs
   assert.ok(outcome.waitedMs <= 100)
 })
 
-test('the settle loop stops at the ceiling instead of sleeping forever (Task 3)', async () => {
-  const clock = createVirtualClock()
+test('the settle loop stops at the ceiling instead of sleeping forever (Task 3)', async () => {  const clock = createVirtualClock()
   const stabilizer = createStabilizer({ clock })
   let revision = 0
   const outcome = await stabilizer.settle({

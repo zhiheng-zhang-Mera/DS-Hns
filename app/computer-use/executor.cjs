@@ -940,8 +940,21 @@ function createExecutor(options = {}) {
 
     // ---- POST_ACTION_GRACE --------------------------------------
     stateMachine.transition(CU_STATES.POST_ACTION_GRACE, { step: stepNumber })
-    const grace = await stabilizer.grace(action)
+    // The wait after acting is bounded and derived from the action's own grace
+    // budget: short, with a ceiling, never an unconditional long sleep.
+    //
+    // It is deliberately *not* an adaptive observation loop. The stabilizer
+    // carries one (`stabilizer.afterAction`, unit-tested), and wiring it here was
+    // measured: every elapsed interval re-observed the world and extended to the
+    // ceiling anyway, because the component that actually waits for an effect is
+    // the verifier below, which polls the same world until the declared effect
+    // holds or the action times out. Adding a second, weaker wait in front of it
+    // bought nothing and re-observed the world for it. The adaptive post-action
+    // machinery stays available for a caller that has an effect to watch and no
+    // verifier to watch it with.
+    const grace = await stabilizer.grace(action, graceBudgetFor(action))
     run.graceMs = grace.waitedMs
+    run.grace = grace
 
     // ---- VERIFYING --------------------------------------
     stateMachine.transition(CU_STATES.VERIFYING, { step: stepNumber })
@@ -1102,6 +1115,28 @@ function createExecutor(options = {}) {
    * the action's timeout. A 700 ms UI is waited for exactly as long as it needs
    * (plus the poll interval), never a fixed two seconds.
    */
+  /** Does this action declare an effect the post-action wait could watch for? */
+  function expectsEffect(action) {
+    if (!action) return false
+    if (action.expectedEffect) return true
+    // An action whose success is read back from the world (a shell command's exit,
+    // a file mutation) also has something to watch for.
+    return Boolean(action.params && (action.params.expectExitCode !== undefined || action.params.path))
+  }
+
+  /**
+   * The grace ceiling for one action: its own declared stabilization budget when
+   * it has one, otherwise the class of action decides. This is a ceiling, never a
+   * duration — `stabilizer.grace` spends at most it.
+   */
+  function graceBudgetFor(action) {
+    if (!action) return undefined
+    if (action.stabilization && Number.isFinite(action.stabilization.maximumMs)) return action.stabilization.maximumMs
+    // An action that declares an effect is expected to take a moment; one that
+    // does not gets the plain preferred grace.
+    return expectsEffect(action) ? TIMING.graceMaxMs : undefined
+  }
+
   async function waitForEffect(action, run, before, acted) {
     const timeoutMs = action.timeoutMs || TIMING.defaultActionTimeoutMs
     const startedAt = clock.now()

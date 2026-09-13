@@ -300,8 +300,12 @@ function createStabilizer(options = {}) {
   }
 
   /**
-   * A bounded grace period after acting, so a click that needs 120 ms
-   * to take effect is not mistaken for a miss.
+   * A bounded grace period after acting, so a click that needs 120 ms to take
+   * effect is not mistaken for a miss.
+   *
+   * This is the *fallback* used when the caller has nothing to observe. Prefer
+   * `afterAction`, which ends the wait the moment the effect lands instead of
+   * always spending the ceiling.
    */
   async function grace(action, overrideMs) {
     const ms = Number.isFinite(overrideMs)
@@ -313,6 +317,191 @@ function createStabilizer(options = {}) {
     const startedAt = clock.now()
     if (bounded > 0) await clock.sleep(bounded)
     return note({ kind: 'grace', waitedMs: clock.now() - startedAt, requestedMs: ms, appliedMs: bounded })
+  }
+
+  /**
+   * The post-action signals one receipt and one observation can state.
+   *
+   * Everything here is read from *this* action and *this* observation — never
+   * from what an application usually does. A receipt that says the world changed,
+   * a navigation the action started, the window in front, a dialog that appeared,
+   * a target that detached, the previous step's miss and the loading state are all
+   * facts the run already has; a bounded grace may react to them and to nothing
+   * else.
+   *
+   * @param {object} input
+   * @param {object} [input.receipt] what the controller reported
+   * @param {object} [input.world] the observation taken after the action
+   * @param {object} [input.previousWorld] the observation taken before it
+   * @param {object} [input.signals] signals the caller already knows
+   */
+  function postActionSignals(input = {}) {
+    const receipt = input.receipt || {}
+    const world = input.world || null
+    const previous = input.previousWorld || null
+    const known = normalizeSignals(input.signals).signals
+    const reasons = []
+    let changed = receipt.changed === true
+    if (world && previous) {
+      if (previous.revision !== null && world.revision !== null && previous.revision !== world.revision) {
+        changed = true
+        reasons.push('dom revision changed')
+      }
+      if (previous.axSignature && world.axSignature && previous.axSignature !== world.axSignature) {
+        changed = true
+        reasons.push('accessibility tree changed')
+      }
+      if (previous.signature && world.signature && previous.signature !== world.signature) {
+        changed = true
+        reasons.push('world state changed')
+      }
+      if (previous.windowSignature !== world.windowSignature) {
+        known.windowChanged = true
+        reasons.push('window changed')
+      }
+    }
+    if (world && world.loading === true) {
+      known.loading = true
+      reasons.push('still loading')
+    }
+    if (world && Array.isArray(world.dialogs) && world.dialogs.length) {
+      known.modalAppeared = true
+      reasons.push('a dialog is open')
+    }
+    if (known.navigationPending === true) reasons.push('navigation pending')
+    if (known.animationDetected === true) reasons.push('animation detected')
+    if (known.previousMiss === true) reasons.push('the previous attempt missed')
+    return { changed, signals: { ...known, reasons, stable: reasons.length === 0 }, reasons }
+  }
+
+  /**
+   * The adaptive post-action wait.
+   *
+   * Semantics are the same as `settle`, on the other side of the action:
+   *
+   *   minimum delay -> observe -> bounded extension -> observe -> condition met
+   *
+   * The wait ends as soon as the effect is observable (`landed` returns true), and
+   * otherwise at a *bounded* ceiling derived from the action's own grace budget.
+   * A receipt that says nothing changed and an observation that agrees gets the
+   * short minimum and nothing more; an unsettled page, an animation, a pending
+   * navigation or a missed previous attempt extends the wait one cooldown step at
+   * a time, bounded by `graceMaxMs`. It never sleeps a fixed per-application
+   * duration.
+   *
+   * @param {object} input
+   * @param {object} input.action the action that was issued
+   * @param {object} [input.receipt] its receipt
+   * @param {Function} input.observe async () => world
+   * @param {Function} [input.landed] async (world) => boolean — the effect is visible
+   * @param {object} [input.signals] extra signals from the caller
+   * @returns {Promise<object>} `{ waitedMs, attempts, verdict, signals, world }`
+   */
+  async function afterAction(input = {}) {
+    const action = input.action || null
+    const startedAt = clock.now()
+    const minimumMs = Math.max(0, Math.min(limits.graceMinMs, limits.graceMaxMs))
+    const ceilingMs = Number.isFinite(input.maximumMs)
+      ? Math.max(minimumMs, Number(input.maximumMs))
+      : Math.max(minimumMs, Math.min(limits.graceMaxMs, graceBudget(action)))
+    const settleBudgetMs = Math.max(0, Math.min(
+      Number.isFinite(input.settleBudgetMs) ? Number(input.settleBudgetMs) : limits.graceMaxMs,
+      limits.graceMaxMs
+    ))
+    if (minimumMs > 0) await clock.sleep(minimumMs)
+
+    let attempts = 0
+    let world = input.world || null
+    let previousWorld = input.previousWorld || null
+    let lastSignals = null
+    for (;;) {
+      attempts += 1
+      if (typeof input.observe === 'function') {
+        previousWorld = world
+        world = await input.observe()
+      }
+      const derived = postActionSignals({
+        receipt: input.receipt,
+        world,
+        previousWorld,
+        signals: input.signals
+      })
+      lastSignals = derived.signals
+      const elapsed = clock.now() - startedAt
+
+      // The effect is observable: the wait is over, whatever the ceiling said.
+      if (typeof input.landed === 'function') {
+        let landed = false
+        try {
+          landed = await input.landed(world)
+        } catch {
+          landed = false
+        }
+        if (landed) {
+          return note({ kind: 'grace', verdict: 'landed', waitedMs: elapsed, attempts, signals: lastSignals, world, reasons: derived.reasons })
+        }
+      }
+      if (elapsed >= ceilingMs) {
+        return note({
+          kind: 'grace',
+          verdict: 'ceiling',
+          waitedMs: elapsed,
+          attempts,
+          signals: lastSignals,
+          world,
+          reasons: derived.reasons,
+          reason: `the effect was not observable within the ${ceilingMs}ms grace ceiling`
+        })
+      }
+      // Nothing is pending and nothing moved: the step is as settled as this wait
+      // can make it, and the verifier — which waits on the effect itself — is the
+      // component that should spend the remaining time. Extending a wait nobody
+      // asked for is how a fixed sleep comes back in through the side door.
+      if (elapsed >= minimumMs && !hasPendingWork(lastSignals)) {
+        return note({ kind: 'grace', verdict: 'quiet', waitedMs: elapsed, attempts, signals: lastSignals, world, reasons: derived.reasons })
+      }
+      if (elapsed >= settleBudgetMs) {
+        return note({
+          kind: 'grace',
+          verdict: 'settle-budget',
+          waitedMs: elapsed,
+          attempts,
+          signals: lastSignals,
+          world,
+          reasons: derived.reasons,
+          reason: `the post-action wait spent its ${settleBudgetMs}ms settle budget`
+        })
+      }
+      // One bounded step per observation, reflecting *why* the world is still
+      // moving - never the whole remaining budget in one sleep.
+      const cooldown = dynamicCooldown(signalInputs(lastSignals))
+      const step = Math.max(0, Math.min(cooldown.ms, ceilingMs - elapsed))
+      if (step <= 0) {
+        return note({ kind: 'grace', verdict: 'ceiling', waitedMs: elapsed, attempts, signals: lastSignals, world, reasons: derived.reasons })
+      }
+      await clock.sleep(step)
+    }
+  }
+
+  /** Is something the runtime should wait for still pending? */
+  function hasPendingWork(signals) {
+    if (!signals) return false
+    return signals.loading === true ||
+      signals.navigationPending === true ||
+      signals.animationDetected === true ||
+      signals.modalAppeared === true ||
+      signals.windowChanged === true ||
+      signals.targetDetached === true ||
+      signals.uiChanging === true
+  }
+
+  /** How long the post-action wait may spend on this action, at most. */
+  function graceBudget(action) {
+    if (!action) return limits.gracePreferredMs
+    if (action.stabilization && Number.isFinite(action.stabilization.maximumMs)) {
+      return Math.max(limits.graceMinMs, Math.min(limits.graceMaxMs, action.stabilization.maximumMs))
+    }
+    return limits.gracePreferredMs
   }
 
   /**
@@ -387,6 +576,8 @@ function createStabilizer(options = {}) {
     waitFor,
     settle,
     grace,
+    afterAction,
+    postActionSignals,
     dynamicCooldown,
     stabilitySignals,
     detectSignals,
