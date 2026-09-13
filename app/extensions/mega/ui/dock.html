@@ -390,6 +390,42 @@
       <p id="cuMessage" class="theme-message" role="status"></p>
     </section>
 
+    <section class="panel engineering-panel" id="engineeringPanel">
+      <div class="panel-head balance-head">
+        <div>
+          <div class="balance-title-row">
+            <h2>Engineering</h2>
+            <span id="engState" class="status-chip neutral">IDLE</span>
+          </div>
+          <p>接收仓库路径与目标，自主执行工程任务：识别项目与命令、保护已有改动、有界修复、按证据判定完成。</p>
+        </div>
+        <div class="balance-actions">
+          <button id="engRefresh" class="quiet">刷新</button>
+        </div>
+      </div>
+
+      <form id="engForm" class="settings-form" onsubmit="return false">
+        <label>仓库路径 workspace <input id="engWorkspace" type="text" placeholder="D:\path\to\repository" required></label>
+        <label>目标 goal <input id="engGoal" type="text" placeholder="例如：修复失败的单元测试" required></label>
+        <label>时限（分钟，最长 1440） <input id="engDeadline" type="number" min="0.5" max="1440" value="1440"></label>
+        <details class="cu-contract">
+          <summary>contract（可选 JSON：commands / patches / tests / require_build …）</summary>
+          <textarea id="engContract" rows="4" spellcheck="false" placeholder='{"patches":[{"reason":"…","files":[{"path":"src/x.cjs","content":"…"}]}]}'></textarea>
+        </details>
+        <div class="cu-actions">
+          <button id="engDescribe" type="button" class="quiet">识别仓库</button>
+          <button id="engRun" type="button">开始 episode</button>
+          <button id="engCancel" type="button" class="quiet danger" disabled>取消</button>
+        </div>
+      </form>
+
+      <div id="engDiscovery" class="eng-discovery"></div>
+      <div id="engSummary" class="eng-summary"></div>
+      <div id="engPhases" class="eng-phases"></div>
+      <div id="engReport" class="eng-report"></div>
+      <p id="engMessage" class="theme-message" role="status"></p>
+    </section>
+
     <section class="panel balance-panel" id="balancePanel">
       <div class="panel-head balance-head">
         <div>
@@ -609,6 +645,7 @@
   <script src="theme-panel.js"></script>
   <script src="skills-panel.js"></script>
   <script src="computer-use-panel.js"></script>
+  <script src="engineering-panel.js"></script>
   <script src="dock.js"></script>
 </body>
 </html>

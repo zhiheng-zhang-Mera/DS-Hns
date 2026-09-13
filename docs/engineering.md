@@ -233,7 +233,59 @@ episodes all have ceilings, and the Computer Use resource budget is the single
 place they are accounted for. At a ceiling the runtime stops allocating and
 degrades or blocks; it does not keep spending.
 
-## 15. What is out of scope
+## 15. Driving it from the dock
+
+The Mega dock carries an **Engineering** panel (`app/extensions/mega/ui/engineering-panel.js`).
+Like the Computer Use panel it is a *control surface*: it names a repository and a
+goal, and reads the episode's own report. It never decides a command, a path or a
+git policy, and it has no filesystem or process access of its own.
+
+```text
+workspace      the repository path (verified by the runtime before anything runs)
+goal           what the episode is for
+deadline       minutes, capped at 24h and by config/app.json
+contract       optional JSON: commands, patches, tests, require_build, …
+```
+
+The panel offers:
+
+* **识别仓库 / describe** — shows which project the runtime detects, which commands
+  it would use (with the confidence and the evidence for each), the git state, the
+  instruction files it would read and the CI definitions it found. This is a
+  read-only call and it starts nothing, so the commands can be reviewed before an
+  episode is allowed to touch the repository.
+* **开始 episode / run** — starts the episode. The call returns as soon as the
+  episode is *accepted*; the panel then follows it through `engineering:status` on a
+  poll. A 24-hour episode cannot be awaited by a renderer, and awaiting it would
+  also stop the renderer from being able to cancel it.
+* **取消 / cancel** — asks the running episode to stop. The supervisor checks for
+  cancellation at every step boundary, so a cancel never lands in the middle of a
+  mutation; the episode then disposes its owned processes, writes a checkpoint and
+  reports `CANCELLED` with the progress it had verified.
+* the phase strip, the live summary (phase, repair rounds, stall level, owned
+  processes, remaining budget and deadline band) and the final report (result,
+  failed checks, changed files, command exits, failures).
+
+The IPC surface is `engineering:status`, `engineering:describe`,
+`engineering:checkpoints`, `engineering:run` and `engineering:cancel`, bridged to
+the renderer as `window.megaEngineering`. The shell owns the host
+(`app/engineering-host.cjs`) and allows **one active episode at a time**: an episode
+mutates a repository, so two of them in the same workspace would be two writers
+over the same files. A second start is refused with `EPISODE_ACTIVE`.
+
+The git policy in `config/app.json` is closed by default:
+
+```json
+"engineering": {
+  "enabled": true,
+  "git": { "allowCommit": false, "allowPush": false, "allowMerge": false },
+  "limits": { "deadlineMs": 86400000, "maxSteps": 40, "maxRepairRounds": 6, "stepTimeoutMs": 1800000 }
+}
+```
+
+A renderer cannot open those doors; only the config file or an embedding host can.
+
+## 16. What is out of scope
 
 ```text
 no application learning        nothing is remembered about an application

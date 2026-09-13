@@ -63,6 +63,20 @@
       "allowFullScreenFallback": true
     }
   },
+  "engineering": {
+    "enabled": true,
+    "git": {
+      "allowCommit": false,
+      "allowPush": false,
+      "allowMerge": false
+    },
+    "limits": {
+      "deadlineMs": 86400000,
+      "maxSteps": 40,
+      "maxRepairRounds": 6,
+      "stepTimeoutMs": 1800000
+    }
+  },
   "timezones": {
     "local": "auto",
     "localLabel": "本地时间(系统时区)",

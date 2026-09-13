@@ -127,6 +127,29 @@ const subWorkerListeners = new Set()
 let computerUseRuntime = null
 let computerUseHost = null
 
+/**
+ * Engineering Runtime.
+ *
+ * The shell owns one engineering supervisor and at most one *active episode*: an
+ * episode mutates a repository, so two of them in the same workspace would be two
+ * writers racing over the same files. The dock is the control surface — it names a
+ * repository and a goal and reads the episode's own report — and no command, path
+ * or git policy is decided in the renderer.
+ */
+let engineeringHost = null
+
+/** IPC surface of the Engineering panel. */
+const ENGINEERING_CHANNELS = [
+  // Read-only: what the runtime is doing, what it last reported, which project it
+  // would detect in a directory, and which checkpoints an episode kept.
+  'engineering:status',
+  'engineering:describe',
+  'engineering:checkpoints',
+  // The episode itself: one at a time, cancellable at every step boundary.
+  'engineering:run',
+  'engineering:cancel'
+]
+
 /** IPC surface of the Computer Use panel. */
 const COMPUTER_USE_CHANNELS = [
   'computer-use:snapshot',
@@ -786,6 +809,92 @@ function registerComputerUseIpc() {
   }))
 }
 
+/**
+ * Creates the engineering host on first use (idempotent).
+ *
+ * Unlike the Computer Use runtime this one has no hardware dependency: it is a
+ * repository supervisor, so the host is created without probing anything and the
+ * per-run verification happens inside the episode.
+ */
+function ensureEngineeringHost() {
+  if (engineeringHost) return engineeringHost
+  const { createEngineeringHost } = require('./engineering-host.cjs')
+  engineeringHost = createEngineeringHost({
+    log: (line) => logLine(line),
+    checkpointRoot: path.join(ROOT, 'runtime', 'engineering', 'checkpoints'),
+    available: () => engineeringEnabled(),
+    reason: () => 'the engineering runtime is disabled by config/app.json (engineering.enabled = false)',
+    // The shipped limits and the closed git policy, so the panel inherits the
+    // deployment's decisions rather than choosing them per run.
+    defaults: engineeringDefaults()
+  })
+  logLine(`engineering runtime ready (${ENGINEERING_CHANNELS.length} channels; commit=${engineeringDefaults().git?.allowCommit === true})`)
+  return engineeringHost
+}
+
+/** The `engineering` block of config/app.json, or an empty object. */
+function engineeringDefaults() {
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'app.json'), 'utf8'))
+    return config && typeof config.engineering === 'object' && config.engineering !== null ? config.engineering : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Is the engineering runtime enabled in config? Defaults to on. */
+function engineeringEnabled() {
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'app.json'), 'utf8'))
+    return config?.engineering?.enabled !== false
+  } catch {
+    return true
+  }
+}
+
+/**
+ * Every handler is failure isolated exactly like the Computer Use surface: a
+ * runtime problem is reported as data, so the panel never has to defend itself
+ * against a rejected main-process promise.
+ */
+function registerEngineeringIpc() {
+  for (const channel of ENGINEERING_CHANNELS) {
+    try {
+      ipcMain.removeHandler(channel)
+    } catch {}
+  }
+  const guard = (handler) => async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (error) {
+      logLine(`engineering ipc failed: ${error?.stack || error}`)
+      return { ok: false, error: String(error?.message || error), code: error?.code || null }
+    }
+  }
+  const host = () => ensureEngineeringHost()
+
+  ipcMain.handle('engineering:status', guard(() => host().status()))
+  ipcMain.handle('engineering:describe', guard((_event, input) => host().describe(input || {})))
+  ipcMain.handle('engineering:checkpoints', guard((_event, input) => host().checkpoints(input || {})))
+  // Starting an episode returns as soon as it is accepted: the renderer follows it
+  // through `engineering:status`, and the shell stays free to process the cancel
+  // that stops it.
+  ipcMain.handle('engineering:run', guard((_event, input) => host().run(input || {})))
+  ipcMain.handle('engineering:cancel', guard((_event, input) => host().cancel(input || {})))
+}
+
+/** Releases the engineering host on exit, cancelling any active episode first. */
+function disposeEngineeringOnExit(source = 'shell') {
+  if (!engineeringHost) return null
+  try {
+    engineeringHost.dispose(`shell teardown (${source})`)
+    logLine(`engineering runtime disposed (${source})`)
+  } catch (error) {
+    logLine(`engineering dispose failed: ${error?.message || error}`)
+  }
+  return true
+}
+
 /** Releases the runtime on exit: watchers closed, debugger detached, log flushed. */
 function disposeComputerUseOnExit(source = 'shell') {
   if (!computerUseRuntime) return null
@@ -825,6 +934,7 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
     logLine(`extension stop failed during exit: ${error?.message || error}`)
   }
   stopSubWorkerOnExit('shell teardown')
+  disposeEngineeringOnExit('shell teardown')
   disposeComputerUseOnExit('shell teardown')
   try {
     destroyIntegratedViews()
@@ -1870,6 +1980,16 @@ app.whenReady().then(async () => {
       logLine('computer use: runtime available on demand (computer-use:* IPC)')
     } else {
       logLine('computer use: disabled by config/app.json')
+    }
+
+    // The engineering runtime is repository supervision rather than hardware, so it
+    // is registered the same way: the IPC surface exists from boot and the host is
+    // created on the first call, with no probe in the normal startup path.
+    if (engineeringEnabled()) {
+      registerEngineeringIpc()
+      logLine('engineering: runtime available on demand (engineering:* IPC)')
+    } else {
+      logLine('engineering: disabled by config/app.json')
     }
 
     const extensionsReady = await startExtensions(nodeExe)

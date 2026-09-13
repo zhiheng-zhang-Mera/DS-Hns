@@ -108,7 +108,8 @@ try {
     'engineering-context.test.js',
     'engineering-plan.test.js',
     'engineering-scenarios.test.js',
-    'engineering-verifier.test.js'
+    'engineering-verifier.test.js',
+    'engineering-wiring.test.js'
   )
   foreach ($name in $engineeringTests) {
     if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {

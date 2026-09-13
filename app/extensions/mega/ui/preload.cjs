@@ -169,6 +169,23 @@ contextBridge.exposeInMainWorld('megaComputerUse', {
 })
 
 /**
+ * Engineering runtime control surface (Update-Plan/24h-1.md).
+ *
+ * The dock names a repository and a goal and reads the episode's own report; the
+ * runtime lives in the shell exactly like the Computer Use runtime, because an
+ * episode executes real commands and mutates real files. Starting an episode
+ * returns as soon as it is accepted — the panel follows it through `status()` —
+ * so the renderer stays responsive and can cancel.
+ */
+contextBridge.exposeInMainWorld('megaEngineering', {
+  status: () => ipcRenderer.invoke('engineering:status'),
+  describe: (input) => ipcRenderer.invoke('engineering:describe', input),
+  checkpoints: (input) => ipcRenderer.invoke('engineering:checkpoints', input),
+  run: (input) => ipcRenderer.invoke('engineering:run', input),
+  cancel: (input) => ipcRenderer.invoke('engineering:cancel', input)
+})
+
+/**
  * Optional Sub-worker control surface. The worker has no window of its own
  * (plan §3.2), so the Mega dock is its primary visual surface: these channels
  * drive the shell-owned WorkerManager and are the only way the panel talks to

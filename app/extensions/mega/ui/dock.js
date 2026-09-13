@@ -985,6 +985,7 @@ function render(snapshot) {
 let themePanel = null
 let skillsPanel = null
 let computerUsePanel = null
+let engineeringPanel = null
 try {
   themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
 } catch (error) {
@@ -1002,6 +1003,13 @@ try {
 } catch (error) {
   showError(error)
 }
+try {
+  // Update-Plan/24h-1.md: same discipline for the engineering runtime. The panel
+  // names a repository and a goal; the shell owns the episode.
+  engineeringPanel = window.megaEngineeringPanel?.attach ? window.megaEngineeringPanel.attach() : null
+} catch (error) {
+  showError(error)
+}
 
 async function refresh() {
   try {
@@ -1012,6 +1020,7 @@ async function refresh() {
     await themePanel?.refresh?.()
     await skillsPanel?.refresh?.()
     await computerUsePanel?.refresh?.()
+    await engineeringPanel?.refresh?.()
   } catch (error) {
     showError(error)
   }

@@ -620,3 +620,22 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
 .cu-step-retry{color:var(--hns-state-warning)}
 .cu-step-coord{color:var(--hns-state-warning)}
 .cu-empty{margin:4px 0;font-size:10px;color:var(--hns-color-label-tertiary)}
+/* Engineering panel: a repository control surface. It reuses the Computer Use
+   layout vocabulary on purpose so the two panels read as one product. */
+.engineering-panel .settings-form{margin-top:8px}
+.eng-discovery,.eng-summary,.eng-report{margin-top:8px;font-size:11px;color:var(--hns-color-label-secondary)}
+.eng-line{margin:2px 0;font-size:10px;color:var(--hns-color-label-secondary);word-break:break-word}
+.eng-line.bad{color:var(--hns-state-failed)}
+.eng-line.eng-dim{color:var(--hns-color-label-tertiary)}
+.eng-commands{margin:6px 0;display:flex;flex-direction:column;gap:3px}
+.eng-command{display:grid;grid-template-columns:96px 1fr 64px;gap:6px;align-items:center;padding:4px 7px;
+  border-radius:8px;background:var(--hns-color-bg-layer1);border-left:3px solid var(--hns-color-border-l2);font-size:10px}
+.eng-command-name{color:var(--hns-color-label-primary)}
+.eng-command-text{color:var(--hns-color-label-secondary);word-break:break-all}
+.eng-confidence{color:var(--hns-state-completed);text-align:right}
+.eng-confidence.weak{color:var(--hns-state-warning)}
+.eng-phases{margin-top:8px;display:flex;flex-wrap:wrap;gap:4px}
+.eng-phase{padding:2px 6px;border-radius:6px;font-size:9px;color:var(--hns-color-label-tertiary);
+  background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1)}
+.eng-phase.reached{color:var(--hns-state-completed);border-color:var(--hns-state-completed)}
+.eng-empty{margin:4px 0;font-size:10px;color:var(--hns-color-label-tertiary)}

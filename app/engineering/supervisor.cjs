@@ -84,6 +84,9 @@ function nowMs() {
  * @param {object} [input.processes] a shared Computer Use process registry
  * @param {Function} [input.now]
  * @param {Function} [input.log] `(event) => void`
+ * @param {Function} [input.isCancelled] `() => boolean`, checked at every step
+ *   boundary — a caller (a panel, a supervisor of supervisors) must be able to
+ *   stop an episode without killing the process that runs it
  */
 function createEngineeringSupervisor(input = {}) {
   const now = typeof input.now === 'function' ? input.now : nowMs
@@ -584,6 +587,15 @@ function createEngineeringSupervisor(input = {}) {
     let repairMode = false
     let step = nextStep(plan)
     while (step) {
+      // A caller may stop the episode at any step boundary. The check is here
+      // rather than inside a step because a step is the smallest unit that is
+      // allowed to be left half-done: stopping between them keeps the workspace
+      // and the checkpoint consistent.
+      if (typeof input.isCancelled === 'function' && input.isCancelled()) {
+        machine.force(EPISODE_PHASES.CANCELLED, 'the caller cancelled the episode')
+        status = 'cancelled'
+        break
+      }
       const band = deadlineNow()
       if (band.expired) {
         transition(EPISODE_PHASES.VERIFYING, { reason: 'the deadline expired' })
@@ -668,6 +680,19 @@ function createEngineeringSupervisor(input = {}) {
       // re-run against the patched code.
       plan.cursor = Math.max(0, plan.cursor - 1)
       step = nextStep(plan)
+    }
+
+    // A cancelled episode does not run the completion gate: the caller stopped it,
+    // so there is no claim to validate. It still tears down and still reports what
+    // it had verified, because "I stopped this, here is where it got to" is a
+    // useful answer and "FAILED" would not be honest.
+    if (machine.phase === EPISODE_PHASES.CANCELLED) {
+      finishedAt = now()
+      status = 'cancelled'
+      supervisor.dispose('episode cancelled')
+      checkpoint('cancelled')
+      report = buildReport({ verdict: 'CANCELLED', ok: false, reasons: ['the caller cancelled the episode'], checks: [] })
+      return report
     }
 
     // Final verification: the evidence the completion gate will read.

@@ -229,11 +229,14 @@ jobs:
             'app/engineering/failure.cjs',
             'app/engineering/process.cjs',
             'app/engineering/adapters/index.cjs',
+            'app/extensions/mega/ui/engineering-panel.js',
+            'docs/engineering.md',
             'tests/unit/engineering-context.test.js',
             'tests/unit/engineering-checkpoint.test.js',
             'tests/unit/engineering-plan.test.js',
             'tests/unit/engineering-verifier.test.js',
             'tests/unit/engineering-scenarios.test.js',
+            'tests/unit/engineering-wiring.test.js',
             'tests/helpers/engineering-fixture.cjs',
             'tests/helpers/engineering-scripted.cjs'
           )
