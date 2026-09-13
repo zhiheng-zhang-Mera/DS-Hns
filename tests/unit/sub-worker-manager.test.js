@@ -40,6 +40,18 @@ async function waitFor(predicate, { timeoutMs = 30_000, intervalMs = 50, label =
   throw new Error(`timed out waiting for ${label}`)
 }
 
+/**
+ * The wall-clock allowance for one driven task.
+ *
+ * Driving a task through a real sub-worker takes a few seconds on a developer machine and
+ * has been measured at more than ten times that on a shared CI runner, where the unit step
+ * runs two suites at once. The assertions that use this are about *ordering* — one worker,
+ * strictly serialised, terminal records in order — so patience costs nothing and a
+ * too-tight number costs a whole green run to a flake. It scales with the number of tasks
+ * for the same reason: the work does.
+ */
+const TASK_ALLOWANCE_MS = 60_000
+
 function git(args, cwd) {
   return spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true })
 }
@@ -244,7 +256,7 @@ test('the workspace lock serialises the single Phase 1 worker', async (t) => {
   assert.equal(first.accepted, true)
   assert.equal(second.accepted, true)
 
-  await waitFor(() => manager.describe().history.length >= 2, { timeoutMs: 40_000, label: 'both tasks to finish' })
+  await waitFor(() => manager.describe().history.length >= 2, { timeoutMs: 2 * TASK_ALLOWANCE_MS, label: 'both tasks to finish' })
   const history = manager.describe().history
   const ids = history.map((entry) => entry.task_id)
   assert.ok(ids.includes('q-first'))
@@ -280,7 +292,7 @@ test('three queued tasks are strictly serialised on one worker', async (t) => {
       operations: [{ op: 'write_file', path: `${id}.txt`, content: id }]
     }))
   }
-  await waitFor(() => manager.describe().history.length >= 3, { timeoutMs: 60_000, label: 'all three tasks' })
+  await waitFor(() => manager.describe().history.length >= 3, { timeoutMs: 3 * TASK_ALLOWANCE_MS, label: 'all three tasks' })
   const history = manager.describe().history
   assert.deepEqual(history.map((entry) => entry.status), ['completed', 'completed', 'completed'])
   // The newest record is the last one to finish, and the file it wrote exists.
