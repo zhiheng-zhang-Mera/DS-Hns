@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the Action Executor (plan §2, §43, §51, §52).
+ * Computer Use Runtime: the Action Executor.
  *
  * This is the one path every computer-use behaviour takes:
  *
@@ -35,9 +35,9 @@ const { describeAction, requiresTarget, normalizeAction } = require('./action.cj
 const { describeTarget, revalidate, centerOf } = require('./target.cjs')
 const { evaluateCriteria } = require('./criteria.cjs')
 const { meaningfulChange, summarizeWorldState, discardWorldState } = require('./world-state.cjs')
-// Long-running execution (Update-Plan/24h.md): each of these owns one concern the
+// Long-running execution: each of these owns one concern the
 // executor used to carry inline, so this file stays orchestration + state
-// transitions + controller selection (Task 15).
+// transitions + controller selection.
 const { createFocusTrust, FOCUS_INVALIDATION } = require('./focus.cjs')
 const { planModal, MODAL_ACTION } = require('./modal.cjs')
 const { createProgressTracker, PROGRESS_KINDS } = require('./progress.cjs')
@@ -49,7 +49,7 @@ const { createMutationVerifier } = require('./mutation.cjs')
 const { createReconnectPolicy, createChannelRecovery, isTransportFailure, channelHintFor } = require('./reconnect.cjs')
 // The workspace boundary and the bounded command contract: the executor checks
 // both at the run level, so a drifted workspace or an unbounded command is
-// refused before the hands move (Tasks 11/13, plan §13/§15).
+// refused before the hands move.
 const { createWorkspaceGuard, planWorkspaceGate } = require('./workspace.cjs')
 const { normalizeCommand, invalidError: commandInvalidError } = require('./command.cjs')
 
@@ -64,7 +64,7 @@ function normalizePlanner(candidate) {
 }
 
 /**
- * The workspace guard, from whatever shape the host handed over (Task 11): the
+ * The workspace guard, from whatever shape the host handed over: the
  * runtime's shared guard, a bare workspace path, or a getter around either. With
  * nothing to guard the executor's workspace gate is inert and the controllers
  * keep enforcing their own boundary.
@@ -97,15 +97,15 @@ function createExecutor(options = {}) {
   const stabilizer = options.stabilizer || createStabilizer({ clock, limits: runtimeOptions.timing, thresholds: runtimeOptions.targetMovement })
   const verifier = options.verifier || createVerifier({ clock })
   // The runtime owns every process it starts, which is what makes "dispose only
-  // what we own" enforceable (24h.md Task 7). It may hand the shared registry over
+  // what we own" enforceable. It may hand the shared registry over
   // under either name, so the executor reports on the very processes the shell
   // controller starts.
   const processes = options.processes || options.processRegistry || createProcessRegistry({ now: clock.now, maxOwned: runtimeOptions.maxOwnedProcesses })
   // Resource ceilings: screenshots, evidence bytes and per-step history
-  // (24h.md Task 8). The shared budget wins when the runtime passes one, so a
+  //. The shared budget wins when the runtime passes one, so a
   // capture taken here is counted by the same ceiling the health reader reports.
   const resources = options.resources || options.resourceBudget || createResourceBudget({ now: clock.now, maxScreenshots: runtimeOptions.maxScreenshots })
-  // Bounded reconnection for a channel that loses its transport (Task 10).
+  // Bounded reconnection for a channel that loses its transport.
   const reconnect = options.reconnect || createReconnectPolicy({ now: clock.now, sleep: clock.sleep, maxAttempts: runtimeOptions.maxReconnects })
   // The channel-level wiring the reconnect policy needs and cannot know by
   // itself: which controller implements a channel, how to ask whether it is back,
@@ -124,9 +124,9 @@ function createExecutor(options = {}) {
     },
     onEvent: (event) => writeLog('event', event)
   })
-  // Filesystem mutation evidence, and the resume-safe re-observation (Task 12/14).
+  // Filesystem mutation evidence, and the resume-safe re-observation.
   const mutations = options.mutations || createMutationVerifier({ now: clock.now })
-  // The workspace boundary this executor checks itself (Task 11).
+  // The workspace boundary this executor checks itself.
   const workspaceGuard = resolveWorkspaceGuard(options, clock)
 
   let availability = null
@@ -134,7 +134,7 @@ function createExecutor(options = {}) {
   let cancelled = false
   let currentRun = null
 
-  /** One probe per controller per run, cached (plan §37 degradation). */
+  /** One probe per controller per run, cached (degradation). */
   function probeControllers(force = false) {
     if (availability && !force) return availability
     const entry = (controller) => {
@@ -261,7 +261,7 @@ function createExecutor(options = {}) {
       if (hit) return { resolved: hit, attempts }
     }
     if (action.target.bbox) return { resolved: { kind: 'bbox', bbox: action.target.bbox, point: centerOf(action.target.bbox), source: 'target', coordinateFallback: true }, attempts }
-    // Plan §4/§48: a visual target is the last structured-independent rung -a
+    //a visual target is the last structured-independent rung -a
     // canvas or a custom-drawn control has no DOM node and no accessibility
     // node, so the runtime looks at the pixels and clicks what it found.
     if (action.target.visual) {
@@ -326,7 +326,7 @@ function createExecutor(options = {}) {
             at: clock.now(),
             reason: 'visual-target'
           }
-          // Task 8: an evidence capture is accounted for even when it is only
+          // an evidence capture is accounted for even when it is only
           // used to resolve a target - the ceiling has to cover every capture a
           // long run takes, not only the ones that are logged.
           budgetCapture(run, capture, capture.level, 'visual-target')
@@ -406,7 +406,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Phase 1 acceptance (plan §43): a single action, executed through exactly the
+   * Phase 1 acceptance: a single action, executed through exactly the
    * same machinery as a full run -stabilization, revalidation, safety gates,
    * routing, verification and the recovery ladder. "One action" is modelled as a
    * one-step contract so there is no second execution path that could drift away
@@ -436,7 +436,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §3.1: perception is asked for the cheapest source that can answer the
+   *perception is asked for the cheapest source that can answer the
    * question. The desktop accessibility walk crosses process boundaries and is
    * the most expensive observation the runtime can make, so it is read only
    * when the step genuinely needs it:
@@ -462,11 +462,11 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * A bounded summary of one observation (Update-Plan/24h.md Task 3).
+   * A bounded summary of one observation.
    *
    * This is deliberately a summary, not the world state itself: the stabilizer
    * only compares the fields below, and keeping a whole previous world alive
-   * would be exactly the unbounded observation history Task 8 forbids.
+   * would be exactly the unbounded observation history the runtime forbids.
    */
   function summarizeObservation(world) {
     if (!world) return null
@@ -486,7 +486,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 3: the signals this run already knows, in the
+   * the signals this run already knows, in the
    * stabilizer's own vocabulary, computed *before* the settle window so the first
    * cooldown step reflects them instead of rediscovering them.
    *
@@ -518,15 +518,15 @@ function createExecutor(options = {}) {
     return Boolean(miss && miss.missed === true && action && miss.actionType === action.type)
   }
 
-  /** Plan §30/§31/§33/§34: every gate that must pass before the hands move. */
+  /**: every gate that must pass before the hands move. */
   async function runGates(action, world, context) {
     const { contract, safety, run } = context
     // Waiting is a runtime primitive, not a machine capability: it borrows the
     // channel of whatever it is waiting on, so a contract that allows only
-    // `browser` may still wait for the page to settle (plan §12).
+    // `browser` may still wait for the page to settle.
     const waits = action.type === ACTION_TYPES.WAIT_EVENT || action.type === ACTION_TYPES.WAIT_STATE
     if (!waits) assertCapability(contract, action.capability || 'desktop', { action: action.type })
-    // Task 11/13: the workspace boundary and the bounded command contract are
+    // the workspace boundary and the bounded command contract are
     // checked before any other gate, because "where would this even run" is a
     // question that has to be answered before "may it run".
     const workspace = workspaceGate(action, run)
@@ -539,7 +539,7 @@ function createExecutor(options = {}) {
       if (safety) await safety.assertActionAllowed(action, { contract })
       return { blocked: false }
     }
-    // Plan §30: a blocking modal pauses the original action. The dismissal step
+    //a blocking modal pauses the original action. The dismissal step
     // itself is exempt -otherwise every attempt to answer the dialog would be
     // blocked by the dialog it is answering.
     const modalDismiss = Boolean(action.params && action.params.__modalDismiss)
@@ -563,7 +563,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 11/13: the run-level check a shell or filesystem
+   * the run-level check a shell or filesystem
    * action passes before the hands move.
    *
    * The controllers enforce the same boundary at their own edge; this is the
@@ -626,7 +626,7 @@ function createExecutor(options = {}) {
         error: new ComputerUseError(CODES.CONTROLLER_UNAVAILABLE, `no controller implements the ${route.channel} channel`, { channel: route.channel })
       }
     }
-    // Task 9: a capability that is *degraded* right now is reported for this
+    // a capability that is *degraded* right now is reported for this
     // action — `CAPABILITY_UNAVAILABLE` — instead of being discovered as a
     // generic controller crash halfway through the action. The rest of the
     // runtime keeps working; only the action that needs this channel stops.
@@ -649,7 +649,7 @@ function createExecutor(options = {}) {
       }
     }
     try {
-      // Task 12: the destination's mtime *before* the action is what lets the
+      // the destination's mtime *before* the action is what lets the
       // write verifier tell "this write landed" from "the file was already
       // there". It is read here, before the hands move.
       const beforeMtime = mutations.MUTATION_TYPES.includes(action.type)
@@ -662,7 +662,7 @@ function createExecutor(options = {}) {
       )
       return { status: receipt && receipt.ok === false ? 'failed' : 'acted', route, action, receipt, controller: route.controller, beforeMtime }
     } catch (error) {
-      // Task 10: a transport failure is not "the action failed" - it is a channel
+      // a transport failure is not "the action failed" - it is a channel
       // that has to be rebuilt before anything else happens. The step continues
       // from a fresh observation instead of the target this attempt resolved.
       if (isTransportFailure(error) && run) {
@@ -690,7 +690,7 @@ function createExecutor(options = {}) {
     try {
       return await executeStepInner(action, run)
     } catch (error) {
-      // Plan §37: a controller that throws, a safety gate that refuses or a
+      //a controller that throws, a safety gate that refuses or a
       // stabilizer that fails is one *step* failure -it may not take the run
       // loop down with it.
       const typed = error && error.code
@@ -717,10 +717,10 @@ function createExecutor(options = {}) {
     stateMachine.transition(CU_STATES.PLANNING_ACTION, { step: stepNumber, action: action.type, reason: 'planner produced an action' })
     const before = run.world
 
-    // ---- STABILIZING (plan §9/§10/§13) -------------------------------------
+    // ---- STABILIZING -------------------------------------
     stateMachine.transition(CU_STATES.STABILIZING, { step: stepNumber })
     let resolved = null
-    // Task 3: the observation the previous step ended on is the baseline every
+    // the observation the previous step ended on is the baseline every
     // carried stabilization signal is measured against, so it is taken before the
     // settle window opens - and replaced with this step's own entry observation
     // for the step after it.
@@ -732,7 +732,7 @@ function createExecutor(options = {}) {
         run.resolveAttempts = result.attempts
         return result.resolved
       } catch (error) {
-        // Task 10: a resolution that dies with its channel's transport is redone
+        // a resolution that dies with its channel's transport is redone
         // through a reconnected one; a resolution from before the failure is never
         // reused (the reconnect clears `run.lastResolution`).
         if (!isTransportFailure(error)) throw error
@@ -744,14 +744,14 @@ function createExecutor(options = {}) {
       }
     }
     if (requiresTarget(action) && action.target) {
-      // Plan §10, step 1: the target is detected *now*, and that resolution is
+      // step 1: the target is detected *now*, and that resolution is
       // the baseline the post-settle resolution is compared against.
       const detected = await attemptResolve()
       const settleOutcome = await stabilizer.settle({
         action,
         previous: detected,
         world: run.world,
-        // Update-Plan/24h.md Task 3: the signals this run already knows travel
+        // the signals this run already knows travel
         // into the settle window with the observation, so the cooldown reflects
         // them from its first step.
         signals: stabilizationSignals(action, run, priorObservation),
@@ -781,7 +781,7 @@ function createExecutor(options = {}) {
           }
         }
       } else if (settleOutcome.verdict === 'wait_state') {
-        // Plan §24: past the cooldown ceiling the runtime stops adding delay and
+        //past the cooldown ceiling the runtime stops adding delay and
         // waits for the UI to go quiet, with a bounded timeout.
         const quiet = await waitForQuiet(action, run)
         if (!quiet.ok) {
@@ -814,10 +814,10 @@ function createExecutor(options = {}) {
       }
     }
 
-    // ---- REVALIDATING (plan §10) -------------------------------------------
+    // ---- REVALIDATING -------------------------------------------
     stateMachine.transition(CU_STATES.REVALIDATING, { step: stepNumber })
 
-    // ---- Safety gates (plan §30/§31/§33/§34) --------------------------------
+    // ---- Safety gates --------------------------------
     const gate = await runGates(action, run.world, { contract, safety, run })
     if (gate.blocked) {
       if (gate.code === CODES.MODAL_BLOCKING) {
@@ -831,12 +831,12 @@ function createExecutor(options = {}) {
     }
     if (requiresTarget(action) && action.target) {
       if (action.capability === 'desktop' && (action.type === ACTION_TYPES.TYPE || action.type === ACTION_TYPES.KEY_PRESS || action.type === ACTION_TYPES.HOTKEY)) {
-        // Update-Plan/24h.md Task 1: only a *verified* focus authorizes typing.
+        // only a *verified* focus authorizes typing.
         // The attempt itself is recorded for the log and authorizes nothing.
         run.focus.attempt(focusRefOf(action), { action: action.type, step: stepNumber })
         const focusDecision = safety.checkFocus(action, run.world, { contract, verifiedFocusRef: run.focus.verifiedFocusRef })
         if (!focusDecision.allowed) {
-          // Focus safety (plan §31): establish focus first instead of refusing
+          // Focus safety: establish focus first instead of refusing
           // the whole step -but only when there is something to focus.
           const focusAction = buildFocusAction(action)
           if (focusAction) {
@@ -866,9 +866,9 @@ function createExecutor(options = {}) {
       }
     }
 
-    // ---- ACTING (plan §6/§29) ----------------------------------------------
+    // ---- ACTING ----------------------------------------------
     stateMachine.transition(CU_STATES.ACTING, { step: stepNumber })
-    // Task 10: the reconnect budget belongs to this step attempt, so a channel
+    // the reconnect budget belongs to this step attempt, so a channel
     // that keeps dropping cannot spend the run's budget.
     reconnect.beginStep()
     let acted = await performAction(action, run.world, { contract, resolved, attempt: run.attempt, visualLevel: run.visualLevel, run })
@@ -894,7 +894,7 @@ function createExecutor(options = {}) {
         break
       }
       reconnects += 1
-      // The step stays in ACTING on purpose: plan §52 allows no transition from
+      // The step stays in ACTING on purpose: allows no transition from
       // ACTING back to an observation state, so a channel that came back
       // continues the step in place (the reconnect is recorded in the log,
       // including its attempt and outcome).
@@ -918,17 +918,17 @@ function createExecutor(options = {}) {
       acted = await performAction(action, run.world, { contract, resolved, attempt: run.attempt, visualLevel: run.visualLevel, run })
     }
     run.lastAction = { type: action.type, target: action.target ? describeTarget(action.target) : null, result: acted.status }
-    // Task 10: the channel this step actually used is the hint a later
+    // the channel this step actually used is the hint a later
     // observation's transport failure is attributed to.
     run.lastRoute = acted.route || run.lastRoute
 
     if (resolved && resolved.ref && (action.type === ACTION_TYPES.FOCUS || action.type === ACTION_TYPES.DOM_TYPE)) {
       // A resolution is only *candidate* evidence: the verification below decides
-      // whether the focus may be trusted (Task 1). Nothing is promoted here.
+      // whether the focus may be trusted. Nothing is promoted here.
       run.focus.attempt(resolved.ref, { action: action.type, step: stepNumber, source: 'resolution' })
     }
 
-    // Plan §32: remember what a sensitive action typed, so the value cannot
+    //remember what a sensitive action typed, so the value cannot
     // reappear through a later step's world-state summary.
     if (action.sensitive) {
       for (const candidate of [action.params.text, action.params.value, action.params.stdin]) {
@@ -938,12 +938,12 @@ function createExecutor(options = {}) {
       }
     }
 
-    // ---- POST_ACTION_GRACE (plan §11) --------------------------------------
+    // ---- POST_ACTION_GRACE --------------------------------------
     stateMachine.transition(CU_STATES.POST_ACTION_GRACE, { step: stepNumber })
     const grace = await stabilizer.grace(action)
     run.graceMs = grace.waitedMs
 
-    // ---- VERIFYING (plan §12/§14/§15) --------------------------------------
+    // ---- VERIFYING --------------------------------------
     stateMachine.transition(CU_STATES.VERIFYING, { step: stepNumber })
     const verification = await waitForEffect(action, run, before, acted)
     const after = verification.world
@@ -957,7 +957,7 @@ function createExecutor(options = {}) {
       visualDigestBefore: run.visualDigest,
       visualDigestAfter: after ? after.signature : null
     })
-    // Task 3: the miss this step produced is what the *next* settle needs to know
+    // the miss this step produced is what the *next* settle needs to know
     // about, so it is recorded here rather than inferred later from the log.
     run.lastMiss = { step: stepNumber, actionType: action.type, missed: miss.missed === true, signals: miss.signals }
     const change = meaningfulChange(before, after)
@@ -970,7 +970,7 @@ function createExecutor(options = {}) {
       verification: verification.result ? verification.result.verdict : null
     })
     // FOCUS is the one action whose *whole* purpose is the focus, so its
-    // verification is what promotes the trust (Task 1). Any other action leaves
+    // verification is what promotes the trust. Any other action leaves
     // the reference exactly as the context check left it.
     if (action.type === ACTION_TYPES.FOCUS || action.type === ACTION_TYPES.DOM_TYPE) {
       const verdict = verification.result ? verification.result.verdict : VERDICTS.UNKNOWN
@@ -978,18 +978,17 @@ function createExecutor(options = {}) {
       // The reference that is handed over is the one that is *actually* focused,
       // never the one that was merely attempted: passing the attempted ref for a
       // failed or unknown verdict would leave a trusted-looking reference behind
-      // (Task 1).
       const confirmed = verdict === VERDICTS.SUCCESS && focusedNow ? focusedNow : null
       run.focus.verified(verdict, confirmed)
     }
-    // Task 4: the verification says *what* happened; the risk of the action says
+    // the verification says *what* happened; the risk of the action says
     // whether that evidence is good enough to carry it.
     const evidence = assessEvidence({
       action,
       verification: verification.result,
       declaredEffect: Boolean(action.expectedEffect)
     })
-    // Task 5: only a verified effect, a finished process or a confirmed mutation
+    // only a verified effect, a finished process or a confirmed mutation
     // counts as progress. Issuing an action never does.
     if (evidence.ok) {
       run.progress.progress(PROGRESS_KINDS.VERIFIED_EFFECT, {
@@ -1001,7 +1000,7 @@ function createExecutor(options = {}) {
     } else if (verification.result && verification.result.verdict === VERDICTS.SUCCESS) {
       run.progress.noOp(after ? after.signature : null)
     }
-    // Task 12: a filesystem mutation is checked against the disk, not against the
+    // a filesystem mutation is checked against the disk, not against the
     // controller's own report.
     const mutation = await mutations.verify({ action, receipt: acted.receipt, beforeMtime: acted.beforeMtime })
     if (mutation && mutation.verified === true) {
@@ -1033,7 +1032,6 @@ function createExecutor(options = {}) {
     // A verified effect whose evidence is not strong enough for the action's own
     // risk is *not* success: the step is reported as unverified rather than
     // letting a weak "something changed" carry a save, a send or a delete
-    // (Task 4).
     if (verification.result && verification.result.verdict === VERDICTS.SUCCESS && !miss.missed) {
       if (evidence.ok) {
         return { status: 'success', world: after, verification: verification.result, stallState, miss, action, receipt: acted.receipt, route: acted.route, evidence, mutation }
@@ -1062,7 +1060,7 @@ function createExecutor(options = {}) {
 
     // A filesystem mutation that cannot be confirmed is a failure even when the
     // controller reported success: "the command exited 0" is not "the file is
-    // right" (Task 12).
+    // right".
     if (mutation && mutation.verified === false && !mutation.skipped) {
       return {
         status: 'failed',
@@ -1100,7 +1098,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §12: after acting, wait for the expected effect -conditionally, up to
+   *after acting, wait for the expected effect -conditionally, up to
    * the action's timeout. A 700 ms UI is waited for exactly as long as it needs
    * (plus the poll interval), never a fixed two seconds.
    */
@@ -1162,13 +1160,13 @@ function createExecutor(options = {}) {
     return facts
   }
 
-  /** The reference an action intends to focus, for the attempt log (Task 1). */
+  /** The reference an action intends to focus, for the attempt log. */
   function focusRefOf(action) {
     if (!action || !action.target) return null
     return action.target.ref || action.target.selector || null
   }
 
-  /** Plan §31: turn "typing is not focused" into an explicit FOCUS step. */
+  /**: turn "typing is not focused" into an explicit FOCUS step. */
   function buildFocusAction(action) {    if (!action.target) return null
     return {
       ...action,
@@ -1182,7 +1180,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §30 + Update-Plan/24h.md Task 2: pause the original action, handle the
+   * + pause the original action, handle the
    * modal, resume. The controls are classified by `modal.cjs` and the decision is
    * fail-safe: a safe dismissal is pressed, a destructive one needs the contract,
    * the declared effect and the safety gate to agree, and anything unclassifiable
@@ -1357,7 +1355,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §24/§25: once the cooldown ladder is exhausted the runtime stops
+   *once the cooldown ladder is exhausted the runtime stops
    * adding delay and switches to a *conditional* wait for the UI to go quiet
    * (loading finished, no further DOM/AX churn, no dialogs). It is bounded by
    * the action's timeout, so an animation that never stops becomes UI_UNSTABLE
@@ -1382,7 +1380,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §18/§19: one failed step becomes a decision, not a dead end.
+   *one failed step becomes a decision, not a dead end.
    */
   async function recover(stepOutcome, action, run) {
     const decision = run.recovery.decide({
@@ -1391,7 +1389,7 @@ function createExecutor(options = {}) {
       error: stepOutcome.error,
       miss: stepOutcome.miss,
       stallRecoveries: run.stallRecoveries,
-      // Plan §21: retry, alternative and replan all draw from one bounded
+      //retry, alternative and replan all draw from one bounded
       // per-step round budget, so no ladder can run forever.
       recoveryRounds: run.recoveryRounds,
       allowedCapabilities: run.contract.allowedCapabilities,
@@ -1402,7 +1400,7 @@ function createExecutor(options = {}) {
       context: { contract: run.contract }
     })
     run.recoveryRounds += 1
-    // Plan §21: when the recovery ladder itself runs out *after* a stall, the
+    //when the recovery ladder itself runs out *after* a stall, the
     // run must end as FAIL_WITH_CONTEXT -the stall is the reason, and the log
     // should say so rather than blaming the last verification.
     if (decision.step === 'fail' && run.stall.consecutive > 0) {
@@ -1416,8 +1414,8 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * What each rung of the stall ladder actually *does* (Update-Plan/24h.md
-   * Task 6).
+   * What each rung of the stall ladder actually *does* (
+   *).
    *
    * The ladder itself - which rungs exist and in which order - is defined exactly
    * once, in `stall.cjs`. The work below is aligned with that canonical list
@@ -1478,7 +1476,7 @@ function createExecutor(options = {}) {
     }
   ]
 
-  /** Rung name -> work, keyed by the canonical ladder itself (Task 6). */
+  /** Rung name -> work, keyed by the canonical ladder itself. */
   const stallRungs = new Map()
   STALL_RECOVERY_LADDER.forEach((rung, index) => {
     const work = stallRungWork[index]
@@ -1486,7 +1484,7 @@ function createExecutor(options = {}) {
   })
 
   /**
-   * Plan §20/§21: the stall ladder. The rungs come from `stall.cjs` (Task 6) and
+   *the stall ladder. The rungs come from `stall.cjs` and
    * each one is real work -re-observe, check the window, re-resolve the target,
    * take a *targeted* screenshot, switch the interaction, replan -and the ladder
    * ends in FAIL_WITH_CONTEXT.
@@ -1498,7 +1496,7 @@ function createExecutor(options = {}) {
     run.stateMachine.transition(CU_STATES.STALLED, { reason: `stall detected: ${run.stall.consecutive} actions without meaningful change` })
     writeLog('event', { type: 'stall', rung: rung.ladderStep, recoveries: run.stallRecoveries, limit: run.stall.maxRecoveries })
 
-    // Task 6: the terminal rung, a rung this file has no work for, and a spent
+    // the terminal rung, a rung this file has no work for, and a spent
     // recovery budget all end the same way - FAIL_WITH_CONTEXT with the stall
     // history attached. The rung is recognised from the canonical ladder's own
     // verdict (`terminal`), never from a name written here, so an unknown rung is
@@ -1520,7 +1518,7 @@ function createExecutor(options = {}) {
     return outcome || { status: 'continue' }
   }
 
-  /** Captures evidence, honouring the contract's screenshot policy (plan §40). */
+  /** Captures evidence, honouring the contract's screenshot policy. */
   async function captureEvidence(run, level, reason, options_ = {}) {
     if (!controllers.vision) return { ok: false, reason: 'no vision controller' }
     try {
@@ -1532,7 +1530,7 @@ function createExecutor(options = {}) {
         allowFullScreen: run.contract.vision.allowFullScreenFallback
       })), 5000, 'screenshot')
       run.visualLevel = Math.max(run.visualLevel, capture.level)
-      // Task 8: the capture goes through the shared resource budget before
+      // the capture goes through the shared resource budget before
       // anything else touches it, so a ceiling that is reached degrades the
       // capture (it is dropped and reported) instead of throwing or leaking.
       const verdict = budgetCapture(run, capture, level, reason)
@@ -1570,7 +1568,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Task 8: register one capture with the resource budget, and record a drop in
+   * register one capture with the resource budget, and record a drop in
    * the log.
    *
    * The budget never throws: a capture it refuses is an outcome the run reports,
@@ -1602,7 +1600,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Update-Plan/24h.md Task 14: re-observe the effect of the step a resumed run
+   * re-observe the effect of the step a resumed run
    * was handed, before issuing anything new.
    *
    * The shape consumed on `runOptions.resume` is deliberately small, and it adds
@@ -1664,10 +1662,10 @@ function createExecutor(options = {}) {
       if (String(source).startsWith('plan:')) run.stepResults.set(source, true)
       // The step is skipped, not re-issued: the plan cursor moves past the plan
       // step this effect belongs to, so a completed write is never rewritten
-      // (Task 14). A source that names no plan step leaves the cursor alone.
+      //. A source that names no plan step leaves the cursor alone.
       skipCompletedPlanStep(run, source)
       // The effect is on disk, so it is progress - the same claim a verified
-      // mutation makes (Task 5).
+      // mutation makes.
       run.progress.progress(PROGRESS_KINDS.FILE_OPERATION, {
         step: run.steps,
         operation: observed.operation || action.type,
@@ -1690,7 +1688,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Task 14: move the plan cursor past a plan step whose effect a resumed run
+   * move the plan cursor past a plan step whose effect a resumed run
    * found already complete, so the plan does not issue it a second time. The
    * `plan:<step id>` source is the identity `planNext()` gives a plan step; a
    * source that names no plan step (a recovery action, a planner action) leaves
@@ -1707,7 +1705,7 @@ function createExecutor(options = {}) {
     return true
   }
 
-  /** Plan §35 planning: the contract's plan first, then the optional planner hook. */
+  /** planning: the contract's plan first, then the optional planner hook. */
   async function planNext(run) {
     if (run.pendingAction) {
       const action = run.pendingAction
@@ -1778,7 +1776,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §36: completion is decided by the success criteria, never by "the plan
+   *completion is decided by the success criteria, never by "the plan
    * ran out".
    *
    * A contract that declares no criteria is still judged on evidence: the
@@ -1803,7 +1801,7 @@ function createExecutor(options = {}) {
     }
     // The implicit criterion: the plan ran to its end and every plan step that
     // ran was verified. A step that failed and was never recovered keeps the run
-    // short of completion (plan §36).
+    // short of completion.
     const satisfied = Boolean(run.planExhausted) && verified.length > 0 && verified.every(Boolean)
     return {
       satisfied,
@@ -1824,7 +1822,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * The run loop (plan §2/§52). Returns the run report; it never throws for a
+   * The run loop. Returns the run report; it never throws for a
    * task-level failure -a failure is a result the caller inspects.
    */
   async function run(contractInput, runOptions = {}) {
@@ -1838,7 +1836,7 @@ function createExecutor(options = {}) {
       contract,
       stateMachine,
       // The host's confirmation callback is the fallback for a contract that
-      // asks for "confirm" without carrying its own channel (plan §34).
+      // asks for "confirm" without carrying its own channel.
       safety: createSafetyGuard({ contract, confirm: contract.safety.confirm || options.confirm, now: clock.now }),
       recovery: createRecoveryController({
         maxRetriesPerAction: contract.limits.maxRetriesPerAction,
@@ -1847,10 +1845,10 @@ function createExecutor(options = {}) {
         now: clock.now
       }),
       stall: createStallDetector({ consecutiveActions: runtimeOptions.stall ? runtimeOptions.stall.consecutiveActions : undefined, maxRecoveries: contract.limits.maxStallRecoveries, now: clock.now }),
-      // Focus trust (Task 1): attempted and verified are separate fields and only
+      // Focus trust: attempted and verified are separate fields and only
       // a verification promotes one to the other.
       focus: createFocusTrust({ now: clock.now }),
-      // Meaningful-progress heartbeat (Task 5): only verified effects, finished
+      // Meaningful-progress heartbeat: only verified effects, finished
       // processes and confirmed mutations move `lastProgressAt`.
       progress: createProgressTracker({ now: clock.now }),
       steps: 0,
@@ -1868,14 +1866,14 @@ function createExecutor(options = {}) {
       forceReplan: false,
       lastResolution: null,
       lastAction: null,
-      // Task 3: the miss and the observation the *previous* step ended on, kept as
+      // the miss and the observation the *previous* step ended on, kept as
       // bounded summaries rather than world states (see `summarizeObservation`).
       lastMiss: null,
       lastObservation: null,
-      // Task 10: the channel the last step actually used, as the hint a later
+      // the channel the last step actually used, as the hint a later
       // transport failure is attributed to.
       lastRoute: null,
-      // Task 6: the full-screen capture is spent at most once per run.
+      // the full-screen capture is spent at most once per run.
       fullScreenshotUsed: false,
       verifiedFocusRef: null,
       outcomes: [],
@@ -1889,7 +1887,7 @@ function createExecutor(options = {}) {
     }
     currentRun = run
 
-    // Plan §49: an autonomous continuation round resumes where the previous
+    //an autonomous continuation round resumes where the previous
     // round stopped instead of replaying steps that already succeeded.
     if (runOptions.resume && Number.isInteger(runOptions.resume.completedPlanSteps)) {
       run.planCursor.step = Math.max(0, Math.min(contract.plan.length, runOptions.resume.completedPlanSteps))
@@ -1905,7 +1903,7 @@ function createExecutor(options = {}) {
     // focus trust compares against.
     run.focus.observeContext(run.world)
 
-    // Update-Plan/24h.md Task 12/14: the resume-safe step boundary. When the host
+    // the resume-safe step boundary. When the host
     // hands over the step that was in flight when the previous round stopped, its
     // effect is re-observed *before* anything new is issued.
     const resumeStop = await probeResumedStep(run, runOptions.resume)
@@ -1917,7 +1915,7 @@ function createExecutor(options = {}) {
     for (;;) {
       if (resumeStop) {
         // A resumed mutation that cannot be re-observed stops the run here rather
-        // than being rewritten blind (Task 14).
+        // than being rewritten blind.
         status = RUN_STATUS.FAILED
         error = resumeStop
         run.failed = true
@@ -1965,7 +1963,7 @@ function createExecutor(options = {}) {
         break
       }
 
-      // Task 1: the step boundary drops the previous step's verified focus
+      // the step boundary drops the previous step's verified focus
       // reference. A reference that outlives the step that verified it is a stale
       // reference, and a focus gate that consults one is a gate that types into
       // whatever now happens to be focused. The next step re-establishes it (or
@@ -2000,7 +1998,7 @@ function createExecutor(options = {}) {
 
       if (outcome.status === 'resume') {
         run.world = outcome.world || run.world
-        // Plan §30: pause the original action, handle the modal, then *resume
+        //pause the original action, handle the modal, then *resume
         // the original action* -not "carry on with the next plan step".
         run.pendingAction = outcome.action || planned.action
         run.pendingSource = planned.source
@@ -2064,7 +2062,7 @@ function createExecutor(options = {}) {
       criteria = await checkCriteria(run)
       if (!criteria.satisfied) {
         // A criterion stopped holding between the check and the teardown: the
-        // honest answer is a blocked run, not a completion (plan §36).
+        // honest answer is a blocked run, not a completion.
         status = criteria.unknown ? RUN_STATUS.BLOCKED : RUN_STATUS.FAILED
         error = new ComputerUseError(CODES.VERIFICATION_FAILED, 'the success criteria stopped holding before completion', { criteria: criteria.results })
       }
@@ -2089,7 +2087,7 @@ function createExecutor(options = {}) {
     }
     writeLog('finish', { status, steps: run.steps, criteria: criteria.results, error: report.error })
     if (log) log.finish({ status, steps: run.steps, criteria: criteria.results })
-    // Plan §5: the task's world state is dropped when the task ends.
+    //the task's world state is dropped when the task ends.
     discardWorldState(run.world)
     observer.reset()
     running = false
@@ -2156,7 +2154,7 @@ function createExecutor(options = {}) {
   }
 
   /**
-   * Plan §32: a value typed into a sensitive field must never reach the log - * not in the action, and not in the world-state summary of the *next* step
+   *a value typed into a sensitive field must never reach the log - * not in the action, and not in the world-state summary of the *next* step
    * either, where a textbox's value would otherwise reappear.
    */
   function sanitizeLogEntry(entry, sensitiveValues) {
@@ -2183,7 +2181,7 @@ function createExecutor(options = {}) {
     return verification.verdict
   }
 
-  /** Plan §37: what is currently working and what is not, for the UI and the log. */
+  /**: what is currently working and what is not, for the UI and the log. */
   function health() {
     const probed = probeControllers()
     return Object.entries(probed).map(([name, entry]) => ({
