@@ -47,6 +47,10 @@ const CHANNELS = [
   'mega:compatibility',
   // The plugin store channel: search GitHub, and ask whether a result is a plugin.
   'mega:store-describe', 'mega:store-search', 'mega:store-inspect',
+  // The two-stage install: stage (code on disk, verified) and enable (the host may run it),
+  // plus the installed list, the history and the one-by-one queue.
+  'mega:store-installed', 'mega:store-stage', 'mega:store-enable', 'mega:store-disable',
+  'mega:store-remove', 'mega:store-reinstall', 'mega:store-queue',
   // The feature manager: which of the dock's features are switched on.
   'mega:features-snapshot', 'mega:features-set',
   // ---- HNS unified theme system ----
@@ -1275,6 +1279,37 @@ function store() {
   return pluginStore
 }
 
+/**
+ * The installer: the two-stage half of the store.
+ *
+ * Staging clones a repository into `data/plugins/store/` and verifies its manifest; enabling
+ * records it as enabled, which is what lets the plugin host import it. The queue exists for
+ * the store's one-by-one install flow.
+ */
+let storeInstaller = null
+function installer() {
+  if (storeInstaller) return storeInstaller
+  const { createStoreInstaller } = require('./store/installer.cjs')
+  storeInstaller = createStoreInstaller({ root: PATHS.ROOT, log: (message) => log(`store: ${message}`) })
+  return storeInstaller
+}
+
+/**
+ * Tell the plugin host that the installed set changed.
+ *
+ * The host keeps a built world; this is the shell's chance to drop it so an enable takes effect
+ * without a restart. It is an event rather than a return value because the sender is the
+ * extension and the listener is the shell, and a listener that is not attached must be a
+ * no-op rather than a failure.
+ */
+function notifyPluginHostReload() {
+  try {
+    ctx.electron.ipcMain.emit('mega:installed-plugins-changed')
+  } catch (error) {
+    log(`could not notify the plugin host: ${error?.message || error}`)
+  }
+}
+
 function registerStoreIpc() {
   const { ipcMain } = ctx.electron
   const guard = (handler) => async (...args) => {
@@ -1288,6 +1323,56 @@ function registerStoreIpc() {
   ipcMain.handle('mega:store-describe', guard(() => ({ ok: true, ...store().describe() })))
   ipcMain.handle('mega:store-search', guard((_event, payload = {}) => store().search(payload || {})))
   ipcMain.handle('mega:store-inspect', guard((_event, payload = {}) => store().inspect(payload || {})))
+  // The installed side: what is staged, what is enabled, and where each came from.
+  ipcMain.handle('mega:store-installed', guard(() => ({
+    ok: true,
+    describe: installer().describe(),
+    plugins: installer().list(),
+    history: installer().history(),
+    queue: installer().queue()
+  })))
+  ipcMain.handle('mega:store-stage', guard((_event, payload = {}) => {
+    const result = installer().stage({ repo: payload.repo, branch: payload.branch, replace: payload.replace === true })
+    notifyChanged()
+    return result
+  }))
+  ipcMain.handle('mega:store-enable', guard((_event, payload = {}) => {
+    const result = installer().enable({ id: payload.id })
+    if (result.ok) notifyPluginHostReload()
+    notifyChanged()
+    return result
+  }))
+  ipcMain.handle('mega:store-disable', guard((_event, payload = {}) => {
+    const result = installer().disable({ id: payload.id })
+    if (result.ok) notifyPluginHostReload()
+    notifyChanged()
+    return result
+  }))
+  ipcMain.handle('mega:store-remove', guard((_event, payload = {}) => {
+    const result = installer().remove({ id: payload.id })
+    if (result.ok) notifyPluginHostReload()
+    notifyChanged()
+    return result
+  }))
+  ipcMain.handle('mega:store-reinstall', guard((_event, payload = {}) => {
+    const result = installer().reinstall({ id: payload.id, repo: payload.repo, branch: payload.branch })
+    if (result.ok && result.enabled) notifyPluginHostReload()
+    notifyChanged()
+    return result
+  }))
+  // The one-by-one install flow: candidates first, then one sequential run.
+  ipcMain.handle('mega:store-queue', guard(async (_event, payload = {}) => {
+    const action = String(payload.action || 'list')
+    if (action === 'list') return { ok: true, queue: installer().queue() }
+    if (action === 'add') return installer().enqueue({ repo: payload.repo, branch: payload.branch })
+    if (action === 'clear') return installer().clearQueue()
+    if (action === 'run') {
+      const result = await installer().runQueue({ replace: payload.replace === true })
+      notifyChanged()
+      return result
+    }
+    return { ok: false, reason: `unknown queue action "${action}"` }
+  }))
 }
 
 function registerIpc() {

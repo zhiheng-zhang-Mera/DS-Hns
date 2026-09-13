@@ -176,7 +176,28 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .task-summary-values i{display:block;width:1px;height:24px;background:var(--hns-color-border-l1);align-self:center}
 
 .panel{margin-bottom:10px;padding:12px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:12px;box-shadow:var(--hns-shadow-l1)}
-.panel-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:9px}
+/*
+ * The module header floats while its module is in view.
+ *
+ * The dock is one long scroll of modules, so without this a reader who scrolls into a
+ * module loses its title and its collapse button — the two controls they need most. The
+ * header therefore sticks to the top of the scrollport for exactly as long as its own
+ * module is on screen, and scrolls away with it, because `position: sticky` is bounded by
+ * the containing block: a module that has been scrolled past entirely takes its header with
+ * it, which is the behaviour the product asks for.
+ *
+ * `padding-top` is negative-offset so the sticky box covers the panel's own padding band;
+ * the background and the bottom rule are what stop the content sliding under it visibly.
+ */
+.panel-head{
+  display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
+  position:sticky;top:-1px;z-index:3;
+  margin:-4px -4px 9px;padding:6px 4px 6px;
+  background:var(--hns-color-bg-layer1);
+  border-bottom:1px solid var(--hns-color-border-l1);
+  border-radius:12px 12px 0 0
+}
+.panel[data-collapsed="1"] .panel-head{border-bottom-color:transparent}
 .panel-head > :first-child{flex:1 1 auto;min-width:0}
 /*
  * Collapsible modules (Update-Plan/Dual-UI.md follow-up).
@@ -521,14 +542,21 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
 .skills-panel{background:var(--hns-slot-panel-bg);border:var(--hns-slot-panel-border);border-radius:var(--hns-slot-panel-radius);box-shadow:var(--hns-slot-panel-shadow)}
 
 .skills-installbar{display:grid;grid-template-columns:1fr auto;gap:7px;margin-bottom:8px}
-.skills-installbar input{padding:8px;background:var(--hns-slot-hns-skill-search-background,var(--hns-slot-input-bg));border:var(--hns-slot-hns-skill-search-border,var(--hns-slot-input-border));border-radius:var(--hns-slot-hns-skill-search-radius,var(--hns-slot-input-radius));color:var(--hns-color-label-primary)}
+.skills-installbar input{padding:9px 10px;font-size:12px;background:var(--hns-slot-hns-skill-search-background,var(--hns-slot-input-bg));border:var(--hns-slot-hns-skill-search-border,var(--hns-slot-input-border));border-radius:var(--hns-slot-hns-skill-search-radius,var(--hns-slot-input-radius));color:var(--hns-color-label-primary)}
 .skills-installbar input::placeholder{color:var(--hns-slot-hns-skill-search-placeholder,var(--hns-color-label-tertiary))}
-.skills-installbar button{padding:8px 14px;background:var(--hns-slot-button-bg);color:var(--hns-slot-button-label);border:0;border-radius:var(--hns-slot-button-radius)}
+/* The module's own actions are sized to be found, not to be discreet: a larger label, a
+   visible border and a pointer cursor, so "安装" cannot be mistaken for a caption. */
+.skills-installbar button{padding:9px 18px;font-size:12px;font-weight:600;cursor:pointer;
+  background:var(--hns-slot-button-bg);color:var(--hns-slot-button-label);
+  border:1px solid var(--hns-color-accent-primary);border-radius:var(--hns-slot-button-radius)}
 
 .skills-searchbar{display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;margin-bottom:7px}
-.skills-searchbar input{padding:8px;background:var(--hns-slot-hns-skill-search-background,var(--hns-slot-input-bg));border:var(--hns-slot-hns-skill-search-border,var(--hns-slot-input-border));border-radius:var(--hns-slot-hns-skill-search-radius,var(--hns-slot-input-radius));color:var(--hns-color-label-primary)}
+.skills-searchbar input{padding:9px 10px;font-size:12px;background:var(--hns-slot-hns-skill-search-background,var(--hns-slot-input-bg));border:var(--hns-slot-hns-skill-search-border,var(--hns-slot-input-border));border-radius:var(--hns-slot-hns-skill-search-radius,var(--hns-slot-input-radius));color:var(--hns-color-label-primary)}
 .skills-searchbar input::placeholder{color:var(--hns-slot-hns-skill-search-placeholder,var(--hns-color-label-tertiary))}
-.skills-searchbar .check{white-space:nowrap}
+.skills-searchbar .check{white-space:nowrap;font-size:11px}
+/* The panel-head actions of this module, one step larger than the shared `.quiet`. */
+.skills-panel .balance-actions button{padding:7px 12px;font-size:11px;border:1px solid var(--hns-color-border-l2);cursor:pointer}
+.skills-toolbar-actions button{padding:6px 12px;font-size:11px;cursor:pointer}
 
 .skills-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
 .skill-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:9px;cursor:pointer;
@@ -543,9 +571,36 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
   color:var(--hns-slot-hns-skill-tag-label,var(--hns-color-label-tertiary));
   border:1px solid var(--hns-color-border-l1)}
 
-.skills-tabs{display:flex;align-items:center;gap:6px;margin-bottom:7px}
-.skills-tab{padding:6px 12px;font-size:11px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:999px;color:var(--hns-color-label-secondary)}
-.skills-tab.active{background:var(--hns-color-accent-subtle);color:var(--hns-color-label-primary);border-color:var(--hns-color-accent-primary)}
+/*
+ * The skills module's view switch.
+ *
+ * It is the module's first control and it changes what everything below it means, so it is
+ * sized and bordered like a segmented control rather than like a quiet button: a taller hit
+ * area, a heavier border, a larger label with its English name under it, and an active state
+ * that cannot be mistaken for the inactive one. `skillsCount` stays at the far right of the
+ * same row so "how many" reads as part of the switch, not as a stray number.
+ */
+.skills-tabs{
+  display:flex;align-items:stretch;gap:8px;margin:2px 0 10px;
+  padding:4px;border-radius:12px;
+  background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l2)
+}
+.skills-tab{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:1px;
+  min-width:104px;padding:8px 18px;cursor:pointer;
+  font-size:14px;font-weight:600;line-height:1.15;
+  background:transparent;color:var(--hns-color-label-secondary);
+  border:1.5px solid transparent;border-radius:9px;
+  transition:background .12s ease,color .12s ease,border-color .12s ease
+}
+.skills-tab small{font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:inherit;opacity:.85}
+.skills-tab:hover{color:var(--hns-color-label-primary);border-color:var(--hns-color-border-l2)}
+.skills-tab.active{
+  background:var(--hns-color-bg-layer1);color:var(--hns-color-label-primary);
+  border-color:var(--hns-color-accent-primary);
+  box-shadow:0 1px 0 var(--hns-color-accent-primary) inset
+}
+.skills-tabs .skills-count{align-self:center;margin-left:auto;padding-right:6px}
 .skills-count{margin-left:auto;font-size:9px;color:var(--hns-color-label-tertiary)}
 
 .skills-toolbar{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:7px;border-radius:8px;
@@ -719,3 +774,8 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
 .pm-badge{font-size:9px;padding:1px 5px;border-radius:5px;border:1px solid var(--hns-color-border-l1);color:var(--hns-color-label-tertiary)}
 .pm-badge.ok{color:var(--hns-state-completed);border-color:var(--hns-state-completed)}
 .pm-badge.bad{color:var(--hns-state-failed);border-color:var(--hns-state-failed)}
+/* The install queue and the per-row actions of the store: the queue reads like a phone's
+   install sheet — one line per candidate, its state on the right, and the run button above. */
+.pm-queue{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
+  background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l2)}
+.pm-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}

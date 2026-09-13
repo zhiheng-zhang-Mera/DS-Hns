@@ -212,10 +212,64 @@ function createPluginHost(options = {}) {
     return null
   }
 
-  /** The plugin objects this host runs, in install order. */
-  function pluginSets() {
+  /** The product's own plugin sets, in install order. */
+  function shippedPlugins() {
     return [...mountedPlugins(), ...accelerationPlugins()]
   }
+
+  /** What went wrong with any store-installed plugin, for the status and the manager. */
+  const installedFailures = []
+
+  /**
+   * Plugins the user installed from the store and enabled.
+   *
+   * This is the *second* stage of the store's two-step install and the only place in the
+   * product that imports code the user brought: staging put it on disk and verified its
+   * manifest, and `enabled: true` in `data/plugins/installed.json` is the record that they
+   * asked for it to run. A module that cannot be imported is skipped and reported rather than
+   * taken down the whole host — a broken third-party plugin must not stop the product from
+   * starting.
+   */
+  function installedPlugins() {
+    const file = path.join(root, 'data', 'plugins', 'installed.json')
+    const out = []
+    let raw = null
+    try {
+      raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch {
+      return out
+    }
+    const entries = Array.isArray(raw && raw.plugins) ? raw.plugins : []
+    for (const entry of entries) {
+      if (!entry || entry.enabled !== true || !entry.dir) continue
+      const id = String(entry.id || entry.dir)
+      try {
+        const main = path.resolve(entry.dir, String(entry.main || 'index.cjs'))
+        // The entry point must stay inside the plugin directory: a manifest that points
+        // elsewhere would be a way to import arbitrary files by editing JSON.
+        if (path.relative(path.resolve(entry.dir), main).startsWith('..')) throw new Error(`${entry.main} escapes the plugin directory`)
+        const loaded = require(main)
+        const plugin = typeof loaded === 'function' ? loaded() : loaded
+        if (!plugin || typeof plugin.manifest !== 'object') throw new Error('the module does not export a plugin with a manifest')
+        out.push(plugin)
+        installedIds.add(String(plugin.manifest.id))
+        log(`installed plugin mounted: ${plugin.manifest.id} v${plugin.manifest.version} from ${entry.repo}`)
+      } catch (error) {
+        const reason = String(error && error.message ? error.message : error)
+        installedFailures.push({ id, reason })
+        log(`installed plugin ${id} could not be mounted: ${reason}`)
+      }
+    }
+    return out
+  }
+
+  /** The plugin objects this host runs: the product's own sets plus what the user installed. */
+  function pluginSets() {
+    return [...shippedPlugins(), ...installedPlugins()]
+  }
+
+  /** The ids that came from the store, so the lock can tell them from the shipped set. */
+  const installedIds = new Set()
 
   /** The config block the manager is constructed with, resolved through the layering. */
   function managerConfig(plugins) {
@@ -269,8 +323,18 @@ function createPluginHost(options = {}) {
     if (off) return off
     if (manager) return { ok: true, manager, lock: lockState }
     world = await buildWorld()
-    const installedList = world.manager.list().map((entry) => ({ id: entry.id, version: entry.version }))
-    lockState = lock.verify(installedList)
+    /**
+     * The lock describes the *product's* composition, not the user's additions.
+     *
+     * A store-installed plugin is deliberately not part of it: `dshns-lock.yaml` pins the set
+     * that ships, so a user who installs something is not "drift" — and enforcing the lock must
+     * not be a way to make the product refuse to start because of a choice the user made in the
+     * store.
+     */
+    const shipped = world.manager.list()
+      .filter((entry) => !installedIds.has(entry.id))
+      .map((entry) => ({ id: entry.id, version: entry.version }))
+    lockState = lock.verify(shipped)
     // The lock is checked before anything loads, because a drifted composition is exactly
     // what a lockfile exists to prevent running.
     if (lockState.ok === false && options.enforceLock === true) {
@@ -521,18 +585,21 @@ function createPluginHost(options = {}) {
     return { ok: rebuilt.ok !== false, changed: accepted, written, reloaded: Boolean(manager), execution: execution(), error: rebuilt.ok === false ? rebuilt.error : null }
   }
 
-  /** Section 40: the lockfile, its state, and what it says about the installed set. */
+  /** Section 40: the lockfile, its state, and what it says about the shipped set. */
   function lockfile(input = {}) {
     const off = disabled()
     if (off) return off
-    const installed = manager ? manager.list().map((entry) => ({ id: entry.id, version: entry.version })) : []
+    // Only the product's own plugins are lockable: a user's store installs are their choice,
+    // and pinning them here would make the lock a record of the wrong thing.
+    const shipped = manager ? manager.list().filter((entry) => !installedIds.has(entry.id)) : []
+    const installed = shipped.map((entry) => ({ id: entry.id, version: entry.version }))
     if (input.write === true) {
       if (!manager) return { ok: false, error: 'the plugin runtime has not been built yet, so there is nothing to lock', code: 'PLUGIN_RUNTIME_NOT_BUILT' }
       const written = lock.write(installed, { apiVersion: 'dshns.plugin/v1' })
       lockState = lock.verify(installed)
       return { ...written, state: lockState }
     }
-    return { ok: true, file: lock.file, read: lock.read(), state: lockState, installed: installed.length }
+    return { ok: true, file: lock.file, read: lock.read(), state: lockState, installed: installed.length, fromStore: installedIds.size }
   }
 
   function status() {

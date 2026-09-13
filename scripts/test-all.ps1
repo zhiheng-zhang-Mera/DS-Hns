@@ -116,7 +116,10 @@ try {
     'mega-feature-wiring.test.js',
     'mega-plugin-manager.test.js',
     'mega-plugin-store.test.js',
+    'mega-store-installer.test.js',
+    'plugin-store-mount.test.js',
     'ui-bilingual.test.js',
+    'ui-layout-contract.test.js',
     'ui-panel-load.test.js'
   )
   foreach ($name in $coreTests) {

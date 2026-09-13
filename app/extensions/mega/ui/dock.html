@@ -129,6 +129,18 @@
         </div>
       </div>
 
+      <!--
+        The mode switch is the module's first control, not one of its last.
+        "发现 / 已安装" decides what everything below it means, so it sits directly under the
+        title, before the install bar and the search box — and it is styled as a real
+        segmented control rather than as a pair of quiet buttons.
+      -->
+      <div class="skills-tabs" role="tablist" aria-label="技能视图 / Skill view">
+        <button id="skillsTabBrowse" class="skills-tab active" type="button" role="tab" aria-selected="true">发现 <small>Discover</small></button>
+        <button id="skillsTabInstalled" class="skills-tab" type="button" role="tab" aria-selected="false">已安装 <small>Installed</small></button>
+        <span id="skillsCount" class="skills-count"></span>
+      </div>
+
       <div class="skills-installbar">
         <input id="skillSource" type="text" spellcheck="false" placeholder="粘贴 GitHub 链接或 owner/repo，例如 anthropics/skills">
         <button id="skillInstallSource" type="button">安装</button>
@@ -139,12 +151,6 @@
         <label class="check"><input id="skillLiveSearch" type="checkbox">同时搜索 GitHub</label>
       </div>
       <div id="skillsTags" class="skills-tags"></div>
-
-      <div class="skills-tabs" role="tablist">
-        <button id="skillsTabBrowse" class="skills-tab active" type="button" role="tab">发现</button>
-        <button id="skillsTabInstalled" class="skills-tab" type="button" role="tab">已安装</button>
-        <span id="skillsCount" class="skills-count"></span>
-      </div>
 
       <div class="skills-toolbar">
         <label class="check"><input id="skillSelectAll" type="checkbox">全选</label>

@@ -97,6 +97,13 @@ let officialSurfaces = null
 let frontendRuntime = null
 let megaDockExpanded = false
 let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
+/**
+ * The dock-collapse watch (see `watchOfficialUseToCollapseDock`): a focus event before this
+ * moment is the window being shown rather than the user turning to the official UI, and the
+ * in-flight flag stops our own collapse from being read as a new user action.
+ */
+let officialFocusArmedAt = Number.POSITIVE_INFINITY
+let megaDockCollapseInFlight = false
 let harnessProcess = null
 let shuttingDown = false
 let harnessUrl = null
@@ -1430,9 +1437,70 @@ async function createIntegratedMegaDock() {
   layoutIntegratedViews()
   await megaDockView.webContents.loadFile(path.join(__dirname, 'extensions', 'mega', 'ui', 'dock.html'))
   logLine('Mega dock attached as a reserved right-side WebContentsView; official UI no longer sits underneath it')
+  // The dock gets out of the way the moment the user turns to the official UI.
+  watchOfficialUseToCollapseDock()
   // The view exists now, so every push the extension made during boot (or will
   // make after a reload) has a real target: hand over the ready notification.
   notifyDockReady()
+  return true
+}
+
+/**
+ * Collapse the dock when the user turns to the official UI.
+ *
+ * The two surfaces are sibling views, so a click on the official side is *observable* only
+ * as focus arriving there — and the product forbids the other route (injecting a listener
+ * into the official renderer), so this is the honest signal, plus the first keystroke for
+ * the one case focus cannot see:
+ *
+ *   * **focus moves to the official page while the dock is expanded** — the user was in the
+ *     dock and clicked into the official UI. The click already left the caret where they put
+ *     it, which is why the collapse is applied with `focus: false`: taking the focus back
+ *     would undo the very thing they asked for.
+ *   * **the first key pressed into the official page while expanded** — when the official page
+ *     already had focus, a click inside it emits nothing at all, and the first keystroke is
+ *     the earliest unambiguous sign that the user is typing there rather than reading.
+ *
+ * A click that lands in an already-focused official page and types nothing is deliberately
+ * *not* guessed at: collapsing on hover would take the dock away while the user is still
+ * pointing at it, which is worse than waiting for the keystroke.
+ */
+function watchOfficialUseToCollapseDock() {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  const contents = mainWindow.webContents
+  if (!contents || contents.hnsDockCollapseWatch === true) return false
+  contents.hnsDockCollapseWatch = true
+
+  /** Collapse once, without stealing the focus the click just established. */
+  const collapse = (because) => {
+    if (!megaDockExpanded) return false
+    if (megaDockCollapseInFlight) return false
+    megaDockCollapseInFlight = true
+    try {
+      logLine(`dock collapsed because the official UI was used (${because})`)
+      extensionManager?.setDockExpanded?.(false, { persist: true, focus: false })
+      applyIntegratedDockState({ expanded: false })
+    } catch (error) {
+      logLine(`dock collapse on official use failed: ${error?.message || error}`)
+    } finally {
+      megaDockCollapseInFlight = false
+    }
+    return true
+  }
+
+  contents.on('focus', () => {
+    // A focus event during boot is the window being shown, not the user turning away.
+    if (Date.now() < officialFocusArmedAt) return
+    collapse('the official page took focus')
+  })
+
+  contents.on('before-input-event', (_event, input) => {
+    if (!input || input.type !== 'keyDown') return
+    // A modifier alone is not an intent to type; a shortcut like Ctrl+C is not either.
+    if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(input.key)) return
+    if (input.control || input.meta || input.alt) return
+    collapse('a key was pressed into the official page')
+  })
   return true
 }
 
@@ -1748,6 +1816,9 @@ app.whenReady().then(async () => {
     showOfficialFrontend()
     layoutIntegratedViews()
     mainWindow.show()
+    // Arm the "the user turned to the official UI" watch only once the window is up: the
+    // focus that showing the window produces is not a user action.
+    officialFocusArmedAt = Date.now() + 1200
 
     // Only an explicit persisted opt-in starts a worker process at boot.
     if (workerManager?.describe?.().config?.enabledOnStartup) {

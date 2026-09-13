@@ -102,15 +102,24 @@ contextBridge.exposeInMainWorld('megaTools', {
   /**
    * The plugin store channel.
    *
-   * Search GitHub for repositories that carry the plugin topic, and ask whether one of them
-   * is actually a plugin (its manifest has to pass the platform's own validator). No download
-   * happens here: installing is a deliberate act, and a store that loaded code on one click
-   * would be a remote-code-execution surface wearing a search box.
+   * Search GitHub for repositories that carry the plugin topic, ask whether one of them is
+   * actually a plugin (its manifest has to pass the platform's own validator), and install it
+   * in two separate steps: `stage` puts the code on disk and verifies it, `enable` is the step
+   * that lets the host import it. A one-click install would be a remote-code-execution surface
+   * wearing a search box, which is why the two steps are two calls.
    */
   store: {
     describe: () => ipcRenderer.invoke('mega:store-describe'),
     search: (input) => ipcRenderer.invoke('mega:store-search', input),
-    inspect: (input) => ipcRenderer.invoke('mega:store-inspect', input)
+    inspect: (input) => ipcRenderer.invoke('mega:store-inspect', input),
+    installed: () => ipcRenderer.invoke('mega:store-installed'),
+    stage: (input) => ipcRenderer.invoke('mega:store-stage', input),
+    enable: (input) => ipcRenderer.invoke('mega:store-enable', input),
+    disable: (input) => ipcRenderer.invoke('mega:store-disable', input),
+    remove: (input) => ipcRenderer.invoke('mega:store-remove', input),
+    reinstall: (input) => ipcRenderer.invoke('mega:store-reinstall', input),
+    // The one-by-one install flow: add candidates, then run the queue sequentially.
+    queue: (input) => ipcRenderer.invoke('mega:store-queue', input)
   },
   /**
    * The feature manager.
@@ -148,6 +157,13 @@ contextBridge.exposeInMainWorld('megaTools', {
    * this is an event rather than a new surface.
    */
   onOpenPluginManager: (callback) => ipcRenderer.on('mega:open-plugin-manager', () => callback()),
+  /**
+   * "Show the store, and start an install."
+   *
+   * The tray can ask for the manager; this is the same idea for the store's install flow, so
+   * the queue the user built is reachable without hunting for the right tab.
+   */
+  onOpenStore: (callback) => ipcRenderer.on('mega:open-store', (_event, payload) => callback(payload)),
   /**
    * HNS unified theme system.
    *

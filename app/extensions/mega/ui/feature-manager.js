@@ -85,33 +85,117 @@
         left.appendChild(el('div', 'pm-meta', result.manifestReason || result.reason))
       }
       row.appendChild(left)
-      const actions = el('div')
+      const actions = el('div', 'pm-actions')
       if (result.installable === null || result.installable === undefined) {
-        const check = el('button', 'pm-toggle', '校验 · Check')
-        check.type = 'button'
-        check.addEventListener('click', () => inspect(result))
-        actions.appendChild(check)
+        // Checking is free and changes nothing; staging is the step that writes code to disk.
+        actions.appendChild(actionButton('校验 · Check', '', () => inspect(result)))
       } else {
         actions.appendChild(el('span', `pm-badge ${result.installable ? 'ok' : 'bad'}`, result.installable ? '可安装 · installable' : '不可用 · not installable'))
       }
+      // Two-stage install: stage here, enable in the installed list below. Both buttons are
+      // offered, and the queue is the third way in — add several and install them one by one.
+      actions.appendChild(actionButton('暂存 · Stage', '', () => stageResult(result)))
+      actions.appendChild(actionButton('加入队列 · Queue', '', () => addToQueue(result)))
       row.appendChild(actions)
       return row
+    }
+
+    /**
+     * The installed half of the store.
+     *
+     * Three lists, in the order the user needs them: the queue they are installing right now,
+     * what is staged or enabled, and the history that makes a reinstall one button.
+     */
+    function renderInstalled() {
+      const installed = storeData.installed || { plugins: [], history: [], queue: [] }
+      const queue = Array.isArray(installed.queue) ? installed.queue : []
+
+      // The queue: the one-by-one install flow, like a phone's app list.
+      if (queue.length) {
+        const bar = el('div', 'pm-queue')
+        bar.appendChild(el('span', 'pm-meta', `${queue.length} 个待安装 / queued`))
+        const run = el('button', 'pm-toggle', '逐个安装 · Install one by one')
+        run.type = 'button'
+        run.addEventListener('click', () => runQueue())
+        bar.appendChild(run)
+        const clear = el('button', 'pm-toggle danger', '清空 · Clear')
+        clear.type = 'button'
+        clear.addEventListener('click', () => clearQueue())
+        bar.appendChild(clear)
+        body.appendChild(bar)
+        for (const item of queue) {
+          const line = el('div', `pm-row${item.status === 'failed' ? ' off' : ''}`)
+          const left = el('div')
+          left.appendChild(el('div', 'pm-name', item.repo))
+          left.appendChild(el('div', 'pm-meta', `${item.status}${item.reason ? ` · ${item.reason}` : ''}${item.version ? ` · v${item.version}` : ''}`))
+          line.appendChild(left)
+          line.appendChild(el('span', `pm-badge ${item.status === 'staged' ? 'ok' : item.status === 'failed' ? 'bad' : ''}`, item.status))
+          body.appendChild(line)
+        }
+      }
+
+      const plugins = Array.isArray(installed.plugins) ? installed.plugins : []
+      if (plugins.length) {
+        body.appendChild(el('div', 'pm-group-title', '已安装 · Installed'))
+        for (const plugin of plugins) {
+          const row = el('div', `pm-row${plugin.state === 'enabled' ? '' : ' off'}`)
+          const left = el('div')
+          left.appendChild(el('div', 'pm-name', `${plugin.name || plugin.id} v${plugin.version}`))
+          const stateLabel = plugin.state === 'enabled' ? '已启用 · enabled' : plugin.state === 'missing' ? '文件缺失 · files missing' : '已暂存 · staged'
+          left.appendChild(el('div', 'pm-meta', `${plugin.repo} · ${stateLabel}`))
+          row.appendChild(left)
+          const actions = el('div', 'pm-actions')
+          if (plugin.state === 'enabled') {
+            actions.appendChild(actionButton('停用 · Disable', 'danger', () => act('disable', plugin.id)))
+          } else if (plugin.state === 'staged') {
+            actions.appendChild(actionButton('启用 · Enable', '', () => act('enable', plugin.id)))
+          } else {
+            actions.appendChild(actionButton('重新安装 · Reinstall', '', () => act('reinstall', plugin.id)))
+          }
+          actions.appendChild(actionButton('移除 · Remove', 'danger', () => act('remove', plugin.id)))
+          row.appendChild(actions)
+          body.appendChild(row)
+        }
+      }
+
+      const history = (Array.isArray(installed.history) ? installed.history : []).filter((item) => item.action === 'stage' && item.ok !== false)
+      if (history.length) {
+        body.appendChild(el('div', 'pm-group-title', '历史安装 · Install history'))
+        const seen = new Set()
+        for (const item of history) {
+          if (!item.id || seen.has(item.id)) continue
+          seen.add(item.id)
+          const row = el('div', 'pm-row off')
+          const left = el('div')
+          left.appendChild(el('div', 'pm-name', `${item.id}${item.version ? ` v${item.version}` : ''}`))
+          left.appendChild(el('div', 'pm-meta', `${item.repo} · ${new Date(item.at || 0).toLocaleString()}`))
+          row.appendChild(left)
+          row.appendChild(actionButton('重新安装 · Reinstall', '', () => act('reinstall', item.id)))
+          body.appendChild(row)
+        }
+      }
     }
 
     function renderStore() {
       if (storeData.described) {
         body.appendChild(el('p', 'pm-meta', `${storeData.described.note}${storeData.described.authenticated ? '' : ' (no GITHUB_TOKEN: the rate limit is low)'}`))
       }
-      if (storeData.error) {
-        body.appendChild(el('p', 'pm-line bad', storeData.error))
-        return
-      }
+      if (storeData.error) body.appendChild(el('p', 'pm-line bad', storeData.error))
+      renderInstalled()
       if (!storeData.results.length) {
-        body.appendChild(el('p', 'pm-empty', storeData.query ? `没有匹配 “${storeData.query}” 的插件 / no plugin matches that search` : '输入关键词后在 GitHub 上搜索插件 / search GitHub for plugins'))
+        if (!storeData.error) body.appendChild(el('p', 'pm-empty', storeData.query ? `没有匹配 “${storeData.query}” 的插件 / no plugin matches that search` : '输入关键词后在 GitHub 上搜索插件 / search GitHub for plugins'))
         return
       }
       body.appendChild(el('div', 'pm-group-title', `${storeData.total || storeData.results.length} repositories · topic ${storeData.topic || '—'}`))
       for (const result of storeData.results) body.appendChild(storeRow(result))
+    }
+
+    /** One small button, so the store's rows and the queue read the same way. */
+    function actionButton(label, kind, onClick) {
+      const button = el('button', `pm-toggle${kind ? ` ${kind}` : ''}`, label)
+      button.type = 'button'
+      button.addEventListener('click', onClick)
+      return button
     }
 
     /** A bilingual row for one feature, with its switch. */
@@ -215,6 +299,7 @@
           const described = await window.megaTools?.store?.describe?.()
           storeData.described = described && described.ok !== false ? described : null
         }
+        await refreshInstalled()
         const result = await window.megaTools?.store?.search?.({ query: text })
         if (!result || result.ok === false) {
           storeData = { ...storeData, results: [], error: (result && result.reason) || '搜索失败 / the search failed' }
@@ -246,6 +331,98 @@
       }
       render()
       return storeData
+    }
+
+    /** Read the installed side of the store: staged, enabled, history and the queue. */
+    async function refreshInstalled() {
+      try {
+        const answer = await window.megaTools?.store?.installed?.()
+        if (answer && answer.ok !== false) {
+          storeData = { ...storeData, installed: { plugins: answer.plugins || [], history: answer.history || [], queue: answer.queue || [], describe: answer.describe || null } }
+        }
+      } catch (error) {
+        say(`无法读取已安装插件 / could not read the installed plugins: ${error.message}`, 'bad')
+      }
+      return storeData.installed
+    }
+
+    /** Stage one search result: code on disk and verified, nothing running yet. */
+    async function stageResult(result) {
+      try {
+        const staged = await window.megaTools?.store?.stage?.({ repo: result.id, branch: result.branch })
+        if (!staged || staged.ok === false) {
+          say(`${result.id}: ${(staged && (staged.reason || staged.message)) || '暂存失败 / staging failed'}`, 'bad')
+        } else {
+          say(`${result.id} 已暂存 v${staged.entry.version}；启用后 Host 才会加载它 / staged — enabling is the step that lets the host run it`, 'ok')
+        }
+      } catch (error) {
+        say(`暂存失败 / staging failed: ${error.message}`, 'bad')
+      }
+      await refreshInstalled()
+      render()
+      return storeData.installed
+    }
+
+    /** Add a candidate to the one-by-one install queue; nothing is cloned yet. */
+    async function addToQueue(result) {
+      try {
+        const answer = await window.megaTools?.store?.queue?.({ action: 'add', repo: result.id, branch: result.branch })
+        if (!answer || answer.ok === false) {
+          say(`${result.id}: ${(answer && answer.reason) || '加入队列失败 / could not queue it'}`, 'bad')
+        } else {
+          say(`${result.id} 已加入安装队列（${answer.queue.length}）/ queued`, 'ok')
+        }
+      } catch (error) {
+        say(`加入队列失败 / queueing failed: ${error.message}`, 'bad')
+      }
+      await refreshInstalled()
+      render()
+    }
+
+    /** Install the queue sequentially, like a phone's app list. */
+    async function runQueue() {
+      say('逐个安装中… / installing one by one…')
+      try {
+        const run = await window.megaTools?.store?.queue?.({ action: 'run' })
+        if (!run || run.ok === false) {
+          const failed = ((run && run.results) || []).filter((item) => item.status === 'failed')
+          say(failed.length ? `${failed.length} 个安装失败：${failed.map((item) => item.repo).join('、')}` : '安装失败 / the install run failed', 'bad')
+        } else {
+          say(`${run.staged} 个已暂存；启用仍需手动 / staged — enabling stays manual`, 'ok')
+        }
+      } catch (error) {
+        say(`安装失败 / the install run failed: ${error.message}`, 'bad')
+      }
+      await refreshInstalled()
+      render()
+    }
+
+    async function clearQueue() {
+      try {
+        await window.megaTools?.store?.queue?.({ action: 'clear' })
+      } catch (error) {
+        say(`清空失败 / could not clear the queue: ${error.message}`, 'bad')
+      }
+      await refreshInstalled()
+      render()
+    }
+
+    /** Enable, disable, remove or reinstall one installed plugin. */
+    async function act(kind, id) {
+      try {
+        const answer = await window.megaTools?.store?.[kind]?.({ id })
+        if (!answer || answer.ok === false) {
+          say(`${id}: ${(answer && (answer.reason || answer.message)) || `${kind} 失败 / failed`}`, 'bad')
+        } else if (kind === 'enable') {
+          say(`${id} 已启用；此后的插件列表里会出现它 / enabled — the plugin appears in the list once the host rebuilds`, 'ok')
+        } else {
+          say(`${id}: ${kind} 完成 / done`, 'ok')
+        }
+      } catch (error) {
+        say(`${kind} 失败 / failed: ${error.message}`, 'bad')
+      }
+      await refreshInstalled()
+      render()
     }
 
     async function setFeature(id, enabled) {
@@ -292,12 +469,20 @@
     // shell has no other way to ask the dock to open something.
     if ($('plugManage')) $('plugManage').addEventListener('click', () => open())
     window.megaTools?.onOpenPluginManager?.(() => open())
+    // The tray can also ask for the store directly, and for its install flow to be shown.
+    window.megaTools?.onOpenStore?.((payload) => {
+      open()
+      setTab('store')
+      if (payload && payload.showQueue !== false) {
+        refreshInstalled().then(render)
+      }
+    })
     // Switching a plugin off in the platform tab changes the feature list's world too
     // (a plugin's panel can be a feature), so both lists refresh from one place.
     window.megaTools?.features?.onChanged?.(() => {
       if (!root.hidden) refresh()
     })
-    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, isOpen: () => !root.hidden }
+    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, stageResult, addToQueue, runQueue, clearQueue, act, refreshInstalled, isOpen: () => !root.hidden }
   }
 
   window.megaFeatureManager = { attach }

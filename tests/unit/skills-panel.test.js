@@ -47,6 +47,18 @@ function makeElement(id) {
       if (!handlers.has(name)) handlers.set(name, [])
       handlers.get(name).push(handler)
     },
+    // The panel announces the selected view with `aria-selected`, so the stub has to be able
+    // to hold an attribute like the real element does.
+    attributes: new Map(),
+    setAttribute(name, value) {
+      this.attributes.set(String(name), String(value))
+    },
+    getAttribute(name) {
+      return this.attributes.has(String(name)) ? this.attributes.get(String(name)) : null
+    },
+    removeAttribute(name) {
+      this.attributes.delete(String(name))
+    },
     fire(name, event = {}) {
       for (const handler of handlers.get(name) || []) handler(event)
     },

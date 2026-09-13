@@ -327,8 +327,15 @@
   function renderTabs() {
     const browse = $('skillsTabBrowse')
     const installed = $('skillsTabInstalled')
-    if (browse) browse.classList.toggle('active', state.tab === 'browse')
-    if (installed) installed.classList.toggle('active', state.tab === 'installed')
+    const active = state.tab === 'installed' ? installed : browse
+    const inactive = state.tab === 'installed' ? browse : installed
+    if (active) active.classList.add('active')
+    if (inactive) inactive.classList.remove('active')
+    // The switch is the module's first control, so it also has to be its most legible one:
+    // the selected tab is announced, not merely coloured.
+    for (const [tab, node] of [['browse', browse], ['installed', installed]]) {
+      if (node) node.setAttribute('aria-selected', tab === state.tab ? 'true' : 'false')
+    }
     const count = $('skillsCount')
     if (count) {
       const total = (state.snapshot?.skills || []).length

@@ -97,6 +97,26 @@ function loadFeatureManager() {
         inspect: async (input) => {
           calls.push(['store.inspect', input && input.id])
           return { ok: true, installable: true, manifest: { id: 'vendor.example', version: '1.2.3' }, reason: null }
+        },
+        installed: async () => {
+          calls.push(['store.installed'])
+          return {
+            ok: true,
+            plugins: [{ id: 'vendor.other', name: 'Other', version: '0.9.0', repo: 'acme/other', state: 'staged', enabled: false }],
+            history: [{ action: 'stage', ok: true, id: 'vendor.gone', repo: 'acme/gone', version: '0.1.0', at: 1_700_000_000_000 }],
+            queue: [{ queueId: 'q1', repo: 'acme/queued', status: 'queued', branch: null }]
+          }
+        },
+        stage: async (input) => { calls.push(['store.stage', input && input.repo]); return { ok: true, staged: true, entry: { id: 'vendor.example', version: '1.0.0' } } },
+        enable: async (input) => { calls.push(['store.enable', input && input.id]); return { ok: true } },
+        disable: async (input) => { calls.push(['store.disable', input && input.id]); return { ok: true } },
+        remove: async (input) => { calls.push(['store.remove', input && input.id]); return { ok: true } },
+        reinstall: async (input) => { calls.push(['store.reinstall', input && input.id]); return { ok: true, enabled: true } },
+        queue: async (input) => {
+          calls.push(['store.queue', input && input.action])
+          if (input && input.action === 'add') return { ok: true, queue: [{ queueId: 'q2', repo: 'acme/queued', status: 'queued' }] }
+          if (input && input.action === 'run') return { ok: true, staged: 1, results: [{ repo: 'acme/queued', status: 'staged' }], note: 'staged, not enabled' }
+          return { ok: true, queue: [] }
         }
       },
       onOpenPluginManager: (cb) => { calls.push(['onOpenPluginManager']); window.__openManager = cb }
@@ -233,9 +253,12 @@ test('the store tab searches GitHub and only calls a result installable after ch
   assert.equal(/可安装/.test(text), false, 'a result is presented as installable before checking')
   assert.match(text, /校验 · Check/)
 
-  // Checking fetches and validates the manifest, then the row says what the answer was.
-  const rows = nodes.get('pmBody').children.filter((child) => /pm-row/.test(child.className))
-  const checkButton = rows[0].children[1].children[0]
+  // Checking fetches and validates the manifest, then the row says what the answer was. The
+  // queue, installed and history sections render above the results, so the row is found by
+  // what it says rather than by its position.
+  const resultRow = nodes.get('pmBody').children.find((child) => /pm-row/.test(child.className) && allText(child).includes('acme/dshns-example'))
+  assert.ok(resultRow, 'the search result row is missing')
+  const checkButton = resultRow.children[1].children[0]
   await checkButton.fire('click')
   assert.ok(calls.some((entry) => entry[0] === 'store.inspect' && entry[1] === 'acme/dshns-example'), 'checking did not reach the channel')
   const after = allText(nodes.get('pmBody'))
@@ -245,6 +268,46 @@ test('the store tab searches GitHub and only calls a result installable after ch
   // The other tabs hide the search bar again.
   manager.setTab('features')
   assert.equal(nodes.get('pmStoreBar').hidden, true)
+})
+
+test('the install is two stages, and the queue installs one by one', async () => {
+  const { api, calls, nodes } = loadFeatureManager()
+  const manager = api.attach()
+  manager.open()
+  await new Promise((resolve) => setImmediate(resolve))
+  manager.setTab('store')
+  await manager.search('example')
+
+  // Stage writes code to disk; the row offers it beside the check and beside the queue.
+  await manager.stageResult({ id: 'acme/dshns-example', branch: 'main' })
+  assert.ok(calls.some((entry) => entry[0] === 'store.stage' && entry[1] === 'acme/dshns-example'), 'staging did not reach the installer')
+  const afterStage = allText(nodes.get('pmBody'))
+  assert.match(afterStage, /已暂存 · staged/, 'the staged plugin is not listed as staged')
+  assert.match(afterStage, /启用 · Enable/, 'a staged plugin offers no enable step')
+  assert.match(afterStage, /已安装 · Installed/)
+
+  // Enable is a separate call, and it is the one that lets the host run the plugin.
+  await manager.act('enable', 'vendor.other')
+  assert.ok(calls.some((entry) => entry[0] === 'store.enable' && entry[1] === 'vendor.other'), 'the enable step did not reach the installer')
+  await manager.act('remove', 'vendor.other')
+  assert.ok(calls.some((entry) => entry[0] === 'store.remove'), 'removing did not reach the installer')
+
+  // The history makes a reinstall one button.
+  const historyText = allText(nodes.get('pmBody'))
+  assert.match(historyText, /历史安装 · Install history/)
+  assert.match(historyText, /vendor\.gone/)
+  await manager.act('reinstall', 'vendor.gone')
+  assert.ok(calls.some((entry) => entry[0] === 'store.reinstall' && entry[1] === 'vendor.gone'), 'reinstall did not reach the installer')
+
+  // The queue: candidates are added first, then installed in one sequential run.
+  await manager.addToQueue({ id: 'acme/queued', branch: null })
+  assert.ok(calls.some((entry) => entry[0] === 'store.queue' && entry[1] === 'add'), 'adding to the queue did not reach the installer')
+  await manager.runQueue()
+  assert.ok(calls.some((entry) => entry[0] === 'store.queue' && entry[1] === 'run'), 'running the queue did not reach the installer')
+  const queueText = allText(nodes.get('pmBody'))
+  assert.match(queueText, /逐个安装 · Install one by one/)
+  await manager.clearQueue()
+  assert.ok(calls.some((entry) => entry[0] === 'store.queue' && entry[1] === 'clear'))
 })
 
 test('the manager surface is not gated by a feature, and says so', () => {
