@@ -76,8 +76,10 @@ const SOURCE_DIRS = [
   // The mounted feature set: the plugins that wrap the subsystems which already
   // exist. Listed because the collector is non-recursive.
   'plugins/mounted',
-  // The acceleration set (Update-Plan/accleration.md phases 5-13): one directory per
-  // accelerator, each listed because the collector is non-recursive.
+  // The acceleration set (Update-Plan/accleration.md phases 5-13): the plugin entry
+  // point plus one directory per accelerator, each listed because the collector is
+  // non-recursive.
+  'plugins/acceleration',
   'plugins/acceleration/command-cache',
   'plugins/acceleration/dirty-context',
   'plugins/acceleration/incremental-validation',
@@ -102,7 +104,10 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'computer-use-longrun-acceptance.cjs'),
   // The Phase 0 baseline harness (Update-Plan/accleration.md): it times the suites
   // and records the metrics every acceleration claim is compared against.
-  path.join(ROOT, 'scripts', 'dshns-baseline.cjs')
+  path.join(ROOT, 'scripts', 'dshns-baseline.cjs'),
+  // The combined acceptance run: plugin acceptance A-D plus the engineering
+  // completion checklist, with the evidence named for every check.
+  path.join(ROOT, 'scripts', 'combined-acceptance.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

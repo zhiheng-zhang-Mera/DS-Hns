@@ -229,6 +229,7 @@ function acceptanceGatePlugin() {
 /** Telemetry: subscribes to the bus and records the metrics a claim needs. */
 function telemetryPlugin() {
   const counters = new Map()
+  const totals = new Map()
   const seen = []
   return {
     manifest: {
@@ -241,24 +242,91 @@ function telemetryPlugin() {
       fault_level: FAULT_LEVELS.SOFT
     },
     async load(context) {
+      const durationOf = (payload) => {
+        if (!payload || typeof payload !== 'object') return null
+        for (const key of ['durationMs', 'ms', 'elapsedMs']) {
+          if (Number.isFinite(payload[key])) return Number(payload[key])
+        }
+        return null
+      }
       context.onAny((payload, event) => {
         counters.set(event.type, (counters.get(event.type) || 0) + 1)
+        const duration = durationOf(payload)
+        if (duration !== null) totals.set(event.type, (totals.get(event.type) || 0) + duration)
         seen.push({ type: event.type, at: event.at, source: event.source })
         if (seen.length > 500) seen.splice(0, seen.length - 500)
       })
       context.provide('telemetry', {
         counts: () => Object.fromEntries(counters),
         events: (count) => (Number.isInteger(count) ? seen.slice(-count) : seen.slice()),
-        /** The two headline metrics the plan measures success by. */
+        /**
+         * The plan's performance table (sections 42-44), from the bus plus whatever the
+         * caller reports it cannot see from events alone.
+         *
+         * A metric with no data is `null` *and* carries its reason in `unavailable`. That
+         * is the whole discipline of this table: a missing number that reads as zero, or
+         * as perfect efficiency, is how a performance claim gets made without evidence.
+         */
         metrics: (input = {}) => {
-          const accepted = Number.isFinite(input.acceptedPatches) ? input.acceptedPatches : null
-          const modelCalls = counters.get('model.response') || 0
-          return {
+          const count = (type) => counters.get(type) || 0
+          const total = (type) => (totals.has(type) ? totals.get(type) : null)
+          const accepted = Number.isFinite(input.acceptedPatches) && input.acceptedPatches > 0 ? input.acceptedPatches : null
+          const tasks = Number.isFinite(input.tasks) ? input.tasks : count('task.created') || count('task.started') || 0
+          const wallTimeMs = Number.isFinite(input.wallTimeMs) ? input.wallTimeMs : null
+          const modelCalls = count('model.response')
+          const toolCalls = count('tool.completed')
+          const cacheHits = Number.isFinite(input.cacheHits) ? input.cacheHits : count('cache.hit')
+          const cacheMisses = Number.isFinite(input.cacheMisses) ? input.cacheMisses : count('cache.miss')
+          const cacheTotal = cacheHits + cacheMisses
+          const retries = Number.isFinite(input.retries) ? input.retries : count('task.retried')
+          const mutations = Number.isFinite(input.mutations) ? input.mutations : count('workspace.changed')
+          const rollbacks = Number.isFinite(input.rollbacks) ? input.rollbacks : count('task.rolled-back')
+          const parallel = input.parallel || null
+          const unavailable = {}
+          const ratio = (numerator, denominator) => (denominator > 0 ? Number((numerator / denominator).toFixed(4)) : null)
+
+          const metrics = {
+            /** The headline measure: a single task's real completion speed. */
+            time_to_accepted_patch_ms: accepted && wallTimeMs !== null ? Math.round(wallTimeMs / accepted) : null,
+            llm_calls_per_accepted_patch: accepted ? Number((modelCalls / accepted).toFixed(2)) : null,
+            tool_calls_per_task: tasks > 0 ? Number((toolCalls / tasks).toFixed(2)) : null,
+            model_time_ms: total('model.response'),
+            tool_time_ms: total('tool.completed'),
+            test_time_ms: total('validation.completed'),
+            idle_time_ms: Number.isFinite(input.idleTimeMs) ? input.idleTimeMs : null,
+            cache_hit_rate: cacheTotal > 0 ? ratio(cacheHits, cacheTotal) : null,
+            retry_rate: ratio(retries, mutations),
+            rollback_rate: ratio(rollbacks, mutations),
+            /** Section 44: serial estimate over actual wall time, plus the utilization that
+             *  makes sure the speedup is not one busy worker beside seven idle ones. */
+            parallel_efficiency:
+              parallel && Number.isFinite(parallel.serialMs) && Number.isFinite(parallel.wallMs) && parallel.wallMs > 0
+                ? Number((parallel.serialMs / parallel.wallMs).toFixed(4))
+                : null,
+            worker_utilization:
+              parallel && Number.isFinite(parallel.workers) && parallel.workers > 0 && Number.isFinite(parallel.maxParallelism)
+                ? ratio(parallel.maxParallelism, parallel.workers)
+                : null,
             model_calls: modelCalls,
-            accepted_patches: accepted,
-            time_to_accepted_patch_ms: accepted && accepted > 0 && Number.isFinite(input.wallTimeMs) ? Math.round(input.wallTimeMs / accepted) : null,
-            llm_calls_per_accepted_patch: accepted && accepted > 0 ? Number((modelCalls / accepted).toFixed(2)) : null
+            accepted_patches: accepted
           }
+
+          if (metrics.time_to_accepted_patch_ms === null) {
+            unavailable.time_to_accepted_patch_ms = accepted ? 'the wall time was not reported' : 'no accepted patch has been counted yet'
+          }
+          if (metrics.llm_calls_per_accepted_patch === null) unavailable.llm_calls_per_accepted_patch = 'no accepted patch has been counted yet'
+          if (metrics.tool_calls_per_task === null) unavailable.tool_calls_per_task = 'no task has been started yet'
+          for (const [name, type] of [['model_time_ms', 'model.response'], ['tool_time_ms', 'tool.completed'], ['test_time_ms', 'validation.completed']]) {
+            if (metrics[name] === null) unavailable[name] = `no ${type} event carried a duration`
+          }
+          if (metrics.idle_time_ms === null) unavailable.idle_time_ms = 'the scheduler did not report its idle time'
+          if (metrics.cache_hit_rate === null) unavailable.cache_hit_rate = 'no cache hit or miss has been recorded'
+          if (metrics.retry_rate === null) unavailable.retry_rate = 'no mutation has been recorded yet'
+          if (metrics.rollback_rate === null) unavailable.rollback_rate = 'no mutation has been recorded yet'
+          if (metrics.parallel_efficiency === null) unavailable.parallel_efficiency = 'no parallel run reported both its serial estimate and its wall time'
+          if (metrics.worker_utilization === null) unavailable.worker_utilization = 'no parallel run reported its worker count and its peak parallelism'
+
+          return { ...metrics, unavailable }
         }
       })
       context.log('telemetry ready')

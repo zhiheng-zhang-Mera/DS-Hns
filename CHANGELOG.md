@@ -3,6 +3,40 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## plugins — 插件化运行时与单任务加速（Update-Plan/accleration.md）
+
+**DS-Hns 从"靠 require 互相引用的一堆功能"变成"可插拔的能力平台"，并在同一任务内加速。**
+新增插件运行时：契约 `dshns.plugin/v1`、插件管理器、能力注册表、事件总线、配置分层、
+资源管理器与健康监督器。插件**只依赖能力，不依赖插件 id**（长时 worker 不再 import 检查点，
+而是 require `checkpoint` 能力），能力表是封闭且带 fallback 的（`repo-map` 关掉就退化为文本搜索、
+`command-cache` 关掉就每次都跑、`workspace-isolation` 关掉就拒绝并行写）。插件有四个独立状态
+（installed / enabled / loaded / healthy）与三个故障等级（SOFT / DEGRADED / FATAL），
+**没有任何加速器是 FATAL** —— 关掉 computer-use 仍然能写代码，telemetry 崩了任务继续，
+repo-map 重启不会拖走 worker。
+
+加速器：**repo map**（一次扫描回答"定义在哪/谁引用/依赖谁/改动会波及谁/该跑哪些测试"，
+陈旧即重建，绝不假设）、**dirty context**（稳定前缀在前，预算超了就"申报丢弃"而不是静默丢）、
+**reasoning governor**（难度决定档位，问题解决后自动降回，不让一次硬任务把整段会话钉在最高档）、
+**tool batching**（读操作合并成一次往返，**写操作永不合并**）、**command cache**（命令+相关文件哈希+
+环境指纹全一致才复用，失败结果永不缓存）、**persistent tools**（shell/LSP/浏览器/model server 跨步保活；
+句柄绝不凭信任复用、绝不永生、满了就明确拒绝而不是偷偷关掉正在用的会话）、
+**incremental validation**（三级验证，只有全量级才能批准完成）、**patch-first**（AST > 定向补丁 > FIM >
+整文件重写，小改动遇到大文件直接**拒绝重写**并说明理由）。
+
+**单任务并行**：把同一任务的依赖 DAG 排成 wave/lane —— 读并行、**写集不相交**才并行、
+重叠写默认串行（读-写同文件也视为冲突，否则任务会变得 flaky）。Aggressive 是唯一例外：
+每个重叠写者拿到自己**已验证的 git worktree**，并明确报 `requiresIntegration` 而不是让最后一个
+写者静默获胜；isolation 不可用就退化为串行，中途被拒就明确停止，绝不退回共享工作树。
+模型调用在所有模式下都走**同一个队列**（任务并行 ≠ 模型并行）。
+
+`node scripts/combined-acceptance.cjs` 一次跑完两半验收并给出证据：**A** 插件平台（逐个关掉仍能工作）、
+**B** 同一任务在 Off/Safe/Adaptive 下的墙钟/模型调用/回滚/正确率对比、**C** 同一 commit 同一任务的
+baseline vs optimized（Time To Accepted Patch）、**D** 九类故障注入（模型超时、shell 崩溃、工具超时、
+测试失败、UI miss、插件失败、context 重建、git 冲突、进程重启）、**E** 工程运行时 §150 的 26 条完成条件
+（每条绑定到真正通过的那个测试名）。B/C 的任务是真的：临时仓库里真的有一个失败测试、真的打一行补丁、
+真的跑 `node --test`。测不出来的地方就说明原因：不调用真实模型，所以 Time To Accepted Patch 使用
+**声明的**每次调用延迟，真正测量的是每种配置的往返次数。CI 每次推送都会跑这份验收。
+
 ## engineering — 24h 自主代码维护运行时（Update-Plan/24h-1.md）
 
 **DS-Hns 从"能执行动作"扩展为"能在无人干预下持续维护一个代码仓库"。** 新增 `app/engineering/`：

@@ -49,6 +49,7 @@ const CAPABILITIES = Object.freeze({
   'parallel-execution': { description: 'run independent task nodes concurrently', providers: ['dshns.parallel-executor'], fallback: 'the task runs serially' },
   'command-cache': { description: 'reuse the result of an unchanged command', providers: ['dshns.command-cache'], fallback: 'every command runs' },
   'persistent-tools': { description: 'keep shell, LSP and browser processes alive', providers: ['dshns.persistent-tools'], fallback: 'each tool starts and stops per step' },
+  'patch-first': { description: 'express an edit with the cheapest strategy that fits', providers: ['dshns.patch-first'], fallback: 'the caller expresses the edit however it likes, including a whole-file rewrite' },
 
   // Infrastructure
   'telemetry': { description: 'record the metrics a performance claim needs', providers: ['dshns.telemetry'], fallback: 'no performance claim can be made from this run' },

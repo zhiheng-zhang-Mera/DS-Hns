@@ -119,6 +119,59 @@ test('acceptance A: switching a plugin off leaves the others working', async () 
   assert.equal(third.status('dshns.long-term-worker').loaded, true, 'the worker stays loaded across a collaborator restart')
 })
 
+test('telemetry reports the plan\'s performance table, and says why a number is missing', async () => {
+  const bus = createEventBus()
+  const manager = createPluginManager({ bus, log: () => {} })
+  for (const plugin of mountedPlugins()) manager.install(plugin)
+  await manager.loadAll()
+  const telemetry = manager.registry.resolve('telemetry')
+  assert.ok(telemetry && typeof telemetry.metrics === 'function', 'the telemetry service is resolvable by capability')
+
+  // Nothing recorded yet: every metric is absent *with its reason*, because a missing
+  // number that reads as zero is how a performance claim gets made without evidence.
+  const empty = telemetry.metrics({})
+  assert.equal(empty.model_calls, 0)
+  assert.equal(empty.time_to_accepted_patch_ms, null)
+  assert.equal(empty.parallel_efficiency, null)
+  assert.match(empty.unavailable.time_to_accepted_patch_ms, /no accepted patch/)
+  assert.match(empty.unavailable.cache_hit_rate, /no cache hit or miss/)
+  for (const metric of ['model_time_ms', 'tool_time_ms', 'test_time_ms', 'idle_time_ms', 'retry_rate', 'rollback_rate', 'parallel_efficiency', 'worker_utilization']) {
+    assert.equal(empty[metric], null, `${metric} must not invent a value`)
+    assert.ok(typeof empty.unavailable[metric] === 'string' && empty.unavailable[metric].length > 0, `${metric} has no reason`)
+  }
+
+  // Now feed it a run: the bus is the only source of the event counts and durations.
+  bus.emit('task.created', { id: 't1' })
+  bus.emit('task.started', { id: 't1' })
+  bus.emit('model.response', { durationMs: 1200 })
+  bus.emit('model.response', { durationMs: 800 })
+  bus.emit('tool.completed', { durationMs: 300 })
+  bus.emit('validation.completed', { durationMs: 2500 })
+  bus.emit('workspace.changed', { files: ['src/a.cjs'] })
+  bus.emit('task.retried', {})
+  bus.emit('task.rolled-back', {})
+  bus.emit('cache.hit', {})
+  bus.emit('cache.hit', {})
+  bus.emit('cache.miss', {})
+
+  const table = telemetry.metrics({ acceptedPatches: 1, wallTimeMs: 6000, parallel: { serialMs: 9000, wallMs: 6000, workers: 4, maxParallelism: 3 } })
+  assert.equal(table.model_calls, 2)
+  assert.equal(table.accepted_patches, 1)
+  assert.equal(table.time_to_accepted_patch_ms, 6000, 'section 43: time to accepted patch')
+  assert.equal(table.llm_calls_per_accepted_patch, 2)
+  assert.equal(table.tool_calls_per_task, 1)
+  assert.equal(table.model_time_ms, 2000, 'durations are summed from the events that carry them')
+  assert.equal(table.tool_time_ms, 300)
+  assert.equal(table.test_time_ms, 2500)
+  assert.equal(table.cache_hit_rate, 0.6667)
+  assert.equal(table.retry_rate, 1)
+  assert.equal(table.rollback_rate, 1)
+  assert.equal(table.parallel_efficiency, 1.5, 'section 44: serial estimate over actual wall time')
+  assert.equal(table.worker_utilization, 0.75, 'fake parallelism is caught by the utilization, not by the speedup')
+  assert.equal(table.unavailable.idle_time_ms, 'the scheduler did not report its idle time')
+  assert.equal(table.unavailable.model_time_ms, undefined, 'a metric with data is no longer unavailable')
+})
+
 test('a capability names its expected provider and its fallback', () => {
   assert.equal(isKnownCapability('repo-map'), true)
   assert.equal(isKnownCapability('invented-capability'), false)

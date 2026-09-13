@@ -288,6 +288,7 @@ jobs:
             'app/core/health-supervisor/index.cjs',
             'tests/unit/core-plugin-runtime.test.js',
             'app/plugins/acceleration/reasoning-governor/index.cjs',
+            'app/plugins/acceleration/index.cjs',
             'app/plugins/acceleration/command-cache/index.cjs',
             'app/plugins/acceleration/dirty-context/index.cjs',
             'app/plugins/acceleration/tool-batcher/index.cjs',
@@ -299,10 +300,12 @@ jobs:
             'app/plugins/acceleration/patch-first/index.cjs',
             'tests/unit/plugin-acceleration.test.js',
             'tests/unit/plugin-acceleration-cache.test.js',
+            'tests/unit/plugin-acceleration-mounted.test.js',
             'tests/unit/plugin-acceleration-parallel.test.js',
             'tests/unit/plugin-acceleration-patch-first.test.js',
             'tests/unit/plugin-acceleration-persistent-tools.test.js',
-            'scripts/dshns-baseline.cjs'
+            'scripts/dshns-baseline.cjs',
+            'scripts/combined-acceptance.cjs'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
           if ($missing) { Write-Error "missing plugin runtime files: $($missing -join ', ')"; exit 1 }
@@ -310,11 +313,11 @@ jobs:
             if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
           }
           $check = Get-Content scripts/check-syntax.cjs -Raw
-          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
+          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
           $tests = Get-Content scripts/test-all.ps1 -Raw
-          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js')) {
+          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js')) {
             if ($tests -notmatch $suite) { Write-Error "test-all.ps1 does not assert $suite"; exit 1 }
           }
           $contract = Get-Content app/core/contracts/plugin.cjs -Raw
@@ -331,3 +334,12 @@ jobs:
           $validation = Get-Content app/plugins/acceleration/incremental-validation/index.cjs -Raw
           if ($validation -notmatch 'canApproveCompletion') { Write-Error 'incremental validation does not gate completion'; exit 1 }
           Write-Host "plugin runtime core, contracts and test matrix present and covered by the syntax gate"
+
+      # The combined acceptance: the plugin platform's standards A-D
+      # (Update-Plan/accleration.md sections 50-53) and the engineering runtime's 26
+      # completion conditions (Update-Plan/24h-1.md section 150), in one report where
+      # every check names its evidence. A green build that never ran the acceptance is
+      # how an acceptance standard quietly stops being true.
+      - name: Combined acceptance
+        shell: pwsh
+        run: node scripts/combined-acceptance.cjs

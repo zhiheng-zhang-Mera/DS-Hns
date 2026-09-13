@@ -118,6 +118,7 @@ try {
     'core-plugin-runtime.test.js',
     'plugin-acceleration.test.js',
     'plugin-acceleration-cache.test.js',
+    'plugin-acceleration-mounted.test.js',
     'plugin-acceleration-parallel.test.js',
     'plugin-acceleration-patch-first.test.js',
     'plugin-acceleration-persistent-tools.test.js',
