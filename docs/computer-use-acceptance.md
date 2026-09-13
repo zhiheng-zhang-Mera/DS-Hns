@@ -345,7 +345,20 @@ b660f6a  feat(computer-use): a verifiable Computer Use runtime over real state
 941a019  fix(ci): keep source files LF so the source gate reads code, not line endings
          verify  success  -> Syntax gate ✓  Unit + architecture tests ✓
                              Theme surface gate ✓  Computer Use surface gate ✓
+566d8cf  fix(ci): match the acceptance harnesses by name, not by path
+         verify  success  -> Syntax gate ✓  Unit + architecture tests ✓
+                             (tests 1019 | pass 1019 | fail 0 | skipped 0)
+                             Theme surface gate ✓  Computer Use surface gate ✓
+         run 34735246657 on long-term-work — the green run §6.4 records
 ```
+
+The `long-term-work` branch carries three commits of long-running work on top of
+`computer-use`: the runtime hardening (`ca3234f`), the soak and failure-injection
+coverage (`d5dae77`), the documentation (`63942c7`), and the two CI/test fixes
+above, which were found by *running the gates on a clean checkout* rather than
+only locally: the completion-standard gate read its checklist from the
+git-ignored `Update-Plan/` directory, and the surface gate asserted a
+forward-slash path against `path.join`-built source.
 
 The line-ending fix is two-layered on purpose: `.gitattributes` pins LF for
 source/data/documentation files (only `*.cmd` stays CRLF) so a Windows checkout
