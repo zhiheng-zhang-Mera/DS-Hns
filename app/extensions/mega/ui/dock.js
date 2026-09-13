@@ -986,6 +986,7 @@ let themePanel = null
 let skillsPanel = null
 let computerUsePanel = null
 let engineeringPanel = null
+let pluginPanel = null
 try {
   themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
 } catch (error) {
@@ -1010,6 +1011,14 @@ try {
 } catch (error) {
   showError(error)
 }
+try {
+  // Update-Plan/accleration.md sections 45/46: the plugin panel reads the plugin set,
+  // the capability vocabulary and the execution settings, and asks the shell to enable,
+  // restart or reconfigure a plugin by id. It never receives a plugin object.
+  pluginPanel = window.megaPluginPanel?.attach ? window.megaPluginPanel.attach() : null
+} catch (error) {
+  showError(error)
+}
 
 async function refresh() {
   try {
@@ -1021,6 +1030,7 @@ async function refresh() {
     await skillsPanel?.refresh?.()
     await computerUsePanel?.refresh?.()
     await engineeringPanel?.refresh?.()
+    await pluginPanel?.refresh?.()
   } catch (error) {
     showError(error)
   }

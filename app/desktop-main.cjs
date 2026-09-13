@@ -138,6 +138,12 @@ let computerUseHost = null
  */
 let engineeringHost = null
 
+/**
+ * The plugin host: the manager, the registry, the bus, the configuration and both
+ * plugin sets. Created on the first plugin-panel call, never at boot.
+ */
+let pluginHost = null
+
 /** IPC surface of the Engineering panel. */
 const ENGINEERING_CHANNELS = [
   // Read-only: what the runtime is doing, what it last reported, which project it
@@ -148,6 +154,23 @@ const ENGINEERING_CHANNELS = [
   // The episode itself: one at a time, cancellable at every step boundary.
   'engineering:run',
   'engineering:cancel'
+]
+
+/** IPC surface of the Plugin panel (Update-Plan/accleration.md sections 45, 46). */
+const PLUGIN_CHANNELS = [
+  // The set: what is installed, what each plugin is, and the capability vocabulary.
+  'plugins:status',
+  'plugins:list',
+  'plugins:describe',
+  'plugins:capabilities',
+  // Acting on one plugin: enable/disable, restart, re-probe health.
+  'plugins:enable',
+  'plugins:reload',
+  'plugins:health',
+  // The execution settings and the lockfile.
+  'plugins:execution',
+  'plugins:configure',
+  'plugins:lock'
 ]
 
 /** IPC surface of the Computer Use panel. */
@@ -895,6 +918,160 @@ function disposeEngineeringOnExit(source = 'shell') {
   return true
 }
 
+/**
+ * Creates the plugin host on first use (idempotent).
+ *
+ * The host owns the plugin manager, the capability registry, the bus, the configuration
+ * and both plugin sets. It is built on the first UI call rather than at boot, because a
+ * workbench that never opens the plugin panel should not pay for loading twenty-five
+ * plugins — and because a plugin fault must not be able to stop the shell from starting.
+ */
+function ensurePluginHost() {
+  if (pluginHost) return pluginHost
+  const { createPluginHost } = require('./plugin-host.cjs')
+  const block = pluginDefaults()
+  pluginHost = createPluginHost({
+    log: (line) => logLine(line),
+    root: ROOT,
+    configDir: path.join(ROOT, 'config', 'plugins'),
+    available: () => pluginsEnabled(),
+    reason: () => 'the plugin runtime is disabled by config/app.json (plugins.enabled = false)',
+    defaults: block,
+    enforceLock: block.enforceLock === true
+  })
+  logLine(`plugin runtime ready (${PLUGIN_CHANNELS.length} channels; lock enforcement ${block.enforceLock === true ? 'on' : 'off'})`)
+  return pluginHost
+}
+
+/** The `plugins` block of config/app.json, in the shape the host expects. */
+function pluginDefaults() {
+  let block = {}
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'app.json'), 'utf8'))
+    if (config && typeof config.plugins === 'object' && config.plugins !== null) block = config.plugins
+  } catch {
+    block = {}
+  }
+  const execution = block.execution && typeof block.execution === 'object' ? block.execution : {}
+  const plugins = {}
+  // The execution settings belong to the plugin that owns them, so the shipped defaults
+  // land in the same layer the panel writes to — one place decides, and the panel shows
+  // where each value came from.
+  plugins['dshns.parallel-executor'] = {
+    mode: execution.mode,
+    parallelTaskExecution: execution.parallelTaskExecution,
+    parallelRead: execution.parallelRead,
+    parallelTests: execution.parallelTests,
+    parallelModelCalls: execution.parallelModelCalls,
+    parallelWrites: execution.parallelWrites
+  }
+  plugins['dshns.resource-manager'] = {
+    maxWorkers: execution.maxWorkers,
+    cpuLimit: execution.cpuLimit,
+    ramLimit: execution.ramLimit,
+    gpuLimit: execution.gpuLimit
+  }
+  plugins['dshns.workspace-isolation'] = { workspaceIsolation: execution.workspaceIsolation }
+  for (const id of Array.isArray(block.disabled) ? block.disabled : []) plugins[String(id)] = { enabled: false }
+  // Drop the keys the config did not actually declare, so the config manager's defaults
+  // layer stays honest about what the deployment decided.
+  for (const [id, values] of Object.entries(plugins)) {
+    plugins[id] = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined))
+  }
+  return { enabled: block.enabled !== false, enforceLock: block.enforceLock === true, plugins }
+}
+
+/** Is the plugin runtime enabled in config? Defaults to on. */
+function pluginsEnabled() {
+  try {
+    const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'app.json'), 'utf8'))
+    return config?.plugins?.enabled !== false
+  } catch {
+    return true
+  }
+}
+
+/**
+ * The plugin surface, failure isolated like the others: a plugin problem is data, not a
+ * rejected main-process promise. Every handler builds the world first, so the panel's
+ * first paint shows the real set rather than an empty one.
+ */
+function registerPluginIpc() {
+  for (const channel of PLUGIN_CHANNELS) {
+    try {
+      ipcMain.removeHandler(channel)
+    } catch {}
+  }
+  const guard = (handler) => async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (error) {
+      logLine(`plugin ipc failed: ${error?.stack || error}`)
+      return { ok: false, error: String(error?.message || error), code: error?.code || null }
+    }
+  }
+  const host = () => ensurePluginHost()
+  const ready = async () => {
+    const outcome = await host().ensure()
+    return outcome.ok === false ? outcome : null
+  }
+
+  ipcMain.handle('plugins:status', guard(async () => {
+    const failed = await ready()
+    const status = host().status()
+    return failed ? { ...status, ok: false, error: failed.error, code: failed.code } : status
+  }))
+  ipcMain.handle('plugins:list', guard(async () => {
+    const failed = await ready()
+    const listed = host().list()
+    return failed ? { ...listed, ok: false, error: failed.error, code: failed.code } : listed
+  }))
+  ipcMain.handle('plugins:describe', guard(async (_event, input) => {
+    await ready()
+    return host().describe(input || {})
+  }))
+  ipcMain.handle('plugins:capabilities', guard(async () => {
+    await ready()
+    return host().capabilities()
+  }))
+  ipcMain.handle('plugins:enable', guard(async (_event, input) => {
+    await ready()
+    return host().setEnabled(input || {})
+  }))
+  ipcMain.handle('plugins:reload', guard(async (_event, input) => {
+    await ready()
+    return host().reload(input || {})
+  }))
+  ipcMain.handle('plugins:health', guard(async (_event, input) => {
+    await ready()
+    return host().health(input || {})
+  }))
+  ipcMain.handle('plugins:execution', guard(async () => {
+    await ready()
+    return host().execution()
+  }))
+  ipcMain.handle('plugins:configure', guard(async (_event, input) => {
+    await ready()
+    return host().configure(input || {})
+  }))
+  ipcMain.handle('plugins:lock', guard(async (_event, input) => {
+    await ready()
+    return host().lockfile(input || {})
+  }))
+}
+
+/** Releases the plugin host on exit: every plugin unloads, every subscription goes. */
+async function disposePluginsOnExit(source = 'shell') {
+  if (!pluginHost) return null
+  try {
+    await pluginHost.dispose(`shell teardown (${source})`)
+    logLine(`plugin runtime disposed (${source})`)
+  } catch (error) {
+    logLine(`plugin dispose failed: ${error?.message || error}`)
+  }
+  return true
+}
+
 /** Releases the runtime on exit: watchers closed, debugger detached, log flushed. */
 function disposeComputerUseOnExit(source = 'shell') {
   if (!computerUseRuntime) return null
@@ -935,6 +1112,12 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
   }
   stopSubWorkerOnExit('shell teardown')
   disposeEngineeringOnExit('shell teardown')
+  // The plugin unload hooks are async and teardown is not allowed to wait on a plugin
+  // (the plan's exit rule: no cleanup step may prevent the exit). The dispose therefore
+  // runs to its first await synchronously — which stops the health timer — and the rest
+  // finishes alongside the exit; every context's subscriptions and capabilities go with
+  // the process either way.
+  Promise.resolve(disposePluginsOnExit('shell teardown')).catch((error) => logLine(`plugin dispose failed: ${error?.message || error}`))
   disposeComputerUseOnExit('shell teardown')
   try {
     destroyIntegratedViews()
@@ -1990,6 +2173,17 @@ app.whenReady().then(async () => {
       logLine('engineering: runtime available on demand (engineering:* IPC)')
     } else {
       logLine('engineering: disabled by config/app.json')
+    }
+
+    // The plugin platform is the layer everything else is mounted through, so its IPC
+    // surface exists from boot — but the host itself, and therefore the twenty-five
+    // plugin contexts behind it, is built on the first call rather than in the startup
+    // path. A plugin fault must not be able to stop the shell from opening.
+    if (pluginsEnabled()) {
+      registerPluginIpc()
+      logLine('plugins: runtime available on demand (plugins:* IPC)')
+    } else {
+      logLine('plugins: disabled by config/app.json')
     }
 
     const extensionsReady = await startExtensions(nodeExe)

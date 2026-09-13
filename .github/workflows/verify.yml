@@ -304,8 +304,13 @@ jobs:
             'tests/unit/plugin-acceleration-parallel.test.js',
             'tests/unit/plugin-acceleration-patch-first.test.js',
             'tests/unit/plugin-acceleration-persistent-tools.test.js',
+            'tests/unit/plugin-ui-wiring.test.js',
             'scripts/dshns-baseline.cjs',
-            'scripts/combined-acceptance.cjs'
+            'scripts/combined-acceptance.cjs',
+            'app/plugin-host.cjs',
+            'app/core/lockfile/index.cjs',
+            'app/extensions/mega/ui/plugin-panel.js',
+            'dshns-lock.yaml'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
           if ($missing) { Write-Error "missing plugin runtime files: $($missing -join ', ')"; exit 1 }
@@ -313,12 +318,23 @@ jobs:
             if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
           }
           $check = Get-Content scripts/check-syntax.cjs -Raw
-          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
+          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/lockfile', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
           $tests = Get-Content scripts/test-all.ps1 -Raw
-          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js')) {
+          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-ui-wiring\.test\.js')) {
             if ($tests -notmatch $suite) { Write-Error "test-all.ps1 does not assert $suite"; exit 1 }
+          }
+          # The plugin panel is a control surface: it must reach the platform only through
+          # the bridge, and it must not execute anything itself.
+          $panel = Get-Content app/extensions/mega/ui/plugin-panel.js -Raw
+          if ($panel -notmatch 'window\.megaPlugins') { Write-Error 'the plugin panel does not use the bridge'; exit 1 }
+          if ($panel -match 'child_process|spawn\(|readFileSync|require\(') { Write-Error 'the plugin panel must not execute anything'; exit 1 }
+          # The shipped lockfile must describe the shipped set, so it cannot silently go
+          # stale while the CI stays green.
+          $lock = Get-Content dshns-lock.yaml -Raw
+          foreach ($id in @('dshns.parallel-executor', 'dshns.repo-map', 'dshns.computer-use', 'dshns.long-term-worker')) {
+            if ($lock -notmatch [regex]::Escape($id)) { Write-Error "dshns-lock.yaml does not pin $id"; exit 1 }
           }
           $contract = Get-Content app/core/contracts/plugin.cjs -Raw
           if ($contract -notmatch 'dshns.plugin/v1') { Write-Error 'the plugin API version is not declared'; exit 1 }

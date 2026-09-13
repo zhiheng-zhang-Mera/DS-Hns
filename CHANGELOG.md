@@ -37,6 +37,26 @@ baseline vs optimized（Time To Accepted Patch）、**D** 九类故障注入（�
 真的跑 `node --test`。测不出来的地方就说明原因：不调用真实模型，所以 Time To Accepted Patch 使用
 **声明的**每次调用延迟，真正测量的是每种配置的往返次数。CI 每次推送都会跑这份验收。
 
+**工作台 UI**：新增 Plugins 面板，按计划书分组（Execution / Autonomy / Coding / Performance /
+Observability）列出插件，并把四个状态**分开显示**（installed / enabled / loaded / healthy）——
+"关掉了"和"坏掉了"是两个不同答案，一个复选框会把它们糊在一起。点开任一插件可看版本、API 版本、
+状态、健康（带原因）、延迟、能力、必需/可选依赖（缺哪个会标出来）、带来源层的配置、最近的故障与
+重启次数，并可 Enable/Disable、Restart、单插件体检、写 lockfile。Execution 区是计划书 §45 的那组
+设置（模式 / 最大 worker / 并行读·测试·模型调用·写 / workspace isolation / CPU·RAM·GPU 上限），
+每项都标出取值来自哪一层，并显示当前模式下模型的"实际并行度"与资源管理器给出的 worker 决策。
+面板是**控制面**而且这一点是被强制的：它拿不到插件对象、不能指定要提供哪个能力、不碰文件，只能按
+**id** 请 shell 去 enable / restart / 重新配置；提交写的 gate 会断言面板只经由 `window.megaPlugins`
+访问平台，且自身不含任何文件系统或进程调用。设置写进平台本来就读的地方（`config/plugins/<id>.json`
+——配置管理器里"用户对这个插件做的决定"那一层），随后重建插件世界，因此面板显示的就是运行时在用的；
+非法值（未知键、越界、类型错）不会写入任何东西，并带着原因返回。
+
+**插件 lockfile**：新增 `dshns-lock.yaml`（计划书 §40）记录插件集合与版本，用于复现稳定环境。
+格式是 YAML 但只接受解析器真正理解的那一种形状：多一个顶层键、重复 id、缺版本、写成列表，都会
+带行号明确拒绝而不是猜——一个"看不懂就跳过"的 lockfile 解析器会报告一份从未被检查过的稳定性。
+`verify` 会对比锁文件与实际安装集合，逐条报出 added / removed / changed；当 `plugins.enforceLock`
+打开时漂移是**拒绝加载**，而不是一句警告。随仓库提交的 lockfile 由测试对实际集合做断言，所以它
+不会在 CI 绿着的时候悄悄过期。
+
 ## engineering — 24h 自主代码维护运行时（Update-Plan/24h-1.md）
 
 **DS-Hns 从"能执行动作"扩展为"能在无人干预下持续维护一个代码仓库"。** 新增 `app/engineering/`：

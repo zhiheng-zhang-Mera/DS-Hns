@@ -186,6 +186,29 @@ contextBridge.exposeInMainWorld('megaEngineering', {
 })
 
 /**
+ * Plugin platform control surface (Update-Plan/accleration.md sections 45, 46).
+ *
+ * The panel reads the plugin set, the capability vocabulary and the execution
+ * settings, and it may enable, disable, restart or reconfigure a plugin. Every one of
+ * those is a *host* operation by id: the renderer cannot name a plugin object, a code
+ * path or a capability to provide, so a settings panel cannot become an installation
+ * surface. The heavy lifting — validating settings, writing configuration and
+ * rebuilding the plugin world — happens in the shell.
+ */
+contextBridge.exposeInMainWorld('megaPlugins', {
+  status: () => ipcRenderer.invoke('plugins:status'),
+  list: () => ipcRenderer.invoke('plugins:list'),
+  describe: (input) => ipcRenderer.invoke('plugins:describe', input),
+  capabilities: () => ipcRenderer.invoke('plugins:capabilities'),
+  enable: (input) => ipcRenderer.invoke('plugins:enable', input),
+  reload: (input) => ipcRenderer.invoke('plugins:reload', input),
+  health: (input) => ipcRenderer.invoke('plugins:health', input),
+  execution: () => ipcRenderer.invoke('plugins:execution'),
+  configure: (input) => ipcRenderer.invoke('plugins:configure', input),
+  lock: (input) => ipcRenderer.invoke('plugins:lock', input)
+})
+
+/**
  * Optional Sub-worker control surface. The worker has no window of its own
  * (plan §3.2), so the Mega dock is its primary visual surface: these channels
  * drive the shell-owned WorkerManager and are the only way the panel talks to

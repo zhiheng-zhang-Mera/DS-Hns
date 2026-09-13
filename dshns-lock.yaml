@@ -1,0 +1,55 @@
+# api_version: dshns.plugin/v1
+# DS-Hns plugin lockfile.
+# Generated from the installed plugin set; edit only to pin a reproduced environment.
+
+plugins:
+  dshns.acceptance-gate:
+    version: 1.0.0
+  dshns.checkpoint:
+    version: 1.0.0
+  dshns.command-cache:
+    version: 1.0.0
+  dshns.computer-use:
+    version: 1.0.0
+  dshns.context-cache:
+    version: 1.0.0
+  dshns.dirty-context:
+    version: 1.0.0
+  dshns.failure-recovery:
+    version: 1.0.0
+  dshns.git-operator:
+    version: 1.0.0
+  dshns.incremental-validation:
+    version: 1.0.0
+  dshns.long-term-worker:
+    version: 1.0.0
+  dshns.model-runtime:
+    version: 1.0.0
+  dshns.parallel-executor:
+    version: 1.0.0
+  dshns.patch-first:
+    version: 1.0.0
+  dshns.persistent-tools:
+    version: 1.0.0
+  dshns.reasoning-governor:
+    version: 1.0.0
+  dshns.repo-map:
+    version: 1.0.0
+  dshns.resource-manager:
+    version: 1.0.0
+  dshns.session-keeper:
+    version: 1.0.0
+  dshns.shell-runtime:
+    version: 1.0.0
+  dshns.task-supervisor:
+    version: 1.0.0
+  dshns.telemetry:
+    version: 1.0.0
+  dshns.tool-batcher:
+    version: 1.0.0
+  dshns.ui-stability:
+    version: 1.0.0
+  dshns.watchdog:
+    version: 1.0.0
+  dshns.workspace-isolation:
+    version: 1.0.0

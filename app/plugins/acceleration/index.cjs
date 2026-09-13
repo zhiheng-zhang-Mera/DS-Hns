@@ -296,8 +296,13 @@ function persistentToolsPlugin() {
           return { ok: true, kind: String(kind), registered: starters.size }
         },
         registered: () => [...starters.keys()],
-        /** The process supervisor is offered so a starter does not have to find one. */
-        supervisor: context.services.processSupervision || null
+        /**
+         * The process supervisor, resolved *late* on purpose: it is an optional
+         * collaborator and the manager's load order only follows required capabilities,
+         * so a provider may load after this plugin. Freezing it here would make the
+         * order of two unrelated manifests decide whether a starter can run.
+         */
+        supervisor: () => context.services.processSupervision || null
       }
       context.provide('persistent-tools', service)
       context.log('persistent tools ready', { starterKinds: starters.size })
@@ -400,10 +405,15 @@ function workspaceIsolationPlugin() {
     async load(context) {
       const { createWorkspaceIsolation } = require('./workspace-isolation/index.cjs')
       const config = context.config || {}
-      const git = context.services.gitOperation
       service = createWorkspaceIsolation({
         root: config.workspace || context.services.workspace || ROOT,
-        git: git ? (args, options) => git.run(args, options) : undefined,
+        // Resolved per call: `git-operation` is optional, so it is not part of the load
+        // order and may arrive after this plugin.
+        git: (args, options) => {
+          const git = context.services.gitOperation
+          if (!git || typeof git.run !== 'function') return { ok: false, reason: 'no git runner is attached' }
+          return git.run(args, options)
+        },
         policy: config.policy,
         log: (message) => context.log(message)
       })
@@ -446,16 +456,40 @@ function parallelExecutorPlugin() {
     async load(context) {
       const { createParallelExecutor } = require('./parallel-executor/index.cjs')
       const config = context.config || {}
+      /**
+       * The isolation provider, resolved per run rather than at load.
+       *
+       * `workspace-isolation` is an optional capability, so nothing orders it before this
+       * plugin. Resolving it late means the executor's behaviour depends on whether
+       * isolation *is available*, not on the order two manifests happened to be installed
+       * in — and when it is absent the executor still runs, it just serializes writes.
+       */
+      const isolation = {
+        available: async () => {
+          const provider = context.services.workspaceIsolation
+          if (!provider) return { ok: false, kind: 'shared', reason: 'no workspace-isolation provider is loaded' }
+          return provider.available()
+        },
+        create: async (input) => {
+          const provider = context.services.workspaceIsolation
+          if (!provider) return { ok: false, kind: 'shared', reason: 'no workspace-isolation provider is loaded' }
+          return provider.create(input)
+        },
+        reclaim: async (id, options) => {
+          const provider = context.services.workspaceIsolation
+          if (!provider) return { ok: false, reason: 'no workspace-isolation provider is loaded' }
+          return provider.reclaim(id, options)
+        }
+      }
       service = createParallelExecutor({
         mode: config.mode,
         resources: context.services.resourceManagement || null,
-        isolation: context.services.workspaceIsolation || null,
+        isolation,
         policy: config.policy,
         log: (message) => context.log(message)
       })
       context.provide('parallel-execution', service)
-      const isolation = context.services.workspaceIsolation ? 'isolated writes available' : 'writes will be serialized'
-      context.log('parallel executor ready', { mode: service.mode, isolation })
+      context.log('parallel executor ready', { mode: service.mode, isolation: 'resolved per run' })
     },
     async healthCheck() {
       if (!service) return { status: HEALTH_STATUS.DEGRADED, detail: { reason: 'no executor' } }

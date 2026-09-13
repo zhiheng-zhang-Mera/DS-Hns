@@ -77,6 +77,24 @@
       "stepTimeoutMs": 1800000
     }
   },
+  "plugins": {
+    "enabled": true,
+    "enforceLock": false,
+    "disabled": [],
+    "execution": {
+      "parallelTaskExecution": true,
+      "mode": "adaptive",
+      "maxWorkers": 4,
+      "parallelRead": true,
+      "parallelTests": true,
+      "parallelModelCalls": true,
+      "parallelWrites": "auto",
+      "workspaceIsolation": "auto",
+      "cpuLimit": 75,
+      "ramLimit": 70,
+      "gpuLimit": 85
+    }
+  },
   "timezones": {
     "local": "auto",
     "localLabel": "本地时间(系统时区)",

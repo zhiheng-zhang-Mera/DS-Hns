@@ -130,7 +130,59 @@ The worker count comes from the resource manager, never from the core count. At 
 ceiling it allocates zero and says which bound applied. Acceptance B reports when the
 machine was under pressure and the core-derived bound had to be substituted.
 
-## 5. Acceptance
+## 5. The workbench surfaces
+
+**Plugins** (the plan's section 46). The panel reads the set, grouped the way the plan
+draws it — Execution, Autonomy, Coding, Performance, Observability — and shows each
+plugin's four states separately, because "off" and "broken" are different answers and a
+single checkbox would blur them. Clicking one shows its version, API version, status,
+health with the reason, latency, capabilities, required and optional dependencies (with
+anything *missing* called out), the config block with the layer every value came from,
+its recent faults, and the restart count. It offers Enable / Disable, Restart, a health
+probe and "Write lock".
+
+**Execution** (the plan's section 45). The mode selector, worker cap, parallel
+read/tests/model-calls/writes, workspace isolation and the CPU/RAM/GPU limits. Each field
+is labelled with the layer its value came from (`default`, `profile`, `plugin-config`,
+`override`), and the panel shows what the chosen mode actually permits and what the
+resource manager derived — including the bound that applied when it allocated fewer
+workers than asked for.
+
+The panel is a *control surface*, and that is enforced rather than promised: it never
+receives a plugin object, never names a capability to provide and never touches a file.
+It asks the shell to enable, restart or reconfigure a plugin **by id**. A settings panel
+that could install code would be a remote-code-execution surface wearing a checkbox, so
+the shipped gate asserts the panel reaches the platform only through `window.megaPlugins`
+and that it contains no filesystem or process call at all.
+
+Settings are written where the platform already reads them — `config/plugins/<id>.json`,
+the config manager's "what the user decided for one plugin" layer — and the world is then
+rebuilt, so the value the panel displays is the value the runtime uses. A refused value
+(unknown key, out of range, wrong type) changes nothing and comes back with the reason.
+
+## 6. The lockfile
+
+`dshns-lock.yaml` (the plan's section 40) records the plugin set and its versions so a run
+can be reproduced. The format is YAML because a human may read or edit it, but the only
+shape it may contain is the one the parser understands:
+
+```yaml
+plugins:
+  dshns.computer-use:
+    version: 1.0.0
+```
+
+Anything else — a second top-level key, a duplicate id, a missing version, a list — is
+refused with a reason and a line number rather than guessed at, because a lockfile parser
+that silently ignores what it does not understand reports a stability that was never
+checked. `verify` compares a lock against the plugins actually installed and reports
+exactly which were added, removed or moved. Drift is a *refusal* when the deployment sets
+`plugins.enforceLock`, never a warning with a shrug.
+
+The shipped lockfile is asserted against the shipped set by the test suite, so it cannot
+quietly go stale while the build stays green.
+
+## 7. Acceptance
 
 `node scripts/combined-acceptance.cjs` runs one report over:
 
@@ -157,7 +209,7 @@ The run fails the build when any check fails, and CI runs it on every push. A gr
 build that never ran the acceptance is how an acceptance standard quietly stops being
 true.
 
-## 6. Turning it off
+## 8. Turning it off
 
 Every accelerator is a plugin with a machine-readable manifest, so the platform's
 behaviour without it is testable rather than theoretical:

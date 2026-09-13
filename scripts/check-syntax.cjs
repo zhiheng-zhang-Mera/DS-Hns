@@ -68,6 +68,7 @@ const SOURCE_DIRS = [
   'core/capability-registry',
   'core/event-bus',
   'core/config-manager',
+  'core/lockfile',
   'core/resource-manager',
   'core/health-supervisor',
   // The provider that carries the DeepSeek-specific knowledge, so no generic

@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * DS-Hns acceleration: patch-first editing (Update-Plan/accleration.md phase 13).
+ * DS-Hns acceleration: patch-first editing (phase 13 of the acceleration plan).
  *
  * The plan fixes an editing priority (AST edit > targeted patch > FIM > whole-file
  * rewrite) because a whole-file rewrite is the most expensive and the most dangerous

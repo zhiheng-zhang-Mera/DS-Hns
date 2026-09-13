@@ -122,7 +122,8 @@ try {
     'plugin-acceleration-parallel.test.js',
     'plugin-acceleration-patch-first.test.js',
     'plugin-acceleration-persistent-tools.test.js',
-    'plugin-mounted-set.test.js'
+    'plugin-mounted-set.test.js',
+    'plugin-ui-wiring.test.js'
   )
   foreach ($name in $coreTests) {
     if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {

@@ -426,6 +426,28 @@
       <p id="engMessage" class="theme-message" role="status"></p>
     </section>
 
+    <section class="panel plugins-panel" id="pluginsPanel">
+      <div class="panel-head balance-head">
+        <div>
+          <div class="balance-title-row">
+            <h2>Plugins</h2>
+            <span id="plugState" class="status-chip neutral">IDLE</span>
+          </div>
+          <p>插件只依赖能力，不依赖彼此：关掉任何一个，运行时都会退到它承诺的 fallback，而不是一起坏掉。</p>
+        </div>
+        <div class="balance-actions">
+          <button id="plugRefresh" class="quiet">刷新</button>
+          <button id="plugHealth" class="quiet">全部体检</button>
+        </div>
+      </div>
+
+      <div class="plug-execution" id="plugExecution"></div>
+      <div class="plug-groups" id="plugGroups"></div>
+      <div id="plugDetail" class="plug-detail"></div>
+      <div class="plug-lock" id="plugLock"></div>
+      <p id="plugMessage" class="theme-message" role="status"></p>
+    </section>
+
     <section class="panel balance-panel" id="balancePanel">
       <div class="panel-head balance-head">
         <div>
@@ -646,6 +668,7 @@
   <script src="skills-panel.js"></script>
   <script src="computer-use-panel.js"></script>
   <script src="engineering-panel.js"></script>
+  <script src="plugin-panel.js"></script>
   <script src="dock.js"></script>
 </body>
 </html>
