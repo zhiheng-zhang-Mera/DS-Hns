@@ -228,6 +228,8 @@ jobs:
             'app/engineering/result.cjs',
             'app/engineering/failure.cjs',
             'app/engineering/process.cjs',
+            'app/engineering/autonomy.cjs',
+            'app/engineering/locking.cjs',
             'app/engineering/adapters/index.cjs',
             'app/extensions/mega/ui/engineering-panel.js',
             'docs/engineering.md',

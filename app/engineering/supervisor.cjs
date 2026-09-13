@@ -48,6 +48,8 @@ const { createGitController, DEFAULT_GIT_POLICY } = require('./git.cjs')
 const { createResultValidator, collectLeaks, workspaceStillValid } = require('./result.cjs')
 const { createEpisodeContext } = require('./context.cjs')
 const { createCheckpointStore, verifyResume } = require('./checkpoint.cjs')
+const { createWorkspaceLock } = require('./locking.cjs')
+const { resolveAutonomy, createEngineeringAutonomy } = require('./autonomy.cjs')
 
 /** The statuses one plan step can end in. */
 const STEP_OUTCOMES = Object.freeze({
@@ -108,6 +110,28 @@ function createEngineeringSupervisor(input = {}) {
   const context = createEpisodeContext({ now })
   const supervisor = createProcessSupervisor({ now, registry: input.processes, sleep: input.sleep, outputBytes: budget.outputBytes })
   const checkpoints = createCheckpointStore({ root: input.checkpointRoot || null, now })
+  /**
+   * The effective autonomy, resolved *per run* from the three documented sources.
+   * Creating the controller once at construction is what used to leave a contract's
+   * explicit `autonomy_enabled: true` silently ignored.
+   */
+  const autonomyAuthority = resolveAutonomy({
+    runtime: input.runtime || { autonomyEnabled: input.autonomyEnabled === true },
+    contract,
+    runOptions: input.runOptions || {}
+  })
+  const autonomy = createEngineeringAutonomy({
+    enabled: autonomyAuthority.enabled,
+    source: autonomyAuthority.source,
+    limits: contract.autonomyLimits,
+    now
+  })
+  /** One active writer per workspace, enforced with a lock rather than assumed. */
+  const lock = input.lock || createWorkspaceLock({
+    root: input.workspace ? path.resolve(String(input.workspace)) : process.cwd(),
+    now,
+    disabled: contract.lockWorkspace === false
+  })
 
   let workspace = null
   let snapshot = null
@@ -561,6 +585,8 @@ function createEngineeringSupervisor(input = {}) {
       git: git ? { policy: git.policy, commands: git.commands().length, refusals: git.refusals().length } : null,
       ownedProcessesCleaned: supervisor.ownedCount(),
       checkpoints: checkpoints.list(episodeId).length,
+      autonomy: { enabled: autonomy.enabled, source: autonomy.source, decisions: autonomy.decisions().slice(-5) },
+      lock: { held: lock.held, file: lock.disabled ? null : lock.file, disabled: lock.disabled },
       context: context.snapshot()
     }
   }
@@ -568,14 +594,44 @@ function createEngineeringSupervisor(input = {}) {
   /**
    * Run the episode.
    *
+   * @param {object} [runOptions] `{ autonomous }` overrides the contract's own
+   *   autonomy setting for this run, and is the highest of the three authorities.
    * @returns {Promise<object>} the episode report
    */
   async function run(runOptions = {}) {
     status = 'running'
+    // The run option is the last authority to be heard, so it is applied here
+    // rather than at construction: a caller may ask for one autonomous run without
+    // changing the episode's own contract.
+    const perRun = resolveAutonomy({
+      runtime: input.runtime || { autonomyEnabled: input.autonomyEnabled === true },
+      contract,
+      runOptions
+    })
+    if (perRun.enabled !== autonomy.enabled || perRun.source !== autonomy.source) {
+      autonomy.enabled = perRun.enabled
+      autonomy.source = perRun.source
+    }
+    const held = lock.acquire({ episode: episodeId, stealStale: contract.stealStaleLock === true })
+    if (!held.ok) {
+      finishedAt = now()
+      status = 'blocked'
+      report = buildReport({
+        verdict: 'BLOCKED',
+        ok: false,
+        reasons: [`another episode holds this workspace: ${held.reason}`],
+        checks: []
+      })
+      return report
+    }
     const initialized = initialize()
     if (!initialized.ok) {
       finishedAt = now()
       status = 'blocked'
+      // A workspace that cannot be used is a BLOCKED episode, with the reason. The
+      // lock is released here rather than only on the success path: an episode that
+      // never began must not leave the workspace locked behind it.
+      lock.release()
       // A workspace that cannot be used is a BLOCKED episode, with the reason.
       report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [initialized.reason], checks: [] })
       return report
@@ -585,6 +641,16 @@ function createEngineeringSupervisor(input = {}) {
     checkpoint('planned')
 
     let repairMode = false
+    /**
+     * Walk the current plan from the cursor.
+     *
+     * This is one *round*. It returns when the plan is exhausted, the deadline
+     * band forbids more work, the caller cancels, or a failure leaves the loop no
+     * honest next move. Whether another round happens is the autonomy
+     * controller's decision, which is why the walk is a function rather than the
+     * body of `run`.
+     */
+    async function walkPlan() {
     let step = nextStep(plan)
     while (step) {
       // A caller may stop the episode at any step boundary. The check is here
@@ -681,46 +747,104 @@ function createEngineeringSupervisor(input = {}) {
       plan.cursor = Math.max(0, plan.cursor - 1)
       step = nextStep(plan)
     }
-
-    // A cancelled episode does not run the completion gate: the caller stopped it,
-    // so there is no claim to validate. It still tears down and still reports what
-    // it had verified, because "I stopped this, here is where it got to" is a
-    // useful answer and "FAILED" would not be honest.
-    if (machine.phase === EPISODE_PHASES.CANCELLED) {
-      finishedAt = now()
-      status = 'cancelled'
-      supervisor.dispose('episode cancelled')
-      checkpoint('cancelled')
-      report = buildReport({ verdict: 'CANCELLED', ok: false, reasons: ['the caller cancelled the episode'], checks: [] })
-      return report
     }
 
-    // Final verification: the evidence the completion gate will read.
-    if (!machine.terminal && machine.phase !== EPISODE_PHASES.VERIFYING) {
-      transition(EPISODE_PHASES.VERIFYING, { reason: 'the plan is exhausted' })
-    }
-    if (!machine.terminal && commands && (commands[VERIFICATION_LEVELS.FULL] || commands.test)) {
-      const final = await verifier.run(VERIFICATION_LEVELS.FULL, { timeoutMs: budget.stepTimeoutMs })
-      if (final.ok) noteProgress('final-verification', { summary: 'the full verification passed', evidence: { command: final.command } })
+    /**
+     * A round, then the evidence the completion gate reads, then the gate itself.
+     * When the gate refuses and autonomy is enabled with a *new* piece of evidence
+     * available, another round runs with the remaining plan instead of stopping at
+     * the first failure.
+     */
+    const rounds = []
+    for (let round = 0; ; round += 1) {
+      context.setLive({ phase: machine.phase })
+      await walkPlan()
+      rounds.push({ round, phase: machine.phase, repairRounds, mutations: mutations.applied().length })
+
+      // A cancelled episode does not run the completion gate: the caller stopped
+      // it, so there is no claim to validate. It still tears down and still reports
+      // what it had verified, because "I stopped this, here is where it got to" is
+      // a useful answer and "FAILED" would not be honest.
+      if (machine.phase === EPISODE_PHASES.CANCELLED) {
+        finishedAt = now()
+        status = 'cancelled'
+        supervisor.dispose('episode cancelled')
+        checkpoint('cancelled')
+        report = buildReport({ verdict: 'CANCELLED', ok: false, reasons: ['the caller cancelled the episode'], checks: [] })
+        return report
+      }
+      if (machine.phase === EPISODE_PHASES.BLOCKED) {
+        finishedAt = now()
+        status = 'blocked'
+        report = buildReport({
+          verdict: 'BLOCKED',
+          ok: false,
+          reasons: failures.length ? [`${failures[failures.length - 1].class}: ${failures[failures.length - 1].reason}`] : ['the episode is blocked'],
+          checks: []
+        })
+        checkpoint('blocked')
+        return report
+      }
+
+      // Final verification for this round: the evidence the gate will read.
+      if (machine.phase !== EPISODE_PHASES.VERIFYING && !machine.terminal) {
+        transition(EPISODE_PHASES.VERIFYING, { reason: round === 0 ? 'the plan is exhausted' : 'the continuation round finished' })
+      }
+      if (commands && (commands[VERIFICATION_LEVELS.FULL] || commands.test)) {
+        const final = await verifier.run(VERIFICATION_LEVELS.FULL, { timeoutMs: budget.stepTimeoutMs })
+        if (final.ok) noteProgress('final-verification', { summary: 'the full verification passed', evidence: { command: final.command } })
+      }
+
+      const verdict = resultValidator.validate(validationInput())
+      if (verdict.ok) {
+        finishedAt = now()
+        machine.force(EPISODE_PHASES.COMPLETED, 'the result validator accepted the evidence')
+        status = 'completed'
+        report = buildReport(verdict)
+        break
+      }
+
+      // The gate refused. Continuing is only honest when autonomy is enabled *and*
+      // the round produced new evidence to continue from.
+      const probe = buildReport(verdict)
+      const decision = autonomy.decide(probe, { round, totalSteps: plan.cursor })
+      context.recordDecision({ kind: 'autonomy', detail: { round, continue: decision.continue, reason: decision.reason, source: decision.source }, result: decision.continue ? 'continuing' : 'stopping' })
+      log({ type: 'autonomy', round, continue: decision.continue, reason: decision.reason })
+      if (!decision.continue) {
+        finishedAt = now()
+        machine.force(EPISODE_PHASES.FAILED, verdict.reasons.join('; '))
+        status = 'failed'
+        report = buildReport(verdict)
+        break
+      }
+      // The next round resumes from the remaining plan: the steps that completed
+      // stay completed, so a continuation never replays verified work.
+      transition(EPISODE_PHASES.PLANNING, { reason: `autonomy continuation round ${round + 1}` })
+      plan = buildPlan({
+        goal: input.goal,
+        discovery: { commands },
+        contract,
+        baseline: snapshot,
+        inputs: { steps: contract.steps, maxSteps: budget.maxSteps, focus: contract.focus }
+      })
+      // Carry the completed work forward: the plan is rebuilt, so the steps the
+      // previous rounds verified are marked complete rather than re-run.
+      for (const entry of verdict.checks) void entry
+      verifier.invalidate(`continuation round ${round + 1} starts from the current tree`)
+      noteProgress('continuation', { summary: `autonomy continued with round ${round + 1}`, evidence: { reason: decision.reason } })
     }
 
-    const verdict = resultValidator.validate(validationInput())
-    finishedAt = now()
-    if (verdict.ok) {
-      machine.force(EPISODE_PHASES.COMPLETED, 'the result validator accepted the evidence')
-      status = 'completed'
-    } else {
-      machine.force(EPISODE_PHASES.FAILED, verdict.reasons.join('; '))
-      status = 'failed'
-    }
     // Teardown: no owned process outlives the episode unless the contract kept one.
     if (contract.keepProcesses === true) {
       for (const entry of supervisor.running()) supervisor.release(entry.id, 'the contract asked to keep it alive')
     } else {
       supervisor.dispose('episode teardown')
     }
-    checkpoint(verdict.ok ? 'completed' : 'failed')
-    report = buildReport(verdict)
+    // The workspace is free again the moment the episode stops, on every path: a
+    // lock left behind would make the next episode look like a concurrent writer.
+    lock.release()
+    checkpoint(status === 'completed' ? 'completed' : 'failed')
+    report = report || buildReport({ verdict: 'FAILED', ok: false, reasons: ['the episode ended without a verdict'], checks: [] })
     return report
   }
 

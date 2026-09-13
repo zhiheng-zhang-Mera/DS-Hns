@@ -300,7 +300,8 @@ Write-Output '== Engineering runtime (Update-Plan/24h-1.md) =='
 $engineeringModules = @(
   'index.cjs', 'episode.cjs', 'supervisor.cjs', 'repository.cjs', 'discovery.cjs',
   'plan.cjs', 'mutation.cjs', 'git.cjs', 'verifier.cjs', 'scheduler.cjs',
-  'checkpoint.cjs', 'context.cjs', 'result.cjs', 'failure.cjs', 'process.cjs'
+  'checkpoint.cjs', 'context.cjs', 'result.cjs', 'failure.cjs', 'process.cjs',
+  'autonomy.cjs', 'locking.cjs'
 )
 foreach ($file in $engineeringModules) {
   Check "Engineering module $file present" ((Test-Path "$ROOT\app\engineering\$file") -and ((Get-Item "$ROOT\app\engineering\$file").Length -gt 0))

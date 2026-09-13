@@ -3,6 +3,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 
 const { createEngineeringHost } = require('../../app/engineering-host.cjs')
@@ -126,10 +127,54 @@ test('the host accepts, reports and cancels an episode, and refuses a second one
   const refused = host.run({ workspace: path.join(ROOT, 'this-does-not-exist'), goal: 'fix' })
   assert.equal(refused.ok, true, 'the host accepts the request and lets the supervisor verify the workspace')
   const settled = await host.settled()
-  assert.equal(settled.result, 'BLOCKED')
+  assert.equal(settled.result, 'BLOCKED', JSON.stringify({ result: settled.result, reasons: settled.validation && settled.validation.reasons }))
   assert.ok(settled.validation.reasons.length >= 1)
   assert.equal(host.running, false)
   host.dispose('test teardown')
+})
+
+test('a workspace is locked while an episode runs, and never stolen from a live owner', () => {
+  const { createWorkspaceLock } = require('../../app/engineering/locking.cjs')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-lock-'))
+  try {
+    const first = createWorkspaceLock({ root: dir })
+    const taken = first.acquire({ episode: 'episode-a' })
+    assert.equal(taken.ok, true)
+    assert.equal(fs.existsSync(first.file), true, 'the lock must be on disk, because the excluded writer is another process')
+
+    // A second writer in the same workspace is refused, and told who holds it.
+    const second = createWorkspaceLock({ root: dir })
+    const blocked = second.acquire({ episode: 'episode-b' })
+    assert.equal(blocked.ok, false)
+    assert.equal(blocked.code, 'held')
+    assert.equal(blocked.lock.episode, 'episode-a')
+
+    // A live owner's lock is never stolen, however old it is.
+    const aged = second.acquire({ episode: 'episode-b', stealStale: true })
+    assert.equal(aged.ok, false, 'a lock whose owner is alive must not be reclaimed')
+
+    // Release is verified: only the holder may remove it.
+    assert.equal(second.release().ok, false, 'a non-holder must not delete the lock')
+    assert.equal(first.heartbeat().ok, true, 'the holder can refresh its own lock')
+    assert.equal(first.release().ok, true)
+    assert.equal(fs.existsSync(first.file), false, 'the lock is gone once released')
+
+    // A lock whose owner is gone is *reported* as stale, and only reclaimed when
+    // the caller says so.
+    fs.mkdirSync(path.dirname(first.file), { recursive: true })
+    fs.writeFileSync(first.file, JSON.stringify({ version: 1, episode: 'dead', pid: 999999999, token: 'x', at: Date.now() - 10 * 60_000 }), 'utf8')
+    const third = createWorkspaceLock({ root: dir })
+    const stale = third.acquire({ episode: 'episode-c' })
+    assert.equal(stale.ok, false)
+    assert.equal(stale.code, 'stale')
+    assert.match(stale.reason, /pass stealStale/)
+    const reclaimed = third.acquire({ episode: 'episode-c', stealStale: true })
+    assert.equal(reclaimed.ok, true)
+    assert.equal(reclaimed.lock.episode, 'episode-c')
+    third.release()
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test('the syntax gate and the CI gate both cover the engineering surface', () => {
