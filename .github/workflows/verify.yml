@@ -192,7 +192,7 @@ jobs:
           foreach ($dir in $dirs) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
-          foreach ($script in @('scripts/computer-use-acceptance.cjs', 'scripts/computer-use-longrun-acceptance.cjs')) {
+          foreach ($script in @('computer-use-acceptance.cjs', 'computer-use-longrun-acceptance.cjs')) {
             if ($check -notmatch [regex]::Escape($script)) { Write-Error "check-syntax.cjs does not cover $script"; exit 1 }
           }
           $config = Get-Content config/app.json -Raw
