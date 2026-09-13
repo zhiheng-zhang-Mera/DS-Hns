@@ -40,7 +40,7 @@ async function loadEverything(manager, disable = []) {
 
 test('every accelerator is a plugin that provides a capability the vocabulary declares', () => {
   const plugins = accelerationPlugins()
-  assert.equal(plugins.length, 11)
+  assert.equal(plugins.length, 12)
   const provided = []
   for (const plugin of plugins) {
     const manifest = plugin.manifest

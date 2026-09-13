@@ -50,6 +50,7 @@ const CAPABILITIES = Object.freeze({
   'command-cache': { description: 'reuse the result of an unchanged command', providers: ['dshns.command-cache'], fallback: 'every command runs' },
   'persistent-tools': { description: 'keep shell, LSP and browser processes alive', providers: ['dshns.persistent-tools'], fallback: 'each tool starts and stops per step' },
   'patch-first': { description: 'express an edit with the cheapest strategy that fits', providers: ['dshns.patch-first'], fallback: 'the caller expresses the edit however it likes, including a whole-file rewrite' },
+  'high-performance': { description: 'speculative decoding, an advanced build cache, automatic worker scaling and FIM context', providers: ['dshns.high-performance'], fallback: 'every optimisation is off and the runtime does the work the straightforward way' },
 
   // Infrastructure
   'telemetry': { description: 'record the metrics a performance claim needs', providers: ['dshns.telemetry'], fallback: 'no performance claim can be made from this run' },

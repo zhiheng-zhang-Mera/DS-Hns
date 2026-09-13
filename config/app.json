@@ -92,7 +92,15 @@
       "workspaceIsolation": "auto",
       "cpuLimit": 75,
       "ramLimit": 70,
-      "gpuLimit": 85
+      "gpuLimit": 85,
+      "highPerformance": {
+        "speculativeDecoding": true,
+        "buildCache": true,
+        "autoScaling": true,
+        "advancedFim": true,
+        "fimBudgetTokens": 3000,
+        "cacheMaxBytes": 536870912
+      }
     }
   },
   "timezones": {

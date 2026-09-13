@@ -71,6 +71,7 @@ const PLUGIN_GROUPS = Object.freeze({
   'dshns.command-cache': 'Performance',
   'dshns.parallel-executor': 'Performance',
   'dshns.workspace-isolation': 'Performance',
+  'dshns.high-performance': 'Performance',
   'dshns.resource-manager': 'Performance',
   'dshns.telemetry': 'Observability',
   'dshns.model-runtime': 'Observability'
@@ -95,7 +96,13 @@ const EXECUTION_SCHEMA = Object.freeze({
   workspaceIsolation: { type: 'string', enum: ['auto', 'off'], default: 'auto', owner: 'dshns.workspace-isolation', label: 'Workspace isolation' },
   cpuLimit: { type: 'number', min: 10, max: 100, default: DEFAULT_LIMITS.cpuPercent, owner: 'dshns.resource-manager', label: 'CPU limit' },
   ramLimit: { type: 'number', min: 10, max: 100, default: DEFAULT_LIMITS.ramPercent, owner: 'dshns.resource-manager', label: 'RAM limit' },
-  gpuLimit: { type: 'number', min: 10, max: 100, default: DEFAULT_LIMITS.gpuPercent, owner: 'dshns.resource-manager', label: 'GPU limit' }
+  gpuLimit: { type: 'number', min: 10, max: 100, default: DEFAULT_LIMITS.gpuPercent, owner: 'dshns.resource-manager', label: 'GPU limit' },
+  // The high-performance options: one switch per option, owned by the module that
+  // implements them, so the panel's toggles are the switches the module actually reads.
+  speculativeDecoding: { type: 'boolean', default: true, owner: 'dshns.high-performance', label: 'Speculative decoding' },
+  buildCache: { type: 'boolean', default: true, owner: 'dshns.high-performance', label: 'Advanced build cache' },
+  autoScaling: { type: 'boolean', default: true, owner: 'dshns.high-performance', label: 'Automatic worker scaling' },
+  advancedFim: { type: 'boolean', default: true, owner: 'dshns.high-performance', label: 'Advanced FIM editing' }
 })
 
 /**
@@ -123,7 +130,8 @@ function executionDefaults(block = {}) {
       ramLimit: execution.ramLimit,
       gpuLimit: execution.gpuLimit
     },
-    'dshns.workspace-isolation': { workspaceIsolation: execution.workspaceIsolation }
+    'dshns.workspace-isolation': { workspaceIsolation: execution.workspaceIsolation },
+    'dshns.high-performance': execution.highPerformance && typeof execution.highPerformance === 'object' ? { ...execution.highPerformance } : {}
   }
   for (const id of Array.isArray(block && block.disabled) ? block.disabled : []) plugins[String(id)] = { enabled: false }
   // Drop the keys the config did not actually declare, so the defaults layer stays honest

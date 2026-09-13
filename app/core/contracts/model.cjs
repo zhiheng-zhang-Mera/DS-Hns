@@ -32,7 +32,11 @@ const MODEL_CAPABILITIES = Object.freeze([
   'vision',
   'promptCaching',
   'cacheHints',
-  'codingOptimized'
+  'codingOptimized',
+  // Whether the provider can serve a draft-model hint. It is a capability rather than a
+  // plugin setting on purpose: a speculative request sent to a provider that ignores it
+  // is a silent no-op, and the only honest place to ask is the model descriptor.
+  'speculativeDecoding'
 ])
 
 /** The reasoning levels, weakest first. `null` means "ask for none". */
@@ -68,6 +72,7 @@ function normalizeCapabilities(input = {}) {
     promptCaching: input.promptCaching === true,
     cacheHints: input.cacheHints === true,
     codingOptimized: input.codingOptimized === true,
+    speculativeDecoding: input.speculativeDecoding === true,
     contextWindow: Number.isFinite(input.contextWindow) ? Number(input.contextWindow) : null
   }
   // A model that cannot call tools cannot call several of them at once: reporting

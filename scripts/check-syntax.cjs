@@ -83,6 +83,7 @@ const SOURCE_DIRS = [
   'plugins/acceleration',
   'plugins/acceleration/command-cache',
   'plugins/acceleration/dirty-context',
+  'plugins/acceleration/high-performance',
   'plugins/acceleration/incremental-validation',
   'plugins/acceleration/parallel-executor',
   'plugins/acceleration/patch-first',

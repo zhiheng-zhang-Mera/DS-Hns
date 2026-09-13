@@ -501,6 +501,65 @@ function parallelExecutorPlugin() {
   }
 }
 
+/**
+ * The high-performance module.
+ *
+ * One plugin for the plan's P2 list rather than four, because they share a fault story:
+ * each is an optimisation over work that already happens, so each must refuse honestly
+ * rather than approximate. It takes the resource manager as an *optional* collaborator —
+ * without one the scaler falls back to its policy ceiling instead of guessing — and its
+ * four options are switches in its own config block, so a deployment can turn one off.
+ */
+function highPerformancePlugin() {
+  let service = null
+  return {
+    manifest: {
+      api_version: API,
+      id: 'dshns.high-performance',
+      name: 'High performance',
+      version: '1.0.0',
+      description: 'Speculative decoding when the provider declares it, an advanced build cache, automatic worker scaling and fill-in-the-middle context.',
+      provides: ['high-performance'],
+      optional_capabilities: ['resource-management'],
+      fault_level: FAULT_LEVELS.SOFT
+    },
+    async load(context) {
+      const { createHighPerformance } = require('./high-performance/index.cjs')
+      const config = context.config || {}
+      service = createHighPerformance({
+        resources: context.services.resourceManagement || null,
+        policy: {
+          // Only the keys the config actually declares; `mergePolicy` ignores the rest, so a
+          // value nobody set cannot erase a default.
+          fimBudgetTokens: config.fimBudgetTokens,
+          fimPrefixShare: config.fimPrefixShare,
+          maxWorkers: config.maxWorkers,
+          minWorkers: config.minWorkers,
+          cacheMaxBytes: config.cacheMaxBytes,
+          cacheMaxEntries: config.cacheMaxEntries,
+          features: {
+            speculativeDecoding: config.speculativeDecoding,
+            buildCache: config.buildCache,
+            autoScaling: config.autoScaling,
+            advancedFim: config.advancedFim
+          }
+        },
+        log: (message) => context.log(message)
+      })
+      context.provide('high-performance', service)
+      const features = service.features()
+      context.log('high performance ready', { options: Object.entries(features).filter(([, on]) => on === true).map(([name]) => name) })
+    },
+    async healthCheck() {
+      if (!service) return { status: HEALTH_STATUS.DEGRADED, detail: { reason: 'no high-performance module' } }
+      const summary = service.summary()
+      // Never unhealthy: every option is optional by construction, and the module reports
+      // what is on and what it has done rather than a verdict about the machine.
+      return healthy(summary)
+    }
+  }
+}
+
 /** The acceleration set, in dependency order. */
 function accelerationPlugins() {
   return [
@@ -514,7 +573,8 @@ function accelerationPlugins() {
     incrementalValidationPlugin(),
     patchFirstPlugin(),
     workspaceIsolationPlugin(),
-    parallelExecutorPlugin()
+    parallelExecutorPlugin(),
+    highPerformancePlugin()
   ]
 }
 
@@ -530,7 +590,8 @@ const ACCELERATION_CAPABILITIES = Object.freeze([
   'incremental-validation',
   'patch-first',
   'workspace-isolation',
-  'parallel-execution'
+  'parallel-execution',
+  'high-performance'
 ])
 
 module.exports = {
@@ -546,5 +607,6 @@ module.exports = {
   incrementalValidationPlugin,
   patchFirstPlugin,
   workspaceIsolationPlugin,
-  parallelExecutorPlugin
+  parallelExecutorPlugin,
+  highPerformancePlugin
 }
