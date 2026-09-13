@@ -368,7 +368,140 @@ Known limits, stated rather than hidden:
 
 ---
 
-## 13. Non-goals (plan §42)
+## 13. Long-running execution (Update-Plan/24h.md Tasks 1–20)
+
+The ten acceptance cases prove a *task* can finish. They do not prove an executor
+can run for hours, which is a different failure mode: nothing crashes, the state
+quietly drifts, and every later step is built on a false assumption. The
+long-running modules exist for that second question, and each one has a rule it
+enforces rather than a heuristic it applies.
+
+**Focus trust after verification (Task 1).** An *attempted* focus is not a
+*verified* focus. Typing is authorized only by a verification that succeeded —
+`failure` and `unknown` clear the reference, and so does a window change, a
+navigation, a detached target or a failed/unknown verification. "We could not
+tell" is never permission to type.
+
+**Modal fail-safe (Task 2).** A dialog's controls are classified before anything
+is pressed: safe dismiss, neutral acknowledge, positive confirm, destructive, or
+unknown. Dismissing is always preferred because it is the only class that cannot
+change anything outside the dialog, and a destructive label is matched *before* a
+safe one ("Delete and close" is destructive). A destructive confirmation is
+pressed only when the contract allows it **and** the action declared that effect
+**and** the safety gate passed; anything else is `USER_ACTION_REQUIRED`. When no
+control can be classified the runtime asks the user — it never presses "the first
+button". A bland label can still be destructive: a dialog whose message says
+"Delete this file?" makes the confirmation destructive.
+
+**Adaptive bounded stabilization (Task 3, Task 16).** When an action may run is
+decided in one place, from the current step's own state only: the UI is changing,
+the target moved, a previous miss, a window change, an animation, a pending
+navigation, a modal, or a detached target. The cooldown is the minimum plus one
+bounded step per signal, capped at the soft ceiling; a pending navigation jumps
+to the navigation budget; past the ceiling the caller must use a conditional wait
+instead of sleeping. The forced minimum can never overshoot the action's own
+maximum. No application latency profile exists anywhere in the runtime.
+
+**Evidence grading by action risk (Task 4).** A verification's *verdict* is
+graded by how directly it observed the intended effect — strong, medium, weak —
+and the grade has to clear the bar the action's own risk sets. `TYPE` needs value
+equality, `SAVE` needs file evidence, `DELETE` needs authorization plus the target
+gone, `SEND`/`SUBMIT`/`PUBLISH` need a specific success state, and a generic
+low-risk click accepts a local state change. Weak evidence cannot satisfy a
+high-risk action, and a critical action must declare its expected effect before
+it may run at all; otherwise it is reported as unverified rather than successful.
+
+**Meaningful progress (Task 5).** `lastProgressAt` moves only for progress that
+proves the world changed: a verified effect, a completed subprocess, a verified
+filesystem operation, a state transition, or a satisfied criterion. A heartbeat
+never counts, an issued action never counts, and a `direct` world-change verdict
+is explicitly refused as progress — it is exactly what a spinner produces
+forever. Repeated no-ops are counted rather than smoothed away.
+
+**The bounded stall ladder (Task 6).** The eight rungs are defined once, in
+`stall.cjs`: structured re-observe → window check → target re-resolution →
+targeted screenshot → alternative interaction → replan → full screenshot →
+`fail_with_context`. The recovery module reports the same ladder instead of
+carrying its own copy, escalation is bounded by `maxRecoveries`, and the ladder
+never loops back to rung one.
+
+**Owned-process supervision (Task 7).** Builds, test runs, linters, dev servers,
+package managers and git are registered with pid, command, cwd, start time,
+ownership, expected lifetime and status. A foreground process that outlives its
+budget is detectable as hung; an intended dev server is not. The runtime kills
+only what it started, the owned count has a ceiling, and shutdown disposes
+everything it owns.
+
+**Resource ceilings and screenshot retention (Task 8).** Screenshot records, the
+caller's observation ring and the evidence byte total are all bounded. Transient
+diagnostics are evicted before failure evidence, and the capture that explains
+why a run stopped is retained — a long run must not accumulate a visual history
+of everything it ever saw.
+
+**Controller fault isolation and bounded reconnect (Task 9, Task 10).** A broken
+controller degrades alone: the rest of the runtime keeps working, and an action
+that needs a missing capability reports `CAPABILITY_UNAVAILABLE` for that action
+rather than crashing the run. A transport failure marks the channel degraded and
+spends a *per-step* reconnect budget; backoff is capped, a stale target is never
+reused, and exhausting the budget reports `RECONNECT_EXHAUSTED`. A non-transport
+error (a stale target, a capability the contract withheld) is not retried as a
+reconnect.
+
+**Verified workspace continuity (Task 11).** Every shell and file operation
+carries a resolved cwd that was checked against the verified workspace boundary.
+A relative path with no verified workspace is refused, a path outside the root is
+refused unless the contract allows it, and drift is reported as a mismatch. A
+workspace that has become inaccessible is reported as unavailable and blocks —
+never silently replaced by the system's current directory.
+
+**Verified filesystem mutations (Task 12).** A write is checked against the
+disk: the file exists, its content reads back as written, its mtime moved and its
+size matches what the controller reported. A copy is checked against its source's
+size, a move needs the source gone *and* the destination present, a delete needs
+the target absent, and a mkdir needs the directory to exist. An unverifiable
+mutation is a failure, not a success.
+
+**The bounded command contract (Task 13).** Every shell action states its
+command, cwd, timeout, expected exit, output capture and process mode. Missing
+values fall back to bounded defaults and an over-long timeout is clamped, so
+"just run this" can never become an unbounded wait. A caller-declared mode always
+beats the inferred one, and the verdict maps onto the runtime's own
+`STEP_RESULTS` vocabulary.
+
+**Resume-safe step boundaries (Task 14).** If the runtime restarts with a
+mutation's outcome unknown, the first thing it does is re-observe the effect and
+answer `already_complete`, `retry` or `failed` — never replay a half-finished
+write. Clock skew inside the documented window is tolerated, so an mtime that has
+not moved *yet* is not misread as a failed write.
+
+**Executor, stabilization and recovery responsibility split (Task 15, Task 16,
+Task 17).** The executor keeps orchestration, state transitions and controller
+selection; the cooldown math, the modal label tables, the verification matching
+and the stall ladder live in their own modules and have exactly one definition
+each. Recovery answers with a closed five-word vocabulary — `RETRYABLE`,
+`ALTERNATIVE_AVAILABLE`, `REPLAN_REQUIRED`, `USER_ACTION_REQUIRED`, `FAILED` —
+and is a *report*: it never edits the goal, the criteria or the plan.
+
+**Log hygiene (Task 18).** The execution log rotates by size with a bounded
+number of files. Every line carries `runId`, `taskId`, `stepId`, `controller`,
+`action`, `verdict`, `duration`, `retry` and `reasonCode`; repeated identical
+events are summarized after a small limit instead of being rewritten; the
+screenshot record ring is bounded; and errors, terminal evidence and important
+recovery events survive rotation.
+
+**The self-health snapshot (Task 19) and failure containment (Task 20).** The
+runtime reports `healthy`, `degraded` or `blocked` together with its
+capabilities, `lastProgressAt`, `activeOwnedProcesses` and `currentStep`. A
+single failed action is not a fatal task and a single failed controller is not a
+fatal runtime — those degrade. The runtime blocks only when no correct action
+exists: the workspace is unavailable, every required capability is gone, safety
+authorization is unavailable, a resource ceiling was reached, or state integrity
+is uncertain. When it cannot vouch for its own state it stops rather than
+guesses.
+
+---
+
+## 14. Non-goals (plan §42)
 
 No app-specific learning, no latency learning, no reinforcement learning, no
 user-behaviour modelling, no record-and-learn, no long-term accumulation of

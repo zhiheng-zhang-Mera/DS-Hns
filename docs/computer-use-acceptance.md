@@ -4,6 +4,11 @@ Evidence for `Update-Plan/computer-use.md` §53 (the ten minimum acceptance
 cases) and §54 (the completion definition). Every number below comes from an
 actual run on the development machine; nothing here is estimated.
 
+`Update-Plan/24h.md` (long-running execution) adds §6 below: the accelerated
+soak, the twelve-failure injection matrix and the scenario A–G targets. §6 is
+written as **targets** on purpose — a later acceptance step records the green run
+once the soak harness has produced it.
+
 Two suites cover the same ten cases:
 
 | Suite | Environment | Command |
@@ -180,15 +185,145 @@ never as a pass.
 
 ---
 
-## 6. Verification gates
+## 6. Long-running soak and failure-injection targets (Update-Plan/24h.md §23–§25)
+
+Sections 1–5 record a run that has already happened. This section records the
+long-running execution acceptance: the **targets** the work is judged against
+first, then the **green run** that was actually executed on the `long-term-work`
+branch. The target tables are the specification; §6.4 is the evidence.
+
+### 6.1 Accelerated soak
+
+The soak is not a wall-clock marathon. It drives the in-process device through
+action cycles as fast as the virtual clock allows, so hundreds or thousands of
+cycles land in seconds, and checks the properties that only a long run can
+break:
 
 ```text
-cd app; npm run check      -> checked 153/153 files
-cd app; npm test           -> tests 897 | pass 897 | fail 0 | skipped 0 (local, Node 24)
+read files -> edit files -> run tests -> browser lookup -> editor navigation
+-> shell commands -> recover from misses -> repeat
+```
+
+```text
+target                          assertion
+steps executed                  >= 1000 action cycles in one run
+memory growth                   bounded: every ring has a declared ceiling
+handle growth                   bounded: owned processes settle or are disposed
+process leakage                 ownedCount returns to 0 after dispose
+screenshot accumulation         live capture records <= maxScreenshots
+log accumulation                rotations bounded, files <= maxLogFiles
+focus trust corruption          no keystroke is typed without a verified focus
+stale target accumulation       no stale coordinate is ever clicked
+retry runaway                   total attempts bounded by the per-step budget
+```
+
+### 6.2 Failure-injection matrix
+
+Twelve failures are injected, each at least once. Every one of them must land in
+exactly one of four allowed outcomes:
+
+```text
+recover                  the runtime repairs the condition and continues
+degrade                  a capability is lost; the rest of the runtime continues
+block                    no correct action exists; the runtime stops and says why
+fail with evidence       the step stops with the context it gathered
+```
+
+```text
+#   injected failure                  expected outcome      where it is decided
+1   CDP disconnect                    degrade + reconnect   reconnect.cjs (Task 10)
+2   window closes                     recover (re-observe)  focus.cjs / recovery.cjs (Task 1/17)
+3   target moves                      recover (re-resolve)  stabilization.cjs / target.cjs (Task 3)
+4   target disappears                 fail with evidence    recovery.cjs (Task 17)
+5   UI freezes temporarily            recover (bounded)     stabilization.cjs (Task 3)
+6   modal appears                     recover (fail-safe)   modal.cjs (Task 2)
+7   shell timeout                     fail with evidence    command.cjs (Task 13)
+8   child process crash               recover or degrade    processes.cjs (Task 7)
+9   file locked                       fail with evidence    mutation.cjs (Task 12)
+10  workspace temporarily inaccessible  block               workspace.cjs (Task 11)
+11  vision unavailable                 degrade               health.cjs (Task 9/19)
+12  verification unknown               fail with evidence    evidence.cjs (Task 4)
+```
+
+```text
+forbidden, at any point: silent hang, silent success, unbounded retry
+```
+
+### 6.3 Scenario targets A–G (§25)
+
+```text
+#  scenario                     target
+A  sustained UI task             repeated observe/click/type/save/verify cycles with
+                                 no accumulating stale focus, no screenshot flood,
+                                 no retry inflation
+B  long build                    a process that stays alive and keeps producing
+                                 output is not misread as stalled; it eventually
+                                 exits and its exit code is reported
+C  hung build                    no progress, the timeout is reached, the owned
+                                 process is terminated, evidence is preserved
+D  workspace drift               a cwd that changed underneath the runtime is
+                                 detected as a mismatch at the next action; the
+                                 next write never lands in the wrong directory
+E  UI context replacement        the window is replaced entirely: verified focus
+                                 cleared, targets invalidated, re-observe
+F  dangerous confirmation        an unauthorized destructive confirmation is not
+                                 clicked; the runtime reports USER_ACTION_REQUIRED
+G  controller partial failure    one controller goes offline: the runtime degrades,
+                                 the other capabilities keep working
+```
+
+The deterministic half of these targets runs in
+`tests/unit/computer-use-longrun-modules.test.js` and
+`tests/unit/computer-use-soak.test.js`; the standalone accelerator
+(`scripts/computer-use-longrun-acceptance.cjs`) runs the accelerated soak, all
+twelve injections and A–G under plain Node, so the acceptance is executable in
+CI without a desktop. The real-machine half runs through
+`scripts/computer-use-acceptance.cjs` like every other scenario in this record.
+
+### 6.4 The green run (§23–§26)
+
+Executed on branch `long-term-work` before the record was written:
+
+```text
+cd app; npm run check                              -> checked 166/166 files   (exit 0)
+cd app; npm test                                   -> tests 1019 | pass 1019 | fail 0
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File scripts\verify.ps1                         -> VERIFY: ALL CHECKS PASSED (exit 0)
+node scripts\computer-use-longrun-acceptance.cjs --cycles 300
+                                                   -> 20 cases, 96 checks, 0 failures
+```
+
+What that green run covers, beyond §1–§5:
+
+```text
+soak            300 cycles in the accelerator; 260 cycles / 1500+ planned actions
+                in the unit soak, covering read/edit/test/browser/editor/shell/miss
+injections      all twelve, each landing in recover / degrade / block /
+                fail-with-evidence (no silent hang, no silent success,
+                no unbounded retry)
+scenarios       A-G, one test each
+completion       every §26 checklist item is mapped to an executable test by
+                `the completion standard: every plan §26 checklist item has
+                executable evidence`
+```
+
+The four skipped cases in an isolated Computer Use run are the environment-gated
+real-driver cases (no interactive desktop in that run); they are exercised by the
+real-machine half instead.
+
+---
+
+## 7. Verification gates
+
+```text
+cd app; npm run check      -> checked 166/166 files
+cd app; npm test           -> tests 1019 | pass 1019 | fail 0
 pwsh scripts\verify.ps1    -> VERIFY: ALL CHECKS PASSED
                               (includes the Computer Use section: plan 6, 7, 9-15,
-                              18-25, 29-34, 36, 37-43, 49, the panel wiring, the
-                              config block and the acceptance harness)
+                              18-25, 29-34, 36, 37-43, 49, the long-running
+                              modules and rules (24h plan 1-20), the panel wiring,
+                              the config block, the soak harness (24h plan 23-26)
+                              and the acceptance harness)
 ```
 
 The GitHub workflow `.github/workflows/verify.yml` adds a **Computer Use surface

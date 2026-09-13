@@ -3,6 +3,67 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## computer-use — 长时间运行执行（Update-Plan/24h.md Tasks 1–20）
+
+**Computer Use 运行时从"能把一个任务做完"收束成"能长时间可靠地执行开发动作"。** 新增长时运行
+执行层：焦点信任、弹窗 fail-safe、自适应有界稳定、按风险分级的证据、有意义的进度心跳、有界
+stall 阶梯、自有进程监管、资源上限、控制器故障隔离、有界重连、workspace 连续性、文件变更
+验证、有界命令契约、resume-safe 步边界、日志卫生与自检健康快照。原则不变：**只根据当前状态
+适应，绝不学习任何应用。**
+
+* **焦点信任（Task 1）**：尝试聚焦 ≠ 已验证聚焦。只有验证成功才写入 trusted focus；`failure`
+  与 `unknown` 都清空，窗口变化、导航、目标脱离同样清空。没有验证成功的焦点就不会有键盘输入。
+* **弹窗 fail-safe（Task 2）**：先把控件分类为安全关闭 / 中性确认 / 正向确认 / 破坏性 / 未知，
+  破坏性标签优先匹配（"Delete and close" 是破坏性而不是关闭）；找不到语义时**绝不点第一个
+  按钮**，而是返回 `USER_ACTION_REQUIRED`。破坏性确认必须同时满足契约允许、动作声明了该效果、
+  安全门通过三个条件。
+* **自适应有界稳定（Task 3/16）**：冷却只由当前这一步观测到的信号决定（UI 变化、目标移动、
+  上次 miss、窗口变化、动画、导航中、弹窗、目标脱离），最小延迟 + 每信号一格、软上限封顶；
+  导航中直接跳到导航预算；强制最小延迟不会超过动作自己的 maximum。UI timing 只有一处定义。
+* **证据分级（Task 4）**：strong / medium / weak，按动作风险设门槛：TYPE 要值相等、SAVE 要
+  文件证据、DELETE 要授权且目标消失、SEND/SUBMIT/PUBLISH 要具体成功态、普通低风险点击接受
+  局部状态变化。弱证据不能通过高风险动作；critical 动作必须先声明预期效果，否则按"未验证"
+  处理而不是"成功"。
+* **有意义的进度（Task 5）**：`lastProgressAt` 只在验证过的效果、子进程退出、验证过的文件操作、
+  状态迁移、成功条件满足时更新；心跳与"已发出动作"不算进度，`direct` 推断被明确拒绝（它正是
+  加载动画永远能给的东西）。
+* **有界 stall 阶梯（Task 6）**：八级阶梯只在 `stall.cjs` 定义一次，恢复模块复用同一份，最后一级
+  是 `fail_with_context`，永不回到第一级；`maxRecoveries` 限制升级次数。
+* **进程监管（Task 7）**：build / test / lint / dev server / 包管理器 / git 全部登记 pid、命令、
+  cwd、启动时间、归属、预期寿命与状态；有界前台进程超时可判定为 hung，故意长驻的 dev server
+  不会；只杀自己启动的进程，退出时统一 dispose。
+* **资源上限（Task 8）**：截图记录、调用方 ring、证据字节数都有上限；临时诊断截图先淘汰，
+  失败证据保留——长跑不能把"看过的每一帧"都留在内存里。
+* **故障隔离与有界重连（Task 9/10）**：单个控制器坏掉只降级，其余能力继续；传输失败按"每步
+  每通道"的有界预算重连，backoff 有上限，绝不复用 stale target，预算耗尽报
+  `RECONNECT_EXHAUSTED`；stale target 之类的非传输错误不会当成重连重试。
+* **workspace 连续性（Task 11）**：每个 shell/file 动作都带解析过的 cwd 并校验边界；没有已验证
+  workspace 时相对路径直接拒绝，越界路径需契约显式允许，漂移按 mismatch 上报；workspace 不可用
+  就 BLOCK，绝不悄悄退回系统当前目录。
+* **文件变更验证（Task 12）**：write 校验存在、内容回读、mtime 与大小；copy 校验目标大小；
+  move 要求源消失且目标存在；delete 要求目标缺失；mkdir 要求目录存在。无法验证的变更算失败，
+  不算成功。
+* **有界命令契约（Task 13）**：shell 动作必须给出 command / cwd / timeout / 期望退出码 / 输出
+  捕获 / 进程模式；缺省有界、超长 timeout 会被夹紧；`just run this` 永远不会变成无界等待；
+  判定结果使用运行时自己的 `STEP_RESULTS` 词表。
+* **resume-safe 步边界（Task 14）**：运行时异常后先重新观测效果，再决定
+  `already_complete` / `retry` / `failed`，绝不盲目重放写了一半的文件；文档窗口内的时钟偏移
+  被容忍。
+* **执行器瘦身（Task 15/17）**：executor 只保留编排、状态迁移与控制器选择，冷却数学、弹窗标签表、
+  验证匹配、stall 阶梯各自只有一个定义；recovery 只用五个词的封闭词表
+  （`RETRYABLE` / `ALTERNATIVE_AVAILABLE` / `REPLAN_REQUIRED` / `USER_ACTION_REQUIRED` /
+  `FAILED`）回答，且只是报告，绝不修改目标、成功条件或计划。
+* **日志卫生（Task 18）**：按大小滚动、文件数有界；每行都带
+  `runId` / `taskId` / `stepId` / `controller` / `action` / `verdict` / `duration` / `retry` /
+  `reasonCode`；重复事件超过上限后只做汇总；终端失败证据跨滚动保留。
+* **自检健康（Task 19/20）**：`healthy` / `degraded` / `blocked` 加上 capabilities、
+  `lastProgressAt`、`activeOwnedProcesses`、`currentStep`。单个动作失败不是任务致命，单个控制器
+  失败不是运行时致命；只有"不存在正确动作"时才 block：workspace 不可用、所有必需能力都不可用、
+  安全授权不可用、资源上限超限、状态完整性不确定。
+* **验收目标**：`tests/unit/computer-use-longrun-modules.test.js` 逐条覆盖上述规则；
+  `docs/computer-use-acceptance.md` 新增加速 soak、十二项故障注入矩阵与场景 A–G 的目标表
+  （先写目标，绿灯由后续验收步骤回填）。
+
 ## computer-use — 完整 Computer Use 执行器（Update-Plan/computer-use.md）
 
 **DS-Hns 现在能接收执行契约并在真实计算机上把任务做完，而且做完之后能证明。** 新增
