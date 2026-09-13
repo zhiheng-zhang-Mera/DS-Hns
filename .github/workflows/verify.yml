@@ -9,7 +9,7 @@ name: verify
 # top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
-    branches: [main, merging, Theme-Cover, computer-use, long-term-work]
+    branches: [main, merging, Theme-Cover, computer-use, long-term-work, test-reboot]
   pull_request:
     branches: [main, merging, Theme-Cover, computer-use, long-term-work]
 
