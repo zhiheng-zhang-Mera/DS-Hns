@@ -102,6 +102,17 @@ not emulated beyond a small shim. A dsh-web plugin that expects the Cordis conta
 gets is an honest install, an honest state, and an honest reason. The mode exists so the store can
 say *which* of those it is instead of "not a plugin".
 
+Two boundaries worth stating plainly, because the words around isolation invite more than they mean:
+
+* **The isolated process is containment, not a security sandbox.** The worker runs with the same
+  user's privileges and can read and write what the application can. What the process boundary buys
+  is that an import-time throw, a `process.exit`, a hang or a crash ten minutes later stay in the
+  child instead of reaching DS-Hns.
+* **A confirmed install or build inherits the environment**, which is what makes a private registry
+  or a corporate proxy work — and which means anything in that environment is visible to the
+  package's own scripts. That is why the command, its directory and whether lifecycle scripts are
+  enabled are all shown before the user agrees.
+
 ## Reproduce
 
 ```
