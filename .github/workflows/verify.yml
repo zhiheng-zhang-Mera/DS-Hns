@@ -156,6 +156,7 @@ jobs:
             # accelerated soak, the twelve failure injections and scenarios A-G.
             'scripts/computer-use-longrun-acceptance.cjs',
             'tests/unit/computer-use-architecture.test.js',
+            'tests/unit/computer-use-executor-boundaries.test.js',
             'tests/unit/computer-use-longrun-modules.test.js',
             'tests/unit/computer-use-longrun-acceptance.test.js',
             'tests/unit/computer-use-production-wiring.test.js',

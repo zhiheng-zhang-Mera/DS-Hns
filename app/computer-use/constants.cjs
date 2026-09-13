@@ -14,7 +14,9 @@
  *    in this list cannot be reported, so a caller can never invent progress.
  *  - `VERIFICATION_KINDS` is the whole verification surface.
  *
- * Reference: Update-Plan/computer-use.md.
+ * Every vocabulary here is a *closed* list: a value that is not in one of these
+ * cannot be reported, so a caller can never invent an action, a state, a verdict
+ * or a progress kind the runtime does not implement.
  */
 
 const fs = require('node:fs')

@@ -87,6 +87,7 @@ try {
     'computer-use-contract.test.js',
     'computer-use-device.test.js',
     'computer-use-drivers.test.js',
+    'computer-use-executor-boundaries.test.js',
     'computer-use-isolation.test.js',
     'computer-use-longrun-acceptance.test.js',
     'computer-use-longrun-modules.test.js',
