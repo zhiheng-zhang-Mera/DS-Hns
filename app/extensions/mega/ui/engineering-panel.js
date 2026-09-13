@@ -21,7 +21,7 @@
  * It is deliberately one file with no dependencies, matching the other panels: a
  * failure here can never stop the queue or hardware modules from rendering.
  */
-(function attachEngineeringPanel() {
+;(function attachEngineeringPanel() {
   function $(id) {
     return document.getElementById(id)
   }

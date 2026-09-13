@@ -47,6 +47,25 @@ const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
 const OFFICIAL_VIEW_MIN_WIDTH = 360
+
+/**
+ * A bilingual title for an OS window or dialog.
+ *
+ * Rendered surfaces get `bilingual.js`, which draws the Chinese large and the English
+ * small in one colour. An OS title cannot be styled at all — the window manager owns the
+ * font — so the only thing that can be honoured there is "both languages, Chinese first",
+ * and that is what this produces.
+ *
+ * @param {string} cn
+ * @param {string} en
+ */
+function bilingualTitle(cn, en) {
+  const left = String(cn === undefined || cn === null ? '' : cn).trim()
+  const right = String(en === undefined || en === null ? '' : en).trim()
+  if (!left) return right
+  if (!right) return left
+  return `${left} · ${right}`
+}
 /**
  * The official Overlay (Update-Plan/Dual-UI.md 任务 1).
  *
@@ -535,7 +554,7 @@ function maybeNotifySubWorker(event) {
   try {
     if (typeof Notification?.isSupported === 'function' && !Notification.isSupported()) return
     const notification = new Notification({
-      title: String(event.notification?.title || 'Sub-worker'),
+      title: String(event.notification?.title || bilingualTitle('子任务工作器', 'Sub-worker')),
       body: String(event.notification?.body || ''),
       silent: false
     })
@@ -654,7 +673,7 @@ function registerSubWorkerIpc() {
   ipcMain.handle('sub-worker:read-log', guard((_event, taskId) => workerManager.readTaskLog(taskId)))
   ipcMain.handle('sub-worker:pick-target-repo', guard(async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: '选择 Sub-worker 目标仓库',
+      title: bilingualTitle('选择 Sub-worker 目标仓库', 'Choose the sub-worker target repository'),
       properties: ['openDirectory']
     })
     if (result.canceled || !result.filePaths.length) return null
@@ -720,7 +739,7 @@ async function requestDestructiveConfirmation(request = {}) {
       buttons: ['允许', '拒绝'],
       defaultId: 1,
       cancelId: 1,
-      title: 'Computer Use 需要确认',
+      title: bilingualTitle('Computer Use 需要确认', 'Computer Use needs confirmation'),
       message: `任务请求执行危险操作：${kinds}`,
       detail: `目标：${request.target || '(未指定)'}\n动作：${request.description || request.action || '(未知)'}\n任务：${request.goal || '(未知)'}\n\n这是 Execution Contract 中的 "destructive_actions: confirm" 门控。`
     })
@@ -1868,7 +1887,7 @@ function createWindow() {
     height: 920,
     minWidth: 980,
     minHeight: 640,
-    title: 'DS-Harness · DeepSeek Harness',
+    title: bilingualTitle('DS-Harness 工作台', 'DS-Harness Workbench'),
     icon: resolveAppIcon(),
     backgroundColor: '#f7f8fa',
     autoHideMenuBar: true,
@@ -2194,7 +2213,7 @@ app.whenReady().then(async () => {
   } catch (error) {
     await dialog.showMessageBox({
       type: 'error',
-      title: 'DS-Harness 启动失败',
+      title: bilingualTitle('DS-Harness 启动失败', 'DS-Harness failed to start'),
       message: '无法启动官方 DeepSeek Harness Web UI',
       detail: `${String(error.stack || error)}\n\nLog: ${logPath()}`
     })

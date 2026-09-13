@@ -20,6 +20,21 @@ const { createThemeEngine } = require('./theme')
 const { createSkillService } = require('./skills/skill-service')
 const { createDockTarget } = require('./dock/target')
 
+/**
+ * A bilingual title for an OS window or file dialog.
+ *
+ * The rendered surfaces get `bilingual.js`, which draws the Chinese large and the English
+ * small in one colour. A window manager owns the font of a window or dialog title, so the
+ * only part of that rule which can be honoured here is "both languages, Chinese first".
+ */
+function bilingualTitle(cn, en) {
+  const left = String(cn === undefined || cn === null ? '' : cn).trim()
+  const right = String(en === undefined || en === null ? '' : en).trim()
+  if (!left) return right
+  if (!right) return left
+  return `${left} · ${right}`
+}
+
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
@@ -805,7 +820,7 @@ function createDock() {
     skipTaskbar: true,
     show: false,
     parent: ctx.mainWindow,
-    title: 'Mega Dock',
+    title: bilingualTitle('Mega 控制台', 'Mega Dock'),
     backgroundColor: '#11161d',
     webPreferences: {
       preload: path.join(__dirname, 'ui', 'preload.cjs'),
@@ -1205,7 +1220,7 @@ function applySettingsPatch(patch = {}) {
 /** The workspace picker, shared by the dock and the Daily top bar. */
 async function pickWorkspaceDirectory(dialog) {
   const result = await dialog.showOpenDialog(ctx.mainWindow, {
-    title: '选择 headless 队列工作区',
+    title: bilingualTitle('选择 headless 队列工作区', 'Choose the headless queue workspace'),
     properties: ['openDirectory', 'createDirectory']
   })
   if (result.canceled || !result.filePaths.length) return null
@@ -1406,7 +1421,7 @@ function registerIpc() {
   ipcMain.handle('mega:pick-workspace', () => pickWorkspaceDirectory(dialog))
   ipcMain.handle('mega:pick-sound', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: '导入任务提示音',
+      title: bilingualTitle('导入任务提示音', 'Import a task notification sound'),
       properties: ['openFile'],
       filters: [{ name: 'Audio', extensions: ['wav', 'mp3'] }]
     })
@@ -1514,7 +1529,7 @@ function registerThemeIpc(engine) {
   }))
   ipcMain.handle('mega:theme-import', guard(async () => {
     const result = await ctx.electron.dialog.showOpenDialog(ctx.mainWindow, {
-      title: '导入 HNS 主题包目录',
+      title: bilingualTitle('导入 HNS 主题包目录', 'Import an HNS theme package'),
       properties: ['openDirectory']
     })
     if (result.canceled || !result.filePaths.length) return { ok: false, reason: 'cancelled' }
@@ -1693,7 +1708,7 @@ function registerSkillIpc() {
 
   ipcMain.handle('mega:skills-pick-local', guard(async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: '选择技能目录或 SKILL.md',
+      title: bilingualTitle('选择技能目录或 SKILL.md', 'Choose a skill directory or SKILL.md'),
       properties: ['openDirectory', 'openFile'],
       filters: [{ name: 'Skill', extensions: ['md'] }]
     })

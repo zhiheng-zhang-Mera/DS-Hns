@@ -14,7 +14,7 @@
  * modules (skills, theme): a failure here can never stop the queue or hardware
  * modules from rendering.
  */
-(function attachComputerUsePanel() {
+;(function attachComputerUsePanel() {
   function $(id) {
     return document.getElementById(id)
   }

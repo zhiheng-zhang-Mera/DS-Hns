@@ -198,6 +198,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .panel[data-collapsed="1"] .panel-head{margin-bottom:0}
 .panel[data-collapsed="1"] .panel-head p{display:none}
 .panel-head h2{margin:0;font-size:14px}
+
+/* Bilingual titles (中文大字 / English small, one colour). Two sizes of the *same*
+   colour read as one title with its translation under it; greying the English out reads
+   as an afterthought, and a single "中文/English" string reads as neither. */
+.bi-title{display:flex;flex-direction:column;gap:1px;line-height:1.2;margin:0}
+.bi-title .bi-cn{font-size:14px;font-weight:600;color:var(--hns-color-label-primary)}
+.bi-title .bi-en{font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--hns-color-label-primary)}
+.bi-title.bi-sm .bi-cn{font-size:12px}
+.bi-title.bi-sm .bi-en{font-size:9px}
+.bi-inline{display:inline-flex;flex-direction:column;line-height:1.15}
+.bi-inline .bi-cn{font-size:11px;color:var(--hns-color-label-primary)}
+.bi-inline .bi-en{font-size:9px;color:var(--hns-color-label-primary)}
 .panel-head p{margin:3px 0 0;font-size:10px;line-height:1.4;color:var(--hns-color-label-secondary)}
 .quiet{padding:6px 8px;font-size:11px;background:var(--hns-color-bg-layer2)}
 .task-form textarea{width:100%;min-height:76px;padding:9px;resize:vertical;background:var(--hns-color-bg-layer2)}

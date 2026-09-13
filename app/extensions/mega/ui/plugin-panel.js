@@ -21,7 +21,7 @@
  * It is deliberately one file with no dependencies, matching the other panels: a failure
  * here can never stop the queue, theme or hardware modules from rendering.
  */
-(function attachPluginPanel() {
+;(function attachPluginPanel() {
   function $(id) {
     return document.getElementById(id)
   }
@@ -31,6 +31,26 @@
     if (className) node.className = className
     if (text !== undefined && text !== null) node.textContent = String(text)
     return node
+  }
+
+  /**
+   * A bilingual heading, through the shared component.
+   *
+   * The panel does not style its own titles: the two sizes and the one colour come from
+   * `.bi-title`, so a panel cannot drift into its own typography. The fallback keeps this
+   * file usable in a harness that loads only the panel.
+   */
+  function bilingualTag(tag, cn, en) {
+    const bilingual = window.hnsBilingual
+    if (bilingual && typeof bilingual.title === 'function') return bilingual.title(cn, en, { tag })
+    return el(tag, 'bi-title', `${cn} · ${en}`)
+  }
+
+  /** The group's two names, from its stable English id. */
+  function bilingualGroup(name) {
+    const bilingual = window.hnsBilingual
+    if (bilingual && typeof bilingual.group === 'function') return bilingual.group(name)
+    return { cn: String(name || ''), en: String(name || '') }
   }
 
   const STATE_CLASS = {
@@ -123,7 +143,8 @@
       }
       for (const group of groups) {
         const section = el('div', 'plug-group')
-        section.appendChild(el('h3', 'plug-group-title', group.name))
+        const names = bilingualGroup(group.name)
+        section.appendChild(bilingualTag('h3', names.cn, names.en))
         for (const plugin of group.plugins) {
           const state = stateOf(plugin)
           const row = el('button', `plug-row ${selected === plugin.id ? 'active' : ''}`)
@@ -145,7 +166,7 @@
       if (!executionBox) return
       executionBox.textContent = ''
       if (!block || block.ok === false) return
-      executionBox.appendChild(el('h3', 'plug-group-title', 'Execution'))
+      executionBox.appendChild(bilingualTag('h3', '执行设置', 'Execution'))
       const rows = el('div', 'plug-settings')
       for (const [key, field] of Object.entries(block.fields || {})) {
         settings[key] = field.value
@@ -206,7 +227,10 @@
         return
       }
       const head = el('div', 'plug-detail-head')
-      head.appendChild(el('h3', 'plug-group-title', `${detail.name || detail.id} `))
+      // The plugin's own name comes from its manifest in English; the group's two names
+      // come from the shared dictionary, so the heading carries both languages.
+      const groupNames = bilingualGroup(detail.group)
+      head.appendChild(bilingualTag('h3', detail.name || detail.id, `${groupNames.en} · ${detail.id}`))
       head.appendChild(el('span', 'plug-dim', `${detail.version || ''} · ${detail.apiVersion || ''} · ${detail.faultLevel || ''}`))
       detailBox.appendChild(head)
 
