@@ -69,7 +69,10 @@ const SOURCE_DIRS = [
   'core/event-bus',
   'core/config-manager',
   'core/resource-manager',
-  'core/health-supervisor'
+  'core/health-supervisor',
+  // The provider that carries the DeepSeek-specific knowledge, so no generic
+  // plugin has to.
+  'plugins/providers/deepseek'
 ]
 
 /** Files outside the app directory that still ship as product code. */

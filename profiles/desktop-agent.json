@@ -1,0 +1,17 @@
+{
+  "id": "desktop-agent",
+  "name": "Desktop agent",
+  "description": "GUI-driven work: Computer Use, UI stability and the persistent tool runtime, with no repository scanning and no parallel writes.",
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash",
+  "reasoning": { "mode": "adaptive", "default": "low", "ceiling": "medium" },
+  "parallelism": { "mode": "safe" },
+  "context": { "repoMap": false, "dirtyContext": true },
+  "execution": { "toolBatching": false, "parallelExecution": false, "persistentTools": true },
+  "validation": { "incremental": true, "afterTask": "tier2" },
+  "plugins": {
+    "dshns.computer-use": { "enabled": true },
+    "dshns.ui-stability": { "enabled": true },
+    "dshns.shell-runtime": { "enabled": true }
+  }
+}

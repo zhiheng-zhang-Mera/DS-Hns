@@ -1,0 +1,20 @@
+{
+  "id": "autonomous-24h",
+  "name": "Autonomous 24h",
+  "description": "Long unattended work: the long-term worker, checkpointing, the watchdog, failure recovery, telemetry and the acceptance gate, all enabled.",
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash",
+  "reasoning": { "mode": "adaptive", "default": "low", "ceiling": "medium" },
+  "parallelism": { "mode": "adaptive" },
+  "context": { "repoMap": true, "dirtyContext": true, "aggressivePruning": true },
+  "execution": { "toolBatching": true, "parallelExecution": true, "persistentTools": true },
+  "validation": { "incremental": true, "afterPatch": "tier1", "afterTask": "tier2", "beforeCommit": "tier3" },
+  "plugins": {
+    "dshns.long-term-worker": { "enabled": true },
+    "dshns.checkpoint": { "enabled": true },
+    "dshns.watchdog": { "enabled": true },
+    "dshns.failure-recovery": { "enabled": true },
+    "dshns.telemetry": { "enabled": true },
+    "dshns.acceptance-gate": { "enabled": true }
+  }
+}

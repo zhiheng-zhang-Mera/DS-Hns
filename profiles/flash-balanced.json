@@ -1,0 +1,12 @@
+{
+  "id": "flash-balanced",
+  "name": "V4.1-Flash — balanced (default)",
+  "description": "Default: adaptive reasoning, dirty context, batched tools, adaptive parallelism, incremental validation.",
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash",
+  "reasoning": { "mode": "adaptive", "default": "low", "ceiling": "medium" },
+  "parallelism": { "mode": "adaptive" },
+  "context": { "repoMap": true, "dirtyContext": true, "aggressivePruning": true },
+  "execution": { "toolBatching": true, "parallelExecution": true, "persistentTools": true },
+  "validation": { "incremental": true, "afterPatch": "tier1", "afterTask": "tier2", "beforeCommit": "tier3" }
+}

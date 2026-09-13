@@ -1,0 +1,12 @@
+{
+  "id": "generic-coder",
+  "name": "Generic coder (provider-agnostic)",
+  "description": "The profile to copy when replacing the provider: it asks for nothing a model may not have, so it works with any tool-calling model.",
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash",
+  "reasoning": { "mode": "adaptive", "default": "none", "ceiling": "none" },
+  "parallelism": { "mode": "safe" },
+  "context": { "repoMap": true, "dirtyContext": true, "aggressivePruning": true },
+  "execution": { "toolBatching": true, "parallelExecution": false, "persistentTools": true },
+  "validation": { "incremental": true, "afterTask": "tier2" }
+}

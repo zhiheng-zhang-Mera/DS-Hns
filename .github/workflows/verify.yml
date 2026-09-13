@@ -268,6 +268,15 @@ jobs:
         run: |
           $required = @(
             'app/core/contracts/plugin.cjs',
+            'app/core/contracts/model.cjs',
+            'app/core/contracts/profile.cjs',
+            'app/plugins/providers/deepseek/index.cjs',
+            'profiles/flash-balanced.json',
+            'profiles/flash-fast.json',
+            'profiles/flash-deep.json',
+            'profiles/autonomous-24h.json',
+            'profiles/desktop-agent.json',
+            'tests/unit/core-model-capability.test.js',
             'app/core/plugin-manager/index.cjs',
             'app/core/capability-registry/index.cjs',
             'app/core/event-bus/index.cjs',

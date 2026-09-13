@@ -1,0 +1,12 @@
+{
+  "id": "flash-fast",
+  "name": "V4.1-Flash — fast",
+  "description": "Small, well-understood tasks: no reasoning above low, aggressive pruning, batched tools, safe parallelism, targeted tests only.",
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash",
+  "reasoning": { "mode": "fixed", "default": "low", "ceiling": "low" },
+  "parallelism": { "mode": "safe" },
+  "context": { "repoMap": true, "dirtyContext": true, "aggressivePruning": true },
+  "execution": { "toolBatching": true, "parallelExecution": true, "persistentTools": true },
+  "validation": { "incremental": true, "afterPatch": "tier1", "afterTask": "tier2" }
+}

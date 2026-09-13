@@ -1,0 +1,12 @@
+{
+  "id": "flash-deep",
+  "name": "V4.1-Flash — deep",
+  "description": "Large refactors, complex bugs and architecture work: a larger context, medium-to-high reasoning and the strongest validation tiers.",
+  "provider": "deepseek",
+  "model": "deepseek-v4.1-flash",
+  "reasoning": { "mode": "adaptive", "default": "medium", "ceiling": "high" },
+  "parallelism": { "mode": "adaptive" },
+  "context": { "repoMap": true, "dirtyContext": true, "aggressivePruning": false, "largerContext": true },
+  "execution": { "toolBatching": true, "parallelExecution": true, "persistentTools": true },
+  "validation": { "incremental": false, "afterTask": "tier3", "beforeCommit": "tier3" }
+}

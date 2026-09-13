@@ -114,6 +114,7 @@ try {
   # The plugin runtime core (Update-Plan/accleration.md): the platform every plugin
   # is mounted through, asserted here for the same reason as the others.
   $coreTests = @(
+    'core-model-capability.test.js',
     'core-plugin-runtime.test.js'
   )
   foreach ($name in $coreTests) {
