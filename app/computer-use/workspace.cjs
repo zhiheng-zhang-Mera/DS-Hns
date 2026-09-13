@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: workspace continuity
- * (Update-Plan/24h.md Task 11, §13 of the plan).
+ * Computer Use Runtime: workspace continuity.
  *
  * A development executor writes files and runs commands. The single worst silent
  * failure available to it is a command that lands somewhere else than intended —
@@ -173,7 +172,7 @@ function createWorkspaceGuard(options = {}) {
    * The typed failure for a workspace that cannot be used.
    *
    * `WORKSPACE_UNAVAILABLE` is a *block*: there is no safe directory to work in,
-   * so no correct action exists (24h.md Task 20).
+   * so no correct action exists.
    */
   function unavailableError(verdict, details = {}) {
     return new ComputerUseError(
@@ -230,4 +229,73 @@ function createWorkspaceGuard(options = {}) {
   }
 }
 
-module.exports = { createWorkspaceGuard }
+/**
+ * The run-level gate a shell or filesystem action passes before anything moves.
+ *
+ * This is *policy*, not mechanism, which is why it lives beside the boundary it
+ * enforces rather than in the executor: an action whose command cannot be bounded,
+ * or whose cwd/path cannot be placed in a verified workspace, is refused here —
+ * before a controller is asked to do anything — and the *kind* of refusal is
+ * distinguished:
+ *
+ *   WORKSPACE_MISMATCH      the caller named a directory or path outside the
+ *                           boundary (a decision somebody made)
+ *   WORKSPACE_UNAVAILABLE   there is no verified workspace to work in at all
+ *
+ * A shell action is always normalized into its bounded command contract here,
+ * whether or not a workspace exists: an unbounded command must never reach a
+ * controller just because no workspace was declared.
+ *
+ * @param {object} input
+ * @param {object} input.action the normalized action
+ * @param {object|null} input.guard the workspace guard, when the runtime has one
+ * @param {number} [input.step] the step number, for the record
+ * @param {Function} [input.boundCommand] `(params, context) => {ok, contract, issues}`
+ * @param {Function} [input.invalidCommandError] `(issues) => Error`
+ * @returns {{blocked:boolean, error?:Error, contract?:object}}
+ */
+function planWorkspaceGate(input = {}) {
+  const action = input.action || {}
+  const guard = input.guard || null
+  const params = action.params || {}
+  const step = input.step === undefined ? null : input.step
+
+  if (action.capability === 'shell') {
+    if (typeof input.boundCommand !== 'function') {
+      return { blocked: false, contract: null }
+    }
+    const inherited = guard ? guard.verify() : { ok: false, cwd: null }
+    const normalized = input.boundCommand(params, {
+      cwd: params.cwd || (inherited.ok ? inherited.cwd : null)
+    })
+    if (!normalized.ok) {
+      const makeError = typeof input.invalidCommandError === 'function' ? input.invalidCommandError : null
+      return { blocked: true, error: makeError ? makeError(normalized.issues) : null, contract: null }
+    }
+    if (!guard) return { blocked: false, contract: normalized.contract }
+    const verdict = guard.resolveCwd({ cwd: normalized.contract.cwd || params.cwd, step })
+    if (verdict.ok) return { blocked: false, contract: normalized.contract }
+    return { blocked: true, error: refusalError(guard, verdict, { action: action.type, step }), contract: normalized.contract }
+  }
+
+  if (action.capability !== 'filesystem') return { blocked: false, contract: null }
+  if (!guard) return { blocked: false, contract: null }
+  const verdict = guard.resolvePath(params.path, { step })
+  if (verdict.ok) return { blocked: false, contract: null }
+  return { blocked: true, error: refusalError(guard, verdict, { action: action.type, step }), contract: null }
+}
+
+/**
+ * The typed failure for a refused boundary check.
+ *
+ * "The caller named something outside the boundary" is a different failure from
+ * "there is no workspace to work in": the first is a mismatch somebody can fix,
+ * the second is a block.
+ */
+function refusalError(guard, verdict, details = {}) {
+  return verdict && verdict.source === 'explicit'
+    ? guard.mismatchError(verdict, details)
+    : guard.unavailableError(verdict, details)
+}
+
+module.exports = { createWorkspaceGuard, planWorkspaceGate, refusalError }

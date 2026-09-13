@@ -8,11 +8,11 @@
  * place instead of drifting between the executor and its tests.
  *
  * The vocabulary is deliberately closed:
- *  - `ACTION_TYPES` is the whole action surface (plan §6). Nothing else may be
+ *  - `ACTION_TYPES` is the whole action surface. Nothing else may be
  *    executed by the Action Executor.
- *  - `CU_STATES` is the whole state machine (plan §51/§52). A state that is not
+ *  - `CU_STATES` is the whole state machine. A state that is not
  *    in this list cannot be reported, so a caller can never invent progress.
- *  - `VERIFICATION_KINDS` is the whole verification surface (plan §15).
+ *  - `VERIFICATION_KINDS` is the whole verification surface.
  *
  * Reference: Update-Plan/computer-use.md.
  */
@@ -21,8 +21,8 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 /**
- * Plan §6 — the first-phase action surface, grouped by the capability that
- * actually carries the action out.
+ * The action surface, grouped by the capability that actually carries the
+ * action out.
  */
 const ACTION_TYPES = Object.freeze({
   MOVE: 'MOVE',
@@ -49,9 +49,9 @@ const ACTION_TYPES = Object.freeze({
   ACCESSIBILITY_INVOKE: 'ACCESSIBILITY_INVOKE',
   ACCESSIBILITY_SET_VALUE: 'ACCESSIBILITY_SET_VALUE',
   SHELL_EXEC: 'SHELL_EXEC',
-  // File capability. The plan's first-phase list is a floor, not a ceiling: a
-  // filesystem operation stays inside the Action Executor instead of becoming a
-  // side channel the runtime cannot verify (plan §43).
+  // File capability. The action list is a floor, not a ceiling: a filesystem
+  // operation stays inside the Action Executor instead of becoming a side
+  // channel the runtime cannot verify.
   FILE_READ: 'FILE_READ',
   FILE_WRITE: 'FILE_WRITE',
   FILE_COPY: 'FILE_COPY',
@@ -68,7 +68,7 @@ const ACTION_TYPES = Object.freeze({
 
 const ACTION_TYPE_LIST = Object.freeze(Object.values(ACTION_TYPES))
 
-/** Which capability owns an action (plan §29 capability routing). */
+/** Which capability owns an action (capability routing). */
 const ACTION_CAPABILITY = Object.freeze({
   MOVE: 'desktop',
   CLICK: 'desktop',
@@ -109,13 +109,34 @@ const ACTION_CAPABILITY = Object.freeze({
 })
 
 /**
- * Plan §29 — the cost ladder. The router prefers the cheapest channel that can
+ * The cost ladder. The router prefers the cheapest channel that can
  * actually carry the action: an API/shell path beats a DOM path, a DOM path
  * beats a GUI path, and "behave like a human" is the last resort.
  */
 const ROUTE_CHANNELS = Object.freeze(['api', 'file', 'shell', 'dom', 'accessibility', 'gui', 'vision'])
 
-/** Plan §51 — the complete state machine. */
+/**
+ * Which controller carries which capability's channel.
+ *
+ * Used as the reconnect channel hint: a transport failure is attributed to the
+ * controller that was carrying the action, and the reconnect budget is spent per
+ * channel. A capability nobody carries is `null` rather than a guess, so a
+ * failure that cannot be attributed is never reconnected on speculation.
+ */
+const CAPABILITY_CONTROLLER = Object.freeze({
+  browser: 'browser',
+  dom: 'browser',
+  desktop: 'desktop',
+  accessibility: 'desktop',
+  vision: 'vision',
+  screenshot: 'vision',
+  shell: 'shell',
+  process: 'shell',
+  filesystem: 'file',
+  file: 'file'
+})
+
+/** The complete state machine. */
 const CU_STATES = Object.freeze({
   IDLE: 'IDLE',
   RECEIVING_TASK: 'RECEIVING_TASK',
@@ -135,7 +156,7 @@ const CU_STATES = Object.freeze({
 })
 
 /**
- * Plan §51/§52 — the legal transitions. `COMPLETED` and `FAILED` are terminal:
+ * The legal transitions. `COMPLETED` and `FAILED` are terminal:
  * a task that ended cannot silently re-enter the loop, it has to be re-issued
  * as a new task (the runtime drops the previous world state instead).
  */
@@ -144,7 +165,7 @@ const CU_TRANSITIONS = Object.freeze({
   RECEIVING_TASK: ['OBSERVING', 'FAILED'],
   OBSERVING: ['PLANNING_ACTION', 'COMPLETED', 'FAILED'],
   PLANNING_ACTION: ['STABILIZING', 'COMPLETED', 'REPLANNING', 'FAILED'],
-  // Plan §52: a step can fail while settling, while revalidating or after
+  // A step can fail while settling, while revalidating or after
   // acting, so every step state may fall through to RETRYING.
   STABILIZING: ['REVALIDATING', 'OBSERVING', 'RETRYING', 'RECOVERING', 'FAILED'],
   REVALIDATING: ['ACTING', 'OBSERVING', 'RETRYING', 'RECOVERING', 'FAILED'],
@@ -161,7 +182,7 @@ const CU_TRANSITIONS = Object.freeze({
 
 const TERMINAL_STATES = Object.freeze([CU_STATES.COMPLETED, CU_STATES.FAILED])
 
-/** Plan §15 — verification kinds. */
+/** The verification kinds. */
 const VERIFICATION_KINDS = Object.freeze({
   DIRECT: 'direct',
   STATE: 'state',
@@ -175,19 +196,19 @@ const VERIFICATION_KINDS = Object.freeze({
 })
 
 /**
- * Plan §46 — every action returns exactly one of these. There is no fourth
+ * Every action returns exactly one of these. There is no fourth
  * value and no boolean shorthand: "unknown" is what keeps the runtime from
  * silently assuming success.
  */
 const VERDICTS = Object.freeze({ SUCCESS: 'success', FAILURE: 'failure', UNKNOWN: 'unknown' })
 
-/** Plan §4.2 — screenshot levels, cheapest first. */
+/** Screenshot levels, cheapest first. */
 const SCREENSHOT_LEVELS = Object.freeze({ NONE: 0, REGION: 1, WINDOW: 2, FULL: 3 })
 
-/** Plan §35 — capabilities a contract may hand out. */
+/** Capabilities a contract may hand out. */
 const CAPABILITIES = Object.freeze(['browser', 'desktop', 'shell', 'filesystem', 'vision'])
 
-/** Plan §34 — destructive action families and the gate that guards them. */
+/** Destructive action families and the gate that guards them. */
 const DESTRUCTIVE_KINDS = Object.freeze([
   'DELETE',
   'PURCHASE',
@@ -199,14 +220,14 @@ const DESTRUCTIVE_KINDS = Object.freeze([
   'ACCOUNT_CHANGE'
 ])
 
-/** Plan §34 — how the contract treats a destructive action. */
+/** How the contract treats a destructive action. */
 const DESTRUCTIVE_MODES = Object.freeze({
   ALLOWED: 'allowed',
   CONFIRM: 'confirm',
   FORBIDDEN: 'forbidden'
 })
 
-/** Plan §40 — when a screenshot may be written to disk. */
+/** When a screenshot may be written to disk. */
 const SCREENSHOT_RETENTION = Object.freeze({
   DEBUG: 'debug',
   AUDIT: 'audit',
@@ -215,7 +236,7 @@ const SCREENSHOT_RETENTION = Object.freeze({
   NEVER: 'never'
 })
 
-/** Outcome of one step, as it lands in the execution log (plan §39). */
+/** Outcome of one step, as it lands in the execution log. */
 const STEP_RESULTS = Object.freeze({
   SUCCESS: 'success',
   FAILURE: 'failure',
@@ -224,7 +245,7 @@ const STEP_RESULTS = Object.freeze({
   REFUSED: 'refused'
 })
 
-/** Why a run stopped (plan §21 not-blocking: never an unbounded retry loop). */
+/** Why a run stopped (not-blocking: never an unbounded retry loop). */
 const RUN_STATUS = Object.freeze({
   COMPLETED: 'completed',
   FAILED: 'failed',
@@ -233,7 +254,7 @@ const RUN_STATUS = Object.freeze({
 })
 
 /**
- * Plan §10 / §54 — the "stable target" thresholds, in CSS pixels.
+ * The "stable target" thresholds, in CSS pixels.
  * `movement < stablePx` → the target is where it was;
  * `stablePx <= movement <= updatePx` → act on the refreshed coordinate;
  * `movement > updatePx` → the target is stale, re-observe instead of clicking.
@@ -241,7 +262,7 @@ const RUN_STATUS = Object.freeze({
 const TARGET_MOVEMENT = Object.freeze({ stablePx: 3, updatePx: 10 })
 
 /**
- * Plan §9/§11/§24/§25 — timing policy. These are *ceilings*, not sleeps: the
+ * Timing policy. These are *ceilings*, not sleeps: the
  * executor always prefers an event wait and only ever spends a bounded forced
  * delay. `hardCapMs` is what stops the "add another 80 ms" ladder from turning
  * into a sleep loop.
@@ -267,17 +288,17 @@ const TIMING = Object.freeze({
 })
 
 /**
- * Plan §20 — a stall is N consecutive actions with no meaningful state change.
- * Plan §21 — the recovery ladder is bounded, so an unresponsive page ends in
+ * A stall is N consecutive actions with no meaningful state change.
+ * The recovery ladder is bounded, so an unresponsive page ends in
  * FAIL_WITH_CONTEXT instead of an infinite retry loop.
  */
 const STALL = Object.freeze({ consecutiveActions: 3, maxRecoveries: 2 })
 
-/** Plan §18 — retry policy per action. */
+/** Retry policy per action. */
 const RETRY = Object.freeze({ maxAttempts: 2, alternateAtAttempt: 2 })
 
 /**
- * Plan §35 — execution contract defaults. `max_steps` bounds a run even when
+ * Execution contract defaults. `max_steps` bounds a run even when
  * the planner keeps proposing work; the retry/stall numbers bound the recovery
  * ladder inside one step.
  */
@@ -396,6 +417,7 @@ module.exports = {
   ACTION_TYPES,
   ACTION_TYPE_LIST,
   ACTION_CAPABILITY,
+  CAPABILITY_CONTROLLER,
   ROUTE_CHANNELS,
   CU_STATES,
   CU_TRANSITIONS,

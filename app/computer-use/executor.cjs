@@ -46,11 +46,11 @@ const { createProcessRegistry } = require('./processes.cjs')
 const { createResourceBudget } = require('./resources.cjs')
 const { buildHealthSnapshot, HEALTH_STATUS, capabilityVerdict, capabilityIsUsable } = require('./health.cjs')
 const { createMutationVerifier } = require('./mutation.cjs')
-const { createReconnectPolicy, isTransportFailure } = require('./reconnect.cjs')
+const { createReconnectPolicy, createChannelRecovery, isTransportFailure, channelHintFor } = require('./reconnect.cjs')
 // The workspace boundary and the bounded command contract: the executor checks
 // both at the run level, so a drifted workspace or an unbounded command is
 // refused before the hands move (Tasks 11/13, plan §13/§15).
-const { createWorkspaceGuard } = require('./workspace.cjs')
+const { createWorkspaceGuard, planWorkspaceGate } = require('./workspace.cjs')
 const { normalizeCommand, invalidError: commandInvalidError } = require('./command.cjs')
 
 const DEFAULT_PLANNER = { next: () => null }
@@ -62,21 +62,6 @@ function normalizePlanner(candidate) {
   if (typeof candidate.next === 'function') return candidate
   return DEFAULT_PLANNER
 }
-
-/**
- * The controller a capability is carried by, used as the *channel* hint for a
- * bounded reconnect (24h.md Task 10). The channel names the controller on
- * purpose: the reconnect budget is spent per channel, and the thing that has to
- * come back is the controller itself.
- */
-const CAPABILITY_CONTROLLER = Object.freeze({
-  browser: 'browser',
-  desktop: 'desktop',
-  vision: 'vision',
-  shell: 'shell',
-  filesystem: 'file',
-  file: 'file'
-})
 
 /**
  * The workspace guard, from whatever shape the host handed over (Task 11): the
@@ -122,6 +107,23 @@ function createExecutor(options = {}) {
   const resources = options.resources || options.resourceBudget || createResourceBudget({ now: clock.now, maxScreenshots: runtimeOptions.maxScreenshots })
   // Bounded reconnection for a channel that loses its transport (Task 10).
   const reconnect = options.reconnect || createReconnectPolicy({ now: clock.now, sleep: clock.sleep, maxAttempts: runtimeOptions.maxReconnects })
+  // The channel-level wiring the reconnect policy needs and cannot know by
+  // itself: which controller implements a channel, how to ask whether it is back,
+  // and how to re-observe once it is. This is what keeps transport plumbing out of
+  // the step orchestration below.
+  const channels = options.channels || createChannelRecovery({
+    policy: reconnect,
+    controllers,
+    stillValid: () => !cancelled && (!currentRun || clock.now() - currentRun.startedAt <= currentRun.contract.limits.runTimeoutMs),
+    observe: async ({ action }) => {
+      const run = currentRun
+      if (!run) return null
+      const world = await observer.observe(observeOptions(run, action))
+      run.world = world
+      return world
+    },
+    onEvent: (event) => writeLog('event', event)
+  })
   // Filesystem mutation evidence, and the resume-safe re-observation (Task 12/14).
   const mutations = options.mutations || createMutationVerifier({ now: clock.now })
   // The workspace boundary this executor checks itself (Task 11).
@@ -157,88 +159,22 @@ function createExecutor(options = {}) {
     return availability
   }
 
-  /** The channel a failure belongs to, when the error names one (Task 10). */
-  function channelOfError(error, fallback = null) {
-    const details = error && error.details ? error.details : {}
-    const named = details.channel || details.controller || null
-    return named ? String(named) : fallback
-  }
+  /** The channel a failure belongs to, when the error names one. */
+  const channelOfError = (error, fallback = null) => channels.channelOfError(error, fallback)
 
-  /**
-   * The controller an action is expected to use, as a reconnect channel hint.
-   *
-   * A hint is only a hint: an error that names its own channel wins (Task 10),
-   * and a failure nobody can attribute to a channel is never guessed at.
-   */
-  function channelHintFor(action, run) {
-    if (run && run.lastRoute && run.lastRoute.controller) return String(run.lastRoute.controller)
-    const capability = action && action.capability ? String(action.capability) : null
-    return capability ? CAPABILITY_CONTROLLER[capability] || null : null
-  }
-
-  /**
-   * Task 10: re-attach one channel.
-   *
-   * The executor owns no attach seam of its own - the page is attached by the
-   * runtime host (`index.cjs`'s `syncPage`) and this layer is handed live
-   * controllers - so "reattach" means: ask the controller whether it is back
-   * (`probe()`) and read its facts surface. The fresh observation that proves the
-   * channel is usable comes from the reconnect policy's own `observe` callback.
-   * That is the strongest confirmation available here, and it is deliberately not
-   * a guess about what the channel looked like before it broke.
-   */
-  function reattachChannel(channel) {
-    return async ({ attempt }) => {
-      const controller = controllers[channel] || null
-      if (!controller) return { ok: false, reason: `no controller implements the ${channel} channel` }
-      if (typeof controller.probe === 'function') {
-        const verdict = await Promise.resolve(controller.probe())
-        if (verdict && verdict.available === false) return { ok: false, reason: verdict.reason || `${channel} is still unavailable` }
-      }
-      if (typeof controller.facts === 'function') await Promise.resolve(controller.facts())
-      writeLog('event', { type: 'channel-reattach', channel, attempt })
-      return { ok: true }
-    }
-  }
-
-  /**
-   * Task 10: rebuild a channel whose transport died, bounded by the reconnect
-   * policy's per-step budget. On success the caller continues from the fresh
-   * observation the reconnect took - never from the state (or the target) that
-   * was resolved before the failure.
-   *
-   * @returns {Promise<{ok:boolean, outcome:object, world:object|null, error:Error|null}>}
-   */
+  /** Rebuild one channel whose transport died, bounded by the reconnect policy. */
   async function recoverChannel(channel, run, action) {
-    const name = String(channel || 'unknown')
-    const outcome = await reconnect.reconnect({
-      channel: name,
-      reattach: reattachChannel(name),
-      // The contract is the only authority on whether the run may continue, so
-      // the reconnect asks it instead of assuming the run is still valid.
-      stillValid: () => !cancelled && clock.now() - run.startedAt <= run.contract.limits.runTimeoutMs,
-      observe: async () => {
-        const world = await observer.observe(observeOptions(run, action))
-        run.world = world
-        return world
-      }
-    })
-    writeLog('event', { type: 'reconnect', channel: name, outcome: outcome.outcome, attempt: outcome.attempt, reason: outcome.reason })
-    if (outcome.outcome !== reconnect.RECONNECT.RECONNECTED) {
-      // EXHAUSTED and CONTEXT_INVALID are the same verdict for the step: the
-      // channel is not usable, so the step fails with that code rather than a
-      // generic controller error.
-      return { ok: false, outcome, world: null, error: reconnect.exhaustedError(outcome) }
-    }
+    const result = await channels.recover(channel, { action })
+    if (!result.ok) return { ok: false, outcome: result.outcome, world: null, error: result.error }
     // A stale target is never reused, and the availability cache has to hear that
-    // the channel came back (Task 9).
+    // the channel came back.
     run.lastResolution = null
     probeControllers(true)
-    return { ok: true, outcome, world: run.world, error: null }
+    return { ok: true, outcome: result.outcome, world: run.world, error: null }
   }
 
   /**
-   * Task 10: the OBSERVE half of the transport wiring.
+   * The OBSERVE half of the transport wiring.
    *
    * The observer degrades a dead source inside its own fault boundary, so a throw
    * that reaches here is a transport failure that escaped that boundary:
@@ -636,39 +572,31 @@ function createExecutor(options = {}) {
    * somewhere else. With no workspace handed to the executor the boundary check is
    * inert, and the command contract is still normalized.
    */
+  /**
+   * The run-level workspace gate: an action whose command cannot be bounded, or
+   * whose cwd/path cannot be placed in the verified workspace, is refused here —
+   * before a controller is asked to do anything.
+   */
   function workspaceGate(action, run) {
-    const params = action.params || {}
-    if (action.capability === 'shell') {
-      // Task 13/plan §15: an unbounded command is refused *before* it runs, which
-      // is the only point at which refusing it is cheap.
-      const normalized = normalizeCommand(params, {
-        cwd: params.cwd || verifiedWorkspaceCwd(),
+    const decision = planWorkspaceGate({
+      action,
+      guard: workspaceGuard,
+      step: run.steps,
+      boundCommand: (params, context) => normalizeCommand(params, {
+        cwd: context.cwd,
         defaultTimeoutMs: action.timeoutMs
+      }),
+      invalidCommandError: commandInvalidError
+    })
+    if (decision.blocked) {
+      writeLog('event', {
+        type: 'workspace-blocked',
+        step: run.steps,
+        action: action.type,
+        reason: decision.error ? decision.error.code : 'command contract invalid'
       })
-      if (!normalized.ok) return { blocked: true, error: commandInvalidError(normalized.issues) }
     }
-    if (!workspaceGuard) return { blocked: false }
-    if (action.capability !== 'shell' && action.capability !== 'filesystem') return { blocked: false }
-    const verdict = action.capability === 'shell'
-      ? workspaceGuard.resolveCwd({ cwd: params.cwd, step: run.steps })
-      : workspaceGuard.resolvePath(params.path, { step: run.steps })
-    if (verdict.ok) return { blocked: false }
-    // "The caller named a directory outside the boundary" is a different failure
-    // from "there is no workspace to work in": the first is a mismatch, the
-    // second is a block (Task 20).
-    const details = { action: action.type, step: run.steps }
-    const error = verdict.source === 'explicit'
-      ? workspaceGuard.mismatchError(verdict, details)
-      : workspaceGuard.unavailableError(verdict, details)
-    writeLog('event', { type: 'workspace-blocked', step: run.steps, action: action.type, reason: verdict.reason })
-    return { blocked: true, error }
-  }
-
-  /** The verified workspace directory, or null when there is none to inherit. */
-  function verifiedWorkspaceCwd() {
-    if (!workspaceGuard) return null
-    const verdict = workspaceGuard.verify()
-    return verdict.ok ? verdict.cwd : null
+    return decision
   }
 
   /**

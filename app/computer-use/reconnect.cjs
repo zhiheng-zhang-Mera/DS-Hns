@@ -1,8 +1,7 @@
 'use strict'
 
 /**
- * Computer Use Runtime: bounded tool reconnection
- * (Update-Plan/24h.md Task 10, §12 of the plan).
+ * Computer Use Runtime: bounded tool reconnection.
  *
  * Long watch means tools break while nothing else does: CDP disconnects, a UIA
  * handle goes stale, a shell child crashes, a window disappears. The answer is
@@ -23,6 +22,7 @@
  */
 
 const { CODES, ComputerUseError } = require('./errors.cjs')
+const { CAPABILITY_CONTROLLER } = require('./constants.cjs')
 
 /** Reconnect outcome vocabulary. */
 const RECONNECT = Object.freeze({
@@ -205,4 +205,119 @@ function isTransportFailure(error) {
   return /(disconnect|detach|socket|pipe|closed|ECONNRESET|EPIPE|target closed|no such session|not connected)/i.test(message)
 }
 
-module.exports = { createReconnectPolicy, RECONNECT, isTransportFailure, TRANSPORT_CODES, DEFAULT_MAX_ATTEMPTS }
+/**
+ * The channel a failure belongs to, when the error names one.
+ *
+ * An error that says which channel it came from wins over any hint the caller
+ * has: the runtime must never attribute a browser failure to the desktop
+ * channel and then spend the desktop channel's budget on it.
+ */
+function channelOfError(error, fallback = null) {
+  const details = error && error.details ? error.details : {}
+  const named = details.channel || details.controller || null
+  return named ? String(named) : fallback
+}
+
+/**
+ * The controller an action is expected to use, as a reconnect channel hint.
+ *
+ * A hint is only a hint: a failure nobody can attribute to a channel is never
+ * guessed at, because reconnecting the wrong channel both wastes the budget and
+ * hides the real cause.
+ */
+function channelHintFor(action, run = null) {
+  if (run && run.lastRoute && run.lastRoute.controller) return String(run.lastRoute.controller)
+  const capability = action && action.capability ? String(action.capability) : null
+  return capability ? CAPABILITY_CONTROLLER[capability] || null : null
+}
+
+/**
+ * The channel-level reconnect wiring for one execution.
+ *
+ * This is the topology the policy needs and cannot know by itself: which
+ * controller implements a channel, how to ask that controller whether it is
+ * back, and how to re-observe the world once it is. Keeping it here rather than
+ * in the executor is what leaves the executor with orchestration instead of
+ * transport plumbing.
+ *
+ * `reattach` is necessarily shallow: this layer is handed live controllers and
+ * owns no attach seam of its own (the runtime host attaches the page), so
+ * "reattach" means "ask the controller whether it is back and read its facts" —
+ * the *proof* that the channel works is the fresh observation the policy takes
+ * afterwards, never a guess about what the channel looked like before it broke.
+ *
+ * @param {object} deps
+ * @param {object} deps.policy a policy from `createReconnectPolicy`
+ * @param {object} deps.controllers controller id -> controller
+ * @param {Function} deps.observe async (channel) => world
+ * @param {Function} [deps.stillValid] () => boolean
+ * @param {Function} [deps.onEvent] (event) => void
+ * @param {Function} [deps.onReconnected] (channel) => void, to drop stale state
+ */
+function createChannelRecovery(deps = {}) {
+  const policy = deps.policy
+  if (!policy || typeof policy.reconnect !== 'function') {
+    throw new ComputerUseError(CODES.CONTRACT_INVALID, 'channel recovery needs a reconnect policy')
+  }
+  const controllers = deps.controllers || {}
+  const observe = typeof deps.observe === 'function' ? deps.observe : null
+  const stillValid = typeof deps.stillValid === 'function' ? deps.stillValid : null
+  const onEvent = typeof deps.onEvent === 'function' ? deps.onEvent : () => {}
+  const onReconnected = typeof deps.onReconnected === 'function' ? deps.onReconnected : () => {}
+
+  /** Re-attach one channel: ask the controller, then prove it with an observation. */
+  function reattach(channel) {
+    return async ({ attempt }) => {
+      const controller = controllers[channel] || null
+      if (!controller) return { ok: false, reason: `no controller implements the ${channel} channel` }
+      if (typeof controller.probe === 'function') {
+        const verdict = await Promise.resolve(controller.probe())
+        if (verdict && verdict.available === false) return { ok: false, reason: verdict.reason || `${channel} is still unavailable` }
+      }
+      if (typeof controller.facts === 'function') await Promise.resolve(controller.facts())
+      onEvent({ type: 'channel-reattach', channel, attempt })
+      return { ok: true }
+    }
+  }
+
+  /**
+   * Rebuild a channel whose transport died, bounded by the policy's per-step
+   * budget. On success the caller continues from the *fresh* observation, never
+   * from the state — or the target — that was resolved before the failure.
+   *
+   * @returns {Promise<{ok:boolean, outcome:object, world:object|null, error:Error|null}>}
+   */
+  async function recover(channel, { action = null } = {}) {
+    const name = String(channel || 'unknown')
+    const outcome = await policy.reconnect({
+      channel: name,
+      reattach: reattach(name),
+      stillValid,
+      observe: observe ? async ({ channel: observedChannel, attempt }) => observe({ channel: observedChannel, attempt, action }) : undefined
+    })
+    onEvent({ type: 'reconnect', channel: name, outcome: outcome.outcome, attempt: outcome.attempt, reason: outcome.reason })
+    if (outcome.outcome !== RECONNECT.RECONNECTED) {
+      // EXHAUSTED and CONTEXT_INVALID are the same verdict for the step: the
+      // channel is not usable, so the step fails with that code rather than a
+      // generic controller error.
+      return { ok: false, outcome, world: null, error: policy.exhaustedError(outcome) }
+    }
+    // A stale target is never reused, and whatever cached the channel's
+    // availability has to hear that it came back.
+    onReconnected(name)
+    return { ok: true, outcome, world: null, error: null }
+  }
+
+  return { reattach, recover, channelOfError, channelHintFor, policy }
+}
+
+module.exports = {
+  createReconnectPolicy,
+  createChannelRecovery,
+  RECONNECT,
+  isTransportFailure,
+  channelOfError,
+  channelHintFor,
+  TRANSPORT_CODES,
+  DEFAULT_MAX_ATTEMPTS
+}
