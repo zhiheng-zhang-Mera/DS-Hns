@@ -529,14 +529,40 @@ function createVerifier(input = {}) {
   /**
    * When this level last produced evidence, and whether anything invalidated it.
    *
-   * @param {string} level
+   * Called with no level it answers the verifier-level question the episode report
+   * asks — "when was anything last verified at all?" — rather than looking up a
+   * level literally named `undefined`.
+   *
+   * @param {string} [level]
+   * @returns {{at:number|null, ok:boolean, reason:string, run:object|null, level?:string|null, latestAt?:number|null, fresh?:boolean}}
    */
   function freshAt(level) {
+    if (level === undefined || level === null || String(level).trim() === '') {
+      const latest = latestRun()
+      return {
+        at: latest ? latest.at : null,
+        ok: latest ? latest.ok && isFresh(latest.at) : false,
+        reason: latest ? `the most recent verification was the ${latest.level} level at ${latest.at}` : 'nothing has been verified yet',
+        run: latest,
+        level: latest ? latest.level : null,
+        latestAt: latest ? latest.at : null,
+        fresh: latest ? isFresh(latest.at) : false
+      }
+    }
     const run_ = runs.get(String(level)) || null
     if (!run_) return { at: null, ok: false, reason: `the ${level} level has never run`, run: null }
     if (!run_.ok) return { at: run_.at, ok: false, reason: `the ${level} level last ran and did not pass: ${run_.reason}`, run: run_ }
     if (!isFresh(run_.at)) return { at: run_.at, ok: false, reason: `the ${level} evidence is older than the last change: ${freshnessReason()}`, run: run_ }
     return { at: run_.at, ok: true, reason: `${level} evidence is fresh`, run: run_ }
+  }
+
+  /** The most recent run across the ladder, whatever its outcome. */
+  function latestRun() {
+    let latest = null
+    for (const entry of runs.values()) {
+      if (!latest || entry.at > latest.at) latest = entry
+    }
+    return latest
   }
 
   function mutationBoundary() {

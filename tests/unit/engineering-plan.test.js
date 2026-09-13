@@ -157,6 +157,23 @@ test('a test step expects a zero exit code and no failing tests', () => {
   assert.equal(focused.command, 'cmd-focusedTest')
 })
 
+test('the reproduce step expects the failure, because that is the evidence a repair needs', () => {
+  const built = buildPlan({ goal: 'Fix the failing test', discovery: discoveryWith({}) })
+  const reproduce = built.steps[0]
+  assert.equal(reproduce.kind, 'reproduce')
+  assert.equal(reproduce.expects.failurePresent, true)
+  assert.ok(!Number.isInteger(reproduce.expects.exitCode), 'a reproduce step must not also demand a zero exit')
+  // The executor runs a reproduce step with `expectFailure`: a non-zero exit is
+  // the success, and a zero exit means there was nothing to fix.
+  assert.equal(plan.expectsMet(reproduce.expects, { exitCode: 1 }).ok, true)
+  assert.equal(plan.expectsMet(reproduce.expects, { exitCode: 0 }).ok, false)
+  assert.equal(plan.expectsMet(reproduce.expects, { exitCode: null, timedOut: true }).ok, true)
+  assert.equal(plan.expectsMet(reproduce.expects, { failurePresent: true }).ok, true)
+  // The other test steps keep the opposite meaning.
+  const focused = built.steps.find((step) => step.kind === 'focused-test')
+  assert.equal(plan.expectsMet(focused.expects, { exitCode: 1, testCount: { failed: 1 } }).ok, false)
+})
+
 test('an explicit contract plan wins over the inferred template', () => {
   const built = buildPlan({
     goal: 'Fix the failing test',
@@ -381,6 +398,21 @@ test('expectsMet judges a step outcome against the expectation it declares', () 
   assert.equal(counts.ok, false)
   assert.ok(counts.reason.includes('failed'))
   assert.equal(plan.expectsMet({ exitCode: 0, testCount: { failed: 0 } }, { exitCode: 0, testCount: null }).ok, false)
+})
+
+test('an unusable expects object is reported rather than silently ignored', () => {
+  assert.equal(plan.validateExpects({ exitCode: 'zero' }).ok, false)
+  assert.equal(plan.validateExpects({ failurePresent: 'yes' }).ok, false)
+  assert.equal(plan.validateExpects({ testCount: { failed: 'none' } }).ok, false)
+  assert.equal(plan.validateExpects({}).ok, false)
+  assert.equal(plan.validateExpects({ exitCode: 0 }).ok, true)
+  const built = buildPlan({
+    goal: 'anything',
+    discovery: discoveryWith({}),
+    inputs: { steps: [{ kind: 'lint', expects: { exitCode: 'zero' } }] }
+  })
+  assert.deepEqual(built.steps[0].expects, { exitCode: 0 }, 'an unusable expectation falls back to the exit code')
+  assert.ok(built.reasons.some((reason) => reason.includes('must be an integer')))
 })
 
 test('the plan kind vocabulary is closed and frozen', () => {

@@ -116,6 +116,14 @@ const KIND_DESCRIPTIONS = Object.freeze({
 
 /** What "done" means per kind, when the caller does not say. */
 const KIND_EXPECTS = Object.freeze({
+  /**
+   * A reproduce step wants the failure: it is done when the command did *not*
+   * exit zero, which is the opposite of every other test step.
+   */
+  [PLAN_KINDS.REPRODUCE]: {
+    failurePresent: true,
+    description: 'the command must fail, or there is no failure to fix'
+  },
   [PLAN_KINDS.FOCUSED_TEST]: { exitCode: 0, testCount: { failed: 0 } },
   [PLAN_KINDS.AFFECTED_TEST]: { exitCode: 0, testCount: { failed: 0 } },
   [PLAN_KINDS.FULL_VERIFY]: { exitCode: 0, testCount: { failed: 0 } }
@@ -313,6 +321,10 @@ function validateExpects(expects) {
     if (!Number.isInteger(expects.exitCode)) return { ok: false, expects: null, reason: 'expects.exitCode must be an integer' }
     normalized.exitCode = expects.exitCode
   }
+  if (expects.failurePresent !== undefined && expects.failurePresent !== null) {
+    if (typeof expects.failurePresent !== 'boolean') return { ok: false, expects: null, reason: 'expects.failurePresent must be a boolean' }
+    normalized.failurePresent = expects.failurePresent
+  }
   if (expects.testCount !== undefined && expects.testCount !== null) {
     const count = expects.testCount
     if (typeof count !== 'object' || Array.isArray(count)) return { ok: false, expects: null, reason: 'expects.testCount must be an object' }
@@ -418,11 +430,30 @@ function normalizeStep(input = {}) {
   }
 }
 
-/** Evaluate one `expects` object against a step outcome. */
+/**
+ * Evaluate one `expects` object against a step outcome.
+ *
+ * @param {object} expects
+ * @param {object} [input]
+ * @param {number|null} [input.exitCode]
+ * @param {boolean} [input.timedOut]
+ * @param {boolean} [input.failurePresent] whether a failure was observed
+ * @param {object|null} [input.testCount]
+ * @returns {{ok:boolean, reason:string}}
+ */
 function expectsMet(expects, input = {}) {
   if (!expects || typeof expects !== 'object') return { ok: true, reason: 'the step declares no expectation' }
   if (Number.isInteger(expects.exitCode) && input.exitCode !== expects.exitCode) {
     return { ok: false, reason: `expected exit code ${expects.exitCode}, observed ${input.exitCode === null || input.exitCode === undefined ? 'none' : input.exitCode}` }
+  }
+  if (expects.failurePresent === true) {
+    // The only step whose success is a failure: a reproduce step that exits zero
+    // has shown nothing, because there was nothing failing to show.
+    const observed = input.failurePresent === true || input.timedOut === true || (Number.isInteger(input.exitCode) && input.exitCode !== 0)
+    if (!observed) return { ok: false, reason: 'expected the failure to reproduce, and the command exited 0' }
+  }
+  if (expects.failurePresent === false && (input.failurePresent === true || input.timedOut === true)) {
+    return { ok: false, reason: 'expected no failure, and the step failed' }
   }
   const counts = expects.testCount
   if (counts && typeof counts === 'object') {
@@ -743,6 +774,7 @@ module.exports = {
   COMMAND_KINDS,
   INTENT_KEYWORDS,
   TEMPLATES,
+  KIND_EXPECTS,
   DEFAULT_MAX_STEPS,
   DEFAULT_TIMEOUT_MS,
   buildPlan,

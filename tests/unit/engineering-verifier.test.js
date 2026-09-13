@@ -320,6 +320,24 @@ test('evidence() reports when each level last ran and whether it is fresh', asyn
   assert.equal(recorded.commands[0].truncated, false)
 })
 
+test('freshAt() with no level answers when anything was last verified', async () => {
+  const clock = createClock()
+  const { verifier } = makeVerifier({ clock })
+  const empty = verifier.freshAt()
+  assert.equal(empty.at, null)
+  assert.equal(empty.ok, false)
+  assert.equal(empty.level, null)
+  const startedAt = clock.advance(5)
+  await verifier.run(VERIFICATION_LEVELS.FOCUSED, { focus: 'tests/unit/foo.test.js' })
+  const summary = verifier.freshAt()
+  assert.equal(summary.at, startedAt, 'the episode report reads when evidence was last produced')
+  assert.equal(summary.level, 'focused-test')
+  assert.equal(summary.ok, true)
+  clock.advance(3)
+  verifier.invalidate('the patch changed src/a.js')
+  assert.equal(verifier.freshAt().ok, false, 'invalidated evidence is not fresh')
+})
+
 test('parseTestSummary reads node --test TAP-ish output', () => {
   const summary = parseTestSummary('# tests 12\n# pass 11\n# fail 1\n# duration_ms 421.5\n')
   assert.deepEqual(summary, { tests: 12, passed: 11, failed: 1, durationMs: 422, framework: 'node-test' })
