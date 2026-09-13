@@ -945,6 +945,7 @@ function ensurePluginHost() {
 
 /** The `plugins` block of config/app.json, in the shape the host expects. */
 function pluginDefaults() {
+  const { executionDefaults } = require('./plugin-host.cjs')
   let block = {}
   try {
     const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'app.json'), 'utf8'))
@@ -952,33 +953,7 @@ function pluginDefaults() {
   } catch {
     block = {}
   }
-  const execution = block.execution && typeof block.execution === 'object' ? block.execution : {}
-  const plugins = {}
-  // The execution settings belong to the plugin that owns them, so the shipped defaults
-  // land in the same layer the panel writes to — one place decides, and the panel shows
-  // where each value came from.
-  plugins['dshns.parallel-executor'] = {
-    mode: execution.mode,
-    parallelTaskExecution: execution.parallelTaskExecution,
-    parallelRead: execution.parallelRead,
-    parallelTests: execution.parallelTests,
-    parallelModelCalls: execution.parallelModelCalls,
-    parallelWrites: execution.parallelWrites
-  }
-  plugins['dshns.resource-manager'] = {
-    maxWorkers: execution.maxWorkers,
-    cpuLimit: execution.cpuLimit,
-    ramLimit: execution.ramLimit,
-    gpuLimit: execution.gpuLimit
-  }
-  plugins['dshns.workspace-isolation'] = { workspaceIsolation: execution.workspaceIsolation }
-  for (const id of Array.isArray(block.disabled) ? block.disabled : []) plugins[String(id)] = { enabled: false }
-  // Drop the keys the config did not actually declare, so the config manager's defaults
-  // layer stays honest about what the deployment decided.
-  for (const [id, values] of Object.entries(plugins)) {
-    plugins[id] = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined))
-  }
-  return { enabled: block.enabled !== false, enforceLock: block.enforceLock === true, plugins }
+  return executionDefaults(block)
 }
 
 /** Is the plugin runtime enabled in config? Defaults to on. */

@@ -160,6 +160,34 @@ test('the host lists, describes and groups the real plugin set', async () => {
   }
 })
 
+test('the shipped config/app.json decides what the panel shows on a fresh install', async () => {
+  const { executionDefaults } = require('../../app/plugin-host.cjs')
+  const block = JSON.parse(read('config/app.json')).plugins
+  const defaults = executionDefaults(block)
+  assert.equal(defaults.enabled, true)
+  assert.equal(defaults.enforceLock, false)
+  assert.equal(defaults.plugins['dshns.parallel-executor'].mode, block.execution.mode)
+  assert.equal(defaults.plugins['dshns.resource-manager'].cpuLimit, block.execution.cpuLimit)
+
+  // With no config file present, the execution block must resolve to the shipped values
+  // and say that they came from the defaults layer rather than from a file.
+  const { host, dispose } = tempHost({ defaults })
+  try {
+    await host.ensure()
+    const execution = host.execution()
+    assert.equal(execution.fields.mode.value, block.execution.mode)
+    assert.equal(execution.fields.mode.source, 'defaults')
+    assert.equal(execution.fields.cpuLimit.value, block.execution.cpuLimit)
+    assert.equal(execution.fields.cpuLimit.source, 'defaults')
+    assert.equal(execution.fields.workspaceIsolation.value, block.execution.workspaceIsolation)
+    // And the shipped limit reached the object that derives the worker count.
+    assert.equal(host.resources.limits.cpuPercent, block.execution.cpuLimit)
+    assert.equal(host.resources.limits.ramPercent, block.execution.ramLimit)
+  } finally {
+    await dispose()
+  }
+})
+
 test('the capability view answers what is provided and what the fallback is', async () => {
   const { host, dispose } = tempHost()
   try {

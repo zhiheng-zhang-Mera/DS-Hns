@@ -99,6 +99,42 @@ const EXECUTION_SCHEMA = Object.freeze({
 })
 
 /**
+ * Turn the shipped `plugins` block of `config/app.json` into the shape this host wants.
+ *
+ * The execution settings belong to the plugin that *owns* them, so the deployment's
+ * defaults land in the same layer the panel writes to. That is why this mapping lives
+ * here rather than in the shell: it decides what the panel displays on a fresh install,
+ * and it has to be testable against the shipped configuration.
+ */
+function executionDefaults(block = {}) {
+  const execution = block && typeof block.execution === 'object' && block.execution !== null ? block.execution : {}
+  const plugins = {
+    'dshns.parallel-executor': {
+      mode: execution.mode,
+      parallelTaskExecution: execution.parallelTaskExecution,
+      parallelRead: execution.parallelRead,
+      parallelTests: execution.parallelTests,
+      parallelModelCalls: execution.parallelModelCalls,
+      parallelWrites: execution.parallelWrites
+    },
+    'dshns.resource-manager': {
+      maxWorkers: execution.maxWorkers,
+      cpuLimit: execution.cpuLimit,
+      ramLimit: execution.ramLimit,
+      gpuLimit: execution.gpuLimit
+    },
+    'dshns.workspace-isolation': { workspaceIsolation: execution.workspaceIsolation }
+  }
+  for (const id of Array.isArray(block && block.disabled) ? block.disabled : []) plugins[String(id)] = { enabled: false }
+  // Drop the keys the config did not actually declare, so the defaults layer stays honest
+  // about what the deployment decided rather than filling in values nobody wrote.
+  for (const [id, values] of Object.entries(plugins)) {
+    plugins[id] = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined))
+  }
+  return { enabled: block && block.enabled !== false, enforceLock: block && block.enforceLock === true, plugins }
+}
+
+/**
  * @param {object} [options]
  * @param {string} [options.root] the repository root (defaults to the app's parent)
  * @param {string} [options.configDir] where plugin config files live
@@ -569,4 +605,4 @@ function createPluginHost(options = {}) {
   }
 }
 
-module.exports = { createPluginHost, EXECUTION_SCHEMA, PLUGIN_GROUPS, GROUP_ORDER }
+module.exports = { createPluginHost, executionDefaults, EXECUTION_SCHEMA, PLUGIN_GROUPS, GROUP_ORDER }
