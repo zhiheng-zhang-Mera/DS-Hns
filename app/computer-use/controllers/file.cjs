@@ -173,10 +173,15 @@ function createFileController(options = {}) {
       watcher = fs.watch(resolved, { persistent: false }, (eventType, filename) => {
         const payload = { type: 'file_event', name: eventType === 'rename' ? 'file_created_or_removed' : 'file_modified', path: resolved, file: filename ? String(filename) : null, at: clock.now() }
         events.push(payload)
+        if (events.length > 500) events.splice(0, events.length - 500)
         if (typeof onEvent === 'function') onEvent(payload)
       })
+      // A watch that errors is *released*, not merely forgotten: leaving a dead
+      // watcher in the map would keep the handle (and the entry) alive for the
+      // rest of a long run, and a later watch of the same path would be told the
+      // dead one is still fine.
       watcher.on('error', () => {
-        watchers.delete(resolved)
+        release(resolved)
       })
     } catch {
       return null
@@ -185,14 +190,21 @@ function createFileController(options = {}) {
     return watcher
   }
 
-  function unwatchAll() {
-    for (const watcher of watchers.values()) {
-      try {
-        watcher.close()
-      } catch {
-        /* already closed */
-      }
+  /** Close and forget one watch. */
+  function release(resolved) {
+    const watcher = watchers.get(resolved)
+    if (!watcher) return false
+    watchers.delete(resolved)
+    try {
+      watcher.close()
+    } catch {
+      /* already closed */
     }
+    return true
+  }
+
+  function unwatchAll() {
+    for (const resolved of [...watchers.keys()]) release(resolved)
     watchers.clear()
   }
 
@@ -249,7 +261,20 @@ function createFileController(options = {}) {
     }
   }
 
-  return { id: 'file', capability: 'filesystem', probe, supports, perform, facts, watch, unwatchAll }
+  return {
+    id: 'file',
+    capability: 'filesystem',
+    probe,
+    supports,
+    perform,
+    facts,
+    watch,
+    unwatchAll,
+    /** Close and forget one watch; the handle count is observable for the audit. */
+    unwatch: (target) => release(path.resolve(String(target))),
+    /** How many watches this controller is currently holding. */
+    watchCount: () => watchers.size
+  }
 }
 
 function isProtectedPath(target) {

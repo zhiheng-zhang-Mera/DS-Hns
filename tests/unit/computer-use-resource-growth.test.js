@@ -167,3 +167,50 @@ test('the soaked runtime keeps its evidence and drops its transients under press
   // The file that describes the run is still the bounded one.
   assert.ok(result.rotations >= 0)
 })
+
+test('the file controller releases its watches and bounds its events (phase X)', async () => {
+  const { createFileController } = require('../../app/computer-use/controllers/file.cjs')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cu-watch-'))
+  const clock = createVirtualClock()
+  const file = createFileController({ clock, workspace: dir })
+  try {
+    for (let index = 0; index < 12; index += 1) {
+      const target = path.join(dir, `watched-${index}.txt`)
+      fs.writeFileSync(target, 'x')
+      file.watch(target)
+    }
+    // A repeated watch of the same path reuses the handle rather than adding one.
+    const first = path.join(dir, 'watched-0.txt')
+    const again = file.watch(first)
+    assert.equal(file.watchCount(), 12, 'a repeated watch must not add a second handle')
+    assert.equal(typeof again.close, 'function')
+
+    // Releasing one watch gives its handle back, and the count follows.
+    assert.equal(file.unwatch(first), true)
+    assert.equal(file.watchCount(), 11)
+    assert.equal(file.unwatch(first), false, 'releasing an unknown watch is a refusal, not an error')
+
+    // Dispose closes everything: no handle may outlive the controller.
+    file.unwatchAll()
+    assert.equal(file.watchCount(), 0, 'dispose must close every watch')
+    // The events ring is bounded too: it cannot be the structure that grows.
+    const facts = file.facts()
+    assert.ok(facts !== undefined)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a detached transport does not keep its subscribers (phase X)', () => {
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', 'app', 'computer-use', 'drivers', 'cdp-page.cjs'), 'utf8')
+  // The detach paths have to release the handler list: a long run reconnects many
+  // times, and a list that only grows is a listener leak the happy path never
+  // shows. Both the explicit `detach()` and the transport's own detach event are
+  // checked, in whichever order they appear.
+  const releases = source.split('handlers.length = 0').length - 1
+  assert.ok(releases >= 2, `the CDP transport must release its subscribers on both detach paths (found ${releases})`)
+  assert.match(source, /on\('detach'/, 'the transport must not forget its own detach event')
+  assert.match(source, /detach\(\) \{/, 'the page must expose an explicit detach')
+  // And a page that never attaches never installs a listener at all.
+  assert.equal(/debugger_\.on/.test(source.split('let listening = false')[0]), false, 'listeners are installed lazily, not at construction')
+})

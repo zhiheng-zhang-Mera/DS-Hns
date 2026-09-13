@@ -796,6 +796,9 @@ function createElectronDebuggerTransport(webContents) {
         })
         debugger_.on('detach', () => {
           listening = false
+          // A detached session has no live subscribers: keeping them would make
+          // the handler list grow across every reconnect in a long run.
+          handlers.length = 0
         })
       }
       return debugger_.sendCommand(method, params)
@@ -813,6 +816,11 @@ function createElectronDebuggerTransport(webContents) {
       } catch {
         /* already detached */
       }
+      // The page is gone, so nothing it fed can still be wanted: dropping the
+      // handlers here is what keeps a long session's listener count flat across
+      // attach/detach cycles. The runtime re-subscribes when it re-attaches.
+      handlers.length = 0
+      listening = false
     }
   }
 }
