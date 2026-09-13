@@ -1176,6 +1176,185 @@ function watchInstalledPluginChanges() {
   return true
 }
 
+/**
+ * The scheduled restart: the plans, the operating system's half, and the task that survives it.
+ *
+ * It lives in the shell because that is what owns process lifecycle, and because a scheduled restart
+ * has to work whether or not the dock was ever opened. The three pieces are deliberately separate:
+ * `store.cjs` owns what the user scheduled, `platform.cjs` owns the five OS commands, and
+ * `coordinator.cjs` owns the order they happen in — suspend, intent, relaunch, then the machine.
+ *
+ * The targets are adapters over what already exists: the sub-worker's own `pause`/`resumeLastTask`
+ * (which suspend at the worker's checkpoint) and the engineering runtime, which can only be stopped in a
+ * phase its state machine calls parkable — so its adapter says `boundary-first` and the coordinator
+ * waits instead of asking.
+ */
+let rebootCoordinator = null
+let rebootStoreRef = null
+let rebootTicker = null
+
+function ensureReboot() {
+  if (rebootCoordinator) return rebootCoordinator
+  const { createRebootStore } = require('./reboot/store.cjs')
+  const { createRebootPlatform } = require('./reboot/platform.cjs')
+  const { createRebootCoordinator } = require('./reboot/coordinator.cjs')
+  rebootStoreRef = createRebootStore({ root: ROOT, log: (line) => logLine(line) })
+  const platform = createRebootPlatform({
+    // A packaged build starts itself; in development it is the Electron binary plus this checkout,
+    // and the one-shot entry has to reproduce exactly that.
+    execPath: app.isPackaged ? app.getPath('exe') : process.execPath,
+    appArgs: app.isPackaged ? [] : [app.getAppPath()],
+    log: (line) => logLine(line)
+  })
+  rebootCoordinator = createRebootCoordinator({
+    store: rebootStoreRef,
+    platform,
+    log: (line) => logLine(line),
+    targets: {
+      subWorker: {
+        status: () => {
+          if (!workerManager) return null
+          const state = workerManager.state || {}
+          return { running: Boolean(workerManager.isRunning), state: state.state || null, stage: state.stage || null, task_id: state.task_id || null }
+        },
+        suspend: async ({ plan }) => {
+          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
+          const result = workerManager.pause(`scheduled restart ${plan.id}`)
+          if (!result || result.ok === false) return result || { ok: false, reason: 'the worker refused to pause' }
+          const delivered = Array.isArray(result.workers) ? result.workers.length : 0
+          return {
+            ok: true,
+            // A running worker answers `pause` and suspends at its own next checkpoint: that is a request
+            // in flight, and the coordinator waits for it rather than restarting over it.
+            pending: result.state === 'PAUSING' || delivered > 0,
+            state: result.state || null,
+            detail: delivered || result.state === 'PAUSING'
+              ? 'the worker was asked to stop at its next checkpoint'
+              : 'the worker is suspended'
+          }
+        },
+        resume: async () => {
+          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
+          const result = typeof workerManager.resumeLastTask === 'function'
+            ? await workerManager.resumeLastTask()
+            : workerManager.resume('continuing after a scheduled restart')
+          return { ok: Boolean(result && result.ok !== false), detail: (result && (result.reason || result.detail)) || 'the sub-worker was resumed' }
+        }
+      },
+      engineering: {
+        parkPolicy: 'boundary-first',
+        status: () => {
+          if (!engineeringHost) return null
+          const state = engineeringHost.status()
+          if (!state || state.ok === false) return null
+          return { running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
+        },
+        suspend: async () => {
+          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
+          const cancelled = engineeringHost.cancel({ reason: 'a scheduled restart is waiting for a parkable phase' })
+          if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
+          return { ok: true, detail: 'the episode stopped at a step boundary and checkpointed' }
+        },
+        resume: async (intent) => {
+          const request = intent && intent.targetState && intent.targetState.request
+          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
+          if (!request || !request.workspace || !request.goal) {
+            return { ok: false, reason: 'the episode was not recorded with a repository and a goal, so it cannot be resumed automatically' }
+          }
+          const started = engineeringHost.run({ workspace: request.workspace, goal: request.goal, reason: 'continuing after a scheduled restart' })
+          if (started && started.ok === false) return { ok: false, reason: started.error || 'the episode could not be restarted' }
+          return { ok: true, detail: 'the episode resumed from its last checkpoint' }
+        }
+      }
+    }
+  })
+  logLine(`reboot scheduler ready (${platform.supported ? 'restart supported' : `restart not supported on ${platform.platform}`})`)
+  return rebootCoordinator
+}
+
+/** The store the IPC handlers write to: the same instance the coordinator reads. */
+function rebootStore() {
+  ensureReboot()
+  return rebootStoreRef
+}
+
+/** A due plan fires within a few seconds, and the countdown the panel draws stays true. */
+function startRebootTicker() {
+  if (rebootTicker) return false
+  const tick = () => {
+    ensureReboot().tick().catch((error) => logLine(`reboot tick failed: ${error?.stack || error}`))
+  }
+  rebootTicker = setInterval(tick, 5000)
+  if (typeof rebootTicker.unref === 'function') rebootTicker.unref()
+  tick()
+  return true
+}
+
+function stopRebootTicker() {
+  if (!rebootTicker) return false
+  clearInterval(rebootTicker)
+  rebootTicker = null
+  return true
+}
+
+/**
+ * The scheduled-restart surface.
+ *
+ * Adding, editing and removing are the three things a user may do to a plan before it fires;
+ * `reboot:cancel` is the removal for a plan whose restart is already in its grace period, and it
+ * aborts the shutdown as well.
+ */
+const REBOOT_CHANNELS = ['reboot:state', 'reboot:describe', 'reboot:add', 'reboot:update', 'reboot:remove', 'reboot:cancel']
+
+function registerRebootIpc() {
+  for (const channel of REBOOT_CHANNELS) {
+    try {
+      ipcMain.removeHandler(channel)
+    } catch {}
+  }
+  const guard = (handler) => async (event, ...args) => {
+    try {
+      return await handler(event, ...args)
+    } catch (error) {
+      logLine(`reboot ipc failed: ${error?.stack || error}`)
+      return { ok: false, error: String(error?.message || error), code: error?.code || null }
+    }
+  }
+  const coordinator = () => ensureReboot()
+
+  ipcMain.handle('reboot:state', guard(async () => ({ ok: true, ...coordinator().describe() })))
+  ipcMain.handle('reboot:describe', guard(async () => coordinator().describe().platform))
+  ipcMain.handle('reboot:add', guard(async (_event, input = {}) => {
+    const { createPlan } = require('./reboot/plan.cjs')
+    const created = createPlan(input || {})
+    if (!created.ok) return created
+    const added = rebootStore().add(created.plan)
+    return added.ok ? { ok: true, plan: created.plan } : { ok: false, code: 'REBOOT_PLAN_DUPLICATE', reason: added.reason }
+  }))
+  ipcMain.handle('reboot:update', guard(async (_event, input = {}) => {
+    const { updatePlan } = require('./reboot/plan.cjs')
+    const store = rebootStore()
+    const current = store.find(input.id)
+    if (!current) return { ok: false, code: 'REBOOT_PLAN_NOT_FOUND', reason: `${input.id || ''} is not scheduled` }
+    // Only the plan's own fields may be patched; `updatePlan` ignores anything else by construction.
+    const updated = updatePlan(current, input.patch && typeof input.patch === 'object' ? input.patch : input, {})
+    if (!updated.ok) return updated
+    const replaced = store.replace(updated.plan)
+    return replaced.ok ? { ok: true, plan: updated.plan, changed: updated.changed } : { ok: false, code: 'REBOOT_PLAN_NOT_FOUND', reason: replaced.reason }
+  }))
+  ipcMain.handle('reboot:remove', guard(async (_event, input = {}) => {
+    const result = rebootStore().remove(input.id)
+    return result.ok ? { ok: true, planId: input.id, removed: true } : { ok: false, code: 'REBOOT_PLAN_NOT_FOUND', reason: result.reason }
+  }))
+  ipcMain.handle('reboot:cancel', guard(async (_event, input = {}) => coordinator().cancel(input.id)))
+}
+
+/** Releases the restart scheduler: the ticker stops and the plans stay on disk for the next start. */
+async function disposeRebootOnExit() {
+  stopRebootTicker()
+  return true
+}
+
 /** Releases the plugin host on exit: every plugin unloads, every subscription goes. */
 async function disposePluginsOnExit(source = 'shell') {
   // The store watch is removed even when no world was ever built: a listener left behind
@@ -1234,6 +1413,9 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
   }
   stopSubWorkerOnExit('shell teardown')
   disposeEngineeringOnExit('shell teardown')
+  // The ticker stops with the shell; the *plans* stay on disk, because a restart scheduled for
+  // tomorrow is not cancelled by quitting the application today.
+  stopRebootTicker()
   // The plugin unload hooks are async and teardown is not allowed to wait on a plugin
   // (the plan's exit rule: no cleanup step may prevent the exit). The dispose therefore
   // runs to its first await synchronously — which stops the health timer — and the rest
@@ -1957,6 +2139,17 @@ app.whenReady().then(async () => {
     }
 
     const extensionsReady = await startExtensions(nodeExe)
+    // The scheduled restart exists from boot, not from the first look at the dock: a plan set
+    // yesterday must still fire on a shell whose panels nobody opened, and the ticker is what makes
+    // its countdown true. `resumeOnStartup` is the other side of the boundary — if this start is the
+    // one that followed a planned restart, the suspended task continues here.
+    registerRebootIpc()
+    startRebootTicker()
+    ensureReboot().resumeOnStartup()
+      .then((outcome) => {
+        if (outcome.resumed || outcome.reports.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.reports)}`)
+      })
+      .catch((error) => logLine(`reboot resume failed: ${error?.stack || error}`))
     // The official renderer is the product's frontend, so the dock is the only view left
     // to attach: it reserves its strip on the right and the official UI keeps the rest.
     if (extensionsReady && INTEGRATED_MEGA_DOCK) await createIntegratedMegaDock()

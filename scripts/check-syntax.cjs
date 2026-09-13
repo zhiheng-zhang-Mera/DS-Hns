@@ -66,6 +66,9 @@ const SOURCE_DIRS = [
   // is non-recursive, so every core directory must be named here.
   'core/contracts',
   'core/plugin-manager',
+  // The scheduled restart: the plan model, its durable store, the operating system's half, and the
+  // sequence they happen in.
+  'reboot',
   // The compatibility layer: the isolated activation worker, the adapter that builds a plugin
   // object around it, and the described-and-confirmed dependency/build commands.
   'core/plugin-compat',
