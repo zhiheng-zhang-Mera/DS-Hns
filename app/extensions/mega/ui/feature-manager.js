@@ -137,11 +137,19 @@
       const plugins = Array.isArray(installed.plugins) ? installed.plugins : []
       if (plugins.length) {
         body.appendChild(el('div', 'pm-group-title', '已安装 · Installed'))
+        // The distinction the store must not blur: a plugin that is installed but switched off
+        // is still on disk and one click from running again, while a plugin that was removed is
+        // gone and can only come back through the history below.
+        body.appendChild(el('p', 'pm-meta', '“已安装、未启用”仍然在磁盘上，启用即用；“已卸载”已从磁盘移除，只能从历史安装重装。· installed-but-off is still on disk; uninstalled has to be reinstalled from the history.'))
         for (const plugin of plugins) {
           const row = el('div', `pm-row${plugin.state === 'enabled' ? '' : ' off'}`)
           const left = el('div')
           left.appendChild(el('div', 'pm-name', `${plugin.name || plugin.id} v${plugin.version}`))
-          const stateLabel = plugin.state === 'enabled' ? '已启用 · enabled' : plugin.state === 'missing' ? '文件缺失 · files missing' : '已暂存 · staged'
+          const stateLabel = plugin.state === 'enabled'
+            ? '已启用 · installed + running'
+            : plugin.state === 'missing'
+              ? '文件缺失 · files missing'
+              : '已安装、未启用 · installed, not running'
           left.appendChild(el('div', 'pm-meta', `${plugin.repo} · ${stateLabel}`))
           row.appendChild(left)
           const actions = el('div', 'pm-actions')
@@ -161,14 +169,16 @@
       const history = (Array.isArray(installed.history) ? installed.history : []).filter((item) => item.action === 'stage' && item.ok !== false)
       if (history.length) {
         body.appendChild(el('div', 'pm-group-title', '历史安装 · Install history'))
+        const present = new Set(plugins.map((plugin) => plugin.id))
         const seen = new Set()
         for (const item of history) {
           if (!item.id || seen.has(item.id)) continue
           seen.add(item.id)
+          const stateLabel = present.has(item.id) ? '已安装 · installed' : '已卸载 · uninstalled'
           const row = el('div', 'pm-row off')
           const left = el('div')
           left.appendChild(el('div', 'pm-name', `${item.id}${item.version ? ` v${item.version}` : ''}`))
-          left.appendChild(el('div', 'pm-meta', `${item.repo} · ${new Date(item.at || 0).toLocaleString()}`))
+          left.appendChild(el('div', 'pm-meta', `${item.repo} · ${stateLabel} · ${new Date(item.at || 0).toLocaleString()}`))
           row.appendChild(left)
           row.appendChild(actionButton('重新安装 · Reinstall', '', () => act('reinstall', item.id)))
           body.appendChild(row)
@@ -183,7 +193,7 @@
       if (storeData.error) body.appendChild(el('p', 'pm-line bad', storeData.error))
       renderInstalled()
       if (!storeData.results.length) {
-        if (!storeData.error) body.appendChild(el('p', 'pm-empty', storeData.query ? `没有匹配 “${storeData.query}” 的插件 / no plugin matches that search` : '输入关键词后在 GitHub 上搜索插件 / search GitHub for plugins'))
+        if (!storeData.error) body.appendChild(el('p', 'pm-empty', storeData.query ? `没有匹配 “${storeData.query}” 的插件 / no plugin matches that search` : '搜索插件主题，或直接输入 owner/name 或仓库链接 / search the plugin topic, or name a repository'))
         return
       }
       body.appendChild(el('div', 'pm-group-title', `${storeData.total || storeData.results.length} repositories · topic ${storeData.topic || '—'}`))
@@ -414,7 +424,11 @@
         if (!answer || answer.ok === false) {
           say(`${id}: ${(answer && (answer.reason || answer.message)) || `${kind} 失败 / failed`}`, 'bad')
         } else if (kind === 'enable') {
-          say(`${id} 已启用；此后的插件列表里会出现它 / enabled — the plugin appears in the list once the host rebuilds`, 'ok')
+          say(`${id} 已启用并即时挂载，无需重启 / enabled and mounted live — no restart needed`, 'ok')
+        } else if (kind === 'disable') {
+          say(`${id} 已停用；仍在磁盘上，可随时重新启用 / disabled — still installed, one click from running again`, 'ok')
+        } else if (kind === 'remove') {
+          say(`${id} 已卸载；可从历史安装重装 / uninstalled — reinstall it from the history above`, 'ok')
         } else {
           say(`${id}: ${kind} 完成 / done`, 'ok')
         }
@@ -422,6 +436,12 @@
         say(`${kind} 失败 / failed: ${error.message}`, 'bad')
       }
       await refreshInstalled()
+      // The platform tab lists the same world, so a store action that mounted or unmounted a
+      // plugin must move both views: two tabs disagreeing about what is running is exactly the
+      // confusion this feature exists to remove.
+      try {
+        await window.megaPluginPanel?.refresh?.()
+      } catch {}
       render()
     }
 

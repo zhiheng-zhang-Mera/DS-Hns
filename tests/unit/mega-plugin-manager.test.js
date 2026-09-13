@@ -282,7 +282,12 @@ test('the install is two stages, and the queue installs one by one', async () =>
   await manager.stageResult({ id: 'acme/dshns-example', branch: 'main' })
   assert.ok(calls.some((entry) => entry[0] === 'store.stage' && entry[1] === 'acme/dshns-example'), 'staging did not reach the installer')
   const afterStage = allText(nodes.get('pmBody'))
-  assert.match(afterStage, /已暂存 · staged/, 'the staged plugin is not listed as staged')
+  // The distinction the store must never blur: "installed but switched off" is still on disk
+  // and one click from running, while "uninstalled" is gone and only the history can bring it
+  // back. A staged plugin is the first of those, never the second.
+  assert.match(afterStage, /已安装、未启用 · installed, not running/, 'the staged plugin is not listed as installed-but-off')
+  assert.match(afterStage, /已卸载 · uninstalled/, 'the history does not mark a plugin that is gone as uninstalled')
+  assert.equal(/已暂存/.test(afterStage), false, 'the store still calls an installed plugin merely "staged"')
   assert.match(afterStage, /启用 · Enable/, 'a staged plugin offers no enable step')
   assert.match(afterStage, /已安装 · Installed/)
 
@@ -308,6 +313,42 @@ test('the install is two stages, and the queue installs one by one', async () =>
   assert.match(queueText, /逐个安装 · Install one by one/)
   await manager.clearQueue()
   assert.ok(calls.some((entry) => entry[0] === 'store.queue' && entry[1] === 'clear'))
+})
+
+/**
+ * The words have to match the states.
+ *
+ * "Disabled" and "uninstalled" are different claims about a user's machine, and the store is
+ * the only place that tells them apart: a disabled plugin is still on disk and comes back with
+ * one click, while an uninstalled one is gone and has to come back through the history. If the
+ * messages drifted into synonyms the panel would be telling the user something untrue about
+ * their disk, so the three sentences are asserted rather than left to review.
+ */
+test('a disabled plugin is not an uninstalled plugin, in words as well as in state', async () => {
+  const { api, nodes, calls } = loadFeatureManager()
+  const manager = api.attach()
+  manager.open()
+  await new Promise((resolve) => setImmediate(resolve))
+  manager.setTab('store')
+
+  await manager.act('disable', 'vendor.other')
+  const disabled = allText(nodes.get('pmMessage'))
+  assert.match(disabled, /仍在磁盘上/, 'disabling is not described as keeping the files')
+  assert.match(disabled, /可随时重新启用/)
+  assert.equal(/已卸载/.test(disabled), false, 'a disable is reported as an uninstall')
+
+  await manager.act('remove', 'vendor.other')
+  const removedText = allText(nodes.get('pmMessage'))
+  assert.match(removedText, /已卸载/, 'removing is not reported as an uninstall')
+  assert.match(removedText, /历史安装/, 'the user is not told where a removed plugin comes back from')
+
+  await manager.act('enable', 'vendor.other')
+  const enabledText = allText(nodes.get('pmMessage'))
+  assert.match(enabledText, /无需重启/, 'enabling is not reported as taking effect without a restart')
+  // Every one of the three actions went through the installer exactly once.
+  for (const kind of ['store.disable', 'store.remove', 'store.enable']) {
+    assert.equal(calls.filter((entry) => entry[0] === kind).length, 1, `${kind} was not sent exactly once`)
+  }
 })
 
 test('the manager surface is not gated by a feature, and says so', () => {

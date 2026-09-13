@@ -15,7 +15,7 @@
   <title>Mega Dock</title>
   <link rel="stylesheet" href="dock.css">
 </head>
-<body class="collapsed" data-hns-surface="mega">
+<body class="collapsed" data-hns-surface="mega" data-glass="on">
   <aside id="rail" title="展开 Mega Dock">
     <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
     <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>
@@ -67,6 +67,31 @@
       <div class="theme-current">
         <span>当前主题</span>
         <b id="themeActive">—</b>
+      </div>
+
+      <!--
+        The frosted-glass layer (半透明磨砂玻璃).
+
+        It is in the Appearance panel because it is a property of how the shell looks, not a
+        feature to switch on and off: every DS-Hns surface is a translucent pane over the active
+        skin, the official UI is not one of them, and the layer composes with whatever skin is
+        installed. The switch is the user's; the numbers behind it live in
+        `data/state/ui-glass.json`.
+      -->
+      <div class="theme-glass" id="themeGlassRow">
+        <label for="themeGlass">
+          <input type="checkbox" id="themeGlass" checked>
+          <span class="bi-title bi-sm"><span class="bi-cn">磨砂玻璃</span><span class="bi-en">Frosted glass</span></span>
+        </label>
+        <p class="theme-glass-note">所有 DS-Hns 界面半透明磨砂，与当前皮肤叠加；官方界面不受影响。<br><small>Every DS-Hns surface frosts over the active skin; the official UI is untouched.</small></p>
+        <label class="theme-glass-range" for="themeGlassBlur">
+          <span>模糊强度 · Blur</span>
+          <input type="range" id="themeGlassBlur" min="0" max="40" step="1" value="18">
+        </label>
+        <label class="theme-glass-range" for="themeGlassOpacity">
+          <span>玻璃通透度 · Glass opacity</span>
+          <input type="range" id="themeGlassOpacity" min="20" max="100" step="1" value="62">
+        </label>
       </div>
 
       <div id="themeCapability" class="theme-capability"></div>
@@ -662,7 +687,7 @@
         <button id="pmTabStore" type="button" class="pm-tab" role="tab">插件商店 · Store</button>
       </div>
       <div id="pmStoreBar" class="pm-store-bar" hidden>
-        <input id="pmStoreQuery" type="search" placeholder="搜索 GitHub 插件 / Search GitHub for plugins" autocomplete="off">
+        <input id="pmStoreQuery" type="search" placeholder="搜索插件，或直接输入 owner/name 或仓库链接 / Search the topic, or name a repository" autocomplete="off">
         <button id="pmStoreSearch" type="button" class="quiet">搜索 · Search</button>
       </div>
       <div id="pmBody" class="pm-body"></div>
@@ -672,6 +697,9 @@
 
   <script src="balance-module.js"></script>
   <script src="theme-bridge.js"></script>
+  <!-- The glass layer carries the user's numbers into the stylesheet; it runs before the panels
+       so the first paint is already frosted rather than flashing an opaque panel. -->
+  <script src="glass-layer.js"></script>
   <script src="theme-panel.js"></script>
   <script src="skills-panel.js"></script>
   <script src="computer-use-panel.js"></script>

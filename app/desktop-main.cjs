@@ -149,6 +149,8 @@ let engineeringHost = null
  * plugin sets. Created on the first plugin-panel call, never at boot.
  */
 let pluginHost = null
+/** Whether the shell already listens for the store's "installed set changed" event. */
+let installedPluginWatch = false
 
 /** IPC surface of the Engineering panel. */
 const ENGINEERING_CHANNELS = [
@@ -173,6 +175,9 @@ const PLUGIN_CHANNELS = [
   'plugins:enable',
   'plugins:reload',
   'plugins:health',
+  // Re-read the store's installed set and rebuild the world in place, so an enable,
+  // a disable or a removal never needs a restart.
+  'plugins:refresh',
   // The execution settings and the lockfile.
   'plugins:execution',
   'plugins:configure',
@@ -1021,6 +1026,10 @@ function registerPluginIpc() {
     await ready()
     return host().reload(input || {})
   }))
+  ipcMain.handle('plugins:refresh', guard(async () => {
+    await ready()
+    return host().refreshInstalled('the panel asked for a rescan')
+  }))
   ipcMain.handle('plugins:health', guard(async (_event, input) => {
     await ready()
     return host().health(input || {})
@@ -1037,10 +1046,69 @@ function registerPluginIpc() {
     await ready()
     return host().lockfile(input || {})
   }))
+  // The store is an extension and the world is built here, so the two are joined by an
+  // event rather than by a call: installing something must reach a *running* world.
+  watchInstalledPluginChanges()
+}
+
+/**
+ * Rebuild the plugin world after the store changed the installed set.
+ *
+ * This is what makes "enable it and it runs" true instead of "enable it and restart": the
+ * world is built once and cached, so a new entry in `data/plugins/installed.json` would
+ * otherwise only be honoured on the next start. A world that was never built has nothing to
+ * reload — its first build reads the same file — and a rebuild that fails is reported rather
+ * than thrown, because a third-party plugin that will not load must not take the shell down.
+ */
+async function reloadInstalledPlugins(why = 'the installed plugin set changed') {
+  if (!pluginHost) {
+    logLine(`installed plugins changed (${why}); the plugin runtime is not built yet, so its first build reads the new set`)
+    return { ok: true, rebuilt: false, built: false, why }
+  }
+  try {
+    const outcome = await pluginHost.refreshInstalled(why)
+    const mounted = Array.isArray(outcome.mounted) ? outcome.mounted : []
+    const removed = Array.isArray(outcome.removed) ? outcome.removed : []
+    const failures = Array.isArray(outcome.failures) ? outcome.failures : []
+    logLine(`plugin world reloaded (${why}): mounted ${mounted.join(', ') || 'nothing'}; removed ${removed.join(', ') || 'nothing'}; failed ${failures.length}`)
+    // The dock's plugin list is a view of this world, so it is told the world moved instead
+    // of being left to show the set from before the user pressed the button.
+    try {
+      const view = megaDockView
+      if (view && !view.webContents.isDestroyed()) view.webContents.send('plugins:changed', { why, mounted, removed, failures })
+    } catch (error) {
+      logLine(`could not tell the dock about the reload: ${error?.message || error}`)
+    }
+    return outcome
+  } catch (error) {
+    logLine(`plugin world reload failed (${why}): ${error?.stack || error}`)
+    return { ok: false, rebuilt: false, why, error: String(error?.message || error) }
+  }
+}
+
+/**
+ * Listen for the store's "the installed set changed" event, once.
+ *
+ * A listener that is not attached (a build without the store) leaves the emit a no-op
+ * rather than an error, which is why this is an event at all.
+ */
+function watchInstalledPluginChanges() {
+  if (installedPluginWatch) return false
+  installedPluginWatch = true
+  ipcMain.on('mega:installed-plugins-changed', () => {
+    reloadInstalledPlugins().catch((error) => logLine(`plugin world reload failed: ${error?.message || error}`))
+  })
+  return true
 }
 
 /** Releases the plugin host on exit: every plugin unloads, every subscription goes. */
 async function disposePluginsOnExit(source = 'shell') {
+  // The store watch is removed even when no world was ever built: a listener left behind
+  // would keep trying to reload a runtime that is gone.
+  try {
+    ipcMain.removeAllListeners('mega:installed-plugins-changed')
+    installedPluginWatch = false
+  } catch {}
   if (!pluginHost) return null
   try {
     await pluginHost.dispose(`shell teardown (${source})`)
@@ -1731,6 +1799,10 @@ async function startExtensions(nodeExe) {
       // and the dock must degrade gracefully.
       subWorker: workerManager,
       onSubWorkerChange: subscribeSubWorker,
+      // The store changes the installed set while the plugin host's world is already built.
+      // This hook lets the store *await* the rebuild, so the panel's next read cannot show
+      // "enabled" for a plugin the runtime has not mounted yet.
+      reloadInstalledPlugins,
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }

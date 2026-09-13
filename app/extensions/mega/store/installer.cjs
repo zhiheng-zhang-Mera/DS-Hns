@@ -94,6 +94,14 @@ function createStoreInstaller(options = {}) {
   const log = typeof options.log === 'function' ? options.log : () => {}
   const maxHistory = Number.isInteger(options.maxHistory) ? options.maxHistory : DEFAULT_MAX_HISTORY
   const clone = typeof options.clone === 'function' ? options.clone : defaultClone
+  /**
+   * The manifest probe: `({ repo, branch }) => { installable, verified, reason }`, or absent.
+   *
+   * It is injected rather than implemented here because the network belongs to the store, which
+   * already knows how to talk to GitHub, spend a rate limit and read a manifest. An installer
+   * with no probe simply clones and verifies, which is what it always did.
+   */
+  const probe = typeof options.probe === 'function' ? options.probe : null
 
   let state = null
   let history = null
@@ -164,9 +172,49 @@ function createStoreInstaller(options = {}) {
   }
 
   /**
+   * Ask whether a repository carries a manifest *before* downloading it.
+   *
+   * A real repository was the reason this exists: the store's first live target is a 933 MB
+   * monorepo whose plugins are for a different host entirely, and cloning it to discover that
+   * its root has no `dshns-plugin.json` costs a gigabyte of disk and half a minute to learn one
+   * fact that a single HTTP request already knows. The pre-flight is that request.
+   *
+   * It can only ever *refuse*, never accept: a verdict is acted on when the probe verified it
+   * against a known branch (`verified === true`). Anything else — a rate limit, a resolved
+   * branch that could not be found, a probe that is not wired at all — returns null and the
+   * clone decides, because a wrong refusal about somebody's repository is worse than a slow
+   * install.
+   *
+   * @param {object} input `{ repo, branch }`
+   */
+  async function preflight(input = {}) {
+    const repo = normalizeRepo(input.repo)
+    if (!repo) return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${input.repo || ''}" is not a GitHub repository (owner/name)` }
+    if (typeof probe !== 'function') return { ok: true, repo, verdict: null, note: 'no manifest probe is wired, so the clone verifies the manifest' }
+    let verdict = null
+    try {
+      verdict = await probe({ repo, branch: String(input.branch || '').trim() || null })
+    } catch (error) {
+      log(`the manifest pre-flight for ${repo} failed: ${error?.message || error}`)
+      return { ok: true, repo, verdict: null, note: `the manifest could not be checked in advance (${error?.message || error}), so the clone verifies it` }
+    }
+    if (verdict && verdict.installable === false && verdict.verified === true) {
+      return {
+        ok: false,
+        code: INSTALL_REASONS.BAD_MANIFEST,
+        reason: `${repo} has no ${MANIFEST_FILE} at ${verdict.branch || String(input.branch || '').trim() || 'its default branch'}: it is not a DS-Hns plugin (${PLUGIN_API_VERSION}), so nothing was downloaded`,
+        checked: verdict
+      }
+    }
+    return { ok: true, repo, verdict: verdict && typeof verdict === 'object' ? verdict : null }
+  }
+
+  /**
    * Stage one repository: put its code on disk and verify it. Nothing runs.
    *
-   * @param {object} input `{ repo, branch, replace }`
+   * @param {object} input `{ repo, branch, replace, verdict }` — `verdict` is a pre-flight
+   *   answer from `preflight`, which lets a caller that already asked GitHub skip the clone
+   *   by passing it in; a refusal here happens *before* anything is downloaded.
    */
   function stage(input = {}) {
     const repo = normalizeRepo(input.repo)
@@ -174,6 +222,21 @@ function createStoreInstaller(options = {}) {
     const branch = String(input.branch || '').trim() || null
     const id = directoryNameFor(repo)
     const dir = path.join(storeDir, id)
+
+    // The pre-flight refusal, before the disk is touched: an installed repository that is not a
+    // plugin is refused in one request instead of one download.
+    const verdict = input.verdict && typeof input.verdict === 'object' ? input.verdict : null
+    if (verdict && verdict.installable === false && verdict.verified === true) {
+      const refused = {
+        ok: false,
+        code: INSTALL_REASONS.BAD_MANIFEST,
+        reason: `${repo} has no ${MANIFEST_FILE} at ${verdict.branch || branch || 'its default branch'}: it is not a DS-Hns plugin (${PLUGIN_API_VERSION}), so nothing was downloaded`,
+        checked: verdict
+      }
+      remember({ action: 'stage', repo, branch, id, ok: false, reason: refused.reason })
+      log(`refused ${repo} before cloning: ${refused.reason}`)
+      return refused
+    }
 
     if (fs.existsSync(dir)) {
       if (input.replace !== true) {
@@ -328,7 +391,18 @@ function createStoreInstaller(options = {}) {
         continue
       }
       item.status = 'staging'
-      const staged = stage({ repo: item.repo, branch: item.branch, replace: input.replace === true })
+      // One request per candidate before one download per candidate: a queued repository that
+      // is not a plugin fails here, in the list, without costing a clone.
+      const checked = input.preflight === false ? { ok: true, verdict: null } : await preflight({ repo: item.repo, branch: item.branch })
+      if (checked.ok === false) {
+        item.status = 'failed'
+        item.reason = checked.reason || null
+        item.id = null
+        item.version = null
+        results.push({ ...item })
+        continue
+      }
+      const staged = stage({ repo: item.repo, branch: item.branch, replace: input.replace === true, verdict: checked.verdict })
       item.status = staged.ok ? 'staged' : 'failed'
       item.reason = staged.reason || null
       item.id = staged.ok ? staged.entry.id : null
@@ -369,6 +443,7 @@ function createStoreInstaller(options = {}) {
     stateFile,
     historyFile,
     stage,
+    preflight,
     enable,
     disable,
     remove,

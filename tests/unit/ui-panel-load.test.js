@@ -159,6 +159,7 @@ test('every dock script loads in the dock\'s order and publishes its global', ()
   assert.deepEqual(scripts, [
     'balance-module.js',
     'theme-bridge.js',
+    'glass-layer.js',
     'theme-panel.js',
     'skills-panel.js',
     'computer-use-panel.js',

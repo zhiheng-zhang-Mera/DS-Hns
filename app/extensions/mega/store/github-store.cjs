@@ -174,6 +174,24 @@ function checkManifest(text, owner) {
 }
 
 /**
+ * `owner/name`, a GitHub URL, or nothing.
+ *
+ * This is the shape of a repository the user *named*, as opposed to one they described. The
+ * difference matters: GitHub currently has no repositories carrying this platform's topic at all,
+ * so a store that can only search the topic answers "0 results" to a user who pasted the exact
+ * repository they want. A named repository is fetched directly instead, and its own verdict is
+ * what the panel reports.
+ */
+function namedRepository(value) {
+  const text = String(value || '')
+    .trim()
+    .replace(/^https?:\/\/github\.com\//i, '')
+    .replace(/\.git$/i, '')
+    .replace(/\/+$/, '')
+  return /^[\w.-]+\/[\w.-]+$/.test(text) ? text : null
+}
+
+/**
  * @param {object} [options]
  * @param {Function} [options.request] injectable transport, `(url, options) => Promise`
  * @param {string} [options.token] a GitHub token, when the deployment has one
@@ -184,11 +202,32 @@ function createPluginStore(options = {}) {
   const log = typeof options.log === 'function' ? options.log : () => {}
   const token = options.token || process.env.GITHUB_TOKEN || null
   const history = []
+  /** Default branches already resolved this session, so the store asks GitHub once per repo. */
+  const defaultBranches = new Map()
 
   function remember(entry) {
     history.push(entry)
     if (history.length > 50) history.splice(0, history.length - 50)
     return entry
+  }
+
+  /**
+   * The repository's real default branch, or null when it cannot be established.
+   *
+   * A manifest URL cannot be guessed. The store's first live target defaults to `dev`, so a
+   * probe of `main` answers 404 for a repository that is perfectly fine, and a 404 read as "no
+   * manifest" would be a false verdict about somebody else's repository. `null` is deliberately
+   * a different answer from "main": unknown means the caller must not refuse anything, only the
+   * clone can decide.
+   */
+  async function defaultBranch(repo, settings = {}) {
+    const full = String(repo || '').trim()
+    if (!full) return null
+    if (defaultBranches.has(full)) return defaultBranches.get(full)
+    const answer = await request(`https://api.github.com/repos/${full}`, { token, timeoutMs: settings.timeoutMs })
+    const branch = answer && answer.ok === true && answer.json && answer.json.default_branch ? String(answer.json.default_branch) : null
+    if (branch) defaultBranches.set(full, branch)
+    return branch
   }
 
   /**
@@ -204,6 +243,31 @@ function createPluginStore(options = {}) {
     const topicOnly = input.topic !== false
     if (query.length > 120) {
       return remember({ ok: false, code: STORE_REASONS.BAD_QUERY, reason: 'the query is longer than 120 characters' })
+    }
+    // A named repository is not a search: it is a target. Answering it with a topic filter would
+    // report "nothing found" for a repository the user is looking at in another window.
+    const named = namedRepository(query)
+    if (named) {
+      const answer = await request(`https://api.github.com/repos/${named}`, { token, timeoutMs: input.timeoutMs })
+      if (!answer || answer.ok !== true) {
+        const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
+        const reason = code === STORE_REASONS.NO_MANIFEST
+          ? `${named} does not exist, or the store is not allowed to read it`
+          : (answer && answer.reason) || 'the repository could not be read'
+        return remember({ ok: false, code, reason })
+      }
+      const result = describeRepository(answer.json, { installable: null, manifestReason: 'not checked yet' })
+      log(`store fetched the named repository ${named}`)
+      return remember({
+        ok: true,
+        query: named,
+        named: true,
+        topic: null,
+        total: 1,
+        results: [result],
+        rateLimit: answer.headers && answer.headers['x-ratelimit-remaining'] ? Number(answer.headers['x-ratelimit-remaining']) : null,
+        authenticated: Boolean(token)
+      })
     }
     const q = [query, topicOnly ? `topic:${PLUGIN_TOPIC}` : ''].filter(Boolean).join(' ')
     const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=${encodeURIComponent(String(input.sort || 'stars'))}&order=desc&per_page=${limit}`
@@ -233,22 +297,35 @@ function createPluginStore(options = {}) {
    */
   async function inspect(input = {}) {
     const repository = input.repository && typeof input.repository === 'object' ? input.repository : null
-    const url = input.manifestUrl || (repository && repository.manifestUrl) || manifestUrlFor(String(input.id || ''), String(input.branch || 'main'))
+    const id = String(input.id || (repository && repository.id) || '').trim()
+    let branch = String(input.branch || (repository && repository.branch) || '').trim()
+    // A search result already carries the default branch; a bare `owner/name` does not, and
+    // guessing `main` is what produces a wrong "no manifest" verdict for a `dev`-defaulted
+    // repository. One API call settles it, and being unable to settle it is not a refusal.
+    if (!branch && !input.manifestUrl && id && !repository) {
+      const resolved = await defaultBranch(id, input)
+      if (resolved) branch = resolved
+    }
+    const url = input.manifestUrl || (repository && repository.manifestUrl) || manifestUrlFor(id, branch || 'main')
     if (!url) return remember({ ok: false, code: STORE_REASONS.BAD_QUERY, reason: 'a repository or a manifest URL is required' })
+    // `verified` is the difference between "we looked where the manifest has to be" and "we
+    // looked where it usually is": only a verified absence may refuse an install.
+    const verified = Boolean(input.manifestUrl || branch)
     const answer = await request(url, { token, timeoutMs: input.timeoutMs })
     if (!answer || answer.ok !== true) {
       const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
+      const where = branch ? `at ${branch}` : 'at its default branch (which could not be resolved, so main was tried)'
       const reason = code === STORE_REASONS.NO_MANIFEST
-        ? `this repository has no ${MANIFEST_FILE} at its default branch, so it is not installable yet`
+        ? `this repository has no ${MANIFEST_FILE} ${where}, so it is not installable yet`
         : (answer && answer.reason) || 'the manifest could not be read'
-      return remember({ ok: true, url, installable: false, code, reason })
+      return remember({ ok: true, url, installable: false, verified, branch: branch || null, code, reason })
     }
     // GitHub's raw endpoint returns text; the transport parses JSON when it can, so accept
     // both a parsed object and the raw text.
     const checked = typeof answer.json === 'object' && answer.json !== null
       ? checkManifest(JSON.stringify(answer.json), repository && repository.id)
       : checkManifest(answer.text || '', repository && repository.id)
-    return remember({ ok: true, url, ...checked })
+    return remember({ ok: true, url, verified, branch: branch || null, ...checked })
   }
 
   return {
@@ -256,8 +333,10 @@ function createPluginStore(options = {}) {
     MANIFEST_FILE,
     search,
     inspect,
+    defaultBranch,
     checkManifest,
     describeRepository,
+    namedRepository,
     history: () => history.slice(),
     authenticated: () => Boolean(token),
     /** What the UI shows about the channel itself. */
@@ -267,7 +346,7 @@ function createPluginStore(options = {}) {
         manifestFile: MANIFEST_FILE,
         apiVersion: PLUGIN_API_VERSION,
         authenticated: Boolean(token),
-        note: 'Search only: installation is a deliberate act — clone the repository into the plugin directory and enable it in the manager.'
+        note: 'Search the plugin topic, or name a repository (owner/name or its URL) to check it directly. Installation is a deliberate act: stage the code, then enable it in the manager.'
       }
     }
   }
@@ -284,6 +363,7 @@ module.exports = {
   checkManifest,
   describeRepository,
   manifestUrlFor,
+  namedRepository,
   defaultRequest,
   PLUGIN_TOPIC,
   MANIFEST_FILE,

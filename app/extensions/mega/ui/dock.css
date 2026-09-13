@@ -779,3 +779,119 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
 .pm-queue{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
   background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l2)}
 .pm-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+
+/* =====================================================================================
+   Frosted glass (半透明磨砂玻璃)
+   =====================================================================================
+
+   Every DS-Hns surface is a pane of translucent frosted glass. The official UI is *not* one
+   of them, and that is structural rather than a promise: the official renderer is a separate
+   `WebContentsView` with its own document, and this stylesheet is never loaded into it — the
+   official shell and overlay carry their own inline styles, so nothing here can reach them.
+
+   How it is built, and why this way:
+
+   1. **The colours stay the skin's.** Glass is an *effect over* the active theme, never a
+      palette beside it. Every tint below is a `color-mix()` of a theme token with
+      transparency, so a skin installed after this feature still decides what the glass looks
+      like — which is what "works alongside other desktop skin plugins" has to mean in code.
+      There is not one literal colour in this block, and a test enforces that.
+   2. **The tokens are redirected, not every component.** Every surface in this dock already
+      paints with `--hns-color-bg-layer1` / `--hns-slot-panel-bg` and their siblings, so the
+      layer redefines those on `body[data-glass="on"]` instead of listing two hundred
+      selectors. A panel added later is frosted because it uses the palette, not because
+      somebody remembered to add it here.
+   3. **The sources are captured first.** `--hns-glass-src-*` are computed on `:root` and
+      inherited, so the body-level redefinition mixes the *original* colour rather than
+      referring to itself: `--hns-color-bg-layer1: color-mix(..., var(--hns-glass-src-layer1))`
+      has no cycle. The same capture is why a theme's slot styles survive the layer.
+   4. **The base layer stays opaque.** Only surfaces *above* the base become translucent.
+      A dark skin over a light window background would otherwise wash out, and the glass is
+      only legible when what shows through is the skin.
+   5. **A skin's own blur adds to the product's.** The filter sums `--hns-effect-blur` (a theme
+      token that has existed all along) with the product's baseline, so a skin that asks for
+      more effect gets more.
+   6. **The numbers are user state.** `--hns-glass-blur` and `--hns-glass-alpha` are written by
+      `glass-layer.js` from `data/state/ui-glass.json`, so the Appearance panel's switch and
+      this stylesheet cannot disagree about what is in force.
+   ===================================================================================== */
+:root{
+  /* Baseline effect. Both numbers are overwritten by the dock's glass script. */
+  --hns-glass-blur:18px;
+  --hns-glass-alpha:62%;
+  --hns-glass-saturate:1.4;
+  --hns-glass-sheen:7%;
+  /* The product's blur plus whatever the active skin asked for. */
+  --hns-glass-filter:blur(calc(var(--hns-glass-blur) + var(--hns-effect-blur))) saturate(var(--hns-glass-saturate));
+  /* The skin's own values, captured before they are redirected. */
+  --hns-glass-src-layer1:var(--hns-color-bg-layer1);
+  --hns-glass-src-layer2:var(--hns-color-bg-layer2);
+  --hns-glass-src-raised:var(--hns-color-bg-raised);
+  --hns-glass-src-overlay:var(--hns-color-bg-overlay);
+  --hns-glass-src-border1:var(--hns-color-border-l1);
+  --hns-glass-src-border2:var(--hns-color-border-l2);
+  --hns-glass-src-shell:var(--hns-slot-shell-bg);
+  --hns-glass-src-panel:var(--hns-slot-panel-bg);
+  --hns-glass-src-card:var(--hns-slot-card-bg);
+  --hns-glass-src-queue:var(--hns-slot-queue-bg);
+  --hns-glass-src-badge:var(--hns-slot-badge-bg);
+  --hns-glass-src-input:var(--hns-slot-input-bg);
+  --hns-glass-src-header:var(--hns-slot-header-bg);
+}
+body[data-glass="on"]{
+  --hns-color-bg-layer1:color-mix(in srgb,var(--hns-glass-src-layer1) var(--hns-glass-alpha),transparent);
+  --hns-color-bg-layer2:color-mix(in srgb,var(--hns-glass-src-layer2) var(--hns-glass-alpha),transparent);
+  --hns-color-bg-raised:color-mix(in srgb,var(--hns-glass-src-raised) var(--hns-glass-alpha),transparent);
+  --hns-color-bg-overlay:color-mix(in srgb,var(--hns-glass-src-overlay) var(--hns-glass-alpha),transparent);
+  --hns-color-border-l1:color-mix(in srgb,var(--hns-glass-src-border1) 72%,transparent);
+  --hns-color-border-l2:color-mix(in srgb,var(--hns-glass-src-border2) 72%,transparent);
+  --hns-slot-shell-bg:color-mix(in srgb,var(--hns-glass-src-shell) var(--hns-glass-alpha),transparent);
+  --hns-slot-panel-bg:color-mix(in srgb,var(--hns-glass-src-panel) var(--hns-glass-alpha),transparent);
+  --hns-slot-card-bg:color-mix(in srgb,var(--hns-glass-src-card) var(--hns-glass-alpha),transparent);
+  --hns-slot-queue-bg:color-mix(in srgb,var(--hns-glass-src-queue) var(--hns-glass-alpha),transparent);
+  --hns-slot-badge-bg:color-mix(in srgb,var(--hns-glass-src-badge) var(--hns-glass-alpha),transparent);
+  --hns-slot-input-bg:color-mix(in srgb,var(--hns-glass-src-input) var(--hns-glass-alpha),transparent);
+  --hns-slot-header-bg:color-mix(in srgb,var(--hns-glass-src-header) var(--hns-glass-alpha),transparent);
+  /* The sheen that makes a translucent pane read as glass rather than as a faded panel. */
+  --hns-glass-sheen-current:color-mix(in srgb,var(--hns-color-label-primary) var(--hns-glass-sheen),transparent);
+}
+/* The two scrollers: a soft wash of the skin's accent, so the panes above them have something
+   to frost instead of a flat rectangle. It is a gradient over the opaque base, so no light
+   window background can wash the skin out. */
+body[data-glass="on"] #rail,
+body[data-glass="on"] #detail{
+  background-image:linear-gradient(158deg,color-mix(in srgb,var(--hns-color-accent-primary) 10%,transparent),transparent 60%);
+  backdrop-filter:var(--hns-glass-filter)
+}
+/* Sticky chrome and every pane: the blur is what the eye reads as "frosted". */
+body[data-glass="on"] .dock-header,
+body[data-glass="on"] .panel-head{backdrop-filter:var(--hns-glass-filter)}
+body[data-glass="on"] :is(.panel,.summary-card,.pm-sheet,.settings-sheet,.live-view-sheet,.theme-detail,.theme-current,.queue-item,.worker-card,.skill-card,.plug-row,.balance-card,.update-item,.hardware-item,.period-card,.lv-card,.sw-node,.sw-pool,.provider-item,.task-form,.timer-card,.pm-row,.pm-queue,.mode-option){
+  background-image:linear-gradient(180deg,var(--hns-glass-sheen-current),transparent 62%);
+  backdrop-filter:var(--hns-glass-filter)
+}
+/* The scrims behind a float: the dock's own content is what gets frosted, which is the most
+   visible glass in the product. Their hard-coded black is replaced by the skin's overlay
+   colour for the same reason as everything else here. */
+body[data-glass="on"] :is(.pm-backdrop,.settings-overlay,.live-view-overlay){
+  background:color-mix(in srgb,var(--hns-color-bg-overlay) 55%,transparent);
+  backdrop-filter:var(--hns-glass-filter)
+}
+/* Without backdrop blur the panes keep their translucency and simply do not blur, so the tint
+   is raised to hold the contrast the skin had. The layer is never silently dropped. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  body[data-glass="on"]{--hns-glass-alpha:92%}
+}
+
+/* The Appearance panel's frosted-glass block: the switch and the two numbers behind it. It is
+   part of that panel's markup but styled with the same tokens, so it frosts with everything
+   else and a skin restyles it without knowing it exists. */
+.theme-glass{margin:9px 0 0;padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
+.theme-glass label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.theme-glass input[type="checkbox"]{width:15px;height:15px;accent-color:var(--hns-color-accent-primary)}
+.theme-glass-note{margin:6px 0 0;font-size:10px;line-height:1.5;color:var(--hns-color-label-tertiary)}
+.theme-glass-note small{font-size:9px;color:var(--hns-color-label-tertiary)}
+.theme-glass-range{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:7px;margin-top:6px;font-size:10px;color:var(--hns-color-label-secondary)}
+.theme-glass-range input[type="range"]{width:100%;accent-color:var(--hns-color-accent-primary)}
+/* With the layer off, the two numbers have nothing to describe. */
+.theme-glass[data-enabled="0"] .theme-glass-range{opacity:.45}

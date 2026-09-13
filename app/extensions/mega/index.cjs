@@ -53,6 +53,9 @@ const CHANNELS = [
   'mega:store-remove', 'mega:store-reinstall', 'mega:store-queue',
   // The feature manager: which of the dock's features are switched on.
   'mega:features-snapshot', 'mega:features-set',
+  // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
+  // numbers that describe how strong it is (the official UI has no part in it).
+  'mega:ui-glass', 'mega:ui-glass-set',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -1290,24 +1293,42 @@ let storeInstaller = null
 function installer() {
   if (storeInstaller) return storeInstaller
   const { createStoreInstaller } = require('./store/installer.cjs')
-  storeInstaller = createStoreInstaller({ root: PATHS.ROOT, log: (message) => log(`store: ${message}`) })
+  storeInstaller = createStoreInstaller({
+    root: PATHS.ROOT,
+    log: (message) => log(`store: ${message}`),
+    // The pre-flight is the store's own manifest check, so a repository that is not a plugin is
+    // refused in one request instead of one clone — the store already knows how to ask GitHub.
+    probe: (input) => store().inspect({ id: input.repo, branch: input.branch })
+  })
   return storeInstaller
 }
 
 /**
- * Tell the plugin host that the installed set changed.
+ * Tell the plugin host that the installed set changed, and wait for it to finish.
  *
  * The host keeps a built world; this is the shell's chance to drop it so an enable takes effect
- * without a restart. It is an event rather than a return value because the sender is the
- * extension and the listener is the shell, and a listener that is not attached must be a
- * no-op rather than a failure.
+ * without a restart. The shell hands the extension a hook, so the store's IPC answer is sent
+ * only after the rebuild: otherwise the panel would refresh its list while the plugin was still
+ * being mounted and show the set from before the button. When the hook is absent (a build wired
+ * differently) the fallback is the event, which is a no-op rather than a failure when nothing
+ * listens.
  */
-function notifyPluginHostReload() {
+async function notifyPluginHostReload() {
+  const hook = ctx && typeof ctx.reloadInstalledPlugins === 'function' ? ctx.reloadInstalledPlugins : null
+  if (hook) {
+    try {
+      return await hook('the plugin store changed the installed set')
+    } catch (error) {
+      log(`could not reload the plugin host: ${error?.message || error}`)
+      return null
+    }
+  }
   try {
     ctx.electron.ipcMain.emit('mega:installed-plugins-changed')
   } catch (error) {
     log(`could not notify the plugin host: ${error?.message || error}`)
   }
+  return null
 }
 
 function registerStoreIpc() {
@@ -1331,32 +1352,40 @@ function registerStoreIpc() {
     history: installer().history(),
     queue: installer().queue()
   })))
-  ipcMain.handle('mega:store-stage', guard((_event, payload = {}) => {
-    const result = installer().stage({ repo: payload.repo, branch: payload.branch, replace: payload.replace === true })
+  ipcMain.handle('mega:store-stage', guard(async (_event, payload = {}) => {
+    // The manifest is checked before the download, not after it: a repository that is not a
+    // DS-Hns plugin is answered in one request rather than one clone. An inconclusive check
+    // (no network, an unresolved default branch) falls through to the clone, which decides.
+    const checked = await installer().preflight({ repo: payload.repo, branch: payload.branch })
+    const result = checked.ok === false
+      ? checked
+      : installer().stage({ repo: payload.repo, branch: payload.branch, replace: payload.replace === true, verdict: checked.verdict })
     notifyChanged()
     return result
   }))
-  ipcMain.handle('mega:store-enable', guard((_event, payload = {}) => {
+  ipcMain.handle('mega:store-enable', guard(async (_event, payload = {}) => {
     const result = installer().enable({ id: payload.id })
-    if (result.ok) notifyPluginHostReload()
+    if (result.ok) await notifyPluginHostReload()
     notifyChanged()
     return result
   }))
-  ipcMain.handle('mega:store-disable', guard((_event, payload = {}) => {
+  ipcMain.handle('mega:store-disable', guard(async (_event, payload = {}) => {
     const result = installer().disable({ id: payload.id })
-    if (result.ok) notifyPluginHostReload()
+    if (result.ok) await notifyPluginHostReload()
     notifyChanged()
     return result
   }))
-  ipcMain.handle('mega:store-remove', guard((_event, payload = {}) => {
+  ipcMain.handle('mega:store-remove', guard(async (_event, payload = {}) => {
     const result = installer().remove({ id: payload.id })
-    if (result.ok) notifyPluginHostReload()
+    if (result.ok) await notifyPluginHostReload()
     notifyChanged()
     return result
   }))
-  ipcMain.handle('mega:store-reinstall', guard((_event, payload = {}) => {
+  ipcMain.handle('mega:store-reinstall', guard(async (_event, payload = {}) => {
     const result = installer().reinstall({ id: payload.id, repo: payload.repo, branch: payload.branch })
-    if (result.ok && result.enabled) notifyPluginHostReload()
+    // A reinstall of a plugin that is switched off changes the files but not the running set,
+    // so it only reloads the world when the plugin came back enabled.
+    if (result.ok && result.enabled) await notifyPluginHostReload()
     notifyChanged()
     return result
   }))
@@ -1456,6 +1485,60 @@ function registerIpc() {
   // The feature manager's own channels, registered last and never gated: switching a feature
   // off is how a user fixes one, so the switch itself may not be behind a feature.
   registerFeatureIpc()
+  // The glass layer is chrome, not a feature: it styles the shell the other features live in,
+  // so it is never gated — a user who switched a feature off must still be able to read the
+  // panel that says so.
+  registerGlassIpc()
+}
+
+/**
+ * The frosted-glass layer's channels.
+ *
+ * The dock asks what the layer is made of and may change it; the shell owns the file and
+ * validates every value, so the toggle and the stylesheet cannot disagree about what is in
+ * force. The state is pushed to the dock on every change, because the Appearance panel and any
+ * other surface that shows a switch have to move together.
+ */
+function registerGlassIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`glass ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error), code: 'GLASS_IPC_FAILED' }
+    }
+  }
+  ipcMain.handle('mega:ui-glass', guard(() => glass().describe()))
+  ipcMain.handle('mega:ui-glass-set', guard((_event, payload = {}) => {
+    const result = glass().set(payload || {})
+    if (result.ok) {
+      try {
+        dockTarget.send('mega:ui-glass-changed', result)
+      } catch (error) {
+        log(`could not push the glass state: ${error?.message || error}`)
+      }
+    }
+    return result
+  }))
+}
+
+/**
+ * The glass state, created lazily like the feature registry.
+ *
+ * Deployment defaults may come from `config.mega.glass`; the user's own choice is stored in
+ * `data/state/ui-glass.json` and wins over them.
+ */
+let glassState = null
+function glass() {
+  if (glassState) return glassState
+  const { createUiGlass } = require('./ui-glass.cjs')
+  glassState = createUiGlass({
+    root: PATHS.ROOT,
+    defaults: (ctx.config && ctx.config.mega && ctx.config.mega.glass) || {},
+    log: (message) => log(`glass: ${message}`)
+  })
+  return glassState
 }
 
 /**

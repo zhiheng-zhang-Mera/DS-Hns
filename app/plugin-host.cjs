@@ -271,6 +271,85 @@ function createPluginHost(options = {}) {
   /** The ids that came from the store, so the lock can tell them from the shipped set. */
   const installedIds = new Set()
 
+  /** Where a third-party plugin's code lands: the one subtree that may be reloaded. */
+  function storeDirectory() {
+    return path.join(root, 'data', 'plugins', 'store')
+  }
+
+  /**
+   * Drop the module cache for everything under the store directory.
+   *
+   * `require` caches by resolved path, so a plugin that was removed and installed again —
+   * or reinstalled from a newer commit — would otherwise be handed back as the *old* module
+   * object, and the "reinstall" button would appear to do nothing. Only the store's own
+   * subtree is purged: the product's shipped plugins are not reloadable from disk and must
+   * keep their single instance.
+   */
+  function purgeInstalledCache() {
+    const base = storeDirectory()
+    let purged = 0
+    for (const file of Object.keys(require.cache)) {
+      const relative = path.relative(base, file)
+      if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue
+      delete require.cache[file]
+      purged += 1
+    }
+    return purged
+  }
+
+  /**
+   * Re-read the installed set and, when the world is already built, rebuild it in place.
+   *
+   * Enabling, disabling, removing or reinstalling a store plugin used to need a restart,
+   * because the world is built once and cached. This is the other half of that contract: the
+   * shell calls it when the store reports that the installed set changed, the store's cached
+   * modules are dropped, and the world is rebuilt — so the plugin set the panel shows and the
+   * plugin set the runtime is running are the same set, without the user restarting DS-Hns.
+   *
+   * A world that was never built is deliberately *not* built here. It is built on first use
+   * from the same file this would have re-read, so building it now would only make the user
+   * pay for a plugin load they have not asked for; the answer says so instead of lying about
+   * having reloaded something.
+   */
+  async function refreshInstalled(why = 'the installed plugin set changed') {
+    const off = disabled()
+    if (off) return off
+    const before = new Set(installedIds)
+    const purged = purgeInstalledCache()
+    installedIds.clear()
+    installedFailures.length = 0
+    if (!manager) {
+      return {
+        ok: true,
+        rebuilt: false,
+        built: false,
+        why,
+        purged,
+        mounted: [],
+        removed: [],
+        failures: [],
+        note: 'the plugin runtime has not been built yet; its first build reads the installed set from disk'
+      }
+    }
+    const outcome = await rebuild()
+    const after = new Set(installedIds)
+    const mounted = [...after].filter((id) => !before.has(id))
+    const removed = [...before].filter((id) => !after.has(id))
+    const failures = installedFailures.slice()
+    log(`installed plugin set refreshed (${why}): ${mounted.length} mounted, ${removed.length} removed, ${failures.length} failed, ${purged} cached module(s) dropped`)
+    return {
+      ok: outcome.ok !== false,
+      rebuilt: true,
+      built: true,
+      why,
+      purged,
+      mounted,
+      removed,
+      failures,
+      error: outcome.ok === false ? outcome.error : null
+    }
+  }
+
   /** The config block the manager is constructed with, resolved through the layering. */
   function managerConfig(plugins) {
     const out = { plugins: {} }
@@ -646,7 +725,7 @@ function createPluginHost(options = {}) {
   }
 
   return {
-    PLUGIN_CHANNELS: ['plugins:status', 'plugins:list', 'plugins:describe', 'plugins:enable', 'plugins:reload', 'plugins:health', 'plugins:capabilities', 'plugins:execution', 'plugins:configure', 'plugins:lock'],
+    PLUGIN_CHANNELS: ['plugins:status', 'plugins:list', 'plugins:describe', 'plugins:enable', 'plugins:reload', 'plugins:health', 'plugins:refresh', 'plugins:capabilities', 'plugins:execution', 'plugins:configure', 'plugins:lock'],
     EXECUTION_SCHEMA,
     PLUGIN_GROUPS,
     ensure,
@@ -655,6 +734,7 @@ function createPluginHost(options = {}) {
     describe,
     setEnabled,
     reload,
+    refreshInstalled,
     health,
     capabilities,
     execution,

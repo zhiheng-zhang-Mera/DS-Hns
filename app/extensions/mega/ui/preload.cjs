@@ -133,6 +133,19 @@ contextBridge.exposeInMainWorld('megaTools', {
     map: () => ({ ...featureMap }),
     onChanged: (callback) => ipcRenderer.on('mega:features', (_event, payload) => callback(payload))
   },
+  /**
+   * The frosted-glass layer.
+   *
+   * It styles every DS-Hns surface — the dock, its panels, its floats — and the official UI is
+   * deliberately not one of them: the layer lives in this document, so it cannot reach the
+   * official renderer even in principle. The values are numbers because the *colours* keep
+   * coming from the active skin; the shell validates every patch.
+   */
+  glass: {
+    describe: () => ipcRenderer.invoke('mega:ui-glass'),
+    set: (patch) => ipcRenderer.invoke('mega:ui-glass-set', patch),
+    onChanged: (callback) => ipcRenderer.on('mega:ui-glass-changed', (_event, payload) => callback(payload))
+  },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),
@@ -303,7 +316,11 @@ contextBridge.exposeInMainWorld('megaPlugins', {
   health: (input) => ipcRenderer.invoke('plugins:health', input),
   execution: () => ipcRenderer.invoke('plugins:execution'),
   configure: (input) => ipcRenderer.invoke('plugins:configure', input),
-  lock: (input) => ipcRenderer.invoke('plugins:lock', input)
+  lock: (input) => ipcRenderer.invoke('plugins:lock', input),
+  // Enabling, disabling or removing an installed plugin rebuilds the world in place, so the
+  // panel can ask for a rescan and can be told when the world moved underneath it.
+  refresh: () => ipcRenderer.invoke('plugins:refresh'),
+  onChanged: (callback) => ipcRenderer.on('plugins:changed', (_event, payload) => callback(payload))
 })
 
 /**

@@ -64,6 +64,7 @@ function harness(behaviour = {}) {
   const installer = createStoreInstaller({
     root: dir,
     clone: fake.clone,
+    probe: behaviour.probe,
     now: () => 1_700_000_000_000,
     log: () => {},
     storeDir: path.join(dir, 'data', 'plugins', 'store'),
@@ -276,5 +277,110 @@ test('an unknown id is refused by every acting call', () => {
     assert.equal(installer.entry('nope'), null)
   } finally {
     dispose()
+  }
+})
+
+/**
+ * The pre-flight: one request instead of one download.
+ *
+ * This exists because of a real repository — a 933 MB monorepo whose root has no manifest, so
+ * cloning it to learn that one fact costs a gigabyte of disk and half a minute. The refusal is
+ * only allowed on a *verified* absence: a rate limit, an unresolved default branch or a missing
+ * probe must fall through to the clone, because refusing somebody's real plugin is worse than
+ * downloading it.
+ */
+test('a repository with no manifest is refused before anything is downloaded', async () => {
+  const probed = []
+  const harnessed = harness({
+    probe: async (input) => {
+      probed.push({ ...input })
+      return { ok: true, installable: false, verified: true, branch: 'dev', code: 'STORE_NO_MANIFEST', reason: 'this repository has no dshns-plugin.json at dev' }
+    }
+  })
+  try {
+    const checked = await harnessed.installer.preflight({ repo: 'zhu1090093659/dsh-web', branch: 'dev' })
+    assert.equal(checked.ok, false)
+    assert.equal(checked.code, INSTALL_REASONS.BAD_MANIFEST)
+    assert.match(checked.reason, /nothing was downloaded/, 'the refusal must say that nothing was fetched')
+    assert.equal(harnessed.fake.calls.length, 0, 'a refused repository must not be cloned')
+
+    // The same verdict handed to `stage` refuses there too, still without touching the disk.
+    const staged = harnessed.installer.stage({
+      repo: 'zhu1090093659/dsh-web',
+      branch: 'dev',
+      verdict: { installable: false, verified: true, branch: 'dev' }
+    })
+    assert.equal(staged.ok, false)
+    assert.equal(staged.code, INSTALL_REASONS.BAD_MANIFEST)
+    assert.match(staged.reason, /not a DS-Hns plugin/)
+    assert.equal(harnessed.fake.calls.length, 0)
+    const dir = path.join(harnessed.installer.storeDir, directoryNameFor('zhu1090093659/dsh-web'))
+    assert.equal(fs.existsSync(dir), false, 'a refused repository must not leave a directory behind')
+    assert.deepEqual(probed, [{ repo: 'zhu1090093659/dsh-web', branch: 'dev' }])
+  } finally {
+    harnessed.dispose()
+  }
+})
+
+test('an inconclusive manifest check refuses nothing: the clone decides', async () => {
+  const harnessed = harness({
+    probe: async () => ({ ok: true, installable: false, verified: false, reason: 'the default branch could not be resolved' })
+  })
+  try {
+    const checked = await harnessed.installer.preflight({ repo: 'acme/dshns-example' })
+    assert.equal(checked.ok, true, 'an unverified absence must not refuse an install')
+    assert.equal(checked.verdict.verified, false)
+    const staged = harnessed.installer.stage({ repo: 'acme/dshns-example', verdict: checked.verdict })
+    assert.equal(staged.ok, true, staged.reason)
+    assert.equal(harnessed.fake.calls.length, 1, 'the clone must still happen and verify the manifest itself')
+  } finally {
+    harnessed.dispose()
+  }
+})
+
+test('a probe that throws is reported as inconclusive rather than as a refusal', async () => {
+  const harnessed = harness({ probe: async () => { throw new Error('socket hang up') } })
+  try {
+    const checked = await harnessed.installer.preflight({ repo: 'acme/dshns-example' })
+    assert.equal(checked.ok, true)
+    assert.equal(checked.verdict, null)
+    assert.match(checked.note, /socket hang up/)
+    assert.equal(harnessed.installer.stage({ repo: 'acme/dshns-example', verdict: checked.verdict }).ok, true)
+  } finally {
+    harnessed.dispose()
+  }
+})
+
+test('an installer with no probe behaves exactly as it always did', async () => {
+  const harnessed = harness()
+  try {
+    const checked = await harnessed.installer.preflight({ repo: 'acme/dshns-example' })
+    assert.equal(checked.ok, true)
+    assert.equal(checked.verdict, null)
+    assert.match(checked.note, /no manifest probe/)
+    assert.equal(harnessed.installer.stage({ repo: 'acme/dshns-example' }).ok, true)
+  } finally {
+    harnessed.dispose()
+  }
+})
+
+test('the queue refuses a candidate that is not a plugin without cloning it', async () => {
+  const harnessed = harness({
+    probe: async ({ repo }) => (repo === 'acme/not-a-plugin'
+      ? { ok: true, installable: false, verified: true, reason: 'this repository has no dshns-plugin.json at main' }
+      : { ok: true, installable: true, verified: true })
+  })
+  try {
+    harnessed.installer.enqueue({ repo: 'acme/not-a-plugin' })
+    harnessed.installer.enqueue({ repo: 'acme/dshns-example' })
+    const run = await harnessed.installer.runQueue()
+    assert.deepEqual(run.results.map((item) => item.status), ['failed', 'staged'])
+    assert.match(run.results[0].reason, /no dshns-plugin\.json/)
+    assert.equal(run.staged, 1)
+    // The refused candidate cost one request; only the real plugin was downloaded.
+    assert.equal(harnessed.fake.calls.length, 1, 'the refused candidate must not have been cloned')
+    assert.equal(harnessed.fake.calls[0].url, 'https://github.com/acme/dshns-example.git')
+  } finally {
+    harnessed.dispose()
   }
 })

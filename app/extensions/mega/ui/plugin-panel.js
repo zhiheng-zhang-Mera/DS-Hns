@@ -411,11 +411,37 @@
       }
     }
 
-    if (buttons.refresh) buttons.refresh.addEventListener('click', () => refresh())
+    // The world is rebuilt in place when the store enables, disables or removes an installed
+    // plugin, so the panel follows the runtime instead of waiting for the next time it opens.
+    window.megaPlugins?.onChanged?.((payload) => {
+      const mounted = ((payload && payload.mounted) || []).join('、')
+      const removed = ((payload && payload.removed) || []).join('、')
+      if (mounted) say(`已即时挂载：${mounted}（无需重启）/ mounted live — no restart needed`, 'ok')
+      if (removed) say(`已停用或卸载：${removed} / no longer running`, 'ok')
+      refresh()
+    })
+    // The refresh button re-reads the world *and* asks the shell to re-read the installed set
+    // from disk, so a plugin copied into `data/plugins/store` by hand is picked up too. The
+    // rescan is what makes the button mean "look again", not "redraw what you have".
+    if (buttons.refresh) {
+      buttons.refresh.addEventListener('click', async () => {
+        const result = await window.megaPlugins?.refresh?.()
+        if (result && result.ok === false) say(`重新扫描失败 / rescan failed: ${result.error || ''}`, 'bad')
+        else if (result && result.rebuilt) say(`已重新扫描并重建插件世界 / rescanned and rebuilt the plugin world`, 'ok')
+        refresh()
+      })
+    }
     if (buttons.health) buttons.health.addEventListener('click', () => probeHealth(null))
     renderDetail(null)
-    return { refresh, select, applySettings, stop: () => {} }
+    const handle = { refresh, select, applySettings, stop: () => {} }
+    // The store tab lives in another module and must be able to move this list when it
+    // enables or removes a plugin, so the attached instance is reachable by name.
+    live = handle
+    return handle
   }
 
-  window.megaPluginPanel = { attach }
+  /** The attached panel, if any: what `window.megaPluginPanel.refresh()` forwards to. */
+  let live = null
+
+  window.megaPluginPanel = { attach, refresh: () => (live ? live.refresh() : null) }
 })()
