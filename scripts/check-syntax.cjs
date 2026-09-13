@@ -65,7 +65,10 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'acceptance.mjs'),
   path.join(ROOT, 'scripts', 'dual-ui-acceptance.mjs'),
   path.join(ROOT, 'scripts', 'sub-worker-acceptance.cjs'),
-  path.join(ROOT, 'scripts', 'computer-use-acceptance.cjs')
+  path.join(ROOT, 'scripts', 'computer-use-acceptance.cjs'),
+  // The long-running half of the acceptance harness (Update-Plan/24h.md §23-§26):
+  // the accelerated soak, the failure injections and scenarios A-G.
+  path.join(ROOT, 'scripts', 'computer-use-longrun-acceptance.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

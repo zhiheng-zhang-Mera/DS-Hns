@@ -9,9 +9,9 @@ name: verify
 # top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
-    branches: [main, merging, Theme-Cover, computer-use]
+    branches: [main, merging, Theme-Cover, computer-use, long-term-work]
   pull_request:
-    branches: [main, merging, Theme-Cover, computer-use]
+    branches: [main, merging, Theme-Cover, computer-use, long-term-work]
 
 jobs:
   verify:
@@ -126,6 +126,18 @@ jobs:
             'app/computer-use/isolation.cjs',
             'app/computer-use/autonomy.cjs',
             'app/computer-use/host-electron.cjs',
+            # The long-running execution surface (Update-Plan/24h.md Tasks 1-20).
+            'app/computer-use/focus.cjs',
+            'app/computer-use/modal.cjs',
+            'app/computer-use/evidence.cjs',
+            'app/computer-use/progress.cjs',
+            'app/computer-use/processes.cjs',
+            'app/computer-use/resources.cjs',
+            'app/computer-use/health.cjs',
+            'app/computer-use/workspace.cjs',
+            'app/computer-use/command.cjs',
+            'app/computer-use/mutation.cjs',
+            'app/computer-use/reconnect.cjs',
             'app/computer-use/controllers/browser.cjs',
             'app/computer-use/controllers/desktop.cjs',
             'app/computer-use/controllers/vision.cjs',
@@ -140,14 +152,48 @@ jobs:
             'app/computer-use/drivers/screenshot.ps1',
             'app/extensions/mega/ui/computer-use-panel.js',
             'scripts/computer-use-acceptance.cjs',
-            'docs/computer-use.md'
+            # The long-running half of the acceptance harness (24h.md 23-26): the
+            # accelerated soak, the twelve failure injections and scenarios A-G.
+            'scripts/computer-use-longrun-acceptance.cjs',
+            'tests/unit/computer-use-longrun-modules.test.js',
+            'tests/unit/computer-use-longrun-acceptance.test.js',
+            'tests/unit/computer-use-soak.test.js',
+            'docs/computer-use.md',
+            'docs/computer-use-acceptance.md'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
           if ($missing) { Write-Error "missing computer use files: $($missing -join ', ')"; exit 1 }
+          # A green gate over unchecked code is worse than a red one, so the
+          # long-running modules and their coverage are asserted by name too.
+          $longRunning = @(
+            'app/computer-use/focus.cjs',
+            'app/computer-use/modal.cjs',
+            'app/computer-use/evidence.cjs',
+            'app/computer-use/progress.cjs',
+            'app/computer-use/processes.cjs',
+            'app/computer-use/resources.cjs',
+            'app/computer-use/health.cjs',
+            'app/computer-use/workspace.cjs',
+            'app/computer-use/command.cjs',
+            'app/computer-use/mutation.cjs',
+            'app/computer-use/reconnect.cjs'
+          )
+          foreach ($file in $longRunning) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $longRunTests = Get-Content tests/unit/computer-use-longrun-modules.test.js -Raw
+          if ($longRunTests -notmatch 'Task 20') { Write-Error 'the long-running test file does not cover the plan tasks'; exit 1 }
+          $cuDoc = Get-Content docs/computer-use.md -Raw
+          if ($cuDoc -notmatch 'Long-running execution') { Write-Error 'docs/computer-use.md has no long-running execution section'; exit 1 }
+          $cuAcceptance = Get-Content docs/computer-use-acceptance.md -Raw
+          if ($cuAcceptance -notmatch 'failure-injection') { Write-Error 'the acceptance record has no failure-injection matrix'; exit 1 }
           $dirs = @('computer-use', 'computer-use/controllers', 'computer-use/drivers')
           $check = Get-Content scripts/check-syntax.cjs -Raw
           foreach ($dir in $dirs) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          foreach ($script in @('scripts/computer-use-acceptance.cjs', 'scripts/computer-use-longrun-acceptance.cjs')) {
+            if ($check -notmatch [regex]::Escape($script)) { Write-Error "check-syntax.cjs does not cover $script"; exit 1 }
           }
           $config = Get-Content config/app.json -Raw
           if ($config -notmatch '"computerUse"') { Write-Error 'config/app.json has no computerUse block'; exit 1 }

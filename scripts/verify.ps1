@@ -210,6 +210,11 @@ Write-Output '== Computer Use runtime (Update-Plan/computer-use.md) =='
 foreach ($file in @('index.cjs','constants.cjs','errors.cjs','ports.cjs','contract.cjs','criteria.cjs','action.cjs','target.cjs','world-state.cjs','state-machine.cjs','safety.cjs','routing.cjs','log.cjs','stabilization.cjs','verification.cjs','miss.cjs','recovery.cjs','stall.cjs','observer.cjs','executor.cjs','isolation.cjs','autonomy.cjs','host-electron.cjs')) {
   Check "Computer Use core module $file present" (Test-Path "$ROOT\app\computer-use\$file")
 }
+# Long-running execution (Update-Plan/24h.md Tasks 1-20): these modules are part of
+# the shipped surface, so the same presence-and-non-empty assert applies to them.
+foreach ($file in @('focus.cjs','modal.cjs','evidence.cjs','progress.cjs','processes.cjs','resources.cjs','health.cjs','workspace.cjs','command.cjs','mutation.cjs','reconnect.cjs')) {
+  Check "Computer Use long-running module $file present" ((Test-Path "$ROOT\app\computer-use\$file") -and ((Get-Item "$ROOT\app\computer-use\$file").Length -gt 0))
+}
 foreach ($file in @('browser.cjs','desktop.cjs','vision.cjs','shell.cjs','file.cjs')) {
   Check "Computer Use controller $file present" (Test-Path "$ROOT\app\computer-use\controllers\$file")
 }
@@ -260,6 +265,36 @@ Check 'Computer Use is configured in config/app.json' ((Get-Content "$ROOT\confi
 Check 'Subdirectories are covered by the syntax gate' (((Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw) -match 'computer-use/controllers') -and ((Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw) -match 'computer-use/drivers'))
 Check 'Computer Use reference doc exists' (Test-Path "$ROOT\docs\computer-use.md")
 Check 'Real Computer Use acceptance harness exists' (Test-Path "$ROOT\scripts\computer-use-acceptance.cjs")
+# Long-running execution gates (Update-Plan/24h.md Tasks 1-20).
+$cuFocus = Get-Content "$ROOT\app\computer-use\focus.cjs" -Raw
+$cuModal = Get-Content "$ROOT\app\computer-use\modal.cjs" -Raw
+$cuEvidence = Get-Content "$ROOT\app\computer-use\evidence.cjs" -Raw
+$cuProgress = Get-Content "$ROOT\app\computer-use\progress.cjs" -Raw
+$cuProcesses = Get-Content "$ROOT\app\computer-use\processes.cjs" -Raw
+$cuResources = Get-Content "$ROOT\app\computer-use\resources.cjs" -Raw
+$cuHealth = Get-Content "$ROOT\app\computer-use\health.cjs" -Raw
+$cuWorkspace = Get-Content "$ROOT\app\computer-use\workspace.cjs" -Raw
+$cuCommand = Get-Content "$ROOT\app\computer-use\command.cjs" -Raw
+$cuMutation = Get-Content "$ROOT\app\computer-use\mutation.cjs" -Raw
+$cuReconnect = Get-Content "$ROOT\app\computer-use\reconnect.cjs" -Raw
+Check 'Focus is trusted only after verification (24h plan 1)' (($cuFocus -match 'HARD_INVALIDATIONS') -and ($cuFocus -match 'FOCUS_INVALIDATION'))
+Check 'Modal handling is fail-safe and never picks the first button (24h plan 2)' (($cuModal -match 'DESTRUCTIVE_LABELS') -and ($cuModal -match 'SAFE_DISMISS_LABELS') -and ($cuModal -match 'USER_ACTION_REQUIRED'))
+Check 'Stabilization consumes every adaptive signal (24h plan 3/16)' (($cuStab -match 'function dynamicCooldown') -and ($cuStab -match 'navigationPending') -and ($cuStab -match 'targetDetached'))
+Check 'Evidence is graded by action risk (24h plan 4)' (($cuEvidence -match 'GRADE_ORDER') -and ($cuEvidence -match 'RISK_BAR') -and ($cuEvidence -match 'must declare its expected effect'))
+Check 'Progress counts only meaningful events (24h plan 5)' (($cuProgress -match 'PROGRESS_KINDS') -and ($cuProgress -match 'lastProgressAt'))
+Check 'The stall ladder is bounded and ends in fail_with_context (24h plan 6)' (($cuStall -match 'STALL_RECOVERY_LADDER') -and ($cuStall -match 'fail_with_context'))
+Check 'Owned processes are supervised, not forgotten (24h plan 7)' (($cuProcesses -match 'PROCESS_MODE') -and ($cuProcesses -match 'not_owned') -and ($cuProcesses -match 'function dispose'))
+Check 'Resource ceilings and screenshot retention are enforced (24h plan 8)' (($cuResources -match 'maxScreenshots') -and ($cuResources -match 'maxEvidenceBytes') -and ($cuResources -match 'transient'))
+Check 'Reconnection is bounded per step (24h plan 10)' (($cuReconnect -match 'RECONNECT_EXHAUSTED') -and ($cuReconnect -match 'function beginStep'))
+Check 'Workspace continuity is verified before every operation (24h plan 11)' (($cuWorkspace -match 'function resolveCwd') -and ($cuWorkspace -match 'WORKSPACE_UNAVAILABLE') -and ($cuWorkspace -match 'WORKSPACE_MISMATCH'))
+Check 'Filesystem mutations are verified against disk (24h plan 12/14)' (($cuMutation -match 'RESUME_VERDICT') -and ($cuMutation -match 'already_complete') -and ($cuMutation -match 'unverifiedError'))
+Check 'Shell commands carry a bounded contract (24h plan 13)' (($cuCommand -match 'COMMAND_DEFAULTS') -and ($cuCommand -match 'maxTimeoutMs') -and ($cuCommand -match 'function judge'))
+Check 'Health reports healthy / degraded / blocked with its block reasons (24h plan 19/20)' (($cuHealth -match 'HEALTH_STATUS') -and ($cuHealth -match 'BLOCK_REASONS') -and ($cuHealth -match 'state_integrity_uncertain'))
+Check 'Long-running log hygiene is implemented (24h plan 18)' (($cuLog -match 'DEFAULT_MAX_FILES') -and ($cuLog -match 'function rotate') -and ($cuLog -match 'reasonCode'))
+Check 'Long-running execution tests ship with the runtime' ((Test-Path "$ROOT\tests\unit\computer-use-longrun-modules.test.js") -and ((Get-Content "$ROOT\tests\unit\computer-use-longrun-modules.test.js" -Raw) -match 'Task 20'))
+Check 'The accelerated soak and failure-injection harness ships (24h plan 23-26)' ((Test-Path "$ROOT\scripts\computer-use-longrun-acceptance.cjs") -and ((Get-Content "$ROOT\scripts\computer-use-longrun-acceptance.cjs" -Raw) -match 'FAILURE_INJECTIONS') -and ((Get-Content "$ROOT\scripts\computer-use-longrun-acceptance.cjs" -Raw) -match 'Update-Plan/24h.md'))
+Check 'The reference doc records the long-running guarantees (24h plan 1-20)' ((Get-Content "$ROOT\docs\computer-use.md" -Raw) -match 'Long-running execution')
+Check 'The acceptance record targets the soak and the failure matrix (24h plan 23-25)' (((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'soak') -and ((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'failure-injection'))
 
 if (-not $SkipTests) {
   Write-Output ''

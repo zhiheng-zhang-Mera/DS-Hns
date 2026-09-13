@@ -41,7 +41,21 @@ const CORE_MODULES = [
   'app/computer-use/executor.cjs',
   'app/computer-use/isolation.cjs',
   'app/computer-use/autonomy.cjs',
-  'app/computer-use/host-electron.cjs'
+  'app/computer-use/host-electron.cjs',
+  // The long-running execution modules (Update-Plan/24h.md Tasks 1-20). They are
+  // part of the shipped surface, not helpers: the runtime loads every one of
+  // them, and the acceptance coverage asserts their guarantees.
+  'app/computer-use/focus.cjs',
+  'app/computer-use/modal.cjs',
+  'app/computer-use/evidence.cjs',
+  'app/computer-use/progress.cjs',
+  'app/computer-use/processes.cjs',
+  'app/computer-use/resources.cjs',
+  'app/computer-use/health.cjs',
+  'app/computer-use/workspace.cjs',
+  'app/computer-use/command.cjs',
+  'app/computer-use/mutation.cjs',
+  'app/computer-use/reconnect.cjs'
 ]
 
 const CONTROLLERS = [
@@ -94,9 +108,17 @@ test('the shell owns the runtime and registers its IPC surface', () => {
     'computer-use:log',
     'computer-use:screenshots',
     'computer-use:actions',
-    'computer-use:capabilities'
+    'computer-use:capabilities',
+    'computer-use:processes',
+    'computer-use:resources'
   ]) {
     assert.ok(shell.includes(`'${channel}'`), `the shell does not register ${channel}`)
+  }
+  // The long-running state readers are on the runtime surface, not only on the
+  // runtime's private object (Update-Plan/24h.md Task 19/20).
+  const runtime = read('app/computer-use/index.cjs')
+  for (const reader of ['function health()', 'function canExecute(actionType)', 'function capabilities()', 'function processes()', 'function resources()', 'function progress()']) {
+    assert.ok(runtime.includes(reader), `the runtime does not expose ${reader}`)
   }
 })
 
@@ -140,7 +162,10 @@ test('the syntax gate and the CI gate both cover the new directories', () => {
   assert.ok(check.includes('computer-use-acceptance.cjs'), 'the acceptance harness is not syntax checked')
 
   const workflow = read('.github/workflows/verify.yml')
-  assert.match(workflow, /branches: \[main, merging, Theme-Cover, computer-use\]/)
+  // The long-running work lives on its own branch, and the workflow has to run
+  // there or the acceptance targets are never actually checked.
+  assert.match(workflow, /branches: \[[^\]]*\blong-term-work\b[^\]]*\]/)
+  assert.equal((workflow.match(/branches: \[[^\]]*\blong-term-work\b[^\]]*\]/g) || []).length, 2, 'long-term-work must be covered for both push and pull_request')
   assert.match(workflow, /name: Computer Use surface gate/)
   assert.match(workflow, /app\/computer-use\/executor\.cjs/)
   assert.match(workflow, /app\/computer-use\/drivers\/uia\.cjs/)

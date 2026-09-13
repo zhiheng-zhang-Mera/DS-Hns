@@ -76,8 +76,38 @@ foreach ($file in $syntaxFiles) {
 
 Push-Location "$ROOT\tests"
 try {
+  # Computer Use coverage (tests\unit\computer-use-*.test.js), including the
+  # long-running execution modules (Update-Plan/24h.md Tasks 1-20). The unit
+  # directory is globbed, so a new file is picked up automatically; the presence
+  # assert below is what keeps a renamed or deleted file from silently dropping
+  # the coverage instead of failing the gate.
+  $computerUseTests = @(
+    'computer-use-acceptance.test.js',
+    'computer-use-contract.test.js',
+    'computer-use-device.test.js',
+    'computer-use-drivers.test.js',
+    'computer-use-isolation.test.js',
+    'computer-use-longrun-acceptance.test.js',
+    'computer-use-longrun-modules.test.js',
+    'computer-use-routing-safety.test.js',
+    'computer-use-runtime.test.js',
+    'computer-use-soak.test.js',
+    'computer-use-stabilization.test.js',
+    'computer-use-verification-recovery.test.js',
+    'computer-use-wiring.test.js'
+  )
+  foreach ($name in $computerUseTests) {
+    if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {
+      Write-Error "missing Computer Use test file: tests\unit\$name"
+      exit 1
+    }
+  }
   $files = @(Get-ChildItem -LiteralPath "$ROOT\tests\unit" -Filter '*.test.js' -File | ForEach-Object { $_.FullName })
-  & $node --test $files 2>&1
+  if ($files.Count -lt $computerUseTests.Count) {
+    Write-Error "the unit test directory holds fewer files than the Computer Use suite requires"
+    exit 1
+  }
+  & $node --test --test-concurrency=2 $files 2>&1
   exit $LASTEXITCODE
 } finally {
   Pop-Location

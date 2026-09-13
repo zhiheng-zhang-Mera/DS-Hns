@@ -222,7 +222,79 @@ test('a non-retryable failure stops immediately instead of burning attempts', ()
     error: new ComputerUseError(CODES.SAFETY_REFUSED, 'forbidden by the contract', { retryable: false })
   })
   assert.equal(decision.step, 'fail')
+  assert.equal(decision.terminal, true)
+  // Update-Plan/24h.md Task 17: a refusal is not "retryable: false" and nothing
+  // more — it is a decision the *runtime* may not make, so the verdict says who
+  // has to make it. The ladder still stops immediately.
+  assert.equal(decision.verdict, 'USER_ACTION_REQUIRED')
+  assert.match(decision.reason, /needs a decision the runtime may not make/)
+})
+
+test('a non-retryable technical failure is reported as FAILED, not as a user decision', () => {
+  const recovery = createRecoveryController({})
+  const decision = recovery.decide({
+    action: action(),
+    attempt: 2,
+    error: new ComputerUseError(CODES.TARGET_INVALID, 'the target cannot be parsed', { retryable: false })
+  })
+  assert.equal(decision.step, 'fail')
+  assert.equal(decision.terminal, true)
+  assert.equal(decision.verdict, 'FAILED')
   assert.match(decision.reason, /not retryable/)
+})
+
+test('every recovery decision carries one verdict from the closed vocabulary (Task 17)', () => {
+  const recovery = createRecoveryController({ maxRetriesPerAction: 2, maxStallRecoveries: 1 })
+  const verdicts = new Set(['RETRYABLE', 'ALTERNATIVE_AVAILABLE', 'REPLAN_REQUIRED', 'USER_ACTION_REQUIRED', 'FAILED'])
+
+  const retry = recovery.decide({ action: action(), attempt: 1, error: new ComputerUseError(CODES.ACTION_MISSED, 'missed') })
+  assert.equal(retry.verdict, 'RETRYABLE')
+
+  const alternative = recovery.decide({ action: action(), attempt: 2, error: new ComputerUseError(CODES.ACTION_MISSED, 'missed'), usedChannel: 'dom' })
+  assert.equal(alternative.verdict, 'ALTERNATIVE_AVAILABLE')
+
+  const exhausted = recovery.decide({ action: action(), attempt: 3, error: new ComputerUseError(CODES.VERIFICATION_FAILED, 'no'), stallRecoveries: 1, recoveryRounds: 9 })
+  assert.ok(verdicts.has(exhausted.verdict), exhausted.verdict)
+
+  for (const decision of recovery.decisions()) {
+    assert.ok(verdicts.has(decision.verdict), `every decision names a verdict, saw ${decision.verdict}`)
+  }
+})
+
+test('recovery never mutates the action, the goal or the plan (Task 17)', () => {
+  const recovery = createRecoveryController({})
+  const original = action()
+  const snapshot = JSON.stringify(original)
+  const goal = 'ship the feature'
+  recovery.decide({
+    action: original,
+    attempt: 2,
+    error: new ComputerUseError(CODES.ACTION_MISSED, 'missed'),
+    usedChannel: 'dom',
+    context: { contract: { goal } }
+  })
+  assert.equal(JSON.stringify(original), snapshot, 'the action is untouched')
+  assert.equal(goal, 'ship the feature')
+})
+
+test('the stall ladder has exactly one definition and the recovery module reports it (Task 6)', () => {
+  const recovery = createRecoveryController({})
+  const seen = []
+  for (let index = 0; index < 12; index += 1) seen.push(recovery.stallStep(index).ladderStep)
+  assert.deepEqual(seen.slice(0, 8), [
+    'structured_reobserve',
+    'window_check',
+    'target_re_resolution',
+    'targeted_screenshot',
+    'alternative_interaction',
+    'replan',
+    'full_screenshot',
+    'fail_with_context'
+  ])
+  // Past the end of the ladder it latches on the terminal rung rather than
+  // wrapping around to the first one.
+  assert.deepEqual(seen.slice(8), new Array(4).fill('fail_with_context'))
+  assert.equal(recovery.stallStep(9).terminal, true)
 })
 
 test('alternatives map intent to channel, and only where one exists', () => {

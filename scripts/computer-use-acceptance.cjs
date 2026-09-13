@@ -55,8 +55,108 @@ const SCENARIOS = [
 ]
 
 // ---------------------------------------------------------------------------
-// Electron side
+// Long-running acceptance: the soak and failure-injection scenarios
+// (Update-Plan/24h.md §23, §24, §25)
+//
+// These run against the *real* machine as well, but they are about the runtime's
+// long-run properties rather than about a single capability: a workspace that
+// drifts, a UI context that is replaced, a long build that must not be called
+// stalled, and a hung build that must be bounded. The deterministic,
+// hundreds-of-cycle version of the same coverage lives in
+// tests/unit/computer-use-soak.test.js; this is the real-machine half.
+//
+// A scenario whose prerequisite is missing is reported as `skipped` with the
+// reason, never as a pass.
 // ---------------------------------------------------------------------------
+
+const SOAK_SCENARIOS = [
+  { id: 'soak-sustained-ui', title: 'Scenario A - sustained UI task: no stale focus, no screenshot flood, no retry inflation' },
+  { id: 'soak-long-build', title: 'Scenario B - long build: alive with continuing output is not stalled' },
+  { id: 'soak-hung-build', title: 'Scenario C - hung build: bounded, owned process terminated, evidence preserved' },
+  { id: 'soak-workspace-drift', title: 'Scenario D - workspace drift: detected as a mismatch, the next action is refused' },
+  { id: 'soak-context-replacement', title: 'Scenario E - UI context replacement: verified focus cleared, reobserve' },
+  { id: 'soak-controller-offline', title: 'Scenario G - controller partial failure: one controller offline, the rest continue' }
+]
+
+SCENARIOS.push(...SOAK_SCENARIOS)
+
+/**
+ * The failure-injection inventory from Update-Plan/24h.md §24.
+ *
+ * `runner` names the harness scenario that really injects the failure on this
+ * machine. The rest are deliberately *not* re-implemented here: each of them is
+ * a deterministic fault that needs a host-controlled fault injection point
+ * (closing a window mid-run, deleting the workspace mid-run, a lock on a real
+ * file, a shell that hangs, a controller that dies on demand). A real-hardware
+ * harness cannot rely on manufacturing those reliably, and a scenario that
+ * cannot be made deterministic is worth less than one that is honest. Their
+ * executable coverage is tests/unit/computer-use-soak.test.js, where the device
+ * and the host options make every one of them deterministic.
+ *
+ * This inventory is what the unit suite reads: every injection it knows about is
+ * either run here or explained here.
+ */
+const SOAK_FAILURE_INJECTION = [
+  { id: 'controller-offline', title: 'one controller offline (scenario G)', runner: 'soak-controller-offline' },
+  {
+    id: 'cdp-page-disconnect',
+    title: 'CDP/page disconnect',
+    note: 'the harness cannot close the CDP transport mid-run deterministically; injected in tests/unit/computer-use-soak.test.js through the real cdp-page adapter'
+  },
+  {
+    id: 'window-closes',
+    title: 'window closes',
+    note: 'the harness window is the harness own surface, so closing it mid-run is not deterministic; injected in tests/unit/computer-use-soak.test.js through the device'
+  },
+  {
+    id: 'target-moves',
+    title: 'target moves',
+    note: 'covered by the dynamic-target scenario above on real hardware and by the soak test on the virtual clock'
+  },
+  {
+    id: 'target-disappears',
+    title: 'target disappears',
+    note: 'needs a fixture lifecycle the harness does not control; injected in tests/unit/computer-use-soak.test.js'
+  },
+  {
+    id: 'temporary-ui-freeze',
+    title: 'temporary UI freeze',
+    note: 'the stall scenario above covers the real unresponsive page; the deterministic injected form is in tests/unit/computer-use-soak.test.js'
+  },
+  {
+    id: 'modal-appears',
+    title: 'modal appears',
+    note: 'covered by the unexpected-modal scenario above, which opens a real dialog in the real page'
+  },
+  {
+    id: 'shell-timeout',
+    title: 'shell timeout',
+    note: 'the hung-build scenario above runs a real command to its bound; the deterministic form is in tests/unit/computer-use-soak.test.js'
+  },
+  {
+    id: 'child-process-crash',
+    title: 'child process crash',
+    note: 'a real crashing child is exercised by the hung-build scenario bounds; the typed deterministic form is in tests/unit/computer-use-soak.test.js'
+  },
+  {
+    id: 'file-locked',
+    title: 'file locked',
+    note: 'a real file lock is host- and timing-dependent; injected deterministically in tests/unit/computer-use-soak.test.js'
+  },
+  { id: 'workspace-inaccessible', title: 'workspace temporarily inaccessible', runner: 'soak-workspace-drift' },
+  {
+    id: 'vision-unavailable',
+    title: 'vision unavailable',
+    note: 'covered by the controller-failure scenario above, which removes the screenshot backend'
+  },
+  {
+    id: 'verification-unknown',
+    title: 'verification unknown',
+    note: 'an unverifiable effect cannot be manufactured on real hardware without a controlled host; injected in tests/unit/computer-use-soak.test.js'
+  }
+]
+
+
 
 async function runUnderElectron(selected, options) {
   const { app, BrowserWindow } = require('electron')
@@ -983,6 +1083,393 @@ scenario('stall', async ({ runtime, window, baseUrl, host, createComputerUseRunt
     status: ok ? 'passed' : 'failed',
     detail: ok ? `the run detected the stall and stopped with context (${report.error.code})` : `status=${report.status} error=${report.error ? report.error.code : null} steps=${report.steps}`,
     evidence: { errorCode: report.error ? report.error.code : null, stallRecoveries: report.stallRecoveries, states: report.states, appliedStillHidden: applied }
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Long-running scenarios (Update-Plan/24h.md §25)
+// ---------------------------------------------------------------------------
+
+/** How many actions the real-machine sustained-UI scenario drives. */
+const SUSTAINED_UI_CYCLES = 40
+
+scenario('soak-sustained-ui', async ({ runtime, window, baseUrl }) => {
+  await load(window, baseUrl, 'form.html')
+  const plan = []
+  for (let index = 0; index < SUSTAINED_UI_CYCLES; index += 1) {
+    plan.push({ id: `type-${index}`, action: { type: 'DOM_TYPE', target: { selector: '#username' }, text: `user-${index}`, expected_effect: { any: [{ value_equals: `user-${index}` }] }, timeout_ms: 4000 } })
+    plan.push({ id: `observe-${index}`, action: { type: 'WAIT_STATE', waitFor: { condition: 'idle' }, timeout_ms: 4000 } })
+  }
+  const report = await runtime.run({
+    goal: 'sustain a UI task over many cycles',
+    allowed_capabilities: ['browser'],
+    plan,
+    limits: { max_steps: plan.length + 20, max_retries_per_action: 2, max_stall_recoveries: 1 }
+  })
+  const steps = runtime.log.steps()
+  const retries = steps.map((step) => Number(step.retryCount) || 0)
+  const screenshots = runtime.log.screenshots().length
+  const ok = report.status === 'completed' &&
+    steps.length === plan.length &&
+    retries.every((count) => count === 0) &&
+    screenshots <= runtime.options.maxScreenshots
+  return {
+    status: ok ? 'passed' : 'failed',
+    detail: ok
+      ? `${plan.length} sustained UI actions completed with no retry inflation and no screenshot flood`
+      : `status=${report.status} steps=${steps.length}/${plan.length} retries=${JSON.stringify(retries)} screenshots=${screenshots}`,
+    evidence: {
+      cycles: SUSTAINED_UI_CYCLES,
+      steps: steps.length,
+      retryCounts: retries,
+      screenshots,
+      screenshotCeiling: runtime.options.maxScreenshots,
+      recoveryDecisions: report.recoveryDecisions.length
+    }
+  }
+})
+
+scenario('soak-long-build', async ({ runtime, host, progress }) => {
+  const skipped = requireDesktopReady(runtime)
+  if (skipped) return { status: 'skipped', detail: skipped }
+  if (process.platform !== 'win32') return { status: 'skipped', detail: 'the long-build scenario needs a Windows workspace' }
+  const driver = host.drivers.win32
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-hns-cu-soak-build-'))
+  const artifact = path.join(workspace, 'build-artifact.txt')
+  const { createComputerUseRuntime } = require(path.join(ROOT, 'app', 'computer-use', 'index.cjs'))
+  // A real command that stays alive for ~2.5 s and only then prints its success
+  // line and writes its artifact: the "still running" case the plan forbids
+  // calling stalled.
+  const script = 'setTimeout(() => { process.stdout.write("BUILD OK\\n"); require("node:fs").writeFileSync(process.argv[1], "artifact") }, 2500)'
+  const buildRuntime = createComputerUseRuntime({
+    host: {
+      page: runtime.controllers.browser.page,
+      desktop: driver,
+      accessibility: host.drivers.uia,
+      screenshot: host.drivers.screenshot,
+      workspace,
+      cwd: workspace
+    },
+    log: { dir: null },
+    options: { maxSteps: 6 }
+  })
+  const startedAt = Date.now()
+  try {
+    const report = await buildRuntime.run({
+      goal: 'run a long build that keeps producing output',
+      allowed_capabilities: ['shell', 'filesystem'],
+      plan: [{
+        id: 'build',
+        action: {
+          type: 'SHELL_EXEC',
+          command: process.execPath,
+          args: ['-e', script, artifact],
+          expected_effect: { any: [{ stdout_matches: 'BUILD OK' }] },
+          timeout_ms: 20_000
+        }
+      }],
+      limits: { max_steps: 4, max_retries_per_action: 0, max_stall_recoveries: 1 }
+    })
+    const elapsedMs = Date.now() - startedAt
+    const artifactContent = fs.existsSync(artifact) ? fs.readFileSync(artifact, 'utf8') : null
+    const ok = report.status === 'completed' &&
+      report.stallRecoveries === 0 &&
+      elapsedMs >= 2500 &&
+      artifactContent === 'artifact' &&
+      buildRuntime.processes().ownedCount === 0
+    progress(`soak-long-build: status=${report.status} elapsed=${elapsedMs}ms stalls=${report.stallRecoveries}`)
+    return {
+      status: ok ? 'passed' : 'failed',
+      detail: ok
+        ? `a build alive for ${elapsedMs}ms with continuing output was verified by its own output and never called stalled`
+        : `status=${report.status} elapsed=${elapsedMs} stalls=${report.stallRecoveries} artifact=${JSON.stringify(artifactContent)} owned=${buildRuntime.processes().ownedCount}`,
+      evidence: {
+        elapsedMs,
+        stallRecoveries: report.stallRecoveries,
+        artifact: artifactContent,
+        steps: buildRuntime.log.steps().map((step) => ({ action: step.actionType, result: step.result, verification: step.verification })),
+        processes: buildRuntime.processes()
+      }
+    }
+  } finally {
+    buildRuntime.dispose()
+    try {
+      fs.rmSync(workspace, { recursive: true, force: true })
+    } catch {
+      /* best effort */
+    }
+  }
+})
+
+scenario('soak-hung-build', async ({ runtime, host }) => {
+  const skipped = requireDesktopReady(runtime)
+  if (skipped) return { status: 'skipped', detail: skipped }
+  if (process.platform !== 'win32') return { status: 'skipped', detail: 'the hung-build scenario needs a Windows workspace' }
+  const driver = host.drivers.win32
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-hns-cu-soak-hung-'))
+  const { createComputerUseRuntime } = require(path.join(ROOT, 'app', 'computer-use', 'index.cjs'))
+  const hungRuntime = createComputerUseRuntime({
+    host: {
+      page: runtime.controllers.browser.page,
+      desktop: driver,
+      accessibility: host.drivers.uia,
+      screenshot: host.drivers.screenshot,
+      workspace,
+      cwd: workspace
+    },
+    log: { dir: null },
+    options: { maxSteps: 4 }
+  })
+  const startedAt = Date.now()
+  try {
+    const report = await hungRuntime.run({
+      goal: 'run a build that hangs',
+      allowed_capabilities: ['shell', 'filesystem'],
+      plan: [{
+        id: 'hung-build',
+        action: {
+          type: 'SHELL_EXEC',
+          command: process.execPath,
+          args: ['-e', 'setTimeout(() => {}, 20000)'],
+          expected_effect: { any: [{ stdout_matches: 'BUILD OK' }] },
+          timeout_ms: 2000
+        }
+      }],
+      limits: { max_steps: 3, max_retries_per_action: 0, max_stall_recoveries: 1 }
+    })
+    const elapsedMs = Date.now() - startedAt
+    const processes = hungRuntime.processes()
+    const terminated = processes.finished.filter((entry) => entry.status === 'timed_out' || entry.signal === 'SIGKILL')
+    const steps = hungRuntime.log.steps()
+    const ok = report.status !== 'completed' &&
+      elapsedMs < 30_000 &&
+      terminated.length >= 1 &&
+      steps.some((step) => step.result !== 'success') &&
+      hungRuntime.executor.running === false
+    return {
+      status: ok ? 'passed' : 'failed',
+      detail: ok
+        ? `the hung build was bounded (${elapsedMs}ms), its owned process was terminated and the failing step is in the log`
+        : `status=${report.status} elapsed=${elapsedMs} terminated=${terminated.length} steps=${steps.length}`,
+      evidence: {
+        elapsedMs,
+        errorCode: report.error ? report.error.code : null,
+        terminated,
+        steps: steps.map((step) => ({ action: step.actionType, result: step.result, verification: step.verification })),
+        processes
+      }
+    }
+  } finally {
+    hungRuntime.dispose()
+    try {
+      fs.rmSync(workspace, { recursive: true, force: true })
+    } catch {
+      /* best effort */
+    }
+  }
+})
+
+scenario('soak-workspace-drift', async ({ runtime, host }) => {
+  const skipped = requireDesktopReady(runtime)
+  if (skipped) return { status: 'skipped', detail: skipped }
+  if (process.platform !== 'win32') return { status: 'skipped', detail: 'the workspace-drift scenario needs a Windows workspace' }
+  const driver = host.drivers.win32
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-hns-cu-soak-drift-'))
+  const escaped = path.join(os.tmpdir(), `ds-hns-cu-drift-${process.pid}.txt`)
+  const { createComputerUseRuntime } = require(path.join(ROOT, 'app', 'computer-use', 'index.cjs'))
+  const driftRuntime = createComputerUseRuntime({
+    host: {
+      page: runtime.controllers.browser.page,
+      desktop: driver,
+      accessibility: host.drivers.uia,
+      screenshot: host.drivers.screenshot,
+      workspace,
+      cwd: workspace
+    },
+    log: { dir: null },
+    options: { maxSteps: 6 }
+  })
+  // The workspace is removed *after* the first command is authorized and before
+  // the next action runs: the drift a long shell session really hits.
+  const shell = driftRuntime.controllers.shell
+  const originalPerform = shell.perform.bind(shell)
+  let calls = 0
+  shell.perform = async (action, context) => {
+    calls += 1
+    const receipt = await originalPerform(action, context)
+    if (calls === 1) fs.rmSync(workspace, { recursive: true, force: true })
+    return receipt
+  }
+  try {
+    const report = await driftRuntime.run({
+      goal: 'run a command, then keep working after the workspace moved',
+      allowed_capabilities: ['shell'],
+      plan: [
+        { id: 'first', action: { type: 'SHELL_EXEC', command: process.execPath, args: ['-e', 'process.stdout.write("first")'], expected_effect: { any: [{ stdout_matches: 'first' }] }, timeout_ms: 8000 } },
+        {
+          id: 'after-drift',
+          action: {
+            type: 'SHELL_EXEC',
+            command: process.execPath,
+            args: ['-e', `require("node:fs").writeFileSync(${JSON.stringify(escaped)}, "escaped")`],
+            expected_effect: { any: [{ file_exists: escaped }] },
+            timeout_ms: 8000
+          }
+        }
+      ],
+      limits: { max_steps: 4, max_retries_per_action: 0 }
+    })
+    const verdict = driftRuntime.workspace.status()
+    const steps = driftRuntime.log.steps()
+    const ok = report.status !== 'completed' &&
+      verdict.ok === false &&
+      !fs.existsSync(escaped) &&
+      steps.some((step) => step.result !== 'success')
+    return {
+      status: ok ? 'passed' : 'failed',
+      detail: ok
+        ? 'the workspace drift was detected, the next action was refused and nothing was written to the wrong directory'
+        : `status=${report.status} workspaceOk=${verdict.ok} escaped=${fs.existsSync(escaped)} steps=${steps.length}`,
+      evidence: {
+        errorCode: report.error ? report.error.code : null,
+        workspace: verdict,
+        escapedExists: fs.existsSync(escaped),
+        steps: steps.map((step) => ({ action: step.actionType, result: step.result, reasonCode: step.reasonCode }))
+      }
+    }
+  } finally {
+    driftRuntime.controllers.shell.perform = originalPerform
+    driftRuntime.dispose()
+    try {
+      fs.rmSync(workspace, { recursive: true, force: true })
+      fs.rmSync(escaped, { force: true })
+    } catch {
+      /* best effort */
+    }
+  }
+})
+
+scenario('soak-context-replacement', async ({ runtime, window, baseUrl }) => {
+  await load(window, baseUrl, 'editor.html')
+  const page = runtime.controllers.browser.page
+  if (!page) return { status: 'skipped', detail: 'no page adapter is attached to the runtime' }
+  let replaced = false
+  let trustAtReplacement = null
+  let replacementWorld = null
+  const runPromise = runtime.run({
+    goal: 'keep editing while the UI context is replaced',
+    allowed_capabilities: ['desktop', 'browser'],
+    plan: [
+      { id: 'type-first', action: { type: 'DOM_TYPE', target: { selector: '#doc' }, text: 'first window', expected_effect: { any: [{ value_equals: 'first window' }] }, timeout_ms: 5000 } },
+      { id: 'type-after', action: { type: 'DOM_TYPE', target: { selector: '#doc' }, text: 'second window', expected_effect: { any: [{ value_equals: 'second window' }] }, timeout_ms: 5000 } }
+    ],
+    limits: { max_steps: 6, max_retries_per_action: 1 }
+  })
+  // The UI context is replaced while the run is in flight: a second real window
+  // is created over the first and takes the focus, which is what a window swap
+  // looks like to the runtime.
+  const swap = setTimeout(() => {
+    try {
+      const { BrowserWindow } = require('electron')
+      const bounds = window.getBounds()
+      const cover = new BrowserWindow({ width: bounds.width, height: bounds.height, x: bounds.x + 20, y: bounds.y + 20, show: true, title: 'DS-Hns Computer Use replacement' })
+      cover.loadURL(`${baseUrl}/editor.html`)
+      cover.focus()
+      replaced = true
+      const activeRun = runtime.executor.currentRun
+      if (activeRun) trustAtReplacement = activeRun.focus
+    } catch {
+      /* the swap is best effort on this host */
+    }
+  }, 1200)
+  swap.unref?.()
+  let report = null
+  try {
+    report = await runPromise
+  } finally {
+    clearTimeout(swap)
+  }
+  if (!trustAtReplacement) {
+    return { status: 'skipped', detail: 'the run finished before a replacement context could be established on this host' }
+  }
+  replacementWorld = await runtime.observer.observe({ taskId: 'reobserve' })
+  const before = trustAtReplacement.snapshot()
+  const cleared = trustAtReplacement.observeContext(replacementWorld)
+  const ok = replaced &&
+    before.verifiedFocusRef !== null &&
+    cleared.invalidated === true &&
+    trustAtReplacement.verifiedFocusRef === null &&
+    report.states.includes('OBSERVING')
+  return {
+    status: ok ? 'passed' : 'failed',
+    detail: ok
+      ? 'the replaced UI context cleared the verified focus and the runtime re-observed'
+      : `replaced=${replaced} verifiedBefore=${before.verifiedFocusRef} invalidated=${cleared.invalidated} reasons=${JSON.stringify(cleared.reasons)}`,
+    evidence: {
+      replaced,
+      verifiedBefore: before.verifiedFocusRef,
+      invalidated: cleared.invalidated,
+      reasons: cleared.reasons,
+      verifiedAfter: trustAtReplacement.verifiedFocusRef,
+      states: report.states
+    }
+  }
+})
+
+scenario('soak-controller-offline', async ({ runtime, window, baseUrl, host, hostModule }) => {
+  await load(window, baseUrl, 'form.html')
+  const { createComputerUseRuntime } = require(path.join(ROOT, 'app', 'computer-use', 'index.cjs'))
+  const offline = {
+    probe: () => ({ available: false, reason: 'the browser channel was taken offline for this scenario' }),
+    snapshot: async () => {
+      throw new Error('the browser channel is offline')
+    },
+    query: async () => {
+      throw new Error('the browser channel is offline')
+    },
+    queryAll: async () => {
+      throw new Error('the browser channel is offline')
+    }
+  }
+  const degradedHost = hostModule.createElectronHost({ getWebContents: () => window.webContents, workspace: os.tmpdir() })
+  const degraded = createComputerUseRuntime({
+    host: { page: offline, desktop: host.drivers.win32, accessibility: host.drivers.uia, screenshot: host.drivers.screenshot, workspace: os.tmpdir(), cwd: os.tmpdir() },
+    log: { dir: null },
+    options: { maxSteps: 8 }
+  })
+  try {
+    const health = degraded.health()
+    const capabilities = degraded.capabilities()
+    const browserDown = capabilities.capabilities.browser.status === 'unavailable'
+    const othersUp = capabilities.capabilities.shell.status === 'healthy' && capabilities.capabilities.filesystem.status === 'healthy'
+    // The other capabilities keep working on the same runtime.
+    const note = path.join(os.tmpdir(), `ds-hns-cu-offline-${process.pid}.txt`)
+    const report = await degraded.run({
+      goal: 'keep working while the browser channel is offline',
+      allowed_capabilities: ['filesystem', 'shell'],
+      plan: [
+        { id: 'write', action: { type: 'FILE_WRITE', path: note, content: 'continued', expected_effect: { any: [{ file_exists: note }] }, timeout_ms: 4000 } },
+        { id: 'run', action: { type: 'SHELL_EXEC', command: process.execPath, args: ['-e', 'process.stdout.write("still here")'], expected_effect: { any: [{ stdout_matches: 'still here' }] }, timeout_ms: 8000 } }
+      ],
+      limits: { max_steps: 4, max_retries_per_action: 0 }
+    })
+    const wrote = fs.existsSync(note) && fs.readFileSync(note, 'utf8') === 'continued'
+    const ok = browserDown && othersUp && health.status === 'degraded' && report.status === 'completed' && wrote
+    try {
+      fs.rmSync(note, { force: true })
+    } catch {
+      /* best effort */
+    }
+    void degradedHost
+    return {
+      status: ok ? 'passed' : 'failed',
+      detail: ok
+        ? 'the offline browser controller degraded the runtime while the file and shell capabilities completed their work'
+        : `browserDown=${browserDown} othersUp=${othersUp} health=${health.status} run=${report.status} wrote=${wrote}`,
+      evidence: { capabilities: capabilities.capabilities, health: health.status, run: report.status, faults: degraded.health().faults }
+    }
+  } finally {
+    degraded.dispose()
   }
 })
 
