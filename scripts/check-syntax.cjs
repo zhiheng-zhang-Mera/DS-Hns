@@ -56,7 +56,11 @@ const SOURCE_DIRS = [
   // gate.
   'computer-use',
   'computer-use/controllers',
-  'computer-use/drivers'
+  'computer-use/drivers',
+  // The engineering runtime (Update-Plan/24h-1.md). A new directory has to be
+  // listed here or its files escape the gate silently.
+  'engineering',
+  'engineering/adapters'
 ]
 
 /** Files outside the app directory that still ship as product code. */

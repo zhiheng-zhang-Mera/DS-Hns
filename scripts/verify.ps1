@@ -293,6 +293,30 @@ Check 'Health reports healthy / degraded / blocked with its block reasons (24h p
 Check 'Long-running log hygiene is implemented (24h plan 18)' (($cuLog -match 'DEFAULT_MAX_FILES') -and ($cuLog -match 'function rotate') -and ($cuLog -match 'reasonCode'))
 Check 'Long-running execution tests ship with the runtime' ((Test-Path "$ROOT\tests\unit\computer-use-longrun-modules.test.js") -and ((Get-Content "$ROOT\tests\unit\computer-use-longrun-modules.test.js" -Raw) -match 'Task 20'))
 Check 'The accelerated soak and failure-injection harness ships (24h plan 23-26)' ((Test-Path "$ROOT\scripts\computer-use-longrun-acceptance.cjs") -and ((Get-Content "$ROOT\scripts\computer-use-longrun-acceptance.cjs" -Raw) -match 'FAILURE_INJECTIONS') -and ((Get-Content "$ROOT\scripts\computer-use-longrun-acceptance.cjs" -Raw) -match 'Update-Plan/24h.md'))
+
+# ---- the engineering runtime (Update-Plan/24h-1.md) ----
+Write-Output ''
+Write-Output '== Engineering runtime (Update-Plan/24h-1.md) =='
+$engineeringModules = @(
+  'index.cjs', 'episode.cjs', 'supervisor.cjs', 'repository.cjs', 'discovery.cjs',
+  'plan.cjs', 'mutation.cjs', 'git.cjs', 'verifier.cjs', 'scheduler.cjs',
+  'checkpoint.cjs', 'context.cjs', 'result.cjs', 'failure.cjs', 'process.cjs'
+)
+foreach ($file in $engineeringModules) {
+  Check "Engineering module $file present" ((Test-Path "$ROOT\app\engineering\$file") -and ((Get-Item "$ROOT\app\engineering\$file").Length -gt 0))
+}
+Check 'The project adapters ship' ((Test-Path "$ROOT\app\engineering\adapters\index.cjs") -and ((Get-Content "$ROOT\app\engineering\adapters\index.cjs" -Raw) -match 'nodeAdapter') -and ((Get-Content "$ROOT\app\engineering\adapters\index.cjs" -Raw) -match 'pythonAdapter') -and ((Get-Content "$ROOT\app\engineering\adapters\index.cjs" -Raw) -match 'rustAdapter') -and ((Get-Content "$ROOT\app\engineering\adapters\index.cjs" -Raw) -match 'genericAdapter'))
+$engSupervisor = Get-Content "$ROOT\app\engineering\supervisor.cjs" -Raw
+Check 'The supervisor runs the documented engineering loop' (($engSupervisor -match 'DISCOVERING') -and ($engSupervisor -match 'PLANNING') -and ($engSupervisor -match 'REPAIRING') -and ($engSupervisor -match 'VERIFYING'))
+$engResult = Get-Content "$ROOT\app\engineering\result.cjs" -Raw
+Check 'Completion is refused without fresh evidence' (($engResult -match 'FRESHNESS') -and ($engResult -match 'NOTHING_RAN') -and ($engResult -match 'REFUSED'))
+$engGit = Get-Content "$ROOT\app\engineering\git.cjs" -Raw
+Check 'Destructive git commands are not implemented (24h-1 plan 18/76)' (($engGit -match 'FORBIDDEN_COMMANDS') -and ($engGit -match 'allowCommit') -and ($engGit -match 'reset\\s\+--hard'))
+$engScheduler = Get-Content "$ROOT\app\engineering\scheduler.cjs" -Raw
+Check 'The 24h scheduler parks instead of busy-waiting (24h-1 plan 103-106)' (($engScheduler -match 'WAKE_REASONS') -and ($engScheduler -match 'function park') -and ($engScheduler -match 'function deadlineState'))
+Check 'The engineering test matrix ships' (((Test-Path "$ROOT\tests\unit\engineering-scenarios.test.js")) -and ((Test-Path "$ROOT\tests\unit\engineering-plan.test.js")) -and ((Test-Path "$ROOT\tests\unit\engineering-verifier.test.js")) -and ((Test-Path "$ROOT\tests\unit\engineering-context.test.js")) -and ((Test-Path "$ROOT\tests\unit\engineering-checkpoint.test.js")))
+$engCheck = Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw
+Check 'The syntax gate covers the engineering runtime' (($engCheck -match "'engineering'") -and ($engCheck -match "'engineering/adapters'"))
 Check 'The reference doc records the long-running guarantees (24h plan 1-20)' ((Get-Content "$ROOT\docs\computer-use.md" -Raw) -match 'Long-running execution')
 Check 'The acceptance record targets the soak and the failure matrix (24h plan 23-25)' (((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'soak') -and ((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'failure-injection'))
 

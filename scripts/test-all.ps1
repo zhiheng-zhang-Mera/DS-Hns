@@ -100,6 +100,22 @@ try {
     'computer-use-verification-recovery.test.js',
     'computer-use-wiring.test.js'
   )
+  # The engineering runtime (Update-Plan/24h-1.md) is a separate subsystem with its
+  # own suite; it is asserted here for the same reason: a renamed file must fail the
+  # gate rather than silently drop its coverage.
+  $engineeringTests = @(
+    'engineering-checkpoint.test.js',
+    'engineering-context.test.js',
+    'engineering-plan.test.js',
+    'engineering-scenarios.test.js',
+    'engineering-verifier.test.js'
+  )
+  foreach ($name in $engineeringTests) {
+    if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {
+      Write-Error "missing engineering test file: tests\unit\$name"
+      exit 1
+    }
+  }
   foreach ($name in $computerUseTests) {
     if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {
       Write-Error "missing Computer Use test file: tests\unit\$name"
@@ -107,8 +123,8 @@ try {
     }
   }
   $files = @(Get-ChildItem -LiteralPath "$ROOT\tests\unit" -Filter '*.test.js' -File | ForEach-Object { $_.FullName })
-  if ($files.Count -lt $computerUseTests.Count) {
-    Write-Error "the unit test directory holds fewer files than the Computer Use suite requires"
+  if ($files.Count -lt ($computerUseTests.Count + $engineeringTests.Count)) {
+    Write-Error "the unit test directory holds fewer files than the required suites"
     exit 1
   }
   & $node --test --test-concurrency=2 $files 2>&1

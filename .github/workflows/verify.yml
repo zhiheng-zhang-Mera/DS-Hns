@@ -204,3 +204,52 @@ jobs:
           $shell = Get-Content app/desktop-main.cjs -Raw
           if ($shell -notmatch 'COMPUTER_USE_CHANNELS') { Write-Error 'the shell does not register the Computer Use IPC surface'; exit 1 }
           Write-Host "computer use runtime, drivers, panel and acceptance harness present and covered by the syntax gate"
+
+      # The engineering runtime (Update-Plan/24h-1.md) is a second subsystem with
+      # its own surface: episodes, supervision, discovery, checkpointing and the
+      # project adapters. A green gate over unchecked files is worse than a red one,
+      # so its modules, adapters and test matrix are asserted by name here too.
+      - name: Engineering runtime surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/engineering/index.cjs',
+            'app/engineering/episode.cjs',
+            'app/engineering/supervisor.cjs',
+            'app/engineering/repository.cjs',
+            'app/engineering/discovery.cjs',
+            'app/engineering/plan.cjs',
+            'app/engineering/mutation.cjs',
+            'app/engineering/git.cjs',
+            'app/engineering/verifier.cjs',
+            'app/engineering/scheduler.cjs',
+            'app/engineering/checkpoint.cjs',
+            'app/engineering/context.cjs',
+            'app/engineering/result.cjs',
+            'app/engineering/failure.cjs',
+            'app/engineering/process.cjs',
+            'app/engineering/adapters/index.cjs',
+            'tests/unit/engineering-context.test.js',
+            'tests/unit/engineering-checkpoint.test.js',
+            'tests/unit/engineering-plan.test.js',
+            'tests/unit/engineering-verifier.test.js',
+            'tests/unit/engineering-scenarios.test.js',
+            'tests/helpers/engineering-fixture.cjs',
+            'tests/helpers/engineering-scripted.cjs'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing engineering runtime files: $($missing -join ', ')"; exit 1 }
+          foreach ($file in $required) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in @('engineering', 'engineering/adapters')) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          $supervisor = Get-Content app/engineering/supervisor.cjs -Raw
+          if ($supervisor -notmatch 'REPAIRING') { Write-Error 'the supervisor does not run the repair loop'; exit 1 }
+          $result = Get-Content app/engineering/result.cjs -Raw
+          if ($result -notmatch 'FRESHNESS') { Write-Error 'the result validator does not require fresh evidence'; exit 1 }
+          $git = Get-Content app/engineering/git.cjs -Raw
+          if ($git -notmatch 'FORBIDDEN_COMMANDS') { Write-Error 'the git controller does not guard destructive commands'; exit 1 }
+          Write-Host "engineering runtime, adapters and test matrix present and covered by the syntax gate"
