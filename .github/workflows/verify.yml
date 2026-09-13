@@ -258,3 +258,38 @@ jobs:
           $git = Get-Content app/engineering/git.cjs -Raw
           if ($git -notmatch 'FORBIDDEN_COMMANDS') { Write-Error 'the git controller does not guard destructive commands'; exit 1 }
           Write-Host "engineering runtime, adapters and test matrix present and covered by the syntax gate"
+
+      # The plugin runtime (Update-Plan/accleration.md) is the platform every
+      # feature is mounted through. Its core, its contracts and its test matrix are
+      # asserted by name for the same reason as the other surfaces: a green gate
+      # over unchecked platform code is worse than a red one.
+      - name: Plugin runtime surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/core/contracts/plugin.cjs',
+            'app/core/plugin-manager/index.cjs',
+            'app/core/capability-registry/index.cjs',
+            'app/core/event-bus/index.cjs',
+            'app/core/config-manager/index.cjs',
+            'app/core/resource-manager/index.cjs',
+            'app/core/health-supervisor/index.cjs',
+            'tests/unit/core-plugin-runtime.test.js',
+            'scripts/dshns-baseline.cjs'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing plugin runtime files: $($missing -join ', ')"; exit 1 }
+          foreach ($file in $required) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/resource-manager', 'core/health-supervisor')) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          $contract = Get-Content app/core/contracts/plugin.cjs -Raw
+          if ($contract -notmatch 'dshns.plugin/v1') { Write-Error 'the plugin API version is not declared'; exit 1 }
+          $manager = Get-Content app/core/plugin-manager/index.cjs -Raw
+          if ($manager -notmatch 'MISSING_CAPABILITY') { Write-Error 'the manager does not refuse a missing capability'; exit 1 }
+          $resource = Get-Content app/core/resource-manager/index.cjs -Raw
+          if ($resource -notmatch 'effectiveWorkers') { Write-Error 'the resource manager does not derive the worker count'; exit 1 }
+          Write-Host "plugin runtime core, contracts and test matrix present and covered by the syntax gate"

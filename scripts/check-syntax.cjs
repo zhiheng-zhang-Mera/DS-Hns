@@ -60,7 +60,16 @@ const SOURCE_DIRS = [
   // The engineering runtime (Update-Plan/24h-1.md). A new directory has to be
   // listed here or its files escape the gate silently.
   'engineering',
-  'engineering/adapters'
+  'engineering/adapters',
+  // The plugin runtime core (Update-Plan/accleration.md). Same rule: the collector
+  // is non-recursive, so every core directory must be named here.
+  'core/contracts',
+  'core/plugin-manager',
+  'core/capability-registry',
+  'core/event-bus',
+  'core/config-manager',
+  'core/resource-manager',
+  'core/health-supervisor'
 ]
 
 /** Files outside the app directory that still ship as product code. */
@@ -72,7 +81,10 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'computer-use-acceptance.cjs'),
   // The long-running half of the acceptance harness (Update-Plan/24h.md §23-§26):
   // the accelerated soak, the failure injections and scenarios A-G.
-  path.join(ROOT, 'scripts', 'computer-use-longrun-acceptance.cjs')
+  path.join(ROOT, 'scripts', 'computer-use-longrun-acceptance.cjs'),
+  // The Phase 0 baseline harness (Update-Plan/accleration.md): it times the suites
+  // and records the metrics every acceleration claim is compared against.
+  path.join(ROOT, 'scripts', 'dshns-baseline.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

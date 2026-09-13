@@ -111,6 +111,17 @@ try {
     'engineering-verifier.test.js',
     'engineering-wiring.test.js'
   )
+  # The plugin runtime core (Update-Plan/accleration.md): the platform every plugin
+  # is mounted through, asserted here for the same reason as the others.
+  $coreTests = @(
+    'core-plugin-runtime.test.js'
+  )
+  foreach ($name in $coreTests) {
+    if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {
+      Write-Error "missing plugin runtime test file: tests\unit\$name"
+      exit 1
+    }
+  }
   foreach ($name in $engineeringTests) {
     if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {
       Write-Error "missing engineering test file: tests\unit\$name"
@@ -124,7 +135,7 @@ try {
     }
   }
   $files = @(Get-ChildItem -LiteralPath "$ROOT\tests\unit" -Filter '*.test.js' -File | ForEach-Object { $_.FullName })
-  if ($files.Count -lt ($computerUseTests.Count + $engineeringTests.Count)) {
+  if ($files.Count -lt ($computerUseTests.Count + $engineeringTests.Count + $coreTests.Count)) {
     Write-Error "the unit test directory holds fewer files than the required suites"
     exit 1
   }
