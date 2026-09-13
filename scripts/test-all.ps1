@@ -116,6 +116,11 @@ try {
   $coreTests = @(
     'core-model-capability.test.js',
     'core-plugin-runtime.test.js',
+    'plugin-acceleration.test.js',
+    'plugin-acceleration-cache.test.js',
+    'plugin-acceleration-parallel.test.js',
+    'plugin-acceleration-patch-first.test.js',
+    'plugin-acceleration-persistent-tools.test.js',
     'plugin-mounted-set.test.js'
   )
   foreach ($name in $coreTests) {

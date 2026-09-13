@@ -75,7 +75,19 @@ const SOURCE_DIRS = [
   'plugins/providers/deepseek',
   // The mounted feature set: the plugins that wrap the subsystems which already
   // exist. Listed because the collector is non-recursive.
-  'plugins/mounted'
+  'plugins/mounted',
+  // The acceleration set (Update-Plan/accleration.md phases 5-13): one directory per
+  // accelerator, each listed because the collector is non-recursive.
+  'plugins/acceleration/command-cache',
+  'plugins/acceleration/dirty-context',
+  'plugins/acceleration/incremental-validation',
+  'plugins/acceleration/parallel-executor',
+  'plugins/acceleration/patch-first',
+  'plugins/acceleration/persistent-tools',
+  'plugins/acceleration/reasoning-governor',
+  'plugins/acceleration/repo-map',
+  'plugins/acceleration/tool-batcher',
+  'plugins/acceleration/workspace-isolation'
 ]
 
 /** Files outside the app directory that still ship as product code. */

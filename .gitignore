@@ -22,6 +22,10 @@ config/paths.json
 
 # ===== Local planning / working notes (never published) =====
 Update-Plan/
+# The same directory in its lower-case spelling: git's ignore patterns are
+# case-sensitive here, so a rename would otherwise make the plan documents
+# untracked-but-committable.
+updateplan/
 
 # ===== OS / editor =====
 Thumbs.db
