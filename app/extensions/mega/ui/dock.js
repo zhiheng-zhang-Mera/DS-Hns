@@ -1591,7 +1591,24 @@ function setupCollapsiblePanels() {
     // daily-refactorr.md §18): every module starts collapsed, so the panel opens
     // as a short list of what is available. The user's own choices stick.
     apply(saved[id] === undefined ? true : Boolean(saved[id]))
-    entries.push({ id, panel, head, apply })
+    entries.push({ id, panel, head, apply, toggle })
+
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation()
+      set(entryFor(toggle), !(panel.dataset.collapsed === '1'))
+    })
+    // Clicking the header text toggles too, but never when the click was aimed at
+    // one of the module's own controls.
+    head.addEventListener('click', (event) => {
+      const target = event.target
+      if (target && typeof target.closest === 'function' && target.closest('button, input, select, textarea, label, a')) return
+      set(entryFor(head), !(panel.dataset.collapsed === '1'))
+    })
+  }
+
+  /** The entry a handle belongs to: the handlers are attached where the elements are made. */
+  function entryFor(node) {
+    return entries.find((candidate) => candidate.toggle === node || candidate.head === node) || null
   }
 
   /**
@@ -1617,22 +1634,6 @@ function setupCollapsiblePanels() {
     writePanelState(state)
   }
 
-  for (const entry of entries) {
-    const toggle = entry.head.querySelector ? entry.head.querySelector('.panel-collapse') : null
-    if (toggle && typeof toggle.addEventListener === 'function') {
-      toggle.addEventListener('click', (event) => {
-        event.stopPropagation()
-        set(entry, !(entry.panel.dataset.collapsed === '1'))
-      })
-    }
-    // Clicking the header text toggles too, but never when the click was aimed at
-    // one of the module's own controls.
-    entry.head.addEventListener('click', (event) => {
-      const target = event.target
-      if (target && typeof target.closest === 'function' && target.closest('button, input, select, textarea, label, a')) return
-      set(entry, !(entry.panel.dataset.collapsed === '1'))
-    })
-  }
   return entries.map((entry) => ({ id: entry.id, set: (collapsed) => set(entry, collapsed) }))
 }
 

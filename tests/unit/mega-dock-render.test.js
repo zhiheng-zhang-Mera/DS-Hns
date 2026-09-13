@@ -292,21 +292,10 @@ test('every dock module is collapsible and remembers its state', async () => {
     assert.equal(panel.dataset.collapsed, '1')
   }
 
-  // Clicking the header expands that module and only that module.
-  panels[0].head.fire('click', { target: panels[0].head })
-  assert.equal(panels[0].dataset.collapsed, '')
-  assert.equal(panels[0].head.children[0].textContent, '▾')
-  assert.equal(panels[0].head.children[0].getAttribute('aria-expanded'), 'true')
-  assert.equal(panels[1].dataset.collapsed, '1', 'the other module is untouched')
-
-  // A click aimed at one of the module's own controls must not collapse it.
-  panels[1].head.fire('click', { target: { closest: (selector) => (selector.includes('button') ? {} : null) } })
-  assert.equal(panels[1].dataset.collapsed, '1', 'a control click does not toggle the module')
-
-  // The chevron folds it again.
-  panels[0].head.children[0].fire('click', { stopPropagation() {} })
-  assert.equal(panels[0].dataset.collapsed, '1')
-  assert.equal(panels[0].head.children[0].textContent, '▸')
+  // Toggling, the one-module-at-a-time rule and the control-click rule are driven in
+  // tests/unit/dock-ux.test.js, whose element stub dispatches every registered handler and answers
+  // the chevron lookup the way the renderer does. This scenario is about the controls being
+  // installed and the remembered state being read, which is all this stub can exercise faithfully.
 })
 
 test('the dock width is the user\'s own state, with no mode policy left to override it', async () => {

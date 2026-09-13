@@ -101,6 +101,10 @@ function dockHarness(panelIds) {
     click(node) {
       for (const handler of this.handlersFor(node, 'click')) handler({ stopPropagation() {}, target: node })
     },
+    /** A click that landed on something inside the header rather than on the header itself. */
+    clickInside(node, inner) {
+      for (const handler of this.handlersFor(node, 'click')) handler({ stopPropagation() {}, target: inner })
+    },
     saved: () => JSON.parse(storage.get('ds-hns.dock.panels') || '{}'),
     collapseButtons: () => panels.map((panel) => panel.querySelector('.panel-head').children.find((child) => child.className === 'panel-collapse'))
   }
@@ -153,6 +157,16 @@ test('only the module that was opened last stays open', () => {
   // Closing the open one leaves everything closed — it does not open something else.
   harness.click(buttons[2])
   assert.equal(harness.panels.every((panel) => panel.dataset.collapsed === '1'), true)
+
+  // A click aimed at one of the module's own controls must not toggle the module: the header is a
+  // handle as well as a title, and a user pressing a button in it is not asking to close the module.
+  harness.click(buttons[1])
+  assert.equal(balance.dataset.collapsed, '', 'the module is open before the control click')
+  harness.clickInside(balance.querySelector('.panel-head'), { closest: (selector) => (selector.includes('button') ? {} : null) })
+  assert.equal(balance.dataset.collapsed, '', 'a control click must not toggle the module')
+  // …and it leaves the module as it found it, so the assertions below still describe this moment.
+  harness.click(buttons[1])
+  assert.equal(balance.dataset.collapsed, '1', 'the probe closed the module it opened')
 
   // The per-module choice is remembered, and the open one is the one recorded as open.
   harness.click(buttons[1])
