@@ -32,6 +32,11 @@ const CODES = Object.freeze({
   CONTROLLER_FAILED: 'CONTROLLER_FAILED',
   CONTROLLER_TIMEOUT: 'CONTROLLER_TIMEOUT',
   CAPABILITY_NOT_ALLOWED: 'CAPABILITY_NOT_ALLOWED',
+  // A capability the action needs is not available right now. This is distinct
+  // from CAPABILITY_NOT_ALLOWED (the contract withheld it) and from
+  // CONTROLLER_UNAVAILABLE (the controller is gone): the capability exists and is
+  // permitted, but the channel that carries it is degraded. 24h.md Task 9.
+  CAPABILITY_UNAVAILABLE: 'CAPABILITY_UNAVAILABLE',
   // Action execution (plan §6/§16)
   ACTION_UNSUPPORTED: 'ACTION_UNSUPPORTED',
   ACTION_INVALID: 'ACTION_INVALID',
@@ -57,7 +62,21 @@ const CODES = Object.freeze({
   // Perception (plan §3/§4)
   OBSERVATION_EMPTY: 'OBSERVATION_EMPTY',
   VISION_UNAVAILABLE: 'VISION_UNAVAILABLE',
-  SCREENSHOT_FAILED: 'SCREENSHOT_FAILED'
+  SCREENSHOT_FAILED: 'SCREENSHOT_FAILED',
+  // Long-running execution (Update-Plan/24h.md)
+  //
+  // Every one of these is a *bounded, reported* outcome rather than a hang: the
+  // runtime either recovers, degrades or stops with evidence.
+  WORKSPACE_UNAVAILABLE: 'WORKSPACE_UNAVAILABLE',   // Task 11: no verified cwd -> BLOCK
+  WORKSPACE_MISMATCH: 'WORKSPACE_MISMATCH',         // Task 11: the cwd drifted out of the workspace
+  MUTATION_UNVERIFIED: 'MUTATION_UNVERIFIED',       // Task 12: the file effect could not be confirmed
+  COMMAND_INVALID: 'COMMAND_INVALID',               // Task 13: a shell action with no bounded contract
+  PROCESS_INVALID: 'PROCESS_INVALID',               // Task 7: a process operation with no handle
+  PROCESS_LOST: 'PROCESS_LOST',                     // Task 7: an owned process disappeared
+  RESOURCE_LIMIT: 'RESOURCE_LIMIT',                 // Task 8: the runtime's own ceiling was reached
+  RECONNECT_EXHAUSTED: 'RECONNECT_EXHAUSTED',       // Task 10: bounded reconnection gave up
+  EVIDENCE_INSUFFICIENT: 'EVIDENCE_INSUFFICIENT',   // Task 4: verified, but not strongly enough
+  STATE_INTEGRITY_UNCERTAIN: 'STATE_INTEGRITY_UNCERTAIN' // Task 20: stop rather than guess
 })
 
 class ComputerUseError extends Error {
@@ -93,6 +112,11 @@ class ComputerUseError extends Error {
  * Which failures may be retried without a human. This is intentionally short:
  * a stale target, a missed click, an unstable UI and a timeout are worth one
  * more attempt; a refused capability or a forbidden destructive action is not.
+ *
+ * The long-running additions follow the same rule: a *transient* condition (a
+ * degraded capability, a lost process, a reconnect that was not exhausted) is
+ * worth another attempt, while an unverifiable mutation or a drifted workspace is
+ * not — retrying those would mean acting on a state the runtime cannot vouch for.
  */
 function defaultRetryable(code) {
   switch (code) {
@@ -106,6 +130,9 @@ function defaultRetryable(code) {
     case CODES.UI_UNSTABLE:
     case CODES.STALL_DETECTED:
     case CODES.MODAL_BLOCKING:
+    case CODES.CAPABILITY_UNAVAILABLE:
+    case CODES.PROCESS_LOST:
+    case CODES.EVIDENCE_INSUFFICIENT:
       return true
     default:
       return false

@@ -133,6 +133,15 @@ const COMPUTER_USE_CHANNELS = [
   'computer-use:health',
   'computer-use:actions',
   'computer-use:capabilities',
+  // The long-running state readers (Update-Plan/24h.md Task 19): owned
+  // processes and the resource budget, both read-only snapshots. They answer
+  // "can this executor keep working?" without starting a run.
+  'computer-use:processes',
+  'computer-use:resources',
+  // Task 7: stopping a process the runtime owns. Reading what it owns is a
+  // snapshot; stopping one it started (a dev server, a watcher) is the
+  // supervised operation, and it refuses anything the runtime does not own.
+  'computer-use:kill-owned',
   'computer-use:run',
   'computer-use:cancel',
   'computer-use:step',
@@ -741,8 +750,26 @@ function registerComputerUseIpc() {
   ipcMain.handle('computer-use:capabilities', guard(() => ({
     capabilities: ['browser', 'desktop', 'shell', 'filesystem', 'vision'],
     options: runtime().options,
-    hostNotes: computerUseHost ? computerUseHost.notes : []
+    hostNotes: computerUseHost ? computerUseHost.notes : [],
+    // The on-demand capability report (24h.md Task 19): the same table the
+    // runtime consults before acting, with the reason a capability is unusable.
+    report: runtime().capabilities()
   })))
+  // Task 19 long-running state readers. They go through the same lazy runtime
+  // creation as every other handler, so a disabled or unavailable runtime is a
+  // report (`{ ok: false, error, code }` from `guard`) instead of a rejected
+  // renderer promise.
+  ipcMain.handle('computer-use:processes', guard(() => runtime().processes()))
+  ipcMain.handle('computer-use:resources', guard(() => runtime().resources()))
+  // Task 7: stop one process the runtime owns. The registry refuses a handle it
+  // does not own, so this surface can never be turned into a general process
+  // killer, and a missing handle is a reported refusal rather than an exception.
+  ipcMain.handle('computer-use:kill-owned', guard(async (_event, processId, reason) => {
+    if (typeof processId !== 'string' || !processId) {
+      return { ok: false, id: processId === undefined ? null : String(processId), reason: 'a process handle is required' }
+    }
+    return runtime().killOwned(processId, reason || 'stopped from the Mega panel')
+  }))
   // Plan §35: the renderer hands over an execution contract; the runtime decides
   // whether it is runnable and reports the criteria it verified.
   ipcMain.handle('computer-use:run', guard(async (_event, contract, runOptions) => runtime().run(contract || {}, runOptions || {})))

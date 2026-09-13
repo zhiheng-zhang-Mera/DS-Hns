@@ -19,8 +19,9 @@
  */
 
 const path = require('node:path')
+const fs = require('node:fs')
 
-const { ACTION_TYPES, CU_STATES, RUN_STATUS, resolveComputerUseOptions } = require('./constants.cjs')
+const { ACTION_TYPES, ACTION_CAPABILITY, CAPABILITIES, CU_STATES, RUN_STATUS, resolveComputerUseOptions } = require('./constants.cjs')
 const { createContract, describeContract } = require('./contract.cjs')
 const { createObserver } = require('./observer.cjs')
 const { createExecutor } = require('./executor.cjs')
@@ -34,6 +35,12 @@ const { createShellController } = require('./controllers/shell.cjs')
 const { createFileController } = require('./controllers/file.cjs')
 const { createClock } = require('./ports.cjs')
 const { CODES, ComputerUseError } = require('./errors.cjs')
+// Long-running execution (Update-Plan/24h.md): the runtime owns its processes,
+// bounds its resources, keeps a workspace boundary and reports its own health.
+const { createProcessRegistry } = require('./processes.cjs')
+const { createResourceBudget } = require('./resources.cjs')
+const { createWorkspaceGuard } = require('./workspace.cjs')
+const { buildHealthSnapshot, HEALTH_STATUS, capabilityVerdict } = require('./health.cjs')
 
 const VERSION = '1.0.0'
 
@@ -56,8 +63,32 @@ function createComputerUseRuntime(options = {}) {
   const runtimeOptions = resolveComputerUseOptions(options.options || {})
   const log = options.log === null
     ? null
-    : createExecutionLog({ now: clock.now, dir: options.log ? options.log.dir : undefined, mode: options.log ? options.log.mode : 'normal', retention: runtimeOptions.screenshotRetention })
+    : createExecutionLog({ now: clock.now, dir: options.log ? options.log.dir : undefined, mode: options.log ? options.log.mode : 'normal', retention: runtimeOptions.screenshotRetention, runId: options.runId })
   const faults = []
+
+  // The runtime's long-running infrastructure (Update-Plan/24h.md). Each piece is
+  // created once and shared with the executor and the shell controller, so there
+  // is exactly one registry, one resource budget and one workspace verdict.
+  // The mutable objects stay in this scope and never leave it: `processes()` and
+  // `resources()` below are the read-only snapshots the upper layer gets, so a
+  // report can never be used to settle, kill or re-policy the runtime (Task 19).
+  const processRegistry = options.processes || createProcessRegistry({ now: clock.now, maxOwned: runtimeOptions.maxOwnedProcesses })
+  const resourceBudget = options.resources || createResourceBudget({ now: clock.now, maxScreenshots: runtimeOptions.maxScreenshots })
+  /**
+   * The workspace boundary (Task 11).
+   *
+   * A contract may name one; a host may name one. When neither does, the runtime
+   * still refuses to inherit `process.cwd()` — it uses a directory it owns inside
+   * the DS-Hns data root instead (`<ROOT>/workspace/computer-use`). That keeps
+   * "every shell action carries a verified cwd" true for a shell-only host while
+   * never pointing a command at an arbitrary directory.
+   */
+  const declaredWorkspace = host.workspace || options.defaultWorkspace || defaultRuntimeWorkspace()
+  const workspace = options.workspaceGuard || createWorkspaceGuard({
+    now: clock.now,
+    workspace: declaredWorkspace,
+    allowOutside: host.allowOutsideWorkspace === true
+  })
 
   function guard(name, factory) {
     try {
@@ -66,6 +97,24 @@ function createComputerUseRuntime(options = {}) {
       const message = error && error.message ? error.message : String(error)
       faults.push({ at: clock.now(), controller: name, error: message })
       return unavailableController(name, null, `${name} failed to initialise: ${message}`)
+    }
+  }
+
+  /**
+   * The same fault discipline as `guard()`, for the read-only readers
+   * (Update-Plan/24h.md Task 19/Task 20).
+   *
+   * "Can this executor keep working right now?" is exactly the question that must
+   * never be answered with a thrown exception: a probe that fails degrades the
+   * reader to a reported reason, records a fault, and lets the caller decide.
+   */
+  function readThrough(name, factory, fallback) {
+    try {
+      return factory()
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error)
+      faults.push({ at: clock.now(), controller: name, error: message })
+      return fallback(message)
     }
   }
 
@@ -85,7 +134,22 @@ function createComputerUseRuntime(options = {}) {
     browser: isolateController('browser', 'browser', () => createBrowserController({ page: initialPage(), clock, config: runtimeOptions })),
     desktop: isolateController('desktop', 'desktop', () => createDesktopController({ driver: host.desktop || null, accessibility: host.accessibility || null, clock, config: runtimeOptions })),
     vision: isolateController('vision', 'vision', () => createVisionController({ driver: host.screenshot || null, clock, config: host.visionConfig || {} })),
-    shell: isolateController('shell', 'shell', () => createShellController({ clock, cwd: host.cwd, env: host.env, shellEnabled: host.shellEnabled })),
+    shell: isolateController('shell', 'shell', () => createShellController({
+      clock,
+      // Every command runs inside the verified workspace (Task 11). A host that
+      // names its own `cwd` overrides it; a host that names neither workspace nor
+      // cwd gets the shared default the runtime owns (see `declaredWorkspace`),
+      // so the controller is never the component choosing a directory.
+      cwd: host.cwd || declaredWorkspace,
+      env: host.env,
+      shellEnabled: host.shellEnabled,
+      // The registry is what makes "kill only what we own" enforceable (Task 7),
+      // and the workspace guard is what stops a command from running in an
+      // unverified directory (Task 11). The registry is handed over under the
+      // key the controller reads (`processes`), never under its local name here.
+      processes: processRegistry,
+      workspace: () => workspace
+    })),
     file: guard('file', () => createFileController({ clock, workspace: host.workspace || null, allowOutsideWorkspace: host.allowOutsideWorkspace === true }))
   }
 
@@ -116,23 +180,373 @@ function createComputerUseRuntime(options = {}) {
     // Extra facts for success criteria, supplied by the host (a virtual
     // filesystem in acceptance, an application API in production).
     hostFacts: host.facts || null,
-    options: runtimeOptions
+    options: runtimeOptions,
+    // The shared long-running infrastructure, so the executor supervises the very
+    // processes the shell controller starts and reports the same resource state.
+    processes: processRegistry,
+    resources: resourceBudget
   })
 
   let activeRun = null
 
-  /** Plan §38: the runtime's own health, controller by controller. */
+  /**
+   * Plan §38 + Update-Plan/24h.md Task 19/20: the runtime's own health.
+   *
+   * The snapshot answers one question — can this executor keep working right
+   * now? — and answers `blocked` (rather than `degraded`) when continuing would
+   * mean acting on a state the runtime cannot vouch for: no workspace, no usable
+   * capability, no safety channel, a resource ceiling, or an uncertain state.
+   *
+   * A single failed controller is *not* a block: it degrades and the rest
+   * continues (Task 20).
+   */
   function health() {
-    // The page is attached before probing, otherwise a health report taken
-    // before the first run would claim the browser controller is unavailable.
-    syncPage()
+    // A reader must never throw at its caller (Task 19/20): if even the snapshot
+    // cannot be built, the answer is a reported degraded state, not an exception.
+    return readThrough('health', () => {
+      // The page is attached before probing, otherwise a health report taken
+      // before the first run would claim the browser controller is unavailable.
+      syncPage()
+      const contract = executor.currentRun ? executor.currentRun.contract : null
+      const snapshot = buildHealthSnapshot({
+        now: clock.now(),
+        // The live probe, keyed by controller id. `health.cjs` owns the one
+        // capability-to-controller mapping (`filesystem` is carried by `file`),
+        // so the snapshot must speak controller ids: feeding it an array-keyed
+        // view made every run with allowed capabilities look blocked.
+        controllers: probeControllersNow(),
+        allowedCapabilities: contract ? contract.capabilities : null,
+        workspace: workspace.status(),
+        resources: resourceBudget.snapshot(),
+        processes: processRegistry.snapshot(),
+        progress: executor.currentRun ? executor.currentRun.progress.status() : null,
+        stallLevel: executor.currentRun ? executor.currentRun.stallRecoveries : 0,
+        step: executor.currentRun ? { id: executor.currentRun.currentStepId || null, index: executor.currentRun.steps } : null,
+        safetyAvailable: Boolean(host.confirm) || !contract || contract.safety.destructiveActions !== 'confirm'
+      })
+      return {
+        version: VERSION,
+        state: executor.currentRun ? executor.currentRun.stateMachine.state : CU_STATES.IDLE,
+        running: executor.running,
+        // The documented top-level shape (Task 19) alongside the detail.
+        status: healthStatus(snapshot.status),
+        capabilities: snapshot.capabilities,
+        lastProgressAt: snapshot.lastProgressAt,
+        activeOwnedProcesses: snapshot.activeOwnedProcesses,
+        currentStep: snapshot.currentStep,
+        controllers: executor.health(),
+        faults: faults.slice(),
+        blockReasons: Array.isArray(snapshot.blockedReasons) ? snapshot.blockedReasons.slice() : [],
+        workspace: snapshot.workspace,
+        resourcePressure: snapshot.resourcePressure,
+        stallLevel: snapshot.stallLevel,
+        degradedCapabilities: Array.isArray(snapshot.degradedCapabilities) ? snapshot.degradedCapabilities.slice() : [],
+        sinceProgressMs: snapshot.sinceProgressMs,
+        autonomy: { enabled: autonomy.enabled, limits: autonomy.limits, decisions: autonomy.decisions().slice(-5) }
+      }
+    }, degradedHealthSnapshot)
+  }
+
+  /** Only the three documented values may ever be reported (Task 19). */
+  function healthStatus(value) {
+    return value === HEALTH_STATUS.BLOCKED || value === HEALTH_STATUS.DEGRADED || value === HEALTH_STATUS.HEALTHY
+      ? value
+      : HEALTH_STATUS.DEGRADED
+  }
+
+  /**
+   * The answer when the health reader itself failed: degraded, with the reason,
+   * and never a fabricated `healthy` (Task 20).
+   */
+  function degradedHealthSnapshot(message) {
     return {
       version: VERSION,
-      state: executor.currentRun ? executor.currentRun.stateMachine.state : CU_STATES.IDLE,
-      running: executor.running,
-      controllers: executor.health(),
+      state: CU_STATES.IDLE,
+      running: false,
+      status: HEALTH_STATUS.DEGRADED,
+      capabilities: {},
+      lastProgressAt: null,
+      activeOwnedProcesses: 0,
+      currentStep: null,
+      controllers: [],
       faults: faults.slice(),
-      autonomy: { enabled: autonomy.enabled, limits: autonomy.limits, decisions: autonomy.decisions().slice(-5) }
+      blockReasons: [],
+      workspace: null,
+      resourcePressure: null,
+      stallLevel: 0,
+      degradedCapabilities: [],
+      sinceProgressMs: null,
+      reason: message,
+      autonomy: { enabled: autonomy.enabled, limits: autonomy.limits, decisions: [] }
+    }
+  }
+
+  /**
+   * Can this runtime carry an action that needs `capability` right now?
+   *
+   * A missing capability is reported as `CAPABILITY_UNAVAILABLE` for *that
+   * action* instead of a runtime failure (Task 9).
+   */
+  function canExecute(actionType) {
+    return readThrough('canExecute', () => {
+      const capability = capabilityOfAction(actionType)
+      const snapshot = buildHealthSnapshot({
+        now: clock.now(),
+        controllers: probeControllersNow(),
+        allowedCapabilities: executor.currentRun ? executor.currentRun.contract.capabilities : null
+      })
+      return capabilityVerdict(snapshot, capability)
+    }, (message) => ({ ok: false, reason: `the capability verdict could not be taken: ${message}` }))
+  }
+
+  /**
+   * Update-Plan/24h.md Task 19: per-capability availability, with the reason a
+   * capability is unavailable.
+   *
+   * It reuses the frozen `ACTION_CAPABILITY` map and the very `capabilityVerdict`
+   * the runtime consults before acting, so a capability report and an actual
+   * `canExecute()` can never disagree. Read-only: the caller gets a snapshot,
+   * never a controller.
+   */
+  function capabilities() {
+    return readThrough('capabilities', () => {
+      const snapshot = buildHealthSnapshot({
+        now: clock.now(),
+        controllers: probeControllersNow(),
+        allowedCapabilities: executor.currentRun ? executor.currentRun.contract.capabilities : null
+      })
+      const reported = {}
+      // The contract's capabilities, each answered through the same verdict the
+      // runtime consults before acting — never a second opinion that could drift.
+      for (const capability of CAPABILITIES) {
+        const verdict = capabilityVerdict(snapshot, capability)
+        const controllers = Array.isArray(verdict.controllers) ? verdict.controllers.slice() : []
+        const carrying = controllers.map((id) => snapshot.capabilities[id]).filter(Boolean)
+        const degraded = verdict.ok && carrying.length > 0 && carrying.every((entry) => entry.degraded)
+        const reason = carrying.find((entry) => entry.reason)
+        reported[capability] = {
+          // `unavailable` is deliberately not a HEALTH_STATUS value: it is an
+          // availability, not the runtime's status.
+          status: verdict.ok ? (degraded ? HEALTH_STATUS.DEGRADED : HEALTH_STATUS.HEALTHY) : 'unavailable',
+          available: verdict.ok,
+          degraded,
+          controllers,
+          reason: verdict.ok ? (reason ? reason.reason : null) : verdict.reason
+        }
+      }
+      const actions = {}
+      for (const [actionType, capability] of Object.entries(ACTION_CAPABILITY)) {
+        const verdict = capabilityVerdict(snapshot, capability)
+        actions[actionType] = { capability, ok: verdict.ok, reason: verdict.reason, controllers: Array.isArray(verdict.controllers) ? verdict.controllers.slice() : [] }
+      }
+      return {
+        at: clock.now(),
+        status: healthStatus(snapshot.status),
+        capabilities: reported,
+        available: snapshot.usableCapabilities.slice(),
+        degraded: snapshot.degradedCapabilities.slice(),
+        unavailable: snapshot.unavailableCapabilities.slice(),
+        actions
+      }
+    }, (message) => ({
+      at: clock.now(),
+      status: HEALTH_STATUS.DEGRADED,
+      capabilities: {},
+      available: [],
+      degraded: [],
+      unavailable: [],
+      actions: {},
+      reason: message
+    }))
+  }
+
+  /**
+   * Update-Plan/24h.md Task 19/Task 7: what this runtime owns right now.
+   *
+   * A snapshot, never the registry: a report cannot settle, kill or detach a
+   * process, so reading the runtime's health can never change it.
+   */
+  function processes() {
+    return readThrough('processes', () => {
+      const snapshot = processRegistry.snapshot()
+      return {
+        at: clock.now(),
+        owned: snapshot.owned.slice(),
+        ownedCount: snapshot.ownedCount,
+        ceiling: snapshot.ceiling,
+        atCapacity: snapshot.atCapacity,
+        hungSuspected: snapshot.hungSuspected.slice(),
+        finished: snapshot.finished.slice()
+      }
+    }, (message) => ({
+      at: clock.now(),
+      owned: [],
+      ownedCount: 0,
+      ceiling: null,
+      atCapacity: false,
+      hungSuspected: [],
+      finished: [],
+      reason: message
+    }))
+  }
+
+  /**
+   * Update-Plan/24h.md Task 19/Task 8: the resource budget as a snapshot.
+   *
+   * The budget object itself is never handed out, so a reader can neither raise
+   * a ceiling nor force an eviction. `level` distinguishes "holding captures"
+   * from the pressure the health snapshot blocks on: the budget reports
+   * `atCeiling` once it has had to evict captures and the retained evidence is at
+   * its own bound (Task 8/19/20).
+   */
+  function resources() {
+    return readThrough('resources', () => {
+      const snapshot = resourceBudget.snapshot()
+      const ceiling = snapshot.limits.maxScreenshots
+      const atCeiling = snapshot.atCeiling === true
+      const elevated = snapshot.droppedScreenshots > 0 && (
+        snapshot.screenshots >= ceiling || snapshot.evidenceBytes >= snapshot.limits.maxEvidenceBytes * 0.9
+      )
+      return {
+        at: clock.now(),
+        limits: { ...snapshot.limits },
+        screenshots: snapshot.screenshots,
+        retainedScreenshots: snapshot.retainedScreenshots,
+        droppedScreenshots: snapshot.droppedScreenshots,
+        evidenceBytes: snapshot.evidenceBytes,
+        atCeiling,
+        pressure: snapshot.pressure.slice(),
+        level: atCeiling ? 'ceiling' : (elevated ? 'elevated' : 'normal')
+      }
+    }, (message) => ({
+      at: clock.now(),
+      limits: null,
+      screenshots: 0,
+      retainedScreenshots: 0,
+      droppedScreenshots: 0,
+      evidenceBytes: 0,
+      atCeiling: false,
+      pressure: [],
+      level: 'unknown',
+      reason: message
+    }))
+  }
+
+  /**
+   * `processes()` and `resources()` are the Task 19 readers, and they are also
+   * read-only handles: a caller that already used `processes.ownedCount`,
+   * `processes.snapshot()` or `resources.snapshot()` keeps working, while the
+   * mutating half of each component (`register`, `settle`, `kill`, `dispose`,
+   * `release`, `enforce`) is unreachable from the runtime object.
+   */
+  Object.defineProperties(processes, {
+    ownedCount: { get: () => processRegistry.ownedCount },
+    ceiling: { get: () => processRegistry.ceiling },
+    atCapacity: { get: () => processRegistry.atCapacity() },
+    snapshot: { value: () => processRegistry.snapshot() },
+    finished: { value: () => processRegistry.finished() }
+  })
+  Object.defineProperties(resources, {
+    limits: { get: () => ({ ...resourceBudget.limits }) },
+    screenshotCount: { get: () => resourceBudget.screenshotCount },
+    dropped: { get: () => resourceBudget.dropped },
+    snapshot: { value: () => resourceBudget.snapshot() }
+  })
+
+  /**
+   * Update-Plan/24h.md Task 19/Task 5: the active run's progress heartbeat.
+   *
+   * With no run in flight the honest answer is "nothing is running" rather than
+   * the best case: `active: false` and null timings. Only meaningful progress
+   * (a verified effect, a finished owned process, a confirmed mutation) moves
+   * `lastProgressAt`, so `sinceProgressMs` is how long the executor has been
+   * busy without moving the world forward.
+   */
+  function progress() {
+    return readThrough('progress', () => {
+      const run_ = executor.currentRun
+      if (!run_ || !run_.progress || typeof run_.progress.status !== 'function') {
+        return {
+          at: clock.now(),
+          active: false,
+          running: executor.running,
+          state: null,
+          goal: null,
+          step: null,
+          steps: 0,
+          lastProgressAt: null,
+          lastActionAt: null,
+          lastVerifiedEffectAt: null,
+          sinceProgressMs: null,
+          sinceActionMs: null,
+          noOpStreak: 0,
+          stallLevel: 0,
+          lastProgress: null
+        }
+      }
+      const status = run_.progress.status()
+      return {
+        at: clock.now(),
+        active: true,
+        running: executor.running,
+        state: run_.stateMachine ? run_.stateMachine.state : null,
+        goal: run_.contract ? run_.contract.goal : null,
+        step: run_.currentStepId || null,
+        steps: run_.steps,
+        lastProgressAt: status.lastProgressAt,
+        lastActionAt: status.lastActionAt,
+        lastVerifiedEffectAt: status.lastVerifiedEffectAt,
+        sinceProgressMs: status.sinceProgressMs,
+        sinceActionMs: status.sinceActionMs,
+        noOpStreak: status.noOpStreak,
+        stallLevel: run_.stallRecoveries,
+        // The last progress record is copied, not handed over: the tracker's own
+        // ring stays private.
+        lastProgress: status.lastProgress ? { kind: status.lastProgress.kind, at: status.lastProgress.at } : null
+      }
+    }, (message) => ({
+      at: clock.now(),
+      active: false,
+      running: false,
+      state: null,
+      goal: null,
+      step: null,
+      steps: 0,
+      lastProgressAt: null,
+      lastActionAt: null,
+      lastVerifiedEffectAt: null,
+      sinceProgressMs: null,
+      sinceActionMs: null,
+      noOpStreak: 0,
+      stallLevel: 0,
+      lastProgress: null,
+      reason: message
+    }))
+  }
+
+  /**
+   * Update-Plan/24h.md Task 7: stop one process this runtime owns.
+   *
+   * This is the *supervised* half of process ownership, and it is deliberately a
+   * separate call from the `processes()` report: reading what the runtime owns can
+   * never change it, while stopping a long-running process the runtime started (a
+   * dev server, a watcher, a build that must not outlive its task) is a real
+   * operation an upper layer has to be able to perform.
+   *
+   * It is never a general process killer: the registry refuses anything it does
+   * not own, and "not owned" is reported rather than escalated.
+   *
+   * @param {string} processId a handle from `processes().owned[].id`
+   * @param {string} [reason] recorded with the outcome
+   * @returns {Promise<{ok:boolean, id:string, reason:string}>}
+   */
+  async function killOwned(processId, reason = 'runtime request') {
+    try {
+      return await processRegistry.kill(processId, String(reason))
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error)
+      faults.push({ at: clock.now(), controller: 'processes', error: message })
+      return { ok: false, id: processId === undefined || processId === null ? null : String(processId), reason: message }
     }
   }
 
@@ -211,11 +625,55 @@ function createComputerUseRuntime(options = {}) {
     return Boolean(page)
   }
 
+  /** The capability an action type needs, from the frozen contract table. */
+  function capabilityOfAction(actionType) {
+    return ACTION_CAPABILITY[actionType] || null
+  }
+
+  /** The directory the runtime owns when a contract names no workspace. */
+  function defaultRuntimeWorkspace() {
+    try {
+      const root = process.env.DSH_ROOT ? path.resolve(process.env.DSH_ROOT) : path.resolve(__dirname, '..', '..')
+      const dir = path.join(root, 'workspace', 'computer-use')
+      fs.mkdirSync(dir, { recursive: true })
+      return dir
+    } catch {
+      return null
+    }
+  }
+
+  /** A fresh controller probe, used by the on-demand capability verdict. */
+  function probeControllersNow() {    const entry = (controller) => {
+      if (!controller || typeof controller.probe !== 'function') return { available: false, reason: 'controller is not attached' }
+      try {
+        const verdict = controller.probe()
+        return { available: verdict.available !== false, reason: verdict.reason || null, detail: verdict.detail || null }
+      } catch (error) {
+        return { available: false, reason: error && error.message ? error.message : String(error) }
+      }
+    }
+    return {
+      browser: entry(controllers.browser),
+      desktop: entry(controllers.desktop),
+      vision: entry(controllers.vision),
+      shell: entry(controllers.shell),
+      file: entry(controllers.file)
+    }
+  }
+
   function dispose() {
     try {
       controllers.file.unwatchAll?.()
     } catch {
       /* nothing to release */
+    }
+    // Task 7: the runtime disposes of every process it owns. A disposable child
+    // must not survive the runtime that started it.
+    try {
+      const disposed = processRegistry.dispose('runtime dispose')
+      if (disposed.attempted) faults.push({ at: clock.now(), controller: 'processes', error: `disposed ${disposed.disposed}/${disposed.attempted} owned processes` })
+    } catch (error) {
+      faults.push({ at: clock.now(), controller: 'processes', error: String(error && error.message ? error.message : error) })
     }
     if (log) log.close()
     return true
@@ -231,11 +689,25 @@ function createComputerUseRuntime(options = {}) {
     cancel,
     attachPage,
     health,
+    canExecute,
+    /**
+     * The long-running state readers (Update-Plan/24h.md Task 19/Task 20). All
+     * four are bounded snapshots, and none of them can throw: a failure is a
+     * reported reason plus a fault. The mutable registry and budget stay private.
+     */
+    capabilities,
+    processes,
+    resources,
+    progress,
+    // The supervised half of ownership (Task 7): reading can never change the
+    // runtime, killing what it owns is an explicit, refused-if-not-owned call.
+    killOwned,
     dispose,
     controllers,
     observer,
     executor,
     autonomy,
+    workspace,
     options: runtimeOptions,
     log: log
       ? {

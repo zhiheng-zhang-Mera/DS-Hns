@@ -85,8 +85,9 @@ function createElectronHost(options = {}) {
   return {
     /** The ports the runtime consumes; a null port simply degrades its controller. */
     host: {
-      // The visible surface can change (Daily view vs Work view), so the page is
-      // re-attached per run instead of being frozen at construction time.
+      // The shell's visible surface can be replaced while the runtime is alive, so
+      // the page is re-attached per run instead of being frozen at construction
+      // time (24h.md Task 10: reconstruct the transient execution context).
       getPage: currentPage,
       desktop: win32,
       accessibility: uia,

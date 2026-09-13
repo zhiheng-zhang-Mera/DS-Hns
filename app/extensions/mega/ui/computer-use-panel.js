@@ -104,19 +104,110 @@
       return contract
     }
 
-    function renderHealth(health) {
+    /** A duration a human can read, without a formatting library. */
+    function formatDuration(ms) {
+      if (!Number.isFinite(ms) || ms < 0) return '—'
+      const total = Math.round(ms / 1000)
+      if (total < 60) return `${total}s`
+      const minutes = Math.floor(total / 60)
+      if (minutes < 60) return `${minutes}m${total % 60 ? ` ${total % 60}s` : ''}`
+      return `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ''}`
+    }
+
+    const HEALTH_LABELS = {
+      healthy: 'healthy（可继续）',
+      degraded: 'degraded（降级可用）',
+      blocked: 'blocked（已阻断）'
+    }
+
+    function healthLabel(status) {
+      return HEALTH_LABELS[status] || String(status || 'unknown')
+    }
+
+    function healthCard(label, text, degraded) {
+      const card = el('div', 'cu-health-card')
+      card.classList.toggle('degraded', Boolean(degraded))
+      card.appendChild(el('b', null, label))
+      card.appendChild(el('span', null, text))
+      return card
+    }
+
+    /** One entry of the runtime's `blockReasons`, as plain text. */
+    function reasonText(entry) {
+      if (!entry) return 'unknown'
+      if (typeof entry === 'string') return entry
+      const code = entry.code ? String(entry.code) : ''
+      const reason = entry.reason ? String(entry.reason) : ''
+      if (code && reason) return `${code}: ${reason}`
+      return code || reason || 'unknown'
+    }
+
+    /**
+     * The runtime's own health report (Update-Plan/24h.md Task 19/Task 20).
+     *
+     * The panel only *renders* it: status, why it is blocked, which capabilities
+     * are degraded, what the runtime owns, how much resource pressure there is
+     * and how long it has been since the last meaningful progress. Nothing here
+     * drives the machine; a missing field is simply not shown.
+     *
+     * @param {object} health `computer-use:health` / `snapshot().health`
+     * @param {object|null} processReport optional `computer-use:processes`
+     * @param {object|null} resourceReport optional `computer-use:resources`
+     */
+    function renderHealth(health, processReport, resourceReport) {
       if (!healthGrid) return
+      const report = health || {}
       healthGrid.textContent = ''
-      for (const controller of health.controllers || []) {
-        const card = el('div', 'cu-health-card')
-        card.classList.toggle('degraded', !controller.available)
-        card.appendChild(el('b', null, controller.controller))
-        card.appendChild(el('span', null, controller.available ? 'ready' : `degraded: ${controller.reason || 'unknown'}`))
-        healthGrid.appendChild(card)
+      const status = String(report.status || 'unknown')
+      healthGrid.appendChild(healthCard('runtime', healthLabel(status), status !== 'healthy'))
+
+      const blockReasons = Array.isArray(report.blockReasons) ? report.blockReasons : []
+      if (blockReasons.length) {
+        healthGrid.appendChild(healthCard('blocked by', blockReasons.map(reasonText).join('；'), true))
+      }
+
+      const degraded = Array.isArray(report.degradedCapabilities) ? report.degradedCapabilities : []
+      if (degraded.length) {
+        healthGrid.appendChild(healthCard('degraded capabilities', degraded.join('、'), true))
+      }
+
+      const owned = Number.isFinite(report.activeOwnedProcesses) ? report.activeOwnedProcesses : 0
+      let ownedText = `${owned} 个运行中`
+      if (processReport && Number.isFinite(processReport.ceiling)) {
+        ownedText += `（上限 ${processReport.ceiling}${processReport.atCapacity ? '，已达上限' : ''}）`
+      }
+      if (processReport && Array.isArray(processReport.hungSuspected) && processReport.hungSuspected.length) {
+        ownedText += ` · 疑似挂起 ${processReport.hungSuspected.length}`
+      }
+      healthGrid.appendChild(healthCard('owned processes', ownedText, Boolean(processReport && processReport.atCapacity)))
+
+      const pressure = report.resourcePressure || null
+      const ceilings = (pressure && pressure.ceilings) || (resourceReport && resourceReport.limits) || null
+      const screenshots = pressure && Number.isFinite(pressure.screenshots)
+        ? pressure.screenshots
+        : (resourceReport && Number.isFinite(resourceReport.screenshots) ? resourceReport.screenshots : 0)
+      let pressureText = ceilings && Number.isFinite(ceilings.maxScreenshots)
+        ? `截图 ${screenshots}/${ceilings.maxScreenshots}`
+        : `截图 ${screenshots}`
+      if (pressure) pressureText += ` · 保留 ${pressure.retainedScreenshots || 0} · 丢弃 ${pressure.droppedScreenshots || 0}`
+      const level = resourceReport && resourceReport.level ? String(resourceReport.level) : null
+      const pressured = level === 'ceiling' || level === 'elevated' || Boolean(resourceReport && resourceReport.atCeiling)
+      if (level && level !== 'normal' && level !== 'unknown') pressureText += ` · ${level}`
+      healthGrid.appendChild(healthCard('resource pressure', pressureText, pressured))
+
+      const since = Number.isFinite(report.sinceProgressMs) ? report.sinceProgressMs : null
+      const stall = Number.isFinite(report.stallLevel) ? report.stallLevel : 0
+      const progressText = since === null
+        ? '暂无有效进展记录'
+        : `${formatDuration(since)} 无有效进展${stall ? ` · stall ${stall}` : ''}`
+      healthGrid.appendChild(healthCard('progress', progressText, stall > 0))
+
+      for (const controller of report.controllers || []) {
+        healthGrid.appendChild(healthCard(controller.controller, controller.available ? 'ready' : `degraded: ${controller.reason || 'unknown'}`, !controller.available))
       }
       if (stateChip) {
-        stateChip.textContent = health.state || 'IDLE'
-        stateChip.className = `status-chip ${health.running ? 'busy' : 'neutral'}`
+        stateChip.textContent = report.state || 'IDLE'
+        stateChip.className = `status-chip ${report.running ? 'busy' : 'neutral'}`
       }
     }
 
@@ -176,6 +267,25 @@
         : `页面：未附着（${(info && info.reason) || '未知原因'}）`
     }
 
+    /**
+     * The optional long-running state readers (Task 19). A bridge that does not
+     * expose them (or a runtime that is disabled) only costs detail: the health
+     * snapshot alone still renders the count and the pressure.
+     */
+    async function readLongRunningState() {
+      const bridge = window.megaComputerUse
+      const read = async (name) => {
+        try {
+          if (typeof bridge[name] !== 'function') return null
+          const report = await bridge[name]()
+          return report && report.ok === false ? null : report
+        } catch (error) {
+          return null
+        }
+      }
+      return { processReport: await read('processes'), resourceReport: await read('resources') }
+    }
+
     async function refresh() {
       if (!window.megaComputerUse) {
         say('Computer Use bridge 不可用（preload 未加载）。', 'bad')
@@ -187,7 +297,8 @@
           say(snapshot.error, 'bad')
           return
         }
-        renderHealth(snapshot.health || snapshot)
+        const { processReport, resourceReport } = await readLongRunningState()
+        renderHealth(snapshot.health || snapshot, processReport, resourceReport)
         renderSteps(snapshot.recentSteps)
         const page = await window.megaComputerUse.page()
         renderPage(page)

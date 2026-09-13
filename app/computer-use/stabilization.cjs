@@ -2,11 +2,15 @@
 
 /**
  * Computer Use Runtime: transient stabilization (plan §8, §9, §10, §11, §12,
- * §13, §23, §24, §25).
+ * §13, §23, §24, §25; Update-Plan/24h.md Task 3, Task 16).
  *
  * This module is the answer to the two failure modes every computer-use agent
  * hits: acting on a target that has already moved, and *concluding failure*
  * before the UI has had a chance to react.
+ *
+ * It is also the **only** place transient UI timing is decided (24h.md Task 16):
+ * every caller asks this module when it is safe to act and when it is safe to
+ * verify, instead of inventing its own delay.
  *
  * The policy is fixed and deliberately boring:
  *
@@ -22,6 +26,73 @@
 const { TIMING, TARGET_MOVEMENT } = require('./constants.cjs')
 const { revalidate } = require('./target.cjs')
 
+/**
+ * The complete signal vocabulary (24h.md Task 3).
+ *
+ * Both spellings are accepted — the camelCase key and the hyphenated name the
+ * recovery ladder emits — because the two existed side by side and a signal that
+ * is silently unrecognised is a signal that silently does nothing.
+ */
+const SIGNALS = Object.freeze({
+  UI_CHANGING: 'uiChanging',
+  TARGET_MOVED: 'targetMoved',
+  PREVIOUS_MISS: 'previousMiss',
+  WINDOW_CHANGED: 'windowChanged',
+  ANIMATION_DETECTED: 'animationDetected',
+  NAVIGATION_PENDING: 'navigationPending',
+  MODAL_APPEARED: 'modalAppeared',
+  TARGET_DETACHED: 'targetDetached'
+})
+
+const SIGNAL_LIST = Object.freeze(Object.values(SIGNALS))
+
+/** Hyphenated aliases the recovery ladder and the log use. */
+const SIGNAL_ALIASES = Object.freeze({
+  'ui-changing': SIGNALS.UI_CHANGING,
+  'target-moved': SIGNALS.TARGET_MOVED,
+  'previous-miss': SIGNALS.PREVIOUS_MISS,
+  'window-changed': SIGNALS.WINDOW_CHANGED,
+  animation: SIGNALS.ANIMATION_DETECTED,
+  'navigation-pending': SIGNALS.NAVIGATION_PENDING,
+  'modal-appeared': SIGNALS.MODAL_APPEARED,
+  'target-detached': SIGNALS.TARGET_DETACHED
+})
+
+/**
+ * Normalize anything signal-shaped into the canonical camelCase keys.
+ *
+ * Accepts an array of hyphenated names (what recovery emits), a partial object,
+ * or a mix. Unknown names are dropped rather than silently treated as false —
+ * the caller can compare `unknown` against what it passed.
+ *
+ * @returns {{signals:object, unknown:string[]}}
+ */
+function normalizeSignals(input) {
+  const signals = {}
+  const unknown = []
+  for (const name of SIGNAL_LIST) signals[name] = false
+  if (!input) return { signals, unknown }
+  if (Array.isArray(input)) {
+    for (const entry of input) {
+      const key = SIGNAL_ALIASES[String(entry)] || (SIGNAL_LIST.includes(String(entry)) ? String(entry) : null)
+      if (key) signals[key] = true
+      else unknown.push(String(entry))
+    }
+    return { signals, unknown }
+  }
+  if (typeof input === 'object') {
+    for (const [name, value] of Object.entries(input)) {
+      const key = SIGNAL_ALIASES[name] || (SIGNAL_LIST.includes(name) ? name : null)
+      if (!key) {
+        if (value) unknown.push(name)
+        continue
+      }
+      signals[key] = Boolean(value)
+    }
+  }
+  return { signals, unknown }
+}
+
 function createStabilizer(options = {}) {
   const clock = options.clock || { now: () => Date.now(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }
   const limits = { ...TIMING, ...(options.limits || {}) }
@@ -30,6 +101,7 @@ function createStabilizer(options = {}) {
 
   function note(entry) {
     trace.push({ at: clock.now(), ...entry })
+    if (trace.length > 200) trace.splice(0, trace.length - 200)
     return entry
   }
 
@@ -61,9 +133,14 @@ function createStabilizer(options = {}) {
    *
    *   1. spend the action's minimum settle (short forced delay)
    *   2. observe; is the UI stable *and* is the target where it was?
-   *   3. if not, add one dynamic cooldown step (plan §24: +80 ms) and re-check
+   *   3. if not, add one dynamic cooldown step and re-check, feeding every signal
+   *      the observation produced into the cooldown (24h.md Task 3)
    *   4. past the ceiling, stop waiting and hand back `WAIT_STATE` so the caller
    *      escalates to a conditional wait or a re-observe instead of sleeping on
+   *
+   * The forced minimum can never push the wait past the action's own ceiling: the
+   * ceiling is the bound, and a minimum that exceeds it is clamped to it rather
+   * than slept through (24h.md Task 3: "禁止无限 sleep").
    *
    * @param {object} input
    * @param {object} input.action normalized action carrying its stabilization block
@@ -72,6 +149,8 @@ function createStabilizer(options = {}) {
    * @param {function} [input.locateTarget] async () => resolved target again
    * @param {string} [input.waitForState] an optional condition the caller wants
    *   satisfied before acting (a toast, a load state, an enabled control)
+   * @param {object} [input.signals] extra signals known *before* observing
+   *   (`previousMiss`, `windowChanged`, `animationDetected`, `navigationPending`)
    */
   async function settle(input) {
     const action = input.action
@@ -79,9 +158,14 @@ function createStabilizer(options = {}) {
     const maximumMs = action && action.stabilization ? action.stabilization.maximumMs : limits.settleMaxMs
     const startedAt = clock.now()
     let waitedMs = 0
+    // Signals the caller already knows about (a previous miss, a window change)
+    // are part of this step's state, so they count towards the cooldown from the
+    // first observation instead of being rediscovered by it.
+    const carried = normalizeSignals(input.signals).signals
 
-    if (minimumMs > 0) {
-      await clock.sleep(minimumMs)
+    const boundedMinimum = Math.max(0, Math.min(minimumMs, maximumMs))
+    if (boundedMinimum > 0) {
+      await clock.sleep(boundedMinimum)
       waitedMs = clock.now() - startedAt
     }
 
@@ -92,12 +176,16 @@ function createStabilizer(options = {}) {
       attempts += 1
       const world = await input.observe()
       const currentResolution = typeof input.locateTarget === 'function' ? await input.locateTarget() : null
-      lastSignals = stabilitySignals(lastWorld, world, { previousResolution: input.previous, currentResolution })
+      const observed = stabilitySignals(lastWorld, world, { previousResolution: input.previous, currentResolution })
+      // The detected signals and the carried ones are merged, not replaced: a
+      // modal that appeared during this observation and a miss from the previous
+      // step are both true.
+      lastSignals = mergeSignalSets(observed, carried)
       const comparison = revalidate(input.previous, currentResolution, thresholds)
       const elapsed = clock.now() - startedAt
-      // A target that is already known to have moved is not something to wait
-      // for: re-observe now (plan §10: "movement > 10 px → re-observe").
-      if (comparison.verdict === 'stale') {
+      // A target that is already known to have moved or vanished is not something
+      // to wait for: re-observe now (plan §10: "movement > 10 px → re-observe").
+      if (comparison.verdict === 'stale' || comparison.verdict === 'missing') {
         return note({
           kind: 'settle',
           verdict: 'reobserve',
@@ -107,7 +195,9 @@ function createStabilizer(options = {}) {
           revalidation: comparison,
           resolved: currentResolution,
           world,
-          reason: `target moved ${comparison.movement}px during the settle window - re-observe before acting`
+          reason: comparison.verdict === 'missing'
+            ? 'the target could not be re-resolved during the settle window - re-observe before acting'
+            : `target moved ${comparison.movement}px during the settle window - re-observe before acting`
         })
       }
       // A refreshed coordinate (3–10 px) is usable, so the box movement itself
@@ -142,18 +232,51 @@ function createStabilizer(options = {}) {
         })
       }
       // Plan §24: one dynamic step per unstable observation, never the whole
-      // remaining budget in one sleep.
-      const cooldown = dynamicCooldown({ uiChanging: !lastSignals.stable, targetMoved: comparison.verdict === 'updated' })
+      // remaining budget in one sleep. Every signal the observation produced is
+      // forwarded, so the step reflects *why* the UI is unstable (24h.md Task 3).
+      const cooldown = dynamicCooldown(signalInputs(lastSignals))
       const step = Math.max(0, Math.min(cooldown.ms, maximumMs - elapsed))
       if (step > 0) await clock.sleep(step)
       waitedMs = clock.now() - startedAt
     }
   }
 
+  /** Turn a signal set into `dynamicCooldown`'s input, carrying the reasons too. */
+  function signalInputs(signals) {
+    return {
+      uiChanging: !signals.stable,
+      targetMoved: signals.reasons.includes('target bounding box moved'),
+      previousMiss: Boolean(signals.previousMiss),
+      windowChanged: Boolean(signals.windowChanged),
+      animationDetected: Boolean(signals.animationDetected),
+      navigationPending: Boolean(signals.navigationPending),
+      modalAppeared: Boolean(signals.modalAppeared),
+      targetDetached: Boolean(signals.targetDetached)
+    }
+  }
+
+  function mergeSignalSets(observed, carried) {
+    const reasons = observed.reasons.slice()
+    const merged = {
+      stable: observed.stable,
+      reasons,
+      previousMiss: Boolean(carried.previousMiss),
+      windowChanged: Boolean(carried.windowChanged) || reasons.includes('window state changed'),
+      animationDetected: Boolean(carried.animationDetected) || reasons.includes('animation detected'),
+      navigationPending: Boolean(carried.navigationPending) || reasons.includes('page still loading'),
+      modalAppeared: Boolean(carried.modalAppeared) || reasons.includes('dialogs changed'),
+      targetDetached: Boolean(carried.targetDetached) || reasons.includes('target is not visible') || reasons.includes('target is disabled')
+    }
+    return merged
+  }
+
   /**
    * Plan §11/§24: the dynamic cooldown depends only on what this step has just
    * observed. Each active signal adds one step (80 ms) and the ladder stops at
    * the soft ceiling — past it the caller must use an event wait instead.
+   *
+   * Every signal in the vocabulary is consumed here (24h.md Task 3): a signal the
+   * stabilizer can detect but does not act on is a signal that does nothing.
    */
   function dynamicCooldown(state = {}) {
     let ms = limits.cooldownBaseMs
@@ -163,6 +286,11 @@ function createStabilizer(options = {}) {
     if (state.previousMiss) { ms += limits.cooldownStepMs; signals.push('previous-miss') }
     if (state.windowChanged) { ms += limits.cooldownStepMs; signals.push('window-changed') }
     if (state.animationDetected) { ms += limits.cooldownStepMs; signals.push('animation') }
+    if (state.modalAppeared) { ms += limits.cooldownStepMs; signals.push('modal-appeared') }
+    if (state.targetDetached) { ms += limits.cooldownStepMs; signals.push('target-detached') }
+    // A navigation in flight is the one case where a short fixed step is wrong:
+    // the right answer is to wait for the load state, so the cooldown jumps to the
+    // navigation budget and the caller is expected to use `waitFor`.
     if (state.navigationPending) {
       return { ms: Math.min(limits.navigationCooldownMs, limits.navigationCooldownMaxMs), signals: [...signals, 'navigation-pending'], ceiling: 'navigation' }
     }
@@ -222,14 +350,54 @@ function createStabilizer(options = {}) {
     }
     if (currentResolution && currentResolution.disabled === true) reasons.push('target is disabled')
     if (currentResolution && currentResolution.visible === false) reasons.push('target is not visible')
+    if (extra.miss && extra.miss.missed === true) reasons.push('previous action missed')
+    if (extra.animation === true) reasons.push('animation detected')
     return { stable: reasons.length === 0, reasons }
+  }
+
+  /**
+   * The same signals, expanded into the named vocabulary (24h.md Task 3).
+   *
+   * `stabilitySignals` answers "may I act"; this answers "why not", in the terms
+   * the cooldown ladder and the recovery decision both consume.
+   */
+  function detectSignals(previousWorld, currentWorld, extra = {}) {
+    const observed = stabilitySignals(previousWorld, currentWorld, extra)
+    const reasons = observed.reasons
+    const merged = {
+      stable: observed.stable,
+      reasons,
+      uiChanging: !observed.stable,
+      targetMoved: reasons.includes('target bounding box moved'),
+      previousMiss: Boolean(extra.miss && extra.miss.missed === true),
+      windowChanged: reasons.includes('window state changed'),
+      animationDetected: reasons.includes('animation detected'),
+      navigationPending: reasons.includes('page still loading'),
+      modalAppeared: reasons.includes('dialogs changed'),
+      targetDetached: reasons.includes('target is not visible') || reasons.includes('target is disabled')
+    }
+    return merged
   }
 
   function trace_() {
     return trace.slice()
   }
 
-  return { waitFor, settle, grace, dynamicCooldown, stabilitySignals, trace: trace_, limits, thresholds }
+  return {
+    waitFor,
+    settle,
+    grace,
+    dynamicCooldown,
+    stabilitySignals,
+    detectSignals,
+    signalInputs,
+    normalizeSignals,
+    trace: trace_,
+    limits,
+    thresholds,
+    SIGNALS,
+    SIGNAL_LIST
+  }
 }
 
-module.exports = { createStabilizer }
+module.exports = { createStabilizer, SIGNALS, SIGNAL_LIST, SIGNAL_ALIASES, normalizeSignals }

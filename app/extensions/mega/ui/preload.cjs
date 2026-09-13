@@ -155,6 +155,10 @@ contextBridge.exposeInMainWorld('megaComputerUse', {
   health: () => ipcRenderer.invoke('computer-use:health'),
   actions: () => ipcRenderer.invoke('computer-use:actions'),
   capabilities: () => ipcRenderer.invoke('computer-use:capabilities'),
+  // The long-running state readers (Update-Plan/24h.md Task 19): read-only
+  // snapshots of what the runtime owns and what it is holding in memory.
+  processes: () => ipcRenderer.invoke('computer-use:processes'),
+  resources: () => ipcRenderer.invoke('computer-use:resources'),
   run: (contract, options) => ipcRenderer.invoke('computer-use:run', contract, options),
   step: (contract) => ipcRenderer.invoke('computer-use:step', contract),
   execute: (action) => ipcRenderer.invoke('computer-use:execute', action),

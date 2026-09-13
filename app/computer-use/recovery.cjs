@@ -1,7 +1,8 @@
 'use strict'
 
 /**
- * Computer Use Runtime: the recovery ladder (plan §18, §19, §21, §22).
+ * Computer Use Runtime: the recovery ladder (plan §18, §19, §21, §22;
+ * Update-Plan/24h.md Task 17).
  *
  *   retry  →  revalidate  →  re-observe  →  alternative action  →  replan  →  escalate
  *
@@ -11,14 +12,29 @@
  * click), and when the budget is spent, so the runtime can fail locally with
  * context instead of looping (plan §21: 禁止无限 retry).
  *
+ * It is also **not** allowed to change what the task is (24h.md Task 17). It can
+ * never touch the goal, the success criteria or the plan; the most it can say is
+ * that a human or an upper layer has to decide. Every decision therefore carries a
+ * *verdict* from a closed vocabulary:
+ *
+ *   RETRYABLE               another attempt at the same action can work
+ *   ALTERNATIVE_AVAILABLE   the same intent can be carried another way
+ *   REPLAN_REQUIRED         this action cannot be recovered; a different action is
+ *                           needed — a *report*, never a replanning act
+ *   USER_ACTION_REQUIRED    a human must decide (a destructive confirmation the
+ *                           contract did not authorize)
+ *   FAILED                  stop with the context that was gathered
+ *
  * Screenshot escalation is part of the same ladder (plan §22): a first miss may
  * never buy a full-screen capture. The visual level climbs one rung at a time.
  */
 
-const { RETRY, SCREENSHOT_LEVELS } = require('./constants.cjs')
+const { RETRY, SCREENSHOT_LEVELS, DESTRUCTIVE_MODES } = require('./constants.cjs')
 const { CODES, ComputerUseError } = require('./errors.cjs')
 const { fallbackChannels, CHANNEL_CONTROLLER, CHANNEL_CAPABILITY } = require('./routing.cjs')
+const { STALL_RECOVERY_LADDER } = require('./stall.cjs')
 
+/** The documented rungs, in order. Kept in step with what `decide()` returns. */
 const RECOVERY_STEPS = Object.freeze([
   'retry',
   'revalidate',
@@ -27,6 +43,45 @@ const RECOVERY_STEPS = Object.freeze([
   'replan',
   'escalate',
   'fail'
+])
+
+/** The verdict vocabulary. Nothing else may be reported (Task 17). */
+const RECOVERY_VERDICTS = Object.freeze({
+  RETRYABLE: 'RETRYABLE',
+  ALTERNATIVE_AVAILABLE: 'ALTERNATIVE_AVAILABLE',
+  REPLAN_REQUIRED: 'REPLAN_REQUIRED',
+  USER_ACTION_REQUIRED: 'USER_ACTION_REQUIRED',
+  FAILED: 'FAILED'
+})
+
+/** Which verdict each ladder rung produces. */
+const VERDICT_BY_STEP = Object.freeze({
+  retry: RECOVERY_VERDICTS.RETRYABLE,
+  alternative_action: RECOVERY_VERDICTS.ALTERNATIVE_AVAILABLE,
+  replan: RECOVERY_VERDICTS.REPLAN_REQUIRED,
+  escalate: RECOVERY_VERDICTS.REPLAN_REQUIRED,
+  fail: RECOVERY_VERDICTS.FAILED
+})
+
+/**
+ * Failures that need a human rather than another attempt: a destructive
+ * confirmation nobody authorized, a capability the contract withholds, a
+ * workspace that is not there. Retrying those would either loop or, worse,
+ * succeed at something nobody approved.
+ */
+const USER_ACTION_CODES = Object.freeze([
+  CODES.DESTRUCTIVE_NEEDS_CONFIRMATION,
+  CODES.DESTRUCTIVE_FORBIDDEN,
+  CODES.SAFETY_REFUSED,
+  CODES.MODAL_BLOCKING,
+  CODES.WORKSPACE_UNAVAILABLE,
+  CODES.WORKSPACE_MISMATCH,
+  CODES.CAPABILITY_NOT_ALLOWED,
+  // Task 9: the channel this action needs is gone. Retrying spends the budget
+  // against a capability that is not coming back on its own, so the honest
+  // answer is "a decision or a different channel is needed" (Task 20).
+  CODES.CAPABILITY_UNAVAILABLE,
+  CODES.STATE_INTEGRITY_UNCERTAIN
 ])
 
 function createRecoveryController(options = {}) {
@@ -68,14 +123,34 @@ function createRecoveryController(options = {}) {
 
     const base = { attempt, attemptsAllowed, retryable, recoveryRounds, maxRecoveryRounds, code: error && error.code ? error.code : null, at: now() }
 
+    // Rung 0 — a failure that needs a human, not another attempt. This is checked
+    // before the retry rung on purpose: retrying a refusal would either loop or
+    // eventually succeed at something nobody authorized.
+    if (USER_ACTION_CODES.includes(base.code)) {
+      return record({
+        ...base,
+        step: 'fail',
+        verdict: RECOVERY_VERDICTS.USER_ACTION_REQUIRED,
+        reason: `${base.code} needs a decision the runtime may not make: ${error && error.message ? error.message : 'the action was refused'}`,
+        terminal: true
+      })
+    }
+
     if (!retryable) {
-      return record({ ...base, step: 'fail', reason: `failure ${base.code || 'unknown'} is not retryable`, terminal: true })
+      return record({
+        ...base,
+        step: 'fail',
+        verdict: RECOVERY_VERDICTS.FAILED,
+        reason: `failure ${base.code || 'unknown'} is not retryable`,
+        terminal: true
+      })
     }
 
     if (recoveryRounds >= maxRecoveryRounds) {
       return record({
         ...base,
         step: 'fail',
+        verdict: RECOVERY_VERDICTS.FAILED,
         reason: `the recovery ladder for this step is exhausted (${recoveryRounds}/${maxRecoveryRounds} rounds) - failing with context`,
         terminal: true,
         visualLevel: visualLevelCeiling
@@ -90,6 +165,7 @@ function createRecoveryController(options = {}) {
       return record({
         ...base,
         step: 'retry',
+        verdict: RECOVERY_VERDICTS.RETRYABLE,
         reason: `attempt ${attempt} of ${attemptsAllowed} failed (${base.code || 'unknown'}) - revalidate the target and retry`,
         revalidate: true,
         cooldownSignals: collectCooldownSignals(failure),
@@ -116,6 +192,7 @@ function createRecoveryController(options = {}) {
       return record({
         ...base,
         step: 'alternative_action',
+        verdict: RECOVERY_VERDICTS.ALTERNATIVE_AVAILABLE,
         reason: `retries are exhausted - switching ${action.type} to ${alternative.type} (different interaction channel)`,
         alternative,
         revalidate: true,
@@ -129,6 +206,7 @@ function createRecoveryController(options = {}) {
       return record({
         ...base,
         step: 'replan',
+        verdict: RECOVERY_VERDICTS.REPLAN_REQUIRED,
         reason: `no alternative interaction exists for ${action ? action.type : 'the action'} - re-observe and replan`,
         revalidate: true,
         reobserve: true,
@@ -141,6 +219,7 @@ function createRecoveryController(options = {}) {
     return record({
       ...base,
       step: 'fail',
+      verdict: RECOVERY_VERDICTS.FAILED,
       reason: `recovery budget exhausted (${stallRecoveries}/${maxStallRecoveries} stall recoveries) - failing with context`,
       terminal: true,
       visualLevel: visualLevelCeiling
@@ -169,11 +248,25 @@ function createRecoveryController(options = {}) {
     return [...new Set(signals)]
   }
 
-  /** Records a stall recovery (plan §21) and reports the next ladder rung. */
+  /**
+   * Records a stall recovery (plan §21) and reports the next ladder rung.
+   *
+   * The ladder itself lives in `stall.cjs` so there is exactly one definition of
+   * what the rungs are (24h.md Task 6: the executor, the recovery module and the
+   * stall module must not each carry their own copy).
+   */
   function stallStep(index) {
-    const ladder = ['structured_reobserve', 'window_check', 'target_re_resolution', 'targeted_screenshot', 'alternative_interaction', 'replan', 'full_screenshot', 'fail_with_context']
-    const step = ladder[Math.min(index, ladder.length - 1)]
-    return record({ step: 'stall', ladderStep: step, index, at: now(), reason: `stall recovery rung ${index + 1}: ${step}` })
+    const position = Math.max(0, Math.min(Number(index) || 0, STALL_RECOVERY_LADDER.length - 1))
+    const rung = STALL_RECOVERY_LADDER[position]
+    return record({
+      step: 'stall',
+      ladderStep: rung.step,
+      description: rung.description,
+      index: position,
+      terminal: rung.step === 'fail_with_context',
+      at: now(),
+      reason: `stall recovery rung ${position + 1}/${STALL_RECOVERY_LADDER.length}: ${rung.step}`
+    })
   }
 
   function record(decision) {
@@ -301,4 +394,14 @@ function exhaustedError(decision) {
   })
 }
 
-module.exports = { createRecoveryController, alternativeAction, alternativeController, mapType, RECOVERY_STEPS, exhaustedError }
+module.exports = {
+  createRecoveryController,
+  alternativeAction,
+  alternativeController,
+  mapType,
+  RECOVERY_STEPS,
+  RECOVERY_VERDICTS,
+  VERDICT_BY_STEP,
+  USER_ACTION_CODES,
+  exhaustedError
+}
