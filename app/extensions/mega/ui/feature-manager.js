@@ -36,10 +36,12 @@
     if (!root) return null
     const body = $('pmBody')
     const message = $('pmMessage')
-    const tabs = { features: $('pmTabFeatures'), plugins: $('pmTabPlugins') }
+    const storeBar = $('pmStoreBar')
+    const tabs = { features: $('pmTabFeatures'), plugins: $('pmTabPlugins'), store: $('pmTabStore') }
     let active = 'features'
     let featureData = { features: [], groups: [] }
     let pluginData = { groups: [] }
+    let storeData = { results: [], described: null, query: '' }
 
     function say(text, kind) {
       if (!message) return
@@ -61,7 +63,55 @@
       for (const [key, button] of Object.entries(tabs)) {
         if (button) button.classList.toggle('active', key === active)
       }
+      if (storeBar) storeBar.hidden = active !== 'store'
       render()
+    }
+
+    /**
+     * One search result.
+     *
+     * The badge is the honest part: a repository is only *installable* once its manifest has
+     * been fetched and accepted by the platform's validator, and a store that showed every
+     * result as an installable plugin would be lying about most of them.
+     */
+    function storeRow(result) {
+      const row = el('div', 'pm-row')
+      const left = el('div')
+      left.appendChild(el('div', 'pm-name', result.id || '(unknown)'))
+      if (result.description) left.appendChild(el('div', 'pm-purpose', result.description))
+      const facts = [`★ ${result.stars}`, result.updatedAt ? result.updatedAt.slice(0, 10) : null].filter(Boolean).join(' · ')
+      left.appendChild(el('div', 'pm-meta', facts))
+      if (result.manifestReason || result.reason) {
+        left.appendChild(el('div', 'pm-meta', result.manifestReason || result.reason))
+      }
+      row.appendChild(left)
+      const actions = el('div')
+      if (result.installable === null || result.installable === undefined) {
+        const check = el('button', 'pm-toggle', '校验 · Check')
+        check.type = 'button'
+        check.addEventListener('click', () => inspect(result))
+        actions.appendChild(check)
+      } else {
+        actions.appendChild(el('span', `pm-badge ${result.installable ? 'ok' : 'bad'}`, result.installable ? '可安装 · installable' : '不可用 · not installable'))
+      }
+      row.appendChild(actions)
+      return row
+    }
+
+    function renderStore() {
+      if (storeData.described) {
+        body.appendChild(el('p', 'pm-meta', `${storeData.described.note}${storeData.described.authenticated ? '' : ' (no GITHUB_TOKEN: the rate limit is low)'}`))
+      }
+      if (storeData.error) {
+        body.appendChild(el('p', 'pm-line bad', storeData.error))
+        return
+      }
+      if (!storeData.results.length) {
+        body.appendChild(el('p', 'pm-empty', storeData.query ? `没有匹配 “${storeData.query}” 的插件 / no plugin matches that search` : '输入关键词后在 GitHub 上搜索插件 / search GitHub for plugins'))
+        return
+      }
+      body.appendChild(el('div', 'pm-group-title', `${storeData.total || storeData.results.length} repositories · topic ${storeData.topic || '—'}`))
+      for (const result of storeData.results) body.appendChild(storeRow(result))
     }
 
     /** A bilingual row for one feature, with its switch. */
@@ -106,6 +156,10 @@
     function render() {
       if (!body) return
       body.textContent = ''
+      if (active === 'store') {
+        renderStore()
+        return
+      }
       if (active === 'features') {
         const groups = new Map()
         for (const feature of featureData.features) {
@@ -152,6 +206,48 @@
       return { features: featureData, plugins: pluginData }
     }
 
+    /** Search the store, and describe the channel the first time it is asked. */
+    async function search(query) {
+      const text = String(query === undefined ? (($('pmStoreQuery') || {}).value || '') : query).trim()
+      storeData = { ...storeData, query: text, error: null }
+      try {
+        if (!storeData.described) {
+          const described = await window.megaTools?.store?.describe?.()
+          storeData.described = described && described.ok !== false ? described : null
+        }
+        const result = await window.megaTools?.store?.search?.({ query: text })
+        if (!result || result.ok === false) {
+          storeData = { ...storeData, results: [], error: (result && result.reason) || '搜索失败 / the search failed' }
+        } else {
+          storeData = { ...storeData, results: result.results || [], total: result.total, topic: result.topic, error: null }
+        }
+      } catch (error) {
+        storeData = { ...storeData, results: [], error: `搜索失败 / search failed: ${error.message}` }
+      }
+      render()
+      return storeData
+    }
+
+    /** Ask whether one result is actually a plugin, and show the verdict on the row. */
+    async function inspect(result) {
+      try {
+        const answer = await window.megaTools?.store?.inspect?.({ id: result.id, branch: result.branch, manifestUrl: result.manifestUrl })
+        const index = storeData.results.findIndex((entry) => entry.id === result.id)
+        if (index !== -1) {
+          storeData.results[index] = {
+            ...storeData.results[index],
+            installable: Boolean(answer && answer.installable),
+            manifestReason: (answer && (answer.reason || (answer.installable ? `manifest ${answer.manifest.id} v${answer.manifest.version}` : null))) || 'no answer'
+          }
+        }
+        say(answer && answer.installable ? `${result.id} 是一个可安装插件 / installable` : `${result.id}: ${(answer && answer.reason) || '不可用 / not installable'}`, answer && answer.installable ? 'ok' : 'bad')
+      } catch (error) {
+        say(`校验失败 / check failed: ${error.message}`, 'bad')
+      }
+      render()
+      return storeData
+    }
+
     async function setFeature(id, enabled) {
       try {
         const result = await window.megaTools?.features?.set?.(id, enabled)
@@ -182,6 +278,14 @@
 
     if (tabs.features) tabs.features.addEventListener('click', () => setTab('features'))
     if (tabs.plugins) tabs.plugins.addEventListener('click', () => setTab('plugins'))
+    if (tabs.store) tabs.store.addEventListener('click', () => setTab('store'))
+    if ($('pmStoreSearch')) $('pmStoreSearch').addEventListener('click', () => search())
+    if ($('pmStoreQuery')) {
+      const input = $('pmStoreQuery')
+      input.addEventListener('keydown', (event) => {
+        if (event && event.key === 'Enter') search()
+      })
+    }
     if ($('pmClose')) $('pmClose').addEventListener('click', () => close())
     if ($('pmBackdrop')) $('pmBackdrop').addEventListener('click', () => close())
     // The dock's own button. The tray's menu item arrives as an event instead, because the
@@ -193,7 +297,7 @@
     window.megaTools?.features?.onChanged?.(() => {
       if (!root.hidden) refresh()
     })
-    return { open, close, refresh, setTab, setFeature, setPlugin, isOpen: () => !root.hidden }
+    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, isOpen: () => !root.hidden }
   }
 
   window.megaFeatureManager = { attach }

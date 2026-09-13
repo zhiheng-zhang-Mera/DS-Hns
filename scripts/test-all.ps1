@@ -115,6 +115,7 @@ try {
     'mega-features.test.js',
     'mega-feature-wiring.test.js',
     'mega-plugin-manager.test.js',
+    'mega-plugin-store.test.js',
     'ui-bilingual.test.js',
     'ui-panel-load.test.js'
   )

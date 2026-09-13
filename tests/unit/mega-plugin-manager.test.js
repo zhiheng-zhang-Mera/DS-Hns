@@ -29,7 +29,6 @@ function stubDom() {
     const node = {
       tagName: String(tag).toUpperCase(),
       className: '',
-      textContent: '',
       hidden: false,
       type: '',
       children: [],
@@ -46,6 +45,17 @@ function stubDom() {
       fire(event, payload = {}) { const handler = this.listeners.get(event); if (handler) return handler(payload) },
       remove() {}
     }
+    // A real DOM's `textContent` setter replaces the children, and the float clears its body
+    // between renders. A stub that only overwrote a string would accumulate every render and
+    // make the assertions pass against markup the user never sees.
+    let text = ''
+    Object.defineProperty(node, 'textContent', {
+      get() { return text },
+      set(value) {
+        text = String(value === undefined || value === null ? '' : value)
+        node.children.length = 0
+      }
+    })
     return node
   }
   const document = {
@@ -77,6 +87,17 @@ function loadFeatureManager() {
         snapshot: async () => { calls.push(['features.snapshot']); return { ok: true, features } },
         set: async (id, enabled) => { calls.push(['features.set', id, enabled]); return { ok: true, id, enabled } },
         onChanged: (cb) => { calls.push(['features.onChanged']); window.__featuresChanged = cb }
+      },
+      store: {
+        describe: async () => { calls.push(['store.describe']); return { ok: true, topic: 'dshns-plugin', note: 'Search only: installation is a deliberate act.', authenticated: false } },
+        search: async (input) => {
+          calls.push(['store.search', input && input.query])
+          return { ok: true, total: 1, topic: 'dshns-plugin', results: [{ id: 'acme/dshns-example', description: 'An example plugin', stars: 42, updatedAt: '2026-01-01T00:00:00Z', branch: 'main', manifestUrl: 'https://raw.githubusercontent.com/acme/dshns-example/main/dshns-plugin.json', installable: null }] }
+        },
+        inspect: async (input) => {
+          calls.push(['store.inspect', input && input.id])
+          return { ok: true, installable: true, manifest: { id: 'vendor.example', version: '1.2.3' }, reason: null }
+        }
       },
       onOpenPluginManager: (cb) => { calls.push(['onOpenPluginManager']); window.__openManager = cb }
     },
@@ -191,6 +212,39 @@ test('the tray and the dock button open the same surface', () => {
   // The dock's own button is wired to the same open().
   nodes.get('plugManage').fire('click')
   assert.equal(nodes.get('pluginManager').hidden, false, 'the dock button did not open the float')
+})
+
+test('the store tab searches GitHub and only calls a result installable after checking', async () => {
+  const { api, calls, nodes } = loadFeatureManager()
+  const manager = api.attach()
+  manager.open()
+  await new Promise((resolve) => setImmediate(resolve))
+
+  manager.setTab('store')
+  assert.equal(nodes.get('pmStoreBar').hidden, false, 'the search bar is hidden on the store tab')
+  await manager.search('example')
+  assert.ok(calls.some((entry) => entry[0] === 'store.search' && entry[1] === 'example'), 'the search did not reach the channel')
+  assert.ok(calls.some((entry) => entry[0] === 'store.describe'), 'the channel is not described to the user')
+
+  const text = allText(nodes.get('pmBody'))
+  assert.match(text, /acme\/dshns-example/)
+  assert.match(text, /★ 42/)
+  // Nothing is called installable before the manifest has been checked.
+  assert.equal(/可安装/.test(text), false, 'a result is presented as installable before checking')
+  assert.match(text, /校验 · Check/)
+
+  // Checking fetches and validates the manifest, then the row says what the answer was.
+  const rows = nodes.get('pmBody').children.filter((child) => /pm-row/.test(child.className))
+  const checkButton = rows[0].children[1].children[0]
+  await checkButton.fire('click')
+  assert.ok(calls.some((entry) => entry[0] === 'store.inspect' && entry[1] === 'acme/dshns-example'), 'checking did not reach the channel')
+  const after = allText(nodes.get('pmBody'))
+  assert.match(after, /可安装 · installable/)
+  assert.match(after, /vendor\.example/)
+
+  // The other tabs hide the search bar again.
+  manager.setTab('features')
+  assert.equal(nodes.get('pmStoreBar').hidden, true)
 })
 
 test('the manager surface is not gated by a feature, and says so', () => {

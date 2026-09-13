@@ -100,6 +100,19 @@ contextBridge.exposeInMainWorld('megaTools', {
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
   /**
+   * The plugin store channel.
+   *
+   * Search GitHub for repositories that carry the plugin topic, and ask whether one of them
+   * is actually a plugin (its manifest has to pass the platform's own validator). No download
+   * happens here: installing is a deliberate act, and a store that loaded code on one click
+   * would be a remote-code-execution surface wearing a search box.
+   */
+  store: {
+    describe: () => ipcRenderer.invoke('mega:store-describe'),
+    search: (input) => ipcRenderer.invoke('mega:store-search', input),
+    inspect: (input) => ipcRenderer.invoke('mega:store-inspect', input)
+  },
+  /**
    * The feature manager.
    *
    * Deliberately *not* gated: `setFeature` is how a switched-off feature is switched back

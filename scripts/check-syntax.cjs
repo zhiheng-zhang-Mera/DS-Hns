@@ -38,6 +38,7 @@ const SOURCE_DIRS = [
   'extensions/mega/scheduler',
   'extensions/mega/settings',
   'extensions/mega/skills',
+  'extensions/mega/store',
   'extensions/mega/theme',
   // The theme subsystem's own subdirectories. Listed explicitly because this
   // collector is non-recursive by design: a new file must be added here (or the

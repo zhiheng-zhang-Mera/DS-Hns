@@ -45,6 +45,10 @@ const CHANNELS = [
   // The compatibility report the dock's status panel shows. It used to be answered
   // through the mode surface, because the answer depended on which frontend was active.
   'mega:compatibility',
+  // The plugin store channel: search GitHub, and ask whether a result is a plugin.
+  'mega:store-describe', 'mega:store-search', 'mega:store-inspect',
+  // The feature manager: which of the dock's features are switched on.
+  'mega:features-snapshot', 'mega:features-set',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -1262,6 +1266,30 @@ function applyFeatureVisibility(id) {
   return { ok: true, id, enabled }
 }
 
+/** The store channel: a search, and an honest answer about whether a result is a plugin. */
+let pluginStore = null
+function store() {
+  if (pluginStore) return pluginStore
+  const { createPluginStore } = require('./store/github-store.cjs')
+  pluginStore = createPluginStore({ log: (message) => log(`store: ${message}`) })
+  return pluginStore
+}
+
+function registerStoreIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`store ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: 'store_ipc_failed', message: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:store-describe', guard(() => ({ ok: true, ...store().describe() })))
+  ipcMain.handle('mega:store-search', guard((_event, payload = {}) => store().search(payload || {})))
+  ipcMain.handle('mega:store-inspect', guard((_event, payload = {}) => store().inspect(payload || {})))
+}
+
 function registerIpc() {
   const { ipcMain, dialog } = ctx.electron
   for (const channel of CHANNELS) ipcMain.removeHandler(channel)
@@ -1337,6 +1365,9 @@ function registerIpc() {
   registerThemeIpc(engine)
   registerSkillIpc()
   registerCompatibilityIpc()
+  // The store is a channel, not a feature: searching GitHub is part of managing plugins, and
+  // a store you can switch off is a store whose results you cannot trust to be complete.
+  registerStoreIpc()
   // The feature manager's own channels, registered last and never gated: switching a feature
   // off is how a user fixes one, so the switch itself may not be behind a feature.
   registerFeatureIpc()

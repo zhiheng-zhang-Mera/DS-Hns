@@ -29,7 +29,7 @@ test('the extension installs the feature gate before it registers its channels',
   assert.match(start, /pushFeatureState\(\)/, 'the dock must learn the feature map before its first paint')
   // The manager's own channels are registered last and are not themselves feature-gated:
   // switching a feature off is how a user fixes one.
-  assert.match(mega, /registerCompatibilityIpc\(\)\s*\n\s*\/\/[^\n]*\n\s*registerFeatureIpc\(\)|registerCompatibilityIpc\(\)[\s\S]{0,200}registerFeatureIpc\(\)/)
+  assert.match(mega, /registerCompatibilityIpc\(\)[\s\S]*?registerStoreIpc\(\)[\s\S]*?registerFeatureIpc\(\)/)
   assert.match(mega, /ipcMain\.handle\('mega:features-snapshot'/)
   assert.match(mega, /ipcMain\.handle\('mega:features-set'/)
   // The map is pushed to the dock, whose preload gates the chokepoint every renderer call
