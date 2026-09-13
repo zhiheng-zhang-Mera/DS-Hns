@@ -83,6 +83,7 @@ try {
   # the coverage instead of failing the gate.
   $computerUseTests = @(
     'computer-use-acceptance.test.js',
+    'computer-use-architecture.test.js',
     'computer-use-contract.test.js',
     'computer-use-device.test.js',
     'computer-use-drivers.test.js',

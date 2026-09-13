@@ -29,6 +29,13 @@ const CODES = Object.freeze({
   TARGET_AMBIGUOUS: 'TARGET_AMBIGUOUS',
   // Controller availability and fault isolation
   CONTROLLER_UNAVAILABLE: 'CONTROLLER_UNAVAILABLE',
+  /**
+   * The transport carrying a channel is gone, as opposed to the channel having
+   * answered badly. Named here so a caller can tell "the pipe died" from "the
+   * action failed" without parsing an English message; the reconnect policy
+   * treats exactly this class as worth a bounded reconnect.
+   */
+  TRANSPORT_LOST: 'CONTROLLER_UNAVAILABLE',
   CONTROLLER_FAILED: 'CONTROLLER_FAILED',
   CONTROLLER_TIMEOUT: 'CONTROLLER_TIMEOUT',
   CAPABILITY_NOT_ALLOWED: 'CAPABILITY_NOT_ALLOWED',
@@ -54,6 +61,13 @@ const CODES = Object.freeze({
   DESTRUCTIVE_FORBIDDEN: 'DESTRUCTIVE_FORBIDDEN',
   DESTRUCTIVE_NEEDS_CONFIRMATION: 'DESTRUCTIVE_NEEDS_CONFIRMATION',
   MODAL_BLOCKING: 'MODAL_BLOCKING',
+  /**
+   * The same outcome named from the caller's side: a dialog the runtime may not
+   * answer by itself. Both names carry the same code so a caller reasoning in
+   * terms of "the modal needs a user" and one reasoning in terms of "the modal
+   * blocked the step" are reading the same value.
+   */
+  MODAL_REQUIRES_USER: 'MODAL_BLOCKING',
   // Stalls and bounds
   STALL_DETECTED: 'STALL_DETECTED',
   STEP_LIMIT_REACHED: 'STEP_LIMIT_REACHED',
@@ -123,6 +137,7 @@ function defaultRetryable(code) {
     case CODES.TARGET_STALE:
     case CODES.TARGET_NOT_ACTIONABLE:
     case CODES.ACTION_MISSED:
+    case CODES.TRANSPORT_LOST:
     case CODES.VERIFICATION_FAILED:
     case CODES.VERIFICATION_UNKNOWN:
     case CODES.ACTION_TIMEOUT:
