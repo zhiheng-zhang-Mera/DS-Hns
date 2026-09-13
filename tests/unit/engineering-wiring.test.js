@@ -122,15 +122,50 @@ test('the host accepts, reports and cancels an episode, and refuses a second one
     assert.equal(result.error, 'switched off for the test')
   }
 
-  // Starting an episode against a directory that is not a repository is refused by
-  // the host's own describe-equivalent path rather than starting a doomed run.
-  const refused = host.run({ workspace: path.join(ROOT, 'this-does-not-exist'), goal: 'fix' })
-  assert.equal(refused.ok, true, 'the host accepts the request and lets the supervisor verify the workspace')
-  const settled = await host.settled()
-  assert.equal(settled.result, 'BLOCKED', JSON.stringify({ result: settled.result, reasons: settled.validation && settled.validation.reasons }))
-  assert.ok(settled.validation.reasons.length >= 1)
-  assert.equal(host.running, false)
+  // Starting an episode against a workspace that does not exist is a BLOCKED
+  // episode, not a crash and not a completed one. The path is a genuine child of a
+  // temporary directory that is then removed, so the assertion cannot depend on
+  // whether some other test happened to leave the directory behind — a test that
+  // passes only because a path is missing is a test that fails on the machine
+  // where it is not.
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-missing-'))
+  const missing = path.join(holder, 'gone')
+  fs.rmSync(missing, { recursive: true, force: true })
+  try {
+    const refused = host.run({ workspace: missing, goal: 'fix' })
+    assert.equal(refused.ok, true, 'the host accepts the request and lets the supervisor verify the workspace')
+    const settled = await host.settled()
+    assert.equal(settled.result, 'BLOCKED', JSON.stringify({ result: settled.result, phases: settled.phases, reasons: settled.validation && settled.validation.reasons }))
+    assert.ok(settled.validation.reasons.length >= 1)
+    assert.equal(host.running, false)
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
   host.dispose('test teardown')
+})
+
+/**
+ * A missing workspace must not be created by the act of locking it.
+ *
+ * The lock lives at `<workspace>/runtime/engineering/workspace.lock`, so taking it
+ * creates the workspace directory. That turned "point at a repository that is not
+ * there" into "run an episode in a brand new empty directory" — the bug this test
+ * exists to keep closed.
+ */
+test('a missing workspace is reported, never created by the runtime', async () => {
+  const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-nolock-'))
+  const missing = path.join(holder, 'gone')
+  try {
+    const supervisor = createEngineeringSupervisor({ workspace: missing, goal: 'fix', log: () => {} })
+    const report = await supervisor.run()
+    assert.equal(report.result, 'BLOCKED')
+    assert.match(String(report.validation.reasons[0]), /not accessible|does not exist|no repository path/)
+    assert.equal(fs.existsSync(missing), false, 'the runtime must not create a workspace that was not there')
+    assert.deepEqual(fs.readdirSync(holder), [], 'and it must leave no directory behind at all')
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
 })
 
 test('a workspace is locked while an episode runs, and never stolen from a live owner', () => {

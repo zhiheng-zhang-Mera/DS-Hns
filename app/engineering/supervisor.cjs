@@ -612,6 +612,19 @@ function createEngineeringSupervisor(input = {}) {
       autonomy.enabled = perRun.enabled
       autonomy.source = perRun.source
     }
+    // The workspace is verified *before* the lock is taken, because taking the
+    // lock creates `<workspace>/runtime/engineering/workspace.lock`: if the
+    // workspace did not exist, the lock would bring it into being and the episode
+    // would then find a perfectly valid empty directory where the caller meant to
+    // point at a repository. A missing workspace is a BLOCKED episode, and it must
+    // not be conjured into existence by the act of locking it.
+    const preflight = repository.verifyWorkspace(input.workspace, { requireGit: contract.requireGit === true })
+    if (!preflight.ok) {
+      finishedAt = now()
+      status = 'blocked'
+      report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [preflight.reason], checks: [] })
+      return report
+    }
     const held = lock.acquire({ episode: episodeId, stealStale: contract.stealStaleLock === true })
     if (!held.ok) {
       finishedAt = now()
@@ -632,7 +645,6 @@ function createEngineeringSupervisor(input = {}) {
       // lock is released here rather than only on the success path: an episode that
       // never began must not leave the workspace locked behind it.
       lock.release()
-      // A workspace that cannot be used is a BLOCKED episode, with the reason.
       report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [initialized.reason], checks: [] })
       return report
     }
