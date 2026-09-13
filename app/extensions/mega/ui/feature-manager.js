@@ -41,7 +41,7 @@
     let active = 'features'
     let featureData = { features: [], groups: [] }
     let pluginData = { groups: [] }
-    let storeData = { results: [], described: null, query: '' }
+    let storeData = { results: [], described: null, query: '', preference: null }
 
     function say(text, kind) {
       if (!message) return
@@ -89,8 +89,14 @@
       if (result.installable === null || result.installable === undefined) {
         // Checking is free and changes nothing; staging is the step that writes code to disk.
         actions.appendChild(actionButton('校验 · Check', '', () => inspect(result)))
+      } else if (result.installable) {
+        actions.appendChild(el('span', 'pm-badge ok', '可安装 · installable'))
+      } else if (result.compat && result.compat.possible) {
+        // Not a native plugin, but adoptable: saying "not installable" here would be wrong, and
+        // saying "installable" without the qualification would be worse.
+        actions.appendChild(el('span', 'pm-badge warn', `兼容模式 · compat (${result.compat.kind})`))
       } else {
-        actions.appendChild(el('span', `pm-badge ${result.installable ? 'ok' : 'bad'}`, result.installable ? '可安装 · installable' : '不可用 · not installable'))
+        actions.appendChild(el('span', 'pm-badge bad', '不可用 · not installable'))
       }
       // Two-stage install: stage here, enable in the installed list below. Both buttons are
       // offered, and the queue is the third way in — add several and install them one by one.
@@ -150,7 +156,15 @@
             : plugin.state === 'missing'
               ? '文件缺失 · files missing'
               : '已安装、未启用 · installed, not running'
-          left.appendChild(el('div', 'pm-meta', `${plugin.repo} · ${stateLabel}`))
+          // An adopted plugin carries what it is and what it still needs, on the row: compatibility
+          // is a reduced guarantee, and a reduced guarantee that is not shown is not a guarantee.
+          const compatLabel = plugin.compatibility === 'compat'
+            ? ` · 兼容模式 · compat${plugin.compatState && plugin.compatState !== 'ready' && plugin.compatState !== 'staged' ? ` (${plugin.compatState})` : ''}`
+            : ''
+          left.appendChild(el('div', 'pm-meta', `${plugin.source || plugin.repo} · ${stateLabel}${compatLabel}`))
+          if (plugin.compatibility === 'compat' && plugin.compatReason) {
+            left.appendChild(el('div', 'pm-meta', plugin.compatReason))
+          }
           row.appendChild(left)
           const actions = el('div', 'pm-actions')
           if (plugin.state === 'enabled') {
@@ -159,6 +173,12 @@
             actions.appendChild(actionButton('启用 · Enable', '', () => act('enable', plugin.id)))
           } else {
             actions.appendChild(actionButton('重新安装 · Reinstall', '', () => act('reinstall', plugin.id)))
+          }
+          // The one action a reduced guarantee implies: it needs a package manager or a build, and
+          // the shell will describe the commands and ask before running them.
+          if (plugin.compatibility === 'compat' && plugin.state === 'enabled'
+            && ['needs-dependencies', 'needs-build'].includes(plugin.compatState)) {
+            actions.appendChild(actionButton('安装依赖 / 构建 · Install & build', '', () => compatSetup(plugin.id)))
           }
           actions.appendChild(actionButton('移除 · Remove', 'danger', () => act('remove', plugin.id)))
           row.appendChild(actions)
@@ -190,6 +210,7 @@
       if (storeData.described) {
         body.appendChild(el('p', 'pm-meta', `${storeData.described.note}${storeData.described.authenticated ? '' : ' (no GITHUB_TOKEN: the rate limit is low)'}`))
       }
+      body.appendChild(compatRow())
       if (storeData.error) body.appendChild(el('p', 'pm-line bad', storeData.error))
       renderInstalled()
       if (!storeData.results.length) {
@@ -206,6 +227,73 @@
       button.type = 'button'
       button.addEventListener('click', onClick)
       return button
+    }
+
+    /**
+     * The compatibility-mode switch.
+     *
+     * It is a property of the store rather than of one row, because it is a decision about what the
+     * user is willing to install — and the text says what the mode costs, at the place where it is
+     * turned on, instead of leaving the caveat to a log line nobody reads.
+     */
+    function compatRow() {
+      const row = el('label', 'pm-compat')
+      const box = el('input')
+      box.type = 'checkbox'
+      box.checked = !storeData.preference || storeData.preference.compat !== false
+      box.addEventListener('change', () => setCompat(box.checked))
+      row.appendChild(box)
+      const text = el('div')
+      text.appendChild(el('b', '', '兼容模式 · Compatibility mode'))
+      text.appendChild(el('span', 'pm-meta', '没有原生清单的仓库按 package.json 推导清单，并在隔离进程中尽力加载；平台的能力与健康保证不适用于它们。· repositories without a native manifest are adopted from package.json and loaded in an isolated process; the platform\'s capability and health guarantees do not apply to them.'))
+      row.appendChild(text)
+      return row
+    }
+
+    async function setCompat(enabled) {
+      try {
+        const result = await window.megaTools?.store?.setCompat?.(enabled === true)
+        if (!result || result.ok === false) {
+          say(`${(result && result.reason) || '兼容模式切换失败 / could not change compatibility mode'}`, 'bad')
+          return
+        }
+        storeData = { ...storeData, preference: { compat: result.compat } }
+        say(`兼容模式已${result.compat ? '开启' : '关闭'} / compatibility mode ${result.compat ? 'on' : 'off'}`, 'ok')
+      } catch (error) {
+        say(`兼容模式切换失败 / could not change compatibility mode: ${error.message}`, 'bad')
+      }
+      render()
+    }
+
+    /**
+     * Install and build what an adopted plugin needs.
+     *
+     * The button only asks: the shell shows the commands in a dialog and runs them if the user
+     * agrees, so a renderer cannot install anything by pressing twice.
+     */
+    async function compatSetup(id) {
+      say(`${id} 需要额外步骤，正在准备命令… / preparing the commands ${id} needs…`)
+      try {
+        const result = await window.megaPlugins?.applyCompatSetup?.({ id })
+        if (!result) {
+          say(`无法准备命令 / could not prepare the commands for ${id}`, 'bad')
+        } else if (result.canceled === true || result.code === 'COMPAT_DECLINED') {
+          say(`${id}: 已取消，未执行任何命令 / canceled — nothing was run`, 'warn')
+        } else if (result.ok === true && result.refreshed && result.refreshed.mounted && result.refreshed.mounted.length) {
+          say(`${id} 依赖/构建完成并已即时挂载 / done — mounted live`, 'ok')
+        } else if (result.ok === true) {
+          say(`${id}: 命令已执行 / commands finished`, 'ok')
+        } else {
+          say(`${id}: ${result.error || result.reason || '命令失败 / the commands failed'}`, 'bad')
+        }
+      } catch (error) {
+        say(`${id}: 命令失败 / the commands failed: ${error.message}`, 'bad')
+      }
+      await refreshInstalled()
+      try {
+        await window.megaPluginPanel?.refresh?.()
+      } catch {}
+      render()
     }
 
     /** A bilingual row for one feature, with its switch. */
@@ -326,16 +414,26 @@
     /** Ask whether one result is actually a plugin, and show the verdict on the row. */
     async function inspect(result) {
       try {
-        const answer = await window.megaTools?.store?.inspect?.({ id: result.id, branch: result.branch, manifestUrl: result.manifestUrl })
-        const index = storeData.results.findIndex((entry) => entry.id === result.id)
+        // The package path travels with the check: a monorepo package's manifest is not the
+        // repository's, so checking the wrong target would produce the wrong verdict.
+        const answer = await window.megaTools?.store?.inspect?.({
+          id: result.id,
+          branch: result.branch,
+          path: result.sourcePath,
+          manifestUrl: result.manifestUrl
+        })
+        const index = storeData.results.findIndex((entry) => entry.id === result.id && (entry.sourcePath || null) === (result.sourcePath || null))
         if (index !== -1) {
           storeData.results[index] = {
             ...storeData.results[index],
             installable: Boolean(answer && answer.installable),
+            compat: (answer && answer.compat) || null,
             manifestReason: (answer && (answer.reason || (answer.installable ? `manifest ${answer.manifest.id} v${answer.manifest.version}` : null))) || 'no answer'
           }
         }
-        say(answer && answer.installable ? `${result.id} 是一个可安装插件 / installable` : `${result.id}: ${(answer && answer.reason) || '不可用 / not installable'}`, answer && answer.installable ? 'ok' : 'bad')
+        if (answer && answer.installable) say(`${result.id} 是一个可安装插件 / installable`, 'ok')
+        else if (answer && answer.compat && answer.compat.possible) say(`${result.id}: 可用兼容模式安装（${answer.compat.kind}）/ adoptable in compatibility mode: ${answer.reason}`, 'warn')
+        else say(`${result.id}: ${(answer && answer.reason) || '不可用 / not installable'}`, 'bad')
       } catch (error) {
         say(`校验失败 / check failed: ${error.message}`, 'bad')
       }
@@ -348,7 +446,11 @@
       try {
         const answer = await window.megaTools?.store?.installed?.()
         if (answer && answer.ok !== false) {
-          storeData = { ...storeData, installed: { plugins: answer.plugins || [], history: answer.history || [], queue: answer.queue || [], describe: answer.describe || null } }
+          storeData = {
+            ...storeData,
+            preference: answer.preference || storeData.preference,
+            installed: { plugins: answer.plugins || [], history: answer.history || [], queue: answer.queue || [], describe: answer.describe || null }
+          }
         }
       } catch (error) {
         say(`无法读取已安装插件 / could not read the installed plugins: ${error.message}`, 'bad')
@@ -359,9 +461,17 @@
     /** Stage one search result: code on disk and verified, nothing running yet. */
     async function stageResult(result) {
       try {
-        const staged = await window.megaTools?.store?.stage?.({ repo: result.id, branch: result.branch })
+        // `source` carries the package path when there is one; the store decides whether to adopt
+        // the package, using the preference the switch above sets.
+        const staged = await window.megaTools?.store?.stage?.({
+          source: result.source || result.repo || result.id,
+          repo: result.id,
+          branch: result.branch
+        })
         if (!staged || staged.ok === false) {
           say(`${result.id}: ${(staged && (staged.reason || staged.message)) || '暂存失败 / staging failed'}`, 'bad')
+        } else if (staged.compatibility === 'compat') {
+          say(`${result.id} 已以兼容模式暂存 v${staged.entry.version}（${staged.compatState || 'ready'}）；启用后 Host 才会加载它 / staged in compatibility mode — enabling is the step that lets the host run it`, 'warn')
         } else {
           say(`${result.id} 已暂存 v${staged.entry.version}；启用后 Host 才会加载它 / staged — enabling is the step that lets the host run it`, 'ok')
         }
@@ -376,7 +486,7 @@
     /** Add a candidate to the one-by-one install queue; nothing is cloned yet. */
     async function addToQueue(result) {
       try {
-        const answer = await window.megaTools?.store?.queue?.({ action: 'add', repo: result.id, branch: result.branch })
+        const answer = await window.megaTools?.store?.queue?.({ action: 'add', source: result.source || result.repo || result.id, repo: result.id, branch: result.branch })
         if (!answer || answer.ok === false) {
           say(`${result.id}: ${(answer && answer.reason) || '加入队列失败 / could not queue it'}`, 'bad')
         } else {
@@ -424,7 +534,15 @@
         if (!answer || answer.ok === false) {
           say(`${id}: ${(answer && (answer.reason || answer.message)) || `${kind} 失败 / failed`}`, 'bad')
         } else if (kind === 'enable') {
-          say(`${id} 已启用并即时挂载，无需重启 / enabled and mounted live — no restart needed`, 'ok')
+          // An adopted plugin can be enabled *and* still need a step: saying "running" for it would
+          // be the one claim compatibility mode must never make carelessly.
+          if (answer.compatibility === 'compat' && answer.state && answer.state !== 'ready') {
+            say(`${id} 已启用，但还需要一步（${answer.state}）：${answer.reason || ''} — 用「安装依赖 / 构建」/ enabled, and it still needs a step`, 'warn')
+          } else if (answer.compatibility === 'compat') {
+            say(`${id} 已以兼容模式启用并即时挂载（隔离进程）/ enabled in compatibility mode — activated in its own process`, 'ok')
+          } else {
+            say(`${id} 已启用并即时挂载，无需重启 / enabled and mounted live — no restart needed`, 'ok')
+          }
         } else if (kind === 'disable') {
           say(`${id} 已停用；仍在磁盘上，可随时重新启用 / disabled — still installed, one click from running again`, 'ok')
         } else if (kind === 'remove') {
@@ -502,7 +620,7 @@
     window.megaTools?.features?.onChanged?.(() => {
       if (!root.hidden) refresh()
     })
-    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, stageResult, addToQueue, runQueue, clearQueue, act, refreshInstalled, isOpen: () => !root.hidden }
+    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, stageResult, addToQueue, runQueue, clearQueue, act, refreshInstalled, setCompat, compatSetup, isOpen: () => !root.hidden }
   }
 
   window.megaFeatureManager = { attach }

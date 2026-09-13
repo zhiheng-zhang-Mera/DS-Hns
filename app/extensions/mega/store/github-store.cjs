@@ -27,6 +27,7 @@
 
 const { validateManifest } = require('../../../core/contracts/plugin.cjs')
 const { PLUGIN_API_VERSION } = require('../../../core/contracts/plugin.cjs')
+const { cleanPath, parseSource } = require('./source.cjs')
 
 /** The topic a DS-Hns plugin is expected to carry, so a plain search can find the set. */
 const PLUGIN_TOPIC = 'dshns-plugin'
@@ -117,6 +118,7 @@ function defaultRequest(url, options = {}) {
 
 /** One repository, in the shape the manager renders. */
 function describeRepository(raw, extra = {}) {
+  const sourcePath = cleanPath(extra.sourcePath)
   return {
     id: raw.full_name || raw.name || null,
     name: raw.name || null,
@@ -127,7 +129,11 @@ function describeRepository(raw, extra = {}) {
     branch: raw.default_branch || 'main',
     url: raw.html_url || null,
     topics: Array.isArray(raw.topics) ? raw.topics.slice(0, 12) : [],
-    manifestUrl: raw.full_name ? `https://raw.githubusercontent.com/${raw.full_name}/${raw.default_branch || 'main'}/${MANIFEST_FILE}` : null,
+    // A package inside a repository is part of the target: the row, the manifest check and the
+    // clone all have to address the same directory.
+    sourcePath: sourcePath || null,
+    source: sourcePath && raw.full_name ? `${raw.full_name}#${sourcePath}` : raw.full_name || null,
+    manifestUrl: raw.full_name ? manifestUrlFor(raw.full_name, raw.default_branch || 'main', sourcePath) : null,
     ...extra
   }
 }
@@ -245,22 +251,23 @@ function createPluginStore(options = {}) {
       return remember({ ok: false, code: STORE_REASONS.BAD_QUERY, reason: 'the query is longer than 120 characters' })
     }
     // A named repository is not a search: it is a target. Answering it with a topic filter would
-    // report "nothing found" for a repository the user is looking at in another window.
-    const named = namedRepository(query)
+    // report "nothing found" for a repository the user is looking at in another window. A named
+    // *package* inside a repository is a target too — `owner/repo#packages/pet`.
+    const named = parseSource(query)
     if (named) {
-      const answer = await request(`https://api.github.com/repos/${named}`, { token, timeoutMs: input.timeoutMs })
+      const answer = await request(`https://api.github.com/repos/${named.repo}`, { token, timeoutMs: input.timeoutMs })
       if (!answer || answer.ok !== true) {
         const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
         const reason = code === STORE_REASONS.NO_MANIFEST
-          ? `${named} does not exist, or the store is not allowed to read it`
+          ? `${named.repo} does not exist, or the store is not allowed to read it`
           : (answer && answer.reason) || 'the repository could not be read'
         return remember({ ok: false, code, reason })
       }
-      const result = describeRepository(answer.json, { installable: null, manifestReason: 'not checked yet' })
-      log(`store fetched the named repository ${named}`)
+      const result = describeRepository(answer.json, { sourcePath: named.path, installable: null, manifestReason: 'not checked yet' })
+      log(`store fetched the named ${named.path ? 'package' : 'repository'} ${named.source}`)
       return remember({
         ok: true,
-        query: named,
+        query: named.source,
         named: true,
         topic: null,
         total: 1,
@@ -290,14 +297,61 @@ function createPluginStore(options = {}) {
   }
 
   /**
+   * Read a package's metadata, which is what the compatibility layer can adopt.
+   *
+   * Only the *possibility* is decided here, from the two things GitHub can tell us without cloning:
+   * that a `package.json` exists and what it declares. The real derivation — which entry exists,
+   * whether it needs a build, which dependencies are missing — happens after the clone, in
+   * `compat.cjs`, against the files themselves. Saying more than that here would be guessing.
+   */
+  async function probeCompat(input = {}) {
+    const url = packageUrlFor(input.id, input.branch || 'main', input.sourcePath)
+    if (!url) return { possible: false, probed: false, reason: 'the package metadata URL could not be built' }
+    const answer = await request(url, { token, timeoutMs: input.timeoutMs })
+    if (!answer || answer.ok !== true) {
+      const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
+      return {
+        possible: false,
+        probed: false,
+        url,
+        code,
+        reason: code === STORE_REASONS.NO_MANIFEST
+          ? 'there is no package.json either, so there is nothing to adopt'
+          : (answer && answer.reason) || 'the package metadata could not be read'
+      }
+    }
+    const pkg = answer.json && typeof answer.json === 'object' ? answer.json : null
+    if (!pkg) return { possible: false, probed: true, url, reason: 'the package metadata is not JSON' }
+    const dependencies = Object.keys(pkg.dependencies && typeof pkg.dependencies === 'object' ? pkg.dependencies : {})
+    const peers = Object.keys(pkg.peerDependencies && typeof pkg.peerDependencies === 'object' ? pkg.peerDependencies : {})
+    const build = (pkg.scripts && (pkg.scripts.build || pkg.scripts.prepare)) || null
+    return {
+      possible: true,
+      probed: true,
+      url,
+      kind: pkg.dsh || pkg.cordis ? 'dsh-bundle' : 'package',
+      name: pkg.name ? String(pkg.name) : null,
+      version: pkg.version ? String(pkg.version) : null,
+      format: pkg.type === 'module' ? 'esm' : null,
+      entry: typeof pkg.main === 'string' ? pkg.main : null,
+      build,
+      packages: [...new Set([...dependencies, ...peers])].slice(0, 25),
+      note: 'what the package metadata already says; the entry, its build and its installed dependencies are confirmed after the clone'
+    }
+  }
+
+  /**
    * Inspect one result: fetch its manifest and decide whether it is installable.
    *
-   * A repository without a manifest is not an error — it is a repository that is not a plugin
-   * yet, and saying so is the store's most useful answer.
+   * A repository without a manifest is not an error — it is a repository that is not a native
+   * plugin. Whether it can be *adopted* is a second question, and it is answered here rather than
+   * left to a failure after the clone: the verdict carries `compat`, and a caller in compatibility
+   * mode treats `possible: true` as "stage it and find out on disk" instead of as a refusal.
    */
   async function inspect(input = {}) {
     const repository = input.repository && typeof input.repository === 'object' ? input.repository : null
     const id = String(input.id || (repository && repository.id) || '').trim()
+    const sourcePath = cleanPath(input.path || (repository && repository.sourcePath))
     let branch = String(input.branch || (repository && repository.branch) || '').trim()
     // A search result already carries the default branch; a bare `owner/name` does not, and
     // guessing `main` is what produces a wrong "no manifest" verdict for a `dev`-defaulted
@@ -306,7 +360,7 @@ function createPluginStore(options = {}) {
       const resolved = await defaultBranch(id, input)
       if (resolved) branch = resolved
     }
-    const url = input.manifestUrl || (repository && repository.manifestUrl) || manifestUrlFor(id, branch || 'main')
+    const url = input.manifestUrl || (repository && repository.manifestUrl) || manifestUrlFor(id, branch || 'main', sourcePath)
     if (!url) return remember({ ok: false, code: STORE_REASONS.BAD_QUERY, reason: 'a repository or a manifest URL is required' })
     // `verified` is the difference between "we looked where the manifest has to be" and "we
     // looked where it usually is": only a verified absence may refuse an install.
@@ -315,17 +369,30 @@ function createPluginStore(options = {}) {
     if (!answer || answer.ok !== true) {
       const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
       const where = branch ? `at ${branch}` : 'at its default branch (which could not be resolved, so main was tried)'
-      const reason = code === STORE_REASONS.NO_MANIFEST
-        ? `this repository has no ${MANIFEST_FILE} ${where}, so it is not installable yet`
-        : (answer && answer.reason) || 'the manifest could not be read'
-      return remember({ ok: true, url, installable: false, verified, branch: branch || null, code, reason })
+      if (code === STORE_REASONS.NO_MANIFEST) {
+        // The native manifest is absent. Is there something to adopt? This is the difference
+        // between "not a plugin" and "a plugin of another kind", and the store owes the user the
+        // second answer when it is true.
+        const compat = verified
+          ? await probeCompat({ id, branch, sourcePath, timeoutMs: input.timeoutMs })
+          : { possible: false, probed: false, reason: 'the default branch could not be resolved, so nothing could be probed' }
+        const reason = `this repository has no ${MANIFEST_FILE} ${where}, so it is not a native plugin`
+          + (compat.possible
+            ? `; it can be adopted in compatibility mode (${compat.kind})`
+            : compat.probed
+              ? `, and it has no package.json to adopt either`
+              : `, and whether it could be adopted is unknown (${compat.reason})`)
+        return remember({ ok: true, url, installable: false, verified, branch: branch || null, sourcePath, code, reason, compat })
+      }
+      const reason = (answer && answer.reason) || 'the manifest could not be read'
+      return remember({ ok: true, url, installable: false, verified, branch: branch || null, sourcePath, code, reason, compat: null })
     }
     // GitHub's raw endpoint returns text; the transport parses JSON when it can, so accept
     // both a parsed object and the raw text.
     const checked = typeof answer.json === 'object' && answer.json !== null
       ? checkManifest(JSON.stringify(answer.json), repository && repository.id)
       : checkManifest(answer.text || '', repository && repository.id)
-    return remember({ ok: true, url, verified, branch: branch || null, ...checked })
+    return remember({ ok: true, url, verified, branch: branch || null, sourcePath, compat: null, ...checked })
   }
 
   return {
@@ -352,10 +419,27 @@ function createPluginStore(options = {}) {
   }
 }
 
-function manifestUrlFor(id, branch) {
+/**
+ * The manifest URL for a repository, a branch and an optional package inside it.
+ *
+ * The `sourcePath` argument is what makes a monorepo package checkable *before* it is cloned: the
+ * manifest of `owner/repo#packages/pet` is `packages/pet/dshns-plugin.json`, not the repository's.
+ */
+function manifestUrlFor(id, branch, sourcePath) {
   const full = String(id || '').trim()
   if (!/^[\w.-]+\/[\w.-]+$/.test(full)) return null
-  return `https://raw.githubusercontent.com/${full}/${branch || 'main'}/${MANIFEST_FILE}`
+  const clean = cleanPath(sourcePath)
+  const file = clean ? `${clean}/${MANIFEST_FILE}` : MANIFEST_FILE
+  return `https://raw.githubusercontent.com/${full}/${branch || 'main'}/${file}`
+}
+
+/** The package metadata URL for the same target: what the compatibility layer reads to decide. */
+function packageUrlFor(id, branch, sourcePath) {
+  const full = String(id || '').trim()
+  if (!/^[\w.-]+\/[\w.-]+$/.test(full)) return null
+  const clean = cleanPath(sourcePath)
+  const file = clean ? `${clean}/package.json` : 'package.json'
+  return `https://raw.githubusercontent.com/${full}/${branch || 'main'}/${file}`
 }
 
 module.exports = {
@@ -363,6 +447,7 @@ module.exports = {
   checkManifest,
   describeRepository,
   manifestUrlFor,
+  packageUrlFor,
   namedRepository,
   defaultRequest,
   PLUGIN_TOPIC,

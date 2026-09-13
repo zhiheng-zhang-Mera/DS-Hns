@@ -779,6 +779,14 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
 .pm-queue{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;
   background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l2)}
 .pm-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+/* Compatibility mode: the switch, and the badge for the state it implies. A reduced guarantee has
+   to be visible where it is taken on, so neither is styled as a quiet afterthought. */
+.pm-compat{display:flex;gap:8px;align-items:flex-start;margin:0 0 8px;padding:7px 9px;border-radius:8px;
+  background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);cursor:pointer}
+.pm-compat input[type="checkbox"]{width:15px;height:15px;margin-top:1px;accent-color:var(--hns-color-accent-primary)}
+.pm-compat b{display:block;font-size:11px;color:var(--hns-color-label-primary)}
+.pm-badge.warn{color:var(--hns-state-warning);border-color:var(--hns-state-warning)}
+.plug-facts .plug-compat{color:var(--hns-state-warning)}
 
 /* =====================================================================================
    Frosted glass (半透明磨砂玻璃)

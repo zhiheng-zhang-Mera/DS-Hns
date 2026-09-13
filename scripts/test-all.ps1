@@ -118,6 +118,7 @@ try {
     'mega-plugin-store.test.js',
     'mega-store-installer.test.js',
     'plugin-store-mount.test.js',
+    'plugin-compat.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js'

@@ -32,6 +32,8 @@ const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
 const { validateManifest, PLUGIN_API_VERSION } = require('../../../core/contracts/plugin.cjs')
+const { normalizeRepo, parseSource } = require('./source.cjs')
+const { COMPAT_FILE, classifyCompatible, readCompatDescriptor } = require('./compat.cjs')
 
 const MANIFEST_FILE = 'dshns-plugin.json'
 const DEFAULT_MAIN = 'index.cjs'
@@ -46,23 +48,20 @@ const INSTALL_REASONS = Object.freeze({
   ALREADY_STAGED: 'STORE_ALREADY_STAGED',
   NOT_STAGED: 'STORE_NOT_STAGED',
   MISSING_FILES: 'STORE_MISSING_FILES',
-  STATE_UNREADABLE: 'STORE_STATE_UNREADABLE'
+  STATE_UNREADABLE: 'STORE_STATE_UNREADABLE',
+  /** The `#path` of a monorepo source is not a directory in the repository. */
+  SOURCE_PATH_MISSING: 'STORE_SOURCE_PATH_MISSING',
+  /** A staged compat plugin whose descriptor could not be written. */
+  COMPAT_UNWRITABLE: 'STORE_COMPAT_UNWRITABLE'
 })
 
-/** `owner/name`, and nothing else: a store source is a GitHub repository. */
-function normalizeRepo(value) {
-  const text = String(value || '')
-    .trim()
-    .replace(/^https?:\/\/github\.com\//i, '')
-    .replace(/\.git$/i, '')
-    .replace(/\/+$/, '')
-  if (!/^[\w.-]+\/[\w.-]+$/.test(text)) return null
-  return text
-}
-
 /** A directory name that cannot escape the store directory. */
-function directoryNameFor(id) {
-  return String(id).replace(/[^a-z0-9._-]/gi, '_')
+function directoryNameFor(id, sourcePath = null) {
+  const base = String(id).replace(/[^a-z0-9._-]/gi, '_')
+  if (!sourcePath) return base
+  // A package inside a monorepo needs its own directory: two plugins from one repository are two
+  // installations, and one must not overwrite the other.
+  return `${base}__${String(sourcePath).replace(/[^a-z0-9._-]/gi, '_')}`.slice(0, 120)
 }
 
 function readJson(file, fallback) {
@@ -188,60 +187,110 @@ function createStoreInstaller(options = {}) {
    * @param {object} input `{ repo, branch }`
    */
   async function preflight(input = {}) {
-    const repo = normalizeRepo(input.repo)
-    if (!repo) return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${input.repo || ''}" is not a GitHub repository (owner/name)` }
-    if (typeof probe !== 'function') return { ok: true, repo, verdict: null, note: 'no manifest probe is wired, so the clone verifies the manifest' }
+    const source = parseSource(input.source || input.repo)
+    if (!source) return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${input.source || input.repo || ''}" is not a GitHub repository (owner/name), optionally with #path for a package inside it` }
+    const { repo, path: sourcePath } = source
+    const compatAllowed = input.compat === true
+    if (typeof probe !== 'function') return { ok: true, repo, path: sourcePath, verdict: null, note: 'no manifest probe is wired, so the clone verifies the manifest' }
     let verdict = null
     try {
-      verdict = await probe({ repo, branch: String(input.branch || '').trim() || null })
+      verdict = await probe({ repo, branch: String(input.branch || '').trim() || null, path: sourcePath, compat: compatAllowed })
     } catch (error) {
-      log(`the manifest pre-flight for ${repo} failed: ${error?.message || error}`)
-      return { ok: true, repo, verdict: null, note: `the manifest could not be checked in advance (${error?.message || error}), so the clone verifies it` }
+      log(`the manifest pre-flight for ${source.source} failed: ${error?.message || error}`)
+      return { ok: true, repo, path: sourcePath, verdict: null, note: `the manifest could not be checked in advance (${error?.message || error}), so the clone verifies it` }
     }
     if (verdict && verdict.installable === false && verdict.verified === true) {
-      return {
-        ok: false,
-        code: INSTALL_REASONS.BAD_MANIFEST,
-        reason: `${repo} has no ${MANIFEST_FILE} at ${verdict.branch || String(input.branch || '').trim() || 'its default branch'}: it is not a DS-Hns plugin (${PLUGIN_API_VERSION}), so nothing was downloaded`,
-        checked: verdict
+      const adoptable = compatAllowed && verdict.compat && verdict.compat.possible === true
+      if (!adoptable) {
+        return {
+          ok: false,
+          code: INSTALL_REASONS.BAD_MANIFEST,
+          reason: refusalReason(repo, sourcePath, verdict, input.branch ? String(input.branch).trim() : null, compatAllowed),
+          checked: verdict
+        }
       }
+      // The native manifest is absent but the package can be adopted: not a refusal, and the
+      // clone is still what decides whether the derivation works out.
+      return { ok: true, repo, path: sourcePath, verdict, compat: verdict.compat, note: `no ${MANIFEST_FILE} at ${verdict.branch || 'the default branch'}; compatibility mode will derive a descriptor from package.json` }
     }
-    return { ok: true, repo, verdict: verdict && typeof verdict === 'object' ? verdict : null }
+    return { ok: true, repo, path: sourcePath, verdict: verdict && typeof verdict === 'object' ? verdict : null }
+  }
+
+  /** Remove a staged copy and any half-finished staging directory beside it. */
+  function cleanup(dir, staging) {
+    for (const target of [dir, staging]) {
+      try {
+        fs.rmSync(target, { recursive: true, force: true })
+      } catch {}
+    }
+  }
+
+  /** Why a repository was refused, including what the compatibility layer could have done with it. */
+  function refusalReason(repo, sourcePath, verdict, branch, compatAllowed) {
+    const what = sourcePath ? `${repo}#${sourcePath}` : repo
+    const where = verdict.branch || branch || 'its default branch'
+    const base = `${what} has no ${MANIFEST_FILE} at ${where}: it is not a DS-Hns plugin (${PLUGIN_API_VERSION}), so nothing was downloaded`
+    if (verdict.compat && verdict.compat.possible === true) {
+      return compatAllowed
+        ? `${base}. It carries ${verdict.compat.kind} markers but the compatibility layer could not adopt it: ${verdict.compat.reason || 'no reason given'}`
+        : `${base}. It could be installed in compatibility mode (${verdict.compat.kind}), which is switched off`
+    }
+    return verdict.compat && verdict.compat.reason ? `${base} (${verdict.compat.reason})` : base
   }
 
   /**
    * Stage one repository: put its code on disk and verify it. Nothing runs.
    *
-   * @param {object} input `{ repo, branch, replace, verdict }` — `verdict` is a pre-flight
-   *   answer from `preflight`, which lets a caller that already asked GitHub skip the clone
-   *   by passing it in; a refusal here happens *before* anything is downloaded.
+   * Two ways in, and the second is the compatibility mode:
+   *
+   *   * a `dshns-plugin.json` that validates — the plugin declared this platform's contract;
+   *   * otherwise, when compatibility mode was asked for, a `package.json` the classifier can
+   *     adopt. The descriptor it derives is written *beside* the plugin's own files (never over
+   *     them) and recorded in the installed state, so the host knows which loader to use.
+   *
+   * @param {object} input `{ source, repo, branch, path, replace, compat, verdict }` — `verdict` is
+   *   a pre-flight answer from `preflight`, which lets a caller that already asked GitHub skip the
+   *   clone by passing it in; a refusal here happens *before* anything is downloaded.
    */
   function stage(input = {}) {
-    const repo = normalizeRepo(input.repo)
-    if (!repo) return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${input.repo || ''}" is not a GitHub repository (owner/name)` }
+    const source = parseSource(input.source || input.repo)
+    if (!source) {
+      return {
+        ok: false,
+        code: INSTALL_REASONS.BAD_REPO,
+        reason: `"${input.source || input.repo || ''}" is not a GitHub repository (owner/name), optionally with #path for a package inside it`
+      }
+    }
+    const { repo, path: sourcePath } = source
     const branch = String(input.branch || '').trim() || null
-    const id = directoryNameFor(repo)
+    const compatAllowed = input.compat === true
+    const id = directoryNameFor(repo, sourcePath)
     const dir = path.join(storeDir, id)
+    // A package inside a monorepo is cloned into a staging directory first, because what has to end
+    // up in `dir` is the package, not the repository around it.
+    const staging = sourcePath ? `${dir}.partial` : dir
 
     // The pre-flight refusal, before the disk is touched: an installed repository that is not a
-    // plugin is refused in one request instead of one download.
+    // plugin is refused in one request instead of one download. A repository the compatibility
+    // layer can adopt is not a refusal at all when the mode is on.
     const verdict = input.verdict && typeof input.verdict === 'object' ? input.verdict : null
-    if (verdict && verdict.installable === false && verdict.verified === true) {
+    const adoptable = Boolean(verdict && verdict.compat && verdict.compat.possible === true && compatAllowed)
+    if (verdict && verdict.installable === false && verdict.verified === true && !adoptable) {
       const refused = {
         ok: false,
         code: INSTALL_REASONS.BAD_MANIFEST,
-        reason: `${repo} has no ${MANIFEST_FILE} at ${verdict.branch || branch || 'its default branch'}: it is not a DS-Hns plugin (${PLUGIN_API_VERSION}), so nothing was downloaded`,
+        reason: refusalReason(repo, sourcePath, verdict, branch, compatAllowed),
         checked: verdict
       }
-      remember({ action: 'stage', repo, branch, id, ok: false, reason: refused.reason })
-      log(`refused ${repo} before cloning: ${refused.reason}`)
+      remember({ action: 'stage', repo, branch, id, ok: false, reason: refused.reason, path: sourcePath })
+      log(`refused ${source.source} before cloning: ${refused.reason}`)
       return refused
     }
 
     if (fs.existsSync(dir)) {
       if (input.replace !== true) {
         const existing = entryFor(loadState().plugins.find((entry) => entry.dir === dir)?.id || '')
-        return { ok: false, code: INSTALL_REASONS.ALREADY_STAGED, reason: `${repo} is already staged`, entry: existing }
+        return { ok: false, code: INSTALL_REASONS.ALREADY_STAGED, reason: `${source.source} is already staged`, entry: existing }
       }
       try {
         fs.rmSync(dir, { recursive: true, force: true })
@@ -249,27 +298,64 @@ function createStoreInstaller(options = {}) {
         return { ok: false, code: INSTALL_REASONS.CLONE_FAILED, reason: `the previous copy could not be removed: ${error?.message || error}` }
       }
     }
+    // A staging directory left behind by a killed run must not make the next attempt "already
+    // exists" — the same reasoning that removes a failed clone's directory.
+    if (staging !== dir) {
+      try {
+        fs.rmSync(staging, { recursive: true, force: true })
+      } catch {}
+    }
 
     fs.mkdirSync(storeDir, { recursive: true })
-    const cloned = clone(`https://github.com/${repo}.git`, dir, { branch, timeoutMs: input.timeoutMs || DEFAULT_TIMEOUT_MS })
+    const url = `https://github.com/${repo}.git`
+    const cloneOptions = { branch, timeoutMs: input.timeoutMs || DEFAULT_TIMEOUT_MS, sparse: sourcePath }
+    let cloned = clone(url, staging, cloneOptions)
+    let sparse = Boolean(sourcePath)
+    if ((!cloned || cloned.ok !== true) && sourcePath) {
+      // A git or a server without partial-clone support: fetch the whole tree once and keep the
+      // package. Larger and slower, but a package inside a monorepo is still installable.
+      log(`sparse clone of ${repo} failed (${(cloned && cloned.reason) || 'unknown'}); falling back to a full shallow clone`)
+      try {
+        fs.rmSync(staging, { recursive: true, force: true })
+      } catch {}
+      cloned = clone(url, staging, { ...cloneOptions, sparse: null })
+      sparse = false
+    }
     if (!cloned || cloned.ok !== true) {
       // A half-populated directory is worse than none: the next attempt must not "already
       // exist", and nothing should be verifiable from a partial clone.
-      try {
-        fs.rmSync(dir, { recursive: true, force: true })
-      } catch {}
+      cleanup(dir, staging)
       const failed = { ok: false, code: INSTALL_REASONS.CLONE_FAILED, reason: (cloned && cloned.reason) || 'git clone failed' }
-      remember({ action: 'stage', repo, branch, id, ok: false, reason: failed.reason })
+      remember({ action: 'stage', repo, branch, id, ok: false, reason: failed.reason, path: sourcePath })
       return failed
     }
 
-    const inspected = inspectDirectory(dir)
-    if (!inspected.ok) {
+    // A package inside a repository: the clone holds the tree, and the package is what has to be
+    // staged. It is copied out and the clone is dropped, so everything downstream — the containment
+    // checks, removal, the store directory listing — sees an ordinary plugin directory.
+    if (sourcePath) {
+      const packageDir = path.join(staging, sourcePath)
+      if (!fs.existsSync(packageDir) || !fs.statSync(packageDir).isDirectory()) {
+        cleanup(dir, staging)
+        const failed = {
+          ok: false,
+          code: INSTALL_REASONS.SOURCE_PATH_MISSING,
+          reason: `${repo} has no directory ${sourcePath}${sparse ? '' : ' (the whole repository was fetched, so the path really is absent)'}`
+        }
+        remember({ action: 'stage', repo, branch, id, ok: false, reason: failed.reason, path: sourcePath })
+        return failed
+      }
       try {
-        fs.rmSync(dir, { recursive: true, force: true })
+        fs.cpSync(packageDir, dir, { recursive: true, force: true })
+      } catch (error) {
+        cleanup(dir, staging)
+        const failed = { ok: false, code: INSTALL_REASONS.CLONE_FAILED, reason: `the package ${sourcePath} could not be copied out of the clone: ${error?.message || error}` }
+        remember({ action: 'stage', repo, branch, id, ok: false, reason: failed.reason, path: sourcePath })
+        return failed
+      }
+      try {
+        fs.rmSync(staging, { recursive: true, force: true })
       } catch {}
-      remember({ action: 'stage', repo, branch, id, ok: false, reason: inspected.reason })
-      return inspected
     }
 
     // The clone's `.git` is not part of a plugin: keeping it would make the staged copy a
@@ -278,28 +364,103 @@ function createStoreInstaller(options = {}) {
       fs.rmSync(path.join(dir, '.git'), { recursive: true, force: true })
     } catch {}
 
-    const entry = {
-      id: inspected.manifest.id,
-      dir,
-      repo,
-      branch: branch || 'default',
-      version: String(inspected.manifest.version),
-      main: inspected.main,
-      name: inspected.manifest.name || inspected.manifest.id,
-      provides: Array.isArray(inspected.manifest.provides) ? inspected.manifest.provides.slice() : [],
-      faultLevel: inspected.manifest.fault_level || null,
-      stagedAt: now(),
-      enabled: false,
-      enabledAt: null
+    const inspected = inspectDirectory(dir)
+    let adopted = null
+    if (!inspected.ok) {
+      if (!compatAllowed) {
+        cleanup(dir, staging)
+        remember({ action: 'stage', repo, branch, id, ok: false, reason: inspected.reason, path: sourcePath })
+        return { ...inspected, compatibility: null }
+      }
+      // Compatibility mode: the repository did not declare this platform's contract, so the
+      // classifier is asked what it *is* and what it would need. Nothing is run, installed or
+      // built here — the descriptor records the state for the host and the panel.
+      const classified = classifyCompatible(dir, { repo, branch, sourcePath })
+      if (!classified.ok) {
+        cleanup(dir, staging)
+        const refused = {
+          ok: false,
+          code: classified.code || INSTALL_REASONS.BAD_MANIFEST,
+          reason: `${inspected.reason}; ${classified.reason}`,
+          native: inspected.reason,
+          compat: classified.reason
+        }
+        remember({ action: 'stage', repo, branch, id, ok: false, reason: refused.reason, path: sourcePath })
+        return refused
+      }
+      adopted = classified.descriptor
+      // The descriptor is written beside the plugin's own files, never over them: the copy on disk
+      // stays exactly what was cloned, so the user (and the plugin's own tooling) can still tell.
+      try {
+        writeJson(path.join(dir, COMPAT_FILE), adopted)
+      } catch (error) {
+        cleanup(dir, staging)
+        const failed = { ok: false, code: INSTALL_REASONS.COMPAT_UNWRITABLE, reason: `the compatibility descriptor could not be written: ${error?.message || error}` }
+        remember({ action: 'stage', repo, branch, id, ok: false, reason: failed.reason, path: sourcePath })
+        return failed
+      }
+      log(`adopted ${adopted.id} in compatibility mode (${adopted.kind}, ${adopted.api}, ${adopted.format}, state ${adopted.state}) from ${source.source}`)
     }
+
+    const entry = adopted
+      ? {
+          id: adopted.id,
+          dir,
+          repo,
+          branch: branch || 'default',
+          // A package inside a repository is part of the source's identity: two packages from one
+          // monorepo must not look like the same installation.
+          sourcePath,
+          source: source.source,
+          compatibility: 'compat',
+          compatKind: adopted.kind,
+          compatApi: adopted.api,
+          format: adopted.format,
+          compatState: adopted.state,
+          compatReason: adopted.state_reason,
+          version: adopted.version,
+          main: adopted.entry,
+          name: adopted.name,
+          provides: [],
+          dependencies: adopted.dependencies,
+          build: adopted.build,
+          faultLevel: 'soft',
+          stagedAt: now(),
+          enabled: false,
+          enabledAt: null
+        }
+      : {
+          id: inspected.manifest.id,
+          dir,
+          repo,
+          branch: branch || 'default',
+          sourcePath,
+          source: source.source,
+          compatibility: 'native',
+          version: String(inspected.manifest.version),
+          main: inspected.main,
+          name: inspected.manifest.name || inspected.manifest.id,
+          provides: Array.isArray(inspected.manifest.provides) ? inspected.manifest.provides.slice() : [],
+          faultLevel: inspected.manifest.fault_level || null,
+          stagedAt: now(),
+          enabled: false,
+          enabledAt: null
+        }
     const store = loadState()
     const existingIndex = store.plugins.findIndex((candidate) => candidate.id === entry.id || candidate.dir === entry.dir)
     if (existingIndex === -1) store.plugins.push(entry)
     else store.plugins[existingIndex] = { ...store.plugins[existingIndex], ...entry }
     writeJson(stateFile, store)
-    remember({ action: 'stage', repo, branch: entry.branch, id: entry.id, version: entry.version, ok: true })
-    log(`staged ${entry.id} v${entry.version} from ${repo} (nothing has run)`)
-    return { ok: true, staged: true, entry: entryFor(entry.id) }
+    remember({ action: 'stage', repo, branch: entry.branch, id: entry.id, version: entry.version, ok: true, path: sourcePath, compatibility: entry.compatibility })
+    log(`staged ${entry.id} v${entry.version} from ${source.source}${adopted ? ' in compatibility mode' : ''} (nothing has run)`)
+    return {
+      ok: true,
+      staged: true,
+      compatibility: entry.compatibility,
+      compatState: adopted ? adopted.state : null,
+      compatReason: adopted ? adopted.state_reason : null,
+      entry: entryFor(entry.id)
+    }
   }
 
   /**
@@ -314,6 +475,33 @@ function createStoreInstaller(options = {}) {
     if (!entry) return { ok: false, code: INSTALL_REASONS.NOT_STAGED, reason: `${input.id || ''} is not staged` }
     if (!fs.existsSync(entry.dir)) {
       return { ok: false, code: INSTALL_REASONS.MISSING_FILES, reason: `${entry.id}'s directory is gone; stage it again` }
+    }
+    if (entry.compatibility === 'compat') {
+      // A compat plugin's identity comes from the descriptor the installer derived, so enabling
+      // re-reads *that*: the package's own files are not the contract, the derivation is.
+      const descriptor = readCompatDescriptor(entry.dir)
+      if (!descriptor) {
+        return { ok: false, code: INSTALL_REASONS.BAD_MANIFEST, reason: `${COMPAT_FILE} is missing from ${entry.dir}; stage it again` }
+      }
+      entry.enabled = true
+      entry.enabledAt = now()
+      entry.version = descriptor.version
+      entry.main = descriptor.entry || null
+      entry.compatState = descriptor.state
+      entry.compatReason = descriptor.state_reason
+      writeJson(stateFile, loadState())
+      remember({ action: 'enable', repo: entry.repo, id: entry.id, version: entry.version, ok: true, compatibility: 'compat' })
+      log(`enabled ${entry.id} in compatibility mode (state ${descriptor.state}); the plugin host mounts it on its next build`)
+      return {
+        ok: true,
+        entry,
+        compatibility: 'compat',
+        state: descriptor.state,
+        reason: descriptor.state_reason,
+        // Not an error: a plugin that needs a build or an install is enabled *and* waiting for a
+        // decision, and the panel says which one instead of reporting a failure.
+        note: descriptor.state === 'ready' ? null : 'the plugin is enabled but needs an extra step before it can run'
+      }
     }
     const inspected = inspectDirectory(entry.dir)
     if (!inspected.ok) return inspected
@@ -362,7 +550,14 @@ function createStoreInstaller(options = {}) {
       ...entry,
       present: fs.existsSync(entry.dir),
       // A plugin whose files vanished is reported rather than silently enabled.
-      state: !fs.existsSync(entry.dir) ? 'missing' : entry.enabled ? 'enabled' : 'staged'
+      state: !fs.existsSync(entry.dir) ? 'missing' : entry.enabled ? 'enabled' : 'staged',
+      // Compatibility mode is a property the panel shows on every row it applies to, with the
+      // state that explains why it may not be running yet.
+      compatibility: entry.compatibility === 'compat' ? 'compat' : 'native',
+      compatState: entry.compatibility === 'compat'
+        ? (entry.enabled ? entry.compatState || 'ready' : 'staged')
+        : null,
+      compatReason: entry.compatibility === 'compat' ? entry.compatReason || null : null
     }))
   }
 
@@ -374,9 +569,19 @@ function createStoreInstaller(options = {}) {
    * like an app store rather than like a batch script.
    */
   function enqueue(input = {}) {
-    const repo = normalizeRepo(input.repo || input.id)
-    if (!repo) return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${input.repo || input.id || ''}" is not a GitHub repository (owner/name)` }
-    const item = { queueId: `q${nextQueueId}`, repo, branch: String(input.branch || '').trim() || null, status: 'queued', reason: null, id: null, at: now() }
+    const source = parseSource(input.source || input.repo || input.id)
+    if (!source) return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${input.source || input.repo || input.id || ''}" is not a GitHub repository (owner/name or owner/name#path)` }
+    const item = {
+      queueId: `q${nextQueueId}`,
+      source: source.source,
+      repo: source.repo,
+      path: source.path,
+      branch: String(input.branch || '').trim() || null,
+      status: 'queued',
+      reason: null,
+      id: null,
+      at: now()
+    }
     nextQueueId += 1
     queue.push(item)
     return { ok: true, item, queue: queue.slice() }
@@ -393,7 +598,9 @@ function createStoreInstaller(options = {}) {
       item.status = 'staging'
       // One request per candidate before one download per candidate: a queued repository that
       // is not a plugin fails here, in the list, without costing a clone.
-      const checked = input.preflight === false ? { ok: true, verdict: null } : await preflight({ repo: item.repo, branch: item.branch })
+      const checked = input.preflight === false
+        ? { ok: true, verdict: null }
+        : await preflight({ source: item.source || item.repo, branch: item.branch, compat: input.compat === true })
       if (checked.ok === false) {
         item.status = 'failed'
         item.reason = checked.reason || null
@@ -402,7 +609,13 @@ function createStoreInstaller(options = {}) {
         results.push({ ...item })
         continue
       }
-      const staged = stage({ repo: item.repo, branch: item.branch, replace: input.replace === true, verdict: checked.verdict })
+      const staged = stage({
+        source: item.source || item.repo,
+        branch: item.branch,
+        replace: input.replace === true,
+        compat: input.compat === true,
+        verdict: checked.verdict
+      })
       item.status = staged.ok ? 'staged' : 'failed'
       item.reason = staged.reason || null
       item.id = staged.ok ? staged.entry.id : null
@@ -429,7 +642,14 @@ function createStoreInstaller(options = {}) {
     const id = String(input.id || '')
     const store = loadHistory()
     const previous = store.entries.find((entry) => entry.id === id && entry.action === 'stage' && entry.ok !== false)
-    const staged = stage({ repo: (previous && previous.repo) || input.repo, branch: (previous && previous.branch) || input.branch, replace: true })
+    const staged = stage({
+      source: (previous && (previous.source || (previous.path ? `${previous.repo}#${previous.path}` : previous.repo))) || input.source || input.repo,
+      branch: (previous && previous.branch) || input.branch,
+      // A reinstall of an adopted plugin stays adopted: the user chose compatibility mode once, and
+      // making them choose again on every update would be a way of losing the choice.
+      compat: input.compat === true || Boolean(previous && previous.compatibility === 'compat'),
+      replace: true
+    })
     if (!staged.ok) return staged
     const wasEnabled = (input.enabled === true) || (input.enabled === undefined && (previous ? true : false))
     if (!wasEnabled) return { ...staged, enabled: false }
@@ -461,16 +681,22 @@ function createStoreInstaller(options = {}) {
       apiVersion: PLUGIN_API_VERSION,
       staged: list().filter((entry) => entry.state === 'staged').length,
       enabled: list().filter((entry) => entry.state === 'enabled').length,
+      compat: list().filter((entry) => entry.compatibility === 'compat').length,
+      compatEnabled: list().filter((entry) => entry.compatibility === 'compat' && entry.state === 'enabled').length,
       history: loadHistory().entries.length,
-      note: 'Staging puts the plugin on disk; enabling is the step that lets the host run it.'
+      note: 'Staging puts the plugin on disk; enabling is the step that lets the host run it. A plugin without a native manifest can be adopted in compatibility mode, which derives a descriptor from package.json instead of refusing it.'
     })
   }
 }
 
 /** `git clone --depth 1`, bounded, into a directory that must not exist yet. */
 function defaultClone(url, dir, options = {}) {
-  const args = ['clone', '--depth', '1']
+  const args = ['clone', '--depth', '1', '--single-branch']
   if (options.branch) args.push('--branch', String(options.branch))
+  // A package inside a monorepo is one directory of a repository that can be a gigabyte: partial
+  // clone plus sparse checkout is what makes "install one package" cost that package instead of
+  // the whole tree.
+  if (options.sparse) args.push('--filter=blob:none', '--sparse')
   args.push(url, dir)
   const result = spawnSync('git', args, {
     encoding: 'utf8',
@@ -483,12 +709,28 @@ function defaultClone(url, dir, options = {}) {
     const detail = String(result.stderr || result.stdout || '').trim().split('\n').filter(Boolean).pop() || `git exited ${result.status}`
     return { ok: false, reason: detail }
   }
+  if (options.sparse) {
+    // `--sparse` clones with only the top level checked out. Cone mode includes the named
+    // directory recursively, which is exactly the package and nothing else.
+    const checkout = spawnSync('git', ['-C', dir, 'sparse-checkout', 'set', String(options.sparse)], {
+      encoding: 'utf8',
+      timeout: Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024
+    })
+    if (checkout.error) return { ok: false, reason: `git sparse-checkout could not run: ${checkout.error.message}` }
+    if (checkout.status !== 0) {
+      const detail = String(checkout.stderr || checkout.stdout || '').trim().split('\n').filter(Boolean).pop() || `git sparse-checkout exited ${checkout.status}`
+      return { ok: false, reason: detail }
+    }
+  }
   return { ok: true }
 }
 
 module.exports = {
   createStoreInstaller,
   normalizeRepo,
+  parseSource,
   directoryNameFor,
   defaultClone,
   MANIFEST_FILE,

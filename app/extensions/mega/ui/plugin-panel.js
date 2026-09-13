@@ -100,6 +100,14 @@
 
     /** The four states, drawn separately because they are four separate facts. */
     function stateOf(plugin) {
+      // An adopted plugin is labelled as one before anything else is said about it: its guarantees
+      // are reduced, and the panel is where that has to be visible.
+      if (plugin.compatibility === 'compat') {
+        const compat = plugin.compat || {}
+        const state = compat.status || 'compat'
+        const kind = state === 'running' ? 'ok' : state === 'failed' ? 'bad' : 'neutral'
+        return { label: `compat · ${state}`, kind }
+      }
       if (!plugin.installed) return { label: 'not installed', kind: 'bad' }
       if (!plugin.enabled) return { label: 'disabled', kind: 'muted' }
       if (!plugin.loaded) return { label: 'enabled', kind: 'neutral' }
@@ -235,14 +243,34 @@
       detailBox.appendChild(head)
 
       const facts = el('div', 'plug-facts')
+      /** Set when the plugin is adopted and still needs an install or a build. */
+      let compatSetupButton = null
       const add = (label, value, kind) => {
         const line = el('p', `plug-line ${kind || ''}`)
         line.appendChild(el('span', 'plug-fact-label', `${label}: `))
         line.appendChild(el('span', null, value === undefined || value === null || value === '' ? '—' : String(value)))
         facts.appendChild(line)
       }
-      const state = stateOf({ installed: detail.installed, enabled: detail.enabled, loaded: detail.loaded, healthy: detail.healthy })
+      const state = stateOf({ installed: detail.installed, enabled: detail.enabled, loaded: detail.loaded, healthy: detail.healthy, compatibility: detail.compatibility, compat: detail.compat })
       add('Status', `${state.label} (installed=${detail.installed} enabled=${detail.enabled} loaded=${detail.loaded})`)
+      // An adopted plugin says what it is and what it does not get, in the place where its state is
+      // read — and, when it needs one, offers the step it needs.
+      if (detail.compatibility === 'compat') {
+        const compat = detail.compat || {}
+        add('Compatibility', `compat · ${compat.kind || 'package'} · ${compat.api || 'unknown'} · ${compat.format || 'unknown'}`, 'plug-compat')
+        add('Compat state', `${compat.status || '—'}${compat.reason ? ` — ${compat.reason}` : ''}`, compat.status === 'failed' ? 'bad' : 'plug-compat')
+        if (Array.isArray(compat.missing) && compat.missing.length) add('Needs packages', compat.missing.join(', '), 'plug-compat')
+        if (compat.build) add('Builds with', compat.buildCommand ? `${compat.build} → ${compat.buildCommand}` : compat.build)
+        for (const line of (detail.guarantees && detail.guarantees.cn) || []) {
+          facts.appendChild(el('p', 'plug-line plug-compat', `兼容模式不保证 · not guaranteed: ${line}`))
+        }
+        if (['needs-dependencies', 'needs-build'].includes(compat.status)) {
+          const setup = el('button', 'quiet', '安装依赖 / 构建 · Install & build')
+          setup.type = 'button'
+          setup.addEventListener('click', () => runCompatSetup(detail.id))
+          compatSetupButton = setup
+        }
+      }
       add('Health', detail.health ? `${detail.health.status}${detail.health.reason ? ` — ${detail.health.reason}` : ''}` : 'not probed', detail.healthy === false ? 'bad' : '')
       add('Latency', detail.latencyMs === null || detail.latencyMs === undefined ? '—' : `${detail.latencyMs}ms`)
       add('Restarts', detail.restartCount)
@@ -282,7 +310,30 @@
       lock.type = 'button'
       lock.addEventListener('click', () => writeLock())
       actions.appendChild(lock)
+      // The step an adopted plugin still needs sits with the other actions, because it is one.
+      if (compatSetupButton) actions.appendChild(compatSetupButton)
       detailBox.appendChild(actions)
+    }
+
+    /**
+     * Ask the shell to install and build what an adopted plugin needs.
+     *
+     * The panel describes nothing and runs nothing: the commands are shown by the main process in a
+     * confirmation dialog, so what the user agrees to is exactly what runs.
+     */
+    async function runCompatSetup(id) {
+      say(`${id}: 正在准备依赖与构建命令… / preparing the commands…`)
+      try {
+        const result = await window.megaPlugins?.applyCompatSetup?.({ id })
+        if (!result) say(`${id}: 无法准备命令 / could not prepare the commands`, 'bad')
+        else if (result.canceled === true || result.code === 'COMPAT_DECLINED') say(`${id}: 已取消，未执行任何命令 / canceled — nothing was run`, 'warn')
+        else if (result.ok === true && result.refreshed && (result.refreshed.mounted || []).length) say(`${id}: 完成并已即时挂载 / done — mounted live`, 'ok')
+        else if (result.ok === true) say(`${id}: 命令已执行 / commands finished`, 'ok')
+        else say(`${id}: ${result.error || result.reason || '命令失败 / the commands failed'}`, 'bad')
+      } catch (error) {
+        say(`${id}: 命令失败 / the commands failed: ${error.message}`, 'bad')
+      }
+      await refresh()
     }
 
     function collectSettings() {

@@ -51,6 +51,8 @@ const CHANNELS = [
   // plus the installed list, the history and the one-by-one queue.
   'mega:store-installed', 'mega:store-stage', 'mega:store-enable', 'mega:store-disable',
   'mega:store-remove', 'mega:store-reinstall', 'mega:store-queue',
+  // Compatibility mode: whether a repository without a native manifest may be adopted.
+  'mega:store-compat', 'mega:store-compat-set',
   // The feature manager: which of the dock's features are switched on.
   'mega:features-snapshot', 'mega:features-set',
   // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
@@ -1273,6 +1275,37 @@ function applyFeatureVisibility(id) {
   return { ok: true, id, enabled }
 }
 
+/**
+ * The store's own preference: may a repository without a native manifest be adopted?
+ *
+ * It lives beside the other user state (`data/state/plugin-store.json`) for the same reason the
+ * glass preference does — it is a choice, not deployment configuration — and it defaults to on,
+ * because the alternative is a store that silently offers less than it can do. Turning it off is
+ * a real choice too: with it off, only repositories that declare `dshns.plugin/v1` are staged.
+ */
+function storePreference() {
+  const file = path.join(PATHS.ROOT, 'data', 'state', 'plugin-store.json')
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (raw && typeof raw === 'object' && typeof raw.compat === 'boolean') return { compat: raw.compat, source: 'user' }
+  } catch {}
+  return { compat: true, source: 'default' }
+}
+
+function setStorePreference(patch = {}) {
+  const next = { ...storePreference() }
+  if (typeof patch.compat === 'boolean') next.compat = patch.compat
+  const file = path.join(PATHS.ROOT, 'data', 'state', 'plugin-store.json')
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, `${JSON.stringify({ compat: next.compat }, null, 2)}\n`, 'utf8')
+  } catch (error) {
+    return { ok: false, reason: `the store preference could not be written: ${error?.message || error}` }
+  }
+  log(`store compatibility mode ${next.compat ? 'on' : 'off'}`)
+  return { ok: true, compat: next.compat, source: 'user' }
+}
+
 /** The store channel: a search, and an honest answer about whether a result is a plugin. */
 let pluginStore = null
 function store() {
@@ -1298,7 +1331,9 @@ function installer() {
     log: (message) => log(`store: ${message}`),
     // The pre-flight is the store's own manifest check, so a repository that is not a plugin is
     // refused in one request instead of one clone — the store already knows how to ask GitHub.
-    probe: (input) => store().inspect({ id: input.repo, branch: input.branch })
+    // It is told the package path and whether compatibility mode is on, because both change the
+    // verdict: a package inside a monorepo and an adoptable package are different answers.
+    probe: (input) => store().inspect({ id: input.repo, branch: input.branch, path: input.path, compat: input.compat })
   })
   return storeInstaller
 }
@@ -1343,23 +1378,34 @@ function registerStoreIpc() {
   }
   ipcMain.handle('mega:store-describe', guard(() => ({ ok: true, ...store().describe() })))
   ipcMain.handle('mega:store-search', guard((_event, payload = {}) => store().search(payload || {})))
-  ipcMain.handle('mega:store-inspect', guard((_event, payload = {}) => store().inspect(payload || {})))
+  ipcMain.handle('mega:store-inspect', guard((_event, payload = {}) => store().inspect({ ...(payload || {}), compat: payload.compat === true || storePreference().compat })))
   // The installed side: what is staged, what is enabled, and where each came from.
   ipcMain.handle('mega:store-installed', guard(() => ({
     ok: true,
     describe: installer().describe(),
+    preference: storePreference(),
     plugins: installer().list(),
     history: installer().history(),
     queue: installer().queue()
   })))
+  // Compatibility mode is a choice the user makes once, not a flag on every row.
+  ipcMain.handle('mega:store-compat', guard(() => ({ ok: true, ...storePreference() })))
+  ipcMain.handle('mega:store-compat-set', guard((_event, payload = {}) => setStorePreference(payload || {})))
   ipcMain.handle('mega:store-stage', guard(async (_event, payload = {}) => {
     // The manifest is checked before the download, not after it: a repository that is not a
     // DS-Hns plugin is answered in one request rather than one clone. An inconclusive check
     // (no network, an unresolved default branch) falls through to the clone, which decides.
-    const checked = await installer().preflight({ repo: payload.repo, branch: payload.branch })
+    const compat = typeof payload.compat === 'boolean' ? payload.compat : storePreference().compat
+    const checked = await installer().preflight({ source: payload.source || payload.repo, branch: payload.branch, compat })
     const result = checked.ok === false
       ? checked
-      : installer().stage({ repo: payload.repo, branch: payload.branch, replace: payload.replace === true, verdict: checked.verdict })
+      : installer().stage({
+          source: payload.source || payload.repo,
+          branch: payload.branch,
+          replace: payload.replace === true,
+          compat,
+          verdict: checked.verdict
+        })
     notifyChanged()
     return result
   }))
@@ -1382,7 +1428,15 @@ function registerStoreIpc() {
     return result
   }))
   ipcMain.handle('mega:store-reinstall', guard(async (_event, payload = {}) => {
-    const result = installer().reinstall({ id: payload.id, repo: payload.repo, branch: payload.branch })
+    const result = installer().reinstall({
+      id: payload.id,
+      source: payload.source,
+      repo: payload.repo,
+      branch: payload.branch,
+      // A reinstall keeps the mode the plugin was installed with (the installer decides from the
+      // history); the preference only covers the case where there is no history to consult.
+      compat: typeof payload.compat === 'boolean' ? payload.compat : undefined
+    })
     // A reinstall of a plugin that is switched off changes the files but not the running set,
     // so it only reloads the world when the plugin came back enabled.
     if (result.ok && result.enabled) await notifyPluginHostReload()
@@ -1393,10 +1447,13 @@ function registerStoreIpc() {
   ipcMain.handle('mega:store-queue', guard(async (_event, payload = {}) => {
     const action = String(payload.action || 'list')
     if (action === 'list') return { ok: true, queue: installer().queue() }
-    if (action === 'add') return installer().enqueue({ repo: payload.repo, branch: payload.branch })
+    // A queued candidate may name a package inside a repository, and compatibility mode applies to
+    // the whole run: both are part of what each item is, so both are stored with it.
+    if (action === 'add') return installer().enqueue({ source: payload.source || payload.repo, branch: payload.branch })
     if (action === 'clear') return installer().clearQueue()
     if (action === 'run') {
-      const result = await installer().runQueue({ replace: payload.replace === true })
+      const compat = typeof payload.compat === 'boolean' ? payload.compat : storePreference().compat
+      const result = await installer().runQueue({ replace: payload.replace === true, compat })
       notifyChanged()
       return result
     }

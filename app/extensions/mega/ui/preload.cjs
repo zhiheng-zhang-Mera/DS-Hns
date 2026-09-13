@@ -119,7 +119,11 @@ contextBridge.exposeInMainWorld('megaTools', {
     remove: (input) => ipcRenderer.invoke('mega:store-remove', input),
     reinstall: (input) => ipcRenderer.invoke('mega:store-reinstall', input),
     // The one-by-one install flow: add candidates, then run the queue sequentially.
-    queue: (input) => ipcRenderer.invoke('mega:store-queue', input)
+    queue: (input) => ipcRenderer.invoke('mega:store-queue', input),
+    // Compatibility mode: whether a repository without a native manifest may be adopted, and
+    // whether the user has decided that yet.
+    compat: () => ipcRenderer.invoke('mega:store-compat'),
+    setCompat: (enabled) => ipcRenderer.invoke('mega:store-compat-set', { compat: enabled === true })
   },
   /**
    * The feature manager.
@@ -320,7 +324,17 @@ contextBridge.exposeInMainWorld('megaPlugins', {
   // Enabling, disabling or removing an installed plugin rebuilds the world in place, so the
   // panel can ask for a rescan and can be told when the world moved underneath it.
   refresh: () => ipcRenderer.invoke('plugins:refresh'),
-  onChanged: (callback) => ipcRenderer.on('plugins:changed', (_event, payload) => callback(payload))
+  onChanged: (callback) => ipcRenderer.on('plugins:changed', (_event, payload) => callback(payload)),
+  /**
+   * Compatibility mode.
+   *
+   * `compatSetup` describes exactly what an adopted plugin still needs — the command, its working
+   * directory and whether lifecycle scripts are enabled. `applyCompatSetup` asks the *shell* to run
+   * it: the confirmation dialog is shown by the main process, so a renderer cannot install
+   * anything by calling twice, only ask the user.
+   */
+  compatSetup: (input) => ipcRenderer.invoke('plugins:compat-setup', input),
+  applyCompatSetup: (input) => ipcRenderer.invoke('plugins:compat-apply', input)
 })
 
 /**

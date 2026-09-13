@@ -311,6 +311,12 @@ jobs:
             'tests/unit/mega-feature-wiring.test.js',
             'tests/unit/mega-plugin-manager.test.js',
             'app/extensions/mega/store/installer.cjs',
+            'app/extensions/mega/store/compat.cjs',
+            'app/extensions/mega/store/source.cjs',
+            'app/core/plugin-compat/index.cjs',
+            'app/core/plugin-compat/worker.cjs',
+            'app/core/plugin-compat/deps.cjs',
+            'tests/unit/plugin-compat.test.js',
             'tests/unit/mega-store-installer.test.js',
             'tests/unit/plugin-store-mount.test.js',
             'app/extensions/mega/store/github-store.cjs',
@@ -329,11 +335,11 @@ jobs:
             if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
           }
           $check = Get-Content scripts/check-syntax.cjs -Raw
-          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/lockfile', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/high-performance', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
+          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/plugin-compat', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/lockfile', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/high-performance', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
           $tests = Get-Content scripts/test-all.ps1 -Raw
-          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js')) {
+          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-compat\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js')) {
             if ($tests -notmatch $suite) { Write-Error "test-all.ps1 does not assert $suite"; exit 1 }
           }
           # The plugin panel is a control surface: it must reach the platform only through

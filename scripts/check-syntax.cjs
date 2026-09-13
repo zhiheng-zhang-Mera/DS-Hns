@@ -66,6 +66,9 @@ const SOURCE_DIRS = [
   // is non-recursive, so every core directory must be named here.
   'core/contracts',
   'core/plugin-manager',
+  // The compatibility layer: the isolated activation worker, the adapter that builds a plugin
+  // object around it, and the described-and-confirmed dependency/build commands.
+  'core/plugin-compat',
   'core/capability-registry',
   'core/event-bus',
   'core/config-manager',

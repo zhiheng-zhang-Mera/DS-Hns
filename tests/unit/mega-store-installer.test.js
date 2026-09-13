@@ -316,7 +316,9 @@ test('a repository with no manifest is refused before anything is downloaded', a
     assert.equal(harnessed.fake.calls.length, 0)
     const dir = path.join(harnessed.installer.storeDir, directoryNameFor('zhu1090093659/dsh-web'))
     assert.equal(fs.existsSync(dir), false, 'a refused repository must not leave a directory behind')
-    assert.deepEqual(probed, [{ repo: 'zhu1090093659/dsh-web', branch: 'dev' }])
+    // The probe is told the exact target and whether a foreign plugin may be adopted: a compat
+    // verdict depends on both, so a probe that was not told cannot answer for the right thing.
+    assert.deepEqual(probed, [{ repo: 'zhu1090093659/dsh-web', branch: 'dev', path: null, compat: false }])
   } finally {
     harnessed.dispose()
   }

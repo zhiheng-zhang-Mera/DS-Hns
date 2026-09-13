@@ -28,6 +28,7 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const { pathToFileURL } = require('node:url')
 
 const { createPluginManager } = require('./core/plugin-manager/index.cjs')
 const { createEventBus } = require('./core/event-bus/index.cjs')
@@ -220,17 +221,62 @@ function createPluginHost(options = {}) {
   /** What went wrong with any store-installed plugin, for the status and the manager. */
   const installedFailures = []
 
+  /** The compatibility-mode plugins currently mounted, by id, for the panel and the setup flow. */
+  const compatPlugins = new Map()
+
+  /** Read a JSON file, returning null instead of throwing: package.json is optional here. */
+  function readJsonFile(file) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Import one native plugin module.
+   *
+   * `require` cannot read an ES module, and an ESM plugin is a legitimate plugin: module format is
+   * part of the same compatibility story as a foreign API, so a `.mjs` entry — or a `.js` entry
+   * inside a `"type": "module"` package — is imported instead. The file's mtime is part of the URL
+   * so that reinstalling changed code is picked up (the ESM cache cannot be purged the way
+   * `require.cache` can) without creating a new module instance on every load.
+   */
+  async function importNativeModule(main, dir) {
+    const pkg = readJsonFile(path.join(dir, 'package.json'))
+    const esm = /\.mjs$/i.test(main) || Boolean(pkg && pkg.type === 'module' && /\.c?js$/i.test(main))
+    if (!esm) {
+      const loaded = require(main)
+      return typeof loaded === 'function' ? loaded() : loaded
+    }
+    let stamp = 0
+    try {
+      stamp = fs.statSync(main).mtimeMs
+    } catch {}
+    const namespace = await import(`${pathToFileURL(main).href}?mtime=${stamp}`)
+    const loaded = namespace && namespace.default !== undefined ? namespace.default : namespace
+    return typeof loaded === 'function' ? loaded() : loaded
+  }
+
   /**
    * Plugins the user installed from the store and enabled.
    *
-   * This is the *second* stage of the store's two-step install and the only place in the
-   * product that imports code the user brought: staging put it on disk and verified its
-   * manifest, and `enabled: true` in `data/plugins/installed.json` is the record that they
-   * asked for it to run. A module that cannot be imported is skipped and reported rather than
-   * taken down the whole host — a broken third-party plugin must not stop the product from
-   * starting.
+   * This is the *second* stage of the store's two-step install and the only place in the product
+   * that imports code the user brought: staging put it on disk and verified its manifest (or
+   * derived a compatibility descriptor for it), and `enabled: true` in
+   * `data/plugins/installed.json` is the record that they asked for it to run. A module that
+   * cannot be imported is skipped and reported rather than taken down the whole host — a broken
+   * third-party plugin must not stop the product from starting.
+   *
+   * Two kinds of entry arrive here, and they are loaded differently on purpose:
+   *
+   *   * **native** — the plugin declared `dshns.plugin/v1` itself, so its module is imported and
+   *     its own manifest is used;
+   *   * **compat** — the plugin was adopted from another ecosystem, so its module is activated in
+   *     an isolated process and the manifest comes from the descriptor the installer derived.
    */
-  function installedPlugins() {
+  async function installedPlugins() {
     const file = path.join(root, 'data', 'plugins', 'installed.json')
     const out = []
     let raw = null
@@ -244,12 +290,33 @@ function createPluginHost(options = {}) {
       if (!entry || entry.enabled !== true || !entry.dir) continue
       const id = String(entry.id || entry.dir)
       try {
-        const main = path.resolve(entry.dir, String(entry.main || 'index.cjs'))
+        const dir = path.resolve(entry.dir)
+        if (entry.compatibility === 'compat') {
+          // The descriptor is the store's own file format, and this host is the only reader of it;
+          // resolving it here rather than copying the shape keeps one definition of the format.
+          const { readCompatDescriptor, COMPAT_FILE } = require('./extensions/mega/store/compat.cjs')
+          const descriptor = readCompatDescriptor(dir)
+          if (!descriptor) throw new Error(`${COMPAT_FILE} is missing or unreadable, so the plugin cannot be adopted again`)
+          const { createCompatPlugin } = require('./core/plugin-compat/index.cjs')
+          const plugin = createCompatPlugin({
+            descriptor,
+            dir,
+            nodeExe: options.nodeExe,
+            compatTimeoutMs: options.compatTimeoutMs,
+            log
+          })
+          if (!plugin.manifest) throw new Error('the compatibility descriptor does not carry a valid manifest')
+          out.push(plugin)
+          compatPlugins.set(String(plugin.manifest.id), plugin)
+          installedIds.add(String(plugin.manifest.id))
+          log(`compat plugin mounted: ${plugin.manifest.id} (${descriptor.kind}, ${descriptor.api}, ${descriptor.format}, ${descriptor.state}) from ${entry.repo}`)
+          continue
+        }
+        const main = path.resolve(dir, String(entry.main || 'index.cjs'))
         // The entry point must stay inside the plugin directory: a manifest that points
         // elsewhere would be a way to import arbitrary files by editing JSON.
-        if (path.relative(path.resolve(entry.dir), main).startsWith('..')) throw new Error(`${entry.main} escapes the plugin directory`)
-        const loaded = require(main)
-        const plugin = typeof loaded === 'function' ? loaded() : loaded
+        if (path.relative(dir, main).startsWith('..')) throw new Error(`${entry.main} escapes the plugin directory`)
+        const plugin = await importNativeModule(main, dir)
         if (!plugin || typeof plugin.manifest !== 'object') throw new Error('the module does not export a plugin with a manifest')
         out.push(plugin)
         installedIds.add(String(plugin.manifest.id))
@@ -264,8 +331,8 @@ function createPluginHost(options = {}) {
   }
 
   /** The plugin objects this host runs: the product's own sets plus what the user installed. */
-  function pluginSets() {
-    return [...shippedPlugins(), ...installedPlugins()]
+  async function pluginSets() {
+    return [...shippedPlugins(), ...(await installedPlugins())]
   }
 
   /** The ids that came from the store, so the lock can tell them from the shipped set. */
@@ -318,6 +385,15 @@ function createPluginHost(options = {}) {
     const purged = purgeInstalledCache()
     installedIds.clear()
     installedFailures.length = 0
+    // The compat registry is a view of the installed set too: an entry left behind would keep
+    // being listed, and its isolated process would be unreachable. The stop is awaited because
+    // "unloaded" has to mean the process is gone, not merely signalled.
+    for (const plugin of compatPlugins.values()) {
+      try {
+        await plugin.unload()
+      } catch {}
+    }
+    compatPlugins.clear()
     if (!manager) {
       return {
         ok: true,
@@ -356,8 +432,13 @@ function createPluginHost(options = {}) {
     for (const plugin of plugins) {
       const id = plugin.manifest.id
       const resolved = config.forPlugin(id)
+      const fromStore = installedIds.has(id)
       out.plugins[id] = {
-        enabled: typeof resolved.resolved.enabled === 'boolean' ? resolved.resolved.enabled : undefined,
+        // An entry in `installed.json` with `enabled: true` is the user's own decision, and it
+        // outranks a manifest's `default_enabled: false`: without this, a store plugin that ships
+        // switched off (every compatibility-mode plugin does) would be mounted and never loaded —
+        // enabled in the panel and not running, with nothing saying why.
+        enabled: fromStore ? true : (typeof resolved.resolved.enabled === 'boolean' ? resolved.resolved.enabled : undefined),
         config: resolved.resolved
       }
     }
@@ -372,7 +453,7 @@ function createPluginHost(options = {}) {
    * happen to be installed in.
    */
   async function buildWorld() {
-    const plugins = pluginSets()
+    const plugins = await pluginSets()
     const services = {
       root,
       workspace: root,
@@ -470,7 +551,13 @@ function createPluginHost(options = {}) {
         optional: record ? record.optional.slice() : [],
         modelSpecific: entry.modelSpecific,
         restartCount: reloads.get(entry.id) || 0,
-        error: errors.has(entry.id) ? String((errors.get(entry.id) || {}).reason || '') : null
+        error: errors.has(entry.id) ? String((errors.get(entry.id) || {}).reason || '') : null,
+        // Whether the plugin declared this platform's contract itself or was adopted from another
+        // ecosystem, plus the live state of the isolated process. A compat plugin is never shown
+        // as an ordinary plugin with nothing said about it.
+        compatibility: compatPlugins.has(entry.id) ? 'compat' : 'native',
+        compat: compatPlugins.has(entry.id) ? compatPlugins.get(entry.id).compatibilityState() : null,
+        guarantees: compatPlugins.has(entry.id) ? compatPlugins.get(entry.id).compatibilityInfo.guarantees || null : null
       }
     })
     const groups = []
@@ -510,6 +597,9 @@ function createPluginHost(options = {}) {
       latencyMs: record.health ? record.health.latency_ms : null,
       restartCount: reloads.get(id) || 0,
       error: record.fault ? String(record.fault.reason || '') : null,
+      compatibility: compatPlugins.has(id) ? 'compat' : 'native',
+      compat: compatPlugins.has(id) ? compatPlugins.get(id).compatibilityState() : null,
+      guarantees: compatPlugins.has(id) ? compatPlugins.get(id).compatibilityInfo.guarantees || null : null,
       configIssues: config.issues().filter((issue) => issue.plugin === id)
     }
   }
@@ -664,6 +754,80 @@ function createPluginHost(options = {}) {
     return { ok: rebuilt.ok !== false, changed: accepted, written, reloaded: Boolean(manager), execution: execution(), error: rebuilt.ok === false ? rebuilt.error : null }
   }
 
+  /**
+   * What a compatibility-mode plugin needs before it can run, as commands a user confirms.
+   *
+   * An adopted plugin is somebody else's package, and two of the states it can be in are answered
+   * by real work on this machine: installing the dependencies it declares, and running the build
+   * script that produces the entry it declares. Neither happens here — this only *describes* the
+   * commands, in full, for the confirmation dialog, so what the user agrees to is exactly what
+   * will run.
+   */
+  function compatSetup(input = {}) {
+    const off = disabled()
+    if (off) return off
+    const id = String(input.id || '').trim()
+    if (!id) return { ok: false, error: 'a plugin id is required', code: 'PLUGIN_ID_REQUIRED' }
+    const plugin = compatPlugins.get(id)
+    if (!plugin) return { ok: false, code: 'PLUGIN_NOT_COMPAT', error: `${id} is not a compatibility-mode plugin` }
+    const deps = require('./core/plugin-compat/deps.cjs')
+    const state = plugin.compatibilityState()
+    const plans = []
+    if (Array.isArray(state.missing) && state.missing.length) {
+      plans.push(deps.describeInstall({ dir: plugin.directory, packages: state.missing }))
+    } else if (state.status === 'needs-dependencies' && state.dependencies.length) {
+      plans.push(deps.describeInstall({ dir: plugin.directory, packages: state.dependencies }))
+    }
+    if (!state.entryExists && state.build) {
+      // A build needs the package's own toolchain, which lives in its dev dependencies: install
+      // everything first, then run the script. Two commands, one confirmation, shown in order —
+      // and the script is named, with the command inside it shown beside it.
+      plans.push(deps.describeFullInstall({ dir: plugin.directory }))
+      plans.push(deps.describeBuild({ dir: plugin.directory, script: state.build, command: state.buildCommand }))
+    }
+    return {
+      ok: true,
+      id,
+      plugin: plugin.manifest.id,
+      state,
+      plans: plans.filter((plan) => plan && plan.ok === true),
+      refused: plans.filter((plan) => plan && plan.ok !== true),
+      note: 'nothing is installed or built until these commands are confirmed'
+    }
+  }
+
+  /**
+   * Run the confirmed commands for one compat plugin, in order.
+   *
+   * The confirmation is passed down rather than assumed: `deps.runDescribed` refuses without it, so
+   * a caller that forgot to ask the user cannot install anything by accident.
+   */
+  function compatApplySetups(input = {}) {
+    const off = disabled()
+    if (off) return off
+    const id = String(input.id || '').trim()
+    const plugin = compatPlugins.get(id)
+    if (!plugin) return { ok: false, code: 'PLUGIN_NOT_COMPAT', error: `${id} is not a compatibility-mode plugin` }
+    const described = compatSetup({ id })
+    if (described.ok !== true) return described
+    // Nothing to run is not a failure and needs no confirmation; anything else does, and the
+    // confirmation check comes before a single command is described to the runner.
+    if (!described.plans.length) return { ok: true, id, results: [], note: 'nothing to run' }
+    if (input.confirm !== true) {
+      return { ok: false, code: 'COMPAT_NOT_CONFIRMED', error: 'the user has not confirmed these commands', plans: described.plans }
+    }
+    const deps = require('./core/plugin-compat/deps.cjs')
+    const results = []
+    for (const plan of described.plans) {
+      const result = deps.runDescribed(plan, { confirm: true, timeoutMs: input.timeoutMs })
+      results.push(result)
+      // The sequence is a sequence: a build after a failed install would only produce a second,
+      // more confusing failure.
+      if (result.ok !== true) break
+    }
+    return { ok: results.every((result) => result.ok === true), id, results }
+  }
+
   /** Section 40: the lockfile, its state, and what it says about the shipped set. */
   function lockfile(input = {}) {
     const off = disabled()
@@ -700,6 +864,19 @@ function createPluginHost(options = {}) {
         disabled: plugins.filter((plugin) => plugin.installed && !plugin.enabled).length
       },
       health: supervisor ? supervisor.status() : null,
+      // Compatibility mode at a glance: how many adopted plugins there are, how many are running,
+      // and how many are waiting on a decision only the user can make.
+      compat: (() => {
+        const states = [...compatPlugins.values()].map((plugin) => plugin.compatibilityState())
+        return {
+          total: states.length,
+          running: states.filter((state) => state.status === 'running').length,
+          needsDependencies: states.filter((state) => state.status === 'needs-dependencies').length,
+          needsBuild: states.filter((state) => state.status === 'needs-build').length,
+          failed: states.filter((state) => state.status === 'failed').length,
+          unsupported: states.filter((state) => state.status === 'unsupported').length
+        }
+      })(),
       lock: lockState,
       capabilities: registry.capabilities(),
       events: events.slice(-40),
@@ -713,6 +890,14 @@ function createPluginHost(options = {}) {
   async function dispose(why = 'shell teardown') {
     try {
       if (supervisor) supervisor.stop()
+      // The isolated processes are the host's to end: leaving one behind would leave a
+      // third-party plugin running after the product exited.
+      for (const plugin of compatPlugins.values()) {
+        try {
+          await plugin.unload()
+        } catch {}
+      }
+      compatPlugins.clear()
       if (manager) await manager.unloadAll()
     } catch (error) {
       log(`plugin host dispose failed: ${error && error.message ? error.message : error}`)
@@ -725,7 +910,7 @@ function createPluginHost(options = {}) {
   }
 
   return {
-    PLUGIN_CHANNELS: ['plugins:status', 'plugins:list', 'plugins:describe', 'plugins:enable', 'plugins:reload', 'plugins:health', 'plugins:refresh', 'plugins:capabilities', 'plugins:execution', 'plugins:configure', 'plugins:lock'],
+    PLUGIN_CHANNELS: ['plugins:status', 'plugins:list', 'plugins:describe', 'plugins:enable', 'plugins:reload', 'plugins:health', 'plugins:refresh', 'plugins:compat-setup', 'plugins:compat-apply', 'plugins:capabilities', 'plugins:execution', 'plugins:configure', 'plugins:lock'],
     EXECUTION_SCHEMA,
     PLUGIN_GROUPS,
     ensure,
@@ -740,6 +925,8 @@ function createPluginHost(options = {}) {
     execution,
     configure,
     lockfile,
+    compatSetup,
+    compatApplySetups,
     dispose,
     /** The live manager, for the shell's own diagnostics only. */
     get manager() {

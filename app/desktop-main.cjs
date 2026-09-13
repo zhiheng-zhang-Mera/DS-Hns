@@ -178,6 +178,9 @@ const PLUGIN_CHANNELS = [
   // Re-read the store's installed set and rebuild the world in place, so an enable,
   // a disable or a removal never needs a restart.
   'plugins:refresh',
+  // Compatibility mode: what an adopted plugin needs, and running it once the user confirms.
+  'plugins:compat-setup',
+  'plugins:compat-apply',
   // The execution settings and the lockfile.
   'plugins:execution',
   'plugins:configure',
@@ -935,6 +938,22 @@ function disposeEngineeringOnExit(source = 'shell') {
  * workbench that never opens the plugin panel should not pay for loading twenty-five
  * plugins — and because a plugin fault must not be able to stop the shell from starting.
  */
+/**
+ * The node binary a compatibility-mode plugin's isolated process runs with.
+ *
+ * `resolveNodeExe` may answer `node` — a PATH lookup — which is right for the harness and wrong for
+ * a spawn that must not fail for a reason the user cannot see. When there is no real binary on
+ * disk, the Electron process itself is used with `ELECTRON_RUN_AS_NODE`, which a packaged
+ * application always has.
+ */
+function safeNodeExe() {
+  try {
+    const resolved = resolveNodeExe()
+    if (resolved && resolved !== 'node' && fs.existsSync(resolved)) return resolved
+  } catch {}
+  return process.execPath
+}
+
 function ensurePluginHost() {
   if (pluginHost) return pluginHost
   const { createPluginHost } = require('./plugin-host.cjs')
@@ -946,7 +965,10 @@ function ensurePluginHost() {
     available: () => pluginsEnabled(),
     reason: () => 'the plugin runtime is disabled by config/app.json (plugins.enabled = false)',
     defaults: block,
-    enforceLock: block.enforceLock === true
+    enforceLock: block.enforceLock === true,
+    // A compatibility-mode plugin is activated in a separate process. It has to be *this*
+    // deployment's node: a packaged application has no other one on the machine.
+    nodeExe: safeNodeExe()
   })
   logLine(`plugin runtime ready (${PLUGIN_CHANNELS.length} channels; lock enforcement ${block.enforceLock === true ? 'on' : 'off'})`)
   return pluginHost
@@ -1029,6 +1051,59 @@ function registerPluginIpc() {
   ipcMain.handle('plugins:refresh', guard(async () => {
     await ready()
     return host().refreshInstalled('the panel asked for a rescan')
+  }))
+  ipcMain.handle('plugins:compat-setup', guard(async (_event, input) => {
+    await ready()
+    return host().compatSetup(input || {})
+  }))
+  /**
+   * Install and build what a compatibility-mode plugin needs — after asking.
+   *
+   * This is the only path in the product that runs a third-party package manager on the user's
+   * machine, so the confirmation is not a UI formality: **the shell** shows the dialog, with the
+   * exact commands and their directories, and only a `yes` reaches `compatApplySetups`. A renderer
+   * cannot install anything by asking twice; it can only ask the user.
+   */
+  ipcMain.handle('plugins:compat-apply', guard(async (_event, input = {}) => {
+    await ready()
+    const id = String((input || {}).id || '')
+    const described = host().compatSetup({ id })
+    if (described.ok !== true) return described
+    if (!described.plans.length) {
+      return { ok: false, code: 'COMPAT_NOTHING_TO_RUN', error: 'this plugin needs no install or build', state: described.state }
+    }
+    const detail = described.plans
+      .map((plan) => `${plan.display}\n    ${plan.cwd}\n    ${plan.note}`)
+      .join('\n\n')
+    let answer = { response: 0 }
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        answer = await dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          buttons: [bilingualTitle('取消', 'Cancel'), bilingualTitle('运行这些命令', 'Run these commands')],
+          defaultId: 1,
+          cancelId: 0,
+          noLink: true,
+          title: bilingualTitle('兼容插件需要额外步骤', 'A compatibility-mode plugin needs a step'),
+          message: bilingualTitle(`为 ${id} 安装依赖或构建？`, `Install dependencies or build ${id}?`),
+          detail: `${detail}\n\n${bilingualTitle('这些命令会在这台机器上执行第三方代码。', 'These commands run third-party code on this machine.')}`
+        })
+      }
+    } catch (error) {
+      logLine(`the compatibility confirmation could not be shown: ${error?.message || error}`)
+      return { ok: false, code: 'COMPAT_NO_CONFIRMATION', error: 'the confirmation dialog could not be shown, so nothing was run' }
+    }
+    if (answer.response !== 1) {
+      return { ok: false, code: 'COMPAT_DECLINED', error: 'the user declined, so nothing was run', canceled: true, plans: described.plans }
+    }
+    const result = host().compatApplySetups({ id, confirm: true })
+    // Installed dependencies and built entries change what the host can do, so the world is
+    // rebuilt before the answer goes back: the panel's next read shows the plugin running.
+    const refreshed = result.ok === true ? await reloadInstalledPlugins('a compatibility setup finished') : null
+    return {
+      ...result,
+      refreshed: refreshed ? { rebuilt: refreshed.rebuilt === true, mounted: refreshed.mounted || [], removed: refreshed.removed || [] } : null
+    }
   }))
   ipcMain.handle('plugins:health', guard(async (_event, input) => {
     await ready()
