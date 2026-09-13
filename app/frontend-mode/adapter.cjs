@@ -1,11 +1,12 @@
 'use strict'
 
 /**
- * Compatibility Adapter (Update-Plan/Dual-UI.md 任务 8 / 任务 9 / 任务 16).
+ * The compatibility adapter.
  *
- *   Harness Backend  ->  Compatibility Adapter  ->  HNS Domain Model  ->  Native UI
+ *   Harness backend  ->  compatibility adapter  ->  HNS domain model  ->  the dock
  *
- * This is the only translation layer between the two. The native renderer never
+ * This is the only translation layer between the official Harness and the dock. The dock
+ * never
  * sees a backend route, a journal event or an official CSS class: it receives the
  * `model.js` vocabulary and nothing else (Gate I).
  *

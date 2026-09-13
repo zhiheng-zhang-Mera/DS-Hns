@@ -45,28 +45,11 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
-            'app/frontend-mode/state.cjs',
             'app/frontend-mode/model.cjs',
             'app/frontend-mode/backend.cjs',
             'app/frontend-mode/adapter.cjs',
-            'app/frontend-mode/sync.cjs',
-            'app/frontend-mode/manager.cjs',
             'app/frontend-mode/probe.cjs',
             'app/frontend-mode/index.cjs',
-            'app/native-ui/index.html',
-            'app/native-ui/preload.cjs',
-            'app/native-ui/app.js',
-            'app/native-ui/app.css',
-            'app/native-ui/state/store.js',
-            'app/native-ui/components/dom.js',
-            'app/native-ui/components/topbar.js',
-            'app/native-ui/components/context-panel.js',
-            'app/native-ui/components/session-list.js',
-            'app/native-ui/components/conversation.js',
-            'app/native-ui/components/tool-activity.js',
-            'app/native-ui/components/composer.js',
-            'app/native-ui/components/settings.js',
-            'app/native-ui/themes/base.css',
             'app/extensions/mega/theme/surface.js',
             'app/extensions/mega/theme/assets/planner.js',
             'app/extensions/mega/theme/assets/generator.js',
@@ -77,23 +60,35 @@ jobs:
             'app/extensions/mega/theme/official/overlay-safety.js',
             'app/official-surface-views.cjs',
             'app/extensions/mega/ui/hns-shell.html',
-            'app/extensions/mega/ui/official-overlay.html'
+            'app/extensions/mega/ui/official-overlay.html',
+            'tests/unit/official-frontend.test.js',
+            'docs/dual-ui.md'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
           if ($missing) { Write-Error "missing theme surface files: $($missing -join ', ')"; exit 1 }
           $dirs = @(
             'extensions/mega/theme/assets',
             'extensions/mega/theme/official',
-            'frontend-mode',
-            'native-ui',
-            'native-ui/components',
-            'native-ui/state'
+            'frontend-mode'
           )
           $check = Get-Content scripts/check-syntax.cjs -Raw
           foreach ($dir in $dirs) {
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
-          Write-Host "theme + dual-UI surface files present and covered by the syntax gate"
+          # The native frontend and its mode machinery were removed with Daily, and the
+          # gate says so: a re-introduced directory would fail here rather than ship
+          # unchecked.
+          foreach ($gone in @('app/native-ui', 'frontend-mode/state.cjs', 'frontend-mode/manager.cjs', 'frontend-mode/sync.cjs')) {
+            if (Test-Path $gone) { Write-Error "$gone should have been removed with the Daily frontend"; exit 1 }
+          }
+          if ($check -match 'native-ui') { Write-Error 'the syntax gate still lists the removed native frontend'; exit 1 }
+          $tests = Get-Content scripts/test-all.ps1 -Raw
+          if ($tests -notmatch 'official-frontend\.test\.js') { Write-Error 'test-all.ps1 does not assert the official frontend suite'; exit 1 }
+          # The Theme surface gate covers the frontend, so the frontend work must also be
+          # asserted by name: a gate whose suites can be renamed away is a gate that rots.
+          $docs = Get-Content docs/dual-ui.md -Raw
+          if ($docs -notmatch 'Daily has been removed') { Write-Error 'docs/dual-ui.md does not record the removal'; exit 1 }
+          Write-Host "theme + official frontend surface files present and covered by the syntax gate"
 
       # Update-Plan/computer-use.md ships a runtime plus real Windows drivers and
       # a panel. The syntax gate has to be told about the new directories, so the

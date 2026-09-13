@@ -87,19 +87,17 @@ test('direct Electron launch normalizes DeepSeek_API before project env loading'
   assert.match(text, /if \(!process\.env\[key\]\) process\.env\[key\] = value/)
 })
 
-test('official harness renderer stays untouched: only the dock and the native frontend carry a preload', () => {
+test('official harness renderer stays untouched: only the dock carries a preload', () => {
   const text = read('app/desktop-main.cjs')
-  // The official WebContentsView is created without any preload (§42: official
-  // renderer untouched). Two sanctioned preload users exist, each in its own
-  // creation function: the integrated Mega dock, and the Dual-UI native
-  // frontend (Update-Plan/Dual-UI.md 任务 6), which is a separate sandboxed
-  // renderer with no reference to the official one.
-  const officialSection = text.split('function createOfficialHarnessView')[1].split('async function createNativeFrontendView')[0]
+  // The official renderer is never given a preload (the protected-renderer rule). One
+  // sanctioned preload user remains — the integrated Mega dock — and the second one that
+  // used to exist here was the Dual-UI native frontend, which was removed with Daily.
+  const officialSection = text.split('function createOfficialHarnessView')[1].split('function createIntegratedMegaDock')[0]
   assert.doesNotMatch(officialSection, /preload\s*:/)
-  const nativeSection = text.split('async function createNativeFrontendView')[1].split('async function createIntegratedMegaDock')[0]
-  assert.match(nativeSection, /preload:\s*path\.join\(__dirname, 'native-ui', 'preload\.cjs'\)/)
   const megaDockSection = text.split('function createIntegratedMegaDock')[1]
   assert.match(megaDockSection, /preload:\s*path\.join\(__dirname, 'extensions', 'mega', 'ui', 'preload\.cjs'\)/)
+  // Nothing creates a view with the removed native preload any more.
+  assert.equal(/native-ui/.test(text), false)
 })
 
 test('reinstall cleanup kills only repository-owned Electron and DSH processes', () => {

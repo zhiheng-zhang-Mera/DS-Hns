@@ -343,27 +343,17 @@ test('the shell wires the surfaces around the official view and hands over an ad
   assert.equal(/preload\s*:/.test(createWindowBody), false)
 })
 
-test('the shell creates the native renderer once and switches by visibility only (任务 15 / 任务 17)', () => {
+test('the shell renders the official frontend and never hides it (was: the mode switch)', () => {
   const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
-  const create = main.slice(main.indexOf('async function createNativeFrontendView'), main.indexOf('function createNativeThemeAdapter'))
-  // Exactly one construction, guarded by the "already exists" early return.
-  const constructions = create.match(/new WebContentsView\(/g) || []
-  assert.equal(constructions.length, 1, 'the native view is constructed in exactly one place')
-  assert.match(create, /if \(nativeView\) \{\n\s*layoutIntegratedViews\(\)\n\s*return true/)
-  assert.match(create, /preload: path\.join\(__dirname, 'native-ui', 'preload\.cjs'\)/)
-  assert.match(create, /loadFile\(path\.join\(__dirname, 'native-ui', 'index\.html'\)\)/)
-
-  // Switching is bounds/visibility only: no renderer is created or destroyed.
-  const apply = main.slice(main.indexOf('function applyFrontendVisibility'), main.indexOf('function createFrontendModes'))
-  assert.match(apply, /setViewVisibility\(nativeView, daily\)/)
-  assert.match(apply, /setViewVisibility\(officialView, !daily\)/)
-  assert.equal(/new WebContentsView|destroy\(|close\(\)/.test(apply), false, 'a switch never touches renderer lifetime')
-
-  // The deprecated overlay is not created on the default startup path.
-  assert.match(main, /officialSurfaceAdapter,/)
-  assert.match(main, /nativeThemeTarget: createNativeThemeAdapter\(\)/)
-  assert.match(main, /nativeMode: createNativeModeAdapter\(\)/)
-  assert.match(main, /nativeFrontend: frontendModes/)
+  // There used to be a second renderer here, created once and switched by visibility. It
+  // was removed with Daily, so what this asserts is the end state: one frontend, shown,
+  // with no parking rectangle and no mode surface to hide it behind.
+  assert.equal(/native-ui|nativeView|createNativeFrontendView|applyFrontendVisibility/.test(main), false, 'the native renderer must be gone')
+  const show = main.slice(main.indexOf('function showOfficialFrontend'), main.indexOf('function repaintFrontends'))
+  assert.match(show, /layoutIntegratedViews\(\)/)
+  assert.equal(/setBounds\(\s*parked/.test(main), false, 'there is nothing to park the official view for')
+  assert.match(main, /officialFrontend: createFrontendRuntimeOnce\(\)/)
+  assert.equal(/nativeThemeTarget|nativeMode|nativeFrontend/.test(main), false)
 })
 
 test('the two surface documents carry no script, and are input-transparent', () => {

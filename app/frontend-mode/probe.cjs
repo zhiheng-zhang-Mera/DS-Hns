@@ -1,11 +1,10 @@
 'use strict'
 
 /**
- * DSH Compatibility Probe + Report (Update-Plan/Dual-UI.md 任务 16 / 任务 17 / 任务 18).
+ * The DSH compatibility probe and report.
  *
- * Before the Harness is upgraded, the native frontend has to be told whether it
- * still understands the new version. The probe measures the eight contracts the
- * plan names, one verdict each:
+ * Before the Harness is upgraded, the product has to be told whether it still understands
+ * the new version. The probe measures the eight contracts, one verdict each:
  *
  *   backend routes        every route the native frontend calls still answers
  *   session behavior      `session/list` still returns usable session rows
@@ -16,13 +15,13 @@
  *   stream/event protocol durable events still carry `seq` and `time`
  *   error behavior        failures still arrive as data, never as a throw
  *
- * Each verdict is `compatible`, `changed` or `blocked`. The overall
- * `nativeFrontend` verdict follows the plan's rule: any `blocked` check blocks
- * the upgrade, any `changed` check degrades it, otherwise it is compatible.
+ * Each verdict is `compatible`, `changed` or `blocked`. The overall `frontend` verdict
+ * follows one rule: any `blocked` check blocks the upgrade, any `changed` check degrades
+ * it, otherwise it is compatible.
  *
- * 任务 18 is a product rule, not a UI hint: when `nativeFrontend` is `blocked`
- * the report carries `upgrade: 'blocked'`, the currently installed Harness stays
- * in place, Work Mode keeps working, and a compatibility repair task is produced.
+ * That is a product rule, not a UI hint: when the verdict is `blocked` the report carries
+ * `upgrade: 'blocked'`, the currently installed Harness stays in place, the official
+ * renderer keeps working, and a compatibility repair task is produced.
  */
 const model = require('./model.cjs')
 
@@ -213,7 +212,7 @@ function createCompatibilityProbe({
       repair.push({ id: 'error_behavior', title: 'Adapter: backend errors are no longer structured', detail: errorAnswer?.threw || 'a failing read did not return { ok: false, reason }' })
     }
 
-    const nativeFrontend = !Object.values(checks).includes(VERDICT.BLOCKED)
+    const frontend = !Object.values(checks).includes(VERDICT.BLOCKED)
       ? (Object.values(checks).includes(VERDICT.CHANGED) || Object.values(checks).includes(VERDICT.UNKNOWN) ? VERDICT.CHANGED : VERDICT.COMPATIBLE)
       : VERDICT.BLOCKED
 
@@ -231,37 +230,36 @@ function createCompatibilityProbe({
       routes: checks.routes,
       tool_events: checks.tool_events,
       error_behavior: checks.error_behavior,
-      nativeFrontend,
-      upgrade: nativeFrontend === VERDICT.BLOCKED ? 'blocked' : upgradePolicy(nativeFrontend),
+      frontend,
+      upgrade: frontend === VERDICT.BLOCKED ? 'blocked' : upgradePolicy(frontend),
       repair,
       evidence
     }
     lastReport = report
-    log(`compatibility probe ${from || '?'} -> ${target || '?'}: nativeFrontend=${nativeFrontend}${repair.length ? ` (${repair.length} repair item(s))` : ''}`)
+    log(`compatibility probe ${from || '?'} -> ${target || '?'}: frontend=${frontend}${repair.length ? ` (${repair.length} repair item(s))` : ''}`)
     return report
   }
 
-  /** The upgrade policy for a non-blocked native frontend (任务 18). */
-  function upgradePolicy(nativeFrontend) {
-    return nativeFrontend === VERDICT.CHANGED ? 'hold-until-reviewed' : 'allowed'
+  /** The upgrade policy for a non-blocked frontend. */
+  function upgradePolicy(frontend) {
+    return frontend === VERDICT.CHANGED ? 'hold-until-reviewed' : 'allowed'
   }
 
   /**
    * Decide what the updater may do with a report.
    *
-   * `blocked` never means "the product stops": Work Mode continues on the
-   * currently installed Harness, and the repair items become the compatibility
-   * fix task (任务 18).
+   * `blocked` never means "the product stops": the official renderer continues on the
+   * currently installed Harness, and the repair items become the compatibility fix task.
    */
   function verdict(report = lastReport) {
     if (!report) return { known: false, canUpgrade: false, reason: 'no compatibility report has been produced' }
-    const blocked = report.nativeFrontend === VERDICT.BLOCKED
+    const blocked = report.frontend === VERDICT.BLOCKED
     return {
       known: true,
       canUpgrade: !blocked && report.upgrade === 'allowed',
-      nativeFrontend: report.nativeFrontend,
+      frontend: report.frontend,
       reason: blocked
-        ? 'the native frontend is blocked on this version; the installed Harness stays and Work Mode continues'
+        ? 'the frontend is blocked on this version; the installed Harness stays and the official renderer continues'
         : (report.upgrade === 'hold-until-reviewed'
             ? 'contracts changed; the update waits for a review'
             : 'every measured contract is compatible'),

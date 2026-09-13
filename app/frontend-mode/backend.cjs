@@ -1,7 +1,7 @@
 'use strict'
 
 /**
- * Harness Backend Bridge (Update-Plan/Dual-UI.md 任务 8, boundary half).
+ * The Harness backend bridge.
  *
  * This is the only module allowed to know *how* the official Harness is reached.
  * It produces raw backend facts and nothing else:

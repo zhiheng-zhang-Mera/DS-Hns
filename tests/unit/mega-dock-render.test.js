@@ -309,14 +309,13 @@ test('every dock module is collapsible and remembers its state', async () => {
   assert.equal(panels[0].head.children[0].textContent, '▸')
 })
 
-test('the dock collapses when Work Mode needs the width, and comes back after', async () => {
+test('the dock width is the user\'s own state, with no mode policy left to override it', async () => {
   const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
-  // The policy lives in the shell (it owns the mode) and is applied through the
-  // extension that owns the dock state, without overwriting the user preference.
-  assert.match(main, /function applyDockPolicyForMode/)
-  assert.match(main, /extensionManager\.setDockExpanded\(false, \{ persist: false, focus: false \}\)/)
-  assert.match(main, /extensionManager\.setDockExpanded\(true, \{ persist: false, focus: false \}\)/)
-  assert.match(main, /applyDockPolicyForMode\(daily \? 'daily' : 'work'\)/)
+  // The shell used to collapse the dock whenever the second frontend needed the width,
+  // then restore it on the way back. There is one frontend now, so nothing overrides the
+  // user's choice, and the policy function is gone with the mode that triggered it.
+  assert.equal(/applyDockPolicyForMode|setDockExpanded\(false, \{ persist: false/.test(main), false, 'no mode-driven dock policy may survive')
+  // The extension still owns the dock state, and a remembered expansion is still honoured.
   const mega = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'index.cjs'), 'utf8')
   assert.match(mega, /function setDockExpanded\(expanded, \{ focus = false, persist = true \} = \{\}\)/)
   assert.match(mega, /if \(persist\) saveDockState\(\)/)

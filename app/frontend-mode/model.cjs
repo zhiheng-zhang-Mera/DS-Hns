@@ -1,11 +1,10 @@
 'use strict'
 
 /**
- * HNS Domain Model (Update-Plan/Dual-UI.md 任务 9).
+ * The HNS domain model.
  *
- * The native frontend is never allowed to read the official DOM, an official CSS
- * class or an official selector (任务 8 / Gate I). It reads *this* vocabulary and
- * nothing else:
+ * The dock is never allowed to read the official DOM, an official CSS class or an official
+ * selector. It reads *this* vocabulary and nothing else:
  *
  *   Session        what the sidebar lists
  *   Message        one user/assistant entry in the conversation timeline
