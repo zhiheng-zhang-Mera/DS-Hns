@@ -3,6 +3,19 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## engineering — 24h 自主代码维护运行时（Update-Plan/24h-1.md）
+
+**DS-Hns 从"能执行动作"扩展为"能在无人干预下持续维护一个代码仓库"。** 新增 `app/engineering/`：
+一个 episode 接收仓库路径与目标，验证 workspace、发现项目类型与工程命令、读取仓库内的
+AGENTS.md/CLAUDE.md/CI 等约束、在改动前建立 baseline（并保护用户已有的未提交修改）、生成有界
+工程计划（修 bug 的任务必须先复现失败）、通过 mutation 记录每一次写入并在写后重读校验、在
+分类后的真实失败上做有界修复（不盲重试、不重复已验证失败的假设）、监督 build/test/服务的
+子进程（就绪靠端口/HTTP/stdout 条件，长任务靠输出判活而非墙钟）、按 focused/affected/full
+三级跑真实验证并要求证据晚于最后一次改动、周期性 checkpoint 并支持崩溃后按证据恢复、
+按 episode 预算划分 deadline band，最后必须通过 result validator 才能报 COMPLETED ——
+"模型说完成"不算证据。项目适配器覆盖 Node/Python/Rust/Go/Java/.NET/CMake/Make 与 generic
+兜底，破坏性 git 命令（reset --hard、clean -fd、force push、改历史）**根本没有实现**。
+
 ## computer-use — 长时间运行执行（Update-Plan/24h.md Tasks 1–20）
 
 **Computer Use 运行时从"能把一个任务做完"收束成"能长时间可靠地执行开发动作"。** 新增长时运行
