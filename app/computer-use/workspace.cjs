@@ -41,6 +41,14 @@ const { CODES, ComputerUseError } = require('./errors.cjs')
 function createWorkspaceGuard(options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => Date.now()
   const allowOutside = options.allowOutside === true
+  /**
+   * The explicit escape hatch for a contract that really has no workspace.
+   *
+   * It is opt-in, named, and reported per operation, so "unscoped filesystem
+   * access" is always a decision somebody made rather than the behaviour that
+   * happens when a workspace argument is missing.
+   */
+  const unscopedFilesystem = options.unscopedFilesystem === true
   let root = null
   let rootReason = null
   let lastVerifiedAt = null
@@ -117,24 +125,48 @@ function createWorkspaceGuard(options = {}) {
   /**
    * Normalize a path for a filesystem operation and check it against the boundary.
    *
-   * @returns {{ok:boolean, path:string|null, reason:string|null}}
+   * **No verified workspace means no filesystem mutation.** The check is
+   * fail-closed: without a workspace that exists right now, *nothing* is
+   * resolved — not a relative path (which has no base without one) and not an
+   * absolute path (which would otherwise be the way an unscoped write slips
+   * through). A contract that genuinely operates without a workspace has to say
+   * so explicitly with `unscopedFilesystem`, and then it is the caller that owns
+   * the risk rather than a silent default.
+   *
+   * @param {string} target the path the action names
+   * @param {object} [options]
+   * @param {string} [options.step] a label for the drift log
+   * @param {boolean} [options.unscoped] per-operation override of `unscopedFilesystem`
+   * @param {boolean} [options.absolute] require the result to be absolute
+   * @returns {{ok:boolean, path:string|null, reason:string|null, source:string}}
    */
-  function resolvePath(target, { step = null, absolute = false } = {}) {
+  function resolvePath(target, { step = null, absolute = false, unscoped = null } = {}) {
     if (target === null || target === undefined || String(target).trim() === '') {
-      return { ok: false, path: null, reason: 'the operation names no path' }
+      return { ok: false, path: null, source: 'none', reason: 'the operation names no path' }
     }
+    const requested = String(target)
+    const unscopedAllowed = unscoped === null ? unscopedFilesystem : unscoped === true
     const verified = verify()
-    const base = verified.ok ? verified.cwd : (path.isAbsolute(String(target)) ? null : null)
-    if (!path.isAbsolute(String(target)) && !base) {
-      return { ok: false, path: null, reason: `a relative path cannot be resolved without a verified workspace: ${target}` }
+    if (!verified.ok && !unscopedAllowed) {
+      return {
+        ok: false,
+        path: null,
+        source: 'unverified',
+        reason: `no filesystem path can be resolved without a verified workspace: ${verified.reason || 'no workspace is configured'}`
+      }
     }
-    const resolved = path.isAbsolute(String(target)) ? path.resolve(String(target)) : path.resolve(base, String(target))
-    if (verified.ok && !isInside(resolved, verified.cwd) && !allowOutside) {
+    const resolved = requested && path.isAbsolute(requested)
+      ? path.resolve(requested)
+      : (verified.ok ? path.resolve(verified.cwd, requested) : null)
+    if (resolved === null) {
+      return { ok: false, path: null, source: 'unverified', reason: `a relative path cannot be resolved without a verified workspace: ${requested}` }
+    }
+    if (verified.ok && !isInside(resolved, verified.cwd) && !allowOutside && !unscopedAllowed) {
       drift({ step, requested: resolved, root: verified.cwd, kind: 'path_outside_workspace' })
-      return { ok: false, path: null, reason: `the path is outside the workspace: ${resolved}` }
+      return { ok: false, path: null, source: 'explicit', reason: `the path is outside the workspace: ${resolved}` }
     }
-    if (absolute && !path.isAbsolute(resolved)) return { ok: false, path: null, reason: `the path could not be resolved: ${target}` }
-    return { ok: true, path: resolved, reason: null }
+    if (absolute && !path.isAbsolute(resolved)) return { ok: false, path: null, source: 'unverified', reason: `the path could not be resolved: ${target}` }
+    return { ok: true, path: resolved, source: verified.ok ? (isInside(resolved, verified.cwd) ? 'workspace' : 'explicit-outside') : 'unscoped', reason: null }
   }
 
   /**
@@ -171,12 +203,20 @@ function createWorkspaceGuard(options = {}) {
    */
   function status() {
     const verified = verify()
-    return { ok: verified.ok, cwd: verified.cwd, reason: verified.reason, verifiedAt: lastVerifiedAt, drifts: drifts.slice(-5) }
+    return {
+      ok: verified.ok,
+      cwd: verified.cwd,
+      reason: verified.reason,
+      verifiedAt: lastVerifiedAt,
+      unscoped: unscopedFilesystem,
+      drifts: drifts.slice(-5)
+    }
   }
 
   return {
     root,
     allowOutside,
+    unscopedFilesystem,
     verify,
     isInside,
     resolveCwd,

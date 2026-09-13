@@ -83,11 +83,14 @@ function createComputerUseRuntime(options = {}) {
    * "every shell action carries a verified cwd" true for a shell-only host while
    * never pointing a command at an arbitrary directory.
    */
-  const declaredWorkspace = host.workspace || options.defaultWorkspace || defaultRuntimeWorkspace()
+  const declaredWorkspace = host.workspace || options.defaultWorkspace || runtimeOptions.workspace || defaultRuntimeWorkspace()
   const workspace = options.workspaceGuard || createWorkspaceGuard({
     now: clock.now,
     workspace: declaredWorkspace,
-    allowOutside: host.allowOutsideWorkspace === true
+    // Both escape hatches are explicit opt-ins; neither is inferred from a
+    // missing workspace argument.
+    allowOutside: host.allowOutsideWorkspace === true || runtimeOptions.allowOutsideWorkspace === true,
+    unscopedFilesystem: runtimeOptions.unscopedFilesystem === true
   })
 
   function guard(name, factory) {
@@ -136,21 +139,27 @@ function createComputerUseRuntime(options = {}) {
     vision: isolateController('vision', 'vision', () => createVisionController({ driver: host.screenshot || null, clock, config: host.visionConfig || {} })),
     shell: isolateController('shell', 'shell', () => createShellController({
       clock,
-      // Every command runs inside the verified workspace (Task 11). A host that
-      // names its own `cwd` overrides it; a host that names neither workspace nor
-      // cwd gets the shared default the runtime owns (see `declaredWorkspace`),
-      // so the controller is never the component choosing a directory.
-      cwd: host.cwd || declaredWorkspace,
+      // Every command runs inside the verified workspace. The guard below is the
+      // authority; this is the same directory it resolves, passed so the
+      // controller's own default can never disagree with the runtime's boundary.
+      cwd: host.cwd ? path.resolve(String(host.cwd)) : declaredWorkspace,
       env: host.env,
       shellEnabled: host.shellEnabled,
-      // The registry is what makes "kill only what we own" enforceable (Task 7),
-      // and the workspace guard is what stops a command from running in an
-      // unverified directory (Task 11). The registry is handed over under the
-      // key the controller reads (`processes`), never under its local name here.
+      // The registry is what makes "kill only what we own" enforceable, and the
+      // workspace guard is what stops a command from running in an unverified
+      // directory. The registry is handed over under the key the controller reads
+      // (`processes`), never under its local name here.
       processes: processRegistry,
       workspace: () => workspace
     })),
-    file: guard('file', () => createFileController({ clock, workspace: host.workspace || null, allowOutsideWorkspace: host.allowOutsideWorkspace === true }))
+    file: guard('file', () => createFileController({
+      clock,
+      // The *same* guard the shell controller and the health snapshot use: a
+      // filesystem action must not be able to resolve a path through a second,
+      // weaker opinion about where the workspace is.
+      workspace: workspace,
+      allowOutsideWorkspace: host.allowOutsideWorkspace === true
+    }))
   }
 
   /**
@@ -182,9 +191,13 @@ function createComputerUseRuntime(options = {}) {
     hostFacts: host.facts || null,
     options: runtimeOptions,
     // The shared long-running infrastructure, so the executor supervises the very
-    // processes the shell controller starts and reports the same resource state.
+    // processes the shell controller starts, reports the same resource state, and
+    // resolves paths against the same workspace boundary the health snapshot
+    // reports. Passing the guard explicitly is what keeps those four views from
+    // drifting apart: health workspace = shell workspace = executor workspace.
     processes: processRegistry,
-    resources: resourceBudget
+    resources: resourceBudget,
+    workspaceGuard: workspace
   })
 
   let activeRun = null
@@ -630,8 +643,28 @@ function createComputerUseRuntime(options = {}) {
     return ACTION_CAPABILITY[actionType] || null
   }
 
-  /** The directory the runtime owns when a contract names no workspace. */
+  /**
+   * The workspace the runtime uses when neither the contract nor the host names
+   * one.
+   *
+   * A host that declared `cwd` means it, so that is used. Otherwise the runtime
+   * uses a directory it *owns* — `<data root>/workspace/computer-use`, created on
+   * demand — rather than the directory it happened to be started in: defaulting to
+   * `process.cwd()` would make the boundary depend on where a launcher ran the
+   * process, so the same contract would be confined in one deployment and
+   * unconfined in another. Either way the directory is verified before it is used,
+   * and it is the single value the shell controller, the file controller, the
+   * executor's gate and the health snapshot all see.
+   */
   function defaultRuntimeWorkspace() {
+    if (host.cwd) {
+      try {
+        const resolved = path.resolve(String(host.cwd))
+        if (fs.statSync(resolved).isDirectory()) return resolved
+      } catch {
+        /* a host cwd that is not usable is not a workspace */
+      }
+    }
     try {
       const root = process.env.DSH_ROOT ? path.resolve(process.env.DSH_ROOT) : path.resolve(__dirname, '..', '..')
       const dir = path.join(root, 'workspace', 'computer-use')

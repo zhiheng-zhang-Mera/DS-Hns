@@ -291,7 +291,15 @@ const CONTRACT_DEFAULTS = Object.freeze({
   runTimeoutMs: 30 * 60_000,
   screenshotRetention: SCREENSHOT_RETENTION.FAILURE,
   allowFullScreenFallback: true,
-  autonomyEnabled: false
+  autonomyEnabled: false,
+  /**
+   * Filesystem work without a workspace is *off* by default and can only be
+   * turned on explicitly: with no workspace to verify there is no boundary to
+   * check a path against, so the safe default is to refuse rather than to write
+   * wherever an absolute path happens to point.
+   */
+  unscopedFilesystem: false,
+  allowOutsideWorkspace: false
 })
 
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -333,6 +341,13 @@ function resolveComputerUseOptions(overrides = {}, configBlock = readComputerUse
   const safety = (configBlock && configBlock.safety) || {}
   const vision = (configBlock && configBlock.vision) || {}
   const merged = {
+    /**
+     * The workspace boundary for the whole runtime, resolved like every other
+     * limit so no module invents its own default. `null` means "no workspace was
+     * declared", which the runtime turns into the directory it owns — never
+     * `process.cwd()`.
+     */
+    workspace: overrides.workspace ?? configBlock.workspace ?? null,
     maxSteps: positiveInt(overrides.maxSteps ?? limits.maxSteps, CONTRACT_DEFAULTS.maxSteps),
     maxRetriesPerAction: positiveInt(overrides.maxRetriesPerAction ?? limits.maxRetriesPerAction, CONTRACT_DEFAULTS.maxRetriesPerAction),
     maxStallRecoveries: positiveInt(overrides.maxStallRecoveries ?? limits.maxStallRecoveries, CONTRACT_DEFAULTS.maxStallRecoveries),
@@ -342,6 +357,10 @@ function resolveComputerUseOptions(overrides = {}, configBlock = readComputerUse
     allowedCapabilities: overrides.allowedCapabilities ?? configBlock.allowedCapabilities ?? CONTRACT_DEFAULTS.allowedCapabilities,
     screenshotRetention: overrides.screenshotRetention ?? vision.retention ?? CONTRACT_DEFAULTS.screenshotRetention,
     allowFullScreenFallback: overrides.allowFullScreenFallback ?? vision.allowFullScreenFallback ?? CONTRACT_DEFAULTS.allowFullScreenFallback,
+    // The two filesystem escape hatches are booleans and default to *off*: an
+    // absent workspace must never widen what a path is allowed to address.
+    unscopedFilesystem: overrides.unscopedFilesystem ?? limits.unscopedFilesystem ?? CONTRACT_DEFAULTS.unscopedFilesystem,
+    allowOutsideWorkspace: overrides.allowOutsideWorkspace ?? limits.allowOutsideWorkspace ?? CONTRACT_DEFAULTS.allowOutsideWorkspace,
     autonomyEnabled: overrides.autonomyEnabled ?? configBlock.autonomyEnabled ?? CONTRACT_DEFAULTS.autonomyEnabled,
     timing: {
       settleMinMs: clampMs(overrides.settleMinMs ?? timing.settleMinMs, 0, TIMING.settleMaxMs, TIMING.settleMinMs),
@@ -368,6 +387,8 @@ function resolveComputerUseOptions(overrides = {}, configBlock = readComputerUse
   merged.allowedCapabilities = Array.isArray(merged.allowedCapabilities)
     ? merged.allowedCapabilities.filter((capability) => CAPABILITIES.includes(capability))
     : CONTRACT_DEFAULTS.allowedCapabilities
+  merged.unscopedFilesystem = merged.unscopedFilesystem === true
+  merged.allowOutsideWorkspace = merged.allowOutsideWorkspace === true
   return merged
 }
 

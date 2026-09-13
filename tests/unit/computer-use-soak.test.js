@@ -1321,14 +1321,20 @@ test('scenario D: a workspace that drifts away is detected as a mismatch and the
     assert.equal(fs.existsSync(marker), false, 'the refused action must not have run against the system cwd')
     const steps = runtime.log.steps()
     const shellSteps = steps.filter((step) => step.actionType === 'SHELL_EXEC')
-    assert.equal(shellSteps.length >= 2, true, 'both shell actions must be logged')
-    assert.notEqual(shellSteps[shellSteps.length - 1].result, 'success', 'the action after the drift must not be a success')
+    assert.equal(shellSteps.length >= 1, true, 'the first shell action must be logged')
+    assert.equal(shellSteps[0].result, 'success', 'the command before the drift really ran and succeeded')
+    // The refusal happens *before* the controller is asked to run anything: the
+    // executor's workspace gate is the same verdict the shell controller would
+    // reach, so a command that cannot be placed in a verified directory is never
+    // even attempted. `calls` therefore stays at 1 while the second action is
+    // still refused, and the refusal is on the record as a mismatch.
+    assert.equal(calls, 1, `the drifted action must be refused before the controller runs it (${calls} calls)`)
     // The refusal really happened *because of the workspace*: the controller's own
-    // resolution has no verified directory left to use.
+    // resolution has no verified directory left to use either.
     const resolution = shell.resolveCwd()
     assert.equal(resolution.ok, false, 'the shell controller must have no verified cwd after the drift')
     assert.match(String(resolution.reason), /workspace is not accessible/)
-    assert.equal(calls >= 2, true, `the second action must have been attempted and refused (${calls} calls)`)
+    assert.equal(runtime.workspace.drifts().length, 0, 'a vanished workspace is reported as unavailable, not as a drift')
   } finally {
     runtime.controllers.shell.perform = originalPerform
     runtime.dispose()
@@ -1343,6 +1349,16 @@ test('scenario D: a working directory outside the workspace is refused before th
   const device = createDevice()
   const page = device.openPage('form.html')
   const runtime = createRuntime(device, { page, workspace, options: { maxSteps: 6 } })
+  // The controller is wrapped so the strongest part of the guarantee can be
+  // asserted: a command whose cwd leaves the workspace is refused *before* the
+  // shell is ever asked to run it.
+  const shell = runtime.controllers.shell
+  const originalPerform = shell.perform.bind(shell)
+  const calls = { perform: 0 }
+  shell.perform = async (action, context) => {
+    calls.perform += 1
+    return originalPerform(action, context)
+  }
   try {
     const marker = path.join(os.tmpdir(), `cu-outside-${process.pid}.txt`)
     const report = await runtime.run({
@@ -1362,16 +1378,22 @@ test('scenario D: a working directory outside the workspace is refused before th
       limits: { max_steps: 3, max_retries_per_action: 0 }
     })
     // The requirement is not which code the collapse ends with: it is that the
-    // command never ran outside the workspace and the drift is on the record.
+    // command never ran outside the workspace and the refusal is on the record.
     assert.notEqual(report.status, 'completed', 'a cwd outside the workspace must be refused')
     assert.equal(fs.existsSync(marker), false, 'the command must never have run outside the workspace')
     assert.ok(runtime.workspace.drifts().length >= 1, 'the drift must be recorded')
     const drifts = runtime.workspace.drifts()
     assert.equal(drifts[drifts.length - 1].kind, 'cwd_outside_workspace', `unexpected drift kind ${JSON.stringify(drifts)}`)
-    const shellStep = runtime.log.steps().find((step) => step.actionType === 'SHELL_EXEC')
-    assert.ok(shellStep, 'the refused shell action must be logged')
-    assert.notEqual(shellStep.result, 'success', 'the refused command must not be logged as a success')
+    // The executor's pre-flight gate refuses the action *before* the controller is
+    // asked to run it, so the refusal is reported as the refusal it is rather than
+    // as a failed command that was secretly spawned somewhere else. The refused
+    // action is still recorded as an outcome, so the report explains the stop.
+    assert.match(String(report.error ? report.error.message : ''), /outside the workspace/)
+    assert.equal(report.outcomes.length, 1, 'the refused action leaves one outcome explaining the stop')
+    assert.notEqual(report.outcomes[0].status, 'success', 'the refused action must not be recorded as a success')
+    assert.equal(calls.perform, 0, 'the controller is never asked to run a command outside the workspace')
   } finally {
+    runtime.controllers.shell.perform = originalPerform
     runtime.dispose()
     device.dispose()
     removeWorkspace(workspace)

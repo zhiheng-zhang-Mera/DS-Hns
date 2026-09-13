@@ -22,22 +22,57 @@ const { CODES, ComputerUseError } = require('../errors.cjs')
 
 function createFileController(options = {}) {
   const clock = options.clock || { now: () => Date.now() }
-  const workspace = options.workspace ? path.resolve(options.workspace) : null
+  /**
+   * The workspace boundary comes in one of two shapes:
+   *
+   *  - the runtime's shared guard (`{ resolvePath, verify, ... }`), which is the
+   *    production path: the *same* verdict the shell controller and the health
+   *    snapshot use;
+   *  - a bare workspace path, for a standalone controller in a test or a probe.
+   *
+   * A controller given neither confines nothing — and says so in `probe()` — so a
+   * caller can never mistake "unconfined" for "confined".
+   */
+  const guard = options.workspace && typeof options.workspace.resolvePath === 'function' ? options.workspace : null
+  const workspace = guard ? guard.root : (options.workspace ? path.resolve(String(options.workspace)) : null)
   const allowOutsideWorkspace = Boolean(options.allowOutsideWorkspace)
   const watchers = new Map()
   const events = []
   let lastResult = null
 
   function probe() {
-    return { available: true, reason: null, detail: { backend: 'node:fs', workspace, allowOutsideWorkspace } }
+    return { available: true, reason: null, detail: { backend: 'node:fs', workspace, allowOutsideWorkspace, confined: Boolean(guard || workspace) } }
   }
 
   function supports(actionType) {
     return String(actionType).startsWith('FILE_')
   }
 
-  function resolvePath(inputPath) {
+  /**
+   * Resolve one path for one operation.
+   *
+   * With the shared guard this is the guard's own verdict: fail-closed when the
+   * workspace cannot be verified, a drift report when the path leaves it. Without
+   * a guard the controller falls back to its own boundary check, and an absolute
+   * path with *no* workspace at all is allowed only because the caller explicitly
+   * asked for an unconfined controller (`allowOutsideWorkspace`).
+   */
+  function resolvePath(inputPath, { step = null, unscoped = null } = {}) {
     if (!inputPath) throw new ComputerUseError(CODES.ACTION_INVALID, 'a file action needs a path')
+    if (guard) {
+      const verdict = guard.resolvePath(inputPath, { step, unscoped })
+      if (!verdict.ok) {
+        const unverified = verdict.source === 'unverified'
+        const error = new ComputerUseError(
+          unverified ? CODES.WORKSPACE_UNAVAILABLE : CODES.SAFETY_REFUSED,
+          verdict.reason,
+          { path: String(inputPath), workspace: workspace, source: verdict.source }
+        )
+        error.retryable = false
+        throw error
+      }
+      return verdict.path
+    }
     const resolved = path.resolve(String(inputPath))
     if (workspace && !allowOutsideWorkspace && !isInside(resolved, workspace)) {
       const error = new ComputerUseError(CODES.SAFETY_REFUSED, `path is outside the contract workspace: ${resolved}`, {

@@ -227,11 +227,15 @@ function createPageDouble(options = {}) {
 
 function makeRuntime(page, options = {}) {
   const clock = options.clock || createVirtualClock()
+  // The runtime confines filesystem work to one verified workspace, and this
+  // suite's file actions use the OS temp directory, so the workspace is declared
+  // explicitly here rather than left to a default that would differ per checkout.
+  const workspace = options.workspace || os.tmpdir()
   const runtime = createComputerUseRuntime({
     host: { page, confirm: options.confirm },
     clock,
     log: { dir: null },
-    options: { autonomyEnabled: options.autonomyEnabled, maxSteps: options.maxSteps || 20 }
+    options: { autonomyEnabled: options.autonomyEnabled, maxSteps: options.maxSteps || 20, workspace }
   })
   return { runtime, clock }
 }
