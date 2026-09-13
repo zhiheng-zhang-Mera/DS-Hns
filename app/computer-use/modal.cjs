@@ -55,29 +55,36 @@ const MODAL_ACTION = Object.freeze({
  * "close".
  */
 const DESTRUCTIVE_LABELS = Object.freeze([
-  { pattern: /\bdelete\b|删除|删除并/i, kind: 'DELETE' },
-  { pattern: /\b(overwrite|replace|discard(?!\s+all\s+changes?\?)|不予保存|覆盖|替换)\b/i, kind: 'DELETE' },
-  { pattern: /\b(send|submit|发送|提交)\b/i, kind: 'SEND' },
-  { pattern: /\b(publish|deploy|release|上传|发布|部署)\b/i, kind: 'PUBLISH' },
-  { pattern: /\b(uninstall|卸载)\b/i, kind: 'UNINSTALL' },
-  { pattern: /\b(install|安装)\b/i, kind: 'INSTALL' },
-  { pattern: /\b(purchase|buy|pay|checkout|订阅|购买|支付)\b/i, kind: 'PURCHASE' },
-  { pattern: /\b(format|格式化|erase|清除全部)\b/i, kind: 'FORMAT' },
-  { pattern: /\b(sign\s*out|log\s*out|注销|退出登录)\b/i, kind: 'ACCOUNT_CHANGE' },
-  { pattern: /\b(allow|grant|授权|允许)\b/i, kind: 'ACCOUNT_CHANGE' }
+  { pattern: /删除|删除并|\bdelete\b|\berase\b|\bremove\b|\bunlink\b|\brmdir\b|\bpurge\b/i, kind: 'DELETE' },
+  { pattern: /不予保存|覆盖|替换|\boverwrite\b|\breplace\b|\bdiscard\b|\breset\b/i, kind: 'DELETE' },
+  { pattern: /发送|提交|\bsend\b|\bsubmit\b|\bpost\b|\bshare\b|\bupload\b/i, kind: 'SEND' },
+  { pattern: /上传|发布|部署|\bpublish\b|\bdeploy\b|\brelease\b|\bpush\b/i, kind: 'PUBLISH' },
+  { pattern: /卸载|\buninstall\b/i, kind: 'UNINSTALL' },
+  { pattern: /安装|\binstall\b|\bupgrade\b|\bdowngrade\b/i, kind: 'INSTALL' },
+  { pattern: /订阅|购买|支付|\bpurchase\b|\bbuy\b|\bpay\b|\bcheckout\b|\bsubscribe\b/i, kind: 'PURCHASE' },
+  { pattern: /格式化|清除全部|\bformat\b/i, kind: 'FORMAT' },
+  { pattern: /注销|退出登录|\bsign\s*out\b|\blog\s*out\b|\bswitch\s+account\b/i, kind: 'ACCOUNT_CHANGE' },
+  { pattern: /授权|允许|\ballow\b|\bgrant\b|\bpermit\b/i, kind: 'ACCOUNT_CHANGE' }
 ])
 
 const SAFE_DISMISS_LABELS = Object.freeze([
-  /\b(cancel|close|dismiss|no|not now|later|never mind|don'?t\s+save|keep)\b/i,
-  /取消|关闭|以后再说|暂不|不保存|忽略/
+  /\b(cancel|close|dismiss|no|not\s+now|later|never\s*mind|don'?t\s+save|keep|skip|back)\b/i,
+  /取消|关闭|以后再说|暂不|不保存|忽略|算了/
 ])
 
+/**
+ * Only labels with *no* action semantics at all belong here. Anything that could
+ * be read as "go ahead" is a positive confirmation instead, because a neutral
+ * label may be pressed without the action having declared an expected effect.
+ */
 const NEUTRAL_LABELS = Object.freeze([
-  /\b(ok|okay|got it|i see|acknowledge|continue|next|知道了|好的|确定)\b/i
+  /\b(ok|okay|got\s+it|i\s+see|acknowledge|understood|noted)\b/i,
+  /知道了|明白/
 ])
 
 const POSITIVE_LABELS = Object.freeze([
-  /\b(yes|confirm|proceed|save|apply|retry|try again|确认|继续|保存|重试)\b/i
+  /\b(yes|confirm|proceed|continue|save|apply|retry|try\s+again|accept)\b/i,
+  /确定|确认|继续|保存|应用|重试/
 ])
 
 /**
@@ -251,7 +258,7 @@ function chooseControl(classification, context = {}) {
     if (!declared && !expected) {
       return {
         action: MODAL_ACTION.USER_ACTION_REQUIRED,
-        control: positive,
+        control: null,
         kind: MODAL_KINDS.POSITIVE_CONFIRM,
         destructiveKind: null,
         requiresUser: true,
@@ -268,16 +275,30 @@ function chooseControl(classification, context = {}) {
     }
   }
 
-  // 4. An acknowledgement cannot change anything, so pressing it is the same class
-  //    of decision as dismissing.
+  // 4. An acknowledgement is only pressed when the dialog itself is harmless.
+  //
+  //    "OK" changes nothing *about the dialog*, but it is also the button that
+  //    answers "Delete this file?" — and pressing it there is the confirmation the
+  //    user never gave. So a destructive message turns an acknowledgement into a
+  //    user decision, exactly like the destructive control it is answering for.
   if (neutral) {
+    if (classification.messageDestructiveKind) {
+      return {
+        action: MODAL_ACTION.USER_ACTION_REQUIRED,
+        control: null,
+        kind: MODAL_KINDS.NEUTRAL_ACKNOWLEDGE,
+        destructiveKind: classification.messageDestructiveKind,
+        requiresUser: true,
+        reason: `"${neutral.label}" would answer a dialog about ${classification.messageDestructiveKind}, which the action did not declare as its expected effect`
+      }
+    }
     return {
       action: MODAL_ACTION.PRESS,
       control: neutral,
       kind: MODAL_KINDS.NEUTRAL_ACKNOWLEDGE,
       destructiveKind: null,
       requiresUser: false,
-      reason: `${neutral.reason}; acknowledging a message changes nothing`
+      reason: `${neutral.reason}; acknowledging a harmless message changes nothing`
     }
   }
 

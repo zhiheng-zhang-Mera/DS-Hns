@@ -317,6 +317,75 @@ test('a bland label is made destructive by the dialog message and needs the decl
   assert.equal(allowed.action, MODAL_ACTION.PRESS)
 })
 
+test('an acknowledgement never answers a destructive dialog (Task 2)', () => {
+  // "OK" changes nothing about the dialog, but it is also the button that
+  // answers "Delete this file?". Pressing it there would be the confirmation the
+  // user never gave, so a destructive message turns an acknowledgement into a
+  // user decision.
+  const destructive = classifyModal({ message: 'Delete this file?', controls: [{ ref: 'ok', label: 'OK', source: 'page' }] })
+  assert.equal(destructive.controls[0].kind, MODAL_KINDS.NEUTRAL_ACKNOWLEDGE)
+  const refused = chooseControl(destructive, { destructiveMode: 'confirm', safetyPassed: true })
+  assert.equal(refused.action, MODAL_ACTION.USER_ACTION_REQUIRED)
+  assert.equal(refused.requiresUser, true)
+  assert.equal(refused.destructiveKind, 'DELETE')
+
+  // The same button on a harmless message is still a safe acknowledgement.
+  const harmless = classifyModal({ message: 'Your session was refreshed.', controls: [{ ref: 'ok', label: 'OK', source: 'page' }] })
+  const allowed = chooseControl(harmless, {})
+  assert.equal(allowed.action, MODAL_ACTION.PRESS)
+  assert.equal(allowed.control.ref, 'ok')
+
+  // Nothing in the plan's destructive vocabulary is missing, and every label the
+  // plan lists is classified the way the plan says it should be.
+  const expected = {
+    Cancel: MODAL_KINDS.SAFE_DISMISS,
+    Close: MODAL_KINDS.SAFE_DISMISS,
+    Dismiss: MODAL_KINDS.SAFE_DISMISS,
+    No: MODAL_KINDS.SAFE_DISMISS,
+    'Not now': MODAL_KINDS.SAFE_DISMISS,
+    Later: MODAL_KINDS.SAFE_DISMISS,
+    'Never mind': MODAL_KINDS.SAFE_DISMISS,
+    OK: MODAL_KINDS.NEUTRAL_ACKNOWLEDGE,
+    'Got it': MODAL_KINDS.NEUTRAL_ACKNOWLEDGE,
+    Yes: MODAL_KINDS.POSITIVE_CONFIRM,
+    Confirm: MODAL_KINDS.POSITIVE_CONFIRM,
+    Proceed: MODAL_KINDS.POSITIVE_CONFIRM,
+    Continue: MODAL_KINDS.POSITIVE_CONFIRM,
+    Save: MODAL_KINDS.POSITIVE_CONFIRM,
+    Apply: MODAL_KINDS.POSITIVE_CONFIRM,
+    Retry: MODAL_KINDS.POSITIVE_CONFIRM,
+    Delete: MODAL_KINDS.DESTRUCTIVE,
+    Overwrite: MODAL_KINDS.DESTRUCTIVE,
+    Replace: MODAL_KINDS.DESTRUCTIVE,
+    Send: MODAL_KINDS.DESTRUCTIVE,
+    Submit: MODAL_KINDS.DESTRUCTIVE,
+    Publish: MODAL_KINDS.DESTRUCTIVE,
+    Deploy: MODAL_KINDS.DESTRUCTIVE,
+    Install: MODAL_KINDS.DESTRUCTIVE,
+    Uninstall: MODAL_KINDS.DESTRUCTIVE,
+    Buy: MODAL_KINDS.DESTRUCTIVE,
+    Pay: MODAL_KINDS.DESTRUCTIVE,
+    Checkout: MODAL_KINDS.DESTRUCTIVE,
+    Format: MODAL_KINDS.DESTRUCTIVE,
+    'Sign out': MODAL_KINDS.DESTRUCTIVE,
+    Grant: MODAL_KINDS.DESTRUCTIVE,
+    Allow: MODAL_KINDS.DESTRUCTIVE,
+    取消: MODAL_KINDS.SAFE_DISMISS,
+    关闭: MODAL_KINDS.SAFE_DISMISS,
+    暂不: MODAL_KINDS.SAFE_DISMISS,
+    以后再说: MODAL_KINDS.SAFE_DISMISS,
+    知道了: MODAL_KINDS.NEUTRAL_ACKNOWLEDGE,
+    明白: MODAL_KINDS.NEUTRAL_ACKNOWLEDGE,
+    确定: MODAL_KINDS.POSITIVE_CONFIRM,
+    继续: MODAL_KINDS.POSITIVE_CONFIRM,
+    保存: MODAL_KINDS.POSITIVE_CONFIRM,
+    重试: MODAL_KINDS.POSITIVE_CONFIRM
+  }
+  for (const [label, kind] of Object.entries(expected)) {
+    assert.equal(classifyControl(label).kind, kind, `"${label}" must classify as ${kind}`)
+  }
+})
+
 test('a positive confirmation is only pressed when the action declared its own next step (Task 2)', () => {
   const classification = classifyModal({ controls: [{ ref: 'ok', label: 'Confirm' }] })
   const refused = chooseControl(classification, {})
@@ -1021,8 +1090,22 @@ test('a relative path without a verified workspace is refused (Task 11)', () => 
   assert.equal(guard.verify().ok, false)
   const resolved = guard.resolvePath('src/index.js')
   assert.equal(resolved.ok, false)
-  assert.match(resolved.reason, /cannot be resolved without a verified workspace/)
+  // Fail-closed: with no verified workspace *no* path resolves, relative or
+  // absolute, so an unscoped write cannot slip through an absolute target.
+  assert.match(resolved.reason, /without a verified workspace/)
+  assert.equal(resolved.path, null)
+  const absolute = guard.resolvePath(path.join(os.tmpdir(), 'escaped.txt'))
+  assert.equal(absolute.ok, false, 'an absolute path must not be resolvable while the workspace is unverified')
+  assert.equal(absolute.path, null)
   assert.equal(guard.status().ok, false, 'an unverified workspace is reported as unavailable, never silently used')
+  assert.equal(guard.status().unscoped, false, 'unscoped filesystem access is off unless a contract asks for it')
+
+  // The explicit escape hatch is the only way to operate without a workspace, and
+  // it is a decision the caller states rather than a default.
+  const unscoped = createWorkspaceGuard({ now: () => 1000, unscopedFilesystem: true })
+  const allowed = unscoped.resolvePath(path.join(os.tmpdir(), 'deliberate.txt'))
+  assert.equal(allowed.ok, true)
+  assert.equal(allowed.source, 'unscoped')
 })
 
 test('a relative path is resolved against the verified workspace, never the process cwd (Task 11)', () => {
