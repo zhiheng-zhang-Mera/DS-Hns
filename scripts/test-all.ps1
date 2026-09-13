@@ -89,6 +89,8 @@ try {
     'computer-use-isolation.test.js',
     'computer-use-longrun-acceptance.test.js',
     'computer-use-longrun-modules.test.js',
+    'computer-use-production-wiring.test.js',
+    'computer-use-resource-growth.test.js',
     'computer-use-routing-safety.test.js',
     'computer-use-runtime.test.js',
     'computer-use-soak.test.js',
