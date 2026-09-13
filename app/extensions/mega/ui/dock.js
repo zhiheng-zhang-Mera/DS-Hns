@@ -1569,7 +1569,7 @@ function setupCollapsiblePanels() {
     return []
   }
   const saved = readPanelState()
-  const handles = []
+  const entries = []
   for (const panel of panels) {
     const id = panel.id
     if (!id) continue
@@ -1591,27 +1591,49 @@ function setupCollapsiblePanels() {
     // daily-refactorr.md §18): every module starts collapsed, so the panel opens
     // as a short list of what is available. The user's own choices stick.
     apply(saved[id] === undefined ? true : Boolean(saved[id]))
+    entries.push({ id, panel, head, apply })
+  }
 
-    const set = (collapsed) => {
-      apply(collapsed)
-      const state = readPanelState()
-      state[id] = Boolean(collapsed)
-      writePanelState(state)
+  /**
+   * One module at a time.
+   *
+   * The dock is a column of modules in one narrow strip, so two expanded at once means the user
+   * scrolls past a module they had already finished with to reach the one they just opened. Opening
+   * one therefore closes the others — the choice is still the user's and is still remembered
+   * per module, but the *open* state is singular, which is what "only the newest one is expanded"
+   * asks for. Closing a module touches nothing else.
+   */
+  function set(entry, collapsed) {
+    entry.apply(collapsed)
+    const state = readPanelState()
+    state[entry.id] = Boolean(collapsed)
+    if (!collapsed) {
+      for (const other of entries) {
+        if (other === entry || other.panel.dataset.collapsed === '1') continue
+        other.apply(true)
+        state[other.id] = true
+      }
     }
-    toggle.addEventListener('click', (event) => {
-      event.stopPropagation()
-      set(!(panel.dataset.collapsed === '1'))
-    })
+    writePanelState(state)
+  }
+
+  for (const entry of entries) {
+    const toggle = entry.head.querySelector ? entry.head.querySelector('.panel-collapse') : null
+    if (toggle && typeof toggle.addEventListener === 'function') {
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation()
+        set(entry, !(entry.panel.dataset.collapsed === '1'))
+      })
+    }
     // Clicking the header text toggles too, but never when the click was aimed at
     // one of the module's own controls.
-    head.addEventListener('click', (event) => {
+    entry.head.addEventListener('click', (event) => {
       const target = event.target
       if (target && typeof target.closest === 'function' && target.closest('button, input, select, textarea, label, a')) return
-      set(!(panel.dataset.collapsed === '1'))
+      set(entry, !(entry.panel.dataset.collapsed === '1'))
     })
-    handles.push({ id, set })
   }
-  return handles
+  return entries.map((entry) => ({ id: entry.id, set: (collapsed) => set(entry, collapsed) }))
 }
 
 const collapsiblePanels = setupCollapsiblePanels()

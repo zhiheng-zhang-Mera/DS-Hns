@@ -191,6 +191,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
  */
 .panel-head{
   display:flex;justify-content:space-between;gap:10px;align-items:flex-start;
+  /* The header is a title with its controls beside it. When the space gets tight the *whole* group of
+     controls moves under the title as one unit: a control that wraps inside itself is what made the
+     buttons look deformed once a module was expanded. */
+  flex-wrap:wrap;row-gap:6px;
   position:sticky;top:-1px;z-index:3;
   margin:-4px -4px 9px;padding:6px 4px 6px;
   background:var(--hns-color-bg-layer1);
@@ -199,6 +203,25 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 }
 .panel[data-collapsed="1"] .panel-head{border-bottom-color:transparent}
 .panel-head > :first-child{flex:1 1 auto;min-width:0}
+/*
+ * A header's controls never wrap inside themselves.
+ *
+ * The distortion this prevents: a group of small buttons in a wrapping row, where one button's label
+ * breaks onto a second line and its padding stops being symmetric — so the same button looks like a
+ * different control depending on how wide the module happens to be. A group either fits beside the
+ * title or moves under it whole, and a button keeps its intrinsic width either way.
+ */
+.panel-head .balance-actions,
+.panel-head .header-actions,
+.panel-head .queue-actions,
+.panel-head .skills-toolbar-actions,
+.panel-head .cu-actions{
+  flex:0 0 auto;display:flex;flex-wrap:nowrap;align-items:center;gap:6px
+}
+.panel-head button{flex:0 0 auto;white-space:nowrap;min-height:28px}
+.panel-head .icon-button{width:36px;min-width:36px;padding:7px 0;font-size:16px}
+.panel-head .status-chip,
+.panel-head .panel-collapse{flex:0 0 auto;white-space:nowrap}
 /*
  * Collapsible modules (Update-Plan/Dual-UI.md follow-up).
  *
