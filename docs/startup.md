@@ -131,9 +131,11 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
 `stage({ source, branch: ref })` 把代码放到磁盘并校验清单，`enable({ id })` 记录宿主可以运行它 —— 来安装
 清单钉住的引用。因此"第一个 pin 标记 `tested: true`"就是采纳的全部工作量。
 
-**剩下的是一个诚实的限制，而不是未写的代码**：商店按**分支或 tag**落盘（`git clone --branch`），而
-`2BingLing/dsh-market` 没有 tag，它的 pin 是一个**提交**。提交 pin 会被**按名字拒绝**，而不是悄悄装成默认分支
-当时的 HEAD；修法是商店支持 revision 感知的 stage —— 那是**它的**安装路径，不能从这里猜。
+**提交 pin 现在也能装了**：商店新增 **revision 路径**（§22–§23 的"钉一个引用"对没有 tag 的仓库也成立）——
+`git init` + `remote add` + `git fetch --depth 1 origin <sha>` + detached `checkout FETCH_HEAD`，因此
+`2BingLing/dsh-market`（无 tag）钉的提交会被真的装上，而不是"默认分支当时的 HEAD"。状态文件记录
+`revision`（与 `branch` 互斥，二者同时给出会被拒绝，非十六进制的 revision 也会被按名拒绝），
+`installPinnedPlugin()` 据此选择走分支还是走 revision。
 
 测试：`tests/unit/bundled-plugins.test.js` 9 项（清单为真且不追 latest、未测试不安装、缺失的已测试版本按 pin 安装、
 用户禁用优先、未知版本只报告、不兼容只报告且只有 repair 会重装、repair 拒绝未测试 pin、受保护模块与 fallback、

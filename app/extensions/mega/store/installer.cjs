@@ -267,7 +267,7 @@ function createStoreInstaller(options = {}) {
    *     adopt. The descriptor it derives is written *beside* the plugin's own files (never over
    *     them) and recorded in the installed state, so the host knows which loader to use.
    *
-   * @param {object} input `{ source, repo, branch, path, replace, compat, verdict }` — `verdict` is
+ * @param {object} input `{ source, repo, branch, path, replace, compat, verdict }` — `verdict` is
    *   a pre-flight answer from `preflight`, which lets a caller that already asked GitHub skip the
    *   clone by passing it in; a refusal here happens *before* anything is downloaded.
    */
@@ -282,6 +282,18 @@ function createStoreInstaller(options = {}) {
     }
     const { repo, path: sourcePath } = source
     const branch = String(input.branch || '').trim() || null
+    /**
+     * A **revision** is a commit, and it is the store's answer to "pin a repository that publishes no tags"
+     * (`updateplan/startup2.md` §22-§23 — the release manifest pins a reference, never "latest"). It is
+     * validated here rather than trusted: a revision that is not a hex object name is refused by name.
+     */
+    const revision = String(input.revision || '').trim() || null
+    if (revision && !/^[0-9a-f]{7,40}$/i.test(revision)) {
+      return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: `"${revision}" is not a commit revision` }
+    }
+    if (revision && branch) {
+      return { ok: false, code: INSTALL_REASONS.BAD_REPO, reason: 'a stage takes a branch or a revision, not both' }
+    }
     const compatAllowed = input.compat === true
     const id = directoryNameFor(repo, sourcePath)
     const dir = path.join(storeDir, id)
@@ -327,7 +339,7 @@ function createStoreInstaller(options = {}) {
 
     fs.mkdirSync(storeDir, { recursive: true })
     const url = cloneUrlFor(repo)
-    const cloneOptions = { branch, timeoutMs: input.timeoutMs || DEFAULT_TIMEOUT_MS, sparse: sourcePath }
+    const cloneOptions = { branch, revision, timeoutMs: input.timeoutMs || DEFAULT_TIMEOUT_MS, sparse: sourcePath }
     let cloned = clone(url, staging, cloneOptions)
     let sparse = Boolean(sourcePath)
     if ((!cloned || cloned.ok !== true) && sourcePath) {
@@ -426,7 +438,8 @@ function createStoreInstaller(options = {}) {
           id: adopted.id,
           dir,
           repo,
-          branch: branch || 'default',
+          branch: branch || (revision ? null : 'default'),
+          revision: revision || null,
           // A package inside a repository is part of the source's identity: two packages from one
           // monorepo must not look like the same installation.
           sourcePath,
@@ -452,7 +465,10 @@ function createStoreInstaller(options = {}) {
           id: inspected.manifest.id,
           dir,
           repo,
-          branch: branch || 'default',
+          // What was asked for, recorded as asked: a branch, or the revision a pin named. "What is installed"
+          // has to be answerable from the state file, and "default" would not answer it for a pinned commit.
+          branch: branch || (revision ? null : 'default'),
+          revision: revision || null,
           sourcePath,
           source: source.source,
           compatibility: 'native',
@@ -726,6 +742,46 @@ function createStoreInstaller(options = {}) {
 
 /** `git clone --depth 1`, bounded, into a directory that must not exist yet. */
 function defaultClone(url, dir, options = {}) {
+  /**
+   * A **revision** clone: the store's other kind, and the one a pinned commit needs.
+   *
+   * `git clone --branch` takes a branch or a tag and nothing else, so a repository that publishes no tags —
+   * `2BingLing/dsh-market` is one — could only ever be installed as "whatever the default branch holds today".
+   * That is the opposite of the pinning the release manifest is for. `git fetch <sha>` asks for exactly one
+   * commit (GitHub serves it), and checking out `FETCH_HEAD` leaves a detached tree containing that commit and
+   * nothing else, which is what a pinned install means.
+   */
+  if (options.revision) {
+    const run = (args) => spawnSync('git', args, {
+      encoding: 'utf8',
+      timeout: Number.isFinite(options.timeoutMs) ? options.timeoutMs : DEFAULT_TIMEOUT_MS,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024
+    })
+    const failed = (result, what) => {
+      if (result.error) return { ok: false, reason: `${what} could not run: ${result.error.message}` }
+      if (result.status !== 0) {
+        const detail = String(result.stderr || result.stdout || '').trim().split('\n').filter(Boolean).pop() || `${what} exited ${result.status}`
+        return { ok: false, reason: detail }
+      }
+      return null
+    }
+    const steps = [
+      ['init', ['init', '--quiet', dir], 'git init'],
+      ['remote', ['-C', dir, 'remote', 'add', 'origin', url], 'git remote add'],
+      ['fetch', ['-C', dir, 'fetch', '--depth', '1', '--quiet', 'origin', String(options.revision)], 'git fetch'],
+      ['checkout', ['-C', dir, 'checkout', '--quiet', '--detach', 'FETCH_HEAD'], 'git checkout']
+    ]
+    for (const [, args, what] of steps) {
+      const problem = failed(run(args), what)
+      if (problem) return problem
+    }
+    if (options.sparse) {
+      const problem = failed(run(['-C', dir, 'sparse-checkout', 'set', String(options.sparse)]), 'git sparse-checkout')
+      if (problem) return problem
+    }
+    return { ok: true, revision: String(options.revision) }
+  }
   const args = ['clone', '--depth', '1', '--single-branch']
   if (options.branch) args.push('--branch', String(options.branch))
   // A package inside a monorepo is one directory of a repository that can be a gigabyte: partial

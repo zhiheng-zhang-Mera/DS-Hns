@@ -1585,22 +1585,16 @@ function registerControlCenterIpc() {
  * `enable` records that the host may run it. Both are the store's own operations — this function decides
  * nothing about installation, only which reference to ask for.
  *
- * One honest limit, and it is the reason the market plugin cannot be adopted yet: the store stages a **branch
- * or a tag** (`git clone --branch`), and `2BingLing/dsh-market` publishes no tags, so its pin is a commit. A
- * commit pin is refused here by name rather than silently installed as whatever the default branch holds today;
- * the fix is a revision-aware stage in the store, which is a change to *its* install path and not something to
- * guess at from here.
+ * A pin that is a **commit** (the market plugin, whose repository publishes no tags) goes through the store's
+ * revision path: `git fetch <sha>` + a detached checkout, so what is installed is the commit the release
+ * manifest named and not whatever the default branch holds today.
  */
 async function installPinnedPlugin(entry = {}) {
   const ref = String(entry.ref || '')
   const looksLikeACommit = /^[0-9a-f]{7,40}$/i.test(ref) && !/^v?\d+\.\d+/.test(ref)
-  if (looksLikeACommit) {
-    return {
-      ok: false,
-      reason: `the store stages a branch or a tag; ${entry.id}'s pin is the commit ${ref}, which needs a revision-aware stage first`
-    }
-  }
-  const staged = installer().stage({ source: entry.repo, branch: ref })
+  const staged = looksLikeACommit
+    ? installer().stage({ source: entry.repo, revision: ref })
+    : installer().stage({ source: entry.repo, branch: ref })
   if (staged?.ok === false) return { ok: false, reason: staged.reason || 'the store refused to stage it' }
   const id = staged?.entry?.id || entry.id
   const enabled = installer().enable({ id })

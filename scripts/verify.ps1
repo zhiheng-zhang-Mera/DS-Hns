@@ -169,6 +169,11 @@ Check 'The appearance cost ledger measures without limiting' (($cost -match 'fun
 Check 'The layers report the bytes they carry' ((((Get-Content "$ROOT\app\extensions\mega\wallpaper.cjs" -Raw).Split('bytes: inlined.dataUrl')).Length - 1) -ge 2)
 Check 'The log vocabulary is the one the plan greps for' (((Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw) -match '\[MEGA\] protection-ready') -and ((Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw) -match '\[MEGA\] fallback:') -and ((Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw) -match '\[MEGA\] module '))
 Check 'The Control Center shows the appearance cost' ((Get-Content "$ROOT\app\extensions\mega\control-center.cjs" -Raw) -match 'Cost warnings')
+# ---- Store revisions: a pin that is a commit (startup2.md section 22-23) ----
+$store = Get-Content "$ROOT\app\extensions\mega\store\installer.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The store can stage a pinned revision' (($store -match 'options\.revision') -and ($store -match "fetch', '--depth', '1'") -and ($store -match 'FETCH_HEAD'))
+Check 'A revision is validated, recorded and never combined with a branch' (($store -match 'is not a commit revision') -and ($store -match 'not both') -and ($store -match 'revision: revision \|\| null'))
+Check 'The bundled manager uses the revision path for a commit pin' ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'revision: ref')
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

@@ -164,12 +164,15 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
  * code on disk, `enable` records that the host may run it. What is asserted here is the *reference* that gets
  * asked for, and the one honest refusal: a commit pin cannot be staged by a store that clones a branch or tag.
  */
-test('a pinned reference is staged and enabled through the store, and a commit pin is refused by name', () => {
+test('a pinned reference is staged and enabled through the store, and a commit pin uses the revision path', () => {
   const index = read('app/extensions/mega/index.cjs')
   const installSource = index.slice(index.indexOf('async function installPinnedPlugin'), index.indexOf('let bundledPlugins'))
+  // A tag or branch goes through `branch`; a commit goes through `revision`, which the store resolves with
+  // `git fetch <sha>` — otherwise a repository with no tags could only be installed as "whatever the default
+  // branch holds today", which is the opposite of what a pin is for.
   assert.match(installSource, /installer\(\)\.stage\(\{ source: entry\.repo, branch: ref \}\)/)
+  assert.match(installSource, /installer\(\)\.stage\(\{ source: entry\.repo, revision: ref \}\)/)
   assert.match(installSource, /installer\(\)\.enable\(\{ id \}\)/)
-  assert.match(installSource, /needs a revision-aware stage first/, 'a commit pin must be refused rather than resolved to whatever the default branch holds')
   assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/)
   assert.match(index, /uninstall: async \(id\) => \{/)
 })

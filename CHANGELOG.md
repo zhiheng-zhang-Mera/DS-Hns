@@ -3,6 +3,22 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## store revisions — 没有 tag 的仓库也能钉着装（updateplan/startup2.md §22–§23）
+
+**商店新增 revision 路径**：`git clone --branch` 只接受分支或 tag，而 `2BingLing/dsh-market` 没有 tag，它的 pin 是
+一个**提交**——于是"钉住一个引用"这条规则对没有 tag 的仓库原本无法成立。现在
+`defaultClone` 支持 `revision`：`git init` + `remote add` + `git fetch --depth 1 origin <sha>` + detached
+`checkout FETCH_HEAD`，装上的就是被点名的那个提交，而不是"默认分支当时的 HEAD"。
+
+`stage({ revision })` 校验它是十六进制对象名、与 `branch` 互斥（两者同时给出会被拒绝）、并把它记进已安装状态
+（`revision` 字段，`branch` 为 null）——"装的是什么"必须能从状态文件回答。`installPinnedPlugin()` 据此选择走分支
+还是走 revision，因此**两个社区插件现在都具备可安装的路径**，剩下的是真机测试后把 pin 标记 `tested: true`。
+
+**验证**：`tests/unit/mega-store-installer.test.js` 16/16，其中新增的一项用**真实 git** 在临时目录里建仓库、
+钉住一个提交、再把分支往前推一格，断言安装到的是被钉的提交（`1.0.0`）而不是分支尖端（`2.0.0`），并断言
+`revision` 被记录、branch+revision 同时给出被拒、非十六进制 revision 被拒；`bundled-plugins.test.js` 的安装调用
+断言同步更新为"提交 pin 走 revision 路径"。
+
 ## appearance cost — 一本账，不是限流器（updateplan/startup2.md §55–§57）
 
 **新增 `app/extensions/mega/appearance/cost.cjs`：把外观的代价算清楚并说出来，但不夺走用户的控制。** §55/§56 关心的
