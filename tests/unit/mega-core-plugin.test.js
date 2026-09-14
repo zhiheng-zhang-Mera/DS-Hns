@@ -87,16 +87,16 @@ test('the package declares the bundle patch, the client half and the web platfor
   assert.equal(/- remove:|replace:/.test(patch), false, 'the patch must be additive only')
 })
 
-test('the host half mounts its three routes and unwinds them on unload', async () => {
+test('the host half mounts its five routes and unwinds them on unload', async () => {
   const host = await loadHost()
   const server = stubWebServer()
   const dispose = host.apply({ webServer: server })
-  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health'])
+  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/orb', '/mega-core/view'])
   for (const route of server.routes.values()) assert.equal(route.kind, 'exact')
   assert.equal(typeof dispose, 'function')
   dispose()
   assert.equal(server.routes.size, 0, 'the routes outlived the plugin')
-  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health'])
+  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/orb', '/mega-core/view'])
   // `inject` is what makes the loader wait for the web server, so it must be declared.
   assert.deepEqual(host.inject, ['webServer'])
   assert.equal(host.name, 'dsh-plugin-mega-core')
@@ -111,7 +111,17 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
   const stateDir = path.join(dshHome, 'state')
   const bridge = createGovernanceBridge({
     stateDir,
-    snapshot: () => ({ protection: { modules: [{ id: 'mega-dock', state: 'HEALTHY' }], degraded: [], failed: [] }, boot: { state: 'ENHANCED' } }),
+    // The snapshot shape DS-Hns actually answers with (`controlCenter()`), plus the two extra reports the
+    // Control Center itself carries, so the view is composed from the real thing rather than from a stub.
+    snapshot: () => ({
+      modules: [{ id: 'mega-dock', state: 'HEALTHY', version: '0.1.0', startMs: 5, retries: 0, lastError: null, fallback: null, tone: 'ok', actions: ['check', 'retry', 'reset-fallback'] }],
+      plugins: [{ id: 'dsh-wallpaper-engine', state: 'installed', expected: 'v0.7.1', installedVersion: '0.7.1', channel: 'harness-profile', channelVerified: true, tested: true, tone: 'ok', actions: ['disable', 'repair'] }],
+      degraded: 0,
+      failed: 0,
+      failing: 0,
+      protection: { modules: [{ id: 'mega-dock', state: 'HEALTHY' }], degraded: [], failed: [] },
+      boot: { state: 'ENHANCED' }
+    }),
     act: async ({ action, id }) => ({ ok: action === 'retry', action, id, reason: action === 'retry' ? null : 'refused by the layer' }),
     log: () => {}
   })
@@ -127,6 +137,45 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     assert.equal(healthBody.ok, true)
     assert.equal(healthBody.governance.available, true)
     assert.equal(healthBody.governance.port, bridge.describe().port)
+    // §4.4 asks the page to report a version; it is read from the package manifest, never typed twice.
+    assert.equal(healthBody.plugin.id, 'dsh-plugin-mega-core')
+    assert.match(healthBody.plugin.version, /^\d+\.\d+\.\d+$/)
+    assert.equal(healthBody.governance.schema, 1)
+
+    // The composed view: the same snapshot, in the shape the orb and the page draw. One route rather than
+    // two fetches composed in the browser, because the tones and the field names are rules worth testing.
+    const view = fakeExchange()
+    await server.routes.get('/mega-core/view').handler(view.request, view.response)
+    assert.equal(view.response.statusCode, 200)
+    const viewBody = JSON.parse(view.response.body)
+    assert.equal(viewBody.ok, true)
+    assert.equal(viewBody.available, true)
+    assert.equal(viewBody.status.tone, 'ok', 'a healthy bridge file and a healthy module is not a fault')
+    assert.deepEqual(viewBody.status, { tone: 'ok', label: 'Healthy', attention: 0, active: 2, total: 2, pending: 0, failing: 0 })
+    assert.equal(viewBody.version.plugin, healthBody.plugin.version)
+    assert.equal(viewBody.version.schema, 1)
+    assert.deepEqual(viewBody.hover, ['DS-Hns', 'Healthy', '2 of 2 plugin(s) active', '0 pending'])
+    assert.equal(viewBody.fields.length, 11, '§4.4 names eleven fields')
+
+    // The orb's position: nothing stored yet, then what a drag stored, then a refusal for something unusable.
+    const empty = fakeExchange()
+    await server.routes.get('/mega-core/orb').handler(empty.request, empty.response)
+    assert.deepEqual(JSON.parse(empty.response.body), { ok: true, position: null })
+
+    const stored = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { x: 320.6, y: 210, edge: 'left' } }) })
+    await server.routes.get('/mega-core/orb').handler(stored.request, stored.response)
+    assert.equal(stored.response.statusCode, 200)
+    assert.deepEqual(JSON.parse(stored.response.body).position, { x: 321, y: 210, edge: 'left' })
+    const reread = fakeExchange()
+    await server.routes.get('/mega-core/orb').handler(reread.request, reread.response)
+    assert.deepEqual(JSON.parse(reread.response.body).position, { x: 321, y: 210, edge: 'left' })
+
+    const junk = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { x: 'left-ish', y: 12 } }) })
+    await server.routes.get('/mega-core/orb').handler(junk.request, junk.response)
+    assert.equal(junk.response.statusCode, 400)
+    const wrongOrbMethod = fakeExchange({ method: 'DELETE' })
+    await server.routes.get('/mega-core/orb').handler(wrongOrbMethod.request, wrongOrbMethod.response)
+    assert.equal(wrongOrbMethod.response.statusCode, 405)
 
     const governance = fakeExchange()
     await server.routes.get('/mega-core/governance').handler(governance.request, governance.response)
@@ -173,6 +222,24 @@ test('when DS-Hns is not running the plugin says so instead of inventing an answ
     const body = JSON.parse(governance.response.body)
     assert.equal(body.ok, false)
     assert.equal(body.available, false)
+
+    /**
+     * The composed view is different on purpose: `200`, with `available: false` and the reason inside.
+     *
+     * The client is asking "what should I draw", and "a grey orb that says DS-Hns is not running" is a
+     * complete answer — one that has to survive the trip to the browser to be drawable at all. Only the
+     * *governance* route answers 503, because a caller that asked for the snapshot itself must see that it
+     * did not get one.
+     */
+    const view = fakeExchange()
+    await server.routes.get('/mega-core/view').handler(view.request, view.response)
+    assert.equal(view.response.statusCode, 200)
+    const viewBody = JSON.parse(view.response.body)
+    assert.equal(viewBody.ok, true)
+    assert.equal(viewBody.available, false)
+    assert.equal(viewBody.status.tone, 'unknown')
+    assert.equal(viewBody.status.label, 'Unavailable')
+    assert.match(viewBody.reason, /not running|no governance bridge file/)
   } finally {
     fs.rmSync(stateDir, { recursive: true, force: true })
   }

@@ -3,6 +3,40 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## Mega Core 插件 — 悬浮球、迷你面板与整页（pluginize Phase 1 客户端半边）
+
+**Mega 现在真的在官方界面里了**：`app/plugins/mega-core/lib/client.js`，按官方模块加载器的形状
+（`window.__ModuleLoader__.load({ id, factory })` + `apply`/`inject`，与已安装的壁纸插件同一份契约）登记两个
+**官方槽位**——槽名不是猜的，是从官方客户端 runner 自带的槽位目录里读出来的：
+
+| 槽 | 内容 | 为什么 |
+| --- | --- | --- |
+| `shell.overlay` | 悬浮球（含面板） | 官方对"整框浮动层"的定义：list 型（加成，不顶掉官方条目），且这一层 click-through，占位者自己 opt-in 指针事件 |
+| `settings.section` | Mega 整页（§4.4 十一个字段） | §28：其余入口统一进官方 Settings 体系 |
+
+**§4.3 的三条是可被测试的性质**，不是配置：不抢焦点（无 autofocus，且 `pointerdown` 上
+`preventDefault()`——点球不会把焦点从输入框拽走，同时它仍是真按钮、键盘可达）；不空转（两个界面共用一个
+15s 轮询器，文档隐藏时不问、重新可见立刻问）；位置存在**产品侧文件**（`GET/POST /mega-core/orb`，落在
+`$DSH_HOME/state`）而不是 `localStorage`——官方 UI 由 `--port 0` 回环地址提供，用 `localStorage` 等于每次
+重启都丢位置。球可拖动、拖到边缘吸附并跟随窗口缩放、方向键微调、Enter/空格开关面板、Esc 收起。
+
+**视图模型在宿主半边**（`lib/view.js` + `GET /mega-core/view`）：色调、§4.4 的字段名、"不可用"的含义都是
+规则，放在能被 Node 测的地方，所以球与整页不可能各说一套。**"DS-Hns 没在跑"是自己的状态**（灰色
+`Unavailable` + 原因），不是一条静默的空列表；§7 Human Gate 尚未落地时 `pending` 读快照里的同名键（现在
+不存在→报 0，而 0 是真的）。
+
+**真机证据（一次性 `DSH_HOME`，已清理）**：Harness 起来后 `GET /mega-core/health` = 200（带插件版本），
+`GET /mega-core/view` = 200 且内容是**正在运行的 DS-Hns 的真实治理快照**（`4 of 7 plugin(s) active`），
+官方前端把客户端半边当应用组合的一部分发出（`/plugins/??…dsh-plugin-mega-core/client.js…` = 200，含
+`__ModuleLoader__.load`）。插件已装进产品 profile（`dsh plugin --profile web add file:…/app/plugins/mega-core`，
+回滚一条命令 `… remove dsh-plugin-mega-core`），**重启后**即可人工复查；这一轮标记 `manual-ui-review-2`。
+
+**验证**：`tests/unit/mega-core-view.test.js` 6 项、`tests/unit/mega-core-client.test.js` 10 项（按 shell 的
+方式加载再驱动：两个槽的登记、§4.2 的 hover/徽标/色调、点击开面板且不抢焦点、拖动吸附且只写一次位置、
+位置从主机读回、隐藏不轮询/可见即轮询、整页动作走 `/mega-core/action`、经典脚本可解析、没有 React 时只画
+空气）、`mega-core-plugin.test.js` 5 项（含组合视图与 orb 位置的路径）。语法门新增 `plugins/mega-core/lib`
+（226/226）。
+
 ## 旧 Mega 去重 — 视频壁纸管线删除，社区插件的 pin 翻成 `tested: true`
 
 **两件事一起做，因为第二件是第一件的前提。** `dsh-plugin-wallpaper-engine` 的 pin 一直是 `tested: false`，

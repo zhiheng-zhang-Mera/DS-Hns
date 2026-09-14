@@ -78,13 +78,87 @@ path, handler})`、以及客户端半边的 `window.__ModuleLoader__.load({ id, 
 对着**真实治理桥**代理（含 token、409 拒绝原样传回、405 方法拒绝）、DS-Hns 未运行时如实报不可用、
 发现文件声称非回环 host 时拒绝）。
 
-### 下一步（Phase 1 剩余）
+### 已完成：客户端半边 —— 悬浮球、迷你面板、整页（§4.2–§4.4）
 
-1. 客户端半边 `lib/client.js`：`window.__ModuleLoader__.load({ id, factory })` + `apply/inject`，画
-   Floating Orb（拖动、位置持久化、边缘吸附、不抢焦点、不挡输入框、刷新后恢复）、Mini Panel（§4.2 的
-   hover/展开内容）与 Full Page（§4.4 列出的治理字段）。
-2. 全链路验收（orb 可用、官方 UI 不受影响、治理数据正确）。
-3. 验收通过后再删除旧 Mega 独立 UI 壳（§30：验收在前）。
+`lib/client.js`，**装进哪个槽是读出来的，不是猜的**：官方客户端 runner 里带着一份**槽位目录**
+（每个槽的 kind、owner、registerOptions、示例、源码路径），照它登记：
+
+| 槽 | 内容 | 为什么是这个槽 |
+| --- | --- | --- |
+| `shell.overlay` | 悬浮球（含它的面板） | 官方对"整框浮动层"的定义：list 型（**加成**，不会顶掉官方条目），且这一层本身 **click-through**，占位者要自己 opt-in 指针事件——正是 §4.3 "不阻塞官方 UI"要的东西 |
+| `settings.section` | Mega 整页 | §28："其余入口统一进官方 Settings 体系" |
+
+三件事是**代码性质**而不是配置项，所以各有断言：
+
+1. **不抢焦点**：没有任何 autofocus，且 `pointerdown` 上 `preventDefault()` —— 点一下球不会把焦点从输入框
+   拽走；同时它仍是真 `<button>`，键盘用户照常可达（"可达"与"抢走"的区别就是这一行）。
+2. **不空转**：整插件只有一个轮询器（15s），两个界面共用；文档 `hidden` 时不问，重新可见立刻问一次。
+   后台标签页为一个没人看的画面反复请求 DS-Hns，是纯粹的开销。
+3. **位置存在主机侧**（`GET/POST /mega-core/orb`，文件在 `$DSH_HOME/state`）**而不是 `localStorage`**：
+   官方 UI 由 `--port 0` 回环地址提供，原点是每次重启都变的，`localStorage` 里的位置等于每次重启都丢。
+
+**视图模型在宿主半边**（`lib/view.js` + `GET /mega-core/view`），不在浏览器里拼：哪个状态是什么色调、
+§4.4 的十一个字段叫什么、"不可用"是什么意思，都是规则，规则放在能被 Node 测的地方 —— 顺带保证球和整页
+**不可能各说一套**。"DS-Hns 没在跑"是**自己的状态**（灰色 `Unavailable` + 原因），不是一条静默的空列表：
+那是这套东西最容易撒的谎。§7 Human Gate 还没落地，所以 `pending` 读的是快照里的 `pending` 键（现在不存在
+→ 报 0，而 0 是真的：没有 gate 就没有东西在等人），gate 落地后不用改代码。
+
+测试：`tests/unit/mega-core-view.test.js` 6 项（动作闭集与治理桥一致、降级在 status/hover/lines/字段四处一致、
+干净就是干净、失败压过降级且 pending 进徽标、DS-Hns 不在时各字段仍可读并给出原因）、
+`tests/unit/mega-core-client.test.js` 9 项（**按 shell 的方式加载**：`window.__ModuleLoader__` + 平台表里的
+react，再驱动它 —— 两个槽的登记与描述符、§4.2 的 hover/徽标/色调、点击开面板且 `preventDefault`、
+拖动到边缘吸附并**只写一次**位置、位置从主机读回、hidden 不轮询 + 可见即轮询、整页渲染 §4.4 且动作走
+`/mega-core/action`、没有 React 时只画空气而不炸页面）。`mega-core-plugin.test.js` 5 项，新增组合视图与
+orb 位置的路径（含非法值 400、错误方法 405）。
+
+### 下一步（Phase 1 收尾）
+
+1. 把插件装进产品自己的 profile（`dsh plugin --profile web add file:…/app/plugins/mega-core`），重启后
+   真机看球：位置、拖动、边缘吸附、hover、迷你面板、Settings › Mega 整页、官方 UI 不受影响。
+2. 这一轮标记为**人工 UI 复查**（同上一轮的做法：标签 + 文档 + 推送）。
+3. 复查通过后再删除旧 Mega 独立 UI 壳（§30：验收在前）—— 那时顺带处理 Phase 7 剩下的
+   "重复 market discovery UI / 旧 Mega feature pages"（它们长在旧壳里，先删等于在产品还没有新界面时把
+   唯一界面拿掉）。
+
+---
+
+## 人工 UI 复查标记（checkpoint 2：悬浮球与整页）
+
+**标记**：`manual-ui-review-2`（本轮的提交 + 注解标签）。**轮到你了**：插件已经装进产品的 profile，但
+现在正在跑的那个实例是在安装之前启动的，所以下面这些要**重启之后**才看得到。
+
+装进去的那一步（真机、可回滚）：
+
+```text
+DSH_HOME=D:\DS-Hns\data dsh plugin --profile web add file:D:/DS-Hns/app/plugins/mega-core
+回滚：      … plugin --profile web remove dsh-plugin-mega-core
+```
+
+**已经实测过的部分（不是"等到重启才知道"）**：用一次性 `DSH_HOME` 起了一个 Harness，profile 里只有
+基础 bundle + 本插件，结果是 —— 宿主半边挂载成功（`GET /mega-core/health` = 200，带插件版本 0.1.0）、
+组合视图用**真实的治理快照**生成（`GET /mega-core/view` = 200，`4 of 7 plugin(s) active`，直接读的是
+正在运行的 DS-Hns 的治理桥）、并且官方前端把我们的客户端半边**当成一个应用组合的一部分发出来了**
+（`/plugins/??…dsh-plugin-mega-core/client.js…` = 200，内容里有 `__ModuleLoader__.load`）。一次性目录与
+那个探测进程都已删除。
+
+复查清单（看完告诉我结果，或者直接说"继续"）：
+
+1. **重启应用**（必须：新插件是随 profile 在启动时加载的）。
+2. **官方 UI 仍然正常**：这是最重要的一条。悬浮球是官方 `shell.overlay` 槽的一个占位者，槽本身是
+   click-through 的，所以理论上它不该挡住任何东西 —— 请特别试一下**输入框能不能正常点/打字**、
+   侧栏与对话滚动是否正常。
+3. **球本身**：右下角出现一个 `●`（健康时绿色、降级黄色、失败红色、DS-Hns 没跑时灰色）。
+   - 鼠标悬停应显示四行：`DS-Hns` / 状态 / `N of M plugin(s) active` / `N pending`。
+   - **点一下**：面板打开，**焦点不应从输入框跑掉**（这正是 §4.3 那条 `preventDefault`）。
+   - **拖动**：拖到左/右边缘会吸附；重启后应回到你放的位置（位置存在产品侧文件里，不在浏览器里）。
+   - 键盘：Tab 能聚焦到球，方向键微调，Enter/空格开关面板，Esc 收起。
+4. **整页**：官方设置里应多出一个 **Mega** 段（§4.4 的十一个字段：插件健康/依赖/版本/能力/重试/回退/
+   最近错误/待人工/恢复动作/兼容性/版本钉），有问题的模块与插件各自带自己的动作按钮。
+5. **不撒谎**：把 DS-Hns 主程序关掉再开球的面板，应该是**灰色 Unavailable + 原因**，而不是"Healthy"；
+   再打开 DS-Hns，15 秒内应自动恢复成彩色。
+
+每条要么"好"，要么把看到的现象写下来。**这一轮通过之后**才做 §30 的最后一步：删除旧 Mega 独立 UI 壳
+（连同它的商店发现页）。
 
 ---
 
