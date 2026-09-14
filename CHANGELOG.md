@@ -3,6 +3,21 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 两个插件已装进产品的 profile，管理器也认这两处"已安装"
+
+**用户批准后执行**（Harness 自己的 CLI，`DSH_HOME=D:\DS-Hns\data`）：
+`dsh plugin --profile web add dsh-plugin-wallpaper-engine@0.7.1` 与 `… add @dsh-market/plugin@0.4.7`。产品的
+`data/profiles/web/package.json` 现在带**精确版本**依赖，且 CLI 把两者同时写进 `dsh.profile.bundles`，
+所以下次启动时它们随 profile 一起加载。回滚是同样的命令加 `remove`；Control Center 里也有 Repair/禁用入口。
+
+**管理器现在认这两处"已安装"**：`installed()` 同时读本产品商店的记录与 `data/profiles/<profile>/package.json`
+的依赖（只读——写入永远归 Harness 的 CLI）。顺带修掉一个真实缺陷：清单钉的是壁纸引擎的 **tag**（`v0.7.1`）
+而 npm 记的是**版本**（`0.7.1`），旧比较会把正确安装的插件报成 `ahead-of-pin`；现在两者等价（去前导 `v`）。
+面板因此显示 `installed` + `harness-profile · verified · untested`。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 13/13（新增：两处安装来源的接线、tag 与版本等价、
+两条已安装后状态为 `installed`）。`tested: false` 保留到重启后的真机确认。
+
 ## bundled plugins — 用产品自己的 profile 配置验证激活（updateplan/startup2.md §19–§23）
 
 **最接近真机的一步**：把产品的 `data/profiles/web/package.json`（真实 bundle 栈

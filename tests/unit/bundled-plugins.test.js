@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { createBundledPlugins, installBundled, removeBundled, BUNDLED_MANIFEST, BUNDLED_STATE } = require('../../app/extensions/mega/plugins/index.cjs')
+const { createBundledPlugins, installBundled, removeBundled, sameReference, BUNDLED_MANIFEST, BUNDLED_STATE } = require('../../app/extensions/mega/plugins/index.cjs')
 const { createProtectionLayer, MODULE_STATE } = require('../../app/extensions/mega/protection/index.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
@@ -182,7 +182,7 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   // its protected modules are registered on start.
   assert.match(index, /const \{ createBundledPlugins, installBundled, removeBundled \} = require\('\.\/plugins\/index\.cjs'\)/)
   assert.match(index, /bundled\(\)\.registerProtected\(\)/)
-  assert.match(index, /installed: \(\) => list\(\)/)
+  assert.match(index, /installed: \(\) => \[/)
   assert.match(index, /protection: ctx\?\.protection \|\| null/)
   // Both channels the panel needs, declared for cleanup as well.
   assert.match(index, /ipcMain\.handle\('mega:bundled-plugins'/)
@@ -193,6 +193,29 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   // The shell hands the layer over, and the install call is the store's own two steps behind one function.
   assert.match(main, /officialSurfaces: officialSurfaceAdapter,[\s\S]{0,400}protection,/, 'the protection layer never reaches the extension')
   assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/, 'the bundled manager cannot install a pinned reference')
+})
+
+/**
+ * What "installed" means for a bundled entry now: a `dshns.plugin/v1` plugin is recorded by this product's
+ * store, while a Harness *client* plugin is a dependency of the profile the product boots. Reading only the
+ * store would describe a machine state that does not exist.
+ */
+test('installed means both places a bundled plugin can live, and a tag matches its version', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  assert.match(index, /function harnessProfileDependencies\(\)/)
+  assert.match(index, /path\.join\(PATHS\.ROOT, 'data', 'profiles', harnessProfile\(\), 'package\.json'\)/)
+  assert.match(index, /\.\.\.harnessProfileDependencies\(\)/)
+  // The manifest pins the wallpaper engine's tag (`v0.7.1`) and npm records the version (`0.7.1`): the manager
+  // must not call those different references.
+  assert.equal(sameReference({ version: '0.7.1' }, { ref: 'v0.7.1', commit: 'x' }), true)
+  assert.equal(sameReference({ version: '0.4.7' }, { ref: '0.4.7', commit: 'x' }), true)
+  assert.equal(sameReference({ version: '0.9.9' }, { ref: 'v0.7.1', commit: 'x' }), false)
+  // And the shipped manifest is what the product has installed now, so the assessment says so.
+  const assessments = build({ installed: [{ id: 'dsh-wallpaper-engine', version: '0.7.1' }, { id: '@dsh-market/plugin', version: '0.4.7' }] }).manager.describe().plugins
+  assert.deepEqual(assessments.map((entry) => [entry.id, entry.state]), [
+    ['dsh-wallpaper-engine', BUNDLED_STATE.INSTALLED],
+    ['@dsh-market/plugin', BUNDLED_STATE.INSTALLED]
+  ])
 })
 
 /**

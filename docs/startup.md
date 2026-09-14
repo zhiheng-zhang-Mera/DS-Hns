@@ -177,6 +177,27 @@ exit 0，并且那个 profile 的 `package.json` 里出现的正是这两个**�
 "命令与版本实测过"，激活证据说的是"Harness 装得上、加载得出、激活得了"，`tested` 说的是"在这台机器的窗口里
 真的能用"——三件事分得很清楚。
 
+## 3.11 接入完成：两个插件已装进产品的 profile（用户授权后执行）
+
+用户批准后执行，用的是 Harness 自己的 CLI（`DSH_HOME=D:\DS-Hns\data`）：
+
+```
+dsh plugin --profile web add dsh-plugin-wallpaper-engine@0.7.1
+dsh plugin --profile web add @dsh-market/plugin@0.4.7
+```
+
+产品的 `data/profiles/web/package.json` 现在带**精确版本**的依赖，而且 Harness 的 CLI 把两者同时写进了
+`dsh.profile.bundles`（`["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app","dsh-plugin-wallpaper-engine",
+"@dsh-market/plugin"]`）——也就是说下次启动时它们随 profile 一起加载。回滚是同样的命令加 `remove`。
+
+**管理器现在也认这两处"已安装"**：`installed()` 同时读本产品商店的记录与
+`data/profiles/<profile>/package.json` 的依赖（只读，写入永远由 Harness 的 CLI 做）。另外修掉一个真实的比较
+缺陷：清单钉的是壁纸引擎的 **tag**（`v0.7.1`）而 npm 记的是**版本**（`0.7.1`），原来的比较会把正确安装的插件
+报成 `ahead-of-pin`；现在两者等价（`normalizeReference` 去掉前导 `v`）。Control Center 因此显示
+`installed` + `harness-profile · verified · untested`。
+
+`tested: false` 仍然保留到重启后的真机确认——那是"在这台机器的窗口里真的能用"的意思，与前三个 claim 不同。
+
 于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
 路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。

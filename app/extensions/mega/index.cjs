@@ -1604,6 +1604,30 @@ function harnessProfile() {
   return process.env.DSH_PROFILE || 'web'
 }
 
+/**
+ * What the Harness profile the product boots has installed, as records the bundled manager understands.
+ *
+ * The profile is another application's install (`$DSH_HOME/profiles/<name>/package.json`), so this only ever
+ * *reads* it — the writing is the Harness' own CLI, which is why the channel exists at all.
+ */
+function harnessProfileDependencies() {
+  try {
+    const file = path.join(PATHS.ROOT, 'data', 'profiles', harnessProfile(), 'package.json')
+    if (!fs.existsSync(file)) return []
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return Object.entries(parsed?.dependencies || {}).map(([id, version]) => ({
+      id,
+      version: String(version).replace(/^[\^~]/, ''),
+      dir: null,
+      enabled: true,
+      where: 'harness-profile'
+    }))
+  } catch (error) {
+    log(`the Harness profile's dependencies could not be read: ${error?.message || error}`)
+    return []
+  }
+}
+
 /** One bundled entry by id, from the shipped manifest — what a channel decision is made about. */
 function bundledEntry(id) {
   try {
@@ -1901,7 +1925,18 @@ function bundled() {
     }
   }
   bundledPlugins = createBundledPlugins({
-    installed: () => list().map((entry) => ({ id: entry.id, version: entry.version || entry.commit || null, dir: entry.dir, enabled: entry.state === 'enabled' })),
+    /**
+     * What is installed, from **both** places a bundled plugin can live.
+     *
+     * A `dshns.plugin/v1` plugin is recorded by this product's store; a Harness *client* plugin is a dependency
+     * of the Harness profile the product boots (`data/profiles/<profile>/package.json`). Reading only the store
+     * would report an installed-and-activated Harness plugin as "declared but not installed" — the panel would be
+     * describing a machine state that does not exist.
+     */
+    installed: () => [
+      ...list().map((entry) => ({ id: entry.id, version: entry.version || entry.commit || null, dir: entry.dir, enabled: entry.state === 'enabled' })),
+      ...harnessProfileDependencies()
+    ],
     userEnabled: (id) => {
       const entry = list().find((candidate) => candidate.id === id)
       if (!entry) return null

@@ -122,11 +122,20 @@ const BUNDLED_STATE = Object.freeze({
   FAILED: 'failed'
 })
 
+/** A pin and an installed version are the same reference when their version text is the same, with or without
+ * a leading `v`: the manifest pins the wallpaper engine's *tag* (`v0.7.1`) and npm records the *version*
+ * (`0.7.1`), and a manager that called those different would report a correctly installed plugin as unknown. */
+function normalizeReference(value) {
+  return String(value || '').trim().replace(/^v(?=\d)/i, '')
+}
+
 function sameReference(installed, entry) {
   if (!installed) return false
   const version = String(installed.version || installed.commit || '')
   if (!version) return false
-  return version === entry.ref || version === entry.commit
+  return version === entry.ref
+    || version === entry.commit
+    || normalizeReference(version) === normalizeReference(entry.ref)
 }
 
 /**
@@ -453,5 +462,7 @@ module.exports = {
   BUNDLED_FALLBACK,
   BUNDLED_CHANNELS,
   installBundled,
-  removeBundled
+  removeBundled,
+  sameReference,
+  normalizeReference
 }
