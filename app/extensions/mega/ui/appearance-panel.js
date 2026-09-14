@@ -309,6 +309,87 @@
     return loadAppearancePresets().then(() => true)
   }
 
+  /**
+   * The desktop mode: which provider renders the desktop (`updateplan/startup2.md` §43-§44).
+   *
+   * The select is filled from the shell's answer, and choosing a provider whose plugin is missing is answered by
+   * the shell, not by this panel: the refusal names what is missing, the layers are not touched, and the two
+   * choices below the select appear — keep the official interface, or go and look at the plugin. **Nothing is
+   * installed on the user's behalf**, and saying so out loud is the point of the notice.
+   */
+  let providerState = null
+
+  function renderProviders(next) {
+    if (next) providerState = next
+    const state = providerState
+    const select = $('appearanceProvider')
+    if (!select || !state) return null
+    const options = (state.providers || []).map((provider) => {
+      const option = document.createElement('option')
+      option.value = provider.id
+      option.textContent = provider.available ? provider.label : `${provider.label}（不可用 · unavailable）`
+      option.title = provider.note || ''
+      return option
+    })
+    select.innerHTML = ''
+    for (const option of options) select.appendChild(option)
+    select.value = state.active || 'simple'
+    const chosen = (state.providers || []).find((provider) => provider.id === select.value) || null
+    const note = $('appearanceProviderNote')
+    const actions = $('appearanceProviderActions')
+    const unavailable = chosen && chosen.available === false
+    if (note) {
+      note.hidden = !unavailable
+      note.textContent = unavailable
+        ? `未检测到 ${chosen.requires || '插件'}：${chosen.reason || ''} —— 不会自动安装第三方插件。`
+        : ''
+    }
+    if (actions) actions.hidden = !unavailable
+    return state
+  }
+
+  async function loadProviders() {
+    const api = appearanceApi()
+    if (!api || typeof api.providers !== 'function') return null
+    try {
+      const described = await api.providers()
+      return described && described.ok !== false ? renderProviders(described) : null
+    } catch {
+      return null
+    }
+  }
+
+  function bindProviderControls() {
+    const api = appearanceApi()
+    const select = $('appearanceProvider')
+    if (!select || !api || typeof api.setProvider !== 'function') return false
+    select.addEventListener('change', () => {
+      Promise.resolve(api.setProvider(select.value)).then((result) => {
+        if (result && result.ok === false) {
+          setMessage(result.reason || '该模式不可用 · this mode is unavailable', 'error')
+        } else {
+          setMessage('')
+          // The layers may have changed (the simple provider switches the picture back on), so the card re-reads.
+          loadWallpaper()
+        }
+        return loadProviders()
+      })
+    })
+    const keep = $('appearanceKeepOfficial')
+    if (keep) keep.addEventListener('click', () => Promise.resolve(api.setProvider('official')).then(() => { setMessage(''); return loadProviders() }))
+    const store = $('appearanceOpenStore')
+    if (store) {
+      store.addEventListener('click', () => {
+        const bridge = window.megaTools && window.megaTools.openStore ? window.megaTools.openStore : null
+        if (!bridge) return
+        Promise.resolve(bridge()).then((result) => {
+          if (result && result.ok === false) setMessage(result.reason || '插件商店打不开 · the store did not open', 'error')
+        })
+      })
+    }
+    return loadProviders().then(() => true)
+  }
+
   function attach() {
     const panel = $('appearancePanel')
     if (!panel) return null
@@ -321,6 +402,7 @@
     bindControls()
     bindAppearancePresets()
     bindWallpaperControls()
+    bindProviderControls()
     // Follow the layer, so a change made anywhere else lands on these controls too.
     api.onChange(render)
     render()

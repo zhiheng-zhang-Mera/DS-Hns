@@ -100,6 +100,21 @@
           <input type="checkbox" id="glassEnabled" checked>
           <span class="bi-title bi-sm"><span class="bi-cn">磨砂玻璃</span><span class="bi-en">Frosted glass</span></span>
         </label>
+        <!--
+          界面模式（updateplan/startup2.md §43）：官方界面 / 简单壁纸 / Wallpaper Engine。
+
+          第三项是社区插件，也是 §44 那条规则的入口：插件缺失时**不自动安装**，只说明缺什么、留在原地，并给出
+          两个真正属于用户的决定——保持官方界面，或去看插件。选择器下面那条提示就是这件事。
+        -->
+        <div class="glass-range">
+          <span>界面模式 · Desktop</span>
+          <select id="appearanceProvider"></select>
+        </div>
+        <p class="glass-note" id="appearanceProviderNote" hidden></p>
+        <div class="glass-actions" id="appearanceProviderActions" hidden>
+          <button id="appearanceKeepOfficial" type="button">保持官方界面 · Keep official</button>
+          <button id="appearanceOpenStore" type="button" class="quiet">查看插件 · Open store</button>
+        </div>
         <p class="glass-note">半透明并模糊背后的内容；底盘不涂任何颜色，因此不会与被覆盖的官方界面抢色。<br><small>Translucent and blurred; the chassis paints no colour of its own, so it never clashes with the official UI it covers.</small></p>
         <!--
           The readability presets (`updateplan/startup2.md` §5, §26-§28): one decision over the glass and

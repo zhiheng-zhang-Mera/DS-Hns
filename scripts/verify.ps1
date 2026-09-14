@@ -151,6 +151,13 @@ $cache = Get-Content "$ROOT\app\extensions\mega\startup-cache.cjs" -Raw -ErrorAc
 Check 'Startup cache exists and forgets' (($cache -match 'function createStartupCache') -and ($cache -match 'maxAgeMs') -and ($cache -match 'function warm'))
 Check 'An unreadable cache is an empty cache, and a write is never fatal' (($cache -match 'this is a cold start') -and ($cache -match 'the run continues'))
 Check 'The cache records what the owners said, and does not keep the Harness sessions' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'function rememberStartup') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'is deliberately not written'))
+# ---- Appearance providers and the missing-plugin path (startup2.md section 43-44) ----
+$providers = Get-Content "$ROOT\app\extensions\mega\appearance\providers.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The three appearance providers exist' ((($providers -match "'official'") -and ($providers -match "'simple'") -and ($providers -match "'community'")))
+Check 'The community provider is never installed automatically' (($providers -match 'installsAutomatically') -and ($providers -match 'dsh-wallpaper-engine'))
+Check 'A refusal keeps the user and names the fallback' (($providers -match 'kept: current') -and ($providers -match 'fallback: provider.fallback'))
+Check 'The provider choice is persisted like every other preference' (((Get-Content "$ROOT\app\extensions\mega\appearance\state.cjs" -Raw) -match 'APPEARANCE_STATE_DEFAULT') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'appearancePreference\(\)\.set'))
+Check 'The settings page offers the mode and the way to the plugin' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearanceProvider"') -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearanceOpenStore"'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

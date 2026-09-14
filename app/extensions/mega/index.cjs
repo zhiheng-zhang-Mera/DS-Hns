@@ -27,6 +27,8 @@ const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
 const { createStartupCache } = require('./startup-cache.cjs')
+const { createAppearanceProviders } = require('./appearance/providers.cjs')
+const { createAppearanceState } = require('./appearance/state.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -86,6 +88,9 @@ const CHANNELS = [
   'mega:ui-glass', 'mega:ui-glass-set',
   // The appearance presets: one decision over both layers (updateplan/startup2.md section 26-28).
   'mega:appearance', 'mega:appearance-set',
+  // The appearance providers: official / simple / Wallpaper Engine, and the way to the plugin that backs the
+  // third one (updateplan/startup2.md section 43-44).
+  'mega:appearance-providers', 'mega:appearance-provider-set', 'mega:open-store',
   // The Control Center: the enhanced layer's execution, resources, extensions, protection and diagnostics,
   // plus the actions that belong to it (retry / repair / disable / enable / fall back).
   'mega:control-center', 'mega:control-action',
@@ -1600,6 +1605,50 @@ let megaItemRegistry = null
 let appearance = null
 /** The startup cache: what the last run looked like, as a warm-start hint (`./startup-cache.cjs`, §52). */
 let startupCacheState = null
+/** The appearance choices: which provider renders the desktop, and which readability preset is in force. */
+let appearanceStateFile = null
+let appearanceProvidersState = null
+
+function appearancePreference() {
+  if (appearanceStateFile) return appearanceStateFile
+  appearanceStateFile = createAppearanceState({
+    root: PATHS.ROOT,
+    providers: require('./appearance/providers.cjs').APPEARANCE_PROVIDER_IDS,
+    presets: require('./appearance/index.cjs').APPEARANCE_PRESET_IDS,
+    log: (message) => log(`appearance: ${message}`)
+  })
+  return appearanceStateFile
+}
+
+/**
+ * The appearance providers (§43-§44): the official interface, the built-in simple wallpaper, or the community
+ * plugin — and the rule that a missing plugin is never installed to satisfy a menu click.
+ *
+ * What each provider does to *our* layers is the whole of its implementation: the official interface means this
+ * product draws no picture over it, the simple wallpaper means our own layer draws one, and the community one
+ * means the plugin renders it inside the Harness, so our layer steps aside to let it be seen. Every one of them
+ * leaves the glass — which is the dock's material, not the background — alone.
+ */
+function appearanceProviders() {
+  if (appearanceProvidersState) return appearanceProvidersState
+  const setWallpaperEnabled = async (enabled) => {
+    const outcome = wallpaper().set({ main: { enabled }, dock: { enabled } })
+    if (outcome?.ok === false) return { ok: false, reason: outcome.reason }
+    pushWallpaper()
+    return { ok: true, enabled }
+  }
+  appearanceProvidersState = createAppearanceProviders({
+    bundled: () => bundled().describe(),
+    apply: {
+      official: () => setWallpaperEnabled(false),
+      simple: () => setWallpaperEnabled(true),
+      // The plugin draws its own desktop; ours must not sit on top of it.
+      community: () => setWallpaperEnabled(false)
+    },
+    log: (message) => log(message)
+  })
+  return appearanceProvidersState
+}
 function megaItems() {
   if (megaItemRegistry) return megaItemRegistry
   megaItemRegistry = createMegaItems()
@@ -1993,6 +2042,8 @@ function registerIpc() {
   registerGlassIpc()
   // The appearance presets: one decision over the two layers, registered beside the glass they use.
   registerAppearanceIpc()
+  // The providers the settings page chooses between, and the route to the plugin that backs the third one.
+  registerAppearanceProviderIpc()
   // The Control Center: what the enhancement layer is doing, and the actions that belong to it (§45-§47).
   registerControlCenterIpc()
   // The wallpaper is chrome for the same reason, and it is also what the dock's first paint asks
@@ -2008,6 +2059,43 @@ function registerIpc() {
  * force. The state is pushed to the dock on every change, because the Appearance panel and any
  * other surface that shows a switch have to move together.
  */
+/**
+ * The appearance provider channels (§43-§44).
+ *
+ * `describe` answers what the settings page shows — the three providers, whether each is usable and why not —
+ * and `set` answers a *choice*: an unavailable provider is refused with its fallback named and the two actions a
+ * user actually has, and nothing is installed on their behalf.
+ *
+ * `mega:open-store` is the other half of §44: "go look at the plugin" has to lead somewhere, and the dock's
+ * plugin manager already knows how to open its store tab, so this asks it to.
+ */
+function registerAppearanceProviderIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`appearance provider ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:appearance-providers', guard(() => appearanceProviders().describe(appearancePreference().read().provider)))
+  ipcMain.handle('mega:appearance-provider-set', guard(async (_event, payload = {}) => {
+    const current = appearancePreference().read().provider
+    const chosen = String(payload?.provider || '')
+    const result = await appearanceProviders().select(chosen, { current })
+    if (result.ok !== false) appearancePreference().set({ provider: result.provider })
+    return { ...result, active: appearancePreference().read().provider }
+  }))
+  ipcMain.handle('mega:open-store', guard(() => {
+    try {
+      return { ok: dockTarget.send('mega:open-store', { showQueue: false }) }
+    } catch (error) {
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }))
+}
+
 /**
  * The appearance controller's channels (`./appearance/index.cjs`, §26-§28).
  *
@@ -2051,6 +2139,8 @@ function registerAppearanceIpc() {
   }))
   ipcMain.handle('mega:appearance-set', guard(async (_event, payload = {}) => {
     const result = await appearanceController().apply(String(payload?.preset || payload?.id || ''))
+    // The preset is the user's decision, so it is remembered like the provider (§43's "阅读预设").
+    if (result.ok !== false) appearancePreference().set({ preset: result.preset })
     // The dock draws both layers from pushed state, so a preset that landed has to be pushed like any
     // other change — otherwise the panel would show a glass that is not on screen.
     if (result.ok !== false) {

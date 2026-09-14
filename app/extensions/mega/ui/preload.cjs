@@ -183,8 +183,13 @@ contextBridge.exposeInMainWorld('megaTools', {
    */
   appearance: {
     describe: () => ipcRenderer.invoke('mega:appearance'),
-    set: (preset) => ipcRenderer.invoke('mega:appearance-set', { preset })
+    set: (preset) => ipcRenderer.invoke('mega:appearance-set', { preset }),
+    // The providers behind the desktop mode: official / simple / Wallpaper Engine (startup2.md §43-§44).
+    providers: () => ipcRenderer.invoke('mega:appearance-providers'),
+    setProvider: (provider) => ipcRenderer.invoke('mega:appearance-provider-set', { provider })
   },
+  /** "Go look at the plugin" has to lead somewhere: this opens the dock's store tab (§44). */
+  openStore: () => ipcRenderer.invoke('mega:open-store'),
   /**
    * The Control Center (`updateplan/startup2.md` §45-§47): the enhancement layer's own view, and the
    * actions that belong to it — retry, check, repair, disable/enable, fall back.

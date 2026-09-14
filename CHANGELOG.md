@@ -3,6 +3,29 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## appearance modes — 官方 / 简单壁纸 / Wallpaper Engine（updateplan/startup2.md §43–§44）
+
+**设置页的外观卡片新增"界面模式"**：**官方 / 简单壁纸 / Wallpaper Engine**。新增
+`app/extensions/mega/appearance/providers.cjs` 划出这条分界线：DS-Hns 保留自己的简单壁纸（每个底片一张图 +
+位置/不透明度/模糊/压暗），高级实现交给社区插件 `dsh-wallpaper-engine`，自己不再重复维护一套高级渲染器。
+
+三个提供者"对图层做什么"就是它的全部实现：**官方** = 我们不在官方界面之上画任何图（只剩玻璃）；**简单** =
+我们自己的图层画；**Wallpaper Engine** = 插件在 Harness 内渲染，因此我们这一层让开（否则会盖住它）。三者都不动
+玻璃——玻璃是 Dock 的材质，不是背景。
+
+**§44 的两条要求落在 `select()` 的形状里**：插件缺失/未测试/被用户关闭时，选择社区模式**不安装任何东西**
+（描述里明确 `installsAutomatically: false`），**不把用户挪离当前模式**（`kept` 字段），并把用户真正拥有的两个
+决定交给界面——保持官方界面、或去看插件。提示里写明"不会自动安装第三方插件"；"查看插件"接到 `mega:open-store`，
+由 Dock 自带的插件管理器打开商店页（这条通路此前只有监听端，现在两端都在）。
+
+选择与阅读预设都持久化到 `data/state/appearance.json`（与 wallpaper.json、ui-glass.json 同一套规则：读不出来
+就是默认值、不认识的取值丢弃并说明、写失败只是日志）。
+
+**验证**：`tests/unit/appearance-providers.test.js` 7/7（三提供者且只有社区需要插件、官方基线永远可用、未测试
+插件的拒绝保留用户并给出回退与两个动作、用户关闭被如实报告、已安装时经自己的钩子生效、钩子抛错按提供者回退、
+状态文件的默认/拒绝/降级/容错，以及设置页与 shell 的接线断言）；`scripts/verify.ps1` 增加提供者存在性、
+不自动安装、拒绝保留用户、选择持久化与设置页入口检查。
+
 ## startup cache — 先恢复，后验证（updateplan/startup2.md §52–§54）
 
 **新增 `app/extensions/mega/startup-cache.cjs`：记住上一次运行长什么样，让启动先恢复、后验证**，而不是每次
