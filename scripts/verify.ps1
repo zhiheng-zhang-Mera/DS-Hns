@@ -112,11 +112,19 @@ Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'fun
 Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
 Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
 Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
-# ---- MEGA Protection Layer: the enhancement layer fails safely (startup2.md §12-§18) ----
+# ---- MEGA Protection Layer: the enhancement layer fails safely (startup2.md section 12-section 18) ----
 $protection = Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'MEGA Protection Layer exists with the six module states' (($protection -match 'DISABLED') -and ($protection -match 'STARTING') -and ($protection -match 'HEALTHY') -and ($protection -match 'DEGRADED') -and ($protection -match 'FAILED') -and ($protection -match 'RECOVERING'))
 Check 'Protected modules are started with a budget, a fallback ladder and a bounded retry' (($protection -match 'function register') -and ($protection -match 'function withTimeout') -and ($protection -match 'runFallback') -and ($protection -match 'for \(const delay of \[0, retryDelayMs\]\)'))
 Check 'The protection layer reports what the MEGA panel shows' (($protection -match 'lastError') -and ($protection -match 'startMs') -and ($protection -match 'fallbackState') -and ($protection -match 'retries'))
+# ---- Bundled community plugins (startup2.md section 19-section 23) ----
+$bundled = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Bundled Plugin Manager exists with both bundled plugins' (($bundled -match 'dsh-wallpaper-engine') -and ($bundled -match '@dsh-market/plugin'))
+Check 'Bundled references are pinned, and nothing chases latest' (($bundled -match "ref: '") -and (-not ($bundled -match "ref:\s*'latest'")))
+Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($bundled -match 'tested: false'))
+Check 'The user''s decision and unknown versions are respected, not overwritten' (($bundled -match 'USER_DISABLED') -and ($bundled -match 'AHEAD_OF_PIN'))
+Check 'Bundled plugins are registered as protected modules' (($bundled -match 'registerProtected') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'bundled\(\)\.registerProtected\(\)'))
+Check 'The bundled set belongs to MEGA, and its policy pass is not on the boot path' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:bundled-plugins'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match '\.then\(\(\) => bundled\(\)\.ensure\(\)\)'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

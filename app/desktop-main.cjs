@@ -2269,6 +2269,10 @@ async function startExtensions(nodeExe) {
       // so there is nothing it could inject into it.
       officialSurfaceAdapter,
       officialSurfaces: officialSurfaceAdapter,
+      // The enhancement layer's control plane. The extension registers its bundled community plugins
+      // through it (startup2.md §19), so their failure is a degradation in the MEGA panel rather than
+      // something the boot has to survive.
+      protection,
       // Legacy single-value form: the extension's adapter accepts either.
       dockWebContents: dockAdapter.webContents,
       // The official frontend runtime: the backend bridge, the domain adapter the dock

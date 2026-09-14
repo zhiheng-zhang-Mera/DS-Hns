@@ -22,6 +22,7 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
+const { createBundledPlugins } = require('./plugins/index.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -81,6 +82,8 @@ const CHANNELS = [
   'mega:ui-glass', 'mega:ui-glass-set',
   // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
   'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
+  // The bundled community plugins: what the release pinned, what is installed, and repair.
+  'mega:bundled-plugins', 'mega:bundled-plugins-repair',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -1450,6 +1453,73 @@ function installer() {
 }
 
 /**
+ * The bundled community plugins, as a manager over the store (`./plugins/index.cjs`).
+ *
+ * It reads the *store's own* record of what is installed and what the user decided, and it is the only
+ * thing that decides whether a bundled plugin should be installed, left alone, reported or repaired
+ * (§19-§23). Two deliberate gaps, both honest rather than convenient:
+ *
+ *   * **`install` is not wired yet.** The shipped manifest marks both plugins `tested: false`, so the
+ *     manager installs nothing — and a reference nobody has run is exactly what must not be installed.
+ *     The call lands with the release that marks the first pin tested, together with its verified call
+ *     shape; guessing the installer's argument names would be untested code on the install path of an
+ *     optional plugin.
+ *   * **`userEnabled` reads an explicit disable.** The store records `enabled`/`enabledAt`, where
+ *     "staged but never enabled" is the normal first state rather than a decision; only an entry the
+ *     store marked disabled counts as the user's answer here.
+ */
+let bundledPlugins = null
+function bundled() {
+  if (bundledPlugins) return bundledPlugins
+  const list = () => {
+    try {
+      return typeof installer().list === 'function' ? installer().list() : []
+    } catch (error) {
+      log(`bundled: the store's installed list is unavailable (${error?.message || error})`)
+      return []
+    }
+  }
+  bundledPlugins = createBundledPlugins({
+    installed: () => list().map((entry) => ({ id: entry.id, version: entry.version || entry.commit || null, dir: entry.dir, enabled: entry.state === 'enabled' })),
+    userEnabled: (id) => {
+      const entry = list().find((candidate) => candidate.id === id)
+      if (!entry) return null
+      return entry.disabled === true || entry.state === 'disabled' ? false : null
+    },
+    protection: ctx?.protection || null,
+    log: (message) => log(message)
+  })
+  return bundledPlugins
+}
+
+/**
+ * The bundled plugins' own channels.
+ *
+ * The panel shows what the release decided and what the machine has — whether each plugin exists,
+ * whether its version is the bundled one, and whether the user disabled it. `repair` is the one action
+ * that replaces an installed plugin: never automatic, and refused while the pin is untested.
+ */
+function registerBundledPluginIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`bundled plugin ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:bundled-plugins', guard(async () => {
+    const report = bundled().describe()
+    // The policy pass is part of the read on purpose: a release that pins a *tested* version converges
+    // on the next look instead of making a boot wait on the network.
+    const applied = await bundled().ensure()
+    return { ok: true, ...report, applied }
+  }))
+  ipcMain.handle('mega:bundled-plugins-repair', guard(async (_event, payload = {}) => bundled().repair(String(payload?.id || ''))))
+}
+
+/**
  * Tell the plugin host that the installed set changed, and wait for it to finish.
  *
  * The host keeps a built world; this is the shell's chance to drop it so an enable takes effect
@@ -1653,6 +1723,9 @@ function registerIpc() {
   // The store is a channel, not a feature: searching GitHub is part of managing plugins, and
   // a store you can switch off is a store whose results you cannot trust to be complete.
   registerStoreIpc()
+  // The bundled set is MEGA's own responsibility (§19): it is registered here rather than in Core, and
+  // the shell's protection layer — when there is one — is what keeps a failure inside the panel.
+  registerBundledPluginIpc()
   // The feature manager's own channels, registered last and never gated: switching a feature
   // off is how a user fixes one, so the switch itself may not be behind a feature.
   registerFeatureIpc()
@@ -2220,6 +2293,29 @@ async function start(context) {
   // theme system are up, so an unavailable or failing worker can never delay
   // them (plan §22 fault isolation).
   bindSubWorker()
+  /**
+   * The bundled community plugins, last and in the background.
+   *
+   * Registering them as protected modules happens now (it is synchronous bookkeeping); the policy pass
+   * that would install a pinned *tested* version does not, because a boot may never wait on a network.
+   * Today the manifest marks both references untested, so this pass installs nothing and says so.
+   */
+  try {
+    const registered = bundled().registerProtected()
+    if (registered.length) log(`bundled community plugins registered for protection: ${registered.join(', ')}`)
+    Promise.resolve()
+      .then(() => bundled().ensure())
+      .then((applied) => {
+        const report = bundled().describe()
+        log(`bundled plugins: ${JSON.stringify(report.states)}`)
+        for (const entry of applied) {
+          if (entry.action !== 'none') log(`bundled plugin ${entry.id}: ${entry.action} → ${entry.state}${entry.reason ? ` (${entry.reason})` : ''}`)
+        }
+      })
+      .catch((error) => log(`the bundled plugin pass failed without affecting anything else: ${error?.message || error}`))
+  } catch (error) {
+    log(`bundled plugin registration failed (the rest of Mega is unaffected): ${error?.message || error}`)
+  }
   log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency + unified theme system enabled')
   if (subWorkerAvailable()) log(`optional Sub-worker available (state ${subWorkerSnapshot().state})`)
 }

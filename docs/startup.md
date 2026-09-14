@@ -108,6 +108,35 @@ MEGA 面板看到的是状态、最近错误、重试次数与 fallback 现状�
 
 ## 4. 验收怎么读
 
+## 3.2 第三轮：Bundled Plugin Manager（`updateplan/startup2.md` §19–§23）
+
+MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那两个插件：
+[app/extensions/mega/plugins/index.cjs](../app/extensions/mega/plugins/index.cjs)，一个**策略层**——
+它不 clone、不写插件目录、不读 package.json，只对注入进来的安装器与注册表做判断，所以 §23 的那张状态表
+可以完全离线测试。
+
+- **清单是真的、版本是钉的**（§21/§22）：`dsh-wallpaper-engine` 钉在真实存在的 `v0.7.1` tag，
+  `@dsh-market/plugin` 钉在 `2BingLing/dsh-market` 的 `master` 提交（该仓库没有 tag，提交就是它的版本）。
+  没有任何一处会去问"最新是什么"。
+- **没测过的版本不会被装上**：清单里两个条目都是 `tested: false`，管理器据此报 `untested` 并**拒绝安装**
+  （§21 把那个字段叫 `TESTED_VERSION` 是有原因的）。装与不装之间只差一次真机测试与一行翻转——不是一次
+  静默升级。
+- **用户说了算**（§23）：用户禁用的插件不装、不修、不复活；一个清单不认识的版本只被**报告**
+  （`ahead-of-pin`），不会被替换；`repair()` 是唯一会替换已安装副本的路径，且永不自动。
+- **失败属于面板，不属于 boot**：两个插件都注册成 protected module，fallback 分别是
+  `Simple Wallpaper` 与"商店入口隐藏"（§18）。
+- **接线**：MEGA 在 `start()` 里注册受保护模块、在后台跑策略（`Promise.resolve().then(() => ensure())`，
+  绝不在启动路径上等网络），并暴露 `mega:bundled-plugins` / `mega:bundled-plugins-repair` 两个通道；
+  读取的是**商店自己的记录**（`installer().list()`）来判断"是否已安装、是否被用户禁用"。
+
+**当前的两个诚实缺口**（写在代码注释与这里）：① 清单还没把任何 pin 标成 `tested`，所以**今天不会安装
+任何插件**，那一步需要一次真机测试；② 安装调用本身还没接（`install` 未注入）—— 猜一个安装器参数名会把
+未验证的代码放到可选插件的安装路径上，所以它随"第一个 pin 被标记 tested"的那次提交一起落地。
+
+测试：`tests/unit/bundled-plugins.test.js` 9 项（清单为真且不追 latest、未测试不安装、缺失的已测试版本按 pin 安装、
+用户禁用优先、未知版本只报告、不兼容只报告且只有 repair 会重装、repair 拒绝未测试 pin、受保护模块与 fallback、
+以及接线与"安装路径尚未接线"的静态断言）。
+
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、
   `ENHANCED` 只在延迟工作落定后出现，以及**启动顺序**（骨架先于 Harness、可选层全部晚于
   INTERACTIVE）。

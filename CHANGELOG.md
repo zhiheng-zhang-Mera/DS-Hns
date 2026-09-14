@@ -3,6 +3,30 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 本体自带的社区插件，版本钉死、失败归面板（updateplan/startup2.md §19–§23）
+
+**新增 `app/extensions/mega/plugins/index.cjs`：MEGA 自己管"随本体提供、工程上仍是可选社区插件"的两个插件。**
+它是一个**策略层**——不 clone、不写插件目录、不读 package.json，只对注入进来的安装器与注册表做判断，因此
+§23 那张状态表（缺失 / 未测试 / 已安装 / 版本超前 / 不兼容 / 用户禁用 / 失败）可以完全离线测试。
+
+**清单是真的、版本是钉的**（§21/§22）：`dsh-wallpaper-engine` 钉在真实存在的 `v0.7.1` tag，
+`@dsh-market/plugin` 钉在 `2BingLing/dsh-market` 的 `master` 提交（该仓库没有 tag，提交就是它的版本）。
+没有任何一处会问"最新是什么"——否则昨天测过的产品会和今天没测过的产品长得不一样，而没有人做过这个决定。
+
+**没测过的版本不会被装上**：两个条目都是 `tested: false`，管理器据此报 `untested` 并**拒绝安装**。
+`repair()` 拒绝得更直白：不能凭空把一个未测试的 pin 装上去。**用户说了算**：被禁用的插件不装、不修、
+不复活；清单不认识的版本只被报告（`ahead-of-pin`）而不被替换——用户可能是有意装的。**失败属于面板**：
+两个插件都注册成 protected module，fallback 是 `Simple Wallpaper` 与"商店入口隐藏"。
+
+**接线**：MEGA 在 `start()` 注册受保护模块、在后台跑策略（绝不在启动路径上等网络），读取商店自己的记录
+判断"是否已安装、是否被用户禁用"，并暴露 `mega:bundled-plugins` / `mega:bundled-plugins-repair` 两个通道；
+shell 把保护层交给扩展。**两个诚实缺口**：① 今天不会安装任何插件（没有 pin 被标记 `tested`）；② 安装调用
+本身尚未注入——猜一个安装器参数名等于把未验证代码放进可选插件的安装路径，它随"第一个 pin 被测试并标记"的
+那次提交一起落地。两处都在代码注释、`docs/startup.md` §3.2 中写明。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 9/9；`scripts/verify.ps1` 增加清单真实性、不追 latest、
+未测试不安装、用户禁用与未知版本的处理、受保护注册与"策略不在启动路径上"的检查。
+
 ## protection — MEGA 成为增强层的控制平面（updateplan/startup2.md §12–§18）
 
 **新增 `app/extensions/mega/protection/index.cjs`：可选模块的隔离、健康、降级与回退有了一处统一实现。**
