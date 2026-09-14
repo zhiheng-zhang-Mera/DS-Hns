@@ -3,6 +3,19 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 安装调用接线，采纳只剩一次真机测试（updateplan/startup2.md §22–§23）
+
+**`installPinnedPlugin()` 用商店自己的两步安装清单钉住的引用**：`stage({ source, branch: ref })` 把代码放到磁盘
+并校验清单，`enable({ id })` 记录宿主可以运行它。函数只决定"要哪个引用"，不决定任何安装策略；因此把第一个 pin
+标记 `tested: true` 就是社区插件采纳的全部工作量。
+
+**一个诚实的限制，而不是没写的代码**：商店按分支或 tag 落盘（`git clone --branch`），而 `2BingLing/dsh-market`
+没有 tag，它的 pin 是**提交**。提交 pin 会被**按名字拒绝**（`needs a revision-aware stage first`），而不是悄悄
+装成默认分支当时的 HEAD；修法是商店支持 revision 感知的 stage —— 那是它的安装路径，不能从这里猜。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 10/10（原 9 项 + 安装调用与提交 pin 拒绝的断言）；
+`scripts/verify.ps1` 的既有检查覆盖清单真实性、不追 latest 与未测试不安装。
+
 ## appearance tokens — 提供者可以画，不能接管（updateplan/startup2.md §27）
 
 **新增 `app/extensions/mega/appearance/tokens.cjs`：外观提供者允许改什么，是一个封闭清单** ——

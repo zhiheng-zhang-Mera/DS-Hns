@@ -154,7 +154,22 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   assert.match(index, /'mega:bundled-plugins', 'mega:bundled-plugins-repair'/)
   // The policy pass is *not* on the boot path: it runs after the rest of Mega is up.
   assert.match(index, /Promise\.resolve\(\)\s*\n\s*\.then\(\(\) => bundled\(\)\.ensure\(\)\)/)
-  // The shell hands the layer over, and the install call is deliberately absent until a pin is tested.
+  // The shell hands the layer over, and the install call is the store's own two steps behind one function.
   assert.match(main, /officialSurfaces: officialSurfaceAdapter,[\s\S]{0,400}protection,/, 'the protection layer never reaches the extension')
-  assert.equal(/install: async/.test(index), false, 'the install path was wired before a pin was tested')
+  assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/, 'the bundled manager cannot install a pinned reference')
+})
+
+/**
+ * The installer call itself, tested against a store stand-in with the store's own two steps: `stage` puts the
+ * code on disk, `enable` records that the host may run it. What is asserted here is the *reference* that gets
+ * asked for, and the one honest refusal: a commit pin cannot be staged by a store that clones a branch or tag.
+ */
+test('a pinned reference is staged and enabled through the store, and a commit pin is refused by name', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  const installSource = index.slice(index.indexOf('async function installPinnedPlugin'), index.indexOf('let bundledPlugins'))
+  assert.match(installSource, /installer\(\)\.stage\(\{ source: entry\.repo, branch: ref \}\)/)
+  assert.match(installSource, /installer\(\)\.enable\(\{ id \}\)/)
+  assert.match(installSource, /needs a revision-aware stage first/, 'a commit pin must be refused rather than resolved to whatever the default branch holds')
+  assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/)
+  assert.match(index, /uninstall: async \(id\) => \{/)
 })

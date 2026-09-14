@@ -1565,6 +1565,36 @@ function registerControlCenterIpc() {
 }
 
 /**
+ * Install one bundled plugin at the reference the manifest pinned (§22-§23).
+ *
+ * Two store steps, because that is what the store is: `stage` puts the code on disk and verifies its manifest,
+ * `enable` records that the host may run it. Both are the store's own operations — this function decides
+ * nothing about installation, only which reference to ask for.
+ *
+ * One honest limit, and it is the reason the market plugin cannot be adopted yet: the store stages a **branch
+ * or a tag** (`git clone --branch`), and `2BingLing/dsh-market` publishes no tags, so its pin is a commit. A
+ * commit pin is refused here by name rather than silently installed as whatever the default branch holds today;
+ * the fix is a revision-aware stage in the store, which is a change to *its* install path and not something to
+ * guess at from here.
+ */
+async function installPinnedPlugin(entry = {}) {
+  const ref = String(entry.ref || '')
+  const looksLikeACommit = /^[0-9a-f]{7,40}$/i.test(ref) && !/^v?\d+\.\d+/.test(ref)
+  if (looksLikeACommit) {
+    return {
+      ok: false,
+      reason: `the store stages a branch or a tag; ${entry.id}'s pin is the commit ${ref}, which needs a revision-aware stage first`
+    }
+  }
+  const staged = installer().stage({ source: entry.repo, branch: ref })
+  if (staged?.ok === false) return { ok: false, reason: staged.reason || 'the store refused to stage it' }
+  const id = staged?.entry?.id || entry.id
+  const enabled = installer().enable({ id })
+  if (enabled?.ok === false) return { ok: false, staged: true, id, reason: enabled.reason || 'it was staged but the store refused to enable it' }
+  return { ok: true, id, version: staged?.entry?.version || ref, compatibility: staged?.entry?.compatibility || null }
+}
+
+/**
  * The bundled community plugins, as a manager over the store (`./plugins/index.cjs`).
  *
  * It reads the *store's own* record of what is installed and what the user decided, and it is the only
@@ -1572,10 +1602,9 @@ function registerControlCenterIpc() {
  * (§19-§23). Two deliberate gaps, both honest rather than convenient:
  *
  *   * **`install` is not wired yet.** The shipped manifest marks both plugins `tested: false`, so the
- *     manager installs nothing — and a reference nobody has run is exactly what must not be installed.
- *     The call lands with the release that marks the first pin tested, together with its verified call
- *     shape; guessing the installer's argument names would be untested code on the install path of an
- *     optional plugin.
+ *     manager installs nothing — and a reference nobody has run is exactly what must not be installed. The
+ *     call itself is wired (see `installPinnedPlugin`), so marking the first pin `tested: true` is the whole
+ *     of the adoption.
  *   * **`userEnabled` reads an explicit disable.** The store records `enabled`/`enabledAt`, where
  *     "staged but never enabled" is the normal first state rather than a decision; only an entry the
  *     store marked disabled counts as the user's answer here.
@@ -1794,6 +1823,14 @@ function bundled() {
       return entry.disabled === true || entry.state === 'disabled' ? false : null
     },
     protection: ctx?.protection || null,
+    install: (entry) => installPinnedPlugin(entry),
+    uninstall: async (id) => {
+      const outcome = installer().remove({ id })
+      return outcome?.ok === false ? { ok: false, reason: outcome.reason || 'the store refused to remove it' } : { ok: true }
+    },
+    // The store classifies a repository itself while staging (native manifest or compatibility mode); a second
+    // opinion here would be a second answer to the same question.
+    compatibility: () => ({ ok: true }),
     log: (message) => log(message)
   })
   return bundledPlugins

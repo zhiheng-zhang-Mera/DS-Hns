@@ -127,9 +127,13 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
   绝不在启动路径上等网络），并暴露 `mega:bundled-plugins` / `mega:bundled-plugins-repair` 两个通道；
   读取的是**商店自己的记录**（`installer().list()`）来判断"是否已安装、是否被用户禁用"。
 
-**当前的两个诚实缺口**（写在代码注释与这里）：① 清单还没把任何 pin 标成 `tested`，所以**今天不会安装
-任何插件**，那一步需要一次真机测试；② 安装调用本身还没接（`install` 未注入）—— 猜一个安装器参数名会把
-未验证的代码放到可选插件的安装路径上，所以它随"第一个 pin 被标记 tested"的那次提交一起落地。
+**安装调用已接线，adoption 只剩一次真机测试**：`installPinnedPlugin()` 用商店自己的两步 ——
+`stage({ source, branch: ref })` 把代码放到磁盘并校验清单，`enable({ id })` 记录宿主可以运行它 —— 来安装
+清单钉住的引用。因此"第一个 pin 标记 `tested: true`"就是采纳的全部工作量。
+
+**剩下的是一个诚实的限制，而不是未写的代码**：商店按**分支或 tag**落盘（`git clone --branch`），而
+`2BingLing/dsh-market` 没有 tag，它的 pin 是一个**提交**。提交 pin 会被**按名字拒绝**，而不是悄悄装成默认分支
+当时的 HEAD；修法是商店支持 revision 感知的 stage —— 那是**它的**安装路径，不能从这里猜。
 
 测试：`tests/unit/bundled-plugins.test.js` 9 项（清单为真且不追 latest、未测试不安装、缺失的已测试版本按 pin 安装、
 用户禁用优先、未知版本只报告、不兼容只报告且只有 repair 会重装、repair 拒绝未测试 pin、受保护模块与 fallback、
