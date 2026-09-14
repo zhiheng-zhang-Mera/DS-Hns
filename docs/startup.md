@@ -77,6 +77,32 @@ Harness 自身的启动不是我们能优化的部分。
 | §29–§38 | MEGA 去重（折叠态只留 RUN/AUTO/PWR，Q/ERR 动态出现，零状态隐藏） | **未做**：MEGA 已从首屏阻塞链移除，但折叠态仍是 RUN/QUEUE/HW/SUB/PEAK 五个常驻项 |
 | §22 | `startup-cache.json` | 未做 |
 
+## 3.1 第二轮：MEGA Protection Layer（`updateplan/startup2.md` §12–§18）
+
+第二轮把"增强层活得安全"落成了代码：[app/extensions/mega/protection/index.cjs](../app/extensions/mega/protection/index.cjs)。
+MEGA 不再只是右侧状态栏，而是增强能力的控制平面；**任何可选模块都必须注册后由它启动，不允许裸启动**。
+
+- **六态**：`DISABLED / STARTING / HEALTHY / DEGRADED / FAILED / RECOVERING`；每个模块记录状态、版本、
+  启动耗时、最近错误、重试次数、fallback 现状（§14）。
+- **失败规则**（§15）：`start()` 只回答、不抛出。超时、抛错、或自己报告不健康 → 标 `DEGRADED`，
+  立刻跑 fallback，**绝不抛给 Core**。计划书里那三条禁止项（插件失败导致白屏 / 壁纸失败带走输入框 /
+  Market 失败让 Harness 起不来）由结构保证，而不是靠小心。
+- **预算与重试**（§16/§17）：默认 3s 首启预算，超时不再阻塞任何 UI；重试阶梯是**一次快速、一次延迟，
+  然后停止** —— 无限重试正是让真实故障被掩盖的方式。
+- **回退链**（§18）：`dsh-wallpaper-engine → Simple Wallpaper → Official Background` 这种顺序被写成数组，
+  逐个尝试，最后一个也失败就如实报 `unavailable`。
+- **恢复可见**：健康检查重新通过时状态回到 `HEALTHY`、清掉 `lastError`、fallback 归 `idle`，否则面板会
+  一直报告模块已经离开的状态。
+
+测试：`tests/unit/mega-protection.test.js`（6 项：健康启动、超时→降级+fallback、重试阶梯恰好三次、
+不健康→降级与恢复、可选/必需的区别与安全停止、`withTimeout` 两个方向）。
+
+**仍然没做**（`startup2.md` 的 P1/P2）：社区插件 `dsh-wallpaper-engine` 与 `@dsh-market/plugin` 的实际接入、
+MEGA Control Center 的 Protection 面板与插件修复入口（§45–§47）、`MegaItemRegistry` 的前端注册（§49）、
+启动/壁纸/市场缓存（§52–§54）、以及 MEGA 折叠栏去重（§36–§41，仍是 RUN/QUEUE/HW/SUB/PEAK）。
+本轮**没有**把 protection 层接到 `desktop-main.cjs` 的实际模块上——它是被完整测试的机制，接线属于下一轮
+（接线时必须同时改 `docs/startup.md` 与 `scripts/verify.ps1`，免得机制在而无人使用）。
+
 ## 4. 验收怎么读
 
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、

@@ -3,6 +3,29 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## protection — MEGA 成为增强层的控制平面（updateplan/startup2.md §12–§18）
+
+**新增 `app/extensions/mega/protection/index.cjs`：可选模块的隔离、健康、降级与回退有了一处统一实现。**
+MEGA 从"右侧状态栏"变成增强能力的**控制平面**，规则只有一条：任何可选模块都必须注册后由它启动，不允许
+裸启动。六态为 `DISABLED / STARTING / HEALTHY / DEGRADED / FAILED / RECOVERING`，每个模块记录状态、版本、
+启动耗时、最近错误、重试次数与 fallback 现状——这正是 MEGA 面板要显示、验收要读的东西。
+
+`start()` **只回答、不抛出**：超时、抛错或自己报告不健康都变成 `DEGRADED` 并立刻跑 fallback。计划书点名
+禁止的三件事（插件失败导致白屏、壁纸失败带走输入框、Market 失败让 Harness 起不来）因此是结构上不成立的，
+而不是靠小心。首启预算默认 3s，超时不再阻塞任何 UI；重试阶梯是一次快速、一次延迟、然后停止（无限重试正是
+掩盖真实故障的方式）；回退链写成数组逐级尝试（如 `dsh-wallpaper-engine → Simple Wallpaper → Official
+Background`），最后一级也失败就如实报 `unavailable`。健康检查重新通过时状态回到 `HEALTHY` 并清掉错误，
+否则面板会一直报告模块已经离开的状态。
+
+**边界**：本轮交付的是被完整测试的**机制**，还没有接到 `desktop-main.cjs` 的真实模块上——社区插件
+`dsh-wallpaper-engine` / `@dsh-market/plugin` 的接入、MEGA Control Center 的 Protection 面板、`MegaItemRegistry`
+前端注册、启动缓存与折叠栏去重都**未做**，条目记在 `docs/startup.md` §3.1，下一轮接线时一并更新文档与
+`verify.ps1`。
+
+**验证**：`tests/unit/mega-protection.test.js` 6/6（健康启动、超时→降级+fallback、重试阶梯恰好三次、
+不健康→降级与恢复、可选与必需的区别及安全停止、`withTimeout` 两个方向）；`scripts/verify.ps1` 增加
+保护层存在性、六态、预算/回退/重试与上报字段检查。
+
 ## startup — 先可用，再好看（updateplan/startup.md 的 P0）
 
 **"应用可用"不再绑定在"全部增强渲染完成"上。** 旧流程在窗口显示之前要等完 Harness、扩展宿主、
