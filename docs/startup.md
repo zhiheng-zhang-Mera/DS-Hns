@@ -320,6 +320,31 @@ static wallpaper       cpu= -0.1%  ram=  479MB  processes=4  picture=3752KB  (28
 
 ## 4. 验收怎么读
 
+## 3.10 第十一轮：表面归属（`updateplan/startup2.md` §48、§55 的 CSS ownership）
+
+三条边界本来是**惯例**，现在是被测的**约束**（`tests/unit/surface-ownership.test.js`）：
+
+1. **Dock 能调的每个通道都有主人。** preload 是 Dock 全部的可达面；它能 invoke/send 的通道必须由某个模块
+   声明 —— mega 扩展自己的 `CHANNELS`，或 shell 的四个功能族（`computer-use`/`engineering`/`plugins`/
+   `sub-worker`）。没有主人的通道意味着清点与功能闸门都不知道它存在，而"被删掉的功能还能用"正是这样发生的。
+   preload 里也不允许**动态拼接**通道名（那样就无法被审计）。
+2. **只有外观词汇能跨边界。** `--dsh-*` 是发布出来并被校验的那一套（§27）；它属于 `appearance/` 目录本身、
+   把图片 token 写进自己文档的 `wallpaper.cjs`，以及消费它们的那份图层文档 —— 其它任何文件出现 `--dsh-` 都是越界。
+3. **一份样式表只属于一份文档。** Dock 的样式表不碰图层文档的私有元素与私有变量（`#wallpaper-scrim`、`#wp-`），
+   图层文档也不碰 Dock 的（`#rail`、`#detail`、`.panel`）。
+
+§48 的目录映射记录在此：`mega/protection/`（Supervisor/健康/超时/重试/回退/诊断的合并实现）、
+`mega/plugins/`（bundled 管理器 + 清单 + 安装/修复策略）、`mega/appearance/`（提供者、预设、token 边界、
+成本账、状态文件），而 §48 里的 `execution / automation / resource-policy / diagnostics` 在本仓库是
+`control-center.cjs` 的**六段数据**而不是六个目录 —— 它们共享同一份快照，拆成目录只会让"同一份真相"
+变成六份需要同步的东西。
+
+**一处有意的偏差**：§6.2/§25 建议删除"复杂 Video Pipeline"，但视频目前仍是**自有图层唯一能播的东西**，
+而社区插件尚未被采纳（其 pin 仍等一次真机测试）。删掉它会在替代品到位之前先失去一个可用能力，因此本轮
+**保留**，并在此记录：等 `dsh-wallpaper-engine` 的 pin 被标记 `tested: true` 之后，这段代码才该删。
+
+## 4. 验收怎么读
+
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、
   `ENHANCED` 只在延迟工作落定后出现，以及**启动顺序**（骨架先于 Harness、可选层全部晚于
   INTERACTIVE）。

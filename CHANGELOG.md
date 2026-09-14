@@ -3,6 +3,26 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## surface ownership — 三条边界从惯例变成约束（updateplan/startup2.md §48、§55）
+
+**新增 `tests/unit/surface-ownership.test.js`，把三条边界变成会被测住的约束**：
+
+1. **Dock 能调的每个通道都有主人**：preload 是 Dock 全部的可达面，它能 invoke/send 的通道必须由某处声明 ——
+   mega 扩展自己的 `CHANNELS`，或 shell 的四个功能族（computer-use / engineering / plugins / sub-worker）。
+   没有主人的通道意味着清点与功能闸门都不知道它存在，而"被删掉的功能还能用"正是这样发生的；preload 里也不允许
+   动态拼接通道名（那样无法被审计）。
+2. **只有外观词汇能跨边界**：`--dsh-*` 是发布并校验过的一套（§27），只属于 `appearance/` 目录本身、把图片
+   token 写进自己文档的 `wallpaper.cjs`、以及消费它们的图层文档；其它文件出现 `--dsh-` 即越界。
+3. **一份样式表只属于一份文档**：Dock 的样式表不碰图层文档的私有元素与变量（`#wallpaper-scrim`、`#wp-`），
+   图层文档也不碰 Dock 的（`#rail`、`#detail`、`.panel`）。
+
+同日记录的还有 §48 的目录映射（`protection/`、`plugins/`、`appearance/`；`execution/automation/resource-policy/
+diagnostics` 在本仓库是 `control-center.cjs` 的六段数据而不是六个目录，因为它们共享同一份快照）与**一处有意偏差**：
+§6.2 建议删除的"复杂 Video Pipeline"在社区插件被采纳前保留 —— 删掉它会在替代品到位之前先失去一个可用能力，
+文档中写明等到 pin 被标记 `tested: true` 之后才该删。
+
+**验证**：三条约束的测试 3/3；`scripts/verify.ps1` 增加同样的三项静态检查。
+
 ## appearance cost acceptance — 量得出来就量，量不出来就说原因（updateplan/startup2.md §56）
 
 **新增 `scripts/appearance-cost-acceptance.cjs`**：§56 要求记录外观在各种状态下的代价（启动耗时、CPU、RAM…）。
