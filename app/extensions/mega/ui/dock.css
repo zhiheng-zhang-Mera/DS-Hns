@@ -526,29 +526,40 @@ button:hover{background:var(--hns-color-bg-layer2)}
    The dock's lowest layer, and the reason the glass above it has something to be glass over: a
    frosted pane over a flat colour is a tint, a frosted pane over a picture is glass.
 
-   It is never a hit target (`pointer-events: none`) and never in front of anything (z-index 0,
-   with the content at 1), so it cannot cost the user a click however it was set. The scrim is a
-   separate number from the opacity on purpose: the wallpaper decides how much picture there is,
-   the scrim decides how much contrast survives it.
+   Three things this rule has to get right, and the first version got all three wrong:
+
+     * **`position: fixed`, not `absolute`.** An absolutely positioned layer inside `#detail` is
+       positioned against a *scrolling* container, so it sits at the top of the content and scrolls
+       away with it. Fixed is against the window, which is what a background means.
+     * **A body child, not a `#detail` child.** The wallpaper belongs to the whole dock window —
+       the rail as much as the panels — and inside `#detail` it could never be that.
+     * **Specific enough to win.** `#detail>div{position:relative;z-index:1}` matches this element
+       too and outranks a bare `#wallpaper`, which put the layer back into the normal flow and left
+       one band of picture at the top of the dock. The selectors below carry two ids on purpose.
+
+   It is never a hit target (`pointer-events: none`) and never in front of anything, so it cannot
+   cost the user a click however it was set. The scrim is a separate number from the opacity: the
+   wallpaper decides how much picture there is, the scrim decides how much contrast survives it.
    ===================================================================================== */
-#wallpaper,
-#wallpaperVideo{
-  position:absolute;inset:0;width:100%;height:100%;
+body>#wallpaper,
+body>#wallpaperVideo{
+  position:fixed;inset:0;width:100%;height:100%;
   pointer-events:none;user-select:none;z-index:0;
   opacity:var(--hns-wallpaper-opacity,.55);
   object-fit:cover
 }
-#wallpaperVideo[hidden]{display:none}
+body>#wallpaperVideo[hidden]{display:none}
+body>#wallpaper[data-hidden="1"]{display:none}
 /* The scrim sits between the wallpaper and the content: one flat wash of the dock's own base, at
    the user's strength, so no wallpaper can make a label unreadable. */
 body[data-wallpaper="on"]::before{
-  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
   background:var(--hns-color-bg-base);
   opacity:var(--hns-wallpaper-scrim,0)
 }
-/* Content stays above both. */
+/* Everything the dock draws stays above the wallpaper: the rail, the panes, the floats. */
+#rail,#detail{position:relative;z-index:1}
 #detail>.dock-header,#detail>section,#detail>p,#detail>div{position:relative;z-index:1}
-#detail>#wallpaper,#detail>#wallpaperVideo{z-index:0}
 
 
 /* ==========================================================================

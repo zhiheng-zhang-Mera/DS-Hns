@@ -178,13 +178,22 @@ test('the layer cannot intercept the UI, script it, or outlive its file', () => 
   const preload = read('app/extensions/mega/ui/preload.cjs')
 
   // A background is not a hit target, and it is behind the content rather than in front of it.
-  const rule = css.match(/#wallpaper,\s*#wallpaperVideo\{([^}]*)\}/)
+  const rule = css.match(/body>#wallpaper,\s*body>#wallpaperVideo\{([^}]*)\}/)
   assert.ok(rule, 'the wallpaper layer has no rule')
   assert.match(rule[1], /pointer-events:none/, 'the wallpaper would swallow clicks')
+  // Fixed against the window, not absolute inside the scrolling `#detail`: an absolute layer there
+  // sits at the top of the content and scrolls away with it, which is a band of picture at the top
+  // of the dock rather than a background.
+  assert.match(rule[1], /position:fixed/, 'the wallpaper scrolls with the panels instead of staying put')
   assert.match(rule[1], /z-index:0/)
-  assert.match(css, /#detail>#wallpaper,#detail>#wallpaperVideo\{z-index:0\}/, 'the wallpaper is not pinned below the content')
+  // Two ids on purpose: `#detail>div{position:relative;z-index:1}` matches this element as well and
+  // outranks a bare `#wallpaper`, which is exactly how the layer ended up back in the normal flow.
+  assert.match(css, /#rail,#detail\{position:relative;z-index:1\}/, 'the dock content is not pinned above the wallpaper')
   assert.match(html, /<div id="wallpaper" aria-hidden="true"><\/div>/, 'the wallpaper element is missing')
   assert.match(html, /<video id="wallpaperVideo" aria-hidden="true" muted loop playsinline/, 'the video element is missing its safety attributes')
+  // It belongs to the whole dock window, the rail included, so it is a child of the body.
+  const head = html.slice(html.indexOf('<body'), html.indexOf('<aside id="rail"'))
+  assert.match(head, /id="wallpaper"/, 'the wallpaper is inside the scrolling panel column instead of the window')
 
   // A video nobody can see does not need frames.
   assert.match(layer, /if \(typeof video\.pause === 'function'\) video\.pause\(\)/, 'a video left the layer without being paused')

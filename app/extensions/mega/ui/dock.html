@@ -13,6 +13,18 @@
   <link rel="stylesheet" href="dock.css">
 </head>
 <body class="collapsed" data-hns-surface="mega" data-glass="on">
+  <!--
+    The wallpaper layer (壁纸). It is the first thing in the document and the lowest thing in it:
+    a child of the body rather than of `#detail`, because it belongs to the whole dock window —
+    the rail as much as the panels — and because `#detail` scrolls, which an absolutely positioned
+    layer inside it would follow instead of staying put.
+
+    It is a real element rather than a stylesheet because a video is a real element. An image
+    arrives as a `data:` URL (the same asset the official surfaces are handed, one rule for both)
+    and a video arrives as a `file:` URL the element fetches itself.
+  -->
+  <div id="wallpaper" aria-hidden="true"></div>
+  <video id="wallpaperVideo" aria-hidden="true" muted loop playsinline preload="metadata" hidden></video>
   <aside id="rail" title="展开 Mega Dock">
     <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
     <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>
@@ -28,17 +40,6 @@
   </aside>
 
   <main id="detail">
-    <!--
-      The wallpaper layer (壁纸). It is the first thing in the dock and the lowest thing in it:
-      `pointer-events: none`, behind every panel, and behind the glass — so the frosted panes frost
-      *it* rather than a flat colour, which is what a background is for.
-
-      It is a real element rather than a stylesheet because a video is a real element. An image
-      arrives as a `data:` URL (the same asset the official surfaces are handed, one rule for both)
-      and a video arrives as a `file:` URL the element fetches itself.
-    -->
-    <div id="wallpaper" aria-hidden="true"></div>
-    <video id="wallpaperVideo" aria-hidden="true" muted loop playsinline preload="metadata" hidden></video>
     <header class="dock-header">
       <div>
         <h1>Mega</h1>
