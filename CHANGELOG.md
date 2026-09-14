@@ -3,6 +3,28 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 安装通道按仓库事实修正（updateplan/startup2.md §19–§23）
+
+**读了两个仓库的 `package.json`，结论与计划书的假设不同，清单按事实修正。**
+
+- `elysia395/dsh-wallpaper-engine` → npm 包 **`dsh-plugin-wallpaper-engine`**（`v0.7.1` tag）。它声明
+  `dsh.bundle.patch: ./cordis.patch.yml`、`dsh.client.platform: "web"`、`inject: ["@deepseek-ai/dsh-client-runtime"]`
+  —— 是一个 **Harness 客户端插件**：补丁打在 Harness **profile** 上、运行在官方 Web GUI 里。它既没有
+  `dshns-plugin.json`（不是 `dshns.plugin/v1`），也不跑在本产品的插件宿主里，**我们自己的商店是错的工具**；
+  Harness 自己提供正确的工具：`dsh plugin --profile <name> add <package>`（在 profile 目录转发给 pnpm）。
+- `2BingLing/dsh-market` → `package.json` 是 `dsh-market` 0.1.0，**没有 `dsh` 段、没有 `main`**，而计划书里的
+  `@dsh-market/plugin` 并不是该仓库发布的包名。清单把它标为 **`channel: 'unresolved'`** 并带上理由：这是需要
+  决定的接入问题，不是一条可执行的安装命令；管理器只**报告**它，绝不安装。
+
+于是新增 `installBundled(entry, { harnessAdd, store, profile })`：按 `channel` 分派 —— `harness-profile` 走
+Harness 自己的 CLI（`runHarnessPluginCli`，真实调用 `dsh plugin --profile web add <pkg>@<ref>`）、
+`dshns-store` 走本产品商店的两步（提交 pin 走先前新增的 revision 路径）、`unresolved` 按清单里的理由拒绝。
+`ensure()` 也把 `unresolved` 当作"报告而非安装"，所以它不会变成一次注定失败的安装尝试。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 10/10（清单里两条各自的通道与包名、market 的 unresolved 理由、
+未测试 pin 只报告不安装、按通道分派、商店两步与 revision 路径仍在）；`scripts/verify.ps1` 的清单/不追 latest/
+未测试不安装检查继续覆盖。
+
 ## surface ownership — 三条边界从惯例变成约束（updateplan/startup2.md §48、§55）
 
 **新增 `tests/unit/surface-ownership.test.js`，把三条边界变成会被测住的约束**：

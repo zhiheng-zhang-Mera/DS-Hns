@@ -127,9 +127,23 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
   绝不在启动路径上等网络），并暴露 `mega:bundled-plugins` / `mega:bundled-plugins-repair` 两个通道；
   读取的是**商店自己的记录**（`installer().list()`）来判断"是否已安装、是否被用户禁用"。
 
-**安装调用已接线，adoption 只剩一次真机测试**：`installPinnedPlugin()` 用商店自己的两步 ——
-`stage({ source, branch: ref })` 把代码放到磁盘并校验清单，`enable({ id })` 记录宿主可以运行它 —— 来安装
-清单钉住的引用。因此"第一个 pin 标记 `tested: true`"就是采纳的全部工作量。
+**（修正）两个插件并不属于同一个安装通道 —— 这是读仓库读出来的，不是猜的**：
+
+- `elysia395/dsh-wallpaper-engine` → npm 包 **`dsh-plugin-wallpaper-engine`**（`v0.7.1`），其 `package.json` 声明
+  `dsh.bundle.patch: ./cordis.patch.yml`、`dsh.client.platform: "web"`、`inject: ["@deepseek-ai/dsh-client-runtime"]`
+  —— 它是一个 **Harness 客户端插件**：补丁打在 Harness **profile** 上、运行在官方 Web GUI 里。它既不是
+  `dshns.plugin/v1`（没有 `dshns-plugin.json`），也不可能跑在本产品的插件宿主里，**我们这个商店是错的工具**。
+  Harness 自己提供了正确的工具：`dsh plugin --profile <name> add <package>`（在 profile 目录里转发给 pnpm）。
+- `2BingLing/dsh-market` → `package.json` 是 `dsh-market` 0.1.0，**没有 `dsh` 段、没有 `main`**，而且计划书里的
+  `@dsh-market/plugin` 并不是那个仓库发布的包名。因此它在清单里是 **`channel: 'unresolved'`**：这是一个需要
+  决定的接入问题，不是一条可以执行的安装命令；管理器会**报告**它、绝不安装。
+
+于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
+`harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
+路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。
+
+（历史：`installPinnedPlugin()` 之前只用商店自己的两步 —— `stage({ source, branch: ref })` 与 `enable({ id })`
+—— 来安装清单钉住的引用；那条路对真正是 `dshns.plugin/v1` 的插件仍然正确，只是不适用于上面这两个 Harness 插件。）
 
 **提交 pin 现在也能装了**：商店新增 **revision 路径**（§22–§23 的"钉一个引用"对没有 tag 的仓库也成立）——
 `git init` + `remote add` + `git fetch --depth 1 origin <sha>` + detached `checkout FETCH_HEAD`，因此

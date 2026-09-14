@@ -173,7 +173,7 @@ Check 'The Control Center shows the appearance cost' ((Get-Content "$ROOT\app\ex
 $store = Get-Content "$ROOT\app\extensions\mega\store\installer.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'The store can stage a pinned revision' (($store -match 'options\.revision') -and ($store -match "fetch', '--depth', '1'") -and ($store -match 'FETCH_HEAD'))
 Check 'A revision is validated, recorded and never combined with a branch' (($store -match 'is not a commit revision') -and ($store -match 'not both') -and ($store -match 'revision: revision \|\| null'))
-Check 'The bundled manager uses the revision path for a commit pin' ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'revision: ref')
+Check 'The bundled manager uses the revision path for a commit pin' ((Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw) -match 'store\.stage\(\{ source: entry\.repo, revision: entry\.ref \}\)')
 # ---- Appearance cost acceptance (startup2.md section 56) ----
 $costAcceptance = Get-Content "$ROOT\scripts\appearance-cost-acceptance.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'Appearance cost acceptance exists and measures the real layers' (($costAcceptance -match 'getAppMetrics') -and ($costAcceptance -match 'createWallpaperWindow'))
@@ -182,6 +182,11 @@ Check 'A case that cannot be measured is skipped with a reason, never guessed' (
 Check 'Every dock channel has an owner that declares it' (Test-Path "$ROOT\tests\unit\surface-ownership.test.js")
 Check 'The token vocabulary stays inside the appearance boundary' (-not ((Get-Content "$ROOT\app\extensions\mega\ui\dock.css" -Raw) -match '--dsh-'))
 Check 'One stylesheet, one document' ((-not ((Get-Content "$ROOT\app\extensions\mega\ui\dock.css" -Raw) -match '#wallpaper-scrim')) -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\wallpaper-window.html" -Raw) -match '#rail|#detail')))
+# ---- Bundled channels: each entry names the channel it can be installed through (startup2.md section 19-23) ----
+$bundledPlugins = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The bundled manifest names a channel per entry' (($bundledPlugins -match "channel: 'harness-profile'") -and ($bundledPlugins -match "channel: 'unresolved'"))
+Check 'A Harness client plugin is installed by the Harness own CLI' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "plugin', '--profile', profile, 'add'") -and ($bundledPlugins -match 'dsh-plugin-wallpaper-engine'))
+Check 'An entry without a channel is reported, never installed' (($bundledPlugins -match 'BUNDLED_STATE.UNRESOLVED') -and ($bundledPlugins -match "action: 'report'"))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

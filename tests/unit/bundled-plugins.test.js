@@ -54,6 +54,14 @@ test('the shipped manifest pins real references and never says "latest"', () => 
   // The market publishes no tags, so its version *is* a commit — that is the point of pinning one.
   const market = BUNDLED_MANIFEST.plugins.find((entry) => entry.id === '@dsh-market/plugin')
   assert.equal(market.ref, market.commit)
+  // Each entry names the channel it can actually be installed through, read from the repository rather than
+  // assumed: the wallpaper engine is a Harness *client* plugin (`dsh.client.platform: web`), and the market
+  // repository publishes nothing either channel could install.
+  const wallpaper = BUNDLED_MANIFEST.plugins.find((entry) => entry.id === 'dsh-wallpaper-engine')
+  assert.equal(wallpaper.channel, 'harness-profile')
+  assert.equal(wallpaper.package, 'dsh-plugin-wallpaper-engine')
+  assert.equal(market.channel, 'unresolved')
+  assert.match(market.reason, /no dsh descriptor/)
 })
 
 test('an untested pin is declared, reported, and never installed', async () => {
@@ -62,7 +70,10 @@ test('an untested pin is declared, reported, and never installed', async () => {
   assert.equal(assessed.state, BUNDLED_STATE.UNTESTED)
   assert.match(assessed.reason, /nobody has tested it inside DS-Hns yet/)
   const applied = await manager.ensure()
-  assert.deepEqual(applied.map((entry) => entry.action), ['none', 'none'])
+  // The wallpaper plugin is declared but untested; the market entry has no channel at all, so it is *reported*
+  // rather than installed — a decision to make, not a download to run.
+  assert.deepEqual(applied.map((entry) => entry.action), ['none', 'report'])
+  assert.equal(applied[1].state, BUNDLED_STATE.UNRESOLVED)
   assert.equal(calls.length, 0, 'an untested reference was installed')
 })
 
@@ -144,7 +155,7 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   const main = read('app/desktop-main.cjs')
   // MEGA owns the bundled set (§19): the manager is created there, reads the store's own record, and
   // its protected modules are registered on start.
-  assert.match(index, /const \{ createBundledPlugins \} = require\('\.\/plugins\/index\.cjs'\)/)
+  assert.match(index, /const \{ createBundledPlugins, installBundled \} = require\('\.\/plugins\/index\.cjs'\)/)
   assert.match(index, /bundled\(\)\.registerProtected\(\)/)
   assert.match(index, /installed: \(\) => list\(\)/)
   assert.match(index, /protection: ctx\?\.protection \|\| null/)
@@ -164,15 +175,22 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
  * code on disk, `enable` records that the host may run it. What is asserted here is the *reference* that gets
  * asked for, and the one honest refusal: a commit pin cannot be staged by a store that clones a branch or tag.
  */
-test('a pinned reference is staged and enabled through the store, and a commit pin uses the revision path', () => {
+test('a pin goes through the channel its entry names', () => {
   const index = read('app/extensions/mega/index.cjs')
-  const installSource = index.slice(index.indexOf('async function installPinnedPlugin'), index.indexOf('let bundledPlugins'))
-  // A tag or branch goes through `branch`; a commit goes through `revision`, which the store resolves with
-  // `git fetch <sha>` — otherwise a repository with no tags could only be installed as "whatever the default
-  // branch holds today", which is the opposite of what a pin is for.
-  assert.match(installSource, /installer\(\)\.stage\(\{ source: entry\.repo, branch: ref \}\)/)
-  assert.match(installSource, /installer\(\)\.stage\(\{ source: entry\.repo, revision: ref \}\)/)
-  assert.match(installSource, /installer\(\)\.enable\(\{ id \}\)/)
+  const plugins = read('app/extensions/mega/plugins/index.cjs')
+  // The extension delegates to the channel dispatch, and hands it both tools: the Harness' own plugin CLI for a
+  // Harness *client* plugin, and this product's two-step store for a `dshns.plugin/v1` plugin.
+  assert.match(index, /function installPinnedPlugin\(entry = \{\}\)[\s\S]{0,400}return installBundled\(entry, \{/)
+  assert.match(index, /runHarnessPluginCli\(\['plugin', '--profile', profile, 'add', spec\]\)/)
+  assert.match(index, /store: \{ stage: \(input\) => installer\(\)\.stage\(input\), enable: \(input\) => installer\(\)\.enable\(input\) \}/)
+  assert.match(plugins, /async function installBundled\(/)
+  // A commit pin still uses the store's revision path, because a repository with no tags can only be pinned by
+  // a commit — and `git clone --branch` cannot express that.
+  assert.match(plugins, /store\.stage\(\{ source: entry\.repo, revision: entry\.ref \}\)/)
+  assert.match(plugins, /store\.stage\(\{ source: entry\.repo, branch: entry\.ref \}\)/)
   assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/)
   assert.match(index, /uninstall: async \(id\) => \{/)
+  // The Harness command is the Harness' own tool, run against the profile the product boots.
+  assert.match(index, /function harnessProfile\(\)/)
+  assert.match(index, /1000|120_000/, 'the Harness CLI call is bounded')
 })

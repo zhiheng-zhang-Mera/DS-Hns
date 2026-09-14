@@ -34,15 +34,27 @@
  */
 
 /**
- * The bundled set, as a release manifest (§21).
+ * The bundled set, as a release manifest (§21) — **with the channel each entry actually belongs to.**
  *
- * The references are real and resolved: `dsh-wallpaper-engine` at its `v0.7.1` tag, and
- * `@dsh-market/plugin` at the commit that repository's `master` points at — the market publishes no
- * tags, so a commit *is* its version, and pinning the commit is exactly what §22 asks for.
+ * The first version of this manifest assumed both plugins were DS-Hns plugins that our own store could stage.
+ * Reading the two repositories says otherwise, and the difference is not cosmetic:
  *
- * `tested: false` on both is the honest half: the references exist, and nobody has run them inside
- * DS-Hns yet. The manager will not install an untested reference, so the next step is a live test and
- * a one-line flip — not a silent adoption.
+ *   * **`dsh-plugin-wallpaper-engine`** (repository `elysia395/dsh-wallpaper-engine`, pinned at the `v0.7.1`
+ *     tag): its `package.json` declares `dsh.bundle.patch: ./cordis.patch.yml` and
+ *     `dsh.client.platform: "web"` with `inject: ["@deepseek-ai/dsh-client-runtime"]`. It is a **Harness client
+ *     plugin** — it patches a Harness *profile* and runs inside the official web GUI. It cannot be a
+ *     `dshns.plugin/v1` plugin: it has no `dshns-plugin.json`, it does not run in this product's plugin host,
+ *     and "our store" is the wrong installation channel for it. The Harness ships the right one itself:
+ *     `dsh plugin --profile <name> add <package>` (which forwards to pnpm inside the profile directory).
+ *   * **`2BingLing/dsh-market`**: its `package.json` is `dsh-market` 0.1.0 with **no `dsh` block and no
+ *     `main`**, and the plan's `@dsh-market/plugin` is not a name that repository publishes. It is therefore
+ *     marked `channel: 'unresolved'`: there is a decision to make about what that project is and how it is
+ *     meant to run, and inventing an installation channel for it would be exactly the kind of plausible
+ *     fiction this manifest exists to avoid.
+ *
+ * `tested: false` remains on both, and for the wallpaper plugin it now means the narrower thing: the reference
+ * exists and its package is real, but nobody has run it inside this product yet. The manager will not install an
+ * untested reference, so adoption is still a live test and a one-line flip.
  */
 const BUNDLED_MANIFEST = Object.freeze({
   version: 'startup2',
@@ -51,6 +63,9 @@ const BUNDLED_MANIFEST = Object.freeze({
       id: 'dsh-wallpaper-engine',
       role: 'appearance',
       repo: 'elysia395/dsh-wallpaper-engine',
+      /** Where it belongs: a Harness *profile* plugin, installed by the Harness' own CLI (see above). */
+      channel: 'harness-profile',
+      package: 'dsh-plugin-wallpaper-engine',
       ref: 'v0.7.1',
       commit: '4de97fc88905077fac879c6bf493aed3575c3b9e',
       tested: false,
@@ -60,6 +75,13 @@ const BUNDLED_MANIFEST = Object.freeze({
       id: '@dsh-market/plugin',
       role: 'plugin-store',
       repo: '2BingLing/dsh-market',
+      /**
+       * Not installable as written: that repository publishes `dsh-market` 0.1.0 with no `dsh` descriptor, so
+       * there is nothing for either channel to install. Recorded with its reason instead of guessed.
+       */
+      channel: 'unresolved',
+      package: null,
+      reason: 'the repository publishes dsh-market 0.1.0 with no dsh descriptor (not a Harness profile plugin) and no dshns-plugin.json (not a DS-Hns plugin); what @dsh-market/plugin is meant to be needs a decision',
       ref: '2c34728e7e0e478774e91282d6ec1723fe4b9037',
       commit: '2c34728e7e0e478774e91282d6ec1723fe4b9037',
       tested: false,
@@ -67,6 +89,9 @@ const BUNDLED_MANIFEST = Object.freeze({
     })
   ])
 })
+
+/** The installation channels a bundled entry can name. */
+const BUNDLED_CHANNELS = Object.freeze(['harness-profile', 'dshns-store', 'unresolved'])
 
 /** Where a bundled plugin's fallback leads, per §18: what the product does without it. */
 const BUNDLED_FALLBACK = Object.freeze({
@@ -77,6 +102,8 @@ const BUNDLED_FALLBACK = Object.freeze({
 /** §23: what the manager decided about one plugin. */
 const BUNDLED_STATE = Object.freeze({
   MISSING: 'missing',
+  /** Declared, but with no installation channel: there is a decision to make, not an install to run. */
+  UNRESOLVED: 'unresolved',
   UNTESTED: 'untested',
   INSTALLED: 'installed',
   OUTDATED: 'outdated',
@@ -143,6 +170,20 @@ function createBundledPlugins({
     if (enabled === false) {
       return { id, known: true, role: entry.role, present: Boolean(record), installedVersion: record?.version || null, expected: entry.ref, state: BUNDLED_STATE.USER_DISABLED, reason: 'the user disabled it; that outranks this manifest' }
     }
+    // Before presence and before the pin: an entry whose channel is unresolved is not "missing", it is
+    // undecided, and saying so is the difference between a task and a defect.
+    if (entry.channel === 'unresolved') {
+      return {
+        id,
+        known: true,
+        role: entry.role,
+        present: Boolean(record),
+        installedVersion: record?.version || null,
+        expected: entry.ref,
+        state: BUNDLED_STATE.UNRESOLVED,
+        reason: entry.reason || `${id} has no installation channel yet`
+      }
+    }
     if (!record) {
       return {
         id,
@@ -196,6 +237,11 @@ function createBundledPlugins({
       const assessed = assess(entry.id)
       if (assessed.state === BUNDLED_STATE.USER_DISABLED || assessed.state === BUNDLED_STATE.UNTESTED || assessed.state === BUNDLED_STATE.INSTALLED || assessed.state === BUNDLED_STATE.AHEAD_OF_PIN) {
         applied.push({ id: entry.id, action: 'none', state: assessed.state, reason: assessed.reason })
+        continue
+      }
+      // An entry with no channel is a decision, not an install: it is reported and left exactly where it is.
+      if (assessed.state === BUNDLED_STATE.UNRESOLVED) {
+        applied.push({ id: entry.id, action: 'report', state: assessed.state, reason: assessed.reason })
         continue
       }
       if (assessed.state === BUNDLED_STATE.INCOMPATIBLE) {
@@ -282,9 +328,59 @@ function createBundledPlugins({
   }
 }
 
+/**
+ * Install one bundled entry through **its own channel** (see the manifest's notes).
+ *
+ * `channel: 'harness-profile'` asks the Harness' CLI (`dsh plugin --profile <p> add <package>@<ref>`), which is
+ * the only thing that can install a Harness client plugin — it belongs to a profile, not to this product's
+ * plugin host. `channel: 'dshns-store'` is this product's own two-step store (stage, then enable) for plugins
+ * that really are `dshns.plugin/v1` plugins. `channel: 'unresolved'` is refused with the reason recorded in the
+ * manifest, because there is a decision to make there rather than an install to run.
+ *
+ * The hooks are injected, so the policy above is testable without a network, a profile, or a store.
+ *
+ * @param {object}   entry
+ * @param {object}   [hooks]
+ * @param {Function} [hooks.harnessAdd] `({ profile, package: spec }) => { ok, reason }`
+ * @param {object}   [hooks.store]      `{ stage, enable }`
+ * @param {string}   [hooks.profile]    the Harness profile to add into
+ */
+async function installBundled(entry = {}, { harnessAdd = null, store = null, profile = 'web' } = {}) {
+  const channel = String(entry.channel || 'dshns-store')
+  const spec = entry.package ? `${entry.package}@${entry.ref}` : null
+  if (channel === 'unresolved') {
+    return { ok: false, channel, reason: entry.reason || `${entry.id} has no installation channel yet` }
+  }
+  if (channel === 'harness-profile') {
+    if (typeof harnessAdd !== 'function') return { ok: false, channel, reason: 'no Harness plugin CLI is available' }
+    try {
+      const outcome = await harnessAdd({ profile, package: spec })
+      if (outcome?.ok === false) return { ok: false, channel, reason: outcome.reason || 'the Harness refused the plugin' }
+      return { ok: true, channel, profile, package: spec, version: entry.ref }
+    } catch (error) {
+      return { ok: false, channel, reason: String(error?.message || error) }
+    }
+  }
+  if (channel !== 'dshns-store') return { ok: false, channel, reason: `"${channel}" is not an installation channel` }
+  if (!store || typeof store.stage !== 'function') return { ok: false, channel, reason: 'no store is available' }
+  const looksLikeACommit = /^[0-9a-f]{7,40}$/i.test(String(entry.ref || '')) && !/^v?\d+\.\d+/.test(String(entry.ref || ''))
+  const staged = looksLikeACommit
+    ? store.stage({ source: entry.repo, revision: entry.ref })
+    : store.stage({ source: entry.repo, branch: entry.ref })
+  if (staged?.ok === false) return { ok: false, channel, reason: staged.reason || 'the store refused to stage it' }
+  const id = staged?.entry?.id || entry.id
+  if (typeof store.enable === 'function') {
+    const enabled = store.enable({ id })
+    if (enabled?.ok === false) return { ok: false, channel, staged: true, id, reason: enabled.reason || 'it was staged but not enabled' }
+  }
+  return { ok: true, channel, id, version: staged?.entry?.version || entry.ref }
+}
+
 module.exports = {
   createBundledPlugins,
   BUNDLED_MANIFEST,
   BUNDLED_STATE,
-  BUNDLED_FALLBACK
+  BUNDLED_FALLBACK,
+  BUNDLED_CHANNELS,
+  installBundled
 }

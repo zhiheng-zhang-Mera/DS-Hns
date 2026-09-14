@@ -22,7 +22,7 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
-const { createBundledPlugins } = require('./plugins/index.cjs')
+const { createBundledPlugins, installBundled } = require('./plugins/index.cjs')
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
@@ -1590,16 +1590,45 @@ function registerControlCenterIpc() {
  * manifest named and not whatever the default branch holds today.
  */
 async function installPinnedPlugin(entry = {}) {
-  const ref = String(entry.ref || '')
-  const looksLikeACommit = /^[0-9a-f]{7,40}$/i.test(ref) && !/^v?\d+\.\d+/.test(ref)
-  const staged = looksLikeACommit
-    ? installer().stage({ source: entry.repo, revision: ref })
-    : installer().stage({ source: entry.repo, branch: ref })
-  if (staged?.ok === false) return { ok: false, reason: staged.reason || 'the store refused to stage it' }
-  const id = staged?.entry?.id || entry.id
-  const enabled = installer().enable({ id })
-  if (enabled?.ok === false) return { ok: false, staged: true, id, reason: enabled.reason || 'it was staged but the store refused to enable it' }
-  return { ok: true, id, version: staged?.entry?.version || ref, compatibility: staged?.entry?.compatibility || null }
+  // The channel decides the tool (see `mega/plugins/index.cjs`): a Harness *client* plugin belongs to a Harness
+  // profile and only the Harness' own CLI can put it there; a `dshns.plugin/v1` plugin belongs to our store.
+  return installBundled(entry, {
+    profile: harnessProfile(),
+    harnessAdd: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'add', spec]),
+    store: { stage: (input) => installer().stage(input), enable: (input) => installer().enable(input) }
+  })
+}
+
+/** The Harness profile a bundled client plugin is installed into — the one the product boots (`web`). */
+function harnessProfile() {
+  return process.env.DSH_PROFILE || 'web'
+}
+
+/**
+ * Run the Harness' own plugin CLI (`dsh plugin …`, which forwards to pnpm inside the profile directory).
+ *
+ * It is the Harness' tool on purpose: the profile's plugin set is the Harness' business, and a product that
+ * wrote into that directory itself would be editing another application's install.
+ */
+function runHarnessPluginCli(args) {
+  try {
+    const nodeExe = resolveNodeExe()
+    const result = require('node:child_process').spawnSync(nodeExe, [DSH_ENTRY, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024
+    })
+    if (result.error) return { ok: false, reason: `the Harness plugin command could not run: ${result.error.message}` }
+    if (result.status !== 0) {
+      const detail = String(result.stderr || result.stdout || '').trim().split('\n').filter(Boolean).pop() || `dsh plugin exited ${result.status}`
+      return { ok: false, reason: detail }
+    }
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, reason: String(error?.message || error) }
+  }
 }
 
 /**
