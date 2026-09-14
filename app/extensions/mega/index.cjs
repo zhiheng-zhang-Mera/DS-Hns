@@ -26,6 +26,7 @@ const { createBundledPlugins } = require('./plugins/index.cjs')
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
+const { createStartupCache } = require('./startup-cache.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -1511,7 +1512,7 @@ function controlCenter() {
       return null
     }
   })()
-  return buildControlCenter({ snapshot: data, protection: protectionReport, bundled: bundledReport, boot })
+  return buildControlCenter({ snapshot: data, protection: protectionReport, bundled: bundledReport, boot, cache: startupCache().describe() })
 }
 
 /**
@@ -1597,6 +1598,8 @@ let bundledPlugins = null
 let megaItemRegistry = null
 /** The appearance controller: one decision over the glass and the wallpaper (`./appearance/index.cjs`). */
 let appearance = null
+/** The startup cache: what the last run looked like, as a warm-start hint (`./startup-cache.cjs`, §52). */
+let startupCacheState = null
 function megaItems() {
   if (megaItemRegistry) return megaItemRegistry
   megaItemRegistry = createMegaItems()
@@ -1604,6 +1607,74 @@ function megaItems() {
   // the rail it deserves.
   registerMegaItems()
   return megaItemRegistry
+}
+
+/**
+ * The startup cache (`./startup-cache.cjs`, §52-§54).
+ *
+ * It records what the owners last said — the workspace, the two backdrop pictures, the appearance numbers, the
+ * bundled plugin states, the protection layer's health and the boot's own cost — and reads them back as a
+ * warm-start hint for the Control Center's diagnostics. It never becomes a second source of truth: the
+ * wallpaper, glass, store and protection layer stay the owners, and a stale hint is reported as stale.
+ */
+function startupCache() {
+  if (startupCacheState) return startupCacheState
+  startupCacheState = createStartupCache({ root: PATHS.ROOT, log: (message) => log(`startup cache: ${message}`) })
+  return startupCacheState
+}
+
+/** Record this run for the next one. Called in the background: a cache is never worth a delay. */
+function rememberStartup() {
+  try {
+    const wallpaperState = wallpaper().describe()
+    const glassState = glass().describe()
+    const protectionState = (() => {
+      try {
+        return ctx?.protection?.describe?.() || null
+      } catch {
+        return null
+      }
+    })()
+    return startupCache().record({
+      workspace: workspace.getWorkspaceRoot(),
+      wallpaper: {
+        main: wallpaperState.main?.file || null,
+        dock: wallpaperState.dock?.file || null,
+        fit: { main: wallpaperState.main?.fit || null, dock: wallpaperState.dock?.fit || null }
+      },
+      appearance: {
+        glass: { blur: glassState.blur, opacity: glassState.opacity },
+        preset: appearanceController().describe({
+          glass: { blur: glassState.blur, opacity: glassState.opacity },
+          wallpaper: {
+            main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
+            dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
+          }
+        }).active
+      },
+      bundled: (() => {
+        try {
+          return bundled().describe().states
+        } catch {
+          return null
+        }
+      })(),
+      health: { degraded: (protectionState?.degraded || []).length, failed: (protectionState?.failed || []).length },
+      boot: (() => {
+        try {
+          return typeof ctx?.startup === 'function' ? ctx.startup() : null
+        } catch {
+          return null
+        }
+      })()
+      // `session` is deliberately not written: the official UI restores its own sessions, and a session id
+      // copied here would be a second, staler answer to a question the Harness already owns (§52's
+      // "restore first, verify after" applies to what *we* own).
+    })
+  } catch (error) {
+    log(`the startup cache was not updated: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error) }
+  }
 }
 
 /** Build the rail items. Kept apart from the IPC layer so a test can ask what the rail would show. */
@@ -2561,6 +2632,11 @@ async function start(context) {
         }
       })
       .catch((error) => log(`the bundled plugin pass failed without affecting anything else: ${error?.message || error}`))
+    // What this run looked like, for the next one (§52). Background, and a failure is a log line.
+    Promise.resolve()
+      .then(() => rememberStartup())
+      .then((recorded) => log(`startup cache: ${recorded?.ok === false ? `not updated (${recorded.reason})` : `remembered ${(recorded?.keys || []).join(', ')}`}`))
+      .catch((error) => log(`the startup cache pass failed without affecting anything else: ${error?.message || error}`))
   } catch (error) {
     log(`bundled plugin registration failed (the rest of Mega is unaffected): ${error?.message || error}`)
   }

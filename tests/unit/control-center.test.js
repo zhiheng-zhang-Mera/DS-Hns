@@ -47,6 +47,7 @@ function fixture(overrides = {}) {
       ]
     },
     boot: { state: 'ENHANCED', interactive: true, phases: [{ id: 'interactive' }], overBudget: [], ownOverhead: 2 },
+    cache: { at: 1_700_000_000_000, warm: true, ageMs: 60_000, entries: { workspace: 'D:/work/one', appearance: { preset: 'reading' } } },
     ...overrides
   }
 }
@@ -64,6 +65,10 @@ test('the sections are built from the dock\'s own snapshot, not from a second qu
   const diagnostics = built.sections.find((section) => section.id === 'diagnostics')
   assert.equal(diagnostics.rows.find((row) => row.cn === '本产品开销').value, '2ms')
   assert.equal(diagnostics.rows.find((row) => row.cn === '超预算阶段').value, 'none')
+  // §52: the cache is a hint about the previous run, and a cold start is not a fault.
+  assert.equal(diagnostics.rows.find((row) => row.cn === '上次启动缓存').value, 'warm')
+  assert.equal(diagnostics.rows.find((row) => row.cn === '上次工作区').value, 'D:/work/one')
+  assert.equal(buildControlCenter().sections.find((section) => section.id === 'diagnostics').rows.find((row) => row.cn === '上次启动缓存').value, 'cold')
 })
 
 test('every state offers the actions the layer can actually honour', () => {
@@ -105,6 +110,12 @@ test('the Control Center is wired: data, actions, panel and feature', () => {
     assert.match(index, new RegExp(`action === '${action}'`), `the ${action} action is not wired`)
   }
   assert.match(preload, /control: \{/)
+  // The cache is recorded by the extension in the background, with the owners' own values.
+  assert.match(index, /function startupCache\(\)/)
+  assert.match(index, /function rememberStartup\(\)/)
+  assert.match(index, /const \{ createStartupCache \} = require\('\.\/startup-cache\.cjs'\)/)
+  assert.match(index, /\.then\(\(\) => rememberStartup\(\)\)/)
+  assert.match(index, /session` is deliberately not written/, 'the cache must not keep a second copy of the Harness\' sessions')
   assert.match(html, /id="controlPanel"/)
   assert.match(html, /id="controlModules"/)
   assert.match(html, /id="controlPlugins"/)

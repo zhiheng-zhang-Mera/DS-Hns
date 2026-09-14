@@ -54,12 +54,13 @@ function pluginActions(state) {
 
 /**
  * @param {object} input
- * @param {object} input.snapshot    the dock's own snapshot
+ * @param {object} input.snapshot     the dock's own snapshot
  * @param {object} [input.protection] `protection.describe()`
  * @param {object} [input.bundled]    `bundled().describe()`
  * @param {object} [input.boot]       `startup.summary()`
+ * @param {object} [input.cache]      `startupCache().describe()` — a warm-start hint, never an owner (§52)
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -132,7 +133,10 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
         row('启动阶段', 'Boot phases', boot ? (boot.phases || []).length : '—'),
         row('启动状态', 'Boot state', boot?.state || '—', boot?.interactive ? 'ok' : null),
         row('本产品开销', 'Own overhead', boot?.ownOverhead === null || boot?.ownOverhead === undefined ? '—' : `${boot.ownOverhead}ms`),
-        row('超预算阶段', 'Over budget', (boot?.overBudget || []).join(', ') || 'none', (boot?.overBudget || []).length ? 'warn' : 'ok')
+        row('超预算阶段', 'Over budget', (boot?.overBudget || []).join(', ') || 'none', (boot?.overBudget || []).length ? 'warn' : 'ok'),
+        // §52: the cache is a hint about the *previous* run, and it says so — a cold start is not a fault.
+        row('上次启动缓存', 'Startup cache', cache?.at ? (cache.warm ? 'warm' : 'stale') : 'cold', cache?.warm ? 'ok' : null),
+        row('上次工作区', 'Last workspace', cache?.entries?.workspace || '—')
       ]
     }
   ]

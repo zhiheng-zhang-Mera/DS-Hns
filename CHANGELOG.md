@@ -3,6 +3,25 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## startup cache — 先恢复，后验证（updateplan/startup2.md §52–§54）
+
+**新增 `app/extensions/mega/startup-cache.cjs`：记住上一次运行长什么样，让启动先恢复、后验证**，而不是每次
+全量发现。记录：最近工作区、两个底片的图片与填充方式、外观数值与预设、bundled 插件状态、保护层健康、本次
+启动自己的开销。§54 的边界照做——市场**目录**属于市场，这里只记是否已装、版本与健康。
+
+**它不是第二份设置**：里面每个事实都有主人（壁纸文件、玻璃文件、商店已装集合、保护层），缓存只记录主人们
+上次说了什么，并当作热启动**提示**读回；冲突时主人是对的、缓存是陈旧的。因此它**不写 Harness 的会话 ID**
+——会话由官方 UI 自己恢复，再存一份只会给同一个问题留一个更旧的答案。
+
+三条让它安全的性质（都有测试）：**读不出来就是空缓存**（缺失/截断/改坏都答"什么都没记住"且不抛）、
+**写入经临时文件 + rename，失败只是日志**（能把自己写坏的缓存比没有缓存更糟）、**它会遗忘**（超过
+`maxAgeMs` 仍可读但不再算热启动，并如实报 `stale`）。
+
+落点：Control Center 诊断段多两行（上次启动缓存 warm/stale/cold、上次工作区），扩展在后台记录（绝不在启动
+路径做 IO）。**验证**：`tests/unit/startup-cache.test.js` 5/5（记录与读回、不拥有别的键、读不出来即空、
+过期不再是提示、写不进去不致命）＋ Control Center 的诊断行与接线断言；`scripts/verify.ps1` 增加缓存存在性、
+遗忘、容错与"不保存会话"的检查。
+
 ## control center — 增强层的管理面与保护面板（updateplan/startup2.md §45–§47）
 
 **展开态的 Dock 现在是增强层的管理面。** 新增 `app/extensions/mega/control-center.cjs`：它把"Dock 本来就在读

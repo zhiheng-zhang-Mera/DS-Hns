@@ -146,6 +146,11 @@ Check 'Control Center builds the six sections from the dock snapshot' ((($contro
 Check 'Control Center actions come from the module state' (($control -match 'function moduleActions') -and ($control -match 'function pluginActions'))
 Check 'The protection panel and the repair entry points exist in the dock' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="controlModules"') -and ((Get-Content "$ROOT\app\extensions\mega\ui\control-panel.js" -Raw) -match 'data-control-action'))
 Check 'Control Center channels are wired end to end' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:control-action'") -and ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'control: \{'))
+# ---- Startup cache (startup2.md section 52-54) ----
+$cache = Get-Content "$ROOT\app\extensions\mega\startup-cache.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Startup cache exists and forgets' (($cache -match 'function createStartupCache') -and ($cache -match 'maxAgeMs') -and ($cache -match 'function warm'))
+Check 'An unreadable cache is an empty cache, and a write is never fatal' (($cache -match 'this is a cold start') -and ($cache -match 'the run continues'))
+Check 'The cache records what the owners said, and does not keep the Harness sessions' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'function rememberStartup') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'is deliberately not written'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")
