@@ -54,3 +54,34 @@
   宿主端插一条 host row 并用同源 HTTP 路由给浏览器端供数、客户端经 `@deepseek-ai/dsh-client-runtime` 注入）。
 - Floating Orb（拖动、位置持久化、边缘吸附、不抢焦点、不挡输入框、刷新后恢复）、Mini Panel、Full Page。
 - 旧 Mega 独立 UI 壳的删除（必须在 Orb/Mini/Full 验收之后，见工作书 §30）。
+
+### 已完成：Mega Core Plugin 包与宿主端
+
+`app/plugins/mega-core/` —— 契约不是猜的，是从**已安装的** `dsh-plugin-wallpaper-engine` 读出来的（它的
+`package.json`、`cordis.patch.yml`、`lib/index.js` 的 `inject = ['webServer']` + `webServer.register({kind:'exact',
+path, handler})`、以及客户端半边的 `window.__ModuleLoader__.load({ id, factory })` 形式都是权威样例）。
+
+包内容：`dsh.bundle.patch → cordis.patch.yml`（只 `insert` 一行 host row，绝不覆盖官方行）、`dsh.client`
+（`platform: web`、`immediately: true`、注入 `@deepseek-ai/dsh-client-runtime`）、以及宿主端提供的三条**同源**路由：
+
+| 路由 | 回答 |
+| --- | --- |
+| `GET /mega-core/health` | 插件是否在、以及 DS-Hns 的治理桥是否可达 |
+| `GET /mega-core/governance` | Control Center 显示的那份快照（插件 / 保护层 / 启动 / 待人工项） |
+| `POST /mega-core/action` | 具名动作：`check` / `retry` / `reset-fallback` / `repair` / `disable` / `enable` |
+
+宿主端**不持有状态**：它每次请求都去读 DS-Hns 的治理桥（token 来自发现文件），所以插件不会缓存"健康"而在真实
+降级后继续显示健康；DS-Hns 没在跑就如实回 `available: false` + 原因。`inject = ['webServer']` 是硬依赖（社区插件
+的注释解释了原因：`ctx.get()` 在挂载期有竞态，会让路由被 SPA 回退悄悄吃掉）。
+
+测试：`tests/unit/mega-core-plugin.test.js` 5 项（包与补丁的声明、三条路由挂载并在卸载时全部撤销、
+对着**真实治理桥**代理（含 token、409 拒绝原样传回、405 方法拒绝）、DS-Hns 未运行时如实报不可用、
+发现文件声称非回环 host 时拒绝）。
+
+### 下一步（Phase 1 剩余）
+
+1. 客户端半边 `lib/client.js`：`window.__ModuleLoader__.load({ id, factory })` + `apply/inject`，画
+   Floating Orb（拖动、位置持久化、边缘吸附、不抢焦点、不挡输入框、刷新后恢复）、Mini Panel（§4.2 的
+   hover/展开内容）与 Full Page（§4.4 列出的治理字段）。
+2. 全链路验收（orb 可用、官方 UI 不受影响、治理数据正确）。
+3. 验收通过后再删除旧 Mega 独立 UI 壳（§30：验收在前）。
