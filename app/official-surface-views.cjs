@@ -80,6 +80,16 @@ function createOfficialSurfaceViews({
   getOfficialView,
   getWindowSize,
   getDockWidth,
+  /**
+   * The overlay exists for the user's wallpaper and for nothing else.
+   *
+   * That is the integrated build's situation: the official UI is the window's own page, so there is
+   * no protected sibling to draw a frame around and no theme surface to paint — but a wallpaper is
+   * a background, and a background has to be *over* the page to be seen at all. In this mode the
+   * overlay is sized to the whole window, refuses every theme payload, and carries only what the
+   * shell writes through `paintWallpaper()`.
+   */
+  wallpaperOnly = false,
   log = () => {},
   electron = null
 } = {}) {
@@ -141,6 +151,15 @@ function createOfficialSurfaceViews({
 
   function surfaceBounds(surfaceId) {
     const official = officialBounds()
+    // Wallpaper-only mode has no official view to describe, so the overlay takes the window's own
+    // content box: it is the background of everything the window shows, and a background that only
+    // covered part of it would be a rectangle with a story.
+    if (!official && wallpaperOnly && surfaceId === SURFACE.OFFICIAL_OVERLAY) {
+      const size = typeof getWindowSize === 'function' ? getWindowSize() : null
+      const [width, height] = Array.isArray(size) ? size : [0, 0]
+      if (!(Number(width) > 0) || !(Number(height) > 0)) return null
+      return { x: 0, y: 0, width: Math.round(Number(width)), height: Math.round(Number(height)) }
+    }
     if (!official) return null
     if (surfaceId === SURFACE.OFFICIAL_OVERLAY) return { ...official }
     if (surfaceId === SURFACE.OFFICIAL_SHELL) {
@@ -382,6 +401,10 @@ function createOfficialSurfaceViews({
    */
   function paintSurface(surfaceId, themePayload) {
     if (!enabled) return { ok: false, reason: 'surfaces_disabled' }
+    // A wallpaper-only overlay takes no theme. The whole point of the mode is that this view exists
+    // for the user's background: allowing a theme payload through would put the retired overlay
+    // effects back over the official UI, which is the thing that was retired in the first place.
+    if (wallpaperOnly) return { ok: false, reason: 'wallpaper_only', message: 'this surface carries the user wallpaper and takes no theme' }
     if (!PAINTABLE.includes(surfaceId)) {
       return { ok: false, reason: 'surface_protected', message: `${surfaceId} is not paintable by DS-Hns` }
     }

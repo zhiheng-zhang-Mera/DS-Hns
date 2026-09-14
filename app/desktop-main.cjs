@@ -1706,11 +1706,40 @@ function registerFrontendIpc() {
 async function createOfficialSurfaces() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
   if (!officialView) {
-    // The official UI is the window's own page, so there is no protected sibling
-    // to draw a frame around: a child view here would sit *on top* of the official
-    // UI, which is exactly what the Daily UX plan forbids.
-    logLine('official surfaces skipped: the official UI is the window page, and nothing is stacked above it')
-    return false
+    // The official UI is the window's own page, so there is no protected sibling to draw a frame
+    // around and no theme surface to paint: the shell and the theme's own overlay stay unbuilt.
+    //
+    // One view is still created, and deliberately — the **wallpaper**. A background is the one thing
+    // that cannot be drawn anywhere else: the shell sits behind this page and the dock is a strip
+    // beside it, and a background has to be *over* the page to be seen at all. So what is created
+    // here is a wallpaper view: sized to the whole window, input-transparent, never focusable, no
+    // preload, a document with no script, and it refuses every theme payload (`wallpaperOnly`). What
+    // the old rule forbade was stacking a *themed* surface over the official UI; a background that
+    // takes no click, no key and no scroll is not that.
+    if (!OFFICIAL_OVERLAY_ENABLED) {
+      logLine('official surfaces skipped: the official UI is the window page, and the wallpaper view is off (DSH_OFFICIAL_OVERLAY=0)')
+      return false
+    }
+    if (officialSurfaces) return true
+    officialSurfaces = createOfficialSurfaceViews({
+      getWindow: () => mainWindow,
+      getOfficialView: () => officialView,
+      getWindowSize: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : null),
+      getDockWidth: () => integratedDockWidth(),
+      wallpaperOnly: true,
+      log: (message) => logLine(`[surface] ${message}`),
+      electron: { WebContentsView }
+    })
+    try {
+      officialSurfaces.createOverlay()
+      officialSurfaces.applyLayout()
+      for (const event of ['resize', 'maximize', 'unmaximize', 'restore']) mainWindow.on(event, () => officialSurfaces && officialSurfaces.applyLayout())
+      logLine('official_overlay attached as the wallpaper view (whole window, input-transparent, script-free, takes no theme)')
+      return true
+    } catch (error) {
+      logLine(`the wallpaper view failed to attach; the official renderer is unaffected: ${error?.stack || error}`)
+      return false
+    }
   }
   if (officialSurfaces) return true
   officialSurfaces = createOfficialSurfaceViews({

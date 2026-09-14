@@ -324,12 +324,27 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // official page or a strip beside it, and a background has to be over the page to be seen at all.
   // It stays opt-*out*, so a run that would rather not have a view above the official renderer can
   // still say so.
+  // ...and there are exactly two ways the overlay comes into being, one per build, each behind its
+  // own guard:
+  //
+  //   * **the official UI is the window's page** (the shipped, integrated build) — the shell and the
+  //     theme's overlay are not built, because there is no protected sibling to frame and nothing is
+  //     themed; what *is* built is the wallpaper view, sized to the whole window and taking no theme
+  //     payload at all (`wallpaperOnly`), because a background is the one thing that cannot be drawn
+  //     anywhere else: the shell sits behind that page and the dock is a strip beside it;
+  //   * **a separate official view** — the shell is framed and the overlay may be switched on as a
+  //     theme surface, which stays opt-in.
+  //
+  // Either way it is opt-*out* as a whole: DSH_OFFICIAL_OVERLAY=0 means no view above the official
+  // page, which is the property the retirement was protecting.
   assert.match(main, /official_shell view attached \(visual-only, input passthrough\)/)
   assert.match(main, /const OFFICIAL_OVERLAY_ENABLED = process\.env\.DSH_OFFICIAL_OVERLAY !== '0'/)
   assert.match(main, /if \(OFFICIAL_OVERLAY_ENABLED\) \{\n\s*officialSurfaces\.createOverlay\(\)/)
+  assert.match(main, /wallpaperOnly: true[\s\S]{0,500}officialSurfaces\.createOverlay\(\)/, 'the integrated build does not create the wallpaper view')
+  assert.match(main, /official_overlay attached as the wallpaper view \(whole window, input-transparent, script-free, takes no theme\)/)
   const surfacesFactory = main.slice(main.indexOf('async function createOfficialSurfaces('), main.indexOf('async function createIntegratedMegaDock'))
   const overlayCalls = surfacesFactory.match(/officialSurfaces\.createOverlay\(\)/g) || []
-  assert.equal(overlayCalls.length, 1, 'the overlay is created in exactly one place, inside its own guard')
+  assert.equal(overlayCalls.length, 2, 'the overlay is created once per build, each inside its own guard')
   // ...and the extension receives an adapter whose only operation is a paint.
   assert.match(main, /function createOfficialSurfaceAdapter\(\)/)
   assert.match(main, /officialSurfaceAdapter,/)

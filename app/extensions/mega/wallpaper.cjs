@@ -41,7 +41,14 @@ const path = require('node:path')
 
 /** What a wallpaper may be. An extension is not a guarantee, but it is the check that costs nothing. */
 const WALLPAPER_KINDS = Object.freeze({
-  image: Object.freeze(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif']),
+  // Stills, animations and vectors: everything a CSS background can draw. An SVG is safe *here*
+  // precisely because of where it is drawn — a background image is loaded as an image document, so
+  // its scripts never run and it can never become a page — and an animated GIF or WebP animates
+  // without any of that changing.
+  image: Object.freeze([
+    '.png', '.apng', '.jpg', '.jpeg', '.jfif', '.pjpeg', '.webp', '.gif',
+    '.avif', '.svg', '.svgz', '.bmp', '.ico'
+  ]),
   video: Object.freeze(['.mp4', '.webm', '.m4v'])
 })
 
@@ -86,11 +93,18 @@ const MAX_ASSET_BYTES = 12 * 1024 * 1024
 /** The mime type of a `data:` URL, from the extension. */
 const MIME_BY_EXTENSION = Object.freeze({
   '.png': 'image/png',
+  '.apng': 'image/apng',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.jfif': 'image/jpeg',
+  '.pjpeg': 'image/jpeg',
   '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.avif': 'image/avif',
+  '.svg': 'image/svg+xml',
+  '.svgz': 'image/svg+xml',
+  '.bmp': 'image/bmp',
+  '.ico': 'image/x-icon',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.m4v': 'video/x-m4v'
