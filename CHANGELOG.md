@@ -3,6 +3,20 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 安装通道实测通过，两个 claim 分开记（updateplan/startup2.md §19–§23）
+
+**通道不是推出来的，是跑出来的**：用一个**一次性 `DSH_HOME`**（临时目录，用完删除，绝不碰用户的 `data/`）执行
+`dsh plugin --profile hns-verify add @dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1` —— 两条都
+exit 0，并且该 profile 的 `package.json` 里出现的正是这两个**钉住的版本**。顺带确认了这条通道的前提：需要 `pnpm`
+（Harness 的 `plugin` 子命令就是转发给它）。
+
+因此清单把两个 claim 分开记：**`channelVerified: true`**（命令形态、包名、版本都实测过；管理器描述里也带出这个
+字段）与 **`tested: false`**（插件在本产品里的运行时行为还没测）。两者不是一个意思，混在一起会让"命令能跑"被读成
+"插件能用"——而后者才是接入完成。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12 新增断言：两条都 `channelVerified`、都不冒充 `tested`，
+且 `describe().manifest` 如实带出 channel / channelVerified / tested 三个字段。
+
 ## bundled plugins — 市场插件其实在 npm 上，与我上一轮的结论相反（updateplan/startup2.md §19–§23）
 
 **上一轮我把 `@dsh-market/plugin` 标成 `unresolved`，那是错的 —— 读的是那个仓库根目录的 `package.json`**

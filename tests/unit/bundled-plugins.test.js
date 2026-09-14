@@ -70,6 +70,17 @@ test('the shipped manifest pins real references and never says "latest"', () => 
   assert.equal(market.package, '@dsh-market/plugin')
   assert.match(market.ref, /^\d+\.\d+\.\d+$/, 'the market must be pinned to a published version')
   assert.equal(/latest/i.test(market.ref), false)
+  // Two claims, kept apart: the install command was run for real in a throwaway profile, the plugins have not
+  // been run inside the product yet.
+  for (const entry of BUNDLED_MANIFEST.plugins) {
+    assert.equal(entry.channelVerified, true, `${entry.id}'s installation channel is not recorded as verified`)
+    assert.equal(entry.tested, false, `${entry.id} claims a runtime test nobody ran`)
+  }
+  const reported = build().manager.describe().manifest.plugins
+  assert.deepEqual(reported.map((entry) => [entry.id, entry.channel, entry.channelVerified, entry.tested]), [
+    ['dsh-wallpaper-engine', 'harness-profile', true, false],
+    ['@dsh-market/plugin', 'harness-profile', true, false]
+  ])
 })
 
 test('an untested pin is declared, reported, and never installed', async () => {

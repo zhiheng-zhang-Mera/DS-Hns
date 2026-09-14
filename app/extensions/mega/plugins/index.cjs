@@ -58,6 +58,13 @@
  * `tested: false` remains on both, and for the wallpaper plugin it now means the narrower thing: the reference
  * exists and its package is real, but nobody has run it inside this product yet. The manager will not install an
  * untested reference, so adoption is still a live test and a one-line flip.
+ *
+ * **`channelVerified`** is the third, narrower thing, and it was earned rather than assumed: the command the
+ * `harness-profile` channel builds was run for real, in a throwaway `DSH_HOME` with its own profile —
+ * `dsh plugin --profile hns-verify add @dsh-market/plugin@0.4.7` and the same for
+ * `dsh-plugin-wallpaper-engine@0.7.1` — and both landed in that profile's `package.json` at exactly those
+ * versions. So: the command shape, the package names and the version pins are verified; what is *not* is the
+ * plugins' runtime behaviour inside this product, which is what `tested` means and why it is still false.
  */
 const BUNDLED_MANIFEST = Object.freeze({
   version: 'startup2',
@@ -71,6 +78,8 @@ const BUNDLED_MANIFEST = Object.freeze({
       package: 'dsh-plugin-wallpaper-engine',
       ref: 'v0.7.1',
       commit: '4de97fc88905077fac879c6bf493aed3575c3b9e',
+      /** The install command was run for real in a throwaway profile (see the note above). Not a runtime test. */
+      channelVerified: true,
       tested: false,
       required: false
     }),
@@ -83,6 +92,7 @@ const BUNDLED_MANIFEST = Object.freeze({
       package: '@dsh-market/plugin',
       ref: '0.4.7',
       commit: '2c34728e7e0e478774e91282d6ec1723fe4b9037',
+      channelVerified: true,
       tested: false,
       required: false
     })
@@ -218,7 +228,21 @@ function createBundledPlugins({
 
   function describe() {
     return {
-      manifest: { version: manifest.version, plugins: entries.map((entry) => ({ id: entry.id, role: entry.role, ref: entry.ref, tested: entry.tested, required: entry.required })) },
+      manifest: {
+        version: manifest.version,
+        plugins: entries.map((entry) => ({
+          id: entry.id,
+          role: entry.role,
+          channel: entry.channel || 'dshns-store',
+          package: entry.package || null,
+          ref: entry.ref,
+          // Two different claims, kept apart on purpose: the channel was exercised for real, the plugin has not
+          // been run inside the product yet.
+          channelVerified: entry.channelVerified === true,
+          tested: entry.tested === true,
+          required: entry.required === true
+        }))
+      },
       plugins: entries.map((entry) => assess(entry.id)),
       states: Object.fromEntries(entries.map((entry) => [entry.id, assess(entry.id).state]))
     }

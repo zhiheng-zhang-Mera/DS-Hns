@@ -143,6 +143,12 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
 
 因此清单里两条都是 `channel: 'harness-profile'`（`unresolved` 分支保留在代码里，供将来真的需要决定的条目使用）。
 
+**安装通道是实测过的，不是推出来的**：用一个**一次性 `DSH_HOME`**（临时目录，用完删除，绝不碰用户的 `data/`）跑了
+`dsh plugin --profile hns-verify add @dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1`，两条都
+exit 0，并且那个 profile 的 `package.json` 里出现的正是这两个**钉住的版本**。所以清单现在把两个claim分开记：
+`channelVerified: true`（命令形态、包名、版本都实测过）与 `tested: false`（**插件在本产品里的运行时行为还没测**）。
+顺带确认一个环境前提：这条通道需要 `pnpm`（Harness 的 `plugin` 子命令就是转发给它）。
+
 于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
 路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。
