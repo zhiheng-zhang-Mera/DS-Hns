@@ -26,6 +26,8 @@
  *      says so rather than pretending the whole thing failed.
  */
 
+const { validate, toLayerPatch } = require('./tokens.cjs')
+
 /**
  * The presets, in the units both layers already clamp to: glass opacity is a percentage (5-100), blur is
  * pixels (0-40), and a backdrop's opacity and scrim are percentages (0-100).
@@ -40,6 +42,15 @@ const APPEARANCE_PRESETS = Object.freeze({
     wallpaper: {
       main: { opacity: 60, blur: 12, scrim: 18 },
       dock: { opacity: 82, blur: 12, scrim: 18 }
+    },
+    /** §5's numbers, under §27's names: brightness 60%, contrast 90%, saturation 80%, darkening 18%. */
+    tokens: {
+      '--dsh-surface-opacity': 82,
+      '--dsh-surface-blur': 12,
+      '--dsh-wallpaper-brightness': 0.6,
+      '--dsh-wallpaper-contrast': 0.9,
+      '--dsh-wallpaper-saturation': 0.8,
+      '--dsh-wallpaper-darken': 18
     }
   }),
   immersive: Object.freeze({
@@ -51,6 +62,14 @@ const APPEARANCE_PRESETS = Object.freeze({
     wallpaper: {
       main: { opacity: 78, blur: 8, scrim: 12 },
       dock: { opacity: 65, blur: 8, scrim: 12 }
+    },
+    tokens: {
+      '--dsh-surface-opacity': 60,
+      '--dsh-surface-blur': 10,
+      '--dsh-wallpaper-brightness': 0.8,
+      '--dsh-wallpaper-contrast': 1,
+      '--dsh-wallpaper-saturation': 1,
+      '--dsh-wallpaper-darken': 12
     }
   }),
   reading: Object.freeze({
@@ -62,6 +81,14 @@ const APPEARANCE_PRESETS = Object.freeze({
     wallpaper: {
       main: { opacity: 45, blur: 14, scrim: 22 },
       dock: { opacity: 90, blur: 14, scrim: 22 }
+    },
+    tokens: {
+      '--dsh-surface-opacity': 90,
+      '--dsh-surface-blur': 14,
+      '--dsh-wallpaper-brightness': 0.55,
+      '--dsh-wallpaper-contrast': 0.95,
+      '--dsh-wallpaper-saturation': 0.8,
+      '--dsh-wallpaper-darken': 22
     }
   })
 })
@@ -114,10 +141,24 @@ function createAppearanceController({ glass = null, wallpaper = null, log = () =
   async function apply(id) {
     const preset = presetById(id)
     if (!preset) return { ok: false, reason: `"${id}" is not an appearance preset; expected ${APPEARANCE_PRESET_IDS.join(', ')}` }
-    const results = { preset: preset.id, glass: null, wallpaper: null }
+    /**
+     * The preset's own numbers go through the §27 whitelist before they reach a layer.
+     *
+     * The product is not exempt from the boundary it publishes: a preset whose token is misspelled or out of
+     * range is refused with a reason, and whatever is left still applies. That is also what keeps the two
+     * shapes — the layer numbers and the tokens — from drifting apart.
+     */
+    const tokens = validate(preset.tokens || {})
+    const derived = toLayerPatch(tokens.accepted)
+    const glassPatch = { ...preset.glass, ...derived.glass }
+    const wallpaperPatch = {
+      main: { ...preset.wallpaper.main, ...derived.wallpaper.main },
+      dock: { ...preset.wallpaper.dock, ...derived.wallpaper.dock }
+    }
+    const results = { preset: preset.id, glass: null, wallpaper: null, tokens: { accepted: tokens.tokens, refused: tokens.refused } }
     if (typeof glass === 'function') {
       try {
-        results.glass = await glass({ ...preset.glass })
+        results.glass = await glass(glassPatch)
       } catch (error) {
         results.glass = { ok: false, reason: String(error?.message || error) }
         log(`appearance: the glass layer refused the ${preset.id} preset (${results.glass.reason})`)
@@ -125,7 +166,7 @@ function createAppearanceController({ glass = null, wallpaper = null, log = () =
     }
     if (typeof wallpaper === 'function') {
       try {
-        results.wallpaper = await wallpaper({ main: { ...preset.wallpaper.main }, dock: { ...preset.wallpaper.dock } })
+        results.wallpaper = await wallpaper(wallpaperPatch)
       } catch (error) {
         results.wallpaper = { ok: false, reason: String(error?.message || error) }
         log(`appearance: the wallpaper refused the ${preset.id} preset (${results.wallpaper.reason})`)
@@ -146,6 +187,7 @@ function createAppearanceController({ glass = null, wallpaper = null, log = () =
         default: APPEARANCE_PRESETS[id].default,
         note: APPEARANCE_PRESETS[id].note,
         glass: { ...APPEARANCE_PRESETS[id].glass },
+        tokens: { ...APPEARANCE_PRESETS[id].tokens },
         wallpaper: {
           main: { ...APPEARANCE_PRESETS[id].wallpaper.main },
           dock: { ...APPEARANCE_PRESETS[id].wallpaper.dock }

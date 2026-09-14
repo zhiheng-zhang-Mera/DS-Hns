@@ -255,6 +255,28 @@ Dock，避免面板显示一个屏幕上并不存在的玻璃。
 
 ## 4. 验收怎么读
 
+## 3.8 第九轮：外观 token 白名单（`updateplan/startup2.md` §27）
+
+[app/extensions/mega/appearance/tokens.cjs](../app/extensions/mega/appearance/tokens.cjs)：把"外观提供者允许改什么"
+写成一个**封闭清单** —— `--dsh-surface-opacity/blur/tint` 与 `--dsh-wallpaper-brightness/contrast/saturation/darken`。
+不在清单里的名字按名字拒绝，数值按各自区间夹取，被接受的部分翻译成两个图层已经在用的数字。
+
+**另一半才是重点**：DOM、组件结构、按钮模板、布局网格、窗口控制、任意 JS 钩子**根本没有词汇**。这不是"奇怪的名字
+不太可能出现"，而是让壁纸插件无法演化成前端 fork 的方式；测试逐个断言这些名字被拒绝，并给出可读原因
+（"an appearance provider may paint, not take over"）。
+
+它从发布那天起就对我们自己生效：三套阅读预设的数值现在以 token 形式声明（§5 的 亮度 60%/对比度 90%/饱和度 80%/
+暗化 18% 等），`apply()` 先过白名单再落到图层 —— 产品不豁免自己发布的边界，预设里写错的 token 会被拒绝并带原因
+返回，其余部分照常生效。图层侧也具名：`wallpaper.cjs` 把图片的 filter 作为 `--dsh-wallpaper-*` 写进那一层的文档，
+`wallpaper-window.html` 用它们做 `brightness()/contrast()/saturate()`，而 `--dsh-wallpaper-darken` 与图层的
+`scrim` 是**同一个数字的两个名字**（`patchKey` 明确这一点），避免"有多暗"出现两个答案。
+
+测试：`tests/unit/appearance-tokens.test.js` 5 项（词表恰为七项、DOM/结构/布局/窗口/脚本名字被拒、未知名字被拒、
+数值按区间夹取与非法值被拒、接受后的补丁只到玻璃与图片、CSS 片段带各自单位、空/全拒绝补丁不产生任何东西）＋
+预设测试新增"token 与图层数字必须一致"的断言。
+
+## 4. 验收怎么读
+
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、
   `ENHANCED` 只在延迟工作落定后出现，以及**启动顺序**（骨架先于 Harness、可选层全部晚于
   INTERACTIVE）。

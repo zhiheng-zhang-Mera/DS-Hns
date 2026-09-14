@@ -52,8 +52,17 @@ test('applying a preset writes both layers with that preset\'s numbers', async (
   const result = await controller.apply('reading')
   assert.equal(result.ok, true)
   assert.deepEqual(writes[0], { layer: 'glass', patch: { blur: 14, opacity: 90 } })
-  assert.deepEqual(writes[1].patch.main, { opacity: 45, blur: 14, scrim: 22 })
-  assert.deepEqual(writes[1].patch.dock, { opacity: 90, blur: 14, scrim: 22 })
+  // The layer numbers, plus what the §27 tokens derived from the same preset: the filter the picture gets.
+  assert.deepEqual(writes[1].patch.main, { opacity: 45, blur: 14, scrim: 22, brightness: 0.55, contrast: 0.95, saturation: 0.8 })
+  assert.deepEqual(writes[1].patch.dock, { opacity: 90, blur: 14, scrim: 22, brightness: 0.55, contrast: 0.95, saturation: 0.8 })
+  assert.deepEqual(result.tokens.refused, [], 'a shipped preset used a token outside the §27 vocabulary')
+  // The two shapes describe one appearance: the tokens and the layer numbers must agree.
+  for (const id of APPEARANCE_PRESET_IDS) {
+    const preset = APPEARANCE_PRESETS[id]
+    assert.equal(preset.tokens['--dsh-surface-opacity'], preset.glass.opacity, `${id}: the surface token and the glass number disagree`)
+    assert.equal(preset.tokens['--dsh-surface-blur'], preset.glass.blur, `${id}: the blur token and the glass number disagree`)
+    assert.equal(preset.tokens['--dsh-wallpaper-darken'], preset.wallpaper.main.scrim, `${id}: the darkening token and the scrim disagree`)
+  }
   assert.equal(controller.describe().lastApplied, 'reading')
 })
 
