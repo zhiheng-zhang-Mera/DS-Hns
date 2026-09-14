@@ -140,6 +140,12 @@ Check 'Appearance controller ships the three readability presets' (($appearance 
 Check 'Readability comes first: every preset is complete without a wallpaper' (($appearance -match 'works with \*no\*') -and ($appearance -match 'scrim'))
 Check 'One layer failing does not take the other with it' (($appearance -match 'the glass layer refused') -and ($appearance -match 'the wallpaper refused'))
 Check 'The presets are wired to both layers and to the panel' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:appearance'") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearancePreset"'))
+# ---- MEGA Control Center and Protection panel (startup2.md section 45-47) ----
+$control = Get-Content "$ROOT\app\extensions\mega\control-center.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Control Center builds the six sections from the dock snapshot' ((($control -match "'execution'") -and ($control -match "'automation'") -and ($control -match "'resources'") -and ($control -match "'extensions'") -and ($control -match "'protection'") -and ($control -match "'diagnostics'")))
+Check 'Control Center actions come from the module state' (($control -match 'function moduleActions') -and ($control -match 'function pluginActions'))
+Check 'The protection panel and the repair entry points exist in the dock' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="controlModules"') -and ((Get-Content "$ROOT\app\extensions\mega\ui\control-panel.js" -Raw) -match 'data-control-action'))
+Check 'Control Center channels are wired end to end' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:control-action'") -and ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'control: \{'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

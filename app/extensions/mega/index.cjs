@@ -25,6 +25,7 @@ const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
 const { createBundledPlugins } = require('./plugins/index.cjs')
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
+const { buildControlCenter } = require('./control-center.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -84,6 +85,9 @@ const CHANNELS = [
   'mega:ui-glass', 'mega:ui-glass-set',
   // The appearance presets: one decision over both layers (updateplan/startup2.md section 26-28).
   'mega:appearance', 'mega:appearance-set',
+  // The Control Center: the enhanced layer's execution, resources, extensions, protection and diagnostics,
+  // plus the actions that belong to it (retry / repair / disable / enable / fall back).
+  'mega:control-center', 'mega:control-action',
   // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
   'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
   // The bundled community plugins: what the release pinned, what is installed, and repair.
@@ -1466,6 +1470,95 @@ function installer() {
 }
 
 /**
+ * The MEGA Control Center (`updateplan/startup2.md` §45-§47).
+ *
+ * The expanded dock is where the enhancement layer is *managed*: what is running, what it costs, what is
+ * degraded, and what can be done about it. It is built here as data — sections of rows with a value and a
+ * tone, plus the protection modules that carry actions — so the dock renders it generically and a new
+ * section is a change in one place.
+ *
+ * Two rules from the plan are visible in the shape of the data:
+ *
+ *   * **the panel reads the same snapshot the rest of the dock does** — not a second query with its own
+ *     idea of the state, so a number cannot disagree with the panel next to it;
+ *   * **the actions are the ones the layer actually has** (§47): health re-read, retry, repair (bundled
+ *     plugins only, and only against a *tested* pin), disable/enable, and "let the fallback stand". None
+ *     of them is a Core setting scattered somewhere else.
+ */
+function controlCenter() {
+  const data = snapshot()
+  // The three reports the enhancement layer owns. Each is read defensively: a panel that cannot be
+  // drawn because one report threw would be the opposite of a diagnostics surface.
+  const protectionReport = (() => {
+    try {
+      return ctx?.protection?.describe?.() || null
+    } catch {
+      return null
+    }
+  })()
+  const bundledReport = (() => {
+    try {
+      return bundled().describe()
+    } catch (error) {
+      log("the bundled plugin report is unavailable: " + (error?.message || error))
+      return null
+    }
+  })()
+  const boot = (() => {
+    try {
+      return typeof ctx?.startup === 'function' ? ctx.startup() : null
+    } catch {
+      return null
+    }
+  })()
+  return buildControlCenter({ snapshot: data, protection: protectionReport, bundled: bundledReport, boot })
+}
+
+/**
+ * Do one thing the Control Center offers (§47). Every action answers; none of them throws.
+ *
+ * `repair` is the bundled manager's own path — which refuses while the pin is untested — and `disable` /
+ * `enable` go through the store, because the user's decision about a plugin belongs in the store's record
+ * rather than in a second copy here.
+ */
+async function controlAction(payload = {}) {
+  const action = String(payload.action || '')
+  const id = String(payload.id || '')
+  if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
+  try {
+    if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
+    if (action === 'retry') return { ok: true, action, id, result: await ctx.protection?.start?.(id) }
+    if (action === 'reset-fallback') return { ok: true, action, id, result: await ctx.protection?.stop?.(id) }
+    if (action === 'repair') return { ok: true, action, id, result: await bundled().repair(id) }
+    if (action === 'disable' || action === 'enable') {
+      const outcome = action === 'disable' ? await installer().disable({ id }) : await installer().enable({ id })
+      if (outcome?.ok === false) return { ok: false, action, id, reason: outcome.reason || 'the store refused' }
+      // The store's answer is the truth about the plugin set; the panel re-reads it after this.
+      if (typeof reloadInstalledPlugins === 'function') await reloadInstalledPlugins(`control-center ${action}`)
+      return { ok: true, action, id, result: outcome }
+    }
+    return { ok: false, action, id, reason: `"${action}" is not a Control Center action` }
+  } catch (error) {
+    log(`control center action ${action} failed: ${error?.stack || error}`)
+    return { ok: false, action, id, reason: String(error?.message || error) }
+  }
+}
+
+function registerControlCenterIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`control center ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:control-center', guard(() => controlCenter()))
+  ipcMain.handle('mega:control-action', guard((_event, payload = {}) => controlAction(payload || {})))
+}
+
+/**
  * The bundled community plugins, as a manager over the store (`./plugins/index.cjs`).
  *
  * It reads the *store's own* record of what is installed and what the user decided, and it is the only
@@ -1829,6 +1922,8 @@ function registerIpc() {
   registerGlassIpc()
   // The appearance presets: one decision over the two layers, registered beside the glass they use.
   registerAppearanceIpc()
+  // The Control Center: what the enhancement layer is doing, and the actions that belong to it (§45-§47).
+  registerControlCenterIpc()
   // The wallpaper is chrome for the same reason, and it is also what the dock's first paint asks
   // for, so it is registered with the glass rather than behind a switch.
   registerWallpaperIpc()

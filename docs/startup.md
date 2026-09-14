@@ -161,8 +161,6 @@ dock 只负责渲染（`renderRail`），不知道任何条目的含义；`featu
 以及"折叠栏由注册表驱动"的静态断言），并同步更新了原先钉住旧方框的四个测试（architecture-contract、
 mega-dock-render、sub-worker-ui、sub-worker-default-regression）。
 
-## 4. 验收怎么读
-
 ## 3.4 第五轮：外观控制器与阅读预设（`updateplan/startup2.md` §26–§28、§5）
 
 两个图层早就在（壁纸：每个底片一张图 + 不透明度/模糊/压暗；磨砂玻璃：Dock 的材质），缺的是**对它们的
@@ -186,6 +184,31 @@ Dock，避免面板显示一个屏幕上并不存在的玻璃。
 
 测试：`tests/unit/appearance-presets.test.js` 7 项（三套预设且只有一个是默认、数值落在图层会夹取的范围内、
 阅读档最严、应用时两个图层各自收到正确数值、玻璃失败不带走壁纸、未知预设按名拒绝、混合值报混合、接线静态断言）。
+
+## 3.5 第六轮：MEGA Control Center 与 Protection 面板（`updateplan/startup2.md` §45–§47）
+
+展开态的 Dock 现在是增强层的**管理面**：[app/extensions/mega/control-center.cjs](../app/extensions/mega/control-center.cjs)
+把"Dock 本来就在读的那一份快照"加上保护层与 bundled 插件的两份报告，变成六段数据 ——
+**执行 / 自动化 / 资源 / 扩展 / 保护层 / 诊断**，以及一份可操作的模块列表。
+
+三条设计约束，都体现在代码形状里：**只有一份真相**（数值来自旁边那些卡片读的同一份快照，队列数不可能与
+队列面板互相矛盾）；**动作来自状态**（§47 —— 健康模块给 `check`/`retry`/`reset-fallback`，被用户禁用的
+插件只给 `enable`，未安装的 bundled 插件只给 `repair`，而 `repair` 在 pin 未被标记 tested 时本身就会拒绝；
+对任何状态都提供所有动作的界面，就是在承诺图层不会做的事）；**零仍然安静**（§36 —— 故障数为 0 照常显示
+`0` 但不带颜色，因为颜色才是吸引注意力的东西）。
+
+面板（[ui/control-panel.js](../app/extensions/mega/ui/control-panel.js)）只渲染：段落 → 行；模块 → 状态 +
+版本/启动耗时/重试次数/fallback/最近错误 + 该状态允许的按钮。点击是**一个委托监听**：按钮自己的
+`data-control-action` / `data-control-id` 决定做什么，走 `mega:control-action`；被拒绝时把原因显示在面板里，
+而不是让整块面板坏掉。诊断段的数字来自 shell 的启动报告（`startup.summary()`），所以"这次启动花了多少、
+哪个阶段超预算"在界面里就能看到，不必翻日志。它在功能注册表里也是可关闭的一项
+（`mega.control-center`，group `Interface`，panels `controlPanel`）。
+
+测试：`tests/unit/control-center.test.js` 7 项（六段数据同源、零不染色、每个状态允许的动作、bundled 插件动作、
+空快照不崩、接线静态断言，以及面板的两条行为：点击到达 shell 并回读、被拒绝时显示原因）。IPC：
+`mega:control-center` / `mega:control-action`。
+
+## 4. 验收怎么读
 
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、
   `ENHANCED` 只在延迟工作落定后出现，以及**启动顺序**（骨架先于 Harness、可选层全部晚于

@@ -2273,6 +2273,8 @@ async function startExtensions(nodeExe) {
       // through it (startup2.md §19), so their failure is a degradation in the MEGA panel rather than
       // something the boot has to survive.
       protection,
+      // The boot report, so MEGA's diagnostics can show what the startup actually cost (§45, §57).
+      startup: () => (startup ? startup.summary() : null),
       // Legacy single-value form: the extension's adapter accepts either.
       dockWebContents: dockAdapter.webContents,
       // The official frontend runtime: the backend bridge, the domain adapter the dock

@@ -531,6 +531,31 @@ button:hover{background:var(--hns-color-bg-layer2)}
 .settings-overlay{background:color-mix(in srgb,var(--hns-color-bg-overlay) 62%,transparent)}
 
 /* =====================================================================================
+   The MEGA Control Center (updateplan/startup2.md section 45-47)
+   =====================================================================================
+   Sections of rows plus two actionable lists. The tone is the data's own claim about urgency, so a fault
+   count of zero carries no colour at all — the same "zero is not news" rule the rail follows. */
+.control-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:8px 0}
+.cc-section{background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);border-radius:10px;padding:8px 10px}
+.cc-section h3,.cc-heading{margin:0 0 6px;font-size:12px;font-weight:600;color:var(--hns-color-label-secondary);display:flex;justify-content:space-between;gap:6px}
+.cc-section h3 small{font-weight:400;opacity:.8}
+.cc-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0}
+.cc-label{color:var(--hns-color-label-secondary)}
+.cc-label small{display:block;font-size:10px;opacity:.75}
+.cc-value{font-variant-numeric:tabular-nums}
+.cc-value.tone-ok{color:var(--hns-state-success,var(--hns-color-label-primary))}
+.cc-value.tone-busy{color:var(--hns-color-accent-primary)}
+.cc-value.tone-warn{color:var(--hns-state-warning,var(--hns-color-accent-primary))}
+.cc-value.tone-bad{color:var(--hns-state-error,var(--hns-color-accent-primary))}
+.cc-list{display:flex;flex-direction:column;gap:6px}
+.cc-module{border:1px solid var(--hns-color-border-l1);border-radius:9px;padding:7px 9px;background:var(--hns-color-bg-layer1)}
+.cc-module-head{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.cc-detail{margin:4px 0 0;font-size:11px;color:var(--hns-color-label-secondary)}
+.cc-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cc-actions button{padding:3px 8px;font-size:11px}
+.cc-empty{margin:0;font-size:12px;color:var(--hns-color-label-secondary)}
+
+/* =====================================================================================
    The wallpaper layer (壁纸)
    =====================================================================================
 

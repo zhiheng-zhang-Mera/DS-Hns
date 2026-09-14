@@ -3,6 +3,26 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## control center — 增强层的管理面与保护面板（updateplan/startup2.md §45–§47）
+
+**展开态的 Dock 现在是增强层的管理面。** 新增 `app/extensions/mega/control-center.cjs`：它把"Dock 本来就在读
+的那一份快照"加上保护层与 bundled 插件的两份报告，变成六段数据 —— **执行 / 自动化 / 资源 / 扩展 / 保护层 /
+诊断**，以及一份可操作的模块列表。因此面板里的数字不可能与旁边的队列/硬件卡片互相矛盾。
+
+**动作来自状态（§47）**：健康模块给 `check` / `retry` / `reset-fallback`；被用户禁用的插件**只**给 `enable`
+（不提供任何绕过用户决定的入口）；未安装的 bundled 插件只给 `repair`，而 `repair` 在 pin 未被标记 tested 时
+本身就会拒绝。一个对任何状态都提供所有动作的界面，就是在承诺图层不会做的事。**零仍然安静**（§36）：故障数
+为 0 照常显示 `0`，但不带颜色。诊断段显示启动报告（阶段数、状态、本产品开销、超预算阶段），所以"这次启动
+花了多少、卡在哪个阶段"在界面里就能看到。
+
+面板（`ui/control-panel.js`）只渲染、不持有状态；点击是一个委托监听，按钮自己的 `data-control-action` /
+`data-control-id` 决定做什么，走 `mega:control-action`；被拒绝时显示原因而不是让面板坏掉。它在功能注册表里
+也是可关闭的一项（`mega.control-center`）。
+
+**验证**：`tests/unit/control-center.test.js` 7/7（六段数据同源、零不染色、每个状态允许的动作、bundled 插件
+动作、空快照不崩、接线静态断言，以及面板行为：点击到达 shell 并回读、被拒绝显示原因、无桥接时说明原因）；
+`scripts/verify.ps1` 增加六段数据、动作来自状态、面板与修复入口、通道端到端检查。
+
 ## appearance — 阅读预设：对两个图层的一个决定（updateplan/startup2.md §26–§28、§5）
 
 **新增 `app/extensions/mega/appearance/index.cjs`：三套阅读预设，数值就是计划书 §5 的那一组。** 两个图层

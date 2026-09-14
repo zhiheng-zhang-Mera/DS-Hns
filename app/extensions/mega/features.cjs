@@ -40,6 +40,16 @@ const FEATURE_GROUPS = Object.freeze(['Coding', 'Autonomy', 'Execution', 'Observ
  */
 const MEGA_FEATURES = Object.freeze([
   {
+    id: 'mega.control-center',
+    cn: '控制中心',
+    en: 'Control Center',
+    group: 'Interface',
+    purpose: { cn: '查看并管理增强层的执行、资源、扩展与保护状态', en: 'See and manage the enhancement layer: execution, resources, extensions, protection' },
+    panels: ['controlPanel'],
+    elements: [],
+    channels: ['mega:control-*']
+  },
+  {
     id: 'mega.engineering',
     cn: '工程运行时',
     en: 'Engineering runtime',

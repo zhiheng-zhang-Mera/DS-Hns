@@ -185,6 +185,14 @@ contextBridge.exposeInMainWorld('megaTools', {
     describe: () => ipcRenderer.invoke('mega:appearance'),
     set: (preset) => ipcRenderer.invoke('mega:appearance-set', { preset })
   },
+  /**
+   * The Control Center (`updateplan/startup2.md` §45-§47): the enhancement layer's own view, and the
+   * actions that belong to it — retry, check, repair, disable/enable, fall back.
+   */
+  control: {
+    describe: () => ipcRenderer.invoke('mega:control-center'),
+    action: (payload) => ipcRenderer.invoke('mega:control-action', payload)
+  },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),
