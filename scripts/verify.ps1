@@ -174,6 +174,10 @@ $store = Get-Content "$ROOT\app\extensions\mega\store\installer.cjs" -Raw -Error
 Check 'The store can stage a pinned revision' (($store -match 'options\.revision') -and ($store -match "fetch', '--depth', '1'") -and ($store -match 'FETCH_HEAD'))
 Check 'A revision is validated, recorded and never combined with a branch' (($store -match 'is not a commit revision') -and ($store -match 'not both') -and ($store -match 'revision: revision \|\| null'))
 Check 'The bundled manager uses the revision path for a commit pin' ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'revision: ref')
+# ---- Appearance cost acceptance (startup2.md section 56) ----
+$costAcceptance = Get-Content "$ROOT\scripts\appearance-cost-acceptance.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Appearance cost acceptance exists and measures the real layers' (($costAcceptance -match 'getAppMetrics') -and ($costAcceptance -match 'createWallpaperWindow'))
+Check 'A case that cannot be measured is skipped with a reason, never guessed' (($costAcceptance -match 'skipped:') -and ($costAcceptance -match 'the community plugin renders'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

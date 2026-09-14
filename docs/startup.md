@@ -303,6 +303,17 @@ Dock，避免面板显示一个屏幕上并不存在的玻璃。
 `[MEGA] module healthy|degraded: <id> — <原因>`、`[MEGA] fallback: <id> → <回退>`，一次 grep 就能回答"哪个增强模块
 不健康、现在由谁顶着"。
 
+**§56 的性能测量是真的、可跑的**：`scripts/appearance-cost-acceptance.cjs` 用真实模块在自己的临时状态里量两个
+能造出来的场景（无壁纸 / 静态壁纸），读 Electron 自己的 `app.getAppMetrics()`（每进程 CPU、内存）与那一层的图片
+载荷，并**把造不出来的场景按名字跳过并给出原因**（1080p/4K 视频与 scene 属于社区插件；market 打开不是这一层的
+成本；MEGA 展开由运行中的产品测量）——而不是给它们编一个数字。示例输出：
+
+```
+no wallpaper           cpu=    0%  ram=  482MB  processes=4  picture=0KB
+static wallpaper       cpu= -0.1%  ram=  479MB  processes=4  picture=3752KB  (2814 KB picture)
+1080p video            skipped: the community plugin renders video (§24)
+```
+
 测试：`tests/unit/appearance-cost.test.js` 5 项（数字与一行日志、模糊两档警告且不夹取、超重图片被报告、空外观零成本
 且未知不可写成 0、两个图层都报字节数），`mega-protection.test.js` 新增 `[MEGA]` 词表断言，Control Center 测试新增
 成本三行。

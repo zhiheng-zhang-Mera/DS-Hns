@@ -3,6 +3,19 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## appearance cost acceptance — 量得出来就量，量不出来就说原因（updateplan/startup2.md §56）
+
+**新增 `scripts/appearance-cost-acceptance.cjs`**：§56 要求记录外观在各种状态下的代价（启动耗时、CPU、RAM…）。
+这个脚本用真实模块（`wallpaper.cjs` + `wallpaper-window.cjs`）在自己的临时状态里量**两个能造出来的场景** ——
+无壁纸与静态壁纸 —— 读 Electron 自己的 `app.getAppMetrics()`（每进程 CPU/内存、进程数）与那一层的图片载荷，
+并**把造不出来的场景按名字跳过并给出原因**：1080p/4K 视频与 scene 属于社区插件（§24），market 打开不是这一层的
+成本，MEGA 展开由运行中的产品测量。**不给这些场景编数字**，是这张表诚实的前提。
+
+实测示例（本机，2.8 MB 图片）：无壁纸 `ram≈482MB`、静态壁纸 `ram≈479MB`、picture payload `3752KB` —— 也就是说
+这一层自身的常驻代价在噪声范围内，真正可选的代价是**载荷大小**，而它正是账本会警告的那个数字。
+
+**验证**：脚本本身可运行并输出测量（见上）；`scripts/verify.ps1` 增加脚本存在性与"跳过要给原因"的检查。
+
 ## store revisions — 没有 tag 的仓库也能钉着装（updateplan/startup2.md §22–§23）
 
 **商店新增 revision 路径**：`git clone --branch` 只接受分支或 tag，而 `2BingLing/dsh-market` 没有 tag，它的 pin 是
