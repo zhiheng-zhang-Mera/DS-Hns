@@ -39,7 +39,21 @@
       </div>
     </header>
 
-    <section id="summary" class="summary-grid"></section>
+    <!--
+      Overview (概览). The four counters — peak/valley, the next valley, the task counts and the
+      parallelism — are one row inside one card, like every module below them, because they are one
+      thought: what the runtime is doing right now. It is the one module with no collapse control
+      (`data-no-collapse`): it is the dock's first line, and a first line that can be folded away
+      leaves the dock with nothing to say about itself.
+    -->
+    <section class="panel summary-panel" id="summaryPanel" data-no-collapse>
+      <div class="panel-head">
+        <div>
+          <h2 class="bi-title"><span class="bi-cn">概览</span><span class="bi-en">Overview</span></h2>
+        </div>
+      </div>
+      <section id="summary" class="summary-grid"></section>
+    </section>
 
     <!--
       Appearance (外观) — the frosted-glass layer's control surface, and nothing else.

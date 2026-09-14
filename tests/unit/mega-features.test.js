@@ -55,11 +55,12 @@ test('every feature has both names, a group and a purpose', () => {
  * The panels the dock renders that are deliberately *not* a feature.
  *
  * The registry is how a panel is switched off, and a switch that can hide itself is a switch the
- * user cannot use to put it back. The Appearance panel is the frosted-glass controls — product
- * chrome, in force whether or not anyone opened the panel — so it is chrome rather than a
- * feature, and the registry is right not to declare it.
+ * user cannot use to put it back. Two panels are chrome rather than features: the Appearance panel
+ * is the frosted-glass controls — in force whether or not anyone opened the panel — and the
+ * overview is the dock's first line, a single row of counters that says what the runtime is doing.
+ * The registry is right not to declare either of them.
  */
-const CHROME_PANELS = Object.freeze(['appearancePanel'])
+const CHROME_PANELS = Object.freeze(['appearancePanel', 'summaryPanel'])
 
 test('the registry covers the panels the dock actually renders', () => {
   const html = read('app/extensions/mega/ui/dock.html')

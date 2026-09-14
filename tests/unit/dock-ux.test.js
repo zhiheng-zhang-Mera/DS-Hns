@@ -122,6 +122,28 @@ function loadCollapseSetup(harness) {
   return factory(harness.window, harness.document)
 }
 
+test('a module that says it has nothing to fold never gets a handle', () => {
+  const harness = dockHarness(['skillsPanel', 'summaryPanel', 'balancePanel'])
+  // The overview: one row of counters, the dock's first line. Folding it away would leave the dock
+  // with nothing to say about what the runtime is doing.
+  harness.panels[1].dataset.noCollapse = ''
+  const { setupCollapsiblePanels } = loadCollapseSetup(harness)
+  const handles = setupCollapsiblePanels()
+
+  assert.equal(handles.length, 2, 'the overview was given a collapse handle')
+  assert.deepEqual(handles.map((handle) => handle.id), ['skillsPanel', 'balancePanel'])
+  const summary = harness.panels[1]
+  const summaryButton = harness.collapseButtons()[1]
+  assert.equal(summaryButton, undefined, 'the overview got a chevron anyway')
+  // And it is left alone: not hidden, and not written into the remembered state.
+  assert.equal(summary.dataset.collapsed, '1', 'the stub starts collapsed; the setup must not have touched it')
+  assert.equal(harness.saved().summaryPanel, undefined, 'the overview was written into the module state')
+  // It is still the dock's first line, and the modules below it still behave.
+  harness.click(harness.collapseButtons()[0])
+  assert.equal(harness.panels[0].dataset.collapsed, '')
+  assert.equal(summary.dataset.collapsed, '1')
+})
+
 test('only the module that was opened last stays open', () => {
   const harness = dockHarness(['skillsPanel', 'balancePanel', 'pluginsPanel'])
   const { setupCollapsiblePanels } = loadCollapseSetup(harness)

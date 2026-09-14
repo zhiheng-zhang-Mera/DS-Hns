@@ -134,6 +134,42 @@ test('the frosted layers are the ones content passes under, and the fallback kee
   assert.match(block, /@supports not \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{[\s\S]{0,160}--hns-color-bg-base:var\(--hns-glass-src-base\)[\s\S]{0,80}--hns-glass-alpha:92%/, 'the no-blur fallback leaves the pane colourless and unreadable')
 })
 
+test('a second-layer sheet frosts harder than the pane behind it', () => {
+  const css = read('app/extensions/mega/ui/dock.css')
+  const { tokens, block } = glassBlock()
+  // A sheet is read *over* the dock's own text: a pane you can read the dock through is two texts
+  // on top of each other. The float therefore takes more ink and a stronger blur than a pane.
+  assert.match(tokens, /--hns-glass-float-alpha:calc\(var\(--hns-glass-alpha\) \+ 55%\)/, 'a sheet is as thin as the pane behind it')
+  assert.match(tokens, /--hns-glass-float-blur:calc\(var\(--hns-glass-blur\) \+ 14px\)/, 'a sheet has no extra blur')
+  assert.match(block, /:is\(\.pm-sheet,\.settings-sheet,\.live-view-sheet\)\{[\s\S]{0,120}background-color:color-mix\(in srgb,var\(--hns-glass-src-layer2\) var\(--hns-glass-float-alpha\),transparent\)/, 'the sheets do not use the float tint')
+  assert.match(block, /:is\(\.pm-sheet,\.settings-sheet,\.live-view-sheet\)\{[\s\S]{0,220}backdrop-filter:var\(--hns-glass-float-filter\)/, 'the sheets do not use the float blur')
+  // And the scrim under a sheet is dark enough that the dock behind reads as background.
+  assert.match(tokens, /--hns-glass-scrim-alpha:calc\(var\(--hns-glass-alpha\) \+ 52%\)/, 'the scrim is as thin as the pane the dock already is')
+  assert.match(block, /:is\(\.pm-backdrop,\.settings-overlay,\.live-view-overlay\)\{[\s\S]{0,160}var\(--hns-glass-scrim-alpha\)/, 'the scrims do not use the stronger tint')
+  // Three controls, not five: the float is derived from the user's numbers rather than being a
+  // second set of them.
+  assert.equal(/hns-glass-float/.test(read('app/extensions/mega/ui/appearance-panel.js')), false, 'the panel grew controls for the float')
+  assert.equal(/hns-glass-float/.test(read('app/extensions/mega/ui/glass-layer.js')), false, 'the layer writes float numbers the stylesheet derives')
+})
+
+test('the dock\'s type is white on black, and larger than it was', () => {
+  const css = read('app/extensions/mega/ui/dock.css')
+  // The pane is translucent, so a word can end up over anything at all. Legibility is carried by
+  // the glyphs: a solid white fill with a thin black edge drawn *under* the fill, so the stroke
+  // widens the letter instead of eating into it.
+  assert.match(css, /--hns-text-fill:#ffffff/, 'the text fill is not white')
+  assert.match(css, /--hns-text-stroke:#000000/, 'the stroke is not black')
+  assert.match(css, /-webkit-text-stroke:var\(--hns-text-stroke-width\) var\(--hns-text-stroke\)/, 'the dock\'s text is not stroked')
+  assert.match(css, /paint-order:stroke fill/, 'the stroke would eat into the glyphs')
+  assert.match(css, /--hns-color-label-primary:#ffffff/, 'the primary label is not white')
+  // The sizes moved up with it: the palette tokens, and the small hard-coded declarations that
+  // make up almost all of the dock's type.
+  assert.match(css, /--hns-font-size-body:14px/)
+  assert.match(css, /--hns-font-size-caption:12px/)
+  assert.match(css, /--hns-font-size-title:17px/)
+  assert.equal(/font-size:([1-9])px/.test(css), false, 'the dock still has single-digit type')
+})
+
 test('the switch persists, and refuses values it cannot honour', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-glass-'))
   try {

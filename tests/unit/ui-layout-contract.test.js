@@ -16,6 +16,26 @@ const path = require('node:path')
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
 
+test('the four counters are one row inside one card, and that card does not fold', () => {
+  const html = read('app/extensions/mega/ui/dock.html')
+  const css = read('app/extensions/mega/ui/dock.css')
+
+  // The overview is a panel like every module below it, and the counters live inside it.
+  const panel = html.match(/<section class="panel summary-panel" id="summaryPanel"([^>]*)>([\s\S]*?)<\/section>\s*<\/section>/)
+  assert.ok(panel, 'the counters are not inside a module card')
+  assert.match(panel[2], /<section id="summary" class="summary-grid">/, 'the counters are outside the card')
+  assert.match(panel[2], /class="bi-title"/, 'the module has no bilingual heading')
+  // It is the dock's first line, so it is not one of the modules that folds.
+  assert.match(panel[1], /data-no-collapse/, 'the overview can be folded away')
+  assert.match(read('app/extensions/mega/ui/dock.js'), /dataset\.noCollapse !== undefined\) continue/, 'the collapse setup ignores the opt-out')
+
+  // One row, four columns: the counters are read together or not at all.
+  const grid = css.match(/\.summary-grid\{([^}]*)\}/)
+  assert.ok(grid, '.summary-grid has no rule')
+  assert.match(grid[1], /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, 'the counters are not one row of four')
+  assert.equal(/margin-bottom/.test(grid[1]), false, 'the grid spaces itself; the card already does')
+})
+
 test('the skills view switch is the module\'s first control', () => {
   const html = read('app/extensions/mega/ui/dock.html')
   const panel = html.slice(html.indexOf('id="skillsPanel"'), html.indexOf('id="queuePanel"'))
@@ -49,7 +69,7 @@ test('every element of the skills module is sized to be recognised', () => {
   assert.ok(padding >= 8, `the tab's hit area is too short (${padding}px)`)
   assert.match(tab, /border:1\.5px solid/)
   assert.match(tab, /font-weight:600/)
-  assert.match(rule('.skills-tab small'), /font-size:9px/)
+  assert.match(rule('.skills-tab small'), /font-size:10px/)
   // The active side cannot be mistaken for the inactive one.
   const active = rule('.skills-tab.active')
   assert.match(active, /border-color:var\(--hns-color-accent-primary\)/)

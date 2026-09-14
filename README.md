@@ -215,6 +215,15 @@ numbers.
   rail and the panel yield that band together, because they are one view: `dock/geometry.cjs` holds
   the number (the header's own `min-height:76px`) and `DSH_MEGA_DOCK_TOP_INSET` overrides it. What
   is left above the dock is the official UI, drawn by the official UI.
+- **A sheet frosts harder than the pane behind it** — the plugin store, the settings sheet and the
+  Live View are read *over* the dock's own text, and a pane you can read the dock through is two
+  texts on top of each other. They take their own, stronger tint and blur plus a darker scrim, both
+  derived from the user's three numbers rather than being a second set of controls.
+- **The dock's type is white on black** — the pane is translucent, so a word can end up over a
+  light panel, a photograph or a paragraph of the official UI; a wash of colour behind it is exactly
+  the clash the glass avoids. Legibility is carried by the glyphs: a solid white fill with a thin
+  black edge drawn *under* the fill (`paint-order:stroke fill`), wider than it was, with the
+  secondary and tertiary labels kept a step dimmer so the hierarchy survives.
 - **Live, not on save** — dragging a slider writes the new value into the document on the frame
   it moves; only the release persists it through the shell. The numbers live in
   `data/state/ui-glass.json` and the panel renders whatever the layer reports, so a value the

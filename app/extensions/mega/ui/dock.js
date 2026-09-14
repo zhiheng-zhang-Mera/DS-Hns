@@ -1563,6 +1563,10 @@ function setupCollapsiblePanels() {
   for (const panel of panels) {
     const id = panel.id
     if (!id) continue
+    // A panel can say it has nothing to fold. The overview is the one that does: it is the dock's
+    // first line, it is a single row of counters, and folding it away would leave the dock with
+    // nothing to say about what the runtime is doing.
+    if (panel.dataset && panel.dataset.noCollapse !== undefined) continue
     const head = typeof panel.querySelector === 'function' ? panel.querySelector('.panel-head') : null
     if (!head) continue
     const toggle = document.createElement('button')
