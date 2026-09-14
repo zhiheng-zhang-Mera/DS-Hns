@@ -48,6 +48,7 @@ function fixture(overrides = {}) {
     },
     boot: { state: 'ENHANCED', interactive: true, phases: [{ id: 'interactive' }], overBudget: [], ownOverhead: 2 },
     cache: { at: 1_700_000_000_000, warm: true, ageMs: 60_000, entries: { workspace: 'D:/work/one', appearance: { preset: 'reading' } } },
+    appearance: { glass: { blur: 22, opacity: 82 }, wallpaper: { windowBytes: 5 * 1024 * 1024, dockBytes: 0, bytes: 5 * 1024 * 1024, kilobytes: 5120 }, warnings: [{ id: 'blur-over-comfort' }] },
     ...overrides
   }
 }
@@ -69,6 +70,12 @@ test('the sections are built from the dock\'s own snapshot, not from a second qu
   assert.equal(diagnostics.rows.find((row) => row.cn === '上次启动缓存').value, 'warm')
   assert.equal(diagnostics.rows.find((row) => row.cn === '上次工作区').value, 'D:/work/one')
   assert.equal(buildControlCenter().sections.find((section) => section.id === 'diagnostics').rows.find((row) => row.cn === '上次启动缓存').value, 'cold')
+  // §55-§57: what the appearance costs, measured and never clamped — a heavy number is a warning, not a
+  // refused value.
+  assert.equal(resources.rows.find((row) => row.cn === '玻璃模糊').value, '22px')
+  assert.equal(resources.rows.find((row) => row.cn === '玻璃模糊').tone, 'warn')
+  assert.equal(resources.rows.find((row) => row.cn === '图片负载').value, '5120 KB')
+  assert.equal(resources.rows.find((row) => row.cn === '性能警示').value, 'blur-over-comfort')
 })
 
 test('every state offers the actions the layer can actually honour', () => {

@@ -534,7 +534,8 @@ function createWallpaper(options = {}) {
       // string the size of the file, and the dock is a document we own, so it may read a path.
       src: inlined.kind === 'video' ? `file://${surface.file.replace(/\\/g, '/')}` : inlined.dataUrl,
       ...settings,
-      reason: inlined.reason || null
+      reason: inlined.reason || null,
+      bytes: inlined.dataUrl ? inlined.dataUrl.length : 0
     }
   }
 
@@ -632,7 +633,21 @@ function createWallpaper(options = {}) {
     const surface = state.main
     const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
     const drawable = Boolean(state.enabled && surface.enabled && inlined.dataUrl && inlined.kind !== 'video')
-    return { css: windowCss(), drawable, kind: inlined.kind || null, reason: inlined.reason || null }
+    return {
+      css: windowCss(),
+      drawable,
+      kind: inlined.kind || null,
+      reason: inlined.reason || null,
+      /**
+       * What this layer is carrying, in bytes — the picture's inlined payload.
+       *
+       * It is reported from here because this is the only place that already knows it (`inline()` has the data
+       * URL in hand), and because §55/§56 are about exactly this number: a full-screen picture is a string the
+       * size of the file, held in a renderer, and the appearance ledger should not have to build a second
+       * multi-megabyte string to find out.
+       */
+      bytes: inlined.dataUrl ? inlined.dataUrl.length : 0
+    }
   }
 
   return {

@@ -108,6 +108,19 @@ test('a required module fails louder than an optional one, and stopping is safe'
   assert.equal((await created.start('nothing-registered')).reason, 'unknown_module')
 })
 
+test('the layer logs in the vocabulary the plan greps for (§57)', async () => {
+  const lines = []
+  const created = createProtectionLayer({ log: (line) => lines.push(line), setTimeout: (fn) => fn(), retryDelayMs: 1 })
+  assert.ok(lines.includes('[MEGA] protection-ready'), 'the layer does not announce that it is up')
+  created.register({ id: 'wallpaper-layer', optional: true, start: () => 'ok' })
+  await created.start('wallpaper-layer')
+  assert.ok(lines.some((line) => /^\[MEGA\] module healthy: wallpaper-layer$/.test(line)), lines.join('\n'))
+  created.register({ id: 'market', optional: true, timeoutMs: 20, start: () => { throw new Error('the clone failed') }, fallback: [{ id: 'store-hidden', run: () => 'hidden' }] })
+  await created.start('market')
+  assert.ok(lines.some((line) => /^\[MEGA\] module degraded: market — the clone failed$/.test(line)), lines.join('\n'))
+  assert.ok(lines.some((line) => /^\[MEGA\] fallback: market → store-hidden \(the clone failed\)$/.test(line)), lines.join('\n'))
+})
+
 test('withTimeout answers instead of hanging, in both directions', async () => {
   assert.deepEqual(await withTimeout(Promise.resolve('done'), 50), { ok: true, value: 'done', timedOut: false })
   const rejected = await withTimeout(Promise.reject(new Error('nope')), 50)

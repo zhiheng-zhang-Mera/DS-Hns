@@ -29,6 +29,7 @@ const { buildControlCenter } = require('./control-center.cjs')
 const { createStartupCache } = require('./startup-cache.cjs')
 const { createAppearanceProviders } = require('./appearance/providers.cjs')
 const { createAppearanceState } = require('./appearance/state.cjs')
+const { estimateAppearanceCost } = require('./appearance/cost.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -1517,7 +1518,20 @@ function controlCenter() {
       return null
     }
   })()
-  return buildControlCenter({ snapshot: data, protection: protectionReport, bundled: bundledReport, boot, cache: startupCache().describe() })
+  return buildControlCenter({
+    snapshot: data,
+    protection: protectionReport,
+    bundled: bundledReport,
+    boot,
+    cache: startupCache().describe(),
+    appearance: (() => {
+      try {
+        return appearanceCost()
+      } catch {
+        return null
+      }
+    })()
+  })
 }
 
 /**
@@ -1753,6 +1767,44 @@ function rememberStartup() {
     log(`the startup cache was not updated: ${error?.message || error}`)
     return { ok: false, reason: String(error?.message || error) }
   }
+}
+
+/**
+ * What the appearance costs right now, and one line about it (`updateplan/startup2.md` §55-§57).
+ *
+ * The numbers come from the layers themselves — the glass is in force, and the two picture payloads are what
+ * `windowLayer()`/`dockLayer()` are already carrying — so the ledger cannot describe an appearance that is not
+ * on screen. It measures rather than limits: the user's blur is the user's, and a product that quietly clamped
+ * it would be lying about what it drew.
+ */
+function appearanceCost() {
+  const glassState = (() => {
+    try {
+      return glass().describe()
+    } catch {
+      return {}
+    }
+  })()
+  const wallpaperState = (() => {
+    try {
+      return wallpaper().windowLayer()
+    } catch {
+      return { bytes: 0, drawable: false }
+    }
+  })()
+  const dockState = (() => {
+    try {
+      return wallpaper().dockLayer()
+    } catch {
+      return { bytes: 0, active: false }
+    }
+  })()
+  return estimateAppearanceCost({
+    glass: { blur: glassState.blur, opacity: glassState.opacity },
+    windowBytes: wallpaperState.bytes || 0,
+    dockBytes: dockState.bytes || 0,
+    layers: (wallpaperState.drawable ? 1 : 0) + (dockState.active ? 1 : 0)
+  })
 }
 
 /** Build the rail items. Kept apart from the IPC layer so a test can ask what the rail would show. */
@@ -2166,13 +2218,15 @@ function registerAppearanceIpc() {
     // must show as a mixture rather than as whichever preset it is closest to.
     const glassState = glass().describe()
     const wallpaperState = wallpaper().describe()
-    return appearanceController().describe({
+    const described = appearanceController().describe({
       glass: { blur: glassState.blur, opacity: glassState.opacity },
       wallpaper: {
         main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
         dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
       }
     })
+    // §55-§57: what this appearance costs, beside the numbers it is made of.
+    return { ...described, cost: appearanceCost() }
   }))
   ipcMain.handle('mega:appearance-set', guard(async (_event, payload = {}) => {
     const result = await appearanceController().apply(String(payload?.preset || payload?.id || ''))
@@ -2281,6 +2335,12 @@ function pushWallpaper() {
     }
   } catch (error) {
     log(`the wallpaper could not reach the layer over the official UI: ${error?.message || error}`)
+  }
+  // §57: one line per appearance change, in the shape the plan asks for.
+  try {
+    log(appearanceCost().line)
+  } catch (error) {
+    log(`the appearance cost could not be measured: ${error?.message || error}`)
   }
 }
 

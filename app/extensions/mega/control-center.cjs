@@ -59,8 +59,9 @@ function pluginActions(state) {
  * @param {object} [input.bundled]    `bundled().describe()`
  * @param {object} [input.boot]       `startup.summary()`
  * @param {object} [input.cache]      `startupCache().describe()` — a warm-start hint, never an owner (§52)
+ * @param {object} [input.appearance] `appearanceCost()` — what the appearance costs (§55-§57)
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -102,7 +103,11 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
         row('并发 / 上限', 'Concurrency / cap', `${concurrency.current ?? '—'} / ${concurrency.hardwareCap ?? '—'}`),
         row('电费时段', 'Price window', scheduler.peak?.peak ? 'PEAK' : 'VALLEY', scheduler.peak?.peak ? 'warn' : null),
         row('CPU', 'CPU', system.cpu?.usagePercent === undefined ? '—' : `${Math.round(system.cpu.usagePercent)}%`),
-        row('内存', 'RAM', system.memory?.usedGb === undefined ? '—' : `${Number(system.memory.usedGb).toFixed(1)} GB`)
+        row('内存', 'RAM', system.memory?.usedGb === undefined ? '—' : `${Number(system.memory.usedGb).toFixed(1)} GB`),
+        // §55-§57: the appearance's own cost, and any warning about it — measured, never clamped.
+        row('玻璃模糊', 'Glass blur', appearance ? `${appearance.glass.blur}px` : '—', appearance && appearance.glass.blur > 14 ? 'warn' : null),
+        row('图片负载', 'Picture payload', appearance ? `${appearance.wallpaper.kilobytes} KB` : '—', appearance && appearance.wallpaper.kilobytes > 4096 ? 'warn' : null),
+        row('性能警示', 'Cost warnings', appearance ? (appearance.warnings || []).map((warning) => warning.id).join(', ') || 'none' : '—', appearance && (appearance.warnings || []).length ? 'warn' : appearance ? 'ok' : null)
       ]
     },
     {

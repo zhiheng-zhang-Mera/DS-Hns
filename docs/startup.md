@@ -281,6 +281,32 @@ Dock，避免面板显示一个屏幕上并不存在的玻璃。
 
 ## 4. 验收怎么读
 
+## 3.9 第十轮：外观成本账与 `[MEGA]` 日志词表（`updateplan/startup2.md` §55–§57）
+
+§55/§56 关心的两件事都在本产品手里：**模糊了多少屏幕**（计划书点名的 `backdrop-filter: blur(30px)` 这种全屏重度
+形状）与**壁纸层要扛多少字节**（内联成 `data:` 的图片就是文件大小那么长的字符串，常驻渲染进程）。
+
+[app/extensions/mega/appearance/cost.cjs](../app/extensions/mega/appearance/cost.cjs) 是一本**账**，不是限流器：
+它读取两个图层正在用的数字（玻璃通透度与模糊、两个底片各自的图片负载、在画的图层数），说清代价，并在超出计划书
+建议区（§55 的 6–14px）或图片过重时**警告** —— 写进日志，也写进 Control Center 的"资源"段。它**不会**把用户设的
+数字夹掉：玻璃滑杆是用户的，一个悄悄夹取的产品等于在谎报屏幕上画了什么；能做的是让代价**可见**，这正是"很重的外观"
+与"一个没解释的外观"之间的区别。
+
+落地：`wallpaper.cjs` 的 `windowLayer()`/`dockLayer()` 直接报出各自载荷的字节数（只有那里已经握着 data URL，账本
+不必再造一个几兆的字符串）；每次外观变化（`pushWallpaper()`）打印一行
+`[PERF] appearance glass=12px/82% pictures=20KB layers=1 warnings=…`（§57）；Control Center 资源段多三行 ——
+玻璃模糊、图片负载、性能警示（无警示时是绿色 `none`）。
+
+§57 的日志词表也统一了：保护层现在用 `[MEGA]` 前缀 —— `[MEGA] protection-ready`、
+`[MEGA] module healthy|degraded: <id> — <原因>`、`[MEGA] fallback: <id> → <回退>`，一次 grep 就能回答"哪个增强模块
+不健康、现在由谁顶着"。
+
+测试：`tests/unit/appearance-cost.test.js` 5 项（数字与一行日志、模糊两档警告且不夹取、超重图片被报告、空外观零成本
+且未知不可写成 0、两个图层都报字节数），`mega-protection.test.js` 新增 `[MEGA]` 词表断言，Control Center 测试新增
+成本三行。
+
+## 4. 验收怎么读
+
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、
   `ENHANCED` 只在延迟工作落定后出现，以及**启动顺序**（骨架先于 Harness、可选层全部晚于
   INTERACTIVE）。

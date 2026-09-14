@@ -85,6 +85,8 @@ function withTimeout(promise, timeoutMs) {
 function createProtectionLayer({ log = () => {}, setTimeout: schedule = setTimeout, defaultTimeoutMs = DEFAULT_TIMEOUT_MS, retryDelayMs = DEFAULT_RETRY_DELAY_MS } = {}) {
   const modules = new Map()
   const events = []
+  // §57: the enhancement layer saying it is up, before anything is registered on it.
+  log('[MEGA] protection-ready')
 
   function record(entry) {
     events.push({ at: new Date().toISOString(), ...entry })
@@ -96,7 +98,9 @@ function createProtectionLayer({ log = () => {}, setTimeout: schedule = setTimeo
     module.state = state
     if (reason) module.lastError = reason
     record({ module: module.id, event: 'state', state, reason })
-    log(`[protection] ${module.id}: ${state}${reason ? ` — ${reason}` : ''}`)
+    // §57's vocabulary: one grep for `[MEGA]` answers "which enhancement module is not healthy, and what is
+    // carrying it instead".
+    log(`[MEGA] module ${String(state).toLowerCase()}: ${module.id}${reason ? ` — ${reason}` : ''}`)
   }
 
   /** The fallback chain (§18): what this module can degrade to, in order. */
@@ -111,13 +115,13 @@ function createProtectionLayer({ log = () => {}, setTimeout: schedule = setTimeo
       if (outcome.ok) {
         module.fallbackState = typeof step === 'object' && step.id ? step.id : 'active'
         record({ module: module.id, event: 'fallback', state: module.fallbackState, reason })
-        log(`[protection] ${module.id}: fallback ${module.fallbackState} is carrying it (${reason})`)
+        log(`[MEGA] fallback: ${module.id} → ${module.fallbackState} (${reason})`)
         return true
       }
       record({ module: module.id, event: 'fallback-failed', reason: outcome.reason || 'unknown' })
     }
     module.fallbackState = 'unavailable'
-    log(`[protection] ${module.id}: no fallback left (${reason})`)
+    log(`[MEGA] fallback: ${module.id} → none (${reason})`)
     return false
   }
 

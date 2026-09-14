@@ -3,6 +3,27 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## appearance cost — 一本账，不是限流器（updateplan/startup2.md §55–§57）
+
+**新增 `app/extensions/mega/appearance/cost.cjs`：把外观的代价算清楚并说出来，但不夺走用户的控制。** §55/§56 关心的
+两件事都在本产品手里——**模糊了多少屏幕**（计划书点名的全屏 `backdrop-filter: blur(30px)` 形状）与**壁纸层要扛多少
+字节**（内联 `data:` 图片就是文件大小那么长的字符串，常驻渲染进程）。账本读取两个图层正在用的数字（玻璃通透度与模糊、
+两个底片各自的图片负载、在画的图层数），在超出 §55 建议区（6–14px）或图片过重时**警告**，并给出可 grep 的一行：
+`[PERF] appearance glass=12px/82% pictures=20KB layers=1 warnings=…`。
+
+**它不会夹取用户的数字**：玻璃滑杆是用户的，一个悄悄夹取的产品等于在谎报屏幕上画了什么；能做的是让代价**可见**——
+这就是"很重的外观"与"一个没解释的外观"之间的区别。落地：`wallpaper.cjs` 的 `windowLayer()`/`dockLayer()` 直接报出
+各自载荷字节数（只有那里已经握着 data URL，账本不必再造一个几兆字符串）；每次外观变化打印一行 `[PERF]`；Control
+Center 的资源段多三行（玻璃模糊、图片负载、性能警示）。
+
+**§57 的日志词表也统一了**：保护层改用 `[MEGA]` 前缀 —— `[MEGA] protection-ready`、
+`[MEGA] module healthy|degraded: <id> — <原因>`、`[MEGA] fallback: <id> → <回退>`，一次 grep 就能回答"哪个增强模块
+不健康、现在由谁顶着"。
+
+**验证**：`tests/unit/appearance-cost.test.js` 5/5（数字与一行日志、模糊两档警告且不夹取、超重图片被报告、空外观
+零成本且未知不写成 0、两个图层都报字节数）；`mega-protection.test.js` 新增 `[MEGA]` 词表断言；Control Center 测试
+新增成本三行；`scripts/verify.ps1` 增加账本、字节上报、词表与面板检查。
+
 ## bundled plugins — 安装调用接线，采纳只剩一次真机测试（updateplan/startup2.md §22–§23）
 
 **`installPinnedPlugin()` 用商店自己的两步安装清单钉住的引用**：`stage({ source, branch: ref })` 把代码放到磁盘
