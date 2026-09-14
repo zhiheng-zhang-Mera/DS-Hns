@@ -116,12 +116,18 @@ try {
     'mega-feature-wiring.test.js',
     'mega-plugin-manager.test.js',
     'mega-plugin-store.test.js',
+    'mega-store-github.test.js',
     'mega-store-installer.test.js',
     'plugin-store-mount.test.js',
     'plugin-compat.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
-    'ui-panel-load.test.js'
+    'ui-panel-load.test.js',
+    # The Appearance panel is the frosted-glass layer's control surface and the end of the dock's
+    # skin, so its suite is asserted by name for the same reason as the others: a renamed file must
+    # fail the gate rather than silently drop the coverage.
+    'appearance-panel.test.js',
+    'ui-glass.test.js'
   )
   foreach ($name in $coreTests) {
     if (-not (Test-Path (Join-Path "$ROOT\tests\unit" $name))) {

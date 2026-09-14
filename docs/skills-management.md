@@ -126,44 +126,30 @@ GitHub 归档通过 `codeload.github.com/<owner>/<repo>/tar.gz/refs/heads/<ref>`
 
 ---
 
-## 6. 与主题系统的双向适配
+## 6. 面板的外观来源
 
-这是本模块的硬要求，实现方式是让两个面板走**同一个集成点** `ui/theme-bridge.js`。
-
-```text
-theme  →  module   主题包里的 slot 样式被写成 CSS 自定义属性
-                   `--hns-slot-<slot>-<property>`（+ dock 既有短别名）
-                   面板只消费变量，不读 token 文件、不读主题目录
-                   后注册的面板会收到最后一次 payload（重放），不会漏画
-
-module →  theme   面板把自己的 slot 与受保护区域的实时几何上报给引擎
-                   UI Inspector / 预览校验因此"看得见"这个面板
-                   新面板不会被主题静默遮挡
-```
-
-为 Skills 面板新增的 Theme API slot（`contract.js`）：
+面板不参与主题：它不注册任何集成点、不声明 slot、也不上报几何。Dock 是磨砂玻璃，没有主题
+作用于它（见 `docs/theme-system.md` 第 4 节与第 13.1 节）。
 
 ```text
-hns.skill.card     hns.skill.header   hns.skill.badge
-hns.skill.tag      hns.skill.search   hns.skill.danger
+dock.css   面板用到的 --hns-* 变量（--hns-slot-hns-skill-* 只是历史命名，生效的是兜底值）
+           ↓ 磨砂玻璃层按用户数值把整块调色板调成半透明
+panel      只消费 CSS 自定义属性，不读 token 文件、不读主题目录、不写内联颜色
 ```
 
-配套改动：
-
-- 新增 token `color.accent.subtle`（tag/badge 用的低强调色，随 accent 色相）；
-- 新增页面 `skills` 与受保护区域 `skills-search`、`skills-list`；
-- **Designer 与内置主题生成器都会输出这些 slot**——生成的主题与内置主题一样能
-  重绘 Skills 面板。只让内置主题适配、生成主题不适配，等于双向适配没有做。
-
-顺带修掉一个真实缺陷：preload 监听的是 `mega-theme-probe-regions`，
-主进程发送的是 `mega-theme:probe-regions`（差一个冒号），
-导致"实时几何探针"从未被响应——校验器一直拿不到关键区域的实测位置。
+- 面板的样式只来自 `dock.css`：`--hns-slot-hns-skill-*` 后面的兜底值就是它现在生效的颜色
+  （搜索框、标签、卡片各取 `--hns-slot-input-*` / `--hns-slot-panel-*` / `--hns-color-*`），
+  玻璃层再把整块调色板调成半透明。
+- `hns.skill.*` 这些 Slot 仍留在契约、能力清单与内置主题包里（包结构与校验因此保持完整），
+  但没有任何渲染器会把它们安装进界面。
+- 几何也不上报：壳层不再发出 `mega-theme:probe-regions` 探针，而是直接把「没有区域」这一
+  事实交给引擎，因此 Slot 几何一律记为「未现场测量」，而不是被当成测过了。
 
 ---
 
 ## 7. 界面入口
 
-主题系统与 Skills 面板都是可选模块，各自独立 attach，任一个失败都不影响
+外观（磨砂玻璃）与 Skills 面板都是可选模块，各自独立 attach，任一个失败都不影响
 队列 / 硬件 / 余额模块渲染（`dock.js` 中分别 try/catch）。
 
 ```powershell
@@ -174,6 +160,5 @@ powershell -ExecutionPolicy Bypass -File ..\scripts\verify.ps1
 技能相关测试：
 
 - `tests/unit/skills-service.test.js` — 格式、tar、来源解析、安装/删除服务（40 项）
-- `tests/unit/skills-panel.test.js` — 面板行为：搜索/安装/单删/批删/主题桥（18 项）
-- `tests/unit/theme-bridge.test.js` — 双向适配与容错（9 项）
-- `tests/unit/theme-designer.test.js` — 生成主题覆盖 Skills 面板
+- `tests/unit/skills-panel.test.js` — 面板行为：搜索/安装/单删/批删，以及「不加入任何主题桥、
+  不声明主题 Slot」的断言

@@ -1,17 +1,17 @@
 # HNS 统一自主主题皮肤系统（实现说明）
 
 本文件描述 `Boss-HNS-Unified-Theme-System` 工程书在 **HNS（DS-Hns）** 侧的落地实现。
-代码位于 `app/extensions/mega/theme/`（引擎）与 `app/extensions/mega/ui/theme-panel.js`（界面）。
+代码位于 `app/extensions/mega/theme/`（引擎）与 `app/extensions/mega/ui/`（界面：外观面板与
+磨砂玻璃层）。
 
 **全局主题生成（Update-Plan/General-Theme.md）** 已在本分支落地：主题系统不再是"颜色/参数生成器"，
 而是完整的视觉主题生成器 —— 四个 Surface、官方外壳、官方覆盖层、真实人物/皮肤/装饰资产、
 Asset Plan、UI 观察、Overlay Layout 与 Safety、分 Surface 预览与增量修订。
 
 > **Update（Update-Plan/Dual-UI.md）**：官方 Overlay 已退出主架构，默认不再创建
-> （`DSH_OFFICIAL_OVERLAY=1` 才创建）。Daily Mode 现在是 HNS 自有前端，主题 / 角色 /
-> 皮肤正式作用于它，Work Mode 只保留外围 shell。本文中关于 Overlay 的部分仍然描述
-> 那套代码与安全上限（代码保留、可显式启用），但**产品默认路径**请看
-> `docs/dual-ui.md`。
+> （`DSH_OFFICIAL_OVERLAY=1` 才创建）；Daily 前端本身也已移除，产品界面就是官方渲染器。
+> 本文中关于 Overlay 的部分仍然描述那套代码与安全上限（代码保留、可显式启用），
+> 但**产品默认路径**请看 `docs/dual-ui.md`。
 
 > **Update（资产解析）**：绘制时现在会解析主题包声明的图片引用——`assets/...` 相对路径
 > 被内联为 data URI，`var(--hns-asset-*)` 被替换为编译后的 token 值，asset token 以
@@ -29,11 +29,13 @@ Asset Plan、UI 观察、Overlay Layout 与 Safety、分 Surface 预览与增量
 | 主题包 | `app/extensions/mega/theme/builtin/` | 内置系统主题与 Demo 主题（仓库内自包含） |
 | 运行时实例 | `data/themes/user/<theme-id>/` | 用户主题（`data/` 不入库） |
 | 预览工作区 | `data/theme-workspace/temp/<draft-id>/` | 批准前只存在于这里 |
-| 界面 | `app/extensions/mega/ui/theme-panel.js` | Dock 的 Appearance 面板 |
+| 界面 | `app/extensions/mega/ui/appearance-panel.js` | Dock 的「外观 / Appearance」面板（磨砂玻璃控件） |
 
 **架构红线（继承 DS-Hns 既有契约）**
 
-1. 主题系统 **只作用于 HNS 自己的 Dock 渲染器**（`app/extensions/mega/ui/`，独立 CSP 与样式表）。
+1. 主题系统只写入 **DS-Hns 自己拥有的视图**：官方外壳（`official_shell`）与官方覆盖层
+   （`official_overlay`），两者都由 `app/official-surface-views.cjs` 用 `insertCSS` 绘制。
+   Dock 不是主题表面：它是磨砂玻璃，只接收外观面板的三个数值，不接收任何主题载荷。
 2. **绝不向官方 `@deepseek-ai/dsh` 渲染器注入 CSS/JS**。官方 UI 只暴露一个只读的配色提示
    （`light` / `dark`），由官方客户端自行应用。这一点在能力清单里是显式声明的：
    `capabilities.can_theme_official_ui === false`。
@@ -48,7 +50,7 @@ User Prompt
   → UI Inspection        结构观察 + 视觉快照（只截自己的 Dock）
   → Capability Discovery Theme Capability Manifest
   → Design Intent        规则解释器（可选 LLM 精修，失败即忽略）
-  → Preview Mockup       候选主题直接套用到**真实 Dock**
+  → Preview Mockup       候选主题即时绘制到官方外壳/覆盖层，并编译分 Surface 预览文档
   → Validation           对比度 / 状态可分 / 关键区域 / 越界 / 动效 / 负载
   → User Revision / Approval
   → Theme Compilation    Theme Builder 编译自包含主题包
@@ -63,8 +65,11 @@ User Prompt
 
 `UI Inspection` 不是可选的装饰步骤，它由两部分组成，且结果必须如实上报：
 
-1. **结构 + 几何**：观察前会主动向 Dock 渲染器发一次实时测量请求
-   （`mega-theme:probe-regions`），拿回真实 Slot bounding box，而不是等最后一次被动上报。
+1. **结构 + 几何**：Dock 不是主题表面，因此不再有实时测量请求（原先的
+   `mega-theme:probe-regions` 已随皮肤一并移除）。Dock 不上报 Slot 几何，于是观察拿到的是
+   **没有实测区域**这一事实本身：预览校验把关键区域记为「未现场测量」（警告），overlay layout
+   在 `degraded` 中说明区域是假定的而非实测的——不会把 0 个区域当成测过了。壳层把这件事
+   直接告诉引擎（`dockRegions` 返回空表），而不是去敲一个不再应答的渲染器等它超时。
 2. **视觉快照**：对 Dock 自己的 `webContents` 截图（官方渲染器永不参与），
    每个页面一张 PNG，写入 `data/theme-workspace/snapshot/`。
 
@@ -126,43 +131,33 @@ User Prompt
 | `../../official-surface-views.cjs` | 官方外壳 / 官方覆盖层两个 `WebContentsView`：堆叠、跟随 bounds、输入穿透、故障隔离 |
 | `ui/hns-shell.html` | 官方外壳渲染文档（无脚本、无交互元素、pointer-events:none） |
 | `ui/official-overlay.html` | 官方覆盖层渲染文档（无脚本、无交互元素、pointer-events:none） |
-| `ui/theme-panel.js` | Appearance 面板（唯一样式化成 UI 的消费方） |
+| `ui/appearance-panel.js` | 外观 / Appearance 面板：磨砂玻璃的开关、模糊强度与通透度（Dock 唯一的外观控件） |
+| `ui/glass-layer.js` | 把 `data/state/ui-glass.json` 的三个数值写进 Dock 文档（`window.hnsGlass`） |
 | `../dock/target.js` | Dock Target Adapter：integrated `WebContentsView` 与 legacy `BrowserWindow` 的唯一入口 |
 
 ---
 
-## 4. 用户界面（只保留意图级交互）
+## 4. 用户界面（外观面板）
+
+Dock 里的「外观 / Appearance」面板只有磨砂玻璃本身：一个开关与两个滑块。主题的生成 / 校验 /
+批准 / 安装仍由引擎与 `mega:theme-*` 通道提供（渲染器侧即 `window.megaTools.theme`），
+但 Dock 不承载这些交互——它不接收主题，也没有任何控件指向它们。
 
 ```
-Appearance · 主题皮肤
+外观 · Appearance
 ────────────────────────────────
-当前主题        Dark
-Theme API 1.0 · 可主题化槽位 39/42 · 状态 10 种 · 官方 UI 仅配色提示
-[观察界面] [导入主题]
-
-Describe what you want
-[ 银发角色，黑灰蓝色调，看起来像未来科研工作站，人物别太抢屏 ]
-[Generate]
-
-Themes
-Dark 🔒   Light 🔒    Minimal Neutral    Anime Persona Demo    Cyber HUD Demo
+磨砂玻璃 / Frosted glass        [ on ] / off
+磨砂玻璃 18px · 62%
+模糊强度 · Blur                 0 – 40 px   (18)
+玻璃通透度 · Glass opacity      20 – 100 %  (62)
 ```
 
-生成后：
-
-```
-Preview
-  校验通过 · 10/11
-  ✓ text contrast      ✓ HNS state distinction
-  ! critical regions present（未现场测量）
-[Looks Good] [Modify] [放弃]
-
-Modify →
-What would you like changed?
-[ 人物再小一点，按钮不要这么亮 ] [应用修改]
-```
-
-用户只输入自然语言，看不到 slot / token / manifest / 能力清单等内部概念。
+- **实时生效**：拖动滑块时 `input` 事件立即把新数值写进文档（`hnsGlass.apply`），
+  松手时的 `change` 事件才通过外壳落盘到 `data/state/ui-glass.json`。
+- **面板是观察者，不是所有者**：数值由外壳校验并持有，面板渲染玻璃层报告的状态，
+  因此外壳夹取过的值、或其他界面改过的值，都会如实显示在这三个控件上。
+- **失败不拖垮面板**：玻璃层缺失、外壳拒绝或控件不存在，都退化为「这层保持它已有的数值」，
+  面板只给出说明；标记里默认就带着这层玻璃，所以永远不会有未上玻璃的一帧。
 
 ---
 
@@ -199,6 +194,9 @@ data/themes/user/<theme-id>/
 HNS 专用 Slot 族：`hns.window.*`、`hns.worker.*`、`hns.process.*`、`hns.hardware.*`、
 `hns.log.*`、`hns.status.*`、`hns.tray.*`、`hns.operator.*`、`hns.persona.*`。
 
+这些 `hns.*` Slot 仍留在契约、能力清单、内置主题包与校验里（包结构与观察因此保持完整），
+但 Dock 不是绘制目标：没有任何渲染器会把它们安装进界面，Dock 的外观只由磨砂玻璃层决定。
+
 ---
 
 ## 7. 资源与状态
@@ -219,8 +217,11 @@ resource_limit primary_worker sub_worker
 
 ## 8. 预览与校验
 
-预览就是**真实 Dock**：运行时把候选主题的 token 写成 CSS 自定义属性并套用 Slot 样式，
-用户看到的就是将要得到的效果。
+预览画在主题真正能写的表面上：运行时把候选主题的 token 与 Slot 样式**即时绘制到官方外壳与
+官方覆盖层**（与安装后走同一条绘制路径；这两块视图不存在时，绘制被如实记为未执行，而不是
+假装成功）。分 Surface 预览文档（`preview/hns-preview.html`、`official-shell-preview.html`、
+`official-overlay-preview.html`、`composite-preview.html`）在批准前编译进草稿包。
+Dock 不参与预览：它是磨砂玻璃，不接收主题载荷。
 
 校验清单（`preview.validatePreview`）：
 
@@ -235,7 +236,7 @@ resource_limit primary_worker sub_worker
 | background does not cover content | 阻断 |
 | persona does not cover interaction | 阻断 |
 | animation within allowed intensity | 阻断 |
-| critical regions present（渲染器未上报几何时） | 警告（仅记录未测量） |
+| critical regions present（Dock 未上报几何时） | 警告（仅记录未测量） |
 | load-aware effect budget | 警告 |
 
 **Designer 的对比度自动修复**保证生成器不可能产出被校验器拒绝的配色：修复后仍不达标才报错。
@@ -284,7 +285,11 @@ powershell -ExecutionPolicy Bypass -File ..\scripts\verify.ps1
 - `tests/unit/theme-validator.test.js` — 契约与包校验（38 项断言组）
 - `tests/unit/theme-designer.test.js` — Intent、增量修订、设计确定性、资源与 PNG
 - `tests/unit/theme-engine.test.js` — 沙箱内的完整管线 / 删除 / 副本 / 恢复 / 降级 / 布局（12 个场景）
-- `tests/unit/theme-panel.test.js` — Appearance 面板渲染器行为（17 项）
+- `tests/unit/appearance-panel.test.js` — 外观面板：拖动即时生效、松手才落盘、跟随玻璃层状态，
+  以及「Dock 不加载主题桥、不写主题值」的结构断言
+- `tests/unit/ui-glass.test.js` — 磨砂玻璃层：状态文件的默认值/夹取/落盘、`dock.css` 玻璃块
+  （调色板重定向、无自有颜色、渲染器不支持 `backdrop-filter` 时的回退）、
+  `glass-layer.js` 把数值写进文档
 - `tests/unit/theme-visual-observation.test.js` — 视觉观察闭环：真实截图被接受并落盘；
   空截图 / 非 PNG / 8x8 / 抛异常一律 `degraded`；renderer 不可用与显式 no-visual 属于允许降级
 - `tests/unit/dock-target.test.js` — Dock Adapter 两种后端、view 销毁、抛异常的 adapter、legacy 形式
@@ -306,9 +311,11 @@ node extensions/mega/theme/builtin/generate-demos.cjs  # 三个 Demo（走真实
 
 ## 12. 第二端口验收（真实 Electron + CDP）
 
-单测无法覆盖两件事：Dock 是否**真的**因主题载荷重绘，以及官方 Harness 渲染器是否**真的**
-未被主题系统碰过。`scripts/acceptance.mjs` 因此启动真实 Electron 外壳，走 CDP 驱动真实按钮，
-断言活的 DOM、真实文件系统与真实 GitHub。
+单测无法覆盖三件事：Dock 是否**真的**始终是磨砂玻璃、不接收任何主题载荷，官方外壳/覆盖层
+是否**真的**被绘制，以及官方 Harness 渲染器是否**真的**未被主题系统碰过。
+`scripts/acceptance.mjs` 因此启动真实 Electron 外壳，走 CDP 驱动真实按钮，
+断言活的 DOM、真实文件系统与真实 GitHub；它同时断言主题切换前后 Dock 的调色板不变、
+Dock 没有主题样式表与主题身份。
 
 ```powershell
 # 主实例（3080 / 默认 profile）继续运行；验收跑在第二个端口和独立 profile 上
@@ -339,7 +346,7 @@ Electron 的**单实例锁位于 userData 目录**，因此第二个实例必须
 
 | Surface | 权限 | 是什么 | 输入 |
 | --- | --- | --- | --- |
-| `hns_native` | `full` | HNS Dock 渲染器（自有 HTML/CSS/JS） | 正常 |
+| `hns_native` | `full` | HNS Dock 渲染器（自有 HTML/CSS/JS）。声明仍在模型里，但 Dock 不是绘制目标：引擎以 `applyToRenderer: () => false` 装配，Dock 的外观只由磨砂玻璃层决定 | 正常 |
 | `official_shell` | `full` | DS-Hns 在官方渲染器**外围**绘制的框架（独立 `WebContentsView`，位于官方视图之下） | 穿透 |
 | `official_overlay` | `visual-only` | 官方渲染器**上方**的透明覆盖层（独立 `WebContentsView`） | 穿透 |
 | `official_renderer` | `protected` | 官方 `@deepseek-ai/dsh` 渲染器 | 全部保留 |
@@ -443,7 +450,9 @@ bounds**、覆盖层跟随官方视图、保护 Surface 未被注入、Overlay �
 测量、增量修订的哈希对比、删除后无残留。
 
 CI（`.github/workflows/verify.yml`）在 `main` / `merging` / `Theme-Cover` 上运行
-`npm run check` + `npm test`，并额外断言 11 个新增文件存在、两个新目录确实被语法闸门覆盖。
+`npm run check` + `npm test`，并额外断言四表面相关文件存在、两个新目录确实被语法闸门覆盖。
+同一份清单里还有 Dock 的玻璃层（`ui/glass-layer.js`、`ui/appearance-panel.js`）与
+`tests/unit/appearance-panel.test.js`，`scripts/test-all.ps1` 也按名断言这套测试。
 `Theme-Cover` 分支上的绿灯运行是 `34682726135`：`checked 98/98 files`、
 `# tests 681 / # pass 681 / # fail 0 / # cancelled 0`、Theme surface gate 通过。
 

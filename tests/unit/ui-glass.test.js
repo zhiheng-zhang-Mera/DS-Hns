@@ -55,7 +55,7 @@ test('the layer is on in the markup, before any script runs', () => {
   assert.match(html, /<script src="glass-layer\.js"><\/script>/, 'the dock never loads the glass layer')
   // The layer's numbers must be in place before the panels paint.
   const order = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map((match) => match[1])
-  assert.equal(order.indexOf('glass-layer.js') < order.indexOf('theme-panel.js'), true, 'the glass layer must load before the panels')
+  assert.equal(order.indexOf('glass-layer.js') < order.indexOf('appearance-panel.js'), true, 'the glass layer must load before the panel that drives it')
   assert.equal(order.indexOf('glass-layer.js') < order.indexOf('dock.js'), true)
 })
 
@@ -73,8 +73,11 @@ test('the official UI cannot be frosted: it is a different document that never l
 
 test('coverage is by token, and the surfaces really do paint with those tokens', () => {
   const { tokens, block } = glassBlock()
-  // The palette the surfaces use, and the palette the layer redirects.
+  // The palette the surfaces use, and the palette the layer redirects. `bg-base` is in the list
+  // now: the pane itself has to be translucent, or the window's own material never reaches the
+  // screen and the layer can only frost the document's flat background.
   const redirected = [
+    '--hns-color-bg-base',
     '--hns-color-bg-layer1', '--hns-color-bg-layer2', '--hns-color-bg-raised', '--hns-color-bg-overlay',
     '--hns-color-border-l1', '--hns-color-border-l2',
     '--hns-slot-shell-bg', '--hns-slot-panel-bg', '--hns-slot-card-bg', '--hns-slot-queue-bg',
@@ -83,7 +86,7 @@ test('coverage is by token, and the surfaces really do paint with those tokens',
   for (const token of redirected) {
     assert.match(block, new RegExp(`${token}:color-mix\\(`), `${token} is not redirected, so its surfaces stay opaque`)
   }
-  // The capture of the skin's own values, which is what keeps the redirection free of a cycle.
+  // The capture of the dock's own values, which is what keeps the redirection free of a cycle.
   for (const token of redirected) {
     assert.match(tokens, new RegExp(`--hns-glass-src-[\\w-]+:var\\(${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`), `${token} has no captured source, so the redirection would refer to itself`)
   }
@@ -92,21 +95,25 @@ test('coverage is by token, and the surfaces really do paint with those tokens',
   assert.match(css, /\.panel\{[^}]*background:var\(--hns-slot-panel-bg\)/, 'panels no longer paint with the slot palette')
   assert.match(css, /button,input,select,textarea\{[^}]*background:var\(--hns-color-bg-layer1\)/, 'buttons and inputs no longer paint with the palette')
   assert.match(css, /\.pm-sheet\{[^}]*background:var\(--hns-color-bg-layer1\)/, 'the plugin manager sheet no longer paints with the palette')
-  // The base layer stays opaque: a dark skin over a light window background must not wash out.
-  assert.equal(/--hns-color-bg-base:color-mix/.test(block), false, 'the base layer was made translucent, which washes a dark skin out')
+  // And the canvas: `:root` must not paint a background of its own, or the body's translucent
+  // colour would never become the canvas and the pane would stop at the document's edge.
+  assert.equal(/^\s*background:/m.test(tokens.slice(tokens.lastIndexOf(':root{'))), false, ':root paints an opaque background over the pane')
 })
 
-test('the glass has no colours of its own: every tint comes from the active skin', () => {
+test('the glass has no colours of its own: every tint is mixed out of the dock palette', () => {
   const { tokens, block } = glassBlock()
   const rules = `${tokens}${block}`
-  assert.equal(/#[0-9a-f]{3,8}\b/i.test(rules), false, 'the glass block hard-codes a hex colour instead of mixing the skin')
-  assert.equal(/\brgba?\(/i.test(rules), false, 'the glass block hard-codes an rgb colour instead of mixing the skin')
-  assert.equal(/\bhsla?\(/i.test(rules), false, 'the glass block hard-codes an hsl colour instead of mixing the skin')
-  // A skin's own effect blur adds to the product's baseline rather than being replaced by it.
-  assert.match(rules, /--hns-glass-filter:blur\(calc\(var\(--hns-glass-blur\) \+ var\(--hns-effect-blur\)\)\)/, 'the skin\'s effect blur no longer composes with the layer')
+  assert.equal(/#[0-9a-f]{3,8}\b/i.test(rules), false, 'the glass block hard-codes a hex colour instead of mixing the palette')
+  assert.equal(/\brgba?\(/i.test(rules), false, 'the glass block hard-codes an rgb colour instead of mixing the palette')
+  assert.equal(/\bhsla?\(/i.test(rules), false, 'the glass block hard-codes an hsl colour instead of mixing the palette')
+  // The pane has its own translucency, above the cards': a window whose base is as thin as its
+  // panels is unreadable over a bright desktop.
+  assert.match(rules, /--hns-glass-base-alpha:calc\(var\(--hns-glass-alpha\) \+ 22%\)/, 'the pane has no translucency of its own, or it is not derived from the user\'s')
   // And the numbers the layer is made of are the ones the shell owns.
   assert.match(rules, /--hns-glass-blur:18px/, 'the baseline blur is missing')
   assert.match(rules, /--hns-glass-alpha:62%/, 'the baseline translucency is missing')
+  // The skin's own effect blur is gone with the skin: the filter is the product's blur alone.
+  assert.match(rules, /--hns-glass-filter:blur\(var\(--hns-glass-blur\)\) saturate\(var\(--hns-glass-saturate\)\)/, 'the filter is not built from the user\'s blur')
 })
 
 test('the frosted layers are the ones content passes under, and the fallback keeps contrast', () => {
@@ -176,19 +183,10 @@ test('the switch persists, and refuses values it cannot honour', () => {
 test('the dock script moves the document, not just the file', async () => {
   const source = fs.readFileSync(path.join(UI, 'glass-layer.js'), 'utf8')
   const set = new Map()
-  const nodes = new Map()
   const document = {
     body: { dataset: {} },
     documentElement: { style: { setProperty: (name, value) => set.set(name, value) } },
-    getElementById: (id) => {
-      if (!nodes.has(id)) {
-        nodes.set(id, {
-          id, value: '', checked: true, dataset: {}, listeners: new Map(),
-          addEventListener(event, handler) { this.listeners.set(event, handler) }
-        })
-      }
-      return nodes.get(id)
-    }
+    getElementById: () => null
   }
   const calls = []
   const window = {
@@ -213,25 +211,34 @@ test('the dock script moves the document, not just the file', async () => {
   assert.equal(document.body.dataset.glass, 'off', 'the state from the shell was not applied to the document')
   assert.equal(set.get('--hns-glass-blur'), '24px', 'the blur was not written as a custom property')
   assert.equal(set.get('--hns-glass-alpha'), '70%', 'the translucency was not written as a custom property')
-  // The controls show the state that is in force.
-  assert.equal(nodes.get('themeGlass').checked, false)
-  assert.equal(nodes.get('themeGlassBlur').value, '24')
 
-  // The switch goes through the shell and applies its answer.
-  nodes.get('themeGlass').checked = true
-  await nodes.get('themeGlass').listeners.get('change')()
+  // The layer is the model: a patch goes through the shell and the *answer* is applied. The
+  // controls that call it are the Appearance panel's, and they are covered by
+  // `appearance-panel.test.js` — which is where the live-preview behaviour belongs.
+  const applied = await window.hnsGlass.set({ enabled: true })
   assert.deepEqual(calls[0], { enabled: true })
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.equal(document.body.dataset.glass, 'on', 'the switch did not re-glaze the document')
+  assert.equal(applied.enabled, true)
+  assert.equal(document.body.dataset.glass, 'on', 'the answer from the shell was not applied')
+  assert.deepEqual(window.hnsGlass.state(), { enabled: true, blur: 24, opacity: 70 })
 
-  // A slider previews locally and writes once, on release.
-  const before = calls.length
-  nodes.get('themeGlassBlur').value = '32'
-  nodes.get('themeGlassBlur').listeners.get('input')()
-  assert.equal(set.get('--hns-glass-blur'), '32px', 'dragging the slider does not preview')
-  assert.equal(calls.length, before, 'dragging the slider writes the file on every step')
-  await nodes.get('themeGlassBlur').listeners.get('change')()
-  assert.deepEqual(calls[before], { blur: 32 }, 'releasing the slider did not persist the value')
+  // A second patch goes through the shell too, and the answer is what lands.
+  const local = await window.hnsGlass.set({ blur: 6 })
+  assert.deepEqual(calls[1], { blur: 6 })
+  assert.equal(local.blur, 6)
+
+  // A page opened outside the shell still has a working layer: with no bridge the patch is
+  // applied locally rather than dropped.
+  delete window.megaTools
+  const offline = await window.hnsGlass.set({ blur: 13 })
+  assert.equal(offline.blur, 13)
+  assert.equal(set.get('--hns-glass-blur'), '13px')
+  assert.equal(calls.length, 2, 'a patch with no bridge tried to call one')
+
+  // Followers see every change, which is how the panel keeps its readouts in step.
+  const seen = []
+  window.hnsGlass.onChange((next) => seen.push(next.blur))
+  window.hnsGlass.apply({ blur: 11 })
+  assert.deepEqual(seen, [11])
 })
 
 test('the layer is wired end to end: shell file, channels, bridge and panel controls', () => {
@@ -251,9 +258,14 @@ test('the layer is wired end to end: shell file, channels, bridge and panel cont
   // The switch is chrome, not a feature: it must not be gated, or a user who switched something
   // off could not read the panel that says so.
   assert.equal(/ui-glass/.test(features), false, 'the glass layer was made a feature, which would let it hide itself')
-  for (const id of ['themeGlass', 'themeGlassBlur', 'themeGlassOpacity']) {
+  for (const id of ['glassEnabled', 'glassBlur', 'glassOpacity']) {
     assert.match(html, new RegExp(`id="${id}"`), `the Appearance panel has no ${id} control`)
   }
-  // And the panel is where a visual property belongs.
-  assert.match(html, /id="appearancePanel"[\s\S]*id="themeGlassRow"[\s\S]*id="themePreview"/, 'the glass controls are outside the Appearance panel')
+  // And the panel is where a visual property belongs — the whole of it, since the panel is now
+  // the glass's control surface and nothing else.
+  const panel = html.slice(html.indexOf('id="appearancePanel"'))
+  const section = panel.slice(0, panel.indexOf('</section>'))
+  for (const id of ['glassEnabled', 'glassBlur', 'glassOpacity', 'glassRow']) {
+    assert.ok(section.includes(`id="${id}"`), `#${id} is outside the Appearance panel`)
+  }
 })

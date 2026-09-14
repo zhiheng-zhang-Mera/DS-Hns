@@ -30,8 +30,14 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 | 项目 | 结果 |
 | --- | --- |
 | 通过 / 总数 | 60 / 60（0 failure） |
-| 模块 | core 8/8 · dock 4/4 · theme 39/39 · skills 8/8 · updater 1/1 |
+| 模块 | core 8/8 · dock 4/4 · theme 39/39（含当时仍在的 Dock 主题重绘检查，现已退役）· skills 8/8 · updater 1/1 |
 | 结论 | 全部 mandatory gate 通过，0 blocker / 0 P0 / 0 P1 |
+
+> **Dock 主题验收已退役**：上表 theme 39/39 中的 `the dock repainted with the new theme`
+> 一类检查，前提是 Dock 会被主题载荷重绘。Dock 现在是磨砂玻璃、不接收任何主题载荷，所以
+> 这些检查已从 `scripts/acceptance.mjs` 退役，替换为相反方向的断言（Dock 启动即磨砂、
+> 主题切换前后调色板不变、Dock 没有主题样式表与主题身份）。退役后的验收没有在本记录里
+> 运行过，本文件因此不对「Dock 因主题重绘」作任何绿灯声明。
 
 另一次带 `--github` 的运行达到 64/65，唯一失败项是验收自身的展开控件竞态
 （`the dock expands to full width through its own control` 首帧读到 `{"expanded":false}`），
@@ -46,7 +52,7 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 | Gate | 要求 | 验收证据 |
 | --- | --- | --- |
 | B 基础启动 | HNS 启动、official renderer 加载、Mega Dock 加载、无未捕获异常 | `the harness listens on the alternate port`、`the official harness renderer is attached`、`the dock renderer is attached`、`the official renderer is still a rendered page` |
-| C Theme | Dark → Light → Dark 且真实重绘 | `the dock repainted with the new theme`、`the renderer applied a theme payload on the switch`、`a dock panel resolves its background from the new theme` |
+| C Theme | ~~Dark → Light → Dark 且真实重绘~~（已退役，见第 2 节） | **已退役**：Dock 不再是主题表面，`the dock repainted with the new theme`、`the renderer applied a theme payload on the switch`、`a dock panel resolves its background from the new theme` 都不再运行（当时证据如此）。现在这一组断言的是相反方向：`applying the Light system theme succeeds`、`the dock kept its palette across the theme switch`、`the dock received no theme stylesheet on the switch`、`the dock received no theme identity on the switch`；本轮未运行，不作绿灯声明 |
 | D Snapshot | 正常 integrated mode 下 `visual = true` 且真实生成 PNG | `the theme design observed the UI visually`、`the snapshot PNG snapshot/<page>.png is a real image`（105 KB / 840x1326） |
 | E Prompt Theme | observe → create → preview → validate → approve → apply → delete，删除后 Dark 恢复 | `a prompt creates a preview and does not install`、`the generated theme was approved and installed`、`the generated theme can be deleted again`、`the generated theme is listed and Dark is restored` |
 | F System Theme Protection | 删除 dark / light 必须失败且 `reason=protected` | `a protected system theme cannot be deleted`、`every protected system theme refuses deletion` |
@@ -82,7 +88,7 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 | `app/package.json` | `check` 脚本两套 | 保留 `scripts/check-syntax.cjs`（并把 `sub-worker` 目录纳入扫描） |
 | `app/desktop-main.cjs` | 端口解析、`dockReadyCallbacks`/Sub-worker 状态、launch 参数 | 保留更严格的端口 opt-in 与 `DSH_LAUNCH_ARGS`，同时保留 Sub-worker 状态与 IPC 列表 |
 | `app/extensions/mega/index.cjs` | 模块状态变量、snapshot 字段、`notifyChanged` 注释、`start()` 尾部 | 两者并存：主题状态 + Sub-worker 状态；`bindSubWorker()` 放在最后（故障隔离） |
-| `app/extensions/mega/ui/dock.js` | `renderUpdate`/`renderSubWorker`、Escape 处理 | 两个渲染器都调用；Escape 顺序为 Live View → 设置层 → 主题详情 |
+| `app/extensions/mega/ui/dock.js` | `renderUpdate`/`renderSubWorker`、Escape 处理 | 两个渲染器都调用；Escape 顺序为 Live View → 设置层（合并当时还有第三层「主题详情」，它已随 Dock 的皮肤一起移除） |
 | `tests/unit/sub-worker-default-regression.test.js` | 断言旧的 `const HARNESS_PORT = … : 3080` | 改为断言 `normalizeHarnessPort()` 的 3080 默认值与新的 `DSH_LAUNCH_ARGS` 行 |
 
 合并后修复的三处真实问题（均为「两功能各自正确、合起来才暴露」）：
@@ -103,7 +109,7 @@ node scripts\acceptance.mjs --root <checkout> --port 3093 --cdp 9333 --skills --
 | `npm run check` | PASS（89/89 文件） |
 | `npm test` | PASS（629 tests / 629 pass / 0 fail） |
 | `scripts\verify.ps1` | PASS（exit 0） |
-| `scripts\acceptance.mjs`（真实 Electron + CDP） | PASS（60/60：core 8 · dock 4 · theme 39 · skills 8 · updater 1） |
+| `scripts\acceptance.mjs`（真实 Electron + CDP） | PASS（60/60：core 8 · dock 4 · theme 39 · skills 8 · updater 1）；其中 theme 里的 Dock 重绘检查已退役，见第 2 节 |
 | `scripts\sub-worker-acceptance.cjs all`（真实 Worker + Harness） | PASS（60/60） |
 
 `sub-worker-acceptance.cjs` 的集成合并检查原先只在 `waitFor` 里等「worktree 目录出现」，

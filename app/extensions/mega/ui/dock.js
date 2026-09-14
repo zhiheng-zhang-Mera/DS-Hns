@@ -1016,21 +1016,21 @@ function applyFeatureVisibility(map) {
 
 /**
  * Dock UI modules. Each is optional and each owns its own state, so a failure in
- * one (theme system, skills) can never stop the queue/hardware/balance modules from
+ * one (appearance, skills) can never stop the queue/hardware/balance modules from
  * rendering.
  *
- * Both modules join the shared `theme-bridge`, which is also what makes them visible
- * to theme validation: whichever panels exist report their own geometry, so a new
- * panel cannot be silently occluded by a theme.
+ * The Appearance module is the frosted-glass layer's controls and nothing else: the
+ * dock is not skinned, so there is no theme payload to receive and no geometry to
+ * report back to a theme engine.
  */
-let themePanel = null
+let appearancePanel = null
 let skillsPanel = null
 let computerUsePanel = null
 let engineeringPanel = null
 let pluginPanel = null
 let featureManager = null
 try {
-  themePanel = window.megaThemePanel?.attach ? window.megaThemePanel.attach() : null
+  appearancePanel = window.megaAppearancePanel?.attach ? window.megaAppearancePanel.attach() : null
 } catch (error) {
   showError(error)
 }
@@ -1077,9 +1077,8 @@ async function refresh() {
     // The feature registry decides which panels exist, so it is read before the first paint.
     await loadFeatureSurfaces()
     render(await window.megaTools.snapshot())
-    // The dock snapshot carries only compact statuses; the panels keep the full
-    // theme list and skill catalog.
-    await themePanel?.refresh?.()
+    // The dock snapshot carries only compact statuses; the panels keep their own state.
+    await appearancePanel?.refresh?.()
     await skillsPanel?.refresh?.()
     await computerUsePanel?.refresh?.()
     await engineeringPanel?.refresh?.()
@@ -1147,16 +1146,7 @@ document.addEventListener('keydown', (event) => {
     setSettingsOpen(false)
     return
   }
-  const detail = $('themeDetail')
-  if (detail && !detail.hidden) detail.hidden = true
 })
-const themeDetailClose = $('themeDetailClose')
-if (themeDetailClose) {
-  themeDetailClose.onclick = () => {
-    const detail = $('themeDetail')
-    if (detail) detail.hidden = true
-  }
-}
 
 $('generalForm').onsubmit = async (event) => {
   event.preventDefault()

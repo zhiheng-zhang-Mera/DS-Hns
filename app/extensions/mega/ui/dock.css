@@ -71,14 +71,12 @@
   --hns-slot-input-border:1px solid var(--hns-color-border-l1);
   --hns-slot-input-radius:var(--hns-radius-sm);
   --hns-slot-header-bg:var(--hns-color-bg-layer1);
-  --hns-decoration-asset:none;
-  --hns-persona-decoration-opacity:0;
-  --hns-persona-banner-opacity:0;
-  --hns-persona-avatar:none;
-  --hns-persona-banner-asset:none;
 
+  /* No background here on purpose. `html` painted the dock's opaque base, which meant the
+     translucent pane could only ever frost the document's own flat colour. With no background
+     on `:root`, the body's background becomes the canvas — and the body is what the glass layer
+     makes translucent, so the window's material reaches the screen. */
   color:var(--hns-color-label-primary);
-  background:var(--hns-color-bg-base);
 }
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;overflow:hidden}
@@ -430,92 +428,32 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 
 
 /* ==========================================================================
-   Appearance panel — the only user-facing surface of the HNS theme system.
-   Internal concepts (slots, tokens, manifests, capabilities) are never shown;
-   the user sees a prompt box, a preview verdict and a theme list.
+   Appearance panel (外观) — the frosted-glass layer's controls.
+
+   It used to be the theme system's only user-facing surface: a prompt box, a
+   live preview and a theme list. The dock is no longer skinned, so there is no
+   theme to describe, preview or list — what is left is the switch and the two
+   numbers the glass is made of (the block at the end of this file).
    ========================================================================== */
 .appearance-panel{background:var(--hns-slot-panel-bg);border:var(--hns-slot-panel-border);border-radius:var(--hns-slot-panel-radius);box-shadow:var(--hns-slot-panel-shadow)}
-
-.theme-current{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;margin-bottom:8px;border:1px solid var(--hns-color-border-l1);border-radius:9px;background:var(--hns-slot-queue-bg)}
-.theme-current span{font-size:10px;color:var(--hns-color-label-secondary)}
-.theme-current b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-.theme-capability{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
-.theme-capability span{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid var(--hns-color-border-l1);background:var(--hns-color-bg-layer2);color:var(--hns-color-label-secondary)}
-
-.theme-create{display:flex;flex-direction:column;gap:6px;padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
-.theme-create>label{font-size:10px;color:var(--hns-color-label-secondary);letter-spacing:.02em}
-.theme-create textarea{width:100%;padding:8px;resize:vertical;background:var(--hns-slot-input-bg);border:var(--hns-slot-input-border);border-radius:var(--hns-slot-input-radius);color:var(--hns-color-label-primary)}
-.theme-create-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
-.theme-create-actions button{padding:7px 14px;background:var(--hns-slot-button-bg);color:var(--hns-slot-button-label);border:0;border-radius:var(--hns-slot-button-radius)}
-.theme-create-actions button:hover{filter:brightness(1.06)}
-.theme-busy{font-size:10px;color:var(--hns-color-label-secondary)}
-.theme-quick-row{display:flex;flex-wrap:wrap;gap:5px}
-.theme-quick{font-size:9px;padding:3px 8px;border-radius:999px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);color:var(--hns-color-label-secondary);cursor:pointer;text-align:left}
-.theme-quick:hover{color:var(--hns-color-label-primary);border-color:var(--hns-color-border-l2)}
-
-.theme-preview{margin-top:9px;padding:9px;border:1px solid var(--hns-color-accent-primary);border-radius:10px;background:var(--hns-color-bg-layer2)}
-.preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
-.preview-name{font-size:13px;font-weight:var(--hns-font-weight-title)}
-.preview-intent{margin-top:2px;font-size:9px;color:var(--hns-color-label-secondary);word-break:break-word}
-.preview-badge{font-size:9px;padding:2px 7px;border-radius:999px;border:1px solid var(--hns-color-border-l1);color:var(--hns-color-label-secondary)}
-.preview-verdict{font-size:11px;font-weight:700;margin:4px 0}
-.preview-verdict.ok{color:var(--hns-state-completed)}
-.preview-verdict.fail{color:var(--hns-state-failed)}
-.preview-warnings{font-size:9px;color:var(--hns-state-warning);margin-bottom:4px}
-.preview-checks{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
-.preview-checks li{display:grid;grid-template-columns:12px 1fr;gap:5px;font-size:9px;line-height:1.35;align-items:start}
-.preview-checks li b{font-size:9px}
-.preview-checks li em{grid-column:2;color:var(--hns-color-label-tertiary);font-style:normal}
-.preview-checks li.ok b{color:var(--hns-state-completed)}
-.preview-checks li.warn b{color:var(--hns-state-warning)}
-.preview-checks li.fail b{color:var(--hns-state-failed)}
-.preview-note{margin-top:6px;font-size:9px;color:var(--hns-color-label-secondary)}
-.preview-history{margin-top:4px;font-size:9px;color:var(--hns-color-label-tertiary);word-break:break-word}
-.theme-preview-actions{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
-.theme-preview-actions button{padding:7px 12px;background:var(--hns-slot-button-bg);color:var(--hns-slot-button-label);border:0;border-radius:var(--hns-slot-button-radius)}
-.theme-preview-actions button.quiet{background:var(--hns-color-bg-layer1);color:var(--hns-color-label-primary);border:1px solid var(--hns-color-border-l1)}
-.theme-preview-actions button:disabled{opacity:.5;cursor:not-allowed}
-.theme-modify{margin-top:8px;display:flex;flex-direction:column;gap:5px}
-.theme-modify label{font-size:10px;color:var(--hns-color-label-secondary)}
-.theme-modify-row{display:flex;gap:6px}
-.theme-modify-row input{flex:1;padding:7px;background:var(--hns-slot-input-bg);border:var(--hns-slot-input-border);border-radius:var(--hns-slot-input-radius);color:var(--hns-color-label-primary)}
-.theme-modify-row button{padding:7px 12px;background:var(--hns-slot-button-bg);color:var(--hns-slot-button-label);border:0;border-radius:var(--hns-slot-button-radius)}
 
 .theme-message{min-height:14px;margin:8px 0;font-size:10px;line-height:1.4;color:var(--hns-color-label-secondary);word-break:break-word}
 .theme-message.ok{color:var(--hns-state-completed)}
 .theme-message.warn{color:var(--hns-state-warning)}
 .theme-message.error{color:var(--hns-state-failed)}
 
-.theme-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:6px 0 5px}
-.theme-list-head h3{margin:0;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--hns-color-label-tertiary)}
-.theme-list-head span{font-size:9px;color:var(--hns-color-label-tertiary)}
-.theme-list{display:flex;flex-direction:column;gap:5px}
-.theme-item{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--hns-color-border-l1);border-radius:9px;background:var(--hns-slot-queue-bg)}
-.theme-item.active{border-color:var(--hns-color-accent-primary);background:var(--hns-color-bg-raised)}
-.theme-item.broken{border-color:var(--hns-state-failed)}
-.theme-apply{display:flex;flex-direction:column;gap:1px;align-items:flex-start;background:transparent;border:0;padding:0;cursor:pointer;text-align:left;min-width:0}
-.theme-name{font-size:11px;color:var(--hns-color-label-primary);display:flex;align-items:center;gap:4px}
-.theme-lock{font-size:9px;opacity:.75}
-.theme-meta{font-size:9px;color:var(--hns-color-label-tertiary)}
-.theme-actions{display:flex;gap:3px}
+/* The small square icon button the dock's panels share (the skills detail close, and every
+   button the panels build in JavaScript). */
 .theme-icon{width:22px;height:22px;padding:0;font-size:10px;line-height:1;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l1);border-radius:6px;color:var(--hns-color-label-secondary);cursor:pointer}
 .theme-icon:hover:not(:disabled){color:var(--hns-color-label-primary);border-color:var(--hns-color-border-l2)}
 .theme-icon:disabled{opacity:.35;cursor:not-allowed}
 .theme-icon.danger:hover:not(:disabled){color:var(--hns-state-failed);border-color:var(--hns-state-failed)}
 
-.theme-detail{margin-top:9px;padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
-.theme-detail-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.theme-detail-head h3{margin:0;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--hns-color-label-tertiary)}
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.detail-grid>div{min-width:0}
-.detail-grid span{display:block;font-size:9px;color:var(--hns-color-label-tertiary)}
-.detail-grid b{display:block;font-size:10px;color:var(--hns-color-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.detail-prompt,.detail-history{margin-top:6px;font-size:9px;color:var(--hns-color-label-secondary);word-break:break-word}
-
-/* ---- Theme-decorated dock surfaces -------------------------------------------------
-   These rules are the *only* place the dock reads slot values. Every one of them
-   resolves to a theme token, so a theme restyles the dock without touching markup. */
+/* ---- The dock's own palette, and the one rule that reads a slot value --------------
+   Every surface below paints with the dock's built-in tokens. Nothing installs a theme's
+   values over them: the Appearance panel drives the glass layer and nothing else, so these
+   are the colours the product ships, and `--hns-*` survives only as the name the stylesheet
+   already used. */
 body{background:var(--hns-color-bg-base);border-left:var(--hns-slot-shell-border,1px solid var(--hns-color-border-l1))}
 #rail{background:var(--hns-color-bg-layer2);border-right:1px solid var(--hns-color-border-l1)}
 #detail{background:var(--hns-color-bg-base);position:relative}
@@ -544,14 +482,10 @@ button:hover{background:var(--hns-color-bg-layer2)}
 .settings-head{background:var(--hns-color-bg-layer2);border-bottom:1px solid var(--hns-color-border-l1)}
 .settings-overlay{background:color-mix(in srgb,var(--hns-color-bg-overlay) 62%,transparent)}
 
-/* ---- Persona / decoration layer (HNS: lightweight only) ----------------------------
-   Rendered into a single non-interactive overlay that is always behind the content
-   and never covers the queue, hardware grid or status strip (HNS specialization §4). */
-#hnsDecoration{position:absolute;inset:0;pointer-events:none;z-index:0;background-image:var(--hns-decoration-asset);background-repeat:no-repeat;background-position:top right,bottom left;background-size:38% auto;opacity:var(--hns-persona-decoration-opacity)}
-#hnsPersona{position:absolute;right:10px;bottom:10px;width:56px;height:56px;pointer-events:none;z-index:0;border-radius:50%;background-image:var(--hns-persona-avatar);background-size:contain;background-repeat:no-repeat;background-position:center;opacity:calc(var(--hns-persona-decoration-opacity) * 5)}
+/* The persona / decoration layer (#hnsDecoration / #hnsPersona) is gone with the dock's skin:
+   a character overlay is a theme feature, and a pane of frosted glass has no persona. The one
+   rule worth keeping is the stacking one — the content still has to sit above the pane. */
 #detail>.dock-header,#detail>section,#detail>p,#detail>div{position:relative;z-index:1}
-body[data-effect-level="2"] #hnsDecoration,body[data-effect-level="2"] #hnsPersona{display:none}
-body[data-effect-level="1"] #hnsDecoration{opacity:0}
 
 
 /* ==========================================================================
@@ -811,50 +745,69 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
 .pm-badge.warn{color:var(--hns-state-warning);border-color:var(--hns-state-warning)}
 .plug-facts .plug-compat{color:var(--hns-state-warning)}
 
+/* The store's GitHub settings. A closed <details> by default-open, because these are the values a
+   user has to set once and then wants to be able to read back: the summary line says which
+   credential is in force and which topic is being searched. */
+.pm-github{margin:0 0 8px;border:1px solid var(--hns-color-border-l1);border-radius:8px;background:var(--hns-color-bg-layer2)}
+.pm-github>summary{padding:7px 9px;cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.pm-github>summary::-webkit-details-marker{display:none}
+.pm-github>summary::before{content:"▸";color:var(--hns-color-label-tertiary)}
+.pm-github[open]>summary::before{content:"▾"}
+.pm-github>summary b{font-size:11px;color:var(--hns-color-label-primary)}
+.pm-github>p{margin:0;padding:0 9px 7px}
+.pm-github-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 9px 8px}
+.pm-github-field{display:grid;gap:3px;font-size:10px;color:var(--hns-color-label-secondary);min-width:0}
+.pm-github-field input{width:100%;min-width:0}
+.pm-github-actions{display:flex;flex-wrap:wrap;gap:7px;align-items:center;padding:0 9px 9px}
+
 /* =====================================================================================
    Frosted glass (半透明磨砂玻璃)
    =====================================================================================
 
-   Every DS-Hns surface is a pane of translucent frosted glass. The official UI is *not* one
-   of them, and that is structural rather than a promise: the official renderer is a separate
-   `WebContentsView` with its own document, and this stylesheet is never loaded into it — the
-   official shell and overlay carry their own inline styles, so nothing here can reach them.
+   The dock is a pane of frosted glass. Not "frosted over the active skin" — the skin is
+   gone, and the layer below is the whole of how this surface looks. The official UI is still
+   not a pane, and that is structural rather than a promise: the official renderer is a
+   separate `WebContentsView` with its own document, and this stylesheet is never loaded into
+   it.
 
    How it is built, and why this way:
 
-   1. **The colours stay the skin's.** Glass is an *effect over* the active theme, never a
-      palette beside it. Every tint below is a `color-mix()` of a theme token with
-      transparency, so a skin installed after this feature still decides what the glass looks
-      like — which is what "works alongside other desktop skin plugins" has to mean in code.
-      There is not one literal colour in this block, and a test enforces that.
-   2. **The tokens are redirected, not every component.** Every surface in this dock already
-      paints with `--hns-color-bg-layer1` / `--hns-slot-panel-bg` and their siblings, so the
-      layer redefines those on `body[data-glass="on"]` instead of listing two hundred
-      selectors. A panel added later is frosted because it uses the palette, not because
-      somebody remembered to add it here.
+   1. **The pane reaches the window.** The base layer is translucent too, and `:root` no longer
+      paints a background of its own, so the document's canvas is the body's translucent colour
+      and the window's own material — acrylic, on a platform that has it — shows through and is
+      blurred by the compositor. Without this the layer could only ever frost the document's own
+      flat background, which is exactly why it read as an ordinary panel rather than as glass.
+   2. **The tokens are redirected, not every component.** Every surface in this dock paints with
+      `--hns-color-bg-layer1` / `--hns-slot-panel-bg` and their siblings, so the layer redefines
+      those on `body[data-glass="on"]` instead of listing two hundred selectors. A panel added
+      later is frosted because it uses the palette, not because somebody remembered it here.
    3. **The sources are captured first.** `--hns-glass-src-*` are computed on `:root` and
       inherited, so the body-level redefinition mixes the *original* colour rather than
       referring to itself: `--hns-color-bg-layer1: color-mix(..., var(--hns-glass-src-layer1))`
-      has no cycle. The same capture is why a theme's slot styles survive the layer.
-   4. **The base layer stays opaque.** Only surfaces *above* the base become translucent.
-      A dark skin over a light window background would otherwise wash out, and the glass is
-      only legible when what shows through is the skin.
-   5. **A skin's own blur adds to the product's.** The filter sums `--hns-effect-blur` (a theme
-      token that has existed all along) with the product's baseline, so a skin that asks for
-      more effect gets more.
-   6. **The numbers are user state.** `--hns-glass-blur` and `--hns-glass-alpha` are written by
-      `glass-layer.js` from `data/state/ui-glass.json`, so the Appearance panel's switch and
-      this stylesheet cannot disagree about what is in force.
+      has no cycle.
+   4. **There is no literal colour here.** Every tint is a `color-mix()` of a palette token with
+      transparency, so the glass is a property of the dock's palette rather than a second
+      palette beside it, and a test enforces it.
+   5. **The numbers are user state.** `--hns-glass-blur` and `--hns-glass-alpha` are written by
+      `glass-layer.js` from `data/state/ui-glass.json`, so the Appearance panel's controls and
+      this stylesheet cannot disagree about what is in force — and a slider's `input` event is
+      the whole update path, so the pane changes on the frame the user drags.
+   6. **Translucency is graded, not uniform.** The pane itself keeps more of its colour than the
+      cards on top of it, or a window with nothing behind it would be unreadable; the fallback
+      below raises both when the renderer cannot blur at all.
    ===================================================================================== */
 :root{
   /* Baseline effect. Both numbers are overwritten by the dock's glass script. */
   --hns-glass-blur:18px;
   --hns-glass-alpha:62%;
+  /* The pane itself, which has to stay the most opaque layer or the desktop shows through the
+     text. It is a fraction of the cards' translucency, not a second independent number. */
+  --hns-glass-base-alpha:calc(var(--hns-glass-alpha) + 22%);
   --hns-glass-saturate:1.4;
   --hns-glass-sheen:7%;
-  /* The product's blur plus whatever the active skin asked for. */
-  --hns-glass-filter:blur(calc(var(--hns-glass-blur) + var(--hns-effect-blur))) saturate(var(--hns-glass-saturate));
-  /* The skin's own values, captured before they are redirected. */
+  --hns-glass-filter:blur(var(--hns-glass-blur)) saturate(var(--hns-glass-saturate));
+  /* The dock's own colours, captured before they are redirected. */
+  --hns-glass-src-base:var(--hns-color-bg-base);
   --hns-glass-src-layer1:var(--hns-color-bg-layer1);
   --hns-glass-src-layer2:var(--hns-color-bg-layer2);
   --hns-glass-src-raised:var(--hns-color-bg-raised);
@@ -870,6 +823,7 @@ body[data-effect-level="1"] #hnsDecoration{opacity:0}
   --hns-glass-src-header:var(--hns-slot-header-bg);
 }
 body[data-glass="on"]{
+  --hns-color-bg-base:color-mix(in srgb,var(--hns-glass-src-base) var(--hns-glass-base-alpha),transparent);
   --hns-color-bg-layer1:color-mix(in srgb,var(--hns-glass-src-layer1) var(--hns-glass-alpha),transparent);
   --hns-color-bg-layer2:color-mix(in srgb,var(--hns-glass-src-layer2) var(--hns-glass-alpha),transparent);
   --hns-color-bg-raised:color-mix(in srgb,var(--hns-glass-src-raised) var(--hns-glass-alpha),transparent);
@@ -886,9 +840,8 @@ body[data-glass="on"]{
   /* The sheen that makes a translucent pane read as glass rather than as a faded panel. */
   --hns-glass-sheen-current:color-mix(in srgb,var(--hns-color-label-primary) var(--hns-glass-sheen),transparent);
 }
-/* The two scrollers: a soft wash of the skin's accent, so the panes above them have something
-   to frost instead of a flat rectangle. It is a gradient over the opaque base, so no light
-   window background can wash the skin out. */
+/* The two scrollers: a soft wash of the accent, so the panes above them have something to
+   frost instead of a flat rectangle. */
 body[data-glass="on"] #rail,
 body[data-glass="on"] #detail{
   background-image:linear-gradient(158deg,color-mix(in srgb,var(--hns-color-accent-primary) 10%,transparent),transparent 60%);
@@ -897,32 +850,33 @@ body[data-glass="on"] #detail{
 /* Sticky chrome and every pane: the blur is what the eye reads as "frosted". */
 body[data-glass="on"] .dock-header,
 body[data-glass="on"] .panel-head{backdrop-filter:var(--hns-glass-filter)}
-body[data-glass="on"] :is(.panel,.summary-card,.pm-sheet,.settings-sheet,.live-view-sheet,.theme-detail,.theme-current,.queue-item,.worker-card,.skill-card,.plug-row,.balance-card,.update-item,.hardware-item,.period-card,.lv-card,.sw-node,.sw-pool,.provider-item,.task-form,.timer-card,.pm-row,.pm-queue,.mode-option){
+body[data-glass="on"] :is(.panel,.summary-card,.pm-sheet,.settings-sheet,.live-view-sheet,.queue-item,.worker-card,.skill-card,.plug-row,.balance-card,.update-item,.hardware-item,.period-card,.lv-card,.sw-node,.sw-pool,.provider-item,.task-form,.timer-card,.pm-row,.pm-queue,.mode-option,.glass){
   background-image:linear-gradient(180deg,var(--hns-glass-sheen-current),transparent 62%);
   backdrop-filter:var(--hns-glass-filter)
 }
 /* The scrims behind a float: the dock's own content is what gets frosted, which is the most
-   visible glass in the product. Their hard-coded black is replaced by the skin's overlay
-   colour for the same reason as everything else here. */
+   visible glass in the product. */
 body[data-glass="on"] :is(.pm-backdrop,.settings-overlay,.live-view-overlay){
   background:color-mix(in srgb,var(--hns-color-bg-overlay) 55%,transparent);
   backdrop-filter:var(--hns-glass-filter)
 }
-/* Without backdrop blur the panes keep their translucency and simply do not blur, so the tint
-   is raised to hold the contrast the skin had. The layer is never silently dropped. */
+/* Without backdrop blur the panes keep their translucency and simply do not blur, so both
+   numbers are raised to hold the contrast the palette had. The layer is never silently
+   dropped, and the pane is never left too thin to read text on. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  body[data-glass="on"]{--hns-glass-alpha:92%}
+  body[data-glass="on"]{--hns-glass-alpha:92%;--hns-glass-base-alpha:100%}
 }
 
 /* The Appearance panel's frosted-glass block: the switch and the two numbers behind it. It is
-   part of that panel's markup but styled with the same tokens, so it frosts with everything
-   else and a skin restyles it without knowing it exists. */
-.theme-glass{margin:9px 0 0;padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
-.theme-glass label{display:flex;align-items:center;gap:7px;cursor:pointer}
-.theme-glass input[type="checkbox"]{width:15px;height:15px;accent-color:var(--hns-color-accent-primary)}
-.theme-glass-note{margin:6px 0 0;font-size:10px;line-height:1.5;color:var(--hns-color-label-tertiary)}
-.theme-glass-note small{font-size:9px;color:var(--hns-color-label-tertiary)}
-.theme-glass-range{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:7px;margin-top:6px;font-size:10px;color:var(--hns-color-label-secondary)}
-.theme-glass-range input[type="range"]{width:100%;accent-color:var(--hns-color-accent-primary)}
+   part of that panel's markup and styled with the same tokens, so it frosts with everything
+   else. */
+.glass{margin:9px 0 0;padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
+.glass label{display:flex;align-items:center;gap:7px;cursor:pointer}
+.glass input[type="checkbox"]{width:15px;height:15px;accent-color:var(--hns-color-accent-primary)}
+.glass-note{margin:6px 0 0;font-size:10px;line-height:1.5;color:var(--hns-color-label-tertiary)}
+.glass-note small{font-size:9px;color:var(--hns-color-label-tertiary)}
+.glass-range{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:7px;margin-top:6px;font-size:10px;color:var(--hns-color-label-secondary)}
+.glass-range input[type="range"]{width:100%;accent-color:var(--hns-color-accent-primary)}
+.glass-range b{color:var(--hns-color-label-primary);font-variant-numeric:tabular-nums}
 /* With the layer off, the two numbers have nothing to describe. */
-.theme-glass[data-enabled="0"] .theme-glass-range{opacity:.45}
+.glass[data-enabled="0"] .glass-range{opacity:.45}

@@ -51,12 +51,26 @@ test('every feature has both names, a group and a purpose', () => {
   }
 })
 
+/**
+ * The panels the dock renders that are deliberately *not* a feature.
+ *
+ * The registry is how a panel is switched off, and a switch that can hide itself is a switch the
+ * user cannot use to put it back. The Appearance panel is the frosted-glass controls — product
+ * chrome, in force whether or not anyone opened the panel — so it is chrome rather than a
+ * feature, and the registry is right not to declare it.
+ */
+const CHROME_PANELS = Object.freeze(['appearancePanel'])
+
 test('the registry covers the panels the dock actually renders', () => {
   const html = read('app/extensions/mega/ui/dock.html')
   const declared = new Set(MEGA_FEATURES.flatMap((feature) => feature.panels))
   const panels = [...html.matchAll(/<section class="panel[^"]*" id="([A-Za-z]+)"/g)].map((match) => match[1])
   assert.ok(panels.length >= 8, `expected the dock's panels (${panels.length})`)
   for (const panel of panels) {
+    if (CHROME_PANELS.includes(panel)) {
+      assert.equal(declared.has(panel), false, `${panel} is chrome and must not be switchable off`)
+      continue
+    }
     assert.ok(declared.has(panel), `${panel} is rendered by the dock but no feature declares it`)
   }
   // The reverse direction matters too: a feature that names a panel the dock does not have

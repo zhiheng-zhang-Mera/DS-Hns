@@ -65,9 +65,11 @@ any more.
   re-skin and re-arrange a UI whose contract DS-Hns does not own. Keeping it meant keeping a
   second implementation of the session model beside the official one, and a compatibility
   probe whose verdict depended on which one was on screen.
-* **The work that mattered continued elsewhere.** Themes, the persona, the dock panels, the
-  scheduler, the plugins — all of them live on the HNS surface that remains: the dock. The
-  `hns_native` theme surface id still names it, and the theme engine still paints it.
+* **The work that mattered continued elsewhere.** The dock panels, the scheduler, the plugins and
+  the theme engine all live on the HNS-owned surfaces that remain. The dock itself is frosted
+  glass and is never skinned: the `hns_native` theme surface id still names it in the surface
+  model, and the engine paints the two surfaces DS-Hns draws around the official renderer — the
+  official shell and the input-transparent overlay — instead.
 
 ## 4. What the compatibility probe reports now
 

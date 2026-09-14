@@ -595,40 +595,53 @@ async function run() {
   }
 
   try {
-    // --- the dock is the themed surface -------------------------------------
-    const boot = await dock.page.poll(`document.body && document.body.dataset.themeId ? document.body.dataset.themeId : null`)
-    check('the dock painted an active theme', Boolean(boot), String(boot))
-
-    const tokens = await dock.page.evaluate(`
+    // --- the dock is frosted glass, and is not a theme surface ---------------
+    // The dock used to be the themed surface: the engine installed the active theme's tokens as
+    // a <style> element and the slot values inline, and "the dock repainted" was the acceptance
+    // signal. It is a pane of frosted glass now and takes no theme at all, so the acceptance is
+    // the opposite assertion: the glass layer is in force, and a theme switch does not reach it.
+    const boot = await dock.page.evaluate(`
       const style = getComputedStyle(document.documentElement)
       return {
+        glass: document.body.dataset.glass || null,
+        blur: style.getPropertyValue('--hns-glass-blur').trim(),
+        alpha: style.getPropertyValue('--hns-glass-alpha').trim(),
         base: style.getPropertyValue('--hns-color-bg-base').trim(),
-        label: style.getPropertyValue('--hns-color-label-primary').trim(),
-        shellBg: getComputedStyle(document.documentElement).getPropertyValue('--hns-slot-shell-bg').trim(),
-        sheet: Boolean(document.getElementById('hnsThemeSheet'))
+        sheet: Boolean(document.getElementById('hnsThemeSheet')),
+        themeId: document.body.dataset.themeId || null
       }
     `)
-    check('theme tokens are installed as CSS variables', /^#|rgb/.test(tokens.base) && /^#|rgb/.test(tokens.label), JSON.stringify(tokens))
-    check('slot styles reach the dock chrome', Boolean(tokens.shellBg), tokens.shellBg)
+    check('the dock boots frosted', boot.glass === 'on', JSON.stringify(boot))
+    check('the glass layer published its numbers', /px$/.test(boot.blur) && /%$/.test(boot.alpha), `${boot.blur} / ${boot.alpha}`)
+    check('the dock carries no theme stylesheet', !boot.sheet)
+    check('the dock carries no active theme', !boot.themeId, String(boot.themeId))
+
+    // The pane itself has to be translucent, or the window's own material never reaches the
+    // screen and the layer can only frost the document's flat background.
+    const paneAlpha = await dock.page.evaluate(`
+      const value = getComputedStyle(document.body).backgroundColor
+      const match = value.match(/rgba?\\(([^)]+)\\)/)
+      const parts = match ? match[1].split(',').map((part) => part.trim()) : []
+      const slash = value.match(/\\/\\s*([0-9.]+)%?\\s*\\)/)
+      return { value, alpha: parts.length === 4 ? Number(parts[3]) : (slash ? Number(slash[1]) : 1) }
+    `)
+    check('the pane is translucent, so the window material shows through', paneAlpha.alpha < 1, JSON.stringify(paneAlpha))
 
     const panels = await dock.page.evaluate(`
       return {
         appearance: Boolean(document.getElementById('appearancePanel')),
-        themeList: (document.getElementById('themeList') || {}).children ? document.getElementById('themeList').children.length : 0,
         skills: Boolean(document.getElementById('skillsPanel')),
-        // Two dock generations ship the appearance module differently: the original
-        // exposes the panel global, the bridged dock registers it as a named module.
-        panelModule: Boolean(window.megaThemePanel && window.megaThemePanel.attach),
-        bridgeModules: window.megaThemeBridge ? window.megaThemeBridge.modules : null
+        panelModule: Boolean(window.megaAppearancePanel && window.megaAppearancePanel.attach),
+        // The theme panel's whole control surface is gone, and so is the bridge it used.
+        themeList: Boolean(document.getElementById('themeList')),
+        themePrompt: Boolean(document.getElementById('themePrompt')),
+        bridge: Boolean(window.megaThemeBridge)
       }
     `)
     check('the Appearance panel is present', panels.appearance)
-    check('the theme list rendered', panels.themeList > 0, `${panels.themeList} entries`)
-    check(
-      'the appearance module is attached to the dock',
-      panels.panelModule || (Array.isArray(panels.bridgeModules) && panels.bridgeModules.includes('appearance')),
-      JSON.stringify({ panel: panels.panelModule, modules: panels.bridgeModules })
-    )
+    check('the appearance module is attached to the dock', panels.panelModule)
+    check('the theme panel is gone from the dock', !panels.themeList && !panels.themePrompt, JSON.stringify(panels))
+    check('the dock loads no theme bridge', !panels.bridge)
 
     // The dock boots collapsed (the rail) on a narrow window unless the run starts
     // it expanded. The visual observation below is only meaningful once the product
@@ -675,93 +688,50 @@ async function run() {
     `)
     check('the dock expands to full width through its own control', dockExpanded && expandedState.expanded && expandedState.width > 200, JSON.stringify(expandedState))
 
-    // The dock must be expanded before geometry can mean anything, and the
-    // appearance module has to have finished its first layout: the observation
-    // below asserts on measured pixels.
-    const dockVisible = await dock.page.evaluate(`
-      const bridge = window.megaThemeBridge
-      const regions = bridge && typeof bridge.reportRegions === 'function' ? bridge.reportRegions() : null
-      return {
-        expanded: document.body.classList.contains('expanded'),
-        width: document.getElementById('detail') ? Math.round(document.getElementById('detail').getBoundingClientRect().width) : 0,
-        measured: regions ? Object.keys(regions).filter((key) => key !== 'componentTree').length : 0
-      }
+    // --- the effect is live, and the theme engine cannot reach it ------------
+    // Dragging a slider is the whole update path: the `input` event reaches the stylesheet on the
+    // frame it fires, and only the release writes the state file. This is the behaviour the
+    // requirement names ("效果渲染应该实时改变"), and it is only observable in a real renderer.
+    const live = await dock.page.evaluate(`
+      const slider = document.getElementById('glassBlur')
+      if (!slider) return { ok: false, reason: 'no blur control' }
+      const before = getComputedStyle(document.documentElement).getPropertyValue('--hns-glass-blur').trim()
+      slider.value = '31'
+      slider.dispatchEvent(new Event('input', { bubbles: true }))
+      const after = getComputedStyle(document.documentElement).getPropertyValue('--hns-glass-blur').trim()
+      return { ok: true, before, after, readout: (document.getElementById('glassBlurValue') || {}).textContent || null }
     `)
-    check('the dock reports live geometry for the observation', dockVisible.measured > 0, JSON.stringify(dockVisible))
-
-    // --- theme switching through the real engine -----------------------------
-    // Start from a known theme so the assertion is about the transition, not about
-    // whatever was active in this data directory.
-    const darkBase = await dock.page.evaluate(`
-      return window.megaTools.theme.apply('hns.system.dark').then(() => new Promise((resolve) => setTimeout(() => {
-        resolve(getComputedStyle(document.documentElement).getPropertyValue('--hns-color-bg-base').trim())
-      }, 600)))
+    check('dragging the blur slider moves the pane immediately', live.ok && live.after === '31px', JSON.stringify(live))
+    check('the readout follows the drag', live.readout === '31', String(live.readout))
+    const persisted = await dock.page.evaluate(`
+      const slider = document.getElementById('glassBlur')
+      slider.dispatchEvent(new Event('change', { bubbles: true }))
+      return new Promise((resolve) => setTimeout(() => {
+        resolve(getComputedStyle(document.documentElement).getPropertyValue('--hns-glass-blur').trim())
+      }, 400))
     `)
-    check('the Dark system theme is active with its own base colour', darkBase === '#0f1115', String(darkBase))
+    check('releasing the slider persists the value through the shell', persisted === '31px', String(persisted))
 
+    // --- the theme engine still reaches the official surfaces, and never the dock ---
+    // Applying a theme is the strongest test of "the dock is not skinned": the engine runs, the
+    // official shell and overlay are repainted, and the dock's own colours do not move.
+    const beforeSwitch = await dock.page.evaluate(`
+      const style = getComputedStyle(document.body)
+      return { background: style.backgroundColor, sheet: Boolean(document.getElementById('hnsThemeSheet')), themeId: document.body.dataset.themeId || null }
+    `)
     const applied = await dock.page.evaluate(`
       const engine = window.megaTools.theme
-      // Watch every payload the renderer applies while the switch happens: the dock
-      // writes the shared token sheet, so its text is the observable on either dock.
-      window.__acceptancePayloads = []
-      const sheet = document.getElementById('hnsThemeSheet')
-      const observer = sheet ? new MutationObserver(() => {
-        window.__acceptancePayloads.push('sheet:' + sheet.textContent.slice(0, 40))
-      }) : null
-      if (observer) observer.observe(sheet, { childList: true, characterData: true, subtree: true })
-      return engine.snapshot().then((result) => {
-        if (!result || !result.ok) return { ok: false, reason: 'snapshot failed' }
-        const light = result.status.themes.find((theme) => theme.id === 'hns.system.light')
-        if (!light) return { ok: false, reason: 'light theme missing' }
-        return engine.apply('hns.system.light').then((applied) => ({ ok: true, id: 'hns.system.light', applied: applied && applied.ok }))
-      })
+      return engine.apply('hns.system.light').then((result) => ({ ok: Boolean(result && result.ok) }))
     `)
-    check('applying the Light system theme succeeds', applied.ok && applied.applied, JSON.stringify(applied))
-    let lightTokens = null
-    try {
-      lightTokens = await dock.page.poll(`
-        const base = getComputedStyle(document.documentElement).getPropertyValue('--hns-color-bg-base').trim()
-        return base && base !== '#0f1115' ? base : null
-      `, { timeoutMs: 15_000 })
-    } catch {
-      lightTokens = null
-    }
-    check('the dock repainted with the new theme', Boolean(lightTokens), String(lightTokens))
-    if (!lightTokens) {
-      const diagnosed = await dock.page.evaluate(`
-        const sheet = document.getElementById('hnsThemeSheet')
-        const perSheet = []
-        for (const node of document.styleSheets) {
-          let rules = null
-          try { rules = node.cssRules } catch { perSheet.push({ href: 'blocked' }); continue }
-          perSheet.push({
-            href: (node.href || 'inline').split('/').pop(),
-            count: rules.length,
-            first: rules[0] ? { selector: rules[0].selectorText, base: rules[0].style ? rules[0].style.getPropertyValue('--hns-color-bg-base').trim() : null } : null
-          })
-        }
-        return window.megaTools.theme.snapshot().then((s) => ({
-          active: s.status.active,
-          computedBase: getComputedStyle(document.documentElement).getPropertyValue('--hns-color-bg-base').trim(),
-          perSheet,
-          sheetHead: sheet ? sheet.textContent.slice(0, 70) : null,
-          sheetConnected: sheet ? sheet.isConnected : null,
-          ownerNode: sheet && sheet.sheet ? 'sheet-present' : 'no-sheet-object'
-        }))
-      `)
-      note(`light repaint diagnosis: ${JSON.stringify(diagnosed)}`)
-    }
-    const lightSheet = await dock.page.evaluate(`
-      const sheet = document.getElementById('hnsThemeSheet')
-      return sheet ? /--hns-color-bg-base:\\s*#f7f8fa/.test(sheet.textContent) : false
+    check('applying the Light system theme succeeds', applied.ok)
+    await sleep(1200)
+    const afterSwitch = await dock.page.evaluate(`
+      const style = getComputedStyle(document.body)
+      return { background: style.backgroundColor, sheet: Boolean(document.getElementById('hnsThemeSheet')), themeId: document.body.dataset.themeId || null }
     `)
-    check('the injected token sheet matches the active theme', lightSheet)
-    const payloads = await dock.page.evaluate(`return (window.__acceptancePayloads || []).length`)
-    check('the renderer applied a theme payload on the switch', payloads > 0, `${payloads} sheet writes`)
-    const lightPanel = await dock.page.evaluate(`
-      return getComputedStyle(document.getElementById('appearancePanel')).backgroundColor
-    `)
-    check('a dock panel resolves its background from the new theme', Boolean(lightPanel) && lightPanel !== 'rgba(0, 0, 0, 0)', String(lightPanel))
+    check('the dock kept its palette across the theme switch', afterSwitch.background === beforeSwitch.background, `${beforeSwitch.background} -> ${afterSwitch.background}`)
+    check('the dock received no theme stylesheet on the switch', !afterSwitch.sheet)
+    check('the dock received no theme identity on the switch', !afterSwitch.themeId, String(afterSwitch.themeId))
 
     const backToDark = await dock.page.evaluate(`
       return window.megaTools.theme.apply('hns.system.dark').then((result) => ({ ok: Boolean(result && result.ok) }))
@@ -1012,9 +982,25 @@ async function run() {
     )
     const paintedSurfaces = (surfaces.planSurfaces || []).filter((entry) => entry.writes).map((entry) => entry.surface)
     check(
-      'the approved theme is planned onto the HNS surface, the official shell and the official overlay',
-      paintedSurfaces.includes('hns_native') && paintedSurfaces.includes('official_shell') && paintedSurfaces.includes('official_overlay'),
+      'the approved theme is planned onto the official shell and the official overlay',
+      paintedSurfaces.includes('official_shell') && paintedSurfaces.includes('official_overlay'),
       JSON.stringify(surfaces.planSurfaces)
+    )
+    // Read the dock once a generated theme is active: the dock is the surface this project no
+    // longer skins, so the strongest statement is that an installed theme reached it not at all.
+    const dockAfterApproval = await dock.page.evaluate(`
+      const style = getComputedStyle(document.body)
+      return {
+        glass: document.body.dataset.glass || null,
+        sheet: Boolean(document.getElementById('hnsThemeSheet')),
+        themeId: document.body.dataset.themeId || null,
+        background: style.backgroundColor
+      }
+    `)
+    check(
+      'the dock is still frosted glass with a generated theme installed',
+      dockAfterApproval.glass === 'on' && !dockAfterApproval.sheet && !dockAfterApproval.themeId,
+      JSON.stringify(dockAfterApproval)
     )
     check(
       'the plan never writes the protected official renderer',
@@ -1197,19 +1183,27 @@ async function run() {
       JSON.stringify({ snapshotVisual: snapshotClaim.visual, observationVisual: observation.visual, reason: snapshotClaim.reason || observation.reason || null })
     )
     check(
-      'the theme observation is not degraded',
-      snapshotClaim.degraded !== true && observation.degraded !== true,
-      JSON.stringify({ snapshotDegraded: snapshotClaim.degraded, observationDegraded: observation.degraded, reason: observation.reason || null })
+      // The dock is not a theme surface, so it reports no protected regions, and the observation
+      // records that instead of presenting assumed geometry as measured. A plan built without
+      // regions must say so — that is the property this asserts, and it is the one that would
+      // rot silently if the absence were smoothed over.
+      'the theme observation records that no dock region was measured',
+      snapshotClaim.degraded === true && Boolean(observation.reason || snapshotClaim.reason),
+      JSON.stringify({ snapshotDegraded: snapshotClaim.degraded, reason: observation.reason || snapshotClaim.reason || null })
     )
     check('the observation captured the dock snapshot package', snapshotClaim.captured === true, JSON.stringify(snapshotClaim).slice(0, 200))
 
-    // --- slot observation: real bounding boxes, not just contract ids --------
+    // --- slot observation: the dock reports no geometry, and says so ---------
+    // This used to assert real bounding boxes measured in the dock renderer. The dock is not a
+    // theme surface any more, so the honest assertion is the opposite one: an observation still
+    // runs, still captures the dock, and carries no measured region — because there is none to
+    // carry.
     const slotObservation = await dock.page.evaluate(`
       return window.megaTools.theme.observe().then((observed) => {
         const slotMap = (observed.snapshot && observed.snapshot.slot_map) || {}
         const withBox = Object.entries(slotMap)
           .filter(([, slot]) => slot && slot.boundingBox && slot.boundingBox.width > 0 && slot.boundingBox.height > 0)
-          .map(([id, slot]) => ({ id, box: slot.boundingBox }))
+          .map(([id]) => id)
         return {
           ok: observed.ok,
           degraded: observed.degraded,
@@ -1217,27 +1211,16 @@ async function run() {
           reason: observed.reason || null,
           slotCount: Object.keys(slotMap).length,
           observedSlots: observed.observedSlots || null,
-          withBox: withBox.slice(0, 12),
-          withBoxCount: withBox.length
+          measured: withBox
         }
       })
     `)
+    check('the observation still runs against the dock', slotObservation.ok === true, JSON.stringify(slotObservation).slice(0, 200))
     check(
-      'the UI inspector reports live slot geometry',
-      slotObservation.withBoxCount > 0 && slotObservation.observedSlots?.count > 0,
-      `${slotObservation.withBoxCount} slot(s) with a bounding box of ${slotObservation.slotCount} in the map`
+      'the dock reports no slot geometry, because nothing themes it',
+      slotObservation.measured.length === 0 && !(slotObservation.observedSlots?.count > 0),
+      JSON.stringify({ measured: slotObservation.measured.slice(0, 6), observedSlots: slotObservation.observedSlots })
     )
-    if (slotObservation.withBox.length) {
-      const sample = slotObservation.withBox[0]
-      const box = sample.box
-      check(
-        'a reported slot carries a usable bounding box',
-        Number.isFinite(box.x) && Number.isFinite(box.y) && box.width > 0 && box.height > 0,
-        `${sample.id}: ${JSON.stringify(box)}`
-      )
-    } else {
-      check('a reported slot carries a usable bounding box', false, 'no slot was measured at all')
-    }
 
     // --- the snapshot must be a real PNG on disk, not just a flag ------------
     const artifacts = verifySnapshotArtifacts(OPTIONS.root)

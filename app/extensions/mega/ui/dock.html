@@ -4,14 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <!--
-    The token nonce exists because the theme engine installs the active theme's
-    tokens as a <style> element at runtime. Without it, `style-src 'self'` blocks
-    that sheet: the theme's slot variables still apply (they are element-level style
-    properties, which are not gated by style-src), but every colour token silently
-    falls back to the Dark defaults in dock.css. A nonce keeps the policy strict
-    instead of opening it with 'unsafe-inline'.
+    The dock is frosted glass and nothing else: no theme engine installs tokens into this
+    document, so the policy needs no nonce for a runtime sheet and stays at `style-src 'self'`.
+    The layer's numbers travel as element-level custom properties, which style-src never gated.
   -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'nonce-hns-theme-tokens'; img-src 'self' data:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;">
   <title>Mega Dock</title>
   <link rel="stylesheet" href="dock.css">
 </head>
@@ -31,11 +28,6 @@
   </aside>
 
   <main id="detail">
-    <!-- Persona / decoration layer. Non-interactive, always behind the content,
-         and confined to corners so it can never cover the queue, hardware grid or
-         status strip (HNS specialization §4). -->
-    <div id="hnsDecoration" aria-hidden="true"></div>
-    <div id="hnsPersona" aria-hidden="true"></div>
     <header class="dock-header">
       <div>
         <h1>Mega</h1>
@@ -49,94 +41,44 @@
 
     <section id="summary" class="summary-grid"></section>
 
+    <!--
+      Appearance (外观) — the frosted-glass layer's control surface, and nothing else.
+
+      The dock is glass, always, and it is not skinned: the theme engine used to install the
+      active theme's tokens, slot styles and persona layers into this document, and a skin laid
+      over a translucent pane is what made the glass read as an ordinary coloured panel. That
+      path is gone, so what is left here is the only thing that decides how the dock looks: the
+      switch, the blur and the translucency. Each control writes the custom property the
+      stylesheet mixes with, on the frame it changes — the effect is live, not applied on save.
+    -->
     <section class="panel appearance-panel" id="appearancePanel">
       <div class="panel-head">
         <div>
           <div class="balance-title-row">
-            <h2 class="bi-title"><span class="bi-cn">主题皮肤</span><span class="bi-en">Appearance</span></h2>
-            <span id="themeActiveMarker" class="status-chip neutral">—</span>
+            <h2 class="bi-title"><span class="bi-cn">外观</span><span class="bi-en">Appearance</span></h2>
+            <span id="glassStatus" class="status-chip neutral">—</span>
           </div>
-          <p>用自然语言描述你想要的视觉效果即可；预览会直接应用到这个 Dock，确认后才会安装。</p>
-        </div>
-        <div class="balance-actions">
-          <button id="themeObserve" class="quiet" title="重新观察当前界面">观察界面</button>
-          <button id="themeImport" class="quiet" title="导入自包含主题包目录">导入主题</button>
+          <p>整个 Mega 界面始终是半透明磨砂玻璃；这里只调整这层玻璃本身，官方界面不受影响。</p>
         </div>
       </div>
 
-      <div class="theme-current">
-        <span>当前主题</span>
-        <b id="themeActive">—</b>
-      </div>
-
-      <!--
-        The frosted-glass layer (半透明磨砂玻璃).
-
-        It is in the Appearance panel because it is a property of how the shell looks, not a
-        feature to switch on and off: every DS-Hns surface is a translucent pane over the active
-        skin, the official UI is not one of them, and the layer composes with whatever skin is
-        installed. The switch is the user's; the numbers behind it live in
-        `data/state/ui-glass.json`.
-      -->
-      <div class="theme-glass" id="themeGlassRow">
-        <label for="themeGlass">
-          <input type="checkbox" id="themeGlass" checked>
+      <div class="glass" id="glassRow">
+        <label for="glassEnabled">
+          <input type="checkbox" id="glassEnabled" checked>
           <span class="bi-title bi-sm"><span class="bi-cn">磨砂玻璃</span><span class="bi-en">Frosted glass</span></span>
         </label>
-        <p class="theme-glass-note">所有 DS-Hns 界面半透明磨砂，与当前皮肤叠加；官方界面不受影响。<br><small>Every DS-Hns surface frosts over the active skin; the official UI is untouched.</small></p>
-        <label class="theme-glass-range" for="themeGlassBlur">
-          <span>模糊强度 · Blur</span>
-          <input type="range" id="themeGlassBlur" min="0" max="40" step="1" value="18">
+        <p class="glass-note">半透明并模糊背后的内容，窗户本身也是玻璃——这是 Mega 界面唯一的外观来源。<br><small>Translucent, blurred, and the window itself is a pane: the only thing that decides how the dock looks.</small></p>
+        <label class="glass-range" for="glassBlur">
+          <span>模糊强度 · Blur <b id="glassBlurValue">18</b>px</span>
+          <input type="range" id="glassBlur" min="0" max="40" step="1" value="18">
         </label>
-        <label class="theme-glass-range" for="themeGlassOpacity">
-          <span>玻璃通透度 · Glass opacity</span>
-          <input type="range" id="themeGlassOpacity" min="20" max="100" step="1" value="62">
+        <label class="glass-range" for="glassOpacity">
+          <span>玻璃通透度 · Glass opacity <b id="glassOpacityValue">62</b>%</span>
+          <input type="range" id="glassOpacity" min="20" max="100" step="1" value="62">
         </label>
       </div>
 
-      <div id="themeCapability" class="theme-capability"></div>
-
-      <div class="theme-create">
-        <label for="themePrompt">Describe what you want</label>
-        <textarea id="themePrompt" rows="2" placeholder="例如：银发角色，黑灰蓝色调，看起来像未来科研工作站，人物别太抢屏"></textarea>
-        <div class="theme-create-actions">
-          <span id="themeBusy" class="theme-busy" hidden>生成中…</span>
-          <button id="themeCreate" type="button">Generate</button>
-        </div>
-        <div id="themeQuick" class="theme-quick-row"></div>
-      </div>
-
-      <div id="themePreview" class="theme-preview" hidden>
-        <div id="themePreviewBody"></div>
-        <div class="theme-preview-actions">
-          <button id="themeApprove" type="button">Looks Good</button>
-          <button id="themeModify" type="button" class="quiet">Modify</button>
-          <button id="themeDiscard" type="button" class="quiet">放弃</button>
-        </div>
-        <div id="themeModifyBox" class="theme-modify" hidden>
-          <label for="themeModifyPrompt">What would you like changed?</label>
-          <div class="theme-modify-row">
-            <input id="themeModifyPrompt" type="text" placeholder="例如：人物再小一点，按钮不要这么亮">
-            <button id="themeModifySend" type="button">应用修改</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="themeMessage" class="theme-message" role="status"></div>
-
-      <div class="theme-list-head">
-        <h3>Themes</h3>
-        <span>🔒 = 受保护的系统主题</span>
-      </div>
-      <div id="themeList" class="theme-list"></div>
-
-      <div id="themeDetail" class="theme-detail" hidden>
-        <div class="theme-detail-head">
-          <h3>主题详情</h3>
-          <button type="button" class="theme-icon" id="themeDetailClose" title="关闭">×</button>
-        </div>
-        <div id="themeDetailBody"></div>
-      </div>
+      <div id="glassMessage" class="theme-message" role="status"></div>
     </section>
 
     <section class="panel skills-panel" id="skillsPanel">
@@ -696,11 +638,10 @@
   </div>
 
   <script src="balance-module.js"></script>
-  <script src="theme-bridge.js"></script>
   <!-- The glass layer carries the user's numbers into the stylesheet; it runs before the panels
        so the first paint is already frosted rather than flashing an opaque panel. -->
   <script src="glass-layer.js"></script>
-  <script src="theme-panel.js"></script>
+  <script src="appearance-panel.js"></script>
   <script src="skills-panel.js"></script>
   <script src="computer-use-panel.js"></script>
   <script src="bilingual.js"></script>

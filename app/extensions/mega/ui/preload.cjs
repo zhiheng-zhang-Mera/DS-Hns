@@ -123,7 +123,17 @@ contextBridge.exposeInMainWorld('megaTools', {
     // Compatibility mode: whether a repository without a native manifest may be adopted, and
     // whether the user has decided that yet.
     compat: () => ipcRenderer.invoke('mega:store-compat'),
-    setCompat: (enabled) => ipcRenderer.invoke('mega:store-compat-set', { compat: enabled === true })
+    setCompat: (enabled) => ipcRenderer.invoke('mega:store-compat-set', { compat: enabled === true }),
+    /**
+     * The GitHub settings the channel talks through.
+     *
+     * `github()` never carries the token — only its tail and whether it came from the environment
+     * or from the user — so reading this surface cannot leak a credential into a renderer.
+     * `setGithub` sends only the fields the caller names, and an empty string clears a field back
+     * to the built-in default.
+     */
+    github: () => ipcRenderer.invoke('mega:store-github'),
+    setGithub: (patch) => ipcRenderer.invoke('mega:store-github-set', patch)
   },
   /**
    * The feature manager.
@@ -219,20 +229,15 @@ contextBridge.exposeInMainWorld('megaTools', {
      * into it. Read-only data; the renderer cannot address a surface from here.
      */
     surfaces: () => ipcRenderer.invoke('mega:theme-surfaces'),
-    detail: (id) => ipcRenderer.invoke('mega:theme-detail', { id }),
-    // Engine -> renderer paint pushes and change notifications.
-    onApply: (callback) => ipcRenderer.on('mega:theme-apply', (_event, payload) => callback(payload)),
-    onChanged: (callback) => ipcRenderer.on('mega:theme-changed', () => callback()),
+    detail: (id) => ipcRenderer.invoke('mega:theme-detail', { id })
     /**
-     * UI observation support: the engine asks for live slot geometry, the dock
-     * answers with bounding boxes so the preview validator can verify that
-     * critical controls stay visible and unoccluded.
+     * There is no `onApply` / `onChanged` / `reportRegions` / `onProbeRegions` here any more.
+     *
+     * The dock used to receive the active theme's payload on the first two and answer the
+     * engine's geometry probe on the last two. It is frosted glass now and takes no theme, so
+     * what is left would be channels nothing sends on and a probe no renderer answers — and a
+     * bridge that documents a conversation the two sides no longer have is worse than no bridge.
      */
-    reportRegions: (payload) => ipcRenderer.send('mega-theme:regions', payload),
-    // The main process asks for a geometry probe on this exact channel; a mismatch
-    // here silently disabled live measurement of critical regions. The engine's
-    // `requestThemeRegions()` is the pull side of this push.
-    onProbeRegions: (callback) => ipcRenderer.on('mega-theme:probe-regions', () => callback())
   },
   /**
    * HNS skills management.

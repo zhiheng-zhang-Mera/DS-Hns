@@ -1751,6 +1751,11 @@ async function createIntegratedMegaDock() {
       sandbox: true
     }
   })
+  // The dock is frosted glass, and a pane has to be able to see through: the view's own
+  // background is cleared so the document's translucent base composites over what is behind the
+  // view rather than over an opaque rectangle. This is the same call the official shell and
+  // overlay use for their transparency.
+  megaDockView.setBackgroundColor('#00000000')
   mainWindow.contentView.addChildView(megaDockView)
   megaDockView.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) shell.openExternal(url)

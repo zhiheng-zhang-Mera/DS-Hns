@@ -19,6 +19,18 @@ const { HarnessUpdater } = require('./updater/harness-updater')
 const { createThemeEngine } = require('./theme')
 const { createSkillService } = require('./skills/skill-service')
 const { createDockTarget } = require('./dock/target')
+// The store's GitHub settings are validated by the same helpers the channel builds its requests
+// with, so a value the shell accepts is a value the store can use.
+const {
+  resolveGithubSettings,
+  checkTopic,
+  checkBase,
+  PLUGIN_TOPIC,
+  DEFAULT_API_BASE,
+  DEFAULT_RAW_BASE,
+  DEFAULT_CLONE_BASE,
+  SETTING_LIMITS
+} = require('./store/github-store.cjs')
 const { MEGA_FEATURES, FEATURE_GROUPS, featureFor, featureForChannel, createFeatureState } = require('./features.cjs')
 
 /**
@@ -53,6 +65,9 @@ const CHANNELS = [
   'mega:store-remove', 'mega:store-reinstall', 'mega:store-queue',
   // Compatibility mode: whether a repository without a native manifest may be adopted.
   'mega:store-compat', 'mega:store-compat-set',
+  // The GitHub settings the store talks through: the token, the plugin topic and the three
+  // addresses a mirror or an enterprise install replaces.
+  'mega:store-github', 'mega:store-github-set',
   // The feature manager: which of the dock's features are switched on.
   'mega:features-snapshot', 'mega:features-set',
   // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
@@ -70,9 +85,6 @@ const CHANNELS = [
   'mega:skills-remove', 'mega:skills-remove-many', 'mega:skills-remove-collection',
   'mega:skills-set-invocation'
 ]
-
-/** Renderer events pushed by the theme engine (never injected into the official UI). */
-const THEME_EVENT_CHANNEL = 'mega:theme-changed'
 
 /** Theme IPC channels, cleared and re-registered on every extension start. */
 const THEME_CHANNELS = [
@@ -122,9 +134,6 @@ let themeEngine = null
 let skillService = null
 let dockReadyHandler = null
 let unsubscribeSubWorker = null
-// Latest geometry reported by the dock renderer (slot map + protected regions).
-let themeRegionCache = {}
-let themeTreeCache = null
 const mainWindowBindings = []
 
 /**
@@ -209,11 +218,15 @@ function officialFrontend() {
 /**
  * Live slot geometry for theme observation.
  *
- * The dock is the surface the theme engine watches: the protected official renderer is
- * never measured, so there is nothing to switch between.
+ * There is none, and that is the point: the dock was the surface the engine measured, and the
+ * dock is not a theme surface any more — it is frosted glass, and the Appearance panel drives the
+ * glass layer rather than a theme. The engine is told so with an empty answer instead of being
+ * left to probe a renderer that no longer listens (the probe used to time out after 1.5 s on
+ * every observation, which cost a design real time to learn nothing). The observation records the
+ * absence, so a plan built without measured regions still says it was built without them.
  */
 async function observedRegions() {
-  return measureDockRegions()
+  return {}
 }
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
@@ -415,83 +428,11 @@ function subWorkerAvailable() {
 
 /**
  * Every dock push goes through the adapter. The dock renderer initiates its own
- * IPC calls, but a *push* (a change notification, a theme payload) needs a
- * target, and the integrated dock is the target the product actually ships.
+ * IPC calls, but a *push* (a change notification) needs a target, and the
+ * integrated dock is the target the product actually ships.
  */
 function notifyChanged() {
   dockTarget.send('mega:changed')
-}
-
-/**
- * Theme paint channel. Deliberately separate from `mega:changed`: a theme payload
- * carries tokens, slot styles and inline asset data URIs, and it must reach the
- * renderer even when the ordinary dock snapshot push is coalesced.
- */
-function notifyThemeChanged() {
-  dockTarget.send(THEME_EVENT_CHANNEL)
-}
-
-/**
- * Ask the dock renderer for its live slot geometry. Used by the UI inspector to
- * locate the protected regions. Bounded by a timeout: a renderer that never
- * answers degrades the snapshot to structure-only instead of stalling a design.
- */
-function requestThemeRegions(timeoutMs = 1500) {
-  const wc = dockTarget.getWebContents()
-  if (!wc) {
-    log('dock region probe unavailable: no dock target')
-    return Promise.resolve(null)
-  }
-  return new Promise((resolve) => {
-    let settled = false
-    const finish = (value) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      try { ctx?.electron?.ipcMain?.removeListener('mega-theme:regions', onReply) } catch {}
-      resolve(value)
-    }
-    const onReply = (_event, payload) => finish(payload)
-    const timer = setTimeout(() => {
-      log(`dock region probe timed out after ${timeoutMs} ms`)
-      finish(null)
-    }, timeoutMs)
-    timer.unref?.()
-    try {
-      ctx.electron.ipcMain.on('mega-theme:regions', onReply)
-      wc.send('mega-theme:probe-regions')
-    } catch (error) {
-      log(`dock region probe failed: ${error?.message || error}`)
-      finish(null)
-    }
-  })
-}
-
-/**
- * Live slot geometry, measured now.
- *
- * The dock pushes its geometry whenever it lays out, but an *observation* must
- * not depend on whether such a push happened to land first: without this pull the
- * snapshot's slot map could be empty and the observer would silently design
- * against nothing. The probe re-measures in the renderer and answers with real
- * bounding boxes.
- */
-async function measureDockRegions() {
-  if (!dockTarget.hasTarget()) {
-    log(`dock regions unavailable: ${dockTarget.mode()} dock target missing; slot geometry falls back to the last push`)
-    return themeRegionCache
-  }
-  try {
-    const probed = await requestThemeRegions()
-    if (probed && typeof probed === 'object') {
-      themeRegionCache = probed
-      themeTreeCache = probed.componentTree || themeTreeCache
-      return probed
-    }
-  } catch (error) {
-    log(`dock region measurement failed: ${error?.message || error}`)
-  }
-  return themeRegionCache
 }
 
 /**
@@ -536,15 +477,26 @@ function ensureThemeEngine() {
   themeEngine = createThemeEngine({
     log: (message) => log(`theme: ${message}`),
     scheduler,
-    applyToRenderer: (payload) => {
-      if (!dockTarget.send('mega:theme-apply', payload)) {
-        log('theme repaint could not reach the dock: no dock target')
-      }
-    },
-    onChanged: () => notifyThemeChanged(),
+    /**
+     * The dock is not a theme surface any more.
+     *
+     * It used to be the engine's `hns_native` target: the active theme's tokens, slot styles and
+     * persona layers were pushed here on every repaint, and a skin laid over a translucent pane
+     * is precisely what made the frosted glass read as an ordinary coloured panel. The dock is
+     * glass and only glass now — `dock.css` is its palette and the Appearance panel drives the
+     * glass layer — so the payload is *not* sent, and the engine is told so rather than being
+     * left to push at a window that no longer listens.
+     */
+    applyToRenderer: () => false,
+    // Nothing in the dock renders a theme any more, so a change to the theme list has no
+    // surface to refresh. The engine is told so rather than pushing at a window that would
+    // ignore it.
+    onChanged: () => {},
     capture: (pageIds) => captureDockPages(pageIds),
+    // The dock reports no slot geometry, because nothing themes it any more. The observation
+    // records the absence rather than silently planning against regions it never measured.
     dockRegions: () => observedRegions(),
-    componentTree: () => themeTreeCache,
+    componentTree: () => null,
     // Integrated dock geometry comes from the shell's view bounds; a legacy
     // window is read through its content size. Both through one accessor.
     windowSize: () => dockTarget.getSize(),
@@ -762,6 +714,30 @@ function hideDock({ user = true } = {}) {
   return true
 }
 
+/**
+ * What makes the dock window a pane rather than a box.
+ *
+ * Three facts decide this, and each is deliberate:
+ *
+ *   * **`transparent`** — the document's own base is translucent (see the glass block in
+ *     `dock.css`), so the window has to be too. Without it the pane composites over the window's
+ *     flat background and the glass is invisible, which is exactly the defect this fixes.
+ *   * **`backgroundColor: '#00000000'`** — a fully transparent window still paints its own
+ *     background colour, and `#11161d` was opaque.
+ *   * **`backgroundMaterial: 'acrylic'`** — the OS frost: the compositor blurs whatever is behind
+ *     the window, which is the only blur that can reach the desktop. It is Windows 11 only, so it
+ *     is applied where `process.platform` says it might exist and Electron ignores it elsewhere;
+ *     the stylesheet's `@supports not (backdrop-filter)` fallback covers a platform without it.
+ *
+ * It is a function so the options are one testable object rather than three literals inside a
+ * constructor call, and so nothing else in this file has to know the dock is glass.
+ */
+function dockGlassBackground() {
+  const options = { transparent: true, backgroundColor: '#00000000' }
+  if (process.platform === 'win32') options.backgroundMaterial = 'acrylic'
+  return options
+}
+
 function createDock() {
   if (!dockEnabled()) {
     log('Mega dock disabled by DSH_MEGA_DOCK=0 / DSH_MEGA_WIDGET=0')
@@ -786,7 +762,13 @@ function createDock() {
     show: false,
     parent: ctx.mainWindow,
     title: bilingualTitle('Mega 控制台', 'Mega Dock'),
-    backgroundColor: '#11161d',
+    // The dock is a pane of frosted glass, and a pane needs something behind it. An opaque
+    // window background is what kept the layer invisible: every translucent panel was composited
+    // over this one flat colour, so the blur had nothing to bite on and the dock read as an
+    // ordinary dark panel. A transparent window lets the desktop through, and `acrylic` (Windows
+    // 11) is the compositor's own frost over it. Where the material is unsupported the window is
+    // simply transparent, and the stylesheet's higher-alpha fallback keeps the text legible.
+    ...dockGlassBackground(),
     webPreferences: {
       preload: path.join(__dirname, 'ui', 'preload.cjs'),
       contextIsolation: true,
@@ -1082,17 +1064,6 @@ function dispatchTerminal(event) {
   return outcome
 }
 
-/**
- * Region probe listener, kept in a named reference so `stop()` can detach exactly
- * the handler it registered.
- */
-function onThemeRegions(_event, payload) {
-  themeRegionCache = payload && typeof payload === 'object' ? payload : {}
-  themeTreeCache = payload?.componentTree || null
-}
-
-/**
-
 /** The last Compatibility Report, produced on demand (任务 16 / 任务 17). */
 let lastCompatibilityReport = null
 
@@ -1276,34 +1247,140 @@ function applyFeatureVisibility(id) {
 }
 
 /**
- * The store's own preference: may a repository without a native manifest be adopted?
+ * The store's own state: the compatibility decision, and the GitHub settings it talks through.
  *
  * It lives beside the other user state (`data/state/plugin-store.json`) for the same reason the
- * glass preference does — it is a choice, not deployment configuration — and it defaults to on,
- * because the alternative is a store that silently offers less than it can do. Turning it off is
- * a real choice too: with it off, only repositories that declare `dshns.plugin/v1` are staged.
+ * glass preference does — these are choices, not deployment configuration. The file is read on
+ * every use rather than cached, which is what makes a saved setting take effect on the next
+ * request instead of on the next restart.
+ */
+function storeStateFile() {
+  return path.join(PATHS.ROOT, 'data', 'state', 'plugin-store.json')
+}
+
+/** The file as it is on disk. A malformed file is a preference that failed to persist, not a crash. */
+function readStoreState() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(storeStateFile(), 'utf8'))
+    return raw && typeof raw === 'object' ? raw : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeStoreState(next, label) {
+  const file = storeStateFile()
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, reason: `${label} could not be written: ${error?.message || error}` }
+  }
+}
+
+/**
+ * The store's own preference: may a repository without a native manifest be adopted?
+ *
+ * It defaults to on, because the alternative is a store that silently offers less than it can do.
+ * Turning it off is a real choice too: with it off, only repositories that declare
+ * `dshns.plugin/v1` are staged.
  */
 function storePreference() {
-  const file = path.join(PATHS.ROOT, 'data', 'state', 'plugin-store.json')
-  try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
-    if (raw && typeof raw === 'object' && typeof raw.compat === 'boolean') return { compat: raw.compat, source: 'user' }
-  } catch {}
+  const raw = readStoreState()
+  if (typeof raw.compat === 'boolean') return { compat: raw.compat, source: 'user' }
   return { compat: true, source: 'default' }
 }
 
 function setStorePreference(patch = {}) {
-  const next = { ...storePreference() }
-  if (typeof patch.compat === 'boolean') next.compat = patch.compat
-  const file = path.join(PATHS.ROOT, 'data', 'state', 'plugin-store.json')
-  try {
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, `${JSON.stringify({ compat: next.compat }, null, 2)}\n`, 'utf8')
-  } catch (error) {
-    return { ok: false, reason: `the store preference could not be written: ${error?.message || error}` }
+  const stored = readStoreState()
+  const compat = typeof patch.compat === 'boolean' ? patch.compat : storePreference().compat
+  const written = writeStoreState({ ...stored, compat }, 'the store preference')
+  if (!written.ok) return written
+  log(`store compatibility mode ${compat ? 'on' : 'off'}`)
+  return { ok: true, compat, source: 'user' }
+}
+
+/**
+ * The GitHub settings in force.
+ *
+ * The store is not created with a snapshot of these: it is handed `config`, which calls this on
+ * every request. That is the whole point — a token typed into the panel, a topic a company uses
+ * instead of the default, or an enterprise API base all take effect on the next search.
+ */
+function storeGithubSettings() {
+  const raw = readStoreState().github
+  return resolveGithubSettings(raw && typeof raw === 'object' ? raw : {})
+}
+
+/**
+ * What the panel is allowed to know about them.
+ *
+ * The token is never returned, in any form: the panel gets its tail and where it came from, which
+ * is enough to answer "is my token being used?" — the only question this surface has to answer.
+ */
+function describeStoreGithub() {
+  const state = storeGithubSettings()
+  return {
+    ok: true,
+    topic: state.topic,
+    authenticated: Boolean(state.token),
+    tokenSource: state.tokenSource,
+    tokenMask: state.tokenMask,
+    apiBase: state.apiBase,
+    rawBase: state.rawBase,
+    cloneBase: state.cloneBase,
+    refused: state.refused,
+    defaults: {
+      topic: PLUGIN_TOPIC,
+      apiBase: DEFAULT_API_BASE,
+      rawBase: DEFAULT_RAW_BASE,
+      cloneBase: DEFAULT_CLONE_BASE
+    }
   }
-  log(`store compatibility mode ${next.compat ? 'on' : 'off'}`)
-  return { ok: true, compat: next.compat, source: 'user' }
+}
+
+/**
+ * Save them.
+ *
+ * Every value is checked here rather than at the point of use, because a store that accepts a
+ * setting it will ignore is worse than one that refuses it: the user would believe a token was in
+ * force while the rate limit kept refusing searches. A refused value is not stored and is
+ * reported, so the panel can say which field was wrong and why.
+ */
+function setStoreGithub(patch = {}) {
+  const state = readStoreState()
+  const stored = { ...(state.github && typeof state.github === 'object' ? state.github : {}) }
+  const refused = []
+  if (patch.token !== undefined) {
+    const token = String(patch.token === null || patch.token === undefined ? '' : patch.token).trim()
+    if (token.length > SETTING_LIMITS.token.max) refused.push(`a token is at most ${SETTING_LIMITS.token.max} characters`)
+    else stored.token = token
+  }
+  if (patch.topic !== undefined) {
+    const checked = checkTopic(patch.topic)
+    if (checked.ok) stored.topic = String(patch.topic === null || patch.topic === undefined ? '' : patch.topic).trim()
+    else refused.push(checked.reason)
+  }
+  for (const [key, label] of [['apiBase', 'the API base URL'], ['rawBase', 'the raw content base URL'], ['cloneBase', 'the clone base URL']]) {
+    if (patch[key] === undefined) continue
+    const checked = checkBase(patch[key], label)
+    if (checked.ok) stored[key] = String(patch[key] === null || patch[key] === undefined ? '' : patch[key]).trim()
+    else refused.push(checked.reason)
+  }
+  if (refused.length) {
+    log(`store GitHub settings refused: ${refused.join('; ')}`)
+    return { ...describeStoreGithub(), ok: false, refused }
+  }
+  const written = writeStoreState({ ...state, github: stored }, 'the store settings')
+  if (!written.ok) return written
+  // A resolved default branch belongs to the host that answered it, and a saved setting can move
+  // which host that is (a token does not, a base URL does). Dropping the cache costs one request
+  // on the next probe; keeping it would address the new host with a fact learned from the old one.
+  if (pluginStore) pluginStore.forget()
+  const described = describeStoreGithub()
+  log(`store GitHub settings saved (topic ${described.topic}, token ${described.tokenSource}, api ${described.apiBase})`)
+  return { ...described, saved: true }
 }
 
 /** The store channel: a search, and an honest answer about whether a result is a plugin. */
@@ -1311,7 +1388,15 @@ let pluginStore = null
 function store() {
   if (pluginStore) return pluginStore
   const { createPluginStore } = require('./store/github-store.cjs')
-  pluginStore = createPluginStore({ log: (message) => log(`store: ${message}`) })
+  pluginStore = createPluginStore({
+    log: (message) => log(`store: ${message}`),
+    // The settings are a function, not a snapshot: the store asks for them on every request, so a
+    // token or an enterprise base saved in the panel is in force immediately.
+    config: () => {
+      const raw = readStoreState().github
+      return raw && typeof raw === 'object' ? raw : {}
+    }
+  })
   return pluginStore
 }
 
@@ -1333,7 +1418,10 @@ function installer() {
     // refused in one request instead of one clone — the store already knows how to ask GitHub.
     // It is told the package path and whether compatibility mode is on, because both change the
     // verdict: a package inside a monorepo and an adoptable package are different answers.
-    probe: (input) => store().inspect({ id: input.repo, branch: input.branch, path: input.path, compat: input.compat })
+    probe: (input) => store().inspect({ id: input.repo, branch: input.branch, path: input.path, compat: input.compat }),
+    // Installation has to come from the same host the search found the plugin on, or a store
+    // pointed at a mirror would list plugins it cannot fetch.
+    cloneBase: () => storeGithubSettings().cloneBase
   })
   return storeInstaller
 }
@@ -1391,6 +1479,9 @@ function registerStoreIpc() {
   // Compatibility mode is a choice the user makes once, not a flag on every row.
   ipcMain.handle('mega:store-compat', guard(() => ({ ok: true, ...storePreference() })))
   ipcMain.handle('mega:store-compat-set', guard((_event, payload = {}) => setStorePreference(payload || {})))
+  // The GitHub settings: what the channel is using, and where a deployment sets its own.
+  ipcMain.handle('mega:store-github', guard(() => describeStoreGithub()))
+  ipcMain.handle('mega:store-github-set', guard((_event, payload = {}) => setStoreGithub(payload || {})))
   ipcMain.handle('mega:store-stage', guard(async (_event, payload = {}) => {
     // The manifest is checked before the download, not after it: a repository that is not a
     // DS-Hns plugin is answered in one request rather than one clone. An inconclusive check
@@ -1950,18 +2041,16 @@ async function start(context) {
   createTray()
   // Theme system starts last: it must never be able to delay the official UI,
   // the scheduler or the dock. A failure here is logged and the product runs on
-  // the Dark recovery theme.
+  // the Dark recovery theme. It paints the official shell and overlay only — the dock is
+  // frosted glass and takes no theme payload.
   try {
     const engine = ensureThemeEngine()
-    ctx.electron.ipcMain.on('mega-theme:regions', onThemeRegions)
     engine.start()
-    pushThemePaint(engine)
   } catch (error) {
     log(`theme system unavailable, continuing with the built-in Dark palette: ${error?.stack || error}`)
   }
-  // The integrated dock view is created *after* extensions start, so the first
-  // paint above has nowhere to go. The shell calls `onDockReady` once its
-  // renderer has loaded; that is when the active theme is actually delivered.
+  // The integrated dock view is created *after* extensions start, so the shell calls
+  // `onDockReady` once its renderer has loaded; that is when the dock is told to render.
   registerDockReadyHook()
   // The dock can be asked to start expanded (`--mega-dock`, or the environment
   // form used by tooling that only controls the child's environment).
@@ -1977,39 +2066,18 @@ async function start(context) {
 }
 
 /**
- * Deliver the active theme to the dock renderer.
- *
- * A missing target is normal during boot (the shell has not created the view
- * yet), so it is not logged as an error; the ready hook below closes that gap.
- */
-function pushThemePaint(engine = themeEngine) {
-  if (!engine) return false
-  let paint = null
-  try {
-    paint = engine.paintPayload()
-  } catch (error) {
-    log(`theme payload unavailable: ${error?.message || error}`)
-    return false
-  }
-  if (!dockTarget.hasTarget()) return false
-  if (!dockTarget.send('mega:theme-apply', paint)) {
-    log('theme repaint could not reach the dock: push failed')
-    return false
-  }
-  return true
-}
-
-/**
  * The shell's dock-ready notification (`ctx.onDockReady`). Registering here —
  * and not at module scope — keeps the extension free of start-order side effects
  * and lets `stop()` drop the handler it added.
+ *
+ * There is no theme payload to deliver any more: the dock is glass and reads its own palette,
+ * so a dock that becomes ready only has to be told the state it renders.
  */
 function registerDockReadyHook() {
   const hook = ctx?.onDockReady
   if (typeof hook !== 'function') return false
   const handler = () => {
     try {
-      pushThemePaint()
       notifyChanged()
     } catch (error) {
       log(`dock ready handling failed: ${error?.message || error}`)
@@ -2071,9 +2139,6 @@ function stop() {
   try { themeEngine?.stop?.() } catch {}
   themeEngine = null
   skillService = null
-  themeRegionCache = {}
-  themeTreeCache = null
-  try { ctx?.electron?.ipcMain?.removeListener('mega-theme:regions', onThemeRegions) } catch {}
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
   try { unsubscribeSubWorker?.() } catch {}

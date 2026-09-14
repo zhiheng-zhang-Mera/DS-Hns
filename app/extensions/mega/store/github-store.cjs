@@ -37,6 +37,35 @@ const MAX_LIMIT = 50
 const DEFAULT_TIMEOUT_MS = 10_000
 const MAX_BODY_BYTES = 512 * 1024
 
+/**
+ * Where the channel talks by default, and what a user may point it at instead.
+ *
+ * GitHub is not one host. A rate limit is per-token and a private repository needs one, an
+ * enterprise install answers on its own API, and a mirror in front of github.com is a normal
+ * deployment. All three are the *same* three addresses with a different host, so they are
+ * settings rather than a fork of this module — and they are resolved per call, so saving one
+ * takes effect on the next search instead of on the next restart.
+ */
+const DEFAULT_API_BASE = 'https://api.github.com'
+const DEFAULT_RAW_BASE = 'https://raw.githubusercontent.com'
+const DEFAULT_CLONE_BASE = 'https://github.com'
+
+/** The setting names, in the order the store's own settings surface shows them. */
+const GITHUB_SETTINGS = Object.freeze(['token', 'topic', 'apiBase', 'rawBase', 'cloneBase'])
+
+/** What a value may be: a token is bounded, a topic is an identifier, a base is a URL. */
+const SETTING_LIMITS = Object.freeze({
+  token: Object.freeze({ max: 512 }),
+  topic: Object.freeze({ max: 80 }),
+  base: Object.freeze({ max: 512 })
+})
+
+/** A topic GitHub would accept: lowercase letters, digits, dots, dashes and underscores. */
+const TOPIC_SAFE = /^[a-z0-9][a-z0-9._-]*$/
+
+/** Loopback is the one place plain HTTP is not a secret on the wire. */
+const LOOPBACK_HOST = /^(localhost|127(?:\.\d{1,3}){3}|\[::1\]|::1)$/i
+
 const STORE_REASONS = Object.freeze({
   RATE_LIMITED: 'STORE_RATE_LIMITED',
   UNREACHABLE: 'STORE_UNREACHABLE',
@@ -44,6 +73,128 @@ const STORE_REASONS = Object.freeze({
   NO_MANIFEST: 'STORE_NO_MANIFEST',
   BAD_MANIFEST: 'STORE_BAD_MANIFEST'
 })
+
+/**
+ * A base URL the channel may build requests on, or the fallback.
+ *
+ * `https` is required for anything that is not loopback, because a token and a query both travel
+ * on this URL: refusing plain HTTP to a remote host is the difference between a setting and a
+ * credential leak. A trailing slash is trimmed so a copy-pasted URL does not double it.
+ */
+function normalizeBase(value, fallback) {
+  const text = String(value || '').trim().replace(/\/+$/, '')
+  if (!text) return fallback
+  if (text.length > SETTING_LIMITS.base.max) return fallback
+  let parsed = null
+  try {
+    parsed = new URL(text)
+  } catch {
+    return fallback
+  }
+  if (parsed.protocol === 'https:') return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`
+  if (parsed.protocol === 'http:' && LOOPBACK_HOST.test(parsed.hostname)) return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`
+  return fallback
+}
+
+/** Whether a base URL is one this channel would accept, and why not when it is not. */
+function checkBase(value, label, fallback) {
+  const text = String(value || '').trim()
+  if (!text) return { ok: true, value: fallback, source: 'default' }
+  const normalized = normalizeBase(text, null)
+  if (!normalized) {
+    return {
+      ok: false,
+      value: fallback,
+      source: 'default',
+      reason: `${label} must be an https URL (http is accepted only for loopback): ${text}`
+    }
+  }
+  return { ok: true, value: normalized, source: 'user' }
+}
+
+/** A plugin topic, or the fallback when the value is not one GitHub would accept. */
+function normalizeTopic(value, fallback = PLUGIN_TOPIC) {
+  const text = String(value || '').trim().toLowerCase()
+  if (!text || text.length > SETTING_LIMITS.topic.max || !TOPIC_SAFE.test(text)) return fallback
+  return text
+}
+
+/** Whether a topic is usable, and why not when it is not. */
+function checkTopic(value, fallback = PLUGIN_TOPIC) {
+  const text = String(value || '').trim()
+  if (!text) return { ok: true, value: fallback, source: 'default' }
+  const normalized = normalizeTopic(text, null)
+  if (!normalized) {
+    return {
+      ok: false,
+      value: fallback,
+      source: 'default',
+      reason: `a topic is lowercase letters, digits, dashes, dots and underscores (max ${SETTING_LIMITS.topic.max}): ${text}`
+    }
+  }
+  return { ok: true, value: normalized, source: 'user' }
+}
+
+/**
+ * The tail of a token, and never the token.
+ *
+ * The store has to be able to say *which* credential is in force — "I set one and it is being
+ * ignored" is a real support question — without ever handing the secret back to a renderer. A
+ * short token is masked completely, because four plus four characters of a nine-character token
+ * is the token.
+ */
+function maskToken(token) {
+  const text = String(token || '')
+  if (!text) return null
+  if (text.length < 16) return '•'.repeat(Math.min(8, Math.max(4, text.length)))
+  return `${text.slice(0, 4)}…${text.slice(-4)}`
+}
+
+/**
+ * The settings in force for one call, from the user's own values with the environment behind them.
+ *
+ * `supplied` is what the shell read from `data/state/plugin-store.json`; anything absent, empty or
+ * unusable falls back to the library default. The environment token is a *deployment* default
+ * rather than a user choice, which is why the answer says which of the two is being used instead
+ * of only whether one is: a user who set a token and still sees `environment` has learned that
+ * their value did not land, and the panel can say so.
+ *
+ * @param {object} [supplied] `{ token, topic, apiBase, rawBase, cloneBase }`
+ * @param {object} [options] `{ environmentToken }`
+ */
+function resolveGithubSettings(supplied = {}, options = {}) {
+  const source = supplied && typeof supplied === 'object' ? supplied : {}
+  const userToken = String(source.token || '').trim()
+  const environmentToken = String(
+    typeof options.environmentToken === 'string' ? options.environmentToken : process.env.GITHUB_TOKEN || ''
+  ).trim()
+  const token = userToken || environmentToken
+  const topic = checkTopic(source.topic)
+  const apiBase = checkBase(source.apiBase, 'the API base URL', DEFAULT_API_BASE)
+  const rawBase = checkBase(source.rawBase, 'the raw content base URL', DEFAULT_RAW_BASE)
+  const cloneBase = checkBase(source.cloneBase, 'the clone base URL', DEFAULT_CLONE_BASE)
+  const refused = [topic, apiBase, rawBase, cloneBase].filter((checked) => checked.ok === false).map((checked) => checked.reason)
+  return {
+    token: token || null,
+    tokenSource: userToken ? 'user' : environmentToken ? 'environment' : 'none',
+    tokenMask: maskToken(token),
+    topic: topic.value,
+    topicSource: topic.source,
+    apiBase: apiBase.value,
+    apiBaseSource: apiBase.source,
+    rawBase: rawBase.value,
+    rawBaseSource: rawBase.source,
+    cloneBase: cloneBase.value,
+    cloneBaseSource: cloneBase.source,
+    refused
+  }
+}
+
+/** The `owner/name` half of a manifest URL, for a base that may carry a path of its own. */
+function rawFileUrl(rawBase, id, branch, file) {
+  const base = String(rawBase || DEFAULT_RAW_BASE).replace(/\/+$/, '')
+  return `${base}/${id}/${branch || 'main'}/${file}`
+}
 
 /** A bounded HTTPS GET that returns parsed JSON, or a reason. */
 function defaultRequest(url, options = {}) {
@@ -119,6 +270,9 @@ function defaultRequest(url, options = {}) {
 /** One repository, in the shape the manager renders. */
 function describeRepository(raw, extra = {}) {
   const sourcePath = cleanPath(extra.sourcePath)
+  // The raw-content host is an input to the manifest URL, not a fact about the repository, so it
+  // is consumed here rather than spread into the row the panel renders.
+  const { rawBase, ...rest } = extra
   return {
     id: raw.full_name || raw.name || null,
     name: raw.name || null,
@@ -133,8 +287,8 @@ function describeRepository(raw, extra = {}) {
     // clone all have to address the same directory.
     sourcePath: sourcePath || null,
     source: sourcePath && raw.full_name ? `${raw.full_name}#${sourcePath}` : raw.full_name || null,
-    manifestUrl: raw.full_name ? manifestUrlFor(raw.full_name, raw.default_branch || 'main', sourcePath) : null,
-    ...extra
+    manifestUrl: raw.full_name ? manifestUrlFor(raw.full_name, raw.default_branch || 'main', sourcePath, rawBase) : null,
+    ...rest
   }
 }
 
@@ -201,15 +355,50 @@ function namedRepository(value) {
  * @param {object} [options]
  * @param {Function} [options.request] injectable transport, `(url, options) => Promise`
  * @param {string} [options.token] a GitHub token, when the deployment has one
+ * @param {string} [options.topic] the topic that marks a plugin repository
+ * @param {string} [options.apiBase] the REST API base, for an enterprise install or a mirror
+ * @param {string} [options.rawBase] the raw-content base the manifest probes use
+ * @param {string} [options.cloneBase] the git host the installer clones from
+ * @param {Function} [options.config] `() => settings`, read on every call so a saved setting
+ *   takes effect on the next request rather than on the next restart
  * @param {Function} [options.log]
  */
 function createPluginStore(options = {}) {
   const request = typeof options.request === 'function' ? options.request : defaultRequest
   const log = typeof options.log === 'function' ? options.log : () => {}
-  const token = options.token || process.env.GITHUB_TOKEN || null
+  /** Values fixed at construction: the deployment defaults a `config` may override. */
+  const fixed = {
+    token: options.token,
+    topic: options.topic,
+    apiBase: options.apiBase,
+    rawBase: options.rawBase,
+    cloneBase: options.cloneBase
+  }
+  const config = typeof options.config === 'function' ? options.config : null
   const history = []
   /** Default branches already resolved this session, so the store asks GitHub once per repo. */
   const defaultBranches = new Map()
+
+  /**
+   * The settings for *this* call.
+   *
+   * Everything below reads the configuration here rather than closing over it, which is what makes
+   * the store's settings live: the shell owns the file, this asks it, and a token saved in the
+   * panel is in force for the next search with no restart. A configuration that throws is a
+   * settings failure, not a store failure — the defaults stand and the reason is logged.
+   */
+  function settings() {
+    let supplied = fixed
+    if (config) {
+      try {
+        const resolved = config()
+        if (resolved && typeof resolved === 'object') supplied = { ...fixed, ...resolved }
+      } catch (error) {
+        log(`the store settings could not be read (${error?.message || error}); the defaults stand`)
+      }
+    }
+    return resolveGithubSettings(supplied, { environmentToken: options.environmentToken })
+  }
 
   function remember(entry) {
     history.push(entry)
@@ -226,11 +415,12 @@ function createPluginStore(options = {}) {
    * a different answer from "main": unknown means the caller must not refuse anything, only the
    * clone can decide.
    */
-  async function defaultBranch(repo, settings = {}) {
+  async function defaultBranch(repo, input = {}) {
     const full = String(repo || '').trim()
     if (!full) return null
+    const active = settings()
     if (defaultBranches.has(full)) return defaultBranches.get(full)
-    const answer = await request(`https://api.github.com/repos/${full}`, { token, timeoutMs: settings.timeoutMs })
+    const answer = await request(`${active.apiBase}/repos/${full}`, { token: active.token, timeoutMs: input.timeoutMs })
     const branch = answer && answer.ok === true && answer.json && answer.json.default_branch ? String(answer.json.default_branch) : null
     if (branch) defaultBranches.set(full, branch)
     return branch
@@ -250,12 +440,13 @@ function createPluginStore(options = {}) {
     if (query.length > 120) {
       return remember({ ok: false, code: STORE_REASONS.BAD_QUERY, reason: 'the query is longer than 120 characters' })
     }
+    const active = settings()
     // A named repository is not a search: it is a target. Answering it with a topic filter would
     // report "nothing found" for a repository the user is looking at in another window. A named
     // *package* inside a repository is a target too — `owner/repo#packages/pet`.
     const named = parseSource(query)
     if (named) {
-      const answer = await request(`https://api.github.com/repos/${named.repo}`, { token, timeoutMs: input.timeoutMs })
+      const answer = await request(`${active.apiBase}/repos/${named.repo}`, { token: active.token, timeoutMs: input.timeoutMs })
       if (!answer || answer.ok !== true) {
         const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
         const reason = code === STORE_REASONS.NO_MANIFEST
@@ -263,7 +454,7 @@ function createPluginStore(options = {}) {
           : (answer && answer.reason) || 'the repository could not be read'
         return remember({ ok: false, code, reason })
       }
-      const result = describeRepository(answer.json, { sourcePath: named.path, installable: null, manifestReason: 'not checked yet' })
+      const result = describeRepository(answer.json, { sourcePath: named.path, rawBase: active.rawBase, installable: null, manifestReason: 'not checked yet' })
       log(`store fetched the named ${named.path ? 'package' : 'repository'} ${named.source}`)
       return remember({
         ok: true,
@@ -273,26 +464,26 @@ function createPluginStore(options = {}) {
         total: 1,
         results: [result],
         rateLimit: answer.headers && answer.headers['x-ratelimit-remaining'] ? Number(answer.headers['x-ratelimit-remaining']) : null,
-        authenticated: Boolean(token)
+        authenticated: Boolean(active.token)
       })
     }
-    const q = [query, topicOnly ? `topic:${PLUGIN_TOPIC}` : ''].filter(Boolean).join(' ')
-    const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(q)}&sort=${encodeURIComponent(String(input.sort || 'stars'))}&order=desc&per_page=${limit}`
-    const answer = await request(url, { token, timeoutMs: input.timeoutMs })
+    const q = [query, topicOnly ? `topic:${active.topic}` : ''].filter(Boolean).join(' ')
+    const url = `${active.apiBase}/search/repositories?q=${encodeURIComponent(q)}&sort=${encodeURIComponent(String(input.sort || 'stars'))}&order=desc&per_page=${limit}`
+    const answer = await request(url, { token: active.token, timeoutMs: input.timeoutMs })
     if (!answer || answer.ok !== true) {
       return remember({ ok: false, code: (answer && answer.code) || STORE_REASONS.UNREACHABLE, reason: (answer && answer.reason) || 'the search failed', resetAt: answer && answer.resetAt ? answer.resetAt : null })
     }
     const items = answer.json && Array.isArray(answer.json.items) ? answer.json.items : []
-    const results = items.map((item) => describeRepository(item, { installable: null, manifestReason: 'not checked yet' }))
+    const results = items.map((item) => describeRepository(item, { rawBase: active.rawBase, installable: null, manifestReason: 'not checked yet' }))
     log(`store search "${q}" returned ${results.length} of ${answer.json?.total_count ?? '?'} repositories`)
     return remember({
       ok: true,
       query: q,
-      topic: topicOnly ? PLUGIN_TOPIC : null,
+      topic: topicOnly ? active.topic : null,
       total: Number.isFinite(answer.json?.total_count) ? answer.json.total_count : results.length,
       results,
       rateLimit: answer.headers && answer.headers['x-ratelimit-remaining'] ? Number(answer.headers['x-ratelimit-remaining']) : null,
-      authenticated: Boolean(token)
+      authenticated: Boolean(active.token)
     })
   }
 
@@ -305,9 +496,10 @@ function createPluginStore(options = {}) {
    * `compat.cjs`, against the files themselves. Saying more than that here would be guessing.
    */
   async function probeCompat(input = {}) {
-    const url = packageUrlFor(input.id, input.branch || 'main', input.sourcePath)
+    const active = settings()
+    const url = packageUrlFor(input.id, input.branch || 'main', input.sourcePath, active.rawBase)
     if (!url) return { possible: false, probed: false, reason: 'the package metadata URL could not be built' }
-    const answer = await request(url, { token, timeoutMs: input.timeoutMs })
+    const answer = await request(url, { token: active.token, timeoutMs: input.timeoutMs })
     if (!answer || answer.ok !== true) {
       const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
       return {
@@ -353,6 +545,7 @@ function createPluginStore(options = {}) {
     const id = String(input.id || (repository && repository.id) || '').trim()
     const sourcePath = cleanPath(input.path || (repository && repository.sourcePath))
     let branch = String(input.branch || (repository && repository.branch) || '').trim()
+    const active = settings()
     // A search result already carries the default branch; a bare `owner/name` does not, and
     // guessing `main` is what produces a wrong "no manifest" verdict for a `dev`-defaulted
     // repository. One API call settles it, and being unable to settle it is not a refusal.
@@ -360,12 +553,12 @@ function createPluginStore(options = {}) {
       const resolved = await defaultBranch(id, input)
       if (resolved) branch = resolved
     }
-    const url = input.manifestUrl || (repository && repository.manifestUrl) || manifestUrlFor(id, branch || 'main', sourcePath)
+    const url = input.manifestUrl || (repository && repository.manifestUrl) || manifestUrlFor(id, branch || 'main', sourcePath, active.rawBase)
     if (!url) return remember({ ok: false, code: STORE_REASONS.BAD_QUERY, reason: 'a repository or a manifest URL is required' })
     // `verified` is the difference between "we looked where the manifest has to be" and "we
     // looked where it usually is": only a verified absence may refuse an install.
     const verified = Boolean(input.manifestUrl || branch)
-    const answer = await request(url, { token, timeoutMs: input.timeoutMs })
+    const answer = await request(url, { token: active.token, timeoutMs: input.timeoutMs })
     if (!answer || answer.ok !== true) {
       const code = (answer && answer.code) || STORE_REASONS.UNREACHABLE
       const where = branch ? `at ${branch}` : 'at its default branch (which could not be resolved, so main was tried)'
@@ -405,17 +598,37 @@ function createPluginStore(options = {}) {
     describeRepository,
     namedRepository,
     history: () => history.slice(),
-    authenticated: () => Boolean(token),
-    /** What the UI shows about the channel itself. */
+    authenticated: () => Boolean(settings().token),
+    /**
+     * Forget what was learned against one deployment.
+     *
+     * A resolved default branch is cached per session, and a resolved branch belongs to the host
+     * that answered. Saving a token, a topic or an enterprise base therefore has to drop the
+     * cache, or the next probe would address the new host with a fact learned from the old one.
+     */
+    forget() {
+      defaultBranches.clear()
+      return true
+    },
+    /** What the UI shows about the channel itself, and the settings it is using. */
     describe() {
+      const active = settings()
       return {
-        topic: PLUGIN_TOPIC,
+        topic: active.topic,
         manifestFile: MANIFEST_FILE,
         apiVersion: PLUGIN_API_VERSION,
-        authenticated: Boolean(token),
+        authenticated: Boolean(active.token),
+        tokenSource: active.tokenSource,
+        tokenMask: active.tokenMask,
+        apiBase: active.apiBase,
+        rawBase: active.rawBase,
+        cloneBase: active.cloneBase,
+        refused: active.refused,
         note: 'Search the plugin topic, or name a repository (owner/name or its URL) to check it directly. Installation is a deliberate act: stage the code, then enable it in the manager.'
       }
-    }
+    },
+    /** The settings in force, for the shell that renders and persists them. */
+    settings: () => settings()
   }
 }
 
@@ -424,22 +637,23 @@ function createPluginStore(options = {}) {
  *
  * The `sourcePath` argument is what makes a monorepo package checkable *before* it is cloned: the
  * manifest of `owner/repo#packages/pet` is `packages/pet/dshns-plugin.json`, not the repository's.
+ * `rawBase` is the deployment's raw-content host, which is github.com's unless the user set one.
  */
-function manifestUrlFor(id, branch, sourcePath) {
+function manifestUrlFor(id, branch, sourcePath, rawBase) {
   const full = String(id || '').trim()
   if (!/^[\w.-]+\/[\w.-]+$/.test(full)) return null
   const clean = cleanPath(sourcePath)
   const file = clean ? `${clean}/${MANIFEST_FILE}` : MANIFEST_FILE
-  return `https://raw.githubusercontent.com/${full}/${branch || 'main'}/${file}`
+  return rawFileUrl(rawBase, full, branch || 'main', file)
 }
 
 /** The package metadata URL for the same target: what the compatibility layer reads to decide. */
-function packageUrlFor(id, branch, sourcePath) {
+function packageUrlFor(id, branch, sourcePath, rawBase) {
   const full = String(id || '').trim()
   if (!/^[\w.-]+\/[\w.-]+$/.test(full)) return null
   const clean = cleanPath(sourcePath)
   const file = clean ? `${clean}/package.json` : 'package.json'
-  return `https://raw.githubusercontent.com/${full}/${branch || 'main'}/${file}`
+  return rawFileUrl(rawBase, full, branch || 'main', file)
 }
 
 module.exports = {
@@ -450,8 +664,17 @@ module.exports = {
   packageUrlFor,
   namedRepository,
   defaultRequest,
+  resolveGithubSettings,
+  normalizeBase,
+  normalizeTopic,
+  maskToken,
   PLUGIN_TOPIC,
   MANIFEST_FILE,
+  DEFAULT_API_BASE,
+  DEFAULT_RAW_BASE,
+  DEFAULT_CLONE_BASE,
+  GITHUB_SETTINGS,
+  SETTING_LIMITS,
   DEFAULT_LIMIT,
   MAX_LIMIT,
   STORE_REASONS

@@ -129,7 +129,7 @@ Collapsed                              Expanded
 
 - **Collapsed rail** — 48 px vertical strip with MEGA identity, running count, queued count, hardware worker state and peak/off-peak state.
 - **Expanded dock** — 560 px by default: manual task creation with real queue ordering controls, hardware-adaptive concurrency, the account balance module, the extension status module and the settings layer.
-- **One dock target adapter** — the current build renders the dock as a `WebContentsView` inside the main window (`app\desktop-main.cjs`), while the legacy companion `BrowserWindow` remains a second backend. Both are reached through `app\extensions\mega\dock\target.js`, which owns the webContents, the bounds, the visibility and the screenshot for whichever generation is running. No theme, skills or IPC path reads `dockWindow` directly, so "apply succeeded but the dock never repainted" cannot come back through a second code path.
+- **One dock target adapter** — the current build renders the dock as a `WebContentsView` inside the main window (`app\desktop-main.cjs`), while the legacy companion `BrowserWindow` remains a second backend. Both are reached through `app\extensions\mega\dock\target.js`, which owns the webContents, the bounds, the visibility and the screenshot for whichever generation is running. No theme, skills or IPC path reads `dockWindow` directly, so a payload that never reached the dock cannot come back through a second code path.
 - **State memory** — collapsed/expanded state and dock width are stored in `data/state/mega-dock.json`.
 - **Integrated layout** — the official dsh view and the dock are sibling `WebContentsView`s inside one native window, so the dock reserves its own strip and never sits on top of the official UI. `DSH_MEGA_INTEGRATED_DOCK=0` falls back to the legacy companion `BrowserWindow` (positioned outside the official window, or overlaying its right edge when the screen has no room); the theme system is unaware of the difference because both go through the dock target adapter above.
 - **One product window** — there is no separate Mega management window or page. Every Mega capability lives in the dock; the settings layer (⚙ in the dock header) is an in-dock overlay that reuses the existing IPC backend.
@@ -189,19 +189,37 @@ TERMINAL = COMPLETED | FAILED_FINAL | CANCELLED
   "Recent Session" panel was removed. The official UI remains the single owner of session
   history; Mega only watches it for terminal alerts.
 
-### Unified theme system (Appearance)
+### Appearance: frosted glass
 
-The dock carries a complete, autonomous theme subsystem. The user supplies **only natural
-language** — never a slot, token, manifest or file path.
+The dock is a pane of **frosted glass**, always, and it is never skinned: no theme installs
+tokens, slot styles or a persona into it, so what the dock looks like is one switch and two
+numbers.
 
 ```text
-Appearance · 主题皮肤
-├── Current theme (Dark)
-├── Describe what you want  →  [ Generate ]
-├── Preview: validation verdict + checklist
-│     [ Looks Good ]  [ Modify → "What would you like changed?" ]
-└── Themes: Dark 🔒  Light 🔒  Minimal Neutral  Anime Persona Demo  Cyber HUD Demo
+外观 · Appearance
+├── 磨砂玻璃 / Frosted glass          [ on ] / off
+├── 模糊强度 · Blur                   0 – 40 px   (18)
+└── 玻璃通透度 · Glass opacity        20 – 100 %  (62)
 ```
+
+- **Live, not on save** — dragging a slider writes the new value into the document on the frame
+  it moves; only the release persists it through the shell. The numbers live in
+  `data/state/ui-glass.json` and the panel renders whatever the layer reports, so a value the
+  shell clamped — or one another surface set — is what the controls show.
+- **The window is part of the material** — the dock window is created `transparent` with the
+  Windows `acrylic` background material, and the integrated dock view is given a fully
+  transparent background, so the OS frost blurs the desktop behind the pane instead of a flat
+  rectangle. The stylesheet redirects the dock's own base colour too, so the pane itself is
+  translucent and the window material reaches the screen.
+- **It cannot fail the dock** — a missing layer, a rejecting shell or an absent control all
+  degrade to "the layer keeps the numbers it already has". The markup ships the layer on, so a
+  dock that never reaches the shell is still glass, with no flash of an unstyled panel.
+
+### Unified theme system (official surfaces)
+
+The theme engine keeps its autonomous pipeline: the user supplies **only natural language** —
+never a slot, token, manifest or file path. What it paints is the chrome DS-Hns draws around
+the official renderer.
 
 ```text
 Prompt → UI inspection → capability manifest → design intent → live preview
@@ -209,15 +227,16 @@ Prompt → UI inspection → capability manifest → design intent → live prev
        → package validation → registration → installation
 ```
 
-- **Preview-first** — generating a theme stops at a live preview applied to the real dock.
-  Nothing is registered or installed until **Looks Good**.
-- **It observes before it designs** — the pipeline starts with a real UI observation:
-  a screenshot of the running dock plus a geometry probe that measures the live slot
-  bounding boxes. When no picture is possible (the dock is hidden, the renderer is gone, a
-  headless run) the design still proceeds from structure alone, but the result is marked
-  `degraded` with a reason and logged — it is never silently structure-only. Accepted
-  screenshots must be real PNGs (signature, IHDR dimensions, sane size); an empty buffer or a
-  0x0 capture is rejected rather than counted as a visual observation.
+- **Preview-first** — a draft theme is previewed with the runtime's real paint path and validated
+  before anything is registered or installed; only the approval promotes the package into
+  `data/themes/user/<theme-id>/`. The dock is not a preview surface.
+- **It observes before it designs** — the pipeline starts with a real UI observation: a
+  screenshot of the running dock, the only renderer DS-Hns ever captures. When no picture is
+  possible (the dock is hidden, the renderer is gone, a headless run) the design still proceeds
+  from structure alone, but the result is marked `degraded` with a reason and logged — it is
+  never silently structure-only. Accepted screenshots must be real PNGs (signature, IHDR
+  dimensions, sane size); an empty buffer or a 0x0 capture is rejected rather than counted as a
+  visual observation.
 - **Self-contained packages** — `data/themes/user/<theme-id>/` holds its own
   `manifest.json`, `tokens.json`, `components.json`, `persona.json`, `preview.png`,
   `preview.html` and `assets/`. Compiled assets are embedded as inline data URIs at
@@ -226,17 +245,23 @@ Prompt → UI inspection → capability manifest → design intent → live prev
   theme can never affect another one.
 - **Protected** — `Dark` and `Light` are `protected`, `deletable: false`, `editable: false`.
   `Dark` is also the global recovery target; a broken package, missing asset or failed
-  compatibility check degrades to Dark instead of breaking the dock.
+  compatibility check degrades to Dark instead of breaking the official surfaces.
 - **HNS state legibility is protected** — all ten canonical worker states get their own
   token, and a theme whose states become perceptually indistinguishable is rejected.
-- **Lightweight persona only** — small operator avatar / status avatar / corner widget /
-  light banner, prominence capped at `0.4`; a large character overlay is rejected.
+- **Lightweight persona only** — the persona a theme may declare is small (operator avatar /
+  status avatar / corner widget / light banner) and its prominence is capped at `0.4` by the
+  validator; a large character is rejected by the overlay safety ceilings. The character is an
+  overlay feature, and the dock has no persona.
 - **Load-aware** — the runtime samples load every 15 s and down-grades effects (blur,
   decoration, animation, heavy assets) without ever editing the installed theme package or
   touching the scheduler.
+- **Two paintable surfaces, one protected** — a theme is written into the official shell (the
+  frame DS-Hns draws around the official renderer) and into the official overlay (a transparent,
+  input-transparent layer above it), and the dock takes no theme payload at all.
 - **Official UI is untouched** — DS-Hns may not inject CSS/JS into the official renderer, so
   the capability manifest declares `can_theme_official_ui: false` and exposes only a
-  `light`/`dark` palette hint. The theme system styles the HNS dock surface only.
+  `light`/`dark` palette hint. The protected `official_renderer` is never injected, scripted,
+  restyled or captured; a theme reaches the official area only by painting around it.
 
 See [`docs/theme-system.md`](docs/theme-system.md) for the full implementation note,
 the slot/permission model, the validation checklist and the recovery rules.
@@ -273,7 +298,7 @@ Skills · 技能管理
   reported instead of being swallowed.
 
 See [`docs/skills-management.md`](docs/skills-management.md) for the format contract,
-source resolution, security rules and the theme integration.
+source resolution, security rules and the panel's own styling sources.
 
 ### Extension status and harness alignment
 
@@ -456,11 +481,10 @@ app/
       ui/
         dock.html                collapsible right-side dock + settings overlay
         dock.js
-        dock.css                 dock palette bridged to the Theme API tokens
-        theme-bridge.js          shared theme integration for dock UI modules
-        theme-panel.js           Appearance panel (theme creation / preview / list)
+        dock.css                 dock palette + the frosted-glass block
+        glass-layer.js           the glass layer's numbers, persisted as user state
+        appearance-panel.js      Appearance panel (frosted glass: switch + blur + opacity)
         skills-panel.js          Skills panel (search / install / delete)
-        apply-theme-css.cjs      regenerates the dock.css token bridge
         apply-skills-css.cjs     appends the Skills panel stylesheet
         balance-module.js        shared Balance module open detection
         preload.cjs
@@ -488,7 +512,7 @@ Windows
 ├── DS-Harness Main Window
 │   ├── Official Harness
 │   └── Mega Dock
-│       ├── Appearance (unified theme system)
+│       ├── Appearance (frosted glass)
 │       ├── Skills (search / install / delete)
 │       ├── Queue
 │       ├── Hardware
@@ -520,8 +544,9 @@ Recent Session panel.
 These rules are enforced by `tests/unit/architecture-contract.test.js`.
 Installer/reuse/API-key behavior is enforced by `tests/unit/installer-contract.test.js`.
 Theme-system behavior is enforced by `tests/unit/theme-validator.test.js`,
-`tests/unit/theme-designer.test.js`, `tests/unit/theme-engine.test.js`,
-`tests/unit/theme-panel.test.js` and `tests/unit/theme-bridge.test.js`.
+`tests/unit/theme-designer.test.js` and `tests/unit/theme-engine.test.js`; the dock's frosted
+glass and the panel that drives it by `tests/unit/appearance-panel.test.js` and
+`tests/unit/ui-glass.test.js`.
 Skills management is enforced by `tests/unit/skills-service.test.js` and
 `tests/unit/skills-panel.test.js`.
 
@@ -540,8 +565,10 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 ```
 
 Mega dock: `Ctrl+Shift+M`. Mega settings: ⚙ in the dock header.
-Themes: the **Appearance** panel — type a description, preview it on the dock, then
-**Looks Good** to install or **Modify** to refine it in natural language.
+Appearance: the **Appearance** panel — turn the frosted glass on or off, set its blur
+(0–40 px) and its glass opacity (20–100 %); the dock itself is never skinned.
+Themes: managed by the theme engine and stored under `data\themes\`; they paint the official
+shell and overlay, never the dock.
 Skills: the **Skills** panel — search, paste a GitHub link, or pick a local folder to
 install; delete one skill, a whole collection, or a multi-selection.
 Exit: tray right-click → **Exit DS-Harness** (graceful) or **Force Exit DS-Harness**.

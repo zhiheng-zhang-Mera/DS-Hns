@@ -41,7 +41,7 @@
     let active = 'features'
     let featureData = { features: [], groups: [] }
     let pluginData = { groups: [] }
-    let storeData = { results: [], described: null, query: '', preference: null }
+    let storeData = { results: [], described: null, query: '', preference: null, github: null }
 
     function say(text, kind) {
       if (!message) return
@@ -206,10 +206,128 @@
       }
     }
 
+    /**
+     * The GitHub settings: the parts of GitHub a deployment may have to name itself.
+     *
+     * A store that can only talk to github.com with whatever `GITHUB_TOKEN` happens to be in the
+     * environment is a store that cannot be used behind a company's own GitHub, and cannot be told
+     * about a token at all by a user who has one. All five values are ordinary strings, saved to
+     * `data/state/plugin-store.json` and read on the next request, so saving takes effect at once.
+     *
+     * The token is the one field that is never rendered back: the shell answers with its tail and
+     * where it came from, the input starts empty, and an empty input means "leave it alone" rather
+     * than "erase it" — erasing is its own button, because a password field that clears a working
+     * credential when it is left alone is a trap.
+     */
+    function githubRow() {
+      const github = storeData.github && storeData.github.ok !== false ? storeData.github : null
+      const row = el('details', 'pm-github')
+      row.open = storeData.githubOpen !== false
+      row.addEventListener('toggle', () => { storeData = { ...storeData, githubOpen: row.open } })
+
+      const head = el('summary', 'pm-github-head')
+      head.appendChild(el('b', '', 'GitHub 设置 · GitHub settings'))
+      head.appendChild(el('span', 'pm-meta', githubStatus(github)))
+      row.appendChild(head)
+
+      row.appendChild(el('p', 'pm-meta', '安装插件时向 GitHub 发请求所需的配置；保存后立即生效，无需重启。· what the store needs to reach GitHub; saving takes effect immediately, with no restart.'))
+      if (github && Array.isArray(github.refused) && github.refused.length) {
+        row.appendChild(el('p', 'pm-line bad', `被拒绝的设置 · refused: ${github.refused.join('; ')}`))
+      }
+
+      const grid = el('div', 'pm-github-grid')
+      grid.appendChild(githubField('Token', 'token', { type: 'password', placeholder: github && github.tokenMask ? `${github.tokenMask}（已设置 · set）` : 'ghp_… / github_pat_…' }))
+      grid.appendChild(githubField('插件主题 · Topic', 'topic', { placeholder: (github && github.defaults && github.defaults.topic) || 'dshns-plugin' }))
+      grid.appendChild(githubField('API 地址 · API base', 'apiBase', { placeholder: (github && github.defaults && github.defaults.apiBase) || 'https://api.github.com' }))
+      grid.appendChild(githubField('原始文件地址 · Raw base', 'rawBase', { placeholder: (github && github.defaults && github.defaults.rawBase) || 'https://raw.githubusercontent.com' }))
+      grid.appendChild(githubField('克隆地址 · Clone base', 'cloneBase', { placeholder: (github && github.defaults && github.defaults.cloneBase) || 'https://github.com' }))
+      row.appendChild(grid)
+
+      const actions = el('div', 'pm-github-actions')
+      actions.appendChild(actionButton('保存 · Save', '', () => saveGithub(row, false)))
+      actions.appendChild(actionButton('清除 Token · Clear token', 'quiet', () => saveGithub(row, true)))
+      row.appendChild(actions)
+      return row
+    }
+
+    /** One labelled setting. Nothing is prefilled: a placeholder is a default, not a value. */
+    function githubField(label, key, options) {
+      const field = el('label', 'pm-github-field')
+      field.appendChild(el('span', '', label))
+      const input = el('input')
+      input.type = options.type || 'text'
+      input.dataset.setting = key
+      if (options.placeholder) input.placeholder = options.placeholder
+      input.autocomplete = 'off'
+      input.spellcheck = false
+      field.appendChild(input)
+      return field
+    }
+
+    /** What the channel is using, in one line: which credential, and which topic. */
+    function githubStatus(github) {
+      if (!github) return '读取中… · reading…'
+      const token = github.tokenSource === 'user'
+        ? `Token 已设置 · token set (${github.tokenMask})`
+        : github.tokenSource === 'environment'
+          ? `Token 来自环境变量 · token from GITHUB_TOKEN (${github.tokenMask})`
+          : 'Token 未设置 · no token (the rate limit is low)'
+      return `${token} · topic ${github.topic}`
+    }
+
+    /**
+     * Save the settings.
+     *
+     * Only what the user touched is sent. The token is special: an empty field means "keep the one
+     * that is in force", and clearing it is the explicit button, so a save can never silently drop
+     * a working credential.
+     */
+    async function saveGithub(row, clearToken) {
+      const patch = {}
+      if (clearToken) {
+        patch.token = ''
+      } else {
+        const token = row.querySelector('[data-setting="token"]')
+        if (token && String(token.value || '').trim()) patch.token = String(token.value).trim()
+      }
+      for (const key of ['topic', 'apiBase', 'rawBase', 'cloneBase']) {
+        const input = row.querySelector(`[data-setting="${key}"]`)
+        if (input) patch[key] = String(input.value || '').trim()
+      }
+      try {
+        const result = await window.megaTools?.store?.setGithub?.(patch)
+        if (!result || result.ok === false) {
+          storeData = { ...storeData, github: result && result.refused ? result : storeData.github }
+          say(`${(result && (result.refused || []).join('; ')) || (result && result.reason) || '设置保存失败 / the settings could not be saved'}`, 'bad')
+        } else {
+          storeData = { ...storeData, github: result }
+          const token = row.querySelector('[data-setting="token"]')
+          if (token) token.value = ''
+          say(`GitHub 设置已保存，立即生效 / saved — in force now (${githubStatus(result)})`, 'ok')
+        }
+      } catch (error) {
+        say(`设置保存失败 / the settings could not be saved: ${error.message}`, 'bad')
+      }
+      render()
+      return storeData.github
+    }
+
+    /** Read the settings in force. Cheap enough to do every time the manager opens. */
+    async function loadGithub() {
+      try {
+        const answer = await window.megaTools?.store?.github?.()
+        if (answer && answer.ok !== false) storeData = { ...storeData, github: answer }
+      } catch (error) {
+        storeData = { ...storeData, github: { ok: false, reason: String(error.message || error) } }
+      }
+      return storeData.github
+    }
+
     function renderStore() {
       if (storeData.described) {
         body.appendChild(el('p', 'pm-meta', `${storeData.described.note}${storeData.described.authenticated ? '' : ' (no GITHUB_TOKEN: the rate limit is low)'}`))
       }
+      body.appendChild(githubRow())
       body.appendChild(compatRow())
       if (storeData.error) body.appendChild(el('p', 'pm-line bad', storeData.error))
       renderInstalled()
@@ -397,6 +515,9 @@
           const described = await window.megaTools?.store?.describe?.()
           storeData.described = described && described.ok !== false ? described : null
         }
+        // The settings row has to show what is actually in force, so it is read from the shell
+        // rather than remembered from the last save.
+        await loadGithub()
         await refreshInstalled()
         const result = await window.megaTools?.store?.search?.({ query: text })
         if (!result || result.ok === false) {
@@ -620,7 +741,7 @@
     window.megaTools?.features?.onChanged?.(() => {
       if (!root.hidden) refresh()
     })
-    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, stageResult, addToQueue, runQueue, clearQueue, act, refreshInstalled, setCompat, compatSetup, isOpen: () => !root.hidden }
+    return { open, close, refresh, setTab, setFeature, setPlugin, search, inspect, stageResult, addToQueue, runQueue, clearQueue, act, refreshInstalled, setCompat, compatSetup, loadGithub, isOpen: () => !root.hidden }
   }
 
   window.megaFeatureManager = { attach }

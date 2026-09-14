@@ -24,8 +24,7 @@ const UI_DIR = path.join(ROOT, 'app', 'extensions', 'mega', 'ui')
 /** The globals each script is expected to publish, and the element its panel needs. */
 const EXPECTED_GLOBALS = Object.freeze({
   'balance-module.js': 'megaBalanceModule',
-  'theme-bridge.js': 'megaThemeBridge',
-  'theme-panel.js': 'megaThemePanel',
+  'appearance-panel.js': 'megaAppearancePanel',
   'skills-panel.js': 'megaSkillsPanel',
   'computer-use-panel.js': 'megaComputerUsePanel',
   'bilingual.js': 'hnsBilingual',
@@ -158,9 +157,8 @@ test('every dock script loads in the dock\'s order and publishes its global', ()
   const scripts = dockScripts()
   assert.deepEqual(scripts, [
     'balance-module.js',
-    'theme-bridge.js',
     'glass-layer.js',
-    'theme-panel.js',
+    'appearance-panel.js',
     'skills-panel.js',
     'computer-use-panel.js',
     'bilingual.js',

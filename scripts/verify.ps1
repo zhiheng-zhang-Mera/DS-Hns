@@ -69,8 +69,13 @@ Check 'Theme contract exposes the slot table' ((Get-Content "$ROOT\app\extension
 Check 'Protected system themes are committed' ((Test-Path "$ROOT\app\extensions\mega\theme\builtin\system\dark\manifest.json") -and (Test-Path "$ROOT\app\extensions\mega\theme\builtin\system\light\manifest.json"))
 Check 'Built-in demo themes are committed' ((Test-Path "$ROOT\app\extensions\mega\theme\builtin\demo\minimal-neutral\manifest.json") -and (Test-Path "$ROOT\app\extensions\mega\theme\builtin\demo\anime-persona\manifest.json") -and (Test-Path "$ROOT\app\extensions\mega\theme\builtin\demo\cyber-hud\manifest.json"))
 Check 'Appearance panel exists in the dock' ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearancePanel"')
-Check 'Theme panel renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\theme-panel.js")
-Check 'Theme bridge is exposed through the preload' ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'mega:theme-create')
+Check 'Appearance panel renderer exists' (Test-Path "$ROOT\app\extensions\mega\ui\appearance-panel.js")
+# The dock is frosted glass and is never skinned: the theme bridge and the theme panel are gone,
+# and the dock's own script set contains no writer of theme values.
+Check 'The dock no longer loads a theme bridge' (-not ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'theme-bridge\.js|theme-panel\.js'))
+Check 'The dock theme writers are removed' ((-not (Test-Path "$ROOT\app\extensions\mega\ui\theme-bridge.js")) -and (-not (Test-Path "$ROOT\app\extensions\mega\ui\theme-panel.js")))
+Check 'The frosted-glass layer drives the window' ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'dockGlassBackground\(\)')
+Check 'The shell never pushes a theme payload to the dock' (-not ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "dockTarget\.send\('mega:theme-apply'"))
 Check 'Theme recovery falls back to Dark' ((Get-Content "$ROOT\app\extensions\mega\theme\recovery.js" -Raw) -match 'RECOVERY|fallbackTheme')
 Check 'Theme system never touches the official renderer' (-not ((Get-Content "$ROOT\app\extensions\mega\theme\index.js" -Raw) -match 'officialWebContents|executeJavaScript|insertCSS'))
 # ---- four Theme Surfaces (Update-Plan/General-Theme.md) ----
@@ -100,7 +105,7 @@ Check 'Skills bridge is exposed through the preload' ((Get-Content "$ROOT\app\ex
 Check 'Skill install is staged and validated before it lands' ((Get-Content "$ROOT\app\extensions\mega\skills\skill-service.js" -Raw) -match 'stageCandidate')
 Check 'Skill deletion is confined to the skill root' ((Get-Content "$ROOT\app\extensions\mega\skills\skill-service.js" -Raw) -match 'target_outside_root|outside_root')
 Check 'Skill archive extraction refuses traversal' ((Get-Content "$ROOT\app\extensions\mega\skills\tar.js" -Raw) -match 'safeRelativePath')
-Check 'Theme bridge is shared by the dock UI modules' ((Test-Path "$ROOT\app\extensions\mega\ui\theme-bridge.js") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'theme-bridge\.js'))
+Check 'The glass layer is the only appearance input of the dock UI' ((Test-Path "$ROOT\app\extensions\mega\ui\glass-layer.js") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'glass-layer\.js'))
 # ---- Dock Target Adapter: one interface, two backends ----
 $dockTarget = Get-Content "$ROOT\app\extensions\mega\dock\target.js" -Raw
 Check 'Dock target adapter exists' (Test-Path "$ROOT\app\extensions\mega\dock\target.js")

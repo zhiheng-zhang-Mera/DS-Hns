@@ -5,8 +5,13 @@
  *
  * The layer itself is stylesheet rules (see the glass block at the end of `dock.css`); this
  * script only carries the three numbers those rules are made of — whether the layer is on, how
- * strong the blur is, and how much of the skin's surface colour survives in a pane — from
- * `data/state/ui-glass.json` into the document.
+ * strong the blur is, and how much of the pane stays opaque — from `data/state/ui-glass.json`
+ * into the document, and it is the dock's *only* source of appearance.
+ *
+ * It used to sit under a skin. The theme engine installed the active theme's tokens into this
+ * document, and the layer mixed its tints out of them, which is why the dock read as a coloured
+ * panel with a slightly transparent background rather than as glass. That path is gone: the
+ * stylesheet's own palette is the material now, and nothing repaints over it.
  *
  * Why it is a script at all, rather than a class in the markup: the values are *user state*, so
  * they have to survive a reload and come from the shell that owns the file. The markup ships the
@@ -22,6 +27,7 @@
   const DEFAULT_STATE = Object.freeze({ enabled: true, blur: 18, opacity: 62 })
 
   let state = { ...DEFAULT_STATE }
+  const listeners = []
 
   function document_() {
     const document = global.document
@@ -34,6 +40,10 @@
    *
    * The boolean becomes the attribute the stylesheet keys off; the two numbers become the custom
    * properties it mixes with. No other module has to know the layer exists.
+   *
+   * This is the whole of "the effect renders live": a slider's `input` event calls this, and the
+   * stylesheet recomputes on the next frame. Nothing is deferred to a save, and no skin repaints
+   * over it afterwards.
    */
   function apply(next = {}) {
     state = {
@@ -48,6 +58,13 @@
     document.body.dataset.glass = state.enabled ? 'on' : 'off'
     style.setProperty('--hns-glass-blur', `${state.blur}px`)
     style.setProperty('--hns-glass-alpha', `${state.opacity}%`)
+    for (const listener of listeners) {
+      try {
+        listener({ ...state })
+      } catch {
+        // A listener that throws is that listener's problem; the layer is already applied.
+      }
+    }
     return { ...state }
   }
 
@@ -98,60 +115,21 @@
     set,
     toggle,
     refresh,
-    syncControls
-  }
-
-  /**
-   * The switch and the two sliders the Appearance panel renders.
-   *
-   * They are wired here rather than by the panel module because the layer is product chrome: it
-   * is in force whether or not that panel has ever been attached, and its controls are static
-   * markup. Dragging a slider previews locally and writes once on release, so the state file is
-   * written when the user has chosen a value rather than while they are choosing it.
-   */
-  function syncControls(next = state) {
-    const document = document_()
-    if (!document || typeof document.getElementById !== 'function') return false
-    const toggle = document.getElementById('themeGlass')
-    const blur = document.getElementById('themeGlassBlur')
-    const opacity = document.getElementById('themeGlassOpacity')
-    const row = document.getElementById('themeGlassRow')
-    if (toggle && 'checked' in toggle) toggle.checked = next.enabled !== false
-    if (blur && 'value' in blur) blur.value = String(next.blur)
-    if (opacity && 'value' in opacity) opacity.value = String(next.opacity)
-    if (row && row.dataset) row.dataset.enabled = next.enabled === false ? '0' : '1'
-    return true
-  }
-
-  function wireControls() {
-    const document = document_()
-    if (!document || typeof document.getElementById !== 'function') return false
-    const toggle = document.getElementById('themeGlass')
-    const blur = document.getElementById('themeGlassBlur')
-    const opacity = document.getElementById('themeGlassOpacity')
-    if (toggle && typeof toggle.addEventListener === 'function') {
-      toggle.addEventListener('change', () => {
-        set({ enabled: toggle.checked === true }).then(syncControls)
-      })
+    /** Follow the layer: the panel shows the numbers, so it has to see every change. */
+    onChange(listener) {
+      if (typeof listener !== 'function') return false
+      listeners.push(listener)
+      return true
     }
-    for (const [input, key] of [[blur, 'blur'], [opacity, 'opacity']]) {
-      if (!input || typeof input.addEventListener !== 'function') continue
-      input.addEventListener('input', () => syncControls(apply({ [key]: Number(input.value) })))
-      input.addEventListener('change', () => {
-        set({ [key]: Number(input.value) }).then(syncControls)
-      })
-    }
-    return syncControls()
   }
 
   // The markup ships the layer on, so this is only about replacing the defaults with the user's
   // own numbers — and about following them if another surface changes them.
-  wireControls()
-  refresh().then(syncControls)
+  refresh()
   const api = bridge()
   if (api && typeof api.onChanged === 'function') {
     api.onChanged((payload) => {
-      if (payload && payload.ok !== false) syncControls(apply(payload))
+      if (payload && payload.ok !== false) apply(payload)
     })
   }
 })(window)

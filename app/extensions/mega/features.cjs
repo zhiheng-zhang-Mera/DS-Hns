@@ -111,11 +111,14 @@ const MEGA_FEATURES = Object.freeze([
   },
   {
     id: 'mega.theme',
-    cn: '主题皮肤',
-    en: 'Themes',
+    cn: '官方界面主题',
+    en: 'Official-surface themes',
     group: 'Interface',
-    purpose: { cn: '生成、验证并应用 HNS 主题包', en: 'Generate, validate and apply HNS theme packages' },
-    panels: ['appearancePanel'],
+    purpose: { cn: '把主题包应用到官方界面外框与覆盖层；Dock 永远是磨砂玻璃，不受主题影响', en: 'Apply theme packages to the official shell and overlay; the dock is frosted glass and takes no theme' },
+    // No panel: the theme engine's only control surface was the Appearance panel, and that is the
+    // frosted-glass controls now, which are chrome rather than a feature — a switch that could be
+    // switched off is a switch the user cannot use to put it back.
+    panels: [],
     elements: [],
     channels: ['mega:theme-*']
   },

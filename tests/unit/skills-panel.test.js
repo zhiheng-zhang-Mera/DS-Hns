@@ -11,10 +11,9 @@ const path = require('node:path')
  * `window.megaTools.skills` bridge, and asserts the behaviours a user actually
  * depends on: quick search, install from a link, one-at-a-time delete, and bulk
  * delete — plus the two properties that keep it honest: a failed operation is
- * reported rather than swallowed, and the panel joins the shared theme bridge so a
- * theme can restyle it and validation can see it.
+ * reported rather than swallowed, and the panel takes no part in theming, because
+ * the dock is frosted glass and no theme addresses it.
  */
-const BRIDGE = path.resolve(__dirname, '..', '..', 'app', 'extensions', 'mega', 'ui', 'theme-bridge.js')
 const PANEL = path.resolve(__dirname, '..', '..', 'app', 'extensions', 'mega', 'ui', 'skills-panel.js')
 
 function makeElement(id) {
@@ -164,17 +163,9 @@ function searchResult(overrides = {}) {
 function loadPanel({ skills = snapshot(), search = searchResult(), handlers = {} } = {}) {
   const dom = installDom()
   const calls = { search: [], installSource: [], installCatalog: [], remove: [], removeMany: [], removeCollection: [], detail: [], pickLocal: [], tags: 0 }
-  const themeListeners = { apply: null, changed: null }
 
   global.confirm = () => true
   global.window.megaTools = {
-    theme: {
-      paint: async () => ({ ok: true, payload: { id: 'hns.system.dark', name: 'Dark', preview: false, css: '--hns-color-bg-base: #0f1115;', tokens: {}, slots: {}, persona: { enabled: false }, effectLevel: 0, effectLabel: 'full' } }),
-      reportRegions: () => {},
-      onApply: (handler) => { themeListeners.apply = handler },
-      onChanged: (handler) => { themeListeners.changed = handler },
-      onProbeRegions: () => {}
-    },
     skills: {
       snapshot: async () => (handlers.snapshot ? handlers.snapshot() : skills),
       tags: async () => {
@@ -218,9 +209,7 @@ function loadPanel({ skills = snapshot(), search = searchResult(), handlers = {}
     }
   }
 
-  delete require.cache[require.resolve(BRIDGE)]
   delete require.cache[require.resolve(PANEL)]
-  require(BRIDGE)
   require(PANEL)
   const attached = window.megaSkillsPanel.attach()
   dom.attached = attached
@@ -443,24 +432,20 @@ test('viewing a skill shows its body without interpreting it', async () => {
   assert.equal(dom.element('skillDetail').hidden, true)
 })
 
-test('the panel joins the shared theme bridge as a themable module', async () => {
+test('the skills panel takes no part in theming: the dock is not skinned', async () => {
   const { dom } = await loaded()
-  assert.ok(window.megaThemeBridge, 'the panel loads the bridge')
-  assert.deepEqual(window.megaThemeBridge.modules, ['skills'])
-
-  const measured = window.megaThemeBridge.reportRegions()
-  assert.ok(measured)
-  assert.ok(measured['hns.skill.card'], 'the skill list is measured for theme validation')
-  assert.ok(measured['skills-search'], 'the search box is a protected region')
-  assert.ok(measured['skills-list'])
+  // The dock has no theme bridge to join, and this panel declares no theme vocabulary: the
+  // `hns.skill.*` slots and the geometry it reported existed so a theme could restyle it, and a
+  // frosted-glass dock has no theme to be restyled by.
+  assert.equal(global.window.megaThemeBridge, undefined, 'the skills panel still expects a theme bridge')
+  assert.equal(global.window.megaSkillsPanel.slots, undefined, 'the panel still declares theme slots')
+  assert.ok(dom.element('skillsPanel'), 'the panel is still in the dock')
 })
 
 test('the panel is inert when the skills service is unavailable', async () => {
   const dom = installDom()
-  global.window.megaTools = { theme: null }
-  delete require.cache[require.resolve(BRIDGE)]
+  global.window.megaTools = {}
   delete require.cache[require.resolve(PANEL)]
-  require(BRIDGE)
   require(PANEL)
   const attached = window.megaSkillsPanel.attach()
   assert.equal(attached, null)

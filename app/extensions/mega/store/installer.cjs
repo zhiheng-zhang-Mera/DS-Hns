@@ -34,6 +34,9 @@ const { spawnSync } = require('node:child_process')
 const { validateManifest, PLUGIN_API_VERSION } = require('../../../core/contracts/plugin.cjs')
 const { normalizeRepo, parseSource } = require('./source.cjs')
 const { COMPAT_FILE, classifyCompatible, readCompatDescriptor } = require('./compat.cjs')
+// The clone host is one of the store's settings, so its default and its validation live with the
+// rest of them rather than being a second opinion here.
+const { DEFAULT_CLONE_BASE, normalizeBase } = require('./github-store.cjs')
 
 const MANIFEST_FILE = 'dshns-plugin.json'
 const DEFAULT_MAIN = 'index.cjs'
@@ -101,6 +104,22 @@ function createStoreInstaller(options = {}) {
    * with no probe simply clones and verifies, which is what it always did.
    */
   const probe = typeof options.probe === 'function' ? options.probe : null
+
+  /**
+   * The git host this installer clones from, resolved per call.
+   *
+   * A store pointed at an enterprise install or a mirror has to *install* from the same host it
+   * searched, or the store would find plugins it cannot fetch. Like the store's other settings it
+   * is read at the moment of use, so saving one takes effect on the next install.
+   */
+  const cloneBase = typeof options.cloneBase === 'function'
+    ? options.cloneBase
+    : () => (typeof options.cloneBase === 'string' && options.cloneBase ? options.cloneBase : DEFAULT_CLONE_BASE)
+
+  function cloneUrlFor(repo) {
+    const base = normalizeBase(typeof cloneBase === 'function' ? cloneBase() : null, DEFAULT_CLONE_BASE)
+    return `${base}/${repo}.git`
+  }
 
   let state = null
   let history = null
@@ -307,7 +326,7 @@ function createStoreInstaller(options = {}) {
     }
 
     fs.mkdirSync(storeDir, { recursive: true })
-    const url = `https://github.com/${repo}.git`
+    const url = cloneUrlFor(repo)
     const cloneOptions = { branch, timeoutMs: input.timeoutMs || DEFAULT_TIMEOUT_MS, sparse: sourcePath }
     let cloned = clone(url, staging, cloneOptions)
     let sparse = Boolean(sourcePath)

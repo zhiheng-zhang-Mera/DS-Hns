@@ -31,6 +31,11 @@ function stubDom() {
       className: '',
       hidden: false,
       type: '',
+      value: '',
+      placeholder: '',
+      // A real element always carries `dataset`: the store's settings row labels its fields with
+      // it, and a stub without one would fail on a page that works in a browser.
+      dataset: {},
       children: [],
       listeners: new Map(),
       classList: {

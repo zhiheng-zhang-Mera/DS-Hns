@@ -31,32 +31,9 @@
     return global.megaTools && global.megaTools.skills ? global.megaTools.skills : null
   }
 
-  /** Slot ids this panel renders. The bridge writes their styles for us. */
-  const SKILL_SLOTS = [
-    'hns.skill.card',
-    'hns.skill.header',
-    'hns.skill.badge',
-    'hns.skill.tag',
-    'hns.skill.search',
-    'hns.skill.danger',
-    'common.button.primary',
-    'common.button.secondary',
-    'common.panel.background'
-  ]
-
-  /** Slots and protected regions this panel owns, for theme validation. */
-  const SKILL_SLOT_SELECTORS = {
-    'hns.skill.card': '#skillsList',
-    'hns.skill.header': '#skillsPanel .panel-head',
-    'hns.skill.badge': '#skillsStatus',
-    'hns.skill.tag': '#skillsTags',
-    'hns.skill.search': '#skillQuery',
-    'hns.skill.danger': '#skillDeleteSelected'
-  }
-  const SKILL_REGION_SELECTORS = {
-    'skills-search': '#skillQuery',
-    'skills-list': '#skillsList'
-  }
+  // The theme vocabulary this panel used to declare (`hns.skill.*` slots and the geometry it
+  // reported for theme validation) is gone with the dock's skin: the dock is frosted glass and
+  // no theme addresses it, so there is nothing to name and nothing to measure.
 
   const state = {
     tab: 'browse',
@@ -672,18 +649,6 @@
     if (!panel) return null
     bindControls()
 
-    const bridge = global.megaThemeBridge
-    if (bridge && typeof bridge.registerModule === 'function') {
-      bridge.registerModule({
-        id: 'skills',
-        slots: SKILL_SLOTS,
-        slotSelectors: SKILL_SLOT_SELECTORS,
-        regionSelectors: SKILL_REGION_SELECTORS,
-        onPaint: () => {},
-        onChanged: () => {}
-      })
-    }
-
     if (!api()) {
       panel.dataset.unavailable = '1'
       setMessage('技能管理不可用：主进程未加载技能服务', 'error')
@@ -710,5 +675,5 @@
     }
   }
 
-  global.megaSkillsPanel = { attach, state, slots: SKILL_SLOTS }
+  global.megaSkillsPanel = { attach, state }
 })(window)
