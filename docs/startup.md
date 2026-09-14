@@ -134,9 +134,14 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
   —— 它是一个 **Harness 客户端插件**：补丁打在 Harness **profile** 上、运行在官方 Web GUI 里。它既不是
   `dshns.plugin/v1`（没有 `dshns-plugin.json`），也不可能跑在本产品的插件宿主里，**我们这个商店是错的工具**。
   Harness 自己提供了正确的工具：`dsh plugin --profile <name> add <package>`（在 profile 目录里转发给 pnpm）。
-- `2BingLing/dsh-market` → `package.json` 是 `dsh-market` 0.1.0，**没有 `dsh` 段、没有 `main`**，而且计划书里的
-  `@dsh-market/plugin` 并不是那个仓库发布的包名。因此它在清单里是 **`channel: 'unresolved'`**：这是一个需要
-  决定的接入问题，不是一条可以执行的安装命令；管理器会**报告**它、绝不安装。
+- `@dsh-market/plugin` → **第一次读错了，第二次读对了**：第一次读的是那个仓库**根目录**的 `package.json`
+  （`dsh-market` 0.1.0、`private: true`、一个 workspace 根），于是误判"计划书里的包名不存在"。它确实存在：
+  `@dsh-market/plugin` 已发布到 npm（本清单钉 **0.4.7**），其清单声明与壁纸插件相同的
+  `dsh.bundle.patch: ./cordis.patch.yml` + `dsh.client.platform: "web"`，而该项目自己的 README 给出的安装命令正是
+  `npx @deepseek-ai/dsh plugin --profile web add @dsh-market/plugin`。**所以它与壁纸插件同属一个通道**：Harness
+  客户端插件、由 Harness 的 CLI 安装、钉在一个已发布版本上。
+
+因此清单里两条都是 `channel: 'harness-profile'`（`unresolved` 分支保留在代码里，供将来真的需要决定的条目使用）。
 
 于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision

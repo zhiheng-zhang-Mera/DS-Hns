@@ -46,11 +46,14 @@
  *     `dshns.plugin/v1` plugin: it has no `dshns-plugin.json`, it does not run in this product's plugin host,
  *     and "our store" is the wrong installation channel for it. The Harness ships the right one itself:
  *     `dsh plugin --profile <name> add <package>` (which forwards to pnpm inside the profile directory).
- *   * **`2BingLing/dsh-market`**: its `package.json` is `dsh-market` 0.1.0 with **no `dsh` block and no
- *     `main`**, and the plan's `@dsh-market/plugin` is not a name that repository publishes. It is therefore
- *     marked `channel: 'unresolved'`: there is a decision to make about what that project is and how it is
- *     meant to run, and inventing an installation channel for it would be exactly the kind of plausible
- *     fiction this manifest exists to avoid.
+ *   * **`@dsh-market/plugin`** (repository `2BingLing/dsh-market`, published version 0.4.7): the first pass
+ *     read that repository's *root* `package.json` — `dsh-market` 0.1.0, `private: true`, a workspace root —
+ *     and wrongly concluded the plan's name did not exist. It does: `@dsh-market/plugin` is published on npm
+ *     (0.4.7 as of this manifest), its manifest declares the same
+ *     `dsh.bundle.patch: ./cordis.patch.yml` + `dsh.client.platform: "web"` as the wallpaper engine, and the
+ *     project's own README gives its installation command as
+ *     `npx @deepseek-ai/dsh plugin --profile web add @dsh-market/plugin`. So it belongs to the **same channel**:
+ *     a Harness client plugin, installed by the Harness' CLI, pinned to a published version.
  *
  * `tested: false` remains on both, and for the wallpaper plugin it now means the narrower thing: the reference
  * exists and its package is real, but nobody has run it inside this product yet. The manager will not install an
@@ -75,14 +78,10 @@ const BUNDLED_MANIFEST = Object.freeze({
       id: '@dsh-market/plugin',
       role: 'plugin-store',
       repo: '2BingLing/dsh-market',
-      /**
-       * Not installable as written: that repository publishes `dsh-market` 0.1.0 with no `dsh` descriptor, so
-       * there is nothing for either channel to install. Recorded with its reason instead of guessed.
-       */
-      channel: 'unresolved',
-      package: null,
-      reason: 'the repository publishes dsh-market 0.1.0 with no dsh descriptor (not a Harness profile plugin) and no dshns-plugin.json (not a DS-Hns plugin); what @dsh-market/plugin is meant to be needs a decision',
-      ref: '2c34728e7e0e478774e91282d6ec1723fe4b9037',
+      /** The same channel as the wallpaper engine: a Harness client plugin, pinned to a published version. */
+      channel: 'harness-profile',
+      package: '@dsh-market/plugin',
+      ref: '0.4.7',
       commit: '2c34728e7e0e478774e91282d6ec1723fe4b9037',
       tested: false,
       required: false

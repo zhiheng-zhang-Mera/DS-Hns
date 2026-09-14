@@ -3,6 +3,21 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 市场插件其实在 npm 上，与我上一轮的结论相反（updateplan/startup2.md §19–§23）
+
+**上一轮我把 `@dsh-market/plugin` 标成 `unresolved`，那是错的 —— 读的是那个仓库根目录的 `package.json`**
+（`dsh-market` 0.1.0、`private: true`、workspace 根），于是误判"计划书里的包名不存在"。查了 npm registry 与它的
+README 之后：`@dsh-market/plugin` **已发布**（本清单钉 **0.4.7**），其清单声明与壁纸插件相同的
+`dsh.bundle.patch: ./cordis.patch.yml` + `dsh.client.platform: "web"`，README 给出的安装命令正是
+`npx @deepseek-ai/dsh plugin --profile web add @dsh-market/plugin`。
+
+**所以两个插件同属一个通道**：Harness 客户端插件、由 Harness 的 CLI 安装、钉在已发布版本上（壁纸插件钉 tag
+`v0.7.1`，市场插件钉 npm 版本 `0.4.7`，仓库提交号留在清单里作为来源追溯）。`unresolved` 分支保留给将来真的需要
+决定的条目。两条都仍是 `tested: false`：通道与版本都已确定，**唯一缺的是真机测试**，之后翻一个字段即可完成接入。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12（清单钉住的形态允许 tag/版本/提交、两条各自通道与包名、
+市场钉的是发布版本、未测试仍只报告不安装、按通道安装与移除、`@dsh-market/plugin@0.4.7` 的安装规格）。
+
 ## bundled plugins — 移除与兼容检查也按通道走（updateplan/startup2.md §19–§23）
 
 **`removeBundled(entry, …)` 与 `installBundled` 对称**：让**我们的商店**去删一个 Harness 客户端插件会"什么都没删

@@ -47,21 +47,29 @@ test('the shipped manifest pins real references and never says "latest"', () => 
   const ids = BUNDLED_MANIFEST.plugins.map((entry) => entry.id)
   assert.deepEqual(ids, ['dsh-wallpaper-engine', '@dsh-market/plugin'])
   for (const entry of BUNDLED_MANIFEST.plugins) {
-    assert.match(entry.ref, /^(v\d+\.\d+\.\d+|[0-9a-f]{7,40})$/, `${entry.id} is pinned to something that is not a tag or a commit`)
+    // A pin is a tag, a published version, or a commit — never "latest" (the assertion below says so).
+    assert.match(entry.ref, /^(v?\d+\.\d+\.\d+|[0-9a-f]{7,40})$/, `${entry.id} is pinned to something that is not a tag, a version or a commit`)
     assert.equal(/latest/i.test(entry.ref), false)
     assert.equal(entry.required, false, `${entry.id} is bundled as required, which the plan does not allow`)
   }
   // The market publishes no tags, so its version *is* a commit — that is the point of pinning one.
   const market = BUNDLED_MANIFEST.plugins.find((entry) => entry.id === '@dsh-market/plugin')
-  assert.equal(market.ref, market.commit)
+  // Its *published* version is what a Harness profile installs (`pnpm add @dsh-market/plugin@0.4.7`), and the
+  // repository commit stays recorded beside it so the source of that version is traceable.
+  assert.equal(market.ref, '0.4.7')
+  assert.match(market.commit, /^[0-9a-f]{7,40}$/, 'the repository commit must stay recorded beside the published version')
   // Each entry names the channel it can actually be installed through, read from the repository rather than
-  // assumed: the wallpaper engine is a Harness *client* plugin (`dsh.client.platform: web`), and the market
-  // repository publishes nothing either channel could install.
+  // assumed: both are Harness *client* plugins (`dsh.client.platform: web`), installed by the Harness' own CLI.
   const wallpaper = BUNDLED_MANIFEST.plugins.find((entry) => entry.id === 'dsh-wallpaper-engine')
   assert.equal(wallpaper.channel, 'harness-profile')
   assert.equal(wallpaper.package, 'dsh-plugin-wallpaper-engine')
-  assert.equal(market.channel, 'unresolved')
-  assert.match(market.reason, /no dsh descriptor/)
+  // The market's name *is* published — the first pass read a workspace root's package.json and concluded
+  // otherwise. Its own README gives the installation command:
+  // `dsh plugin --profile web add @dsh-market/plugin`.
+  assert.equal(market.channel, 'harness-profile')
+  assert.equal(market.package, '@dsh-market/plugin')
+  assert.match(market.ref, /^\d+\.\d+\.\d+$/, 'the market must be pinned to a published version')
+  assert.equal(/latest/i.test(market.ref), false)
 })
 
 test('an untested pin is declared, reported, and never installed', async () => {
@@ -70,10 +78,9 @@ test('an untested pin is declared, reported, and never installed', async () => {
   assert.equal(assessed.state, BUNDLED_STATE.UNTESTED)
   assert.match(assessed.reason, /nobody has tested it inside DS-Hns yet/)
   const applied = await manager.ensure()
-  // The wallpaper plugin is declared but untested; the market entry has no channel at all, so it is *reported*
-  // rather than installed — a decision to make, not a download to run.
-  assert.deepEqual(applied.map((entry) => entry.action), ['none', 'report'])
-  assert.equal(applied[1].state, BUNDLED_STATE.UNRESOLVED)
+  // Both entries are declared, pinned and *untested*: the manager reports that and installs nothing.
+  assert.deepEqual(applied.map((entry) => entry.action), ['none', 'none'])
+  assert.equal(applied[1].state, BUNDLED_STATE.UNTESTED)
   assert.equal(calls.length, 0, 'an untested reference was installed')
 })
 
@@ -185,16 +192,24 @@ test('removal follows the entry\'s channel, and an unresolved entry has nothing 
   assert.equal(store.ok, true)
   assert.deepEqual(calls[1], { id: 'dshns.some-plugin' })
 
-  const unresolved = await removeBundled(BUNDLED_MANIFEST.plugins[1], {})
+  // The market names the same channel, so its removal goes through the same CLI.
+  const market = await removeBundled(BUNDLED_MANIFEST.plugins[1], { harnessRemove: async (input) => { calls.push(input); return { ok: true } } })
+  assert.equal(market.ok, true)
+  assert.deepEqual(calls[2], { profile: 'web', package: '@dsh-market/plugin' })
+
+  // An entry with no channel has nothing to remove — the branch stays for a future entry that needs a decision.
+  const unresolved = await removeBundled({ id: 'some-plugin', channel: 'unresolved', reason: 'no dsh descriptor yet' }, {})
   assert.equal(unresolved.ok, false)
-  assert.match(unresolved.reason, /no dsh descriptor/)
+  assert.match(unresolved.reason, /no dsh descriptor yet/)
   assert.equal((await removeBundled({ id: 'x', channel: 'neon' }, {})).ok, false)
   // A channel with no tool available is a refusal, not a silent success.
   assert.equal((await removeBundled(BUNDLED_MANIFEST.plugins[0], {})).ok, false)
 
   // And the installer dispatches the same way, for the same reason.
   assert.equal((await installBundled(BUNDLED_MANIFEST.plugins[0], { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
-  assert.deepEqual(calls[2], { profile: 'web', package: 'dsh-plugin-wallpaper-engine@v0.7.1' })
+  assert.deepEqual(calls[3], { profile: 'web', package: 'dsh-plugin-wallpaper-engine@v0.7.1' })
+  assert.equal((await installBundled(BUNDLED_MANIFEST.plugins[1], { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
+  assert.deepEqual(calls[4], { profile: 'web', package: '@dsh-market/plugin@0.4.7' })
 })
 
 test('compatibility is answered by whoever owns the descriptor, and says which one answered', () => {

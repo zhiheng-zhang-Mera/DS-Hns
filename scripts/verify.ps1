@@ -184,7 +184,7 @@ Check 'The token vocabulary stays inside the appearance boundary' (-not ((Get-Co
 Check 'One stylesheet, one document' ((-not ((Get-Content "$ROOT\app\extensions\mega\ui\dock.css" -Raw) -match '#wallpaper-scrim')) -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\wallpaper-window.html" -Raw) -match '#rail|#detail')))
 # ---- Bundled channels: each entry names the channel it can be installed through (startup2.md section 19-23) ----
 $bundledPlugins = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
-Check 'The bundled manifest names a channel per entry' (($bundledPlugins -match "channel: 'harness-profile'") -and ($bundledPlugins -match "channel: 'unresolved'"))
+Check 'The bundled manifest names a channel per entry' (($bundledPlugins -match "channel: 'harness-profile'") -and ($bundledPlugins -match 'BUNDLED_CHANNELS'))
 Check 'A Harness client plugin is installed by the Harness own CLI' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "plugin', '--profile', profile, 'add'") -and ($bundledPlugins -match 'dsh-plugin-wallpaper-engine'))
 Check 'An entry without a channel is reported, never installed' (($bundledPlugins -match 'BUNDLED_STATE.UNRESOLVED') -and ($bundledPlugins -match "action: 'report'"))
 Check 'Removal and compatibility follow the same channel as installation' (($bundledPlugins -match 'async function removeBundled') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "checked: 'harness'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "harnessRemove:"))
