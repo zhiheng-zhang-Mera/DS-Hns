@@ -103,6 +103,15 @@ Check 'Wallpaper window document exists and carries no script' ((Test-Path "$ROO
 Check 'The shell never stacks a view over the official page for the wallpaper' (((Get-Content "$ROOT\app\desktop-main.cjs" -Raw) -match 'return createWallpaperLayer\(\)') -and (-not ((Get-Content "$ROOT\app\desktop-main.cjs" -Raw) -match 'wallpaperOnly|paintWallpaper')))
 Check 'Wallpaper hit-test acceptance exists and drives the OS hit test' ((Test-Path "$ROOT\scripts\wallpaper-hit-test.cjs") -and (Test-Path "$ROOT\scripts\hit-test-window.ps1") -and ((Get-Content "$ROOT\scripts\wallpaper-hit-test.cjs" -Raw) -match 'WindowFromPoint'))
 Check 'Wallpaper render acceptance exists and reads back the computed cut' ((Test-Path "$ROOT\scripts\wallpaper-render-acceptance.cjs") -and ((Get-Content "$ROOT\scripts\wallpaper-render-acceptance.cjs" -Raw) -match 'capturePage'))
+# ---- startup: usable first, enhanced behind it (updateplan/startup.md) ----
+$startupModule = Get-Content "$ROOT\app\startup.cjs" -Raw -ErrorAction SilentlyContinue
+$desktopMain = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
+Check 'Startup state machine exists with the four states' (($startupModule -match 'BOOTING') -and ($startupModule -match 'CORE_READY') -and ($startupModule -match 'INTERACTIVE') -and ($startupModule -match 'ENHANCED'))
+Check 'Startup reports every phase in one log shape' (($startupModule -match "\[BOOT\]") -and ($startupModule -match 'overBudget'))
+Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'function defer') -and ($startupModule -match 'the boot carries on'))
+Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
+Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
+Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

@@ -3,6 +3,33 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## startup — 先可用，再好看（updateplan/startup.md 的 P0）
+
+**"应用可用"不再绑定在"全部增强渲染完成"上。** 旧流程在窗口显示之前要等完 Harness、扩展宿主、
+再到 dock 渲染器 —— 于是"某个可选模块很慢"和"产品根本没启动"在用户眼里完全一样：一个没有反馈的
+空窗口（实际上是隐藏窗口，连空白都看不到）。现在窗口创建后**立刻**显示我们自己的骨架页
+（`app/splash.html`：顶栏/侧栏/会话区/输入框占位，无脚本、无网络、无控件），官方 UI 就绪后替换它。
+
+**四条状态，INTERACTIVE 就是启动完成**（`app/startup.cjs`）：`BOOTING → CORE_READY → INTERACTIVE
+→ ENHANCED`。`CORE_READY` = 官方页面成为窗口页面；`INTERACTIVE` 紧随其后 —— 我们不去探测官方 DOM
+（产品硬规则），所以"它加载完并在屏幕上"就是诚实的定义。之后的一切都走 `startup.defer()`：壁纸层、
+扩展宿主、Mega dock、重启恢复、子 worker 自启动。它们**不会**拒绝、**不会**延迟用户、**不会**让启动
+失败，每个都有自己的记录，失败只写 `failed: <原因> (the boot carries on)`。全部落定才标记 `enhanced`。
+
+**启动有账可查。** 每个阶段一行 `[BOOT] <阶段> <耗时>`，并标注预算与是否超标；预算只记录、不强制
+（错过预算仍是能用的启动）。最后一行 `boot report` 是机器可读的全量报告，其中 `ownOverhead()`
+是"Harness 给出地址 → 用户可以工作"的时间 —— 这一段才是本产品自己拥有的墙钟，Harness 自身的启动
+不是。
+
+**边界写清楚**：本轮只做 P0 与部分 P1。三套阅读预设、社区壁纸插件 `dsh-wallpaper-engine` 与
+`AppearanceProvider` 抽象、对外 Appearance token 白名单、设置页重组、MEGA 折叠态去重（仍是
+RUN/QUEUE/HW/SUB/PEAK 五个常驻项）都**没有**做，条目与现状记在新增的 `docs/startup.md` 里，避免下
+一轮把它们当成已完成。
+
+**验证**：新增 `tests/unit/startup.test.js`（状态顺序、预算记录、`defer` 的故障隔离、
+`onInteractive`、`ENHANCED` 只在延迟工作落定后出现，以及启动顺序：骨架先于 Harness、所有可选层晚于
+`interactive`）；`scripts/verify.ps1` 增加启动模块与骨架页检查（骨架页必须无脚本、启动顺序必须成立）。
+
 ## wallpaper — 壁纸真的垫在整个界面上，而官方 UI 仍然可点
 
 **修的是一个用户直接感受到的缺陷：设了壁纸之后，官方 UI 点不动了。** 上一轮的壁纸层是一个压在官方
