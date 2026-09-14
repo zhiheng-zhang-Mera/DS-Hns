@@ -179,6 +179,18 @@ const officialSurfaceTarget = {
     if (!adapter || typeof adapter.reset !== 'function') return { ok: false, reason: 'no_surface_target' }
     return adapter.reset()
   },
+  /**
+   * The user's wallpaper, on the two surfaces the adapter owns.
+   *
+   * It travels through the same adapter as the theme and for the same reason: this extension never
+   * holds the official `webContents`, so there is no path from here into the official UI. The
+   * adapter writes it as its own stylesheet, so a theme repaint cannot take it away.
+   */
+  wallpaper: (css) => {
+    const adapter = ctx?.officialSurfaceAdapter
+    if (!adapter || typeof adapter.wallpaper !== 'function') return { ok: false, reason: 'no_surface_target' }
+    return adapter.wallpaper(css)
+  },
   layout: () => {
     const adapter = ctx?.officialSurfaceAdapter
     if (!adapter || typeof adapter.layout !== 'function') return { ok: false, reason: 'no_surface_target' }
@@ -1706,6 +1718,14 @@ function pushWallpaper() {
   } catch (error) {
     log(`could not push the wallpaper: ${error?.message || error}`)
   }
+  // The official surfaces take the image and nothing else — they are script-free documents whose
+  // policy allows an inline image — so what they are handed is the stylesheet the module builds for
+  // them, and a video (or no wallpaper at all) is answered with the same "draw nothing".
+  try {
+    if (typeof officialSurfaceTarget.wallpaper === 'function') officialSurfaceTarget.wallpaper(wallpaper().officialCss())
+  } catch (error) {
+    log(`the wallpaper could not reach the official surfaces: ${error?.message || error}`)
+  }
 }
 
 function registerWallpaperIpc() {
@@ -2154,6 +2174,9 @@ function registerDockReadyHook() {
   const handler = () => {
     try {
       notifyChanged()
+      // The official surfaces are created after this extension starts, so the wallpaper is painted
+      // here rather than at startup: this is the first moment there is anything to paint it on.
+      pushWallpaper()
     } catch (error) {
       log(`dock ready handling failed: ${error?.message || error}`)
     }

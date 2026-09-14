@@ -1944,6 +1944,23 @@ function createDockAdapter() {
 function createOfficialSurfaceAdapter() {
   return {
     integrated: true,
+    /**
+     * The user's wallpaper, on its own stylesheet.
+     *
+     * Separate from `paint` because the two have different owners: a theme repaint must not take
+     * the wallpaper away, and clearing the wallpaper must not take the theme away. An empty string
+     * is how "no wallpaper" is said, and it is a complete answer on both surfaces.
+     */
+    wallpaper: (css) => {
+      if (!officialSurfaces) return { ok: false, reason: 'surfaces_unavailable' }
+      try {
+        officialSurfaces.paintWallpaper(typeof css === 'string' ? css : '')
+        return { ok: true }
+      } catch (error) {
+        logLine(`the wallpaper could not be painted on the official surfaces: ${error?.message || error}`)
+        return { ok: false, reason: 'wallpaper_failed', error: String(error?.message || error) }
+      }
+    },
     /** Paint both official surfaces with a theme payload. Never throws. */
     paint: (payload, placement = null) => {
       if (!officialSurfaces) return { ok: false, reason: 'surfaces_unavailable' }

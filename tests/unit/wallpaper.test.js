@@ -69,7 +69,6 @@ test('the wallpaper persists, clamps what it cannot honour, and drops what it ca
     assert.equal(initial.file, null)
     assert.equal(initial.drawable, false, 'a wallpaper nobody chose is being drawn')
     assert.deepEqual(initial.limits.opacity, { ...WALLPAPER_LIMITS.opacity })
-    assert.equal(initial.officialOpacityCeiling, OFFICIAL_OPACITY_CEILING)
 
     // Setting one is validated against the disk, not against the string.
     assert.equal(wallpaper.set({ file: path.join(dir, 'nope.png') }).ok, false, 'a file that does not exist was accepted')
@@ -130,10 +129,9 @@ test('the dock gets a source, and the official surfaces get a capped stylesheet'
     for (const target of ['overlay', 'shell']) {
       const layer = wallpaper.layerCss(target)
       assert.match(layer.image, /^url\("data:image\/png;base64,/)
-      // The one rule that is not a preference: the official UI is what the user works in, so a
-      // wallpaper over it stops well below what the user asked for.
-      assert.equal(layer.opacity, OFFICIAL_OPACITY_CEILING, `${target} let the wallpaper past the ceiling`)
-      assert.ok(layer.opacity < 90)
+      // The opacity is the user's, on every surface. A ceiling here would be this module deciding
+      // how much of their own screen they may cover; the scrim is the readability dial.
+      assert.equal(layer.opacity, 90, `${target} overrode the user's opacity`)
       assert.equal(layer.scrim, 30)
       assert.equal(layer.blur, 6)
     }

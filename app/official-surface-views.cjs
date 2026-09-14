@@ -92,6 +92,11 @@ function createOfficialSurfaceViews({
   /** Queued stylesheet writes, one chain per surface (see `applyCss`). */
   let shellCssPending = null
   let overlayCssPending = null
+  // The wallpaper's own slots: a theme repaint replaces `*CssKey`, and must not touch these.
+  let shellWallpaperKey = null
+  let overlayWallpaperKey = null
+  let shellWallpaperPending = null
+  let overlayWallpaperPending = null
   let overlayStatePending = null
   let shellReady = false
   let overlayReady = false
@@ -610,11 +615,54 @@ function createOfficialSurfaceViews({
     return paintTheme(cleared, null)
   }
 
+  /**
+   * The user's wallpaper, on the two surfaces DS-Hns owns.
+   *
+   * It is a *second* stylesheet rather than more CSS in the theme's, and that is the whole point:
+   * `applyCss` replaces the one stylesheet a surface has, so a theme repaint would take the
+   * wallpaper away with it. These writes keep their own keys, so the two can be replaced
+   * independently — a theme change cannot remove the wallpaper, and clearing the wallpaper cannot
+   * remove the theme.
+   *
+   * Only an inline `data:` image can be drawn here: both documents are script-free and their policy
+   * is `img-src data:`. The shell decides what may be sent; this only writes it.
+   */
+  function paintWallpaper(css) {
+    const text = typeof css === 'string' && css ? css : ':root { --ov-wallpaper: none; --ov-wallpaper-opacity: 0; }'
+    for (const [surfaceId, view] of [[SURFACE.OFFICIAL_SHELL, shellView], [SURFACE.OFFICIAL_OVERLAY, overlayView]]) {
+      const contents = usable(view) && view.webContents
+      if (!contents || contents.isDestroyed()) continue
+      const previous = surfaceId === SURFACE.OFFICIAL_SHELL ? shellWallpaperPending : overlayWallpaperPending
+      const next = Promise.resolve(previous)
+        .catch(() => {})
+        .then(async () => {
+          const stale = surfaceId === SURFACE.OFFICIAL_SHELL ? shellWallpaperKey : overlayWallpaperKey
+          if (stale) {
+            try {
+              await contents.removeInsertedCSS(stale)
+            } catch {}
+          }
+          const key = await contents.insertCSS(text)
+          if (surfaceId === SURFACE.OFFICIAL_SHELL) shellWallpaperKey = key
+          else overlayWallpaperKey = key
+          return key
+        })
+        .catch((error) => {
+          note(surfaceId, `wallpaper apply failed: ${error?.message || error}`)
+          return null
+        })
+      if (surfaceId === SURFACE.OFFICIAL_SHELL) shellWallpaperPending = next
+      else overlayWallpaperPending = next
+    }
+    return true
+  }
+
   return {
     createShell,
     createOverlay,
     paintTheme,
     paintSurface,
+    paintWallpaper,
     applyLayout,
     applyOverlayPlacement,
     reset,

@@ -46,6 +46,12 @@
     --ov-decoration-opacity: 0;
     --ov-character: none;
     --ov-character-opacity: 0;
+    --ov-wallpaper: none;
+    --ov-wallpaper-opacity: 0;
+    --ov-wallpaper-size: cover;
+    --ov-wallpaper-repeat: no-repeat;
+    --ov-wallpaper-blur: 0px;
+    --ov-wallpaper-scrim: 0;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -118,9 +124,26 @@
   body[data-effect-level="2"] #decoration { display: none; }
   body[data-effect-level="1"] #scanline { display: none; }
   body[data-overlay="disabled"] .layer { display: none !important; }
+  /* The wallpaper: the user's own background, under everything this overlay draws. It is written by
+     the shell on its own stylesheet rather than by a theme, so a theme repaint cannot take it away,
+     and it is an inline `data:` image because that is the only asset this document's policy allows.
+     An animated image animates here exactly as it does anywhere else. */
+  #wallpaper {
+    background-image: var(--ov-wallpaper);
+    background-size: var(--ov-wallpaper-size, cover);
+    background-repeat: var(--ov-wallpaper-repeat, no-repeat);
+    background-position: center;
+    opacity: var(--ov-wallpaper-opacity, 0);
+    filter: blur(var(--ov-wallpaper-blur, 0px));
+  }
+  /* The scrim: between the wallpaper and the official UI, so a bright picture cannot make the
+     interface unreadable. It is the user's number, because how much contrast they need is theirs. */
+  #wallpaper-scrim { background: #000; opacity: var(--ov-wallpaper-scrim, 0); }
 </style>
 </head>
 <body data-surface="official_overlay" data-permission="visual-only" data-overlay="disabled">
+  <div class="layer" id="wallpaper"></div>
+  <div class="layer" id="wallpaper-scrim"></div>
   <div class="layer" id="tint"></div>
   <div class="layer" id="gradient"></div>
   <div class="layer" id="texture"></div>

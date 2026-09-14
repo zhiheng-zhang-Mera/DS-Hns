@@ -239,7 +239,6 @@ function createWallpaper(options = {}) {
         blur: { ...WALLPAPER_LIMITS.blur },
         scrim: { ...WALLPAPER_LIMITS.scrim }
       },
-      officialOpacityCeiling: OFFICIAL_OPACITY_CEILING,
       fits: [...WALLPAPER_FITS],
       targets: [...WALLPAPER_TARGETS],
       videoTargets: [...VIDEO_TARGETS],
@@ -311,12 +310,12 @@ function createWallpaper(options = {}) {
     // The dock is not a CSS layer: it is a real element behind the glass, because that is where a
     // video can live. Answering `none` here keeps one contract for all three callers.
     if (target === 'dock') return 'none'
-    const official = target === 'overlay' || target === 'shell'
-    const opacity = official ? Math.min(state.opacity, OFFICIAL_OPACITY_CEILING) : state.opacity
+    // The opacity is the user's, on every surface. A ceiling would be this module deciding how much
+    // of their own screen they may cover; the scrim is the readability dial, and it is theirs.
     if (!state.enabled || !inlined.dataUrl || inlined.kind === 'video') return { image: 'none', opacity: 0, scrim: 0, blur: 0, fit: state.fit }
     return {
       image: `url("${inlined.dataUrl}")`,
-      opacity,
+      opacity: state.opacity,
       scrim: state.scrim,
       blur: state.blur,
       fit: state.fit,
@@ -346,6 +345,39 @@ function createWallpaper(options = {}) {
     }
   }
 
+  /**
+   * The stylesheet the two official surfaces are handed.
+   *
+   * It sets the overlay's own wallpaper variables and nothing else, so it never competes with the
+   * theme's stylesheet: that one writes `--ov-tint-*` and its siblings, this one writes
+   * `--ov-wallpaper*`, and the surface manager keeps the two under separate keys so a theme repaint
+   * cannot take the wallpaper with it.
+   *
+   * **The opacity is the user's, unclamped.** A ceiling here would be this module deciding how much
+   * of their own screen they are allowed to cover; the scrim is the dial for readability, and it is
+   * theirs as well. What is *not* negotiable is everything else: an inline image, because that is
+   * all those documents' policy allows, and `none` for anything they cannot draw.
+   */
+  function officialCss() {
+    const layer = layerCss('overlay')
+    const size = fitFor('overlay') === 'tile' ? 'auto' : fitFor('overlay') === 'contain' ? 'contain' : 'cover'
+    return [
+      ':root {',
+      `  --ov-wallpaper: ${layer.image};`,
+      `  --ov-wallpaper-opacity: ${(layer.opacity || 0) / 100};`,
+      `  --ov-wallpaper-size: ${size};`,
+      `  --ov-wallpaper-repeat: ${fitFor('overlay') === 'tile' ? 'repeat' : 'no-repeat'};`,
+      `  --ov-wallpaper-blur: ${layer.blur || 0}px;`,
+      `  --ov-wallpaper-scrim: ${(layer.scrim || 0) / 100};`,
+      '}'
+    ].join('\n')
+  }
+
+  /** The fit in force, which is a property of the wallpaper rather than of one surface. */
+  function fitFor() {
+    return load().fit
+  }
+
   return {
     WALLPAPER_DEFAULT,
     WALLPAPER_LIMITS,
@@ -360,6 +392,7 @@ function createWallpaper(options = {}) {
     present,
     inline,
     layerCss,
+    officialCss,
     dockLayer,
     file
   }
