@@ -5,6 +5,23 @@
 
 **分支**：`plugin-ize`（从 `startup` 分出）。**推送节奏**：每完成一个大阶段推送一次（工作书 §30 的 Phase 1–8）。
 
+## 人工 UI 复查标记（checkpoint 1）
+
+**标记**：`manual-ui-review-1`（本轮的提交 + 注解标签）。**轮到你了**：应用当前还在运行，下面这些要重启之后才看得到。
+
+复查清单（看完告诉我结果，或者直接说"继续"，我按下一条推进）：
+
+1. **重启应用**（现在正在跑的那个实例没有加载新插件）。
+2. **官方 UI 仍然正常**：这是最重要的一条 —— profile 里多了两个第三方客户端插件，如果它们出问题，官方界面会表现出来。
+   回滚一条命令：`dsh plugin --profile web remove dsh-plugin-wallpaper-engine` / `… remove @dsh-market/plugin`
+   （或 Dock 里 Control Center 的 Repair / 禁用入口）。
+3. **壁纸插件**：官方界面里应出现它的背景与设置入口（它自己渲染桌面，我们的图层已让开）。
+4. **市场插件**：官方界面侧栏应出现它的入口（浏览/搜索/一键安装）。据其 README，插件端不占 token。
+5. **治理桥**：`logs/desktop-runtime.log` 里应有 `governance bridge listening on http://127.0.0.1:<port>`；
+   Dock 的 Control Center → 诊断段应有一行"治理桥 / Mega 插件通道"，显示 `127.0.0.1:<port> · N req`。
+
+每条要么"好"，要么把看到的现象写下来；`tested: false` 会在这轮复查确认后才翻成 `true`。
+
 ---
 
 ## Phase 1 — Mega 插件化（进行中）
