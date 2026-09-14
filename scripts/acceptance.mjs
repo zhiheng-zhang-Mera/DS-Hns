@@ -912,6 +912,22 @@ async function run() {
     // A generated theme is active at this point, so the shell's own description of
     // its views and the engine's plans are both real. The dock renderer cannot see
     // the shell's other views, so this is asked through the theme bridge.
+    //
+    // A wallpaper is set for the length of these checks: the layer over the official page is created
+    // lazily (a window nobody asked for is a window nobody should pay for), so the only honest way to
+    // ask "is it click-through?" is to give it something to draw first. It is cleared again below.
+    const wallpaperImage = path.join(OPTIONS.root, 'assets', 'icon', 'ds-harness-256.png')
+    const wallpaperSet = await dock.page.evaluate(`
+      return window.megaTools.wallpaper.set({
+        file: ${JSON.stringify(wallpaperImage)},
+        enabled: true,
+        opacity: 60,
+        scrim: 35,
+        fit: 'cover'
+      }).then((state) => ({ ok: state.ok, file: state.file, drawable: state.drawable, reason: state.reason || null }))
+    `)
+    check('the acceptance run can set a wallpaper at all', wallpaperSet.ok !== false && wallpaperSet.drawable === true, JSON.stringify(wallpaperSet))
+    await sleep(800)
     const surfaces = await dock.page.evaluate(`
       return window.megaTools.theme.surfaces().then((state) => ({
         ok: state.ok,
@@ -926,6 +942,7 @@ async function run() {
         protectedSurface: state.protected,
         shell: state.shell,
         overlay: state.overlay,
+        wallpaper: state.wallpaper,
         officialBounds: state.official_bounds,
         planSurfaces: ((state.plans || {}).surfaces) || [],
         planAssets: (state.plans || {}).assets || null,
@@ -954,16 +971,23 @@ async function run() {
     // The two official views must be REAL views with REAL bounds, not a promise.
     check('the official shell view was created by the shell', surfaces.shell?.built === true, JSON.stringify(surfaces.shell))
     check('the official shell view loaded its document', surfaces.shell?.ready === true, JSON.stringify(surfaces.shell))
-    check('the official overlay view was created by the shell', surfaces.overlay?.available === true && surfaces.overlay?.built === true, JSON.stringify(surfaces.overlay))
-    check('the official overlay view loaded its document', surfaces.overlay?.ready === true, JSON.stringify(surfaces.overlay))
+    // The layer over the official page is a WINDOW, not a view, and the distinction is the whole
+    // point: this build gives a view no input API at all, so a view up there is a real hit target —
+    // which is how the official UI became unclickable while a wallpaper was set. The two things
+    // asserted here are "it exists over the whole content box" and "it is mouse-transparent".
     check(
-      'the official overlay follows the official view bounds',
-      Number(surfaces.overlay?.bounds?.width) > 0
-        && Number(surfaces.overlay?.bounds?.width) === Number(surfaces.officialBounds?.width)
-        && Number(surfaces.overlay?.bounds?.height) === Number(surfaces.officialBounds?.height)
-        && Number(surfaces.overlay?.bounds?.x) === Number(surfaces.officialBounds?.x)
-        && Number(surfaces.overlay?.bounds?.y) === Number(surfaces.officialBounds?.y),
-      JSON.stringify({ overlay: surfaces.overlay?.bounds || null, official: surfaces.officialBounds || null })
+      'the wallpaper layer is a click-through window over the official page',
+      surfaces.wallpaper?.created === true && surfaces.wallpaper?.input === 'passthrough',
+      JSON.stringify(surfaces.wallpaper)
+    )
+    check('the wallpaper layer loaded its document', surfaces.wallpaper?.ready === true, JSON.stringify(surfaces.wallpaper))
+    check(
+      'the wallpaper layer covers the window content box and cuts the dock out of the picture',
+      Number(surfaces.wallpaper?.bounds?.width) > 0
+        && Number(surfaces.wallpaper?.bounds?.height) > 0
+        && surfaces.wallpaper?.notch !== null
+        && Number(surfaces.wallpaper?.notch?.x) > 0,
+      JSON.stringify({ bounds: surfaces.wallpaper?.bounds || null, notch: surfaces.wallpaper?.notch || null })
     )
     check(
       'the official shell spans the whole window behind the official view',
@@ -1038,7 +1062,16 @@ async function run() {
     // event. A launcher `blur` also proves the click landed without focusing the
     // overlay (a focus steal would be a functional regression even if the click
     // passed through).
-    if (surfaces.overlay?.built && surfaces.protectedSurface?.id === 'official_renderer') {
+    //
+    // What this probe can and cannot prove has to be said plainly: it injects the event into the
+    // official *renderer*, so it never asks the window layer who the hit target is. It proves the
+    // official page still handles input while the wallpaper layer is up. It does **not** prove the
+    // layer is transparent to the mouse, and it never did — that blind spot is how a wallpaper which
+    // swallowed every click on the official UI passed a green acceptance run.
+    // `scripts/wallpaper-hit-test.cjs` is the instrument for the other half: it asks the operating
+    // system (`WindowFromPoint`, which skips mouse-transparent windows) and uses "the same window
+    // with mouse transparency turned off" as its negative control.
+    if (surfaces.wallpaper?.created === true && surfaces.protectedSurface?.id === 'official_renderer') {
       await official.page.evaluate(`
         window.__hnsAcceptanceInput = { mousedown: 0, mouseup: 0, clicks: 0, blur: 0, focus: 0, wheel: 0, keydown: 0 }
         if (!window.__hnsInputProbe) {
@@ -1054,31 +1087,27 @@ async function run() {
         return true
       `)
       const anchor = await official.page.viewportPoint('document.body.getBoundingClientRect()')
-      // The overlay is above the official view, so a point inside the overlay's
-      // bounds is the exact test case; the document's own centre is the fallback
-      // when the body has no box yet.
-      const insideOverlay = surfaces.overlay.bounds
-      const preferred = anchor || { x: Math.round(insideOverlay.x + insideOverlay.width / 2), y: Math.round(insideOverlay.y + insideOverlay.height / 2) }
-      const pressAt = {
-        x: Math.max(insideOverlay.x + 4, Math.min(preferred.x, insideOverlay.x + insideOverlay.width - 4)),
-        y: Math.max(insideOverlay.y + 4, Math.min(preferred.y, insideOverlay.y + insideOverlay.height - 4))
-      }
+      // The official UI *is* the window's own page here and the wallpaper layer covers the window's
+      // content box, so a point in the page's own coordinates is a point under the layer: the
+      // document's centre is the test case, and the top-left quarter is the fallback for a body with
+      // no box yet — still inside both.
+      const pressAt = anchor || { x: 200, y: 200 }
       await official.page.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pressAt.x, y: pressAt.y, button: 'left', clickCount: 1 })
       await official.page.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pressAt.x, y: pressAt.y, button: 'left', clickCount: 1 })
       await sleep(400)
       const inputState = await official.page.evaluate(`return window.__hnsAcceptanceInput`)
       check(
-        'a click inside the official overlay reaches the official renderer',
+        'a click lands on the official renderer with the wallpaper layer up',
         inputState.mousedown > 0 && inputState.mouseup > 0,
         JSON.stringify(inputState)
       )
       check(
-        'the official renderer kept the click as a real click (the overlay did not swallow it)',
+        'the official renderer kept the click as a real click (the wallpaper layer did not swallow it)',
         inputState.clicks > 0,
         JSON.stringify(inputState)
       )
       check(
-        'the overlay did not steal focus from the official renderer',
+        'the wallpaper layer did not steal focus from the official renderer',
         inputState.blur === 0,
         JSON.stringify(inputState)
       )
@@ -1090,12 +1119,21 @@ async function run() {
       await official.page.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: pressAt.x, y: pressAt.y, deltaX: 0, deltaY: 40 })
       await sleep(400)
       const moreInput = await official.page.evaluate(`return window.__hnsAcceptanceInput`)
-      check('a keystroke reaches the official renderer while the overlay is on screen', moreInput.keydown > 0, JSON.stringify(moreInput))
-      check('a scroll reaches the official renderer while the overlay is on screen', moreInput.wheel > 0, JSON.stringify(moreInput))
-      check('the overlay never took focus during keyboard or scroll input', moreInput.blur === 0, JSON.stringify(moreInput))
+      check('a keystroke reaches the official renderer while the wallpaper layer is on screen', moreInput.keydown > 0, JSON.stringify(moreInput))
+      check('a scroll reaches the official renderer while the wallpaper layer is on screen', moreInput.wheel > 0, JSON.stringify(moreInput))
+      check('the wallpaper layer never took focus during keyboard or scroll input', moreInput.blur === 0, JSON.stringify(moreInput))
     } else {
-      check('the official overlay is available for the input-passthrough probe', false, JSON.stringify({ overlay: surfaces.overlay, protected: surfaces.protectedSurface }))
+      check('the wallpaper layer is available for the input-passthrough probe', false, JSON.stringify({ wallpaper: surfaces.wallpaper, protected: surfaces.protectedSurface }))
     }
+
+    // The wallpaper the checks above needed is cleared again: a run leaves the state it found, and a
+    // picture left drawn over the official UI would be a side effect of the test rather than a result
+    // of it.
+    const wallpaperCleared = await dock.page.evaluate(`
+      return window.megaTools.wallpaper.set({ file: '', enabled: false })
+        .then((state) => ({ ok: state.ok, file: state.file, drawable: state.drawable }))
+    `)
+    check('the acceptance run clears the wallpaper it set', wallpaperCleared.ok !== false && !wallpaperCleared.file, JSON.stringify(wallpaperCleared))
 
     // --- the generated visual assets exist on disk and are real images -------
     //

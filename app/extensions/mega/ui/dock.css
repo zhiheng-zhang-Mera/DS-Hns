@@ -526,7 +526,7 @@ button:hover{background:var(--hns-color-bg-layer2)}
    The dock's lowest layer, and the reason the glass above it has something to be glass over: a
    frosted pane over a flat colour is a tint, a frosted pane over a picture is glass.
 
-   Three things this rule has to get right, and the first version got all three wrong:
+   Four things this rule has to get right, and the first version got the first three wrong:
 
      * **`position: fixed`, not `absolute`.** An absolutely positioned layer inside `#detail` is
        positioned against a *scrolling* container, so it sits at the top of the content and scrolls
@@ -536,6 +536,12 @@ button:hover{background:var(--hns-color-bg-layer2)}
      * **Specific enough to win.** `#detail>div{position:relative;z-index:1}` matches this element
        too and outranks a bare `#wallpaper`, which put the layer back into the normal flow and left
        one band of picture at the top of the dock. The selectors below carry two ids on purpose.
+     * **The window's box, not this view's.** The picture covers the whole application interface;
+       this view is the strip the dock occupies inside it, and the layer over the official page draws
+       everything else. So the dock's copy is sized to the *window* box and pulled out of the view by
+       its own origin (`--hns-wallpaper-origin-*`, written by the layer script from the shell's
+       geometry) — which is what makes the picture meet the other copy at the cut without a seam,
+       instead of showing a second, differently-cropped picture in the strip.
 
    It is never a hit target (`pointer-events: none`) and never in front of anything, so it cannot
    cost the user a click however it was set. The scrim is a separate number from the opacity: the
@@ -543,7 +549,11 @@ button:hover{background:var(--hns-color-bg-layer2)}
    ===================================================================================== */
 body>#wallpaper,
 body>#wallpaperVideo{
-  position:fixed;inset:0;width:100%;height:100%;
+  position:fixed;
+  left:calc(-1 * var(--hns-wallpaper-origin-x,0px));
+  top:calc(-1 * var(--hns-wallpaper-origin-y,0px));
+  width:calc(100% + var(--hns-wallpaper-origin-x,0px));
+  height:calc(100% + var(--hns-wallpaper-origin-y,0px));
   pointer-events:none;user-select:none;z-index:0;
   opacity:var(--hns-wallpaper-opacity,.55);
   object-fit:cover

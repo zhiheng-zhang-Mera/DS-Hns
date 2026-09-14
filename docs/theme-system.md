@@ -36,6 +36,9 @@ Asset Plan、UI 观察、Overlay Layout 与 Safety、分 Surface 预览与增量
 1. 主题系统只写入 **DS-Hns 自己拥有的视图**：官方外壳（`official_shell`）与官方覆盖层
    （`official_overlay`），两者都由 `app/official-surface-views.cjs` 用 `insertCSS` 绘制。
    Dock 不是主题表面：它是磨砂玻璃，只接收外观面板的三个数值，不接收任何主题载荷。
+   **壁纸不属于主题**：它是用户自己的图片，由 `app/wallpaper-window.cjs` 画在一个**点击穿透窗口**
+   里（官方页面之上），因为本构建的 `WebContentsView` 没有任何输入 API，压在官方页面上的视图会
+   吃掉官方 UI 的每一次点击。窗口的方式见 `docs/dual-ui.md` 与「壁纸」一节。
 2. **绝不向官方 `@deepseek-ai/dsh` 渲染器注入 CSS/JS**。官方 UI 只暴露一个只读的配色提示
    （`light` / `dark`），由官方客户端自行应用。这一点在能力清单里是显式声明的：
    `capabilities.can_theme_official_ui === false`。
@@ -128,11 +131,16 @@ User Prompt
 | `lifecycle.js` | install / delete / duplicate / restore / import |
 | `orchestrator.js` | 上述管线的唯一入口（Prompt → Observe → Plan → Generate → Compose → Preview → Revise → Approve → Install） |
 | `index.js` | 引擎装配入口（`createThemeEngine`） |
-| `../../official-surface-views.cjs` | 官方外壳 / 官方覆盖层两个 `WebContentsView`：堆叠、跟随 bounds、输入穿透、故障隔离 |
+| `../../official-surface-views.cjs` | 官方外壳 / 官方覆盖层两个 `WebContentsView`：堆叠、跟随 bounds、故障隔离；**输入穿透是请求而不是假设**——本构建的 `View` 没有 `setIgnoreMouseEvents`，被拒时 `describe().surfaces[].input` 如实报 `unavailable` |
+| `../../wallpaper-window.cjs` | 壁纸窗口（主屏幕那一侧）：无边框、透明、`focusable:false`、`setIgnoreMouseEvents(true)` 的子窗口，覆盖整个窗口内容区并切掉 Dock 自己的矩形；构建拒绝穿透时**不上屏**。它写的样式表用 `:root:root`（文档自带默认值，而 `insertCSS` 排在文档样式表**之前**，同优先级下会输——实测），并且**图片是直接声明而不是自定义属性**（自定义属性的值到不了 2 MB，实测 1.25 MB 能到、2 MB 读回来是空的；一张 2.7 MB 的照片就这样"成功"地什么都不画） |
+| `../wallpaper.cjs`（底片模型） | 两个底片**分别设置**：`main`（主屏幕）与 `dock`（Mega）各有文件/填充/不透明度/模糊/压暗，状态文件为 `{ enabled, main, dock }`；旧的"一张图一套参数"读作两侧继承，扁平的 `set({file})` 仍表示两处一起。`sharesPicture()` 为真时 Dock 的副本按整窗坐标对齐（拼成一整张），否则各按自己的框铺满 |
+| `ui/appearance-panel.js`（壁纸卡片） | 多一个**作用范围**选择器（两处一起 / 主屏幕 / Mega 界面）：选择文件与滑杆作用于选中的范围，卡片始终渲染 shell 报告的那个范围 |
 | `ui/hns-shell.html` | 官方外壳渲染文档（无脚本、无交互元素、pointer-events:none） |
 | `ui/official-overlay.html` | 官方覆盖层渲染文档（无脚本、无交互元素、pointer-events:none） |
+| `ui/wallpaper-window.html` | 壁纸窗口渲染文档（无脚本、无交互元素、pointer-events:none；`clip-path` 切掉 Dock 的矩形） |
 | `ui/appearance-panel.js` | 外观 / Appearance 面板：磨砂玻璃的开关、模糊强度与通透度（Dock 唯一的外观控件） |
 | `ui/glass-layer.js` | 把 `data/state/ui-glass.json` 的三个数值写进 Dock 文档（`window.hnsGlass`） |
+| `ui/wallpaper-layer.js` | 把壁纸画进 Dock 文档（图片/视频、填充、透明度、压暗），并把它按窗口坐标系对齐到整幅图片 |
 | `../dock/target.js` | Dock Target Adapter：integrated `WebContentsView` 与 legacy `BrowserWindow` 的唯一入口 |
 
 ---
@@ -352,8 +360,8 @@ Electron 的**单实例锁位于 userData 目录**，因此第二个实例必须
 | Surface | 权限 | 是什么 | 输入 |
 | --- | --- | --- | --- |
 | `hns_native` | `full` | HNS Dock 渲染器（自有 HTML/CSS/JS）。声明仍在模型里，但 Dock 不是绘制目标：引擎以 `applyToRenderer: () => false` 装配，Dock 的外观只由磨砂玻璃层决定 | 正常 |
-| `official_shell` | `full` | DS-Hns 在官方渲染器**外围**绘制的框架（独立 `WebContentsView`，位于官方视图之下） | 穿透 |
-| `official_overlay` | `visual-only` | 官方渲染器**上方**的透明覆盖层（独立 `WebContentsView`） | 穿透 |
+| `official_shell` | `full` | DS-Hns 在官方渲染器**外围**绘制的框架（独立 `WebContentsView`，位于官方视图之下） | 请求穿透 |
+| `official_overlay` | `visual-only` | 官方渲染器**上方**的透明覆盖层（独立 `WebContentsView`，legacy 架构） | 请求穿透（本构建无此 API，见 13.1） |
 | `official_renderer` | `protected` | 官方 `@deepseek-ai/dsh` 渲染器 | 全部保留 |
 
 - `surface.js` 是唯一权限来源：`assertWritable()` 是所有写入者（builder、asset pipeline、
@@ -362,9 +370,18 @@ Electron 的**单实例锁位于 userData 目录**，因此第二个实例必须
 - 官方渲染器**只被重设尺寸和堆叠**：外壳视图先于它加入（其中心被官方视图覆盖，只有外圈可见），
   覆盖层后于它加入（因此位于最上层）。两个视图都在 `desktop-main.cjs` 中创建，都没有 preload、
   没有脚本，扩展进程只拿到一个只能 `paint()` 的 adapter，拿不到官方 `webContents`。
-- 覆盖层强制 `setIgnoreMouseEvents(true)` + `focusable: false`，文档本身 `pointer-events:none`
-  且没有任何可聚焦元素。验收用 CDP 向覆盖层范围内的坐标派发真实点击/按键/滚轮，再由**官方渲染器**
-  确认收到事件，并确认没有发生 focus 抢占。
+- 覆盖层**尝试** `setIgnoreMouseEvents(true)` 并强制 `focusable: false`，文档本身 `pointer-events:none`
+  且没有任何可聚焦元素。**"尝试"这个词是结论，不是修辞**：Electron 43 的 `View`/`WebContentsView`
+  没有 `setIgnoreMouseEvents`（只有 `BrowserWindow`/`BaseWindow` 有），所以压在官方页面上的视图
+  就是一次真实的命中目标——曾经它画得完全正确，同时吃掉了官方 UI 的每一次点击。这也是为什么
+  壁纸不是视图：`app/wallpaper-window.cjs` 用点击穿透窗口承载它，并在构建拒绝穿透时选择**不上屏**。
+  验收里那段 CDP 派发（向覆盖层范围内的坐标发点击/按键/滚轮、再由官方渲染器确认收到）**证明不了**
+  这一点：它把事件直接注入渲染器，绕过了窗口层的命中测试，所以它对"视图吃掉点击"这个缺陷是盲的。
+  能看见这件事的是 `scripts/wallpaper-hit-test.cjs`：它用 Windows 自己的 `WindowFromPoint`（会跳过对
+  鼠标透明的窗口）测量**命中目标到底是谁**，并用"把同一个窗口的穿透关掉"作为否定对照，证明这不是巧合。
+  另一半（图片到底画上去没有、切出来的是什么形状）由 `scripts/wallpaper-render-acceptance.cjs` 测：
+  它读回那一层的计算样式，并把截图逐像素映射成形状 —— 上面那两个"给了图片却什么都不画"和
+  "`clip-path` 画反了"的缺陷，都是它抓出来的。
 
 ### 13.2 管线
 
@@ -464,5 +481,3 @@ CI（`.github/workflows/verify.yml`）在 `main` / `merging` / `Theme-Cover` 上
 `npm test` 使用 `--test-concurrency=2`：Sub-worker 套件会派生真实 worker 进程与真实
 `git worktree add`，在 2 vCPU 的托管 runner 上让无限数量的测试文件竞争 CPU 会把"结果是否到达"
 变成"机器有多快"。受限并发使该套件在本地与 CI 上表现一致。
-
-

@@ -115,7 +115,20 @@
           <input type="checkbox" id="wallpaperEnabled">
           <span class="bi-title bi-sm"><span class="bi-cn">壁纸</span><span class="bi-en">Wallpaper</span></span>
         </label>
-        <p class="glass-note" id="wallpaperName">未选择 · none chosen<br><small>图片或视频；画在面板与磨砂玻璃之下，不遮挡、不拦截任何操作。</small></p>
+        <p class="glass-note" id="wallpaperName">未选择 · none chosen<br><small>主屏幕与 Mega 界面可以各用一张图；图片铺在界面之下，不拦截任何操作。</small></p>
+        <!--
+          Which backdrop the rest of this card edits. The two surfaces were one picture once; they are
+          two settings now, and "两处一起 · both" is the shorthand for "the same picture everywhere",
+          which also makes the two copies line up as one image at the dock's edge.
+        -->
+        <div class="glass-range">
+          <span>作用范围 · Backdrop</span>
+          <select id="wallpaperScope">
+            <option value="both">两处一起 · both</option>
+            <option value="main">主屏幕 · main screen</option>
+            <option value="dock">Mega 界面 · Mega</option>
+          </select>
+        </div>
         <div class="glass-range">
           <span>填充方式 · Fit</span>
           <select id="wallpaperFit">

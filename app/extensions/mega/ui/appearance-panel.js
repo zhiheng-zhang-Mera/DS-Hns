@@ -109,8 +109,16 @@
    * question — what the dock looks like — so they are the same card and the same shape of wiring:
    * the shell owns the file and validates every value, the panel renders what it reports, and a
    * slider previews on the frame it moves.
+   *
+   * **There are two backdrops, and they are set separately**: the main screen (the picture over the
+   * official UI, cut around the dock) and Mega itself. The scope selector says which one the rest of
+   * the card edits — `both` is the shorthand for "the same picture in both places", which is also the
+   * only case where the two copies are drawn as one image. The controls stay a *view* of the shell's
+   * answer either way: they render the surface the scope names, including a value changed elsewhere.
    */
   let wallpaperState = null
+  /** Which backdrop this card edits: `both`, `main` or `dock`. */
+  let wallpaperScope = 'both'
 
   function wallpaperApi() {
     return window.megaTools && window.megaTools.wallpaper ? window.megaTools.wallpaper : null
@@ -120,35 +128,64 @@
     if (next) wallpaperState = next
     const state = wallpaperState
     if (!state) return null
+    const surface = state[wallpaperScope] || state.main || state
     const toggle = $('wallpaperEnabled')
-    if (toggle && 'checked' in toggle) toggle.checked = state.enabled === true && Boolean(state.file)
+    if (toggle && 'checked' in toggle) toggle.checked = state.enabled === true && (Boolean(surface.file) || wallpaperScope === 'both')
     const name = $('wallpaperName')
     if (name) {
-      const label = state.file
-        ? `${state.name || state.file}${state.kind ? ` · ${state.kind}` : ''}${state.present === false ? ' · 文件缺失 · file missing' : ''}`
+      const scopeLabel = wallpaperScope === 'both'
+        ? '两处一起 · both'
+        : wallpaperScope === 'main' ? '主屏幕 · main screen' : 'Mega 界面 · Mega'
+      const label = surface.file
+        ? `${surface.name || surface.file}${surface.kind ? ` · ${surface.kind}` : ''}${surface.present === false ? ' · 文件缺失 · file missing' : ''}`
         : '未选择 · none chosen'
       name.textContent = label
       const small = document.createElement('small')
-      small.textContent = state.note || '图片或视频；画在面板与磨砂玻璃之下，不遮挡、不拦截任何操作。'
+      const differ = wallpaperScope === 'both'
+        && (state.main && state.dock)
+        && (state.main.file !== state.dock.file)
+        ? '两处当前不是同一张图 · the two backdrops differ right now'
+        : null
+      small.textContent = differ
+        || state.note
+        || `${scopeLabel}：图片或视频，铺在界面之下，不拦截任何操作。`
       name.appendChild(document.createElement('br'))
       name.appendChild(small)
     }
     for (const [id, key] of [['wallpaperOpacity', 'opacity'], ['wallpaperBlur', 'blur'], ['wallpaperScrim', 'scrim']]) {
       const input = $(id)
-      if (input && 'value' in input) input.value = String(state[key])
+      if (input && 'value' in input) input.value = String(surface[key])
       const readout = $(`${id}Value`)
-      if (readout) readout.textContent = String(state[key])
+      if (readout) readout.textContent = String(surface[key])
     }
     const fit = $('wallpaperFit')
-    if (fit && 'value' in fit) fit.value = state.fit || 'cover'
+    if (fit && 'value' in fit) fit.value = surface.fit || 'cover'
+    const scope = $('wallpaperScope')
+    if (scope && 'value' in scope) scope.value = wallpaperScope
     const clear = $('wallpaperClear')
-    if (clear) clear.disabled = !state.file
+    if (clear) clear.disabled = !surface.file
+    // The master switch dims the whole card, the same way the glass switch dims its own controls:
+    // "off" is a state of the card, not of one control.
+    const row = $('wallpaperRow')
+    if (row && row.dataset) row.dataset.enabled = state.enabled === false ? '0' : '1'
     return state
+  }
+
+  /** The patch one control write means: the flat shape is "both", a named surface is that one. */
+  function wallpaperPatch(values) {
+    return wallpaperScope === 'both' ? { ...values } : { [wallpaperScope]: { ...values } }
   }
 
   async function loadWallpaper() {
     const api = wallpaperApi()
-    if (!api || typeof api.describe !== 'function') return renderWallpaper({ enabled: false, file: null, name: null, kind: null, present: true, fit: 'cover', opacity: 55, blur: 0, scrim: 35, note: null })
+    // No bridge at all (the page was opened outside the shell): the card shows its shipped defaults
+    // rather than nothing, in the shape the renderer reads — one block per backdrop.
+    const offline = {
+      enabled: false,
+      main: { enabled: true, file: null, name: null, kind: null, present: true, fit: 'cover', opacity: 55, blur: 0, scrim: 35 },
+      dock: { enabled: true, file: null, name: null, kind: null, present: true, fit: 'cover', opacity: 55, blur: 0, scrim: 35 }
+    }
+    if (!api || typeof api.describe !== 'function') return renderWallpaper(offline)
     try {
       const described = await api.describe()
       return renderWallpaper(described && described.ok !== false ? described : null)
@@ -171,7 +208,7 @@
     const pick = $('wallpaperPick')
     if (pick && typeof pick.addEventListener === 'function') {
       pick.addEventListener('click', () => {
-        Promise.resolve(api.pick ? api.pick() : null).then((result) => {
+        Promise.resolve(api.pick ? api.pick({ scope: wallpaperScope }) : null).then((result) => {
           if (result && result.canceled === true) return
           report(result)
         })
@@ -179,15 +216,22 @@
     }
     const clear = $('wallpaperClear')
     if (clear && typeof clear.addEventListener === 'function') {
-      clear.addEventListener('click', () => Promise.resolve(api.set({ file: '', enabled: false })).then(report))
+      clear.addEventListener('click', () => Promise.resolve(api.set(wallpaperPatch({ file: '' }))).then(report))
     }
     const enabled = $('wallpaperEnabled')
     if (enabled && typeof enabled.addEventListener === 'function') {
       enabled.addEventListener('change', () => Promise.resolve(api.set({ enabled: enabled.checked === true })).then(report))
     }
+    const scope = $('wallpaperScope')
+    if (scope && typeof scope.addEventListener === 'function') {
+      scope.addEventListener('change', () => {
+        wallpaperScope = ['both', 'main', 'dock'].includes(scope.value) ? scope.value : 'both'
+        renderWallpaper()
+      })
+    }
     const fit = $('wallpaperFit')
     if (fit && typeof fit.addEventListener === 'function') {
-      fit.addEventListener('change', () => Promise.resolve(api.set({ fit: fit.value })).then(report))
+      fit.addEventListener('change', () => Promise.resolve(api.set(wallpaperPatch({ fit: fit.value }))).then(report))
     }
     for (const [id, key] of [['wallpaperOpacity', 'opacity'], ['wallpaperBlur', 'blur'], ['wallpaperScrim', 'scrim']]) {
       const input = $(id)
@@ -199,7 +243,7 @@
         const readout = $(`${id}Value`)
         if (readout) readout.textContent = String(input.value)
       })
-      input.addEventListener('change', () => Promise.resolve(api.set({ [key]: Number(input.value) })).then(report))
+      input.addEventListener('change', () => Promise.resolve(api.set(wallpaperPatch({ [key]: Number(input.value) }))).then(report))
     }
     return true
   }

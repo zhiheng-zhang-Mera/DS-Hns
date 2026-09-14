@@ -14,10 +14,10 @@
  *
  *   * **the dock** — a scripted document of ours, so it takes an image *or* a video, behind the
  *     frosted glass, at full fidelity;
- *   * **the official overlay and shell** — two views DS-Hns already draws above the official page
- *     with `insertCSS`. They are input-transparent and script-free by construction, and their CSP
- *     allows exactly one kind of asset: an inline `data:` image. That is the whole reason a video
- *     cannot go there, and it is a limit of the safe path rather than of this module.
+ *   * **the window** — a script-free document of ours in a click-through window over the official
+ *     page (`app/wallpaper-window.cjs`), which is what "the picture backs the whole interface"
+ *     means. Its CSP allows exactly one kind of asset, an inline `data:` image, and that is the
+ *     whole reason a video cannot go there: a limit of the safe path rather than of this module.
  *
  * Three rules keep it from being a way to break the product:
  *
@@ -28,9 +28,12 @@
  *   2. **A missing or unreadable file removes the layer.** A background that cannot be loaded is
  *      not a broken view, it is no background — the state stays on disk so the path can be fixed,
  *      and every surface is told to draw nothing.
- *   3. **Nothing here executes.** The file is read, size-checked, inlined as `data:` and handed to
- *      a stylesheet. There is no scripting surface, and the dock's own layer is `pointer-events:
- *      none` behind the content.
+ *   3. **Nothing here executes, and nothing here takes an event.** The file is read, size-checked,
+ *      inlined as `data:` and handed to a stylesheet. There is no scripting surface, the dock's own
+ *      layer is `pointer-events: none` behind the content, and the window over the official page is
+ *      a window that ignores mouse events — the one shape this Electron build lets us make
+ *      input-transparent, which is why that layer is not a `WebContentsView` (see
+ *      `app/wallpaper-window.cjs` for the measurements).
  *
  * State lives in `data/state/wallpaper.json`, beside the glass preference and for the same reason:
  * it is the user's choice, not deployment configuration.
@@ -52,20 +55,43 @@ const WALLPAPER_KINDS = Object.freeze({
   video: Object.freeze(['.mp4', '.webm', '.m4v'])
 })
 
-/** The surfaces a wallpaper can be drawn on, and what each of them can carry. */
-const WALLPAPER_TARGETS = Object.freeze(['dock', 'overlay', 'shell'])
+/**
+ * The two backdrops, and they are **set separately**:
+ *
+ *   * `main` — the main screen, drawn by the click-through window over the official page
+ *     (`app/wallpaper-window.cjs`), handed a stylesheet;
+ *   * `dock` — the Mega interface, drawn by the dock's own document
+ *     (`app/extensions/mega/ui/dock.html`), which can also carry a video.
+ *
+ * They used to share one picture and one set of numbers. Wanting a different picture behind the
+ * dock than behind the app is not a strange want — the dock is a narrow strip of frosted glass and
+ * the main screen is a whole interface — so each surface carries its own file, fit, opacity, blur
+ * and scrim, and `null` for one of them is a complete answer meaning "this one has no picture".
+ * An older state file (one picture, one set of numbers) is read as *both* surfaces inheriting it,
+ * which is exactly what it meant.
+ */
+const WALLPAPER_SURFACES = Object.freeze(['main', 'dock'])
 
 /** Which of those can carry a video: only the scripted document, and that is not a preference. */
 const VIDEO_TARGETS = Object.freeze(['dock'])
 
-const WALLPAPER_DEFAULT = Object.freeze({
+/** One surface's own picture and its own numbers. */
+const WALLPAPER_SURFACE_DEFAULT = Object.freeze({
   enabled: true,
   file: null,
   fit: 'cover',
   opacity: 55,
   blur: 0,
   scrim: 35,
+  // Only the dock has an element that can play something, so only the dock has a use for this.
   muted: true
+})
+
+const WALLPAPER_DEFAULT = Object.freeze({
+  /** The master switch: off means both surfaces draw nothing, whatever they were set to. */
+  enabled: true,
+  main: { ...WALLPAPER_SURFACE_DEFAULT },
+  dock: { ...WALLPAPER_SURFACE_DEFAULT }
 })
 
 const WALLPAPER_LIMITS = Object.freeze({
@@ -138,18 +164,52 @@ function createWallpaper(options = {}) {
   const log = typeof options.log === 'function' ? options.log : () => {}
 
   let cache = null
-  /** The inlined asset, keyed by path and mtime: reading a 4K image on every repaint is waste. */
-  let asset = { key: null, kind: null, dataUrl: null, missing: false }
+  /**
+   * The inlined assets, keyed by path and mtime: reading a 4K image on every repaint is waste.
+   *
+   * A map rather than one slot, because the two surfaces may point at two different files and one
+   * slot would re-read a multi-megabyte photograph on every alternating push.
+   */
+  const assets = new Map()
+  const ASSET_CACHE_LIMIT = 4
+
+  /** One surface's block, normalised from whatever the file (or nothing) held for it. */
+  function surfaceFrom(block, inherited) {
+    const source = block && typeof block === 'object' ? block : {}
+    const chosen = source.file !== undefined ? (source.file ? String(source.file) : null) : inherited.file
+    // A file that is no longer a wallpaper (renamed, or a type this build does not draw) is dropped
+    // rather than kept as a path nothing can use.
+    const usable = chosen && kindOf(chosen) ? chosen : null
+    if (chosen && !usable) log(`the saved wallpaper "${chosen}" is not an image or a video this build can draw; it was dropped`)
+    return {
+      enabled: typeof source.enabled === 'boolean' ? source.enabled : inherited.enabled,
+      file: usable,
+      fit: WALLPAPER_FITS.includes(source.fit) ? source.fit : inherited.fit,
+      opacity: clamp('opacity', source.opacity, inherited.opacity),
+      blur: clamp('blur', source.blur, inherited.blur),
+      scrim: clamp('scrim', source.scrim, inherited.scrim),
+      muted: typeof source.muted === 'boolean' ? source.muted : inherited.muted
+    }
+  }
 
   /**
    * The state in force, read once.
    *
    * A malformed file is a preference that failed to persist, not a crash: the defaults stand and
    * the reason is logged rather than thrown at the panel.
+   *
+   * **The one-picture shape is what every file written before the two surfaces existed looks like**,
+   * and it is read as what it meant: both surfaces inherit it. That is also how `set()` treats the
+   * legacy keys, so an older caller (or the acceptance run) keeps meaning "both".
    */
   function load() {
     if (cache) return cache
-    cache = { ...WALLPAPER_DEFAULT, source: 'default' }
+    cache = {
+      enabled: WALLPAPER_DEFAULT.enabled,
+      main: { ...WALLPAPER_DEFAULT.main },
+      dock: { ...WALLPAPER_DEFAULT.dock },
+      source: 'default'
+    }
     let raw = null
     try {
       if (!fs.existsSync(file)) return cache
@@ -159,20 +219,22 @@ function createWallpaper(options = {}) {
       return cache
     }
     if (!raw || typeof raw !== 'object') return cache
-    const chosen = raw.file ? String(raw.file) : null
+    /** What a file from before the two surfaces existed means, key by key. */
+    const legacy = {
+      enabled: typeof raw.enabled === 'boolean' ? raw.enabled : WALLPAPER_DEFAULT.main.enabled,
+      file: raw.file ? String(raw.file) : null,
+      fit: WALLPAPER_FITS.includes(raw.fit) ? raw.fit : WALLPAPER_DEFAULT.main.fit,
+      opacity: clamp('opacity', raw.opacity, WALLPAPER_DEFAULT.main.opacity),
+      blur: clamp('blur', raw.blur, WALLPAPER_DEFAULT.main.blur),
+      scrim: clamp('scrim', raw.scrim, WALLPAPER_DEFAULT.main.scrim),
+      muted: typeof raw.muted === 'boolean' ? raw.muted : WALLPAPER_DEFAULT.main.muted
+    }
     cache = {
-      enabled: typeof raw.enabled === 'boolean' ? raw.enabled : cache.enabled,
-      // A file that is no longer a wallpaper (renamed, or a type this build does not draw) is
-      // dropped rather than kept as a path nothing can use.
-      file: chosen && kindOf(chosen) ? chosen : null,
-      fit: WALLPAPER_FITS.includes(raw.fit) ? raw.fit : cache.fit,
-      opacity: clamp('opacity', raw.opacity, cache.opacity),
-      blur: clamp('blur', raw.blur, cache.blur),
-      scrim: clamp('scrim', raw.scrim, cache.scrim),
-      muted: typeof raw.muted === 'boolean' ? raw.muted : cache.muted,
+      enabled: typeof raw.enabled === 'boolean' ? raw.enabled : WALLPAPER_DEFAULT.enabled,
+      main: surfaceFrom(raw.main, legacy),
+      dock: surfaceFrom(raw.dock, legacy),
       source: 'user'
     }
-    if (chosen && !cache.file) log(`the saved wallpaper "${chosen}" is not an image or a video this build can draw; it was dropped`)
     return cache
   }
 
@@ -183,10 +245,10 @@ function createWallpaper(options = {}) {
    * accepted as well as before it is drawn, and it takes the path it is asked about rather than
    * only the one that happens to be saved.
    *
-   * @param {string} [candidate] a path to check; the saved one when omitted
+   * @param {string|null} [candidate] a path to check; the main screen's own when omitted
    */
   function present(candidate) {
-    const target = candidate === undefined ? load().file : candidate
+    const target = candidate === undefined ? load().main.file : candidate
     if (!target) return false
     try {
       return fs.statSync(target).isFile()
@@ -196,19 +258,22 @@ function createWallpaper(options = {}) {
   }
 
   /**
-   * The wallpaper as an inline `data:` URL.
+   * One picture as an inline `data:` URL.
    *
-   * The official overlay's CSP is `img-src data:` and nothing else, so this is not an
-   * optimisation — it is the only shape that surface can be handed. It is also why the dock gets
-   * the same URL rather than a `file://` path: one asset, one rule, no second policy to keep right.
+   * The layer over the official page is a script-free document whose policy allows an inline image,
+   * so this is not an optimisation — it is the only shape that surface can be handed. It is also why
+   * the dock gets the same URL rather than a `file://` path for an image: one asset, one rule, no
+   * second policy to keep right. (A video is the exception, and only because the dock is a document
+   * we own with a real element to hand a source to.)
+   *
+   * @param {string|null} chosen the file to read
    */
-  function inline() {
-    const state = load()
-    if (!state.file) return { kind: null, dataUrl: null, missing: false, reason: 'no wallpaper is chosen' }
-    const kind = kindOf(state.file)
+  function inline(chosen) {
+    if (!chosen) return { kind: null, dataUrl: null, missing: false, reason: 'no wallpaper is chosen' }
+    const kind = kindOf(chosen)
     let stat = null
     try {
-      stat = fs.statSync(state.file)
+      stat = fs.statSync(chosen)
     } catch {
       return { kind, dataUrl: null, missing: true, reason: 'the file is not on disk' }
     }
@@ -216,93 +281,165 @@ function createWallpaper(options = {}) {
     if (stat.size > MAX_ASSET_BYTES) {
       return { kind, dataUrl: null, missing: false, reason: `the file is ${Math.round(stat.size / 1024 / 1024)} MB, over the ${Math.round(MAX_ASSET_BYTES / 1024 / 1024)} MB a single inlined asset may be` }
     }
-    const key = `${state.file}:${stat.size}:${stat.mtimeMs}`
-    if (asset.key === key && asset.kind === kind) return asset
+    const key = `${chosen}:${stat.size}:${stat.mtimeMs}`
+    const cached = assets.get(key)
+    if (cached && cached.kind === kind) return cached
     try {
-      const bytes = fs.readFileSync(state.file)
-      asset = {
+      const bytes = fs.readFileSync(chosen)
+      const entry = {
         key,
         kind,
-        dataUrl: `data:${MIME_BY_EXTENSION[path.extname(state.file).toLowerCase()] || 'application/octet-stream'};base64,${bytes.toString('base64')}`,
+        dataUrl: `data:${MIME_BY_EXTENSION[path.extname(chosen).toLowerCase()] || 'application/octet-stream'};base64,${bytes.toString('base64')}`,
         missing: false
       }
-      log(`wallpaper loaded: ${path.basename(state.file)} (${kind}, ${Math.round(stat.size / 1024)} KB)`)
+      assets.set(key, entry)
+      while (assets.size > ASSET_CACHE_LIMIT) assets.delete(assets.keys().next().value)
+      log(`wallpaper loaded: ${path.basename(chosen)} (${kind}, ${Math.round(stat.size / 1024)} KB)`)
+      return entry
     } catch (error) {
-      asset = { key: null, kind, dataUrl: null, missing: true, reason: `the file could not be read: ${error?.message || error}` }
       log(`wallpaper could not be read: ${error?.message || error}`)
+      return { key: null, kind, dataUrl: null, missing: true, reason: `the file could not be read: ${error?.message || error}` }
     }
-    return asset
+  }
+
+  /** One surface, as the panel and the diagnostics read it. */
+  function describeSurface(state, surfaceId) {
+    const surface = state[surfaceId]
+    const kind = surface.file ? kindOf(surface.file) : null
+    const inlined = kind ? inline(surface.file) : { dataUrl: null, missing: false, reason: null }
+    return {
+      enabled: surface.enabled,
+      file: surface.file,
+      name: surface.file ? path.basename(surface.file) : null,
+      kind,
+      present: Boolean(surface.file) && present(surface.file),
+      fit: surface.fit,
+      opacity: surface.opacity,
+      blur: surface.blur,
+      scrim: surface.scrim,
+      muted: surface.muted,
+      /**
+       * Whether this surface draws anything, master switch included: `false` is a complete answer and
+       * the caller acts on it (the window layer comes off the screen, the dock layer is emptied).
+       * A video counts as drawable only where something can play it.
+       */
+      drawable: Boolean(state.enabled && surface.enabled && inlined.dataUrl && (surfaceId === 'dock' || inlined.kind !== 'video')),
+      reason: inlined.reason || null
+    }
   }
 
   /** The state the panel renders, with the limits its controls match and what can be drawn where. */
   function describe() {
     const state = load()
-    const kind = state.file ? kindOf(state.file) : null
-    const inlined = kind ? inline() : { dataUrl: null, missing: false, reason: null }
+    const main = describeSurface(state, 'main')
+    const dock = describeSurface(state, 'dock')
     return {
       ok: true,
-      ...state,
-      kind,
-      name: state.file ? path.basename(state.file) : null,
-      present: Boolean(state.file) && present(),
-      drawable: Boolean(state.enabled && inlined.dataUrl),
-      reason: inlined.reason || null,
-      file: state.file,
+      /** The master switch, then each surface's own settings. */
+      enabled: state.enabled,
+      source: state.source,
+      /**
+       * The main screen is what "the wallpaper" means at the top level, and that is kept because it
+       * is what every older caller asked about: the file, its kind, whether it can be drawn, and the
+       * numbers a single-surface panel renders.
+       */
+      ...main,
+      main,
+      dock,
+      /** Whether the two surfaces are showing the same picture (which is drawn as one image). */
+      shared: sharesPicture(),
       limits: {
         opacity: { ...WALLPAPER_LIMITS.opacity },
         blur: { ...WALLPAPER_LIMITS.blur },
         scrim: { ...WALLPAPER_LIMITS.scrim }
       },
       fits: [...WALLPAPER_FITS],
-      targets: [...WALLPAPER_TARGETS],
+      surfaces: [...WALLPAPER_SURFACES],
       videoTargets: [...VIDEO_TARGETS],
       // What the panel says about a video on a surface that cannot carry one, so the rule is
       // visible where the choice is made instead of being discovered as a blank area.
-      note: kind === 'video'
-        ? 'a video draws in the dock only: the official surfaces are script-free documents whose CSP allows an inline image and nothing else'
+      note: main.kind === 'video'
+        ? 'a video draws in Mega only: the main screen\'s layer is a script-free document whose policy allows an inline image and nothing else'
         : null
     }
   }
 
-  /** Change the wallpaper. Every accepted key is validated here, so no surface can disagree. */
-  function set(patch = {}) {
-    const current = load()
-    const next = { ...current, source: 'user' }
-    if (typeof patch.enabled === 'boolean') next.enabled = patch.enabled
-    if (typeof patch.muted === 'boolean') next.muted = patch.muted
-    if (patch.fit !== undefined) {
-      if (!WALLPAPER_FITS.includes(patch.fit)) return { ok: false, reason: `"${patch.fit}" is not a fit; expected one of ${WALLPAPER_FITS.join(', ')}` }
-      next.fit = patch.fit
+  /**
+   * One surface's block, from a patch.
+   *
+   * Every accepted key is validated here, so no surface can disagree about what is in force; the
+   * answer is `{ ok: false, reason }` for anything a caller could not have meant, and the file on
+   * disk is not touched in that case.
+   */
+  function applySurface(target, surfaceId, block, previous) {
+    const next = { ...previous }
+    if (typeof block.enabled === 'boolean') next.enabled = block.enabled
+    if (typeof block.muted === 'boolean') next.muted = block.muted
+    if (block.fit !== undefined) {
+      if (!WALLPAPER_FITS.includes(block.fit)) return { ok: false, reason: `"${block.fit}" is not a fit; expected one of ${WALLPAPER_FITS.join(', ')}` }
+      next.fit = block.fit
     }
-    if (patch.opacity !== undefined) next.opacity = clamp('opacity', patch.opacity, current.opacity)
-    if (patch.blur !== undefined) next.blur = clamp('blur', patch.blur, current.blur)
-    if (patch.scrim !== undefined) next.scrim = clamp('scrim', patch.scrim, current.scrim)
-    if (patch.file !== undefined) {
+    if (block.opacity !== undefined) next.opacity = clamp('opacity', block.opacity, previous.opacity)
+    if (block.blur !== undefined) next.blur = clamp('blur', block.blur, previous.blur)
+    if (block.scrim !== undefined) next.scrim = clamp('scrim', block.scrim, previous.scrim)
+    if (block.file !== undefined) {
       // Clearing is a real choice and an empty string is how it is said.
-      const chosen = patch.file === null || patch.file === '' ? null : String(patch.file)
+      const chosen = block.file === null || block.file === '' ? null : String(block.file)
       if (chosen && !kindOf(chosen)) {
         return { ok: false, reason: `"${path.basename(chosen)}" is not a wallpaper: expected ${[...WALLPAPER_KINDS.image, ...WALLPAPER_KINDS.video].join(', ')}` }
       }
       if (chosen && !present(chosen)) return { ok: false, reason: `"${chosen}" is not a file this process can read` }
       next.file = chosen
     }
+    target[surfaceId] = next
+    return { ok: true }
+  }
+
+  /**
+   * Change the wallpaper.
+   *
+   * Two shapes are accepted, and both mean something a caller can predict:
+   *
+   *   * `{ main: {…}, dock: {…} }` — the same keys, for one surface each. This is what the panel
+   *     sends, and it is how the main screen and Mega are set separately;
+   *   * the historical flat shape (`{ file, fit, opacity, blur, scrim, muted }`) — **both** surfaces,
+   *     because that is what one picture with one set of numbers used to mean. `enabled` stays the
+   *     master switch either way.
+   */
+  function set(patch = {}) {
+    const current = load()
+    const next = {
+      enabled: typeof patch.enabled === 'boolean' ? patch.enabled : current.enabled,
+      main: { ...current.main },
+      dock: { ...current.dock },
+      source: 'user'
+    }
+    const flat = {}
+    for (const key of ['file', 'fit', 'opacity', 'blur', 'scrim', 'muted']) {
+      if (patch[key] !== undefined) flat[key] = patch[key]
+    }
+    for (const surfaceId of WALLPAPER_SURFACES) {
+      const block = patch[surfaceId] && typeof patch[surfaceId] === 'object' ? patch[surfaceId] : null
+      if (!block && !Object.keys(flat).length) continue
+      const applied = applySurface(next, surfaceId, { ...flat, ...(block || {}) }, current[surfaceId])
+      if (applied.ok === false) return applied
+    }
     try {
       fs.mkdirSync(path.dirname(file), { recursive: true })
       fs.writeFileSync(file, `${JSON.stringify({
         enabled: next.enabled,
-        file: next.file,
-        fit: next.fit,
-        opacity: next.opacity,
-        blur: next.blur,
-        scrim: next.scrim,
-        muted: next.muted
+        main: next.main,
+        dock: next.dock
       }, null, 2)}\n`, 'utf8')
     } catch (error) {
       return { ok: false, reason: `the wallpaper preference could not be written: ${error?.message || error}` }
     }
     cache = next
-    asset = { key: null, kind: null, dataUrl: null, missing: false }
-    log(`wallpaper ${next.enabled && next.file ? `set to ${path.basename(next.file)}` : 'cleared'} (fit ${next.fit}, opacity ${next.opacity}%, blur ${next.blur}px, scrim ${next.scrim}%)`)
+    assets.clear()
+    const summary = WALLPAPER_SURFACES
+      .map((surfaceId) => `${surfaceId}=${next[surfaceId].file ? path.basename(next[surfaceId].file) : 'none'}`)
+      .join(', ')
+    log(`wallpaper set (${summary})${next.enabled ? '' : ' — the master switch is off'}`)
     return describe()
   }
 
@@ -310,86 +447,154 @@ function createWallpaper(options = {}) {
    * The CSS one surface needs.
    *
    * Returning a stylesheet rather than touching a document is what keeps this module free of every
-   * surface's DOM: the dock applies it with a custom property, and the two official views are
-   * handed it through their existing `insertCSS` path. `none` is a complete answer — it is what
-   * every surface is told when there is no wallpaper, so "remove the layer" is the same code path
-   * as "paint it", and cannot be forgotten by one of them.
+   * surface's DOM: the main screen's layer is handed it through an `insertCSS` path, and the dock
+   * draws a real element instead (see `dockLayer`). `none` is a complete answer — it is what the
+   * caller is told when there is nothing to draw, so "remove the layer" is the same code path as
+   * "paint it", and cannot be forgotten.
    *
-   * @param {string} target `dock` | `overlay` | `shell`
+   * @param {string} target `main` | `dock`
    */
   function layerCss(target) {
-    if (!WALLPAPER_TARGETS.includes(target)) throw new Error(`unknown wallpaper target: ${target}`)
+    if (!WALLPAPER_SURFACES.includes(target)) throw new Error(`unknown wallpaper target: ${target}`)
     const state = load()
-    const inlined = state.file ? inline() : { kind: null, dataUrl: null }
+    const surface = state[target]
+    const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
     // The dock is not a CSS layer: it is a real element behind the glass, because that is where a
-    // video can live. Answering `none` here keeps one contract for all three callers.
+    // video can live. Answering `none` here keeps one contract for both callers.
     if (target === 'dock') return 'none'
     // The opacity is the user's, on every surface. A ceiling would be this module deciding how much
     // of their own screen they may cover; the scrim is the readability dial, and it is theirs.
-    if (!state.enabled || !inlined.dataUrl || inlined.kind === 'video') return { image: 'none', opacity: 0, scrim: 0, blur: 0, fit: state.fit }
+    if (!state.enabled || !surface.enabled || !inlined.dataUrl || inlined.kind === 'video') {
+      return { image: 'none', opacity: 0, scrim: 0, blur: 0, fit: surface.fit, kind: inlined.kind || null }
+    }
     return {
       image: `url("${inlined.dataUrl}")`,
-      opacity: state.opacity,
-      scrim: state.scrim,
-      blur: state.blur,
-      fit: state.fit,
+      opacity: surface.opacity,
+      scrim: surface.scrim,
+      blur: surface.blur,
+      fit: surface.fit,
       // A video is a real element with real attributes; the stylesheet cannot describe one, which
       // is why the dock is told separately.
       kind: inlined.kind
     }
   }
 
-  /** Everything the dock's own layer needs, in one object: it is a document, not a stylesheet. */
+  /**
+   * Everything the dock's own layer needs, in one object: it is a document, not a stylesheet.
+   *
+   * From the **dock's** own picture, which is the whole point: the Mega interface can show a
+   * different image from the main screen, and `active: false` (nothing chosen, switched off, or a
+   * file that has gone) is how the dock is told to draw nothing at all rather than keep the last
+   * picture on screen.
+   */
   function dockLayer() {
     const state = load()
-    const inlined = state.file ? inline() : { kind: null, dataUrl: null }
-    if (!state.enabled || !state.file) return { active: false, kind: null, src: null, fit: state.fit, opacity: state.opacity, blur: state.blur, scrim: state.scrim, muted: state.muted }
+    const surface = state.dock
+    const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
+    const settings = {
+      fit: surface.fit,
+      opacity: surface.opacity,
+      blur: surface.blur,
+      scrim: surface.scrim,
+      muted: surface.muted
+    }
+    if (!state.enabled || !surface.enabled || !surface.file) {
+      return { active: false, kind: null, src: null, ...settings, reason: null }
+    }
     return {
       active: Boolean(inlined.dataUrl),
       kind: inlined.kind,
       // A video is fetched by the element itself rather than inlined: a base64 video would be a
       // string the size of the file, and the dock is a document we own, so it may read a path.
-      src: inlined.kind === 'video' ? `file://${state.file.replace(/\\/g, '/')}` : inlined.dataUrl,
-      fit: state.fit,
-      opacity: state.opacity,
-      blur: state.blur,
-      scrim: state.scrim,
-      muted: state.muted,
+      src: inlined.kind === 'video' ? `file://${surface.file.replace(/\\/g, '/')}` : inlined.dataUrl,
+      ...settings,
       reason: inlined.reason || null
     }
   }
 
   /**
-   * The stylesheet the two official surfaces are handed.
+   * Whether the two surfaces are showing the same picture.
    *
-   * It sets the overlay's own wallpaper variables and nothing else, so it never competes with the
-   * theme's stylesheet: that one writes `--ov-tint-*` and its siblings, this one writes
-   * `--ov-wallpaper*`, and the surface manager keeps the two under separate keys so a theme repaint
-   * cannot take the wallpaper with it.
+   * It matters for one thing only, and it is a visual one: when both surfaces have the same file, the
+   * dock's copy is placed against the *window* box and the two meet at the cut as one image. With two
+   * different files that would be wrong — the dock would be showing a slice of its own photograph —
+   * so each then fits its own box.
+   */
+  function sharesPicture() {
+    const state = load()
+    return Boolean(state.main.file && state.dock.file && state.main.file === state.dock.file)
+  }
+
+  /**
+   * The stylesheet the window over the official page is handed.
+   *
+   * It sets the layer's own variables and nothing else, so it never competes with anything else
+   * writing into that document — the shell writes the dock's cut (`--wp-notch-*`) on its own key,
+   * and the two are replaced independently.
    *
    * **The opacity is the user's, unclamped.** A ceiling here would be this module deciding how much
    * of their own screen they are allowed to cover; the scrim is the dial for readability, and it is
    * theirs as well. What is *not* negotiable is everything else: an inline image, because that is
-   * all those documents' policy allows, and `none` for anything they cannot draw.
+   * all that document's policy allows, and `none` for anything it cannot draw.
+   *
+   * **The selector is `:root:root` on purpose, and it is not decoration.** The document carries its
+   * own defaults for these variables, and `insertCSS` does *not* beat them: the inserted sheet sits
+   * before the document's own, so with equal specificity the document wins and the layer draws
+   * nothing (measured: `:root { --probe: X }` inserted into a document that declares `--probe` loses
+   * to the document; the same rule written `:root:root` wins). Doubling the selector is how "the
+   * shell's answer wins over the document's default" is said in one line.
+   *
+   * **The picture is a direct declaration, not a custom property.** A custom property holding a
+   * multi-megabyte `data:` URL is *dropped* by the CSS engine: measured, `--probe: '<1280 KB>'` arrives
+   * and `--probe: '<2048 KB>'` never does (the value comes back empty), while the same bytes in a
+   * `url()` inside a normal declaration arrive and apply at 6 MB. That is the whole difference between
+   * a wallpaper that appears and one that silently does not — and a 2.7 MB photograph is exactly the
+   * size that trips it, while a 15 KB icon is exactly the size that does not.
    */
-  function officialCss() {
-    const layer = layerCss('overlay')
-    const size = fitFor('overlay') === 'tile' ? 'auto' : fitFor('overlay') === 'contain' ? 'contain' : 'cover'
+  function windowCss() {
+    const layer = layerCss('main')
+    const fit = fitFor('main')
+    const size = fit === 'tile' ? 'auto' : fit === 'contain' ? 'contain' : 'cover'
     return [
-      ':root {',
-      `  --ov-wallpaper: ${layer.image};`,
-      `  --ov-wallpaper-opacity: ${(layer.opacity || 0) / 100};`,
-      `  --ov-wallpaper-size: ${size};`,
-      `  --ov-wallpaper-repeat: ${fitFor('overlay') === 'tile' ? 'repeat' : 'no-repeat'};`,
-      `  --ov-wallpaper-blur: ${layer.blur || 0}px;`,
-      `  --ov-wallpaper-scrim: ${(layer.scrim || 0) / 100};`,
-      '}'
+      ':root:root {',
+      `  --wp-opacity: ${(layer.opacity || 0) / 100};`,
+      `  --wp-size: ${size};`,
+      `  --wp-repeat: ${fit === 'tile' ? 'repeat' : 'no-repeat'};`,
+      `  --wp-blur: ${layer.blur || 0}px;`,
+      `  --wp-scrim: ${(layer.scrim || 0) / 100};`,
+      '}',
+      // `!important` because the document's own rule for this element sets the picture from a variable
+      // and sits after an inserted sheet in the cascade: this is the same statement as `:root:root`
+      // above, made against an element rule instead of the root.
+      `#wallpaper { background-image: ${layer.image} !important; }`
     ].join('\n')
   }
 
-  /** The fit in force, which is a property of the wallpaper rather than of one surface. */
-  function fitFor() {
-    return load().fit
+  /**
+   * The fit in force for one surface. The stylesheet needs it in words (`cover`/`contain`/`auto`)
+   * as well as in the payload, and the two must come from the same place.
+   *
+   * @param {string} surfaceId
+   */
+  function fitFor(surfaceId) {
+    return load()[surfaceId].fit
+  }
+
+  /**
+   * Everything the click-through window over the official page needs: the stylesheet it is handed,
+   * and whether there is anything to draw at all. From the **main** surface — that is what the main
+   * screen's backdrop is.
+   *
+   * The second half is not decoration. That layer is a real window, so "nothing to draw" has to be
+   * a decision someone can act on: the shell hides it — and never creates it in the first place —
+   * rather than leaving a transparent window over the official UI for the rest of the session.
+   */
+  function windowLayer() {
+    const state = load()
+    const surface = state.main
+    const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
+    const drawable = Boolean(state.enabled && surface.enabled && inlined.dataUrl && inlined.kind !== 'video')
+    return { css: windowCss(), drawable, kind: inlined.kind || null, reason: inlined.reason || null }
   }
 
   return {
@@ -406,8 +611,10 @@ function createWallpaper(options = {}) {
     present,
     inline,
     layerCss,
-    officialCss,
+    windowCss,
+    windowLayer,
     dockLayer,
+    sharesPicture,
     file
   }
 }
@@ -416,10 +623,11 @@ module.exports = {
   createWallpaper,
   kindOf,
   WALLPAPER_DEFAULT,
+  WALLPAPER_SURFACE_DEFAULT,
   WALLPAPER_LIMITS,
   WALLPAPER_FITS,
   WALLPAPER_KINDS,
-  WALLPAPER_TARGETS,
+  WALLPAPER_SURFACES,
   VIDEO_TARGETS,
   OFFICIAL_OPACITY_CEILING,
   MAX_ASSET_BYTES

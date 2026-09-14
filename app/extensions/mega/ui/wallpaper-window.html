@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  The Wallpaper Window — the user's picture over the whole application interface.
+
+  This document is loaded into a frameless, transparent, never-focused window that is created with
+  `setIgnoreMouseEvents(true)` (see `app/wallpaper-window.cjs`). Everything here is what makes that
+  a background rather than an obstruction:
+
+    no script            there is none, and `script-src 'none'` says so
+    no hit target        `pointer-events: none` on the root and on both layers, so even a build
+                         that somehow lost the window-level setting cannot turn this into a control
+    no network           the only asset policy is `img-src data:`, and the picture arrives as an
+                         inline `data:` image on the stylesheet the shell writes
+    no scroll, no focus  `overflow: hidden`, no tabindex, no form control, nothing focusable
+
+  The picture covers the whole window box. The dock is a view *inside* the main window, so it would
+  sit under this window: its rectangle is cut out of the picture by the polygon below, and the dock
+  draws the same picture itself, aligned to the same window box (`dock.css`) — one picture across
+  the interface, with the glass doing its frosting on the strip. A horizontal cut runs the full
+  width above the dock, because the band the dock yields to the official header is part of the
+  interface too, and a rectangle of unwashed UI next to a washed one reads as a defect.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'">
+<title>DS-Harness wallpaper</title>
+<style>
+  :root {
+    color-scheme: dark;
+    /* What the user chose, written by the shell as its own stylesheet (never by a theme). */
+    /* These are *defaults for a document opened outside the shell*. The shell's own stylesheet is
+       written `:root:root` because `insertCSS` sits before this block in the cascade and would
+       otherwise lose to it at equal specificity — which is how a layer can be handed a picture and
+       still draw nothing. */
+    --wp-opacity: 0;
+    --wp-size: cover;
+    --wp-repeat: no-repeat;
+    --wp-blur: 0px;
+    --wp-scrim: 0;
+    /* Where the dock's own rectangle starts. `100%`/`0px` is "no dock": the polygon degenerates to
+       the whole window, which is what a build without an integrated dock wants. */
+    --wp-notch-x: 100%;
+    --wp-notch-y: 0px;
+    /* The cut itself, in one place so the picture and the scrim cannot disagree about it. The
+       vertices run clockwise around the region that IS drawn: along the top edge, down the right
+       edge to the cut's top, left to the dock's x, down to the bottom, and back along the bottom —
+       which leaves exactly the dock's rectangle (from the cut to the bottom-right corner) out. */
+    --wp-shape: polygon(
+      0 0,
+      100% 0,
+      100% var(--wp-notch-y),
+      var(--wp-notch-x) var(--wp-notch-y),
+      var(--wp-notch-x) 100%,
+      0 100%
+    );
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  /* The picture. `background-size`/`position` describe the whole window box, and the dock's copy
+     of the same picture is placed against that same box, so the two meet at the cut without a
+     seam. */
+  #wallpaper {
+    /* The picture itself arrives as its own `!important` declaration from the shell: it cannot travel
+       as a custom property, because the CSS engine drops a custom property value of a few megabytes
+       (a photograph) while accepting the same bytes in a normal declaration. */
+    background-image: none;
+    background-size: var(--wp-size, cover);
+    background-repeat: var(--wp-repeat, no-repeat);
+    background-position: center;
+    opacity: var(--wp-opacity, 0);
+    filter: blur(var(--wp-blur, 0px));
+    clip-path: var(--wp-shape);
+  }
+  /* The scrim sits between the picture and the official UI: one flat wash, at the user's
+     strength, so a bright wallpaper cannot make the interface unreadable. It is cut with the
+     picture, because the dock washes its own rectangle. */
+  #wallpaper-scrim {
+    background: #000;
+    opacity: var(--wp-scrim, 0);
+    clip-path: var(--wp-shape);
+  }
+</style>
+</head>
+<body data-surface="wallpaper" data-permission="visual-only">
+  <div class="layer" id="wallpaper"></div>
+  <div class="layer" id="wallpaper-scrim"></div>
+</body>
+</html>

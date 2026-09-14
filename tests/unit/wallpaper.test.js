@@ -10,6 +10,7 @@ const {
   createWallpaper,
   kindOf,
   WALLPAPER_DEFAULT,
+  WALLPAPER_SURFACES,
   WALLPAPER_LIMITS,
   OFFICIAL_OPACITY_CEILING,
   MAX_ASSET_BYTES
@@ -26,8 +27,10 @@ const {
  *  * **a missing file is no background**, not a broken view: the layer is told to draw nothing
  *    everywhere, and the path stays on disk so it can be fixed;
  *  * **the official UI keeps the last word**: a wallpaper over it is capped and carries a scrim;
- *  * **only what a surface can carry is sent to it**: a video goes to the dock, because the two
- *    official documents are script-free with an `img-src data:` policy and could not play one.
+ *  * **only what a surface can carry is sent to it**: a video goes to the dock, because the layer over
+ *    the official page is a script-free document with an `img-src data:` policy and could not play one;
+ *  * **the two backdrops are set separately**: what is behind the main screen and what is behind Mega
+ *    are two settings, and the flat shape older callers use means "both".
  */
 
 /** A scratch state file and one real image on disk, since the module reads bytes. */
@@ -86,8 +89,13 @@ test('the wallpaper persists, clamps what it cannot honour, and drops what it ca
     assert.equal(clamped.blur, WALLPAPER_LIMITS.blur.min)
     assert.equal(wallpaper.set({ fit: 'stretch' }).ok, false, 'a fit the stylesheet cannot honour was accepted')
     const stored = JSON.parse(fs.readFileSync(file, 'utf8'))
-    assert.deepEqual(Object.keys(stored).sort(), ['blur', 'enabled', 'file', 'fit', 'muted', 'opacity', 'scrim'])
-    assert.equal(stored.fit, 'contain', 'a refused fit was written anyway')
+    // The file carries the master switch and one block per backdrop; the flat keys the test above
+    // used are the historical shape and mean both.
+    assert.deepEqual(Object.keys(stored).sort(), ['dock', 'enabled', 'main'])
+    assert.deepEqual(Object.keys(stored.main).sort(), ['blur', 'enabled', 'file', 'fit', 'muted', 'opacity', 'scrim'])
+    assert.equal(stored.main.fit, 'contain', 'a refused fit was written anyway')
+    assert.equal(stored.dock.file, image, 'the flat shape did not reach both backdrops')
+    assert.equal(stored.dock.fit, 'contain')
 
     // A second reader sees the same state, and a video is a video.
     const reread = createWallpaper({ root: dir }).describe()
@@ -113,7 +121,68 @@ test('the wallpaper persists, clamps what it cannot honour, and drops what it ca
   }
 })
 
-test('the dock gets a source, and the official surfaces get a capped stylesheet', () => {
+test('the two backdrops are set separately, and a flat patch still means both', () => {
+  const { dir, image, video, dispose } = scratch()
+  try {
+    const wallpaper = createWallpaper({ root: dir, log: () => {} })
+    const other = path.join(dir, 'other.png')
+    fs.copyFileSync(image, other)
+
+    // The main screen takes one picture, Mega keeps its own: neither write touches the other.
+    const mainOnly = wallpaper.set({ main: { file: image, opacity: 20, fit: 'contain', scrim: 10 } })
+    assert.equal(mainOnly.main.file, image)
+    assert.equal(mainOnly.main.opacity, 20)
+    assert.equal(mainOnly.dock.file, null, 'setting the main screen also set Mega')
+    assert.equal(mainOnly.dock.drawable, false)
+    assert.equal(mainOnly.shared, false, 'two surfaces with one picture between them are not "shared"')
+    // The top level describes the main screen — what every older caller asks about.
+    assert.equal(mainOnly.file, image)
+    assert.equal(mainOnly.drawable, true)
+    assert.equal(wallpaper.dockLayer().active, false, 'Mega drew a picture nobody gave it')
+    assert.match(wallpaper.layerCss('main').image, /^url\("data:image\/png;base64,/)
+    assert.equal(wallpaper.layerCss('dock'), 'none', 'the dock is a document; it is told by its own call')
+    assert.equal(wallpaper.dockLayer().fit, 'cover', 'Mega inherited a fit it was not given')
+
+    const dockOnly = wallpaper.set({ dock: { file: other, opacity: 80, fit: 'tile', scrim: 0, muted: false } })
+    assert.equal(dockOnly.main.file, image, 'setting Mega moved the main screen')
+    assert.equal(dockOnly.main.opacity, 20)
+    assert.equal(dockOnly.dock.file, other)
+    assert.equal(dockOnly.dock.opacity, 80)
+    assert.equal(dockOnly.dock.muted, false)
+    assert.equal(wallpaper.dockLayer().active, true)
+    assert.equal(wallpaper.dockLayer().fit, 'tile')
+    assert.equal(dockOnly.shared, false, 'two different pictures are not shared')
+
+    // The same file on both surfaces is the case where the two copies are drawn as one image.
+    const together = wallpaper.set({ dock: { file: image } })
+    assert.equal(together.shared, true)
+    assert.equal(together.main.file, together.dock.file)
+
+    // Clearing one backdrop leaves the other alone.
+    const clearedDock = wallpaper.set({ dock: { file: '' } })
+    assert.equal(clearedDock.dock.file, null)
+    assert.equal(clearedDock.main.file, image)
+    assert.equal(wallpaper.dockLayer().active, false)
+
+    // The flat shape (what every caller before the split used) is "both".
+    const flat = wallpaper.set({ file: video })
+    assert.equal(flat.main.kind, 'video')
+    assert.equal(flat.dock.kind, 'video')
+    assert.equal(flat.shared, true)
+    assert.equal(flat.drawable, false, 'the main screen was told to draw a video it cannot play')
+    assert.equal(wallpaper.dockLayer().kind, 'video')
+    assert.match(wallpaper.dockLayer().src, /^file:\/\//, 'a video was inlined as a data URL')
+    assert.match(wallpaper.describe().note || '', /Mega only/)
+
+    // A file that is no longer a wallpaper is refused per surface, and nothing is written.
+    assert.equal(wallpaper.set({ main: { file: path.join(dir, 'nope.png') } }).ok, false)
+    assert.equal(wallpaper.set({ dock: { fit: 'stretch' } }).ok, false)
+  } finally {
+    dispose()
+  }
+})
+
+test('the dock gets a source and the main screen gets a stylesheet, from their own pictures', () => {
   const { dir, image, video, dispose } = scratch()
   try {
     const wallpaper = createWallpaper({ root: dir, log: () => {} })
@@ -126,36 +195,53 @@ test('the dock gets a source, and the official surfaces get a capped stylesheet'
     assert.match(dock.src, /^data:image\/png;base64,/, 'the dock was handed a path instead of the same inline asset the official surfaces get')
     assert.equal(dock.muted, true)
 
-    for (const target of ['overlay', 'shell']) {
-      const layer = wallpaper.layerCss(target)
-      assert.match(layer.image, /^url\("data:image\/png;base64,/)
-      // The opacity is the user's, on every surface. A ceiling here would be this module deciding
-      // how much of their own screen they may cover; the scrim is the readability dial.
-      assert.equal(layer.opacity, 90, `${target} overrode the user's opacity`)
-      assert.equal(layer.scrim, 30)
-      assert.equal(layer.blur, 6)
-    }
+    const layer = wallpaper.layerCss('main')
+    assert.match(layer.image, /^url\("data:image\/png;base64,/)
+    // The opacity is the user's, on every surface. A ceiling here would be this module deciding
+    // how much of their own screen they may cover; the scrim is the readability dial.
+    assert.equal(layer.opacity, 90, 'the window over the official page overrode the user\'s opacity')
+    assert.equal(layer.scrim, 30)
+    assert.equal(layer.blur, 6)
+
+    // What the window is handed, and whether there is anything to draw at all: the second half is
+    // what keeps an empty transparent window off the screen.
+    const described = wallpaper.windowLayer()
+    assert.equal(described.drawable, true)
+    // `:root:root`, not `:root`: the document ships defaults for these variables, and insertCSS
+    // loses to them at equal specificity — a layer handed a stylesheet that it cannot apply is a
+    // layer that draws nothing.
+    assert.match(described.css, /^:root:root \{/, 'the layer\'s stylesheet loses to the document\'s own defaults')
+    assert.match(described.css, /--wp-opacity: 0\.9;/)
+    assert.match(described.css, /--wp-size: cover;/)
+    assert.match(described.css, /--wp-scrim: 0\.3;/)
+    // The picture is a direct declaration. A custom property holding a multi-megabyte `data:` URL is
+    // dropped by the CSS engine (measured: it arrives at 1.25 MB and never at 2 MB), so a photograph
+    // set through one is a wallpaper that silently never appears.
+    assert.match(described.css, /#wallpaper \{ background-image: url\("data:image\/png;base64,[^"]+"\) !important; \}/)
+    assert.equal(/--wp-image/.test(described.css), false, 'the picture is a custom property again')
 
     // A video is a real element with real attributes, and the two official documents are
     // script-free with an `img-src data:` policy: there is no shape of CSS that plays one.
     wallpaper.set({ file: video })
     assert.equal(wallpaper.dockLayer().kind, 'video')
     assert.match(wallpaper.dockLayer().src, /^file:\/\//, 'a video was inlined as a data URL')
-    for (const target of ['overlay', 'shell']) {
-      const layer = wallpaper.layerCss(target)
-      assert.equal(layer.image, 'none', `${target} was told to draw a video it cannot play`)
-      assert.equal(layer.opacity, 0)
-    }
-    assert.match(wallpaper.describe().note || '', /dock only/)
+    const videoLayer = wallpaper.layerCss('main')
+    assert.equal(videoLayer.image, 'none', 'the window was told to draw a video it cannot play')
+    assert.equal(videoLayer.opacity, 0)
+    assert.equal(wallpaper.windowLayer().drawable, false, 'a video was offered to the window that cannot play it')
+    assert.match(wallpaper.describe().note || '', /Mega only/)
+    assert.deepEqual(wallpaper.describe().surfaces, ['main', 'dock'])
 
     // Switching it off is a complete answer too, on every surface at once.
     wallpaper.set({ enabled: false })
     assert.equal(wallpaper.dockLayer().active, false)
-    assert.equal(wallpaper.layerCss('overlay').image, 'none')
-    assert.equal(wallpaper.layerCss('dock'), 'none', 'the dock is a document; it is told by its own call')
+    assert.equal(wallpaper.layerCss('main').image, 'none')
+    assert.equal(wallpaper.windowLayer().drawable, false)
+    assert.equal(wallpaper.dockLayer().active, false, 'the master switch did not reach Mega')
 
     assert.throws(() => wallpaper.layerCss('official_renderer'), /unknown wallpaper target/)
     assert.ok(MAX_ASSET_BYTES > 0)
+    assert.deepEqual(WALLPAPER_SURFACES, ['main', 'dock'])
   } finally {
     dispose()
   }
@@ -172,6 +258,8 @@ test('the layer cannot intercept the UI, script it, or outlive its file', () => 
   const css = read('app/extensions/mega/ui/dock.css')
   const html = read('app/extensions/mega/ui/dock.html')
   const layer = read('app/extensions/mega/ui/wallpaper-layer.js')
+  const windowDocument = read('app/extensions/mega/ui/wallpaper-window.html')
+  const windowModule = read('app/wallpaper-window.cjs')
   const index = read('app/extensions/mega/index.cjs')
   const preload = read('app/extensions/mega/ui/preload.cjs')
 
@@ -192,6 +280,33 @@ test('the layer cannot intercept the UI, script it, or outlive its file', () => 
   // It belongs to the whole dock window, the rail included, so it is a child of the body.
   const head = html.slice(html.indexOf('<body'), html.indexOf('<aside id="rail"'))
   assert.match(head, /id="wallpaper"/, 'the wallpaper is inside the scrolling panel column instead of the window')
+  // The dock shows one *part* of a picture that covers the whole window: its copy is placed
+  // against the same window box, using the origin the shell reports for this view.
+  assert.match(rule[1], /left:calc\(-1 \* var\(--hns-wallpaper-origin-x,0px\)\)/, 'the dock\'s copy of the picture is not aligned to the window')
+  assert.match(rule[1], /width:calc\(100% \+ var\(--hns-wallpaper-origin-x,0px\)\)/)
+  assert.match(layer, /--hns-wallpaper-origin-x/, 'the frame the shell reports never reaches the stylesheet')
+  // ...but only while the two backdrops are the *same* picture. Aligning two different pictures to
+  // one box would put a fragment of Mega's own photograph in the strip.
+  assert.match(index, /wallpaper\(\)\.sharesPicture\(\) \? dockWallpaperFrame\(\) : null/, 'Mega\'s own picture would be aligned to the window box')
+  // The scope selector is how the two backdrops are set separately; the markup and the panel agree.
+  assert.match(html, /id="wallpaperScope"/)
+  assert.match(html, /<option value="main">/)
+  assert.match(html, /<option value="dock">/)
+  const panel = read('app/extensions/mega/ui/appearance-panel.js')
+  assert.match(panel, /function wallpaperPatch\(values\)/, 'the panel has no way to write one backdrop')
+  assert.match(panel, /api\.pick\(\{ scope: wallpaperScope \}\)/, 'the file chooser is not told which backdrop it is for')
+
+  // The layer over the official page is a WINDOW, and it takes no input: a view above that page is
+  // a real hit target in this Electron build, which is what swallowed the official UI's clicks.
+  assert.match(windowModule, /setIgnoreMouseEvents\(value, \{ forward: false \}\)/, 'the layer over the official page is not mouse-transparent')
+  assert.match(windowModule, /focusable: false/, 'the layer over the official page could take the keyboard')
+  assert.match(windowModule, /if \(!mouseTransparent\)/, 'the layer would be shown even when the build refused to make it input-transparent')
+  assert.match(windowModule, /showInactive\(\)/, 'the layer activates a window when it appears')
+  assert.match(windowModule, /--wp-notch-x/, 'the dock\'s rectangle is not cut out of the picture')
+  assert.equal(/executeJavaScript|insertCSS\(/.test(windowDocument), false)
+  assert.equal(/<script/.test(windowDocument), false, 'the wallpaper window document gained a script')
+  assert.match(windowDocument, /script-src 'none'/, 'the wallpaper window document no longer forbids scripts')
+  assert.match(windowDocument, /pointer-events: none/, 'the wallpaper window document can be a hit target')
 
   // A video nobody can see does not need frames.
   assert.match(layer, /if \(typeof video\.pause === 'function'\) video\.pause\(\)/, 'a video left the layer without being paused')

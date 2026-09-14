@@ -3,6 +3,61 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## wallpaper — 壁纸真的垫在整个界面上，而官方 UI 仍然可点
+
+**修的是一个用户直接感受到的缺陷：设了壁纸之后，官方 UI 点不动了。** 上一轮的壁纸层是一个压在官方
+页面之上的 `WebContentsView`。本构建（Electron 43.4.0）的 `View`/`WebContentsView` **没有任何输入
+API** —— `setIgnoreMouseEvents` 只存在于 `BrowserWindow`/`BaseWindow`（`View` 一共 9 个方法，实测列表见
+`scripts/wallpaper-hit-test.cjs` 的运行输出）—— 所以那一层画得完全正确，同时吃掉了官方 UI 的每一次
+点击：点击、滚轮、选区全部落进它的矩形，而它自己没有控件，于是什么都不发生。原有验收看不见这件事：
+它用 CDP 把事件直接注入官方渲染器，**绕过了窗口层的命中测试**，对"视图吃掉点击"这一类缺陷是盲的。
+
+**修法是换形状，不是加开关。** 壁纸现在是 `app/wallpaper-window.cjs`：无边框、透明、不可聚焦、
+不占任务栏、`showInactive()` 的子窗口，创建时 `setIgnoreMouseEvents(true)`，并带一条硬互锁 ——
+**构建一旦拒绝让它穿透输入，它就永不上屏**（"能吃掉点击的一层"比"没有壁纸"更糟）。它只画官方页面
+之上需要的那一层：整幅图片与压暗；Dock 自己的矩形被 `clip-path` 从这幅图里切掉，由 Dock 用同一套
+窗口坐标自己画（`--hns-wallpaper-origin-*`），所以 Dock 边界两边的图片是**同一张**、接着的，而不是
+两张不同裁切的图。窗口是懒创建的：没有图片就没有窗口。
+
+**顺带修掉一个更安静、也更根本的缺陷：图片其实从来没画上去过。** `insertCSS` 插进来的样式表排在
+文档自己的样式表**之前**，所以文档里那句 `:root { --wp-image: none }`（和其它默认值）以同等优先级
+赢了被插入的答案 —— 壁纸被正确读取、正确编码、正确交给那一层，然后被文档的默认值覆盖掉。修法是
+一行：shell 写的选择器是 `:root:root`（同源、同重要级，更高的优先级），并在两处都写清为什么。
+这条同样是实测出来的：普通 `:root` 插入输给文档，`:root:root` 插入赢。官方外壳/覆盖层的主题样式
+（`official-surface-views.cjs`）用的是同一个机制，因此同样被修正。
+
+**换一张大图只有 Mega 会变，也是同一个 bug 家族 —— 而且这次是图片自己太大。** 图片原本通过一个
+CSS 自定义属性传给主屏幕那一层（`--wp-image: url("data:…")`）。实测：自定义属性的值在 **1.25 MB 能到、
+2 MB 到不了**（读回来是空的），而同样几兆字节放进一条普通声明的 `url()` 里，6 MB 也能到并生效。于是
+一张 2.7 MB 的照片会让 `background-image: var(--wp-image)` 在计算时变成非法、回退成 `none`：主屏幕
+什么都不画，而 Mega 照常变 —— 因为 Dock 是把图片直接设在元素上的。修法：图片改成**直接声明**
+（`#wallpaper { background-image: url(… ) !important }`），不再经过自定义属性。
+
+**主屏幕与 Mega 的底片现在分别设置。** 状态文件从"一张图一套参数"变成
+`{ enabled, main: {…}, dock: {…} }`：主屏幕（官方界面之上那一层，Dock 的矩形被切掉）和 Mega（侧栏自己
+画的那一张）各有自己的文件、填充方式、不透明度、模糊、压暗，某一侧没有图片（`null`）就是"这一侧不画"。
+外观面板的壁纸卡片多了一个**作用范围**选择器：`两处一起 / 主屏幕 / Mega 界面`，下面的选择文件与滑杆
+都作用于选中的范围。**旧的状态文件仍然照旧工作**：一张图一套参数的形状被读成"两侧都继承它"，
+而扁平的调用（`set({ file })`）也仍然表示"两处一起"，所以旧面板代码和验收脚本没有被抛下。
+两张不同的图时，Dock **不再**按整窗坐标对齐（那会让侧栏显示自己那张照片的一个碎片），而是按侧栏自己的
+框铺满；只有当两侧是同一张图时，它们才拼成一整张、在切口处接得上。
+
+**"完整垫在整个应用界面"现在是真的**：图片以窗口内容框为基准 `cover`/`contain`/`tile`，覆盖整个界面
+——包括官方 UI，以及 Dock 让给官方标题栏的那条带；Dock 只在自己的矩形里负责它那一块。`DSH_OFFICIAL_OVERLAY=0`
+仍然是"官方界面之上什么都不画"。
+
+**验证**：新增一对可运行的验收工具（两个都只用自己的临时状态文件，绝不碰用户自己的壁纸设置）。
+`scripts/wallpaper-hit-test.cjs`（配 `scripts/hit-test-window.ps1`）
+用 Windows 自己的
+`WindowFromPoint`（它会跳过对鼠标透明的窗口）做三步实测：① 没有层时命中官方页面；② 层在上且
+`setIgnoreMouseEvents(true)` 时**仍然**命中官方页面；③ 把同一个窗口的穿透关掉后，命中的就是那一层
+本身 —— ③ 是否定对照，它让 ② 成为测量而不是巧合。`scripts/wallpaper-render-acceptance.cjs` 用真实
+模块跑"画上去"这一半：`wallpaper.cjs` 生成样式表 → `wallpaper-window.cjs` 上屏 → 读回文档的计算样式
+（图片、不透明度、`clip-path` 顶点顺序）→ 把那一层截图逐像素映射成形状（上面整幅、Dock 矩形为空），
+然后**再换一张 2.7 MB 的照片重来一遍**：这一半正是"小图标能画、大照片默默不画"的唯一检查点。
+两个工具当前都是 PASS（退出码 0）。单测另外钉住互锁、`focusable:false`、文档无脚本、窗口坐标对齐、
+`clip-path` 的顶点顺序、两个底片互不影响、"同一张图才按整窗对齐"，以及"没有图片就没有窗口"。
+
 ## plugins — 插件化运行时与单任务加速（Update-Plan/accleration.md）
 
 **DS-Hns 从"靠 require 互相引用的一堆功能"变成"可插拔的能力平台"，并在同一任务内加速。**

@@ -79,6 +79,8 @@ function loadPanel(options = {}) {
   // The panel needs its markup to exist, or `attach()` correctly refuses to attach.
   if (options.withMarkup !== false) {
     for (const id of ['appearancePanel', 'glassRow', 'glassEnabled', 'glassBlur', 'glassOpacity', 'glassBlurValue', 'glassOpacityValue', 'glassStatus', 'glassMessage']) element(id)
+    // The wallpaper card, which is a second set of controls in the same panel.
+    for (const id of ['wallpaperRow', 'wallpaperEnabled', 'wallpaperName', 'wallpaperScope', 'wallpaperFit', 'wallpaperOpacity', 'wallpaperBlur', 'wallpaperScrim', 'wallpaperOpacityValue', 'wallpaperBlurValue', 'wallpaperScrimValue', 'wallpaperPick', 'wallpaperClear']) element(id)
   }
   const calls = []
   const window = { document }
@@ -92,6 +94,18 @@ function loadPanel(options = {}) {
           const base = options.initial || { enabled: true, blur: 18, opacity: 62 }
           return { ok: true, ...base, ...patch }
         },
+        onChanged: () => {}
+      }
+    }
+    if (options.wallpaper) {
+      window.megaTools.wallpaper = {
+        describe: async () => options.wallpaper,
+        layer: async () => options.wallpaper,
+        set: async (patch) => {
+          calls.push(patch)
+          return options.wallpaper
+        },
+        pick: async () => ({ ok: false, canceled: true }),
         onChanged: () => {}
       }
     }
@@ -174,6 +188,48 @@ test('a change made anywhere else lands on these controls too', async () => {
   assert.equal(element('glassBlur').value, '9')
   assert.equal(element('glassOpacity').value, '88')
   assert.equal(element('glassOpacityValue').textContent, '88')
+})
+
+test('the wallpaper card edits the backdrop its scope names, and only that one', async () => {
+  const state = {
+    ok: true,
+    enabled: true,
+    main: { enabled: true, file: 'C:/pictures/main.png', name: 'main.png', kind: 'image', present: true, fit: 'cover', opacity: 55, blur: 0, scrim: 35 },
+    dock: { enabled: true, file: null, name: null, kind: null, present: true, fit: 'contain', opacity: 80, blur: 4, scrim: 10 }
+  }
+  const { panel, element, calls } = loadPanel({ wallpaper: state })
+  const attached = panel.attach()
+  await attached.refresh()
+
+  // With the scope on "both" the card shows the main screen (what one picture meant), and a write is
+  // the flat shape — which the shell reads as "both".
+  assert.equal(element('wallpaperScope').value, 'both')
+  assert.equal(element('wallpaperName').textContent, 'main.png · image')
+  assert.equal(element('wallpaperOpacity').value, '55')
+  element('wallpaperOpacity').value = '70'
+  await element('wallpaperOpacity').fire('change')
+  assert.deepEqual(calls[calls.length - 1], { opacity: 70 })
+
+  // Switching the scope to Mega re-renders from Mega's own block: no file, its own numbers.
+  element('wallpaperScope').value = 'dock'
+  element('wallpaperScope').fire('change')
+  assert.equal(element('wallpaperName').textContent, '未选择 · none chosen')
+  assert.equal(element('wallpaperOpacity').value, '80')
+  assert.equal(element('wallpaperFit').value, 'contain')
+  assert.equal(element('wallpaperClear').disabled, true, 'clearing is offered for a backdrop with no picture')
+
+  // And a write then lands on Mega alone.
+  element('wallpaperOpacity').value = '30'
+  await element('wallpaperOpacity').fire('change')
+  assert.deepEqual(calls[calls.length - 1], { dock: { opacity: 30 } })
+  element('wallpaperFit').value = 'tile'
+  await element('wallpaperFit').fire('change')
+  assert.deepEqual(calls[calls.length - 1], { dock: { fit: 'tile' } })
+
+  // Clearing clears the backdrop the scope names, not the other one.
+  element('wallpaperClear').fire('click')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(calls[calls.length - 1], { dock: { file: '' } })
 })
 
 test('a page without the glass layer gets a message, not a broken panel', () => {

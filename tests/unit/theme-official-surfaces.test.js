@@ -318,33 +318,29 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // The official view is created first (centre), then the surfaces...
   assert.match(main, /await createOfficialHarnessView\(readyUrl\)/)
   assert.match(main, /await createOfficialSurfaces\(\)/)
-  // ...and the shell is created by default. The overlay is no longer a *theme* surface — nothing
-  // hands it a theme payload's effects — but it is created, for the one thing that cannot be drawn
-  // anywhere else: the user's wallpaper. Every other surface DS-Hns owns is either behind the
-  // official page or a strip beside it, and a background has to be over the page to be seen at all.
-  // It stays opt-*out*, so a run that would rather not have a view above the official renderer can
-  // still say so.
-  // ...and there are exactly two ways the overlay comes into being, one per build, each behind its
-  // own guard:
+  // ...and the layer above the official page is a **window, not a view**, because that is the one
+  // shape this Electron build can make input-transparent. A `WebContentsView` stacked above the page
+  // is a real hit target (`View` exposes no input API at all), which is exactly how the official UI
+  // became unclickable while a wallpaper was set: the layer was there, drawn correctly, and swallowing
+  // every click that landed on it. The integrated build therefore creates no view above the page —
+  // the wallpaper is a click-through window (`app/wallpaper-window.cjs`) that the shell places over
+  // the window's content box and cuts the dock's own rectangle out of.
   //
-  //   * **the official UI is the window's page** (the shipped, integrated build) — the shell and the
-  //     theme's overlay are not built, because there is no protected sibling to frame and nothing is
-  //     themed; what *is* built is the wallpaper view, sized to the whole window and taking no theme
-  //     payload at all (`wallpaperOnly`), because a background is the one thing that cannot be drawn
-  //     anywhere else: the shell sits behind that page and the dock is a strip beside it;
-  //   * **a separate official view** — the shell is framed and the overlay may be switched on as a
-  //     theme surface, which stays opt-in.
-  //
-  // Either way it is opt-*out* as a whole: DSH_OFFICIAL_OVERLAY=0 means no view above the official
-  // page, which is the property the retirement was protecting.
+  // It stays opt-*out*: DSH_OFFICIAL_OVERLAY=0 means nothing above the official renderer, which is
+  // the property the overlay's retirement was protecting.
+  assert.match(main, /return createWallpaperLayer\(\)/, 'the integrated build does not create the wallpaper layer')
+  assert.match(main, /const \{ createWallpaperWindow \} = require\('\.\/wallpaper-window\.cjs'\)/)
+  assert.match(main, /let wallpaperLayer = null/)
+  assert.match(main, /wallpaperLayer\?\.destroy\?\.\(\)/, 'the wallpaper layer outlives the shell')
+  assert.equal(/wallpaperOnly/.test(main), false, 'a view above the official page came back')
+  assert.equal(/paintWallpaper/.test(main), false, 'the wallpaper is painted into a surface again')
   assert.match(main, /official_shell view attached \(visual-only, input passthrough\)/)
   assert.match(main, /const OFFICIAL_OVERLAY_ENABLED = process\.env\.DSH_OFFICIAL_OVERLAY !== '0'/)
   assert.match(main, /if \(OFFICIAL_OVERLAY_ENABLED\) \{\n\s*officialSurfaces\.createOverlay\(\)/)
-  assert.match(main, /wallpaperOnly: true[\s\S]{0,500}officialSurfaces\.createOverlay\(\)/, 'the integrated build does not create the wallpaper view')
-  assert.match(main, /official_overlay attached as the wallpaper view \(whole window, input-transparent, script-free, takes no theme\)/)
+  assert.match(main, /official_overlay attached for the user wallpaper \(input-transparent, script-free\); it takes no theme effect/)
   const surfacesFactory = main.slice(main.indexOf('async function createOfficialSurfaces('), main.indexOf('async function createIntegratedMegaDock'))
   const overlayCalls = surfacesFactory.match(/officialSurfaces\.createOverlay\(\)/g) || []
-  assert.equal(overlayCalls.length, 2, 'the overlay is created once per build, each inside its own guard')
+  assert.equal(overlayCalls.length, 1, 'the overlay view has one creation site left, and it is the legacy build\'s')
   // ...and the extension receives an adapter whose only operation is a paint.
   assert.match(main, /function createOfficialSurfaceAdapter\(\)/)
   assert.match(main, /officialSurfaceAdapter,/)
@@ -352,6 +348,10 @@ test('the shell wires the surfaces around the official view and hands over an ad
   assert.match(adapter, /paint: \(payload, placement = null\) =>/)
   assert.match(adapter, /reset: \(\) =>/)
   assert.match(adapter, /officialBounds: \(\) =>/)
+  // The wallpaper travels through the same adapter, and it is the adapter that decides what the
+  // layer is told: the stylesheet, and whether there is anything to draw at all.
+  assert.match(adapter, /wallpaper: \(css, options = \{\}\) =>/)
+  assert.match(adapter, /wallpaperLayer\.paint\(typeof css === 'string' \? css : '', \{ drawable: options\?\.drawable !== false \}\)/)
   // The adapter never exposes the official webContents or an injection API.
   for (const forbidden of ['executeJavaScript', 'insertCSS', 'officialView.webContents']) {
     assert.equal(adapter.includes(forbidden), false, `the surface adapter must not expose ${forbidden}`)

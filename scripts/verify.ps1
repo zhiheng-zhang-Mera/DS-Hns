@@ -91,6 +91,18 @@ Check 'Official overlay is input-transparent and never focusable' (($officialSur
 Check 'Official surface manager never reaches into, or scripts, the official renderer' ((-not ($officialSurfaces -match 'officialView\.webContents|executeJavaScript')) -and ($officialSurfaces -match 'getBounds'))
 Check 'Official shell document exists and carries no script' ((Test-Path "$ROOT\app\extensions\mega\ui\hns-shell.html") -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\hns-shell.html" -Raw) -match '<script')))
 Check 'Official overlay document exists and carries no script' ((Test-Path "$ROOT\app\extensions\mega\ui\official-overlay.html") -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\official-overlay.html" -Raw) -match '<script')))
+# ---- the wallpaper layer: a click-through window, never a view ----
+# A view above the official page is a real hit target in this Electron build (`View` has no input
+# API at all), which is how the official UI became unclickable while a wallpaper was set. The
+# wallpaper is therefore a window, it must be mouse-transparent, and it must refuse to appear when
+# that cannot be arranged.
+$wallpaperWindow = Get-Content "$ROOT\app\wallpaper-window.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Wallpaper layer is a window with an input API' (($wallpaperWindow -match 'setIgnoreMouseEvents\(value, \{ forward: false \}\)') -and ($wallpaperWindow -match 'focusable: false'))
+Check 'Wallpaper layer refuses to show itself when it cannot be made click-through' ($wallpaperWindow -match 'if \(!mouseTransparent\)')
+Check 'Wallpaper window document exists and carries no script' ((Test-Path "$ROOT\app\extensions\mega\ui\wallpaper-window.html") -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\wallpaper-window.html" -Raw) -match '<script')))
+Check 'The shell never stacks a view over the official page for the wallpaper' (((Get-Content "$ROOT\app\desktop-main.cjs" -Raw) -match 'return createWallpaperLayer\(\)') -and (-not ((Get-Content "$ROOT\app\desktop-main.cjs" -Raw) -match 'wallpaperOnly|paintWallpaper')))
+Check 'Wallpaper hit-test acceptance exists and drives the OS hit test' ((Test-Path "$ROOT\scripts\wallpaper-hit-test.cjs") -and (Test-Path "$ROOT\scripts\hit-test-window.ps1") -and ((Get-Content "$ROOT\scripts\wallpaper-hit-test.cjs" -Raw) -match 'WindowFromPoint'))
+Check 'Wallpaper render acceptance exists and reads back the computed cut' ((Test-Path "$ROOT\scripts\wallpaper-render-acceptance.cjs") -and ((Get-Content "$ROOT\scripts\wallpaper-render-acceptance.cjs" -Raw) -match 'capturePage'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

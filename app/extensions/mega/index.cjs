@@ -22,6 +22,9 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
+// The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
+// The module itself is built lazily; this list is needed by the file chooser's scope.
+const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
 // The store's GitHub settings are validated by the same helpers the channel builds its requests
 // with, so a value the shell accepts is a value the store can use.
 const {
@@ -1711,20 +1714,54 @@ function wallpaper() {
   return wallpaperState
 }
 
+/**
+ * What the dock draws, plus where the dock is.
+ *
+ * The same picture on both surfaces covers the whole window, and the dock's own rectangle is cut out
+ * of the layer that covers the official page (the dock's view is *under* that layer, so it has to
+ * draw the picture itself or it would be covered by it). For the two to read as *one* picture, the
+ * dock's copy has to be placed against the same window box, which means knowing where the dock sits
+ * in the window — and that is the shell's geometry, handed to this extension through the dock adapter.
+ *
+ * **Different pictures means no frame.** If Mega has a wallpaper of its own, the dock must fit it to
+ * the dock, not show the slice of it that the window box would give — aligning two *different* images
+ * to one box is how a strip of interface ends up displaying a fragment of its own photograph.
+ *
+ * An unknown rectangle is not an error: the document falls back to its own box, which is what a
+ * dock that is not part of the main window (the legacy companion window) has always done.
+ */
+function dockWallpaperFrame() {
+  const bounds = dockTarget.getBounds()
+  if (!bounds) return null
+  return { x: Math.round(Number(bounds.x) || 0), y: Math.round(Number(bounds.y) || 0) }
+}
+
+/** Everything the dock's own layer needs in one push. */
+function wallpaperLayerPayload() {
+  const layer = wallpaper().dockLayer()
+  const frame = wallpaper().sharesPicture() ? dockWallpaperFrame() : null
+  return frame ? { ...layer, frame } : layer
+}
+
 /** Push the wallpaper to the dock: it is a real element there, not a stylesheet. */
 function pushWallpaper() {
   try {
-    dockTarget.send('mega:wallpaper-changed', wallpaper().dockLayer())
+    dockTarget.send('mega:wallpaper-changed', wallpaperLayerPayload())
   } catch (error) {
     log(`could not push the wallpaper: ${error?.message || error}`)
   }
-  // The official surfaces take the image and nothing else — they are script-free documents whose
-  // policy allows an inline image — so what they are handed is the stylesheet the module builds for
-  // them, and a video (or no wallpaper at all) is answered with the same "draw nothing".
+  // The layer over the official page takes the image and nothing else — a script-free document
+  // whose policy allows an inline image — so what it is handed is the stylesheet the module builds
+  // for it, and a video (or no wallpaper at all) is answered with the same "draw nothing". That
+  // answer travels with the stylesheet, because the layer is a window: an empty one has to be
+  // taken off the screen rather than left there.
   try {
-    if (typeof officialSurfaceTarget.wallpaper === 'function') officialSurfaceTarget.wallpaper(wallpaper().officialCss())
+    if (typeof officialSurfaceTarget.wallpaper === 'function') {
+      const layer = wallpaper().windowLayer()
+      officialSurfaceTarget.wallpaper(layer.css, { drawable: layer.drawable })
+    }
   } catch (error) {
-    log(`the wallpaper could not reach the official surfaces: ${error?.message || error}`)
+    log(`the wallpaper could not reach the layer over the official UI: ${error?.message || error}`)
   }
 }
 
@@ -1742,14 +1779,24 @@ function registerWallpaperIpc() {
   // What the dock itself draws: a `data:` URL for an image, a `file:` URL for a video, and the
   // attributes a real element needs. It is a separate answer from `describe()` because the panel's
   // view carries limits and vocabulary the document has no use for.
-  ipcMain.handle('mega:wallpaper-layer', guard(() => wallpaper().dockLayer()))
+  ipcMain.handle('mega:wallpaper-layer', guard(() => wallpaperLayerPayload()))
   ipcMain.handle('mega:wallpaper-set', guard((_event, payload = {}) => {
     const result = wallpaper().set(payload || {})
     if (result.ok !== false) pushWallpaper()
     return result
   }))
-  // The file chooser is the shell's, so the renderer never handles a path it could act on.
-  ipcMain.handle('mega:wallpaper-pick', guard(async () => {
+  /**
+   * The file chooser, for one surface or for both.
+   *
+   * The dialog is the shell's, so the renderer never handles a path it could act on. Which surface the
+   * chosen file lands on is the panel's scope — "两处一起 / both" writes the flat shape, which the
+   * module reads as both surfaces, and a scope of `main` or `dock` writes just that one. Choosing a
+   * file also switches the picture on: a file that is picked and then not drawn would be a control
+   * that did nothing.
+   */
+  ipcMain.handle('mega:wallpaper-pick', guard(async (_event, payload = {}) => {
+    const scope = payload && typeof payload === 'object' && payload.scope ? String(payload.scope) : 'both'
+    const target = scope === 'both' || WALLPAPER_SURFACES.includes(scope) ? scope : 'both'
     const picked = await dialog.showOpenDialog(ctx.mainWindow, {
       title: bilingualTitle('选择壁纸（图片或视频）', 'Choose a wallpaper (image or video)'),
       properties: ['openFile'],
@@ -1760,7 +1807,10 @@ function registerWallpaperIpc() {
       ]
     })
     if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true }
-    const result = wallpaper().set({ file: picked.filePaths[0], enabled: true })
+    const chosen = picked.filePaths[0]
+    const result = target === 'both'
+      ? wallpaper().set({ enabled: true, file: chosen, main: { enabled: true }, dock: { enabled: true } })
+      : wallpaper().set({ enabled: true, [target]: { file: chosen, enabled: true } })
     if (result.ok !== false) pushWallpaper()
     return result
   }))
@@ -1923,6 +1973,20 @@ function registerThemeIpc(engine) {
             ready: (overlayState.surfaces || []).some((surface) => surface.id === 'official_shell' && surface.ready),
             bounds: (overlayState.surfaces || []).find((surface) => surface.id === 'official_shell')?.bounds || null
           },
+      /**
+       * The layer the user's wallpaper is drawn in — a click-through *window* over the official page.
+       *
+       * It is reported here, beside the two theme surfaces, because it is the third thing that can be
+       * over the official UI and the only one acceptance has to be able to ask about directly: a view
+       * up there takes every click, and this one must not. `input` is the shell's own answer, and
+       * `available: false` (no wallpaper set, or the layer switched off) is a complete answer.
+       */
+      wallpaper: overlayState.wallpaper || {
+        available: false,
+        created: false,
+        input: 'unavailable',
+        reason: 'wallpaper_layer_unavailable'
+      },
       official_bounds: overlayState.officialBounds || null,
       plans
     }

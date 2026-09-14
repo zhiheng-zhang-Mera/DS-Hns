@@ -14,9 +14,14 @@
  *                      inserts CSS into it, never reads its DOM and never captures
  *                      it. It is only ever resized and stacked.
  *   official_overlay   a transparent `WebContentsView` ABOVE the official view,
- *                      created with `setIgnoreMouseEvents(true)` and
- *                      `focusable: false` so every pointer, keyboard and scroll
- *                      event passes straight through to the official renderer.
+ *                      created `focusable: false` and, where the build allows it,
+ *                      with `setIgnoreMouseEvents(true)`. Both are attempted
+ *                      rather than assumed: a view has no input API in every
+ *                      Electron version, and when this one refuses the refusal is
+ *                      recorded as a degradation instead of being described as
+ *                      passthrough (see `describe().surfaces[].input`). That is
+ *                      why nothing that has to sit over the official page is a
+ *                      view any more — see `app/wallpaper-window.cjs`.
  *   hns_native         the Mega dock `WebContentsView`, owned by `desktop-main.cjs`.
  *
  * Why separate views rather than CSS injected into the official renderer: the
@@ -80,16 +85,6 @@ function createOfficialSurfaceViews({
   getOfficialView,
   getWindowSize,
   getDockWidth,
-  /**
-   * The overlay exists for the user's wallpaper and for nothing else.
-   *
-   * That is the integrated build's situation: the official UI is the window's own page, so there is
-   * no protected sibling to draw a frame around and no theme surface to paint — but a wallpaper is
-   * a background, and a background has to be *over* the page to be seen at all. In this mode the
-   * overlay is sized to the whole window, refuses every theme payload, and carries only what the
-   * shell writes through `paintWallpaper()`.
-   */
-  wallpaperOnly = false,
   log = () => {},
   electron = null
 } = {}) {
@@ -102,14 +97,11 @@ function createOfficialSurfaceViews({
   /** Queued stylesheet writes, one chain per surface (see `applyCss`). */
   let shellCssPending = null
   let overlayCssPending = null
-  // The wallpaper's own slots: a theme repaint replaces `*CssKey`, and must not touch these.
-  let shellWallpaperKey = null
-  let overlayWallpaperKey = null
-  let shellWallpaperPending = null
-  let overlayWallpaperPending = null
   let overlayStatePending = null
   let shellReady = false
   let overlayReady = false
+  /** Whether this build actually made the overlay mouse-transparent. `describe()` reports it. */
+  let overlayMouseTransparent = false
   let payload = null
   let layout = null
   let enabled = true
@@ -151,15 +143,6 @@ function createOfficialSurfaceViews({
 
   function surfaceBounds(surfaceId) {
     const official = officialBounds()
-    // Wallpaper-only mode has no official view to describe, so the overlay takes the window's own
-    // content box: it is the background of everything the window shows, and a background that only
-    // covered part of it would be a rectangle with a story.
-    if (!official && wallpaperOnly && surfaceId === SURFACE.OFFICIAL_OVERLAY) {
-      const size = typeof getWindowSize === 'function' ? getWindowSize() : null
-      const [width, height] = Array.isArray(size) ? size : [0, 0]
-      if (!(Number(width) > 0) || !(Number(height) > 0)) return null
-      return { x: 0, y: 0, width: Math.round(Number(width)), height: Math.round(Number(height)) }
-    }
     if (!official) return null
     if (surfaceId === SURFACE.OFFICIAL_OVERLAY) return { ...official }
     if (surfaceId === SURFACE.OFFICIAL_SHELL) {
@@ -246,6 +229,7 @@ function createOfficialSurfaceViews({
     if (typeof overlayView.setIgnoreMouseEvents === 'function') {
       try {
         overlayView.setIgnoreMouseEvents(true, { forward: false })
+        overlayMouseTransparent = true
       } catch (error) {
         note(SURFACE.OFFICIAL_OVERLAY, `could not set ignore-mouse-events: ${error?.message || error}`)
       }
@@ -325,7 +309,15 @@ function createOfficialSurfaceViews({
     return { shellCssKey, overlayCssKey, overlayStateCssKey }
   }
 
-  /** The shell's CSS variables, from the theme payload. */
+  /**
+   * The shell's CSS variables, from the theme payload.
+   *
+   * Written `:root:root` deliberately. Both surface documents declare their own defaults for these
+   * variables, and `insertCSS` does not beat them: the inserted sheet sits before the document's own,
+   * so at equal specificity the document wins and the surface keeps its defaults instead of the theme.
+   * Doubling the selector is the whole fix — measured, not assumed (`:root:root` wins where `:root`
+   * loses).
+   */
   function shellCss(themeComponents, tokens) {
     const frame = themeComponents['official.shell.frame'] || {}
     const background = themeComponents['official.shell.background'] || {}
@@ -334,7 +326,7 @@ function createOfficialSurfaceViews({
     const padding = Number(String(tokens['official.shell.padding'] || '').replace('px', ''))
     const radius = tokens['official.shell.radius'] || frame.radius || DEFAULT_SHELL.radius
     const shellAsset = tokens['asset.official_shell_frame']
-    return `:root {
+    return `:root:root {
       --shell-background: ${background.background || DEFAULT_SHELL.background};
       --shell-background-image: ${background.overlay ? String(background.overlay) : 'none'};
       --shell-border: ${border.border || DEFAULT_SHELL.border};
@@ -348,7 +340,12 @@ function createOfficialSurfaceViews({
     }`
   }
 
-  /** The overlay's CSS variables, from the theme payload. */
+  /**
+   * The overlay's CSS variables, from the theme payload.
+   *
+   * `:root:root` for the reason `shellCss` records above: it is what makes the theme reach a document
+   * that ships defaults for the same variables.
+   */
   function overlayCss(themeComponents, tokens) {
     const tint = themeComponents['official.overlay.global_tint'] || {}
     const gradient = themeComponents['official.overlay.gradient'] || {}
@@ -373,7 +370,7 @@ function createOfficialSurfaceViews({
       ? `linear-gradient(${Number(gradient.angle) || 160}deg, ${stops.map((stop) => `${stop.color || 'transparent'} ${Math.round((Number(stop.at) || 0) * 100)}%`).join(', ')})`
       : 'none'
     const characterEnabled = character.asset && character.asset !== 'none' && Number(character.opacity) > 0
-    return `:root {
+    return `:root:root {
       --ov-tint-color: ${tint.color || 'transparent'};
       --ov-tint-opacity: ${clamp(tint.opacity ?? 0, 0, 1)};
       --ov-gradient: ${gradientCss};
@@ -401,10 +398,6 @@ function createOfficialSurfaceViews({
    */
   function paintSurface(surfaceId, themePayload) {
     if (!enabled) return { ok: false, reason: 'surfaces_disabled' }
-    // A wallpaper-only overlay takes no theme. The whole point of the mode is that this view exists
-    // for the user's background: allowing a theme payload through would put the retired overlay
-    // effects back over the official UI, which is the thing that was retired in the first place.
-    if (wallpaperOnly) return { ok: false, reason: 'wallpaper_only', message: 'this surface carries the user wallpaper and takes no theme' }
     if (!PAINTABLE.includes(surfaceId)) {
       return { ok: false, reason: 'surface_protected', message: `${surfaceId} is not paintable by DS-Hns` }
     }
@@ -592,6 +585,7 @@ function createOfficialSurfaceViews({
       } else {
         overlayView = null
         overlayReady = false
+        overlayMouseTransparent = false
       }
     }
     shellCssKey = null
@@ -638,54 +632,11 @@ function createOfficialSurfaceViews({
     return paintTheme(cleared, null)
   }
 
-  /**
-   * The user's wallpaper, on the two surfaces DS-Hns owns.
-   *
-   * It is a *second* stylesheet rather than more CSS in the theme's, and that is the whole point:
-   * `applyCss` replaces the one stylesheet a surface has, so a theme repaint would take the
-   * wallpaper away with it. These writes keep their own keys, so the two can be replaced
-   * independently — a theme change cannot remove the wallpaper, and clearing the wallpaper cannot
-   * remove the theme.
-   *
-   * Only an inline `data:` image can be drawn here: both documents are script-free and their policy
-   * is `img-src data:`. The shell decides what may be sent; this only writes it.
-   */
-  function paintWallpaper(css) {
-    const text = typeof css === 'string' && css ? css : ':root { --ov-wallpaper: none; --ov-wallpaper-opacity: 0; }'
-    for (const [surfaceId, view] of [[SURFACE.OFFICIAL_SHELL, shellView], [SURFACE.OFFICIAL_OVERLAY, overlayView]]) {
-      const contents = usable(view) && view.webContents
-      if (!contents || contents.isDestroyed()) continue
-      const previous = surfaceId === SURFACE.OFFICIAL_SHELL ? shellWallpaperPending : overlayWallpaperPending
-      const next = Promise.resolve(previous)
-        .catch(() => {})
-        .then(async () => {
-          const stale = surfaceId === SURFACE.OFFICIAL_SHELL ? shellWallpaperKey : overlayWallpaperKey
-          if (stale) {
-            try {
-              await contents.removeInsertedCSS(stale)
-            } catch {}
-          }
-          const key = await contents.insertCSS(text)
-          if (surfaceId === SURFACE.OFFICIAL_SHELL) shellWallpaperKey = key
-          else overlayWallpaperKey = key
-          return key
-        })
-        .catch((error) => {
-          note(surfaceId, `wallpaper apply failed: ${error?.message || error}`)
-          return null
-        })
-      if (surfaceId === SURFACE.OFFICIAL_SHELL) shellWallpaperPending = next
-      else overlayWallpaperPending = next
-    }
-    return true
-  }
-
   return {
     createShell,
     createOverlay,
     paintTheme,
     paintSurface,
-    paintWallpaper,
     applyLayout,
     applyOverlayPlacement,
     reset,
@@ -703,8 +654,16 @@ function createOfficialSurfaceViews({
           created: Boolean(view),
           ready: surfaceId === SURFACE.OFFICIAL_SHELL ? shellReady : overlayReady,
           bounds,
-          input: surfaceId === SURFACE.OFFICIAL_OVERLAY
-            ? { pointer: 'passthrough', keyboard: 'passthrough', focus: 'none', scroll: 'passthrough' }
+          /**
+           * What this surface is *actually* allowed to do with input.
+           *
+           * The document forbids every hit target in both cases, but `pointer-events: none` is a
+           * rule inside one renderer: it cannot stop the view itself from being the window's hit
+           * test. Only `setIgnoreMouseEvents` does that, and this build does not always have it —
+           * so the honest answer is read from whether the call was made, not asserted.
+           */
+          input: (surfaceId === SURFACE.OFFICIAL_OVERLAY && !overlayMouseTransparent)
+            ? { pointer: 'unavailable', keyboard: 'passthrough', focus: 'none', scroll: 'unavailable' }
             : { pointer: 'passthrough', keyboard: 'passthrough', focus: 'none', scroll: 'passthrough' }
         }
       }),

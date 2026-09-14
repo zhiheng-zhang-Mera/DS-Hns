@@ -172,7 +172,8 @@ contextBridge.exposeInMainWorld('megaTools', {
     describe: () => ipcRenderer.invoke('mega:wallpaper'),
     layer: () => ipcRenderer.invoke('mega:wallpaper-layer'),
     set: (patch) => ipcRenderer.invoke('mega:wallpaper-set', patch),
-    pick: () => ipcRenderer.invoke('mega:wallpaper-pick'),
+    // The scope says which backdrop the chosen file is for: `main`, `dock`, or both.
+    pick: (options) => ipcRenderer.invoke('mega:wallpaper-pick', options),
     onChanged: (callback) => ipcRenderer.on('mega:wallpaper-changed', (_event, payload) => callback(payload))
   },
   // 拓展状态 module: align the main harness with the official latest version.

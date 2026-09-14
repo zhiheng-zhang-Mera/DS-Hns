@@ -70,17 +70,20 @@ function bilingualTitle(cn, en) {
   return `${left} · ${right}`
 }
 /**
- * The official Overlay (Update-Plan/Dual-UI.md 任务 1).
+ * The layer above the official page (Update-Plan/Dual-UI.md 任务 1).
  *
- * It was the previous official *theming* architecture, and as a theme surface it is still retired:
- * nothing hands it a theme payload's effects, and the Appearance panel has no control that reaches
- * it. What it is created for now is the user's wallpaper — a background is the one thing that
- * cannot be drawn anywhere else, because every other surface DS-Hns owns is either behind the
- * official page or a strip beside it, and a background has to be over the page to be seen at all.
+ * The official Overlay was the previous official *theming* architecture, and as a theme surface it
+ * is still retired: nothing hands it a theme payload's effects, and the Appearance panel has no
+ * control that reaches it.
  *
- * So the view is created unconditionally, and the document it loads carries the wallpaper and its
- * scrim and nothing else that any surface can switch on. Setting `DSH_OFFICIAL_OVERLAY=0` still
- * turns it off for a run that would rather not have a view above the official renderer.
+ * What is still needed above the official page is the user's wallpaper — a background is the one
+ * thing that cannot be drawn anywhere else, because every other surface DS-Hns owns is either
+ * behind the official page or a strip beside it, and a background has to be over the page to be
+ * seen at all. It used to be that overlay view. It is not a view any more: this Electron build
+ * exposes no input API on a view at all, so a `WebContentsView` above the page takes every click
+ * that lands on it. The wallpaper is drawn by a click-through *window* instead
+ * (`app/wallpaper-window.cjs`, which records the measurements), and `DSH_OFFICIAL_OVERLAY=0` still
+ * means "nothing above the official renderer" for a run that would rather not have the layer.
  */
 const OFFICIAL_OVERLAY_ENABLED = process.env.DSH_OFFICIAL_OVERLAY !== '0'
 
@@ -95,6 +98,8 @@ let mainWindow = null
 let officialView = null
 let megaDockView = null
 let officialSurfaces = null
+/** The wallpaper over the official page: a click-through window, never a view (see its module). */
+let wallpaperLayer = null
 /**
  * The official frontend runtime: the backend bridge, the domain adapter and the
  * compatibility probe. It is the only frontend runtime there is — the mode state machine
@@ -1522,6 +1527,37 @@ function layoutIntegratedViews() {
       logLine(`official surface layout failed: ${error?.message || error}`)
     }
   }
+  // The wallpaper covers the whole window, minus the dock's own rectangle: the dock is a view
+  // inside this window and would sit *under* the wallpaper window, so the strip it occupies is cut
+  // out of the picture and the dock draws the same picture itself (see `dock.css`). Only the strip
+  // the dock actually has is cut — a build whose dock never attached keeps its whole picture.
+  if (wallpaperLayer) {
+    try {
+      wallpaperLayer.layout({ bounds: contentBounds(), notch: wallpaperNotch() })
+    } catch (error) {
+      logLine(`wallpaper layer layout failed: ${error?.message || error}`)
+    }
+  }
+}
+
+/**
+ * The main window's content box, on screen, where a child window has to be placed.
+ *
+ * A `WebContentsView` is positioned in the window's own coordinates; a `BrowserWindow` is placed in
+ * screen coordinates, so the wallpaper layer — which is a window, deliberately — asks for this
+ * instead of the content size. Unknown is `null`, never `{0,0,0,0}`: a layer placed at the top-left
+ * of the desktop would be a wallpaper over somebody else's application.
+ */
+function contentBounds() {
+  if (!mainWindow || mainWindow.isDestroyed()) return null
+  try {
+    const bounds = mainWindow.getContentBounds()
+    if (!bounds || !(Number(bounds.width) > 0) || !(Number(bounds.height) > 0)) return null
+    return bounds
+  } catch (error) {
+    logLine(`the window's content box could not be read: ${error?.message || error}`)
+    return null
+  }
 }
 
 function applyIntegratedDockState(payload = {}) {
@@ -1709,37 +1745,10 @@ async function createOfficialSurfaces() {
     // The official UI is the window's own page, so there is no protected sibling to draw a frame
     // around and no theme surface to paint: the shell and the theme's own overlay stay unbuilt.
     //
-    // One view is still created, and deliberately — the **wallpaper**. A background is the one thing
-    // that cannot be drawn anywhere else: the shell sits behind this page and the dock is a strip
-    // beside it, and a background has to be *over* the page to be seen at all. So what is created
-    // here is a wallpaper view: sized to the whole window, input-transparent, never focusable, no
-    // preload, a document with no script, and it refuses every theme payload (`wallpaperOnly`). What
-    // the old rule forbade was stacking a *themed* surface over the official UI; a background that
-    // takes no click, no key and no scroll is not that.
-    if (!OFFICIAL_OVERLAY_ENABLED) {
-      logLine('official surfaces skipped: the official UI is the window page, and the wallpaper view is off (DSH_OFFICIAL_OVERLAY=0)')
-      return false
-    }
-    if (officialSurfaces) return true
-    officialSurfaces = createOfficialSurfaceViews({
-      getWindow: () => mainWindow,
-      getOfficialView: () => officialView,
-      getWindowSize: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : null),
-      getDockWidth: () => integratedDockWidth(),
-      wallpaperOnly: true,
-      log: (message) => logLine(`[surface] ${message}`),
-      electron: { WebContentsView }
-    })
-    try {
-      officialSurfaces.createOverlay()
-      officialSurfaces.applyLayout()
-      for (const event of ['resize', 'maximize', 'unmaximize', 'restore']) mainWindow.on(event, () => officialSurfaces && officialSurfaces.applyLayout())
-      logLine('official_overlay attached as the wallpaper view (whole window, input-transparent, script-free, takes no theme)')
-      return true
-    } catch (error) {
-      logLine(`the wallpaper view failed to attach; the official renderer is unaffected: ${error?.stack || error}`)
-      return false
-    }
+    // What is still created here is the **wallpaper** — and it is a click-through *window* rather
+    // than the view this used to be, because a view above the page cannot be made input-transparent
+    // in this Electron build and would eat every click on the official UI.
+    return createWallpaperLayer()
   }
   if (officialSurfaces) return true
   officialSurfaces = createOfficialSurfaceViews({
@@ -1770,6 +1779,94 @@ async function createOfficialSurfaces() {
     officialSurfaces = null
     return false
   }
+}
+
+/**
+ * The wallpaper layer: the user's picture over the whole window.
+ *
+ * It is a **window**, and that is the whole design. The picture has to be over the official page to
+ * be seen; a `WebContentsView` stacked there is a real hit target in this Electron build (a view has
+ * no input API at all), which is what made the official UI unclickable while a wallpaper was set.
+ * A window can be made mouse-transparent, so the layer is a frameless, transparent, never-focused,
+ * click-through child of the main window — see `app/wallpaper-window.cjs` for the measurements and
+ * for the interlock that keeps it off the screen when the build refuses.
+ *
+ * Three things this function owns, and nothing else owns them:
+ *
+ *   * **creation**, lazily: the module does not build a window until there is a picture to draw;
+ *   * **placement**, from the main window's content box, on every move/resize/maximise/restore —
+ *     plus the dock's rectangle, cut out of the picture so the dock's own view stays visible and
+ *     clickable (the dock draws the same picture itself);
+ *   * **visibility**, which follows the main window's: a layer over a minimised window is a stray
+ *     window on the desktop.
+ *
+ * A failure here is a missing background and nothing else: the official renderer and the dock are
+ * already live by this point.
+ */
+function createWallpaperLayer() {
+  if (!OFFICIAL_OVERLAY_ENABLED) {
+    logLine('the wallpaper layer is off for this run (DSH_OFFICIAL_OVERLAY=0): nothing is drawn over the official UI')
+    return false
+  }
+  if (wallpaperLayer) return true
+  try {
+    const { createWallpaperWindow } = require('./wallpaper-window.cjs')
+    wallpaperLayer = createWallpaperWindow({
+      getParentWindow: () => mainWindow,
+      getContentBounds: () => contentBounds(),
+      log: (message) => logLine(`[wallpaper] ${message}`),
+      electron: { BrowserWindow },
+      enabled: true
+    })
+  } catch (error) {
+    logLine(`the wallpaper layer could not be created; the official renderer is unaffected: ${error?.stack || error}`)
+    wallpaperLayer = null
+    return false
+  }
+  // Moving and resizing are two different events because they are two different problems: a resize
+  // re-reads the content box, a move re-places the layer against it. Both are cheap, and a wallpaper
+  // that lags a dragged window is a wallpaper stuck in the wrong place.
+  for (const event of ['move', 'moved', 'resize', 'maximize', 'unmaximize', 'restore', 'enter-full-screen', 'leave-full-screen']) {
+    mainWindow.on(event, () => {
+      try {
+        wallpaperLayer?.layout({ bounds: contentBounds(), notch: wallpaperNotch() })
+      } catch (error) {
+        logLine(`wallpaper layer placement failed: ${error?.message || error}`)
+      }
+    })
+  }
+  for (const event of ['minimize', 'hide']) {
+    mainWindow.on(event, () => {
+      try {
+        wallpaperLayer?.setVisible(false)
+      } catch {}
+    })
+  }
+  for (const event of ['restore', 'show']) {
+    mainWindow.on(event, () => {
+      try {
+        wallpaperLayer?.setVisible(true)
+      } catch {}
+    })
+  }
+  logLine('the wallpaper layer is a click-through window over the official page (a view above the page cannot be made input-transparent in this build)')
+  return true
+}
+
+/**
+ * The rectangle the picture must not be drawn in: the dock's own view.
+ *
+ * The dock is a child view of the same window, so it is *under* the wallpaper window, and the
+ * wallpaper window is transparent where it draws nothing. Cutting exactly the dock's rectangle is
+ * therefore what keeps the dock visible, clickable and frosted over the same picture; without a
+ * dock there is nothing to cut.
+ */
+function wallpaperNotch() {
+  if (!megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
+  const [contentWidth] = mainWindow.getContentSize()
+  const width = Math.max(1, Number(contentWidth) || 0)
+  const dockWidth = Math.max(1, Math.min(integratedDockWidth(), width))
+  return { x: Math.max(0, width - dockWidth), y: dockTopInset() }
 }
 
 async function createIntegratedMegaDock() {
@@ -1881,6 +1978,12 @@ function destroyIntegratedViews() {
     logLine(`official surface teardown failed: ${error?.message || error}`)
   }
   officialSurfaces = null
+  try {
+    wallpaperLayer?.destroy?.()
+  } catch (error) {
+    logLine(`wallpaper layer teardown failed: ${error?.message || error}`)
+  }
+  wallpaperLayer = null
   for (const view of [megaDockView, officialView]) {
     if (!view) continue
     try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
@@ -1981,15 +2084,20 @@ function createOfficialSurfaceAdapter() {
      *
      * Separate from `paint` because the two have different owners: a theme repaint must not take
      * the wallpaper away, and clearing the wallpaper must not take the theme away. An empty string
-     * is how "no wallpaper" is said, and it is a complete answer on both surfaces.
+     * is how "no wallpaper" is said, and it is a complete answer.
+     *
+     * `drawable: false` is the second half of that answer, and it is what keeps an empty
+     * click-through window off the screen: a layer nobody asked for should cost nobody anything.
+     *
+     * @param {string} css
+     * @param {{drawable?: boolean}} [options]
      */
-    wallpaper: (css) => {
-      if (!officialSurfaces) return { ok: false, reason: 'surfaces_unavailable' }
+    wallpaper: (css, options = {}) => {
+      if (!wallpaperLayer) return { ok: false, reason: 'wallpaper_layer_unavailable' }
       try {
-        officialSurfaces.paintWallpaper(typeof css === 'string' ? css : '')
-        return { ok: true }
+        return wallpaperLayer.paint(typeof css === 'string' ? css : '', { drawable: options?.drawable !== false })
       } catch (error) {
-        logLine(`the wallpaper could not be painted on the official surfaces: ${error?.message || error}`)
+        logLine(`the wallpaper could not be painted over the official UI: ${error?.message || error}`)
         return { ok: false, reason: 'wallpaper_failed', error: String(error?.message || error) }
       }
     },
@@ -2034,25 +2142,40 @@ function createOfficialSurfaceAdapter() {
     },
     /** Honest diagnostics: what each surface is, and that none was injected into. */
     describe: () => {
+      // The protected renderer's evidence is always reported, whether or not any surface exists:
+      // "nothing was injected" is a property of this whole adapter, not of a view being present.
+      const protectedSurface = { id: SURFACE.OFFICIAL_RENDERER, writable: false, painted: false, injection_apis_used: [] }
+      const wallpaper = wallpaperLayer
+        ? { available: true, ...wallpaperLayer.describe() }
+        : { available: false, created: false, input: 'unavailable', reason: 'wallpaper_layer_unavailable' }
       if (!officialSurfaces) {
         return {
           available: false,
           surfaces: PAINTABLE.map((id) => ({ id, created: false, ready: false, bounds: null })),
-          protected: { id: SURFACE.OFFICIAL_RENDERER, writable: false, painted: false, injection_apis_used: [] }
+          protected: protectedSurface,
+          wallpaper
         }
       }
-      return { available: true, ...officialSurfaces.describe(), officialBounds: (() => {
-        try { return officialView ? officialView.getBounds() : null } catch { return null }
-      })() }
+      return {
+        available: true,
+        ...officialSurfaces.describe(),
+        protected: protectedSurface,
+        wallpaper,
+        officialBounds: (() => {
+          try { return officialView ? officialView.getBounds() : null } catch { return null }
+        })()
+      }
     },
     /** Drain the surface's own degradation log so the extension can report it. */
     degradation: () => {
-      if (!officialSurfaces) return []
+      const entries = []
       try {
-        return officialSurfaces.describe().degradation
-      } catch {
-        return []
-      }
+        entries.push(...(officialSurfaces ? officialSurfaces.describe().degradation : []))
+      } catch {}
+      try {
+        for (const problem of wallpaperLayer?.describe?.().problems || []) entries.push({ surface: SURFACE.OFFICIAL_OVERLAY, reason: problem.reason, at: problem.at })
+      } catch {}
+      return entries
     }
   }
 }

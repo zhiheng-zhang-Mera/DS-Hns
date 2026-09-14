@@ -12,14 +12,34 @@ what replaced it, and why.
 ## 1. What the window contains now
 
 ```text
-DS-Hns Main Window
+DS-Hns Main Window (the shipped, integrated build)
 │
-├── official_renderer   the window's own page   ← the official @deepseek-ai/dsh Web UI
-├── official_shell      WebContentsView         ← the frame drawn around it (outer band only,
-│                                                  input-transparent, no script)
-├── official_overlay    WebContentsView         ← the theme overlay (input-transparent)
-└── hns_native dock     WebContentsView         ← the Mega control centre (right-hand strip)
+├── wallpaper window    BrowserWindow        ← the user's picture over the whole interface. It is a
+│                        (frameless, transparent,  WINDOW and not a view, for a measured reason: this
+│                         click-through, never       build's `View`/`WebContentsView` exposes no input
+│                         focused, not in the         API at all, so a view stacked over the official
+│                         taskbar)                   page swallowed every click that landed on it. The
+│                                                    dock's rectangle is cut out of the picture.
+├── hns_native dock     WebContentsView      ← the Mega control centre (right-hand strip), which draws
+│                                               the same picture itself, behind its glass
+└── official_renderer   the window's own page ← the official @deepseek-ai/dsh Web UI
+
+official_shell / official_overlay  WebContentsView   the theme's frame and overlay: kept for the
+                                                     legacy architecture, not created by this build
 ```
+
+The wallpaper window is owned by the main window: parented, repositioned with its content box, shown
+without activating, hidden with the window and destroyed with the shell. It is created only when there
+is a picture to draw, and it is **never shown** if the build refuses to make it mouse-transparent —
+a layer that can take a click is worse than no layer. `DSH_OFFICIAL_OVERLAY=0` still means "nothing
+above the official renderer".
+
+**The two backdrops are set separately.** The main screen's picture is the layer above; Mega's is drawn
+by the dock's own document, and each has its own file, fit, opacity, blur and scrim (the Appearance
+panel's card chooses which one it edits). When both name the *same* file they are placed against the
+same window box and read as one image joined at the cut; when they are two different files each fills
+its own box — aligning two different pictures to one box would show a fragment of Mega's photograph in
+the strip.
 
 The official renderer **is the window's page** rather than a sibling view. That was already
 true before the removal, for a reason worth keeping written down: a sibling view that is
