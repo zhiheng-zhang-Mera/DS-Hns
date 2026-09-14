@@ -72,6 +72,9 @@
       `<button type="button" data-control-action="${esc(action)}" data-control-id="${esc(plugin.id)}">${esc(action)}</button>`
     )).join('')
     const detail = [
+      // The three claims, side by side: where it belongs, whether that channel was exercised, and whether it
+      // has been run in this product.
+      plugin.channel ? `${esc(plugin.channel)}${plugin.channelVerified ? ' · verified' : ''}${plugin.tested ? ' · tested' : ' · untested'}` : null,
       plugin.expected ? `bundled ${esc(plugin.expected)}` : null,
       plugin.installedVersion ? `installed ${esc(plugin.installedVersion)}` : null,
       plugin.reason ? esc(plugin.reason) : null

@@ -165,6 +165,14 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
     expected: plugin.expected,
     installedVersion: plugin.installedVersion,
     reason: plugin.reason,
+    /**
+     * The adoption state, in the three claims the manifest keeps apart: which channel it belongs to, whether
+     * that channel was exercised for real, and whether it has been run inside this product. The panel shows
+     * them because "declared", "installable" and "usable" are three different things to be looking at.
+     */
+    channel: plugin.channel || null,
+    channelVerified: plugin.channelVerified === true,
+    tested: plugin.tested === true,
     tone: pluginTone(plugin.state),
     actions: pluginActions(plugin.state)
   }))

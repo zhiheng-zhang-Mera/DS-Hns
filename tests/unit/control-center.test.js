@@ -42,7 +42,7 @@ function fixture(overrides = {}) {
     },
     bundled: {
       plugins: [
-        { id: 'dsh-wallpaper-engine', state: 'installed', present: true, expected: 'v0.7.1', installedVersion: 'v0.7.1', reason: null },
+        { id: 'dsh-wallpaper-engine', state: 'installed', present: true, expected: 'v0.7.1', installedVersion: 'v0.7.1', reason: null, channel: 'harness-profile', channelVerified: true, tested: false },
         { id: '@dsh-market/plugin', state: 'untested', present: false, expected: '2c34728', installedVersion: null, reason: 'nobody has tested it inside DS-Hns yet' }
       ]
     },
@@ -183,6 +183,9 @@ test('the panel renders the sections and the modules, and a click reaches the sh
   assert.match(element('controlModules').innerHTML, /renderer timeout/)
   assert.match(element('controlModules').innerHTML, /fallback simple-wallpaper/)
   assert.match(element('controlPlugins').innerHTML, /data-plugin="@dsh-market\/plugin"/)
+  // The three claims the manifest keeps apart reach the panel: channel, whether it was exercised, whether it
+  // has been run in this product.
+  assert.match(element('controlPlugins').innerHTML, /harness-profile · verified · untested/)
   assert.match(element('controlSummary').textContent, /1 降级/)
   assert.equal(element('controlSummary').className, 'status-chip warn')
 

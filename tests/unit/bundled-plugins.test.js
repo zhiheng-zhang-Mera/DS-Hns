@@ -81,6 +81,13 @@ test('the shipped manifest pins real references and never says "latest"', () => 
     ['dsh-wallpaper-engine', 'harness-profile', true, false],
     ['@dsh-market/plugin', 'harness-profile', true, false]
   ])
+  // The assessment entries carry the same three facts, because that is what the Control Center reads: a panel
+  // that saw only the state would show "declared" and "installable" as the same thing.
+  const assessments = build().manager.describe().plugins
+  assert.deepEqual(assessments.map((entry) => [entry.id, entry.channel, entry.channelVerified, entry.tested]), [
+    ['dsh-wallpaper-engine', 'harness-profile', true, false],
+    ['@dsh-market/plugin', 'harness-profile', true, false]
+  ])
 })
 
 test('an untested pin is declared, reported, and never installed', async () => {

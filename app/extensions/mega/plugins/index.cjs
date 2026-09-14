@@ -243,7 +243,18 @@ function createBundledPlugins({
           required: entry.required === true
         }))
       },
-      plugins: entries.map((entry) => assess(entry.id)),
+      /**
+       * Each assessment, plus the three facts about how it is meant to be adopted (which channel, whether that
+       * channel was exercised, whether it has been run in this product). They live on the entry because the
+       * manager is the one place that knows both halves — a panel reading only the assessment would show a
+       * declared plugin and an installable one as the same thing.
+       */
+      plugins: entries.map((entry) => ({
+        ...assess(entry.id),
+        channel: entry.channel || 'dshns-store',
+        channelVerified: entry.channelVerified === true,
+        tested: entry.tested === true
+      })),
       states: Object.fromEntries(entries.map((entry) => [entry.id, assess(entry.id).state]))
     }
   }
