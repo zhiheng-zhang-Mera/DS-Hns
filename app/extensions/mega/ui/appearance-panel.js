@@ -146,9 +146,11 @@
         && (state.main.file !== state.dock.file)
         ? '两处当前不是同一张图 · the two backdrops differ right now'
         : null
+      // The shell used to publish a `note` here — the sentence about a video drawing in Mega only. With
+      // the video pipeline gone (`updateplan/pluginize.md` Phase 7) the sentence is the boundary itself,
+      // so it is stated once, here, where the file is chosen.
       small.textContent = differ
-        || state.note
-        || `${scopeLabel}：图片或视频，铺在界面之下，不拦截任何操作。`
+        || `${scopeLabel}：图片铺在界面之下，不拦截任何操作；视频与网页壁纸由壁纸插件负责 · a picture backs the interface and takes no clicks; videos are the wallpaper plugin's job.`
       name.appendChild(document.createElement('br'))
       name.appendChild(small)
     }

@@ -164,9 +164,10 @@ contextBridge.exposeInMainWorld('megaTools', {
    * The wallpaper layer.
    *
    * The renderer never receives a path it could act on: `pick` opens the shell's own file chooser
-   * and `set` takes a patch the shell validates. What comes back is what to draw — a `data:` URL
-   * for an image, or a `file:` URL for a video, which is the one asset the dock fetches itself
-   * because a base64 video would be a string the size of the film.
+   * and `set` takes a patch the shell validates. What comes back is what to draw, and it is always
+   * the same thing: an inline `data:` URL, the asset the official surfaces are handed as well. (A
+   * `file:` URL used to come back for a video, because a base64 video would be a string the size of
+   * the film — the video pipeline is the wallpaper plugin's now, so nothing is fetched by path.)
    */
   wallpaper: {
     describe: () => ipcRenderer.invoke('mega:wallpaper'),

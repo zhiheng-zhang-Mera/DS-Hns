@@ -9,9 +9,12 @@ const path = require('node:path')
 const {
   createWallpaper,
   kindOf,
+  isAdvanced,
   WALLPAPER_DEFAULT,
   WALLPAPER_SURFACES,
   WALLPAPER_LIMITS,
+  ADVANCED_EXTENSIONS,
+  ADVANCED_REASON,
   OFFICIAL_OPACITY_CEILING,
   MAX_ASSET_BYTES
 } = require('../../app/extensions/mega/wallpaper.cjs')
@@ -27,8 +30,9 @@ const {
  *  * **a missing file is no background**, not a broken view: the layer is told to draw nothing
  *    everywhere, and the path stays on disk so it can be fixed;
  *  * **the official UI keeps the last word**: a wallpaper over it is capped and carries a scrim;
- *  * **only what a surface can carry is sent to it**: a video goes to the dock, because the layer over
- *    the official page is a script-free document with an `img-src data:` policy and could not play one;
+ *  * **what this layer draws is pictures**: a video or a web wallpaper is refused *by name* and with the
+ *    reason, because it is the community wallpaper plugin's job now (`updateplan/pluginize.md` Phase 7) —
+ *    the plugin is installed, so this product's own weaker copy of it is gone rather than switched off;
  *  * **the two backdrops are set separately**: what is behind the main screen and what is behind Mega
  *    are two settings, and the flat shape older callers use means "both".
  */
@@ -50,12 +54,18 @@ function scratch() {
   }
 }
 
-test('a wallpaper is an image or a video, and nothing else', () => {
+test('a wallpaper is a picture, and nothing else', () => {
   assert.equal(kindOf('C:/pictures/wall.png'), 'image')
   assert.equal(kindOf('wall.JPEG'), 'image')
   assert.equal(kindOf('wall.webp'), 'image')
-  assert.equal(kindOf('wall.mp4'), 'video')
-  assert.equal(kindOf('wall.webm'), 'video')
+  // The plugin's kinds are not this layer's kinds, and they are named rather than merely refused: what a
+  // user who picked a video needs to be told is where videos *are* drawn.
+  for (const extension of ADVANCED_EXTENSIONS) {
+    assert.equal(kindOf(`wall${extension}`), null, `${extension} is a wallpaper-plugin kind this layer claims to draw`)
+    assert.equal(isAdvanced(`wall${extension}`), true)
+  }
+  assert.equal(isAdvanced('wall.png'), false)
+  assert.match(ADVANCED_REASON, /dsh-plugin-wallpaper-engine/)
   assert.equal(kindOf('wall.exe'), null)
   assert.equal(kindOf(''), null)
   assert.equal(kindOf(null), null)
@@ -94,20 +104,27 @@ test('the wallpaper persists, clamps what it cannot honour, and drops what it ca
     assert.deepEqual(Object.keys(stored).sort(), ['dock', 'enabled', 'main'])
     // `brightness`/`contrast`/`saturation` are the picture's filter, which §27 publishes as the
     // `--dsh-wallpaper-*` tokens; `1` is "as the file is".
-    assert.deepEqual(Object.keys(stored.main).sort(), ['blur', 'brightness', 'contrast', 'enabled', 'file', 'fit', 'muted', 'opacity', 'saturation', 'scrim'])
+    // No `muted`: nothing in this layer plays anything any more, so there is no playback to configure.
+    assert.deepEqual(Object.keys(stored.main).sort(), ['blur', 'brightness', 'contrast', 'enabled', 'file', 'fit', 'opacity', 'saturation', 'scrim'])
     assert.equal(stored.main.brightness, 1)
     assert.equal(stored.main.fit, 'contain', 'a refused fit was written anyway')
     assert.equal(stored.dock.file, image, 'the flat shape did not reach both backdrops')
     assert.equal(stored.dock.fit, 'contain')
 
-    // A second reader sees the same state, and a video is a video.
+    // A second reader sees the same state.
     const reread = createWallpaper({ root: dir }).describe()
     assert.equal(reread.file, image)
     assert.equal(reread.opacity, WALLPAPER_LIMITS.opacity.max)
-    assert.equal(createWallpaper({ root: dir }).set({ file: video }).kind, 'video')
+
+    // A video is refused *by name*, with the reason, and nothing is written — the picture that was there
+    // stays there rather than the state file being half-updated by a patch that could not be honoured.
+    const refused = createWallpaper({ root: dir }).set({ file: video })
+    assert.equal(refused.ok, false)
+    assert.match(refused.reason, /dsh-plugin-wallpaper-engine/)
+    assert.equal(createWallpaper({ root: dir }).describe().file, image, 'a refused video moved the wallpaper')
 
     // A file that was renamed away is no background: nothing is drawn, and the panel is told why.
-    fs.rmSync(video)
+    fs.rmSync(image)
     const gone = createWallpaper({ root: dir }).describe()
     assert.equal(gone.present, false)
     assert.equal(gone.drawable, false)
@@ -146,12 +163,11 @@ test('the two backdrops are set separately, and a flat patch still means both', 
     assert.equal(wallpaper.layerCss('dock'), 'none', 'the dock is a document; it is told by its own call')
     assert.equal(wallpaper.dockLayer().fit, 'cover', 'Mega inherited a fit it was not given')
 
-    const dockOnly = wallpaper.set({ dock: { file: other, opacity: 80, fit: 'tile', scrim: 0, muted: false } })
+    const dockOnly = wallpaper.set({ dock: { file: other, opacity: 80, fit: 'tile', scrim: 0 } })
     assert.equal(dockOnly.main.file, image, 'setting Mega moved the main screen')
     assert.equal(dockOnly.main.opacity, 20)
     assert.equal(dockOnly.dock.file, other)
     assert.equal(dockOnly.dock.opacity, 80)
-    assert.equal(dockOnly.dock.muted, false)
     assert.equal(wallpaper.dockLayer().active, true)
     assert.equal(wallpaper.dockLayer().fit, 'tile')
     assert.equal(dockOnly.shared, false, 'two different pictures are not shared')
@@ -168,14 +184,21 @@ test('the two backdrops are set separately, and a flat patch still means both', 
     assert.equal(wallpaper.dockLayer().active, false)
 
     // The flat shape (what every caller before the split used) is "both".
-    const flat = wallpaper.set({ file: video })
-    assert.equal(flat.main.kind, 'video')
-    assert.equal(flat.dock.kind, 'video')
+    const flat = wallpaper.set({ file: other })
+    assert.equal(flat.main.kind, 'image')
+    assert.equal(flat.dock.kind, 'image')
     assert.equal(flat.shared, true)
-    assert.equal(flat.drawable, false, 'the main screen was told to draw a video it cannot play')
-    assert.equal(wallpaper.dockLayer().kind, 'video')
-    assert.match(wallpaper.dockLayer().src, /^file:\/\//, 'a video was inlined as a data URL')
-    assert.match(wallpaper.describe().note || '', /Mega only/)
+    assert.equal(flat.drawable, true)
+    assert.equal(wallpaper.dockLayer().kind, 'image')
+    assert.match(wallpaper.dockLayer().src, /^data:image\/png;base64,/, 'the dock was handed a path instead of an inline asset')
+
+    // A video reaching *either* surface through the flat shape is refused the same way, and the two
+    // backdrops are left exactly as they were.
+    const refused = wallpaper.set({ file: video })
+    assert.equal(refused.ok, false)
+    assert.match(refused.reason, /dsh-plugin-wallpaper-engine/)
+    assert.equal(wallpaper.describe().main.kind, 'image', 'a refused video reached the main screen')
+    assert.equal(wallpaper.describe().dock.kind, 'image', 'a refused video reached Mega')
 
     // A file that is no longer a wallpaper is refused per surface, and nothing is written.
     assert.equal(wallpaper.set({ main: { file: path.join(dir, 'nope.png') } }).ok, false)
@@ -196,7 +219,6 @@ test('the dock gets a source and the main screen gets a stylesheet, from their o
     assert.equal(dock.active, true)
     assert.equal(dock.kind, 'image')
     assert.match(dock.src, /^data:image\/png;base64,/, 'the dock was handed a path instead of the same inline asset the official surfaces get')
-    assert.equal(dock.muted, true)
 
     const layer = wallpaper.layerCss('main')
     assert.match(layer.image, /^url\("data:image\/png;base64,/)
@@ -223,16 +245,13 @@ test('the dock gets a source and the main screen gets a stylesheet, from their o
     assert.match(described.css, /#wallpaper \{ background-image: url\("data:image\/png;base64,[^"]+"\) !important; \}/)
     assert.equal(/--wp-image/.test(described.css), false, 'the picture is a custom property again')
 
-    // A video is a real element with real attributes, and the two official documents are
-    // script-free with an `img-src data:` policy: there is no shape of CSS that plays one.
-    wallpaper.set({ file: video })
-    assert.equal(wallpaper.dockLayer().kind, 'video')
-    assert.match(wallpaper.dockLayer().src, /^file:\/\//, 'a video was inlined as a data URL')
-    const videoLayer = wallpaper.layerCss('main')
-    assert.equal(videoLayer.image, 'none', 'the window was told to draw a video it cannot play')
-    assert.equal(videoLayer.opacity, 0)
-    assert.equal(wallpaper.windowLayer().drawable, false, 'a video was offered to the window that cannot play it')
-    assert.match(wallpaper.describe().note || '', /Mega only/)
+    // A video is not drawn on either surface, so it is refused before it can reach one — and the refusal
+    // is what the panel shows, which is why it has to name the plugin rather than list extensions.
+    const refused = wallpaper.set({ file: video })
+    assert.equal(refused.ok, false)
+    assert.match(refused.reason, /dsh-plugin-wallpaper-engine/)
+    assert.match(wallpaper.layerCss('main').image, /^url\("data:image\/png;base64,/, 'a refused video changed the picture in force')
+    assert.equal(wallpaper.windowLayer().drawable, true, 'a refused video took the window layer off the screen')
     assert.deepEqual(wallpaper.describe().surfaces, ['main', 'dock'])
 
     // Switching it off is a complete answer too, on every surface at once.
@@ -267,7 +286,7 @@ test('the layer cannot intercept the UI, script it, or outlive its file', () => 
   const preload = read('app/extensions/mega/ui/preload.cjs')
 
   // A background is not a hit target, and it is behind the content rather than in front of it.
-  const rule = css.match(/body>#wallpaper,\s*body>#wallpaperVideo\{([^}]*)\}/)
+  const rule = css.match(/body>#wallpaper\{([^}]*)\}/)
   assert.ok(rule, 'the wallpaper layer has no rule')
   assert.match(rule[1], /pointer-events:none/, 'the wallpaper would swallow clicks')
   // Fixed against the window, not absolute inside the scrolling `#detail`: an absolute layer there
@@ -279,7 +298,6 @@ test('the layer cannot intercept the UI, script it, or outlive its file', () => 
   // outranks a bare `#wallpaper`, which is exactly how the layer ended up back in the normal flow.
   assert.match(css, /#rail,#detail\{position:relative;z-index:1\}/, 'the dock content is not pinned above the wallpaper')
   assert.match(html, /<div id="wallpaper" aria-hidden="true"><\/div>/, 'the wallpaper element is missing')
-  assert.match(html, /<video id="wallpaperVideo" aria-hidden="true" muted loop playsinline/, 'the video element is missing its safety attributes')
   // It belongs to the whole dock window, the rail included, so it is a child of the body.
   const head = html.slice(html.indexOf('<body'), html.indexOf('<aside id="rail"'))
   assert.match(head, /id="wallpaper"/, 'the wallpaper is inside the scrolling panel column instead of the window')
@@ -311,10 +329,24 @@ test('the layer cannot intercept the UI, script it, or outlive its file', () => 
   assert.match(windowDocument, /script-src 'none'/, 'the wallpaper window document no longer forbids scripts')
   assert.match(windowDocument, /pointer-events: none/, 'the wallpaper window document can be a hit target')
 
-  // A video nobody can see does not need frames.
-  assert.match(layer, /if \(typeof video\.pause === 'function'\) video\.pause\(\)/, 'a video left the layer without being paused')
-  assert.match(layer, /visibilitychange/, 'the layer never stops a hidden video')
-  assert.match(layer, /video\.removeAttribute\('src'\)/, 'a replaced video keeps its old source')
+  /**
+   * The video pipeline is retired, and the retirement is asserted rather than assumed.
+   *
+   * §30's Phase 7 removes this product's duplicate of the plugin's features, and a duplicate that is
+   * merely unused comes back the first time someone needs a video: the element, the playback state and
+   * the `file:` source path are each a thing that would have to be kept right alongside the plugin's own.
+   * So the assertion is that none of them is left anywhere between the backend and the document.
+   */
+  const backend = read('app/extensions/mega/wallpaper.cjs')
+  assert.equal(/wallpaperVideo|<video/.test(html), false, 'the retired video element is still in the dock document')
+  assert.equal(/wallpaperVideo|isVideo|\bmuted\b|\.play\(\)/.test(layer), false, 'the retired video pipeline is still in the layer script')
+  assert.equal(/VIDEO_TARGETS|WALLPAPER_KINDS\.video|=== 'video'|'video'\]/.test(backend), false, 'the backend still speaks a video kind')
+  // One source path for the dock and the official surfaces, and it is the inline asset. A `file:` URL is what
+  // the removed video needed, and it is also the only shape in which a raw path could reach a document, so
+  // nothing may build one any more.
+  assert.match(backend, /src: inlined\.dataUrl,/, 'the dock is no longer handed the same inline asset the official surfaces get')
+  assert.equal(/file:\/\/\$\{|'file:\/\/'|`file:\/\//.test(`${backend}\n${layer}`), false, 'the layer can still build a file: URL')
+  assert.match(backend, /kindOf\(chosen\)/, 'the file kind is no longer asked before a path is accepted')
 
   // The shell owns the file, and the renderer never gets a path it could act on.
   assert.match(index, /ipcMain\.handle\('mega:wallpaper-pick'[\s\S]{0,400}dialog\.showOpenDialog/)

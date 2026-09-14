@@ -123,8 +123,8 @@ app.whenReady().then(async () => {
   layer.layout({ bounds: main.getContentBounds(), notch: { x: main.getContentBounds().width - 320, y: 76 } })
   await sample('static wallpaper', `${pictureKb} KB picture`)
   for (const [label, reason] of [
-    ['1080p video', 'the community plugin renders video (§24): the built-in layer carries pictures'],
-    ['4K video', 'the community plugin renders video (§24)'],
+    ['1080p video', 'the wallpaper plugin renders video (§24; the built-in pipeline left in pluginize Phase 7)'],
+    ['4K video', 'the wallpaper plugin renders video (§24; the built-in pipeline left in pluginize Phase 7)'],
     ['scene wallpaper', 'the community plugin renders scenes (§24)'],
     ['market open', 'the market is a community plugin; its cost is not this layer\'s'],
     ['MEGA expanded', 'measured by the running product, not by this harness']

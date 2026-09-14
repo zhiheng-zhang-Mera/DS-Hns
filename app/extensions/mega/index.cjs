@@ -2458,9 +2458,9 @@ function pushWallpaper() {
   }
   // The layer over the official page takes the image and nothing else — a script-free document
   // whose policy allows an inline image — so what it is handed is the stylesheet the module builds
-  // for it, and a video (or no wallpaper at all) is answered with the same "draw nothing". That
-  // answer travels with the stylesheet, because the layer is a window: an empty one has to be
-  // taken off the screen rather than left there.
+  // for it, and "no wallpaper at all" is answered with the same "draw nothing". That answer travels
+  // with the stylesheet, because the layer is a window: an empty one has to be taken off the screen
+  // rather than left there.
   try {
     if (typeof officialSurfaceTarget.wallpaper === 'function') {
       const layer = wallpaper().windowLayer()
@@ -2488,9 +2488,9 @@ function registerWallpaperIpc() {
     }
   }
   ipcMain.handle('mega:wallpaper', guard(() => wallpaper().describe()))
-  // What the dock itself draws: a `data:` URL for an image, a `file:` URL for a video, and the
-  // attributes a real element needs. It is a separate answer from `describe()` because the panel's
-  // view carries limits and vocabulary the document has no use for.
+  // What the dock itself draws: the picture as a `data:` URL, plus the numbers the element and the
+  // stylesheet need. It is a separate answer from `describe()` because the panel's view carries
+  // limits and vocabulary the document has no use for.
   ipcMain.handle('mega:wallpaper-layer', guard(() => wallpaperLayerPayload()))
   ipcMain.handle('mega:wallpaper-set', guard((_event, payload = {}) => {
     const result = wallpaper().set(payload || {})
@@ -2510,12 +2510,15 @@ function registerWallpaperIpc() {
     const scope = payload && typeof payload === 'object' && payload.scope ? String(payload.scope) : 'both'
     const target = scope === 'both' || WALLPAPER_SURFACES.includes(scope) ? scope : 'both'
     const picked = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: bilingualTitle('选择壁纸（图片或视频）', 'Choose a wallpaper (image or video)'),
+      title: bilingualTitle('选择壁纸（图片）', 'Choose a wallpaper (picture)'),
       properties: ['openFile'],
+      // Two filters, and the second one is deliberate: it makes the boundary *reachable* — someone who
+      // wants a video finds it, is told in their own language that the wallpaper plugin carries it, and
+      // gets the module's refusal sentence below when they pick one. Hiding the extension would leave
+      // them to discover the rule by finding nothing.
       filters: [
-        { name: bilingualTitle('图片与视频', 'Images and videos'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'mp4', 'webm', 'm4v'] },
-        { name: bilingualTitle('图片', 'Images'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] },
-        { name: bilingualTitle('视频', 'Videos'), extensions: ['mp4', 'webm', 'm4v'] }
+        { name: bilingualTitle('图片', 'Pictures'), extensions: ['png', 'apng', 'jpg', 'jpeg', 'jfif', 'webp', 'gif', 'avif', 'bmp', 'ico', 'svg'] },
+        { name: bilingualTitle('视频与网页壁纸（由壁纸插件负责）', 'Videos and web wallpapers (the plugin\'s job)'), extensions: ['mp4', 'webm', 'm4v', 'html', 'htm'] }
       ]
     })
     if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true }

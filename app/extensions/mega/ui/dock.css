@@ -583,18 +583,15 @@ button:hover{background:var(--hns-color-bg-layer2)}
    cost the user a click however it was set. The scrim is a separate number from the opacity: the
    wallpaper decides how much picture there is, the scrim decides how much contrast survives it.
    ===================================================================================== */
-body>#wallpaper,
-body>#wallpaperVideo{
+body>#wallpaper{
   position:fixed;
   left:calc(-1 * var(--hns-wallpaper-origin-x,0px));
   top:calc(-1 * var(--hns-wallpaper-origin-y,0px));
   width:calc(100% + var(--hns-wallpaper-origin-x,0px));
   height:calc(100% + var(--hns-wallpaper-origin-y,0px));
   pointer-events:none;user-select:none;z-index:0;
-  opacity:var(--hns-wallpaper-opacity,.55);
-  object-fit:cover
+  opacity:var(--hns-wallpaper-opacity,.55)
 }
-body>#wallpaperVideo[hidden]{display:none}
 body>#wallpaper[data-hidden="1"]{display:none}
 /* The scrim sits between the wallpaper and the content: one flat wash of the dock's own base, at
    the user's strength, so no wallpaper can make a label unreadable. */

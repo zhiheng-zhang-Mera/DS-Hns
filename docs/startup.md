@@ -419,9 +419,14 @@ static wallpaper       cpu= -0.1%  ram=  479MB  processes=4  picture=3752KB  (28
 `control-center.cjs` 的**六段数据**而不是六个目录 —— 它们共享同一份快照，拆成目录只会让"同一份真相"
 变成六份需要同步的东西。
 
-**一处有意的偏差**：§6.2/§25 建议删除"复杂 Video Pipeline"，但视频目前仍是**自有图层唯一能播的东西**，
-而社区插件尚未被采纳（其 pin 仍等一次真机测试）。删掉它会在替代品到位之前先失去一个可用能力，因此本轮
-**保留**，并在此记录：等 `dsh-wallpaper-engine` 的 pin 被标记 `tested: true` 之后，这段代码才该删。
+**那一处有意的偏差已经结清**：§6.2/§25 建议删除"复杂 Video Pipeline"，本轮当时**保留**它，条件是
+"等 `dsh-wallpaper-engine` 的 pin 被标记 `tested: true` 之后，这段代码才该删"。条件是**真机验收**达成的
+（wallpaper engine 装进产品自己的 profile、重启后官方 UI 正常、壁纸由插件渲染 —— 见 `docs/pluginize.md`
+的"人工 UI 复查"段），所以这段代码在 pluginize Phase 7 里被**删除**而不是关掉：`kindOf()` 只认图片、
+`.mp4/.webm/.m4v` 与 `.html/.htm` 按名字拒绝并给出"这是壁纸插件的活"的原因、`<video>` 元素与
+`play()/pause()` 的可见性联动一起离开 Dock 文档，`dockLayer().src` 也回到与官方两面相同的 inline
+`data:` 资源。删除被 `tests/unit/wallpaper.test.js` 断言（元素、播放状态、`file:` 源路径三者都不在），
+因为"只是没用到"的重复实现会在下一次需要视频时回来。
 
 ## 4. 验收怎么读
 

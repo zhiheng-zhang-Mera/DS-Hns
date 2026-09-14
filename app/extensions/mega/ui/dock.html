@@ -19,12 +19,13 @@
     the rail as much as the panels — and because `#detail` scrolls, which an absolutely positioned
     layer inside it would follow instead of staying put.
 
-    It is a real element rather than a stylesheet because a video is a real element. An image
-    arrives as a `data:` URL (the same asset the official surfaces are handed, one rule for both)
-    and a video arrives as a `file:` URL the element fetches itself.
+    It carries an image, which arrives as a `data:` URL — the same asset the official surfaces are
+    handed, one rule for both — and it is an element rather than a stylesheet because the rule below
+    positions it against the *window* box: this view shows one part of a picture that covers the
+    whole application interface. (It used to carry a video as well; that pipeline is the wallpaper
+    plugin's job now, so the element that played it left with it.)
   -->
   <div id="wallpaper" aria-hidden="true"></div>
-  <video id="wallpaperVideo" aria-hidden="true" muted loop playsinline preload="metadata" hidden></video>
   <aside id="rail" title="展开 Mega Dock">
     <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
     <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>

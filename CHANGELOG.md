@@ -3,6 +3,29 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 旧 Mega 去重 — 视频壁纸管线删除，社区插件的 pin 翻成 `tested: true`
+
+**两件事一起做，因为第二件是第一件的前提。** `dsh-plugin-wallpaper-engine` 的 pin 一直是 `tested: false`，
+理由很具体："没人在这台机器的产品里跑过它"；而 `docs/startup.md` 记过一条**条件**——等这个 pin 被标成
+`tested: true`，自有图层里那段"复杂 Video Pipeline"才该删。人工 UI 复查把这个条件结清了（官方 UI 正常、
+壁纸由插件渲染、市场入口在、治理桥可达），所以两件事在同一轮里落地：
+
+- **两个 bundled 插件的 pin 翻成 `tested: true`**。`tested` 的含义照旧是"在产品里真机跑过"，不是"命令能跑"；
+  §23 列的那些故障行（禁用、崩溃、坏配置、断网、版本不符、回滚）**不在**这次复查的范围内，它们由保护层与
+  管理器的策略路径承担，断言在 `mega-protection.test.js` / `bundled-plugins.test.js` / `appearance-providers.test.js` 里。
+- **视频壁纸不再是自有图层的事**：`.mp4/.webm/.m4v` 与网页壁纸（`.html/.htm`）在选择时被**按名字拒绝**，
+  理由就是那句"这是壁纸插件的活，本层只画图片"。Dock 文档里的 `<video>` 元素、`play()/pause()` 的可见性联动、
+  以及 `dockLayer().src` 的 `file:` 分支一起删除。
+- **选择框现在有两个过滤器**：图片，以及"视频与网页壁纸（由壁纸插件负责）"。挑到后者会看到那句拒绝理由——
+  把扩展名藏起来只会让人以为产品坏了，而一个装作接受、然后什么都不画的控件更糟。
+- **净效果是一个功能一份实现**：Dock 与官方两面拿的是同一个 inline `data:` 资源，取源只有一条路径，
+  没有第二个策略需要跟着改。删除是**被断言的**（元素、播放状态、`file:` 源路径三者都不在），因为"只是没用到"
+  的重复实现会在下一次需要视频时回来。
+
+**验证**：`tests/unit/wallpaper.test.js` 5/5（拒绝按名字并给出原因、被拒时旧壁纸原地不动、删除的三个断言）；
+`tests/unit/bundled-plugins.test.js` 13/13（清单是 `tested: true`，"未测试的 pin 永不安装"改用一份 untested
+清单继续断言**规则本身**，而不是把规则一起删掉）。
+
 ## bundled plugins — 两个插件已装进产品的 profile，管理器也认这两处"已安装"
 
 **用户批准后执行**（Harness 自己的 CLI，`DSH_HOME=D:\DS-Hns\data`）：

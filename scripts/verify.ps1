@@ -121,7 +121,11 @@ Check 'The protection layer reports what the MEGA panel shows' (($protection -ma
 $bundled = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'Bundled Plugin Manager exists with both bundled plugins' (($bundled -match 'dsh-wallpaper-engine') -and ($bundled -match '@dsh-market/plugin'))
 Check 'Bundled references are pinned, and nothing chases latest' (($bundled -match "ref: '") -and (-not ($bundled -match "ref:\s*'latest'")))
-Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($bundled -match 'tested: false'))
+# The rule is asserted against the *code*, not against the shipped flag: the two bundled pins were flipped to
+# `tested: true` when the manual UI review passed them (pluginize Phase 7), and the next plugin anyone adds
+# arrives untested. `entry.tested !== true` is what still refuses it.
+Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($bundled -match 'entry\.tested !== true'))
+Check 'Both bundled pins are marked tested, and the review that earned it is recorded' ((([regex]::Matches($bundled, 'tested: true')).Count -ge 2) -and ($bundled -match 'manual UI review'))
 Check 'The user''s decision and unknown versions are respected, not overwritten' (($bundled -match 'USER_DISABLED') -and ($bundled -match 'AHEAD_OF_PIN'))
 Check 'Bundled plugins are registered as protected modules' (($bundled -match 'registerProtected') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'bundled\(\)\.registerProtected\(\)'))
 Check 'The bundled set belongs to MEGA, and its policy pass is not on the boot path' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:bundled-plugins'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match '\.then\(\(\) => bundled\(\)\.ensure\(\)\)'))
@@ -188,7 +192,7 @@ Check 'The bundled manifest names a channel per entry' (($bundledPlugins -match 
 Check 'A Harness client plugin is installed by the Harness own CLI' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "plugin', '--profile', profile, 'add'") -and ($bundledPlugins -match 'dsh-plugin-wallpaper-engine'))
 Check 'An entry without a channel is reported, never installed' (($bundledPlugins -match 'BUNDLED_STATE.UNRESOLVED') -and ($bundledPlugins -match "action: 'report'"))
 Check 'Removal and compatibility follow the same channel as installation' (($bundledPlugins -match 'async function removeBundled') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "checked: 'harness'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "harnessRemove:"))
-Check 'The channel is recorded as verified and the runtime as untested' (($bundledPlugins -match 'channelVerified: true') -and ($bundledPlugins -match 'tested: false') -and ($bundledPlugins -match 'channelVerified: entry.channelVerified === true'))
+Check 'The channel is recorded as verified, and the runtime only after it was run' (($bundledPlugins -match 'channelVerified: true') -and ($bundledPlugins -match 'tested: true') -and ($bundledPlugins -match 'channelVerified: entry.channelVerified === true') -and ($bundledPlugins -match 'tested: entry\.tested === true'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

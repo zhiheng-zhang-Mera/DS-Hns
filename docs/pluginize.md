@@ -85,3 +85,51 @@ path, handler})`、以及客户端半边的 `window.__ModuleLoader__.load({ id, 
    hover/展开内容）与 Full Page（§4.4 列出的治理字段）。
 2. 全链路验收（orb 可用、官方 UI 不受影响、治理数据正确）。
 3. 验收通过后再删除旧 Mega 独立 UI 壳（§30：验收在前）。
+
+---
+
+## Phase 7 — 去重（第一步：重复 wallpaper backend）
+
+**这一条为什么能先做，而其余去重不能。** §30 把"旧 Mega feature pages / 重复 market discovery UI"的删除放在
+**Phase 1 的 orb 验收之后**——商店标签页、旧功能页都长在旧的 Mega 壳里，先删它们等于在产品还没有新界面的
+时候把唯一界面拿掉。而"重复 wallpaper backend"不长在壳里：它是**两个界面都在用的后端**，所以社区插件到位后
+它可以独立地结清。`docs/startup.md` §3.10 记过它的条件（pin 标成 `tested: true`），这一轮条件达成：
+
+### `tested: false → true`（两个 pin）
+
+人工 UI 复查确认的是**真机事实**：两个插件装进产品自己的 profile 后重启，官方 Harness 界面正常（客户端插件坏掉
+的表现就是官方页面被改坏，所以这是关键一条）；壁纸插件画出自己的背景；市场的入口出现；治理桥在回环上应答。
+`tested` 因此翻成 `true`，含义不变——**在产品里跑过**。
+
+它**不**声称 §23 的故障行逐条跑过：禁用 / 崩溃 / 坏配置 / 断网 / 版本不符 / 回滚属于保护层与管理器的策略路径，
+断言在 `mega-protection.test.js`、`bundled-plugins.test.js`、`appearance-providers.test.js`。这一点写在
+`plugins/index.cjs` 的清单注释里，以免半年后有人把 `tested` 读成"什么都测过了"。
+
+### 删除的是什么
+
+`WALLPAPER_KINDS` 现在只有 `image`；`.mp4/.webm/.m4v/.html/.htm` 从 MIME 表里删除，改为
+`ADVANCED_EXTENSIONS` + `ADVANCED_REASON` 两样**用来拒绝**的东西：拒绝时**按名字**给出原因（"这是
+`dsh-plugin-wallpaper-engine` 的活"），而不是把一个视频静默接受、再画到无处可画。
+
+一起离开的还有它们各自的下游：`VIDEO_TARGETS` 导出、`muted`（唯一有播放器的一面才有意义的状态）、
+`dockLayer()` 的 `file:` 源分支、Dock 文档里的 `<video id="wallpaperVideo">` 与它的 CSS 规则、
+`wallpaper-layer.js` 里的 `play()/pause()` 可见性联动、以及 `describe()` 里那句"视频只在 Mega 里画"
+的 `note`（句子换了主人：面板在选择文件的地方一次说清边界）。
+
+选择框也随之改了：两个过滤器（图片 / "视频与网页壁纸（由壁纸插件负责）"），**故意**让后者可见——把扩展名藏
+起来只会让人以为产品坏了，而挑到视频会看到那句拒绝理由。
+
+### 断言
+
+`tests/unit/wallpaper.test.js` 5 项：图片是唯一的 kind（`ADVANCED_EXTENSIONS` 逐个断言 `kindOf` 为 `null`
+且 `isAdvanced` 为真）、拒绝时**状态文件不动**（旧壁纸留在原处）、两个表面都拒绝、以及**删除本身**被断言：
+Dock 文档里没有 `<video>`、层脚本里没有 `wallpaperVideo` / `isVideo` / `muted` / `.play()`、后端里没有
+`VIDEO_TARGETS` / `WALLPAPER_KINDS.video` / `file:` 源路径，`dockLayer().src` 是 inline `data:` 资源。
+"只是没用到"的重复实现会在下一次需要视频时回来，所以断言的是它**不在**。
+
+### 其余去重（仍未做，按 §30 的顺序排在 orb 之后）
+
+`重复 market discovery UI`、`旧 Mega feature pages` 随旧壳一起走；`重复 TTS backend`、`重复 ordinary
+schedule UI`、`重复普通 permission classifier` 要等对应的社区插件（notify-sound / dsh-automation /
+dsh-auto-mode）接入并验收。§5.2 已定的方向不变：DS-Hns 自己的 Store 不删除，收敛为 **Plugin Governance**
+（manifest 校验、exact pin、兼容性、回滚、安全禁用），发现与搜索交给市场插件。
