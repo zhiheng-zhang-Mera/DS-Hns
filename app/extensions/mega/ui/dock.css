@@ -461,7 +461,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
    (see `.summary-grid`). */
 @media(max-width:620px){.balance-grid{grid-template-columns:1fr 1fr}.update-grid{grid-template-columns:1fr 1fr}.settings-row{grid-template-columns:1fr}}
 
-@media(max-width:520px){.hardware-grid{grid-template-columns:1fr}.update-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr 1fr}.form-row .check{grid-column:1/-1}}
+@media(max-width:520px){.hardware-grid{grid-template-columns:1fr}.update-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr 1fr}.form-row .check{grid-column:1/-1}.plug-settings{grid-template-columns:1fr}}
 
 
 /* ==========================================================================
@@ -704,6 +704,14 @@ button:hover{background:var(--hns-color-bg-layer2)}
 /* Plugin panel (Update-Plan/accleration.md sections 45, 46). The four states are
    drawn with four colours on purpose: "off" and "broken" must not look alike. */
 .plug-execution,.plug-groups,.plug-detail,.plug-lock{margin-top:8px}
+/* The execution settings are their own card, not a loose heading inside the plugin panel: they are
+   a different subject from the list below them — what the runtime is allowed to do with a plugin,
+   rather than which plugins there are — and the card is what says so. `:empty` matters as much as
+   the border: the block is only rendered when the runtime answers, and a card drawn around nothing
+   would be a box that means "something went wrong here". */
+.plug-execution{padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
+.plug-execution:empty{display:none}
+.plug-execution>h3{margin:0 0 6px}
 .plug-group{margin-top:6px}
 .plug-group-title{margin:0 0 4px;font-size:11px;font-weight:600;color:var(--hns-color-label-secondary);text-transform:uppercase;letter-spacing:.04em}
 .plug-groups{display:flex;flex-direction:column;gap:4px}

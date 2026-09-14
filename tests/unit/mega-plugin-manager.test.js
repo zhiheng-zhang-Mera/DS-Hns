@@ -140,6 +140,28 @@ function loadFeatureManager() {
   return { api: window.megaFeatureManager, window, document, nodes, calls, features, plugins }
 }
 
+test('the execution settings are their own card, and never an empty one', () => {
+  const html = read('app/extensions/mega/ui/dock.html')
+  const css = read('app/extensions/mega/ui/dock.css')
+  assert.match(html, /<div class="plug-execution" id="plugExecution"><\/div>/, 'the execution settings are not in the plugin panel')
+  const rule = css.match(/\.plug-execution\{([^}]*)\}/)
+  assert.ok(rule, '.plug-execution has no rule')
+  // A card, like the other sub-blocks: what the runtime may do with a plugin is a different
+  // subject from which plugins there are.
+  assert.match(rule[1], /border:1px solid var\(--hns-color-border-l1\)/)
+  assert.match(rule[1], /border-radius:10px/)
+  assert.match(rule[1], /background:var\(--hns-color-bg-layer2\)/)
+  assert.match(rule[1], /padding:9px/)
+  // The block is only rendered when the runtime answers, so an empty one must draw nothing: a card
+  // around nothing reads as "something went wrong here".
+  assert.match(css, /\.plug-execution:empty\{display:none\}/, 'an unanswered execution block would draw an empty card')
+  // Its heading belongs to the card rather than floating above it.
+  assert.match(css, /\.plug-execution>h3\{[^}]*margin:0 0 6px\}/, 'the card heading is not attached to the card')
+  // Two settings per row need room for the key, the input and the layer it came from; at the
+  // narrowest dock there is not enough, so they go one per row instead of ellipsizing the key.
+  assert.match(css, /@media\(max-width:520px\)\{[^}]*\}?[^@]*\.plug-settings\{grid-template-columns:1fr\}/, 'the settings rows would ellipsize their keys in a narrow dock')
+})
+
 test('the float is markup inside the dock window, never a second window', () => {
   const html = read('app/extensions/mega/ui/dock.html')
   assert.match(html, /id="pluginManager"/, 'the dock does not render the manager float')
