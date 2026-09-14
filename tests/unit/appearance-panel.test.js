@@ -38,7 +38,12 @@ function stubDom() {
         textContent: '',
         className: '',
         dataset: {},
+        children: [],
         listeners: new Map(),
+        appendChild(child) {
+          this.children.push(child)
+          return child
+        },
         addEventListener(event, handler) {
           this.listeners.set(event, handler)
         },
@@ -51,8 +56,12 @@ function stubDom() {
     return nodes.get(id)
   }
   const document = {
-    body: { dataset: {} },
+    // A real document has all of these, and the panel uses all of them: the wallpaper's name line
+    // is built as text plus a `<small>` note rather than as one interpolated string, and both
+    // layers write custom properties on the body as well as on the root.
+    body: { dataset: {}, style: { setProperty() {}, removeProperty() {} } },
     documentElement: { style: { setProperty: (name, value) => properties.set(name, value) } },
+    createElement: (tag) => ({ tagName: String(tag).toUpperCase(), className: '', textContent: '', style: {}, children: [], appendChild(child) { this.children.push(child); return child } }),
     getElementById: element
   }
   return { document, element, properties }

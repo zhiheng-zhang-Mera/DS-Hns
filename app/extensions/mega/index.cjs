@@ -76,6 +76,8 @@ const CHANNELS = [
   // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
   // numbers that describe how strong it is (the official UI has no part in it).
   'mega:ui-glass', 'mega:ui-glass-set',
+  // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
+  'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -1643,6 +1645,9 @@ function registerIpc() {
   // so it is never gated — a user who switched a feature off must still be able to read the
   // panel that says so.
   registerGlassIpc()
+  // The wallpaper is chrome for the same reason, and it is also what the dock's first paint asks
+  // for, so it is registered with the glass rather than behind a switch.
+  registerWallpaperIpc()
 }
 
 /**
@@ -1673,6 +1678,70 @@ function registerGlassIpc() {
         log(`could not push the glass state: ${error?.message || error}`)
       }
     }
+    return result
+  }))
+}
+
+/**
+ * The wallpaper state, created lazily like the glass layer.
+ *
+ * The file is the user's choice (`data/state/wallpaper.json`) and this module validates every
+ * patch, so no surface can disagree with another about what is in force.
+ */
+let wallpaperState = null
+function wallpaper() {
+  if (wallpaperState) return wallpaperState
+  const { createWallpaper } = require('./wallpaper.cjs')
+  wallpaperState = createWallpaper({
+    root: PATHS.ROOT,
+    log: (message) => log(`wallpaper: ${message}`)
+  })
+  return wallpaperState
+}
+
+/** Push the wallpaper to the dock: it is a real element there, not a stylesheet. */
+function pushWallpaper() {
+  try {
+    dockTarget.send('mega:wallpaper-changed', wallpaper().dockLayer())
+  } catch (error) {
+    log(`could not push the wallpaper: ${error?.message || error}`)
+  }
+}
+
+function registerWallpaperIpc() {
+  const { ipcMain, dialog } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`wallpaper ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: `wallpaper_ipc_failed: ${error?.message || error}` }
+    }
+  }
+  ipcMain.handle('mega:wallpaper', guard(() => wallpaper().describe()))
+  // What the dock itself draws: a `data:` URL for an image, a `file:` URL for a video, and the
+  // attributes a real element needs. It is a separate answer from `describe()` because the panel's
+  // view carries limits and vocabulary the document has no use for.
+  ipcMain.handle('mega:wallpaper-layer', guard(() => wallpaper().dockLayer()))
+  ipcMain.handle('mega:wallpaper-set', guard((_event, payload = {}) => {
+    const result = wallpaper().set(payload || {})
+    if (result.ok !== false) pushWallpaper()
+    return result
+  }))
+  // The file chooser is the shell's, so the renderer never handles a path it could act on.
+  ipcMain.handle('mega:wallpaper-pick', guard(async () => {
+    const picked = await dialog.showOpenDialog(ctx.mainWindow, {
+      title: bilingualTitle('选择壁纸（图片或视频）', 'Choose a wallpaper (image or video)'),
+      properties: ['openFile'],
+      filters: [
+        { name: bilingualTitle('图片与视频', 'Images and videos'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'mp4', 'webm', 'm4v'] },
+        { name: bilingualTitle('图片', 'Images'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] },
+        { name: bilingualTitle('视频', 'Videos'), extensions: ['mp4', 'webm', 'm4v'] }
+      ]
+    })
+    if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true }
+    const result = wallpaper().set({ file: picked.filePaths[0], enabled: true })
+    if (result.ok !== false) pushWallpaper()
     return result
   }))
 }

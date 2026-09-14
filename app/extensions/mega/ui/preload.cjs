@@ -160,6 +160,21 @@ contextBridge.exposeInMainWorld('megaTools', {
     set: (patch) => ipcRenderer.invoke('mega:ui-glass-set', patch),
     onChanged: (callback) => ipcRenderer.on('mega:ui-glass-changed', (_event, payload) => callback(payload))
   },
+  /**
+   * The wallpaper layer.
+   *
+   * The renderer never receives a path it could act on: `pick` opens the shell's own file chooser
+   * and `set` takes a patch the shell validates. What comes back is what to draw — a `data:` URL
+   * for an image, or a `file:` URL for a video, which is the one asset the dock fetches itself
+   * because a base64 video would be a string the size of the film.
+   */
+  wallpaper: {
+    describe: () => ipcRenderer.invoke('mega:wallpaper'),
+    layer: () => ipcRenderer.invoke('mega:wallpaper-layer'),
+    set: (patch) => ipcRenderer.invoke('mega:wallpaper-set', patch),
+    pick: () => ipcRenderer.invoke('mega:wallpaper-pick'),
+    onChanged: (callback) => ipcRenderer.on('mega:wallpaper-changed', (_event, payload) => callback(payload))
+  },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),

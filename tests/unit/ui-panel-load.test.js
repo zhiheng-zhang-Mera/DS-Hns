@@ -24,6 +24,7 @@ const UI_DIR = path.join(ROOT, 'app', 'extensions', 'mega', 'ui')
 /** The globals each script is expected to publish, and the element its panel needs. */
 const EXPECTED_GLOBALS = Object.freeze({
   'balance-module.js': 'megaBalanceModule',
+  'wallpaper-layer.js': 'hnsWallpaper',
   'appearance-panel.js': 'megaAppearancePanel',
   'skills-panel.js': 'megaSkillsPanel',
   'computer-use-panel.js': 'megaComputerUsePanel',
@@ -45,7 +46,15 @@ function stubElement(tag) {
     disabled: false,
     hidden: false,
     dataset: {},
-    style: {},
+    // A real `style` is a CSSStyleDeclaration, not a bare object: the layers write custom
+    // properties on the body as well as on the root, and a stub without `setProperty` would fail
+    // on a line that works in a browser.
+    style: {
+      values: new Map(),
+      setProperty(name, value) { this.values.set(name, String(value)) },
+      getPropertyValue(name) { return this.values.get(name) || '' },
+      removeProperty(name) { this.values.delete(name) }
+    },
     children: [],
     childElementCount: 0,
     classList: {
@@ -71,6 +80,16 @@ function stubElement(tag) {
     setAttribute() {},
     getAttribute() {
       return null
+    },
+    // `removeAttribute` is what the wallpaper layer uses to let go of a video source; an element
+    // that cannot forget one would keep playing the previous wallpaper.
+    removeAttribute(name) {
+      this.attributes = (this.attributes || new Map())
+      this.attributes.delete(name)
+    },
+    pause() {},
+    play() {
+      return Promise.resolve()
     },
     remove() {},
     querySelector() {
@@ -158,6 +177,7 @@ test('every dock script loads in the dock\'s order and publishes its global', ()
   assert.deepEqual(scripts, [
     'balance-module.js',
     'glass-layer.js',
+    'wallpaper-layer.js',
     'appearance-panel.js',
     'skills-panel.js',
     'computer-use-panel.js',
@@ -237,9 +257,12 @@ test('every dock script loads in the dock\'s order and publishes its global', ()
       assert.ok(window[expected], `${script} did not publish window.${expected}`)
     }
   }
-  // The panels are functions, not values: the dock's `attach()` calls must exist.
+  // The panels are functions, not values: the dock's `attach()` calls must exist. The two layers
+  // are the exception and are listed on purpose — they are applied to the document they load into
+  // rather than attached to a panel, so neither has an `attach()` to call.
+  const LAYERS = ['megaBalanceModule', 'megaThemeBridge', 'hnsBilingual', 'hnsGlass', 'hnsWallpaper']
   for (const [script, name] of Object.entries(EXPECTED_GLOBALS)) {
-    if (name === 'megaBalanceModule' || name === 'megaThemeBridge' || name === 'hnsBilingual') continue
+    if (LAYERS.includes(name)) continue
     assert.equal(typeof window[name].attach, 'function', `${script} published ${name} without an attach()`)
   }
   assert.equal(typeof window.hnsBilingual.title, 'function')

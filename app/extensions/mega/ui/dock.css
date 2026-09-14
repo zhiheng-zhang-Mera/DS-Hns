@@ -519,10 +519,36 @@ button:hover{background:var(--hns-color-bg-layer2)}
 .settings-head{background:var(--hns-color-bg-layer2);border-bottom:1px solid var(--hns-color-border-l1)}
 .settings-overlay{background:color-mix(in srgb,var(--hns-color-bg-overlay) 62%,transparent)}
 
-/* The persona / decoration layer (#hnsDecoration / #hnsPersona) is gone with the dock's skin:
-   a character overlay is a theme feature, and a pane of frosted glass has no persona. The one
-   rule worth keeping is the stacking one — the content still has to sit above the pane. */
+/* =====================================================================================
+   The wallpaper layer (壁纸)
+   =====================================================================================
+
+   The dock's lowest layer, and the reason the glass above it has something to be glass over: a
+   frosted pane over a flat colour is a tint, a frosted pane over a picture is glass.
+
+   It is never a hit target (`pointer-events: none`) and never in front of anything (z-index 0,
+   with the content at 1), so it cannot cost the user a click however it was set. The scrim is a
+   separate number from the opacity on purpose: the wallpaper decides how much picture there is,
+   the scrim decides how much contrast survives it.
+   ===================================================================================== */
+#wallpaper,
+#wallpaperVideo{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;user-select:none;z-index:0;
+  opacity:var(--hns-wallpaper-opacity,.55);
+  object-fit:cover
+}
+#wallpaperVideo[hidden]{display:none}
+/* The scrim sits between the wallpaper and the content: one flat wash of the dock's own base, at
+   the user's strength, so no wallpaper can make a label unreadable. */
+body[data-wallpaper="on"]::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:var(--hns-color-bg-base);
+  opacity:var(--hns-wallpaper-scrim,0)
+}
+/* Content stays above both. */
 #detail>.dock-header,#detail>section,#detail>p,#detail>div{position:relative;z-index:1}
+#detail>#wallpaper,#detail>#wallpaperVideo{z-index:0}
 
 
 /* ==========================================================================
@@ -970,5 +996,9 @@ body[data-glass="on"] :is(.pm-backdrop,.settings-overlay,.live-view-overlay){
 .glass-range{display:grid;grid-template-columns:1fr 92px;align-items:center;gap:7px;margin-top:6px;font-size:11px;color:var(--hns-color-label-secondary)}
 .glass-range input[type="range"]{width:100%;accent-color:var(--hns-color-accent-primary)}
 .glass-range b{color:var(--hns-color-label-primary);font-variant-numeric:tabular-nums}
+.glass-range select{width:100%;min-width:0;padding:3px 6px;font-size:12px;border-radius:6px;background:var(--hns-color-bg-layer1);border:1px solid var(--hns-color-border-l2);color:var(--hns-color-label-primary)}
+.glass-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.glass-actions button{padding:5px 10px;font-size:12px}
+#wallpaperName small{font-size:11px;color:var(--hns-color-label-tertiary)}
 /* With the layer off, the two numbers have nothing to describe. */
 .glass[data-enabled="0"] .glass-range{opacity:.45}

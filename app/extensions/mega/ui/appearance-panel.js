@@ -102,6 +102,108 @@
     return true
   }
 
+  /**
+   * The wallpaper controls.
+   *
+   * The layer below is the glass's and this one is the wallpaper's, but both answer the same
+   * question — what the dock looks like — so they are the same card and the same shape of wiring:
+   * the shell owns the file and validates every value, the panel renders what it reports, and a
+   * slider previews on the frame it moves.
+   */
+  let wallpaperState = null
+
+  function wallpaperApi() {
+    return window.megaTools && window.megaTools.wallpaper ? window.megaTools.wallpaper : null
+  }
+
+  function renderWallpaper(next) {
+    if (next) wallpaperState = next
+    const state = wallpaperState
+    if (!state) return null
+    const toggle = $('wallpaperEnabled')
+    if (toggle && 'checked' in toggle) toggle.checked = state.enabled === true && Boolean(state.file)
+    const name = $('wallpaperName')
+    if (name) {
+      const label = state.file
+        ? `${state.name || state.file}${state.kind ? ` · ${state.kind}` : ''}${state.present === false ? ' · 文件缺失 · file missing' : ''}`
+        : '未选择 · none chosen'
+      name.textContent = label
+      const small = document.createElement('small')
+      small.textContent = state.note || '图片或视频；画在面板与磨砂玻璃之下，不遮挡、不拦截任何操作。'
+      name.appendChild(document.createElement('br'))
+      name.appendChild(small)
+    }
+    for (const [id, key] of [['wallpaperOpacity', 'opacity'], ['wallpaperBlur', 'blur'], ['wallpaperScrim', 'scrim']]) {
+      const input = $(id)
+      if (input && 'value' in input) input.value = String(state[key])
+      const readout = $(`${id}Value`)
+      if (readout) readout.textContent = String(state[key])
+    }
+    const fit = $('wallpaperFit')
+    if (fit && 'value' in fit) fit.value = state.fit || 'cover'
+    const clear = $('wallpaperClear')
+    if (clear) clear.disabled = !state.file
+    return state
+  }
+
+  async function loadWallpaper() {
+    const api = wallpaperApi()
+    if (!api || typeof api.describe !== 'function') return renderWallpaper({ enabled: false, file: null, name: null, kind: null, present: true, fit: 'cover', opacity: 55, blur: 0, scrim: 35, note: null })
+    try {
+      const described = await api.describe()
+      return renderWallpaper(described && described.ok !== false ? described : null)
+    } catch {
+      return null
+    }
+  }
+
+  function bindWallpaperControls() {
+    const api = wallpaperApi()
+    if (!api || typeof api.set !== 'function') return false
+    const report = (result) => {
+      if (result && result.ok === false) {
+        setMessage(result.reason || '壁纸操作未被接受 · the wallpaper change was refused', 'error')
+        return null
+      }
+      setMessage('')
+      return renderWallpaper(result)
+    }
+    const pick = $('wallpaperPick')
+    if (pick && typeof pick.addEventListener === 'function') {
+      pick.addEventListener('click', () => {
+        Promise.resolve(api.pick ? api.pick() : null).then((result) => {
+          if (result && result.canceled === true) return
+          report(result)
+        })
+      })
+    }
+    const clear = $('wallpaperClear')
+    if (clear && typeof clear.addEventListener === 'function') {
+      clear.addEventListener('click', () => Promise.resolve(api.set({ file: '', enabled: false })).then(report))
+    }
+    const enabled = $('wallpaperEnabled')
+    if (enabled && typeof enabled.addEventListener === 'function') {
+      enabled.addEventListener('change', () => Promise.resolve(api.set({ enabled: enabled.checked === true })).then(report))
+    }
+    const fit = $('wallpaperFit')
+    if (fit && typeof fit.addEventListener === 'function') {
+      fit.addEventListener('change', () => Promise.resolve(api.set({ fit: fit.value })).then(report))
+    }
+    for (const [id, key] of [['wallpaperOpacity', 'opacity'], ['wallpaperBlur', 'blur'], ['wallpaperScrim', 'scrim']]) {
+      const input = $(id)
+      if (!input || typeof input.addEventListener !== 'function') continue
+      // Like the glass: the number reaches the layer on the frame it moves and the file is written
+      // once, on release. No preview here — the shell owns the value, and a preview that disagreed
+      // with it would be a second opinion about the same pixel.
+      input.addEventListener('input', () => {
+        const readout = $(`${id}Value`)
+        if (readout) readout.textContent = String(input.value)
+      })
+      input.addEventListener('change', () => Promise.resolve(api.set({ [key]: Number(input.value) })).then(report))
+    }
+    return true
+  }
+
   function attach() {
     const panel = $('appearancePanel')
     if (!panel) return null
@@ -112,14 +214,16 @@
       return null
     }
     bindControls()
+    bindWallpaperControls()
     // Follow the layer, so a change made anywhere else lands on these controls too.
     api.onChange(render)
     render()
+    loadWallpaper()
 
     return {
       render,
       /** Re-read the state in force from the shell. */
-      refresh: () => api.refresh().then(render),
+      refresh: () => Promise.all([api.refresh().then(render), loadWallpaper()]),
       /** The layer in force, for a caller that wants the numbers rather than the controls. */
       state: () => api.state(),
       /** Resolves once the panel's current work is done; there is no queue, only this. */
@@ -128,5 +232,5 @@
   }
 
   renderMessage()
-  window.megaAppearancePanel = { attach, render }
+  window.megaAppearancePanel = { attach, render, renderWallpaper }
 })()

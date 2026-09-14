@@ -28,6 +28,17 @@
   </aside>
 
   <main id="detail">
+    <!--
+      The wallpaper layer (壁纸). It is the first thing in the dock and the lowest thing in it:
+      `pointer-events: none`, behind every panel, and behind the glass — so the frosted panes frost
+      *it* rather than a flat colour, which is what a background is for.
+
+      It is a real element rather than a stylesheet because a video is a real element. An image
+      arrives as a `data:` URL (the same asset the official surfaces are handed, one rule for both)
+      and a video arrives as a `file:` URL the element fetches itself.
+    -->
+    <div id="wallpaper" aria-hidden="true"></div>
+    <video id="wallpaperVideo" aria-hidden="true" muted loop playsinline preload="metadata" hidden></video>
     <header class="dock-header">
       <div>
         <h1>Mega</h1>
@@ -93,6 +104,42 @@
       </div>
 
       <div id="glassMessage" class="theme-message" role="status"></div>
+
+      <!--
+        The wallpaper: a card of its own under the glass controls, because it is a second layer of
+        the same subject (what the dock looks like) and not a second subject.
+      -->
+      <div class="glass" id="wallpaperRow">
+        <label for="wallpaperEnabled">
+          <input type="checkbox" id="wallpaperEnabled">
+          <span class="bi-title bi-sm"><span class="bi-cn">壁纸</span><span class="bi-en">Wallpaper</span></span>
+        </label>
+        <p class="glass-note" id="wallpaperName">未选择 · none chosen<br><small>图片或视频；画在面板与磨砂玻璃之下，不遮挡、不拦截任何操作。</small></p>
+        <div class="glass-range">
+          <span>填充方式 · Fit</span>
+          <select id="wallpaperFit">
+            <option value="cover">铺满 · cover</option>
+            <option value="contain">完整显示 · contain</option>
+            <option value="tile">平铺 · tile</option>
+          </select>
+        </div>
+        <label class="glass-range" for="wallpaperOpacity">
+          <span>不透明度 · Opacity <b id="wallpaperOpacityValue">55</b>%</span>
+          <input type="range" id="wallpaperOpacity" min="0" max="100" step="1" value="55">
+        </label>
+        <label class="glass-range" for="wallpaperBlur">
+          <span>背景模糊 · Blur <b id="wallpaperBlurValue">0</b>px</span>
+          <input type="range" id="wallpaperBlur" min="0" max="40" step="1" value="0">
+        </label>
+        <label class="glass-range" for="wallpaperScrim">
+          <span>压暗 · Scrim <b id="wallpaperScrimValue">35</b>%</span>
+          <input type="range" id="wallpaperScrim" min="0" max="100" step="1" value="35">
+        </label>
+        <div class="glass-actions">
+          <button id="wallpaperPick" type="button">选择文件 · Choose</button>
+          <button id="wallpaperClear" type="button" class="quiet">清除 · Clear</button>
+        </div>
+      </div>
     </section>
 
     <section class="panel skills-panel" id="skillsPanel">
@@ -655,6 +702,8 @@
   <!-- The glass layer carries the user's numbers into the stylesheet; it runs before the panels
        so the first paint is already frosted rather than flashing an opaque panel. -->
   <script src="glass-layer.js"></script>
+  <!-- The wallpaper is the dock's lowest layer, so it is applied before the panels paint over it. -->
+  <script src="wallpaper-layer.js"></script>
   <script src="appearance-panel.js"></script>
   <script src="skills-panel.js"></script>
   <script src="computer-use-panel.js"></script>
