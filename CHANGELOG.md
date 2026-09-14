@@ -3,6 +3,17 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 两个插件在带 web 应用的 profile 里真的激活了（updateplan/startup2.md §19–§23）
+
+**装上 web 应用 bundle 的 profile 里，两个插件都激活**：一次性 `DSH_HOME` 中建了与产品 `data/profiles/web` 同构的
+profile（同样的 `dsh.profile.bundles: ["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`），用 Harness 自己的
+`plugin` 命令装上 `@dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1`，启动 web 应用：日志里**没有**
+`did not activate`、**没有** `pending (waiting for service)`，服务器正常应答（未授权根路径 401，是产品的正常回答）。
+
+于是接入的三步都有实测证据：**安装命令 → 插件树注册 → 随 web 应用激活**。唯一还没测的是它们在 DS-Hns 窗口里的实际
+表现（视觉），那需要在产品的 `data/profiles/web` 里装上并重启应用——属于用户环境的一步，因此两条 pin 仍是
+`tested: false`（`channelVerified: true` 保持为真）。临时 `DSH_HOME` 已删除，未触碰用户数据。
+
 ## bundled plugins — 插件树实测：两个插件都被 Harness 加载并注册（updateplan/startup2.md §19–§23）
 
 **在一次性 `DSH_HOME` 里启动那个 profile，Harness 的 profile 启动如实报了**：

@@ -157,6 +157,14 @@ exit 0，并且那个 profile 的 `package.json` 里出现的正是这两个**�
 这条证据同时解释了产品的接入方式：**装进 `data/profiles/web` 的依赖里、由产品自己启动的 Harness 加载**，
 剩下的一步就是真机验证（装进去 + 重启应用看它工作），那是用户环境里的事。
 
+**再进一步：装上 web 应用 bundle 的 profile 里，两个插件都真的激活了。** 在一个一次性 `DSH_HOME` 里建了与产品
+`data/profiles/web` 同构的 profile（同样的 `dsh.profile.bundles`），用 Harness 自己的 `plugin` 命令装上两个插件，
+然后启动 web 应用：启动日志里**没有** `did not activate`、**没有** `pending (waiting for service)`，服务器正常
+应答（未带凭据的根路径 401，是产品的正常未授权回答）。也就是说从"命令能装"到"Harness 启动时真的加载并激活"
+这三步（安装 → 插件树注册 → 随 web 应用激活）都有实测证据；**唯一还没测的是它们在 DS-Hns 窗口里的实际表现**
+——那需要在产品的 `data/profiles/web` 里装上并重启应用，属于用户环境的一步（诊断面板里的 `EXT`/保护层也会
+在那一刻开始显示它们的状态）。临时 `DSH_HOME` 已删除，未触碰用户数据。
+
 于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
 路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。
