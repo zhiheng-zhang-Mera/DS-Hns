@@ -3,6 +3,25 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## mega rail — 折叠栏去重，且不再是一条状态栏（updateplan/startup2.md §36–§44）
+
+**折叠栏从五个固定方框变成注册表驱动的条目。** 旧形状是"每个数字一个方框、dock 脚本按 id 填数"：新增一个
+数字要动三个文件，删一个也要动三个文件，而且 dock 必须知道 `RUN` 是什么意思——这正是它慢慢长成第二条状态栏
+的原因。现在 `app/extensions/mega/mega-items.cjs` 让模块自己注册条目
+（`registerMegaItem({ id, priority, current })`），`current(snapshot)` 返回 `null` 就是"我没什么要说的"。
+
+于是计划书的两条规则成了机制：**零不是新闻**（§36/§43，空队列/零重试/零错误不出现），**折叠栏有预算**
+（§44，最多 5 项，按 priority 排序，装不下的渲染成 `+N` 指向展开态）。去重落点：`RUN` 明确为 **DS-Hns 自己的
+worker slot 占用数**（官方 UI 不显示这个数）；`HW` 改名为 `WKR`（并发/硬件上限，就是它真正的含义）；
+`SUB` 由 `AUTO` 取代（显示"自动委派"这个用户开关，而不是再抄一遍 agent 状态）；`Q` 与 `ERR` 只在非零时出现；
+**峰谷芯片移出折叠栏**（电费时段属于展开态的账单卡片，不是资源策略）；新增 `EXT` = 保护层中降级的可选模块数。
+
+dock 只渲染、不理解条目含义，`features.cjs` 也去掉了 `railPeak`。四个原先钉住旧方框的测试同步更新为新的
+契约（折叠栏是容器 + 模板、由 `snapshot.megaItems` 驱动、子 worker 的"一眼可见"状态回归面板本身）。
+
+**验证**：`tests/unit/mega-items.test.js` 5/5（排序、零即静默、预算与 overflow、坏条目不影响整条栏、
+id 不可重复、注册表驱动接线）；受影响的 dock/sub-worker/架构测试 69/69；`scripts/check-syntax.cjs` 220/220。
+
 ## bundled plugins — 本体自带的社区插件，版本钉死、失败归面板（updateplan/startup2.md §19–§23）
 
 **新增 `app/extensions/mega/plugins/index.cjs`：MEGA 自己管"随本体提供、工程上仍是可选社区插件"的两个插件。**

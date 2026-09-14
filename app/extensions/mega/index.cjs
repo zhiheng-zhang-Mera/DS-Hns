@@ -23,6 +23,7 @@ const { createDockTarget } = require('./dock/target')
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
 const { createBundledPlugins } = require('./plugins/index.cjs')
+const { createMegaItems } = require('./mega-items.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -310,7 +311,7 @@ function saveDockState() {
 
 function snapshot() {
   const recent = taskHistory.loadRecent()
-  return {
+  const payload = {
     extension: {
       id: 'mega',
       mode: 'optional-feature-extension',
@@ -415,6 +416,15 @@ function snapshot() {
       }
     })()
   }
+  /**
+   * The collapsed rail, derived from everything above (`updateplan/startup2.md` §41-§44).
+   *
+   * It is computed here, from the same payload the dock is about to receive, so the rail cannot
+   * disagree with the panels: whatever a module registered is asked for its current answer, the zeros
+   * stay out (§36/§43) and the budget decides what fits (§44).
+   */
+  payload.megaItems = megaItems().render(payload)
+  return payload
 }
 
 /** Sub-worker snapshot for the Mega panel and the tray (plan §11, §12, §16). */
@@ -1469,6 +1479,85 @@ function installer() {
  *     store marked disabled counts as the user's answer here.
  */
 let bundledPlugins = null
+
+/**
+ * The collapsed rail, as data (`./mega-items.cjs`, `updateplan/startup2.md` §36-§44).
+ *
+ * The plan's dedup rules, expressed as the items themselves rather than as a list somebody maintains:
+ *
+ *   * **RUN** means *DS-Hns worker slots in use* (§37) — `activeQueue.workerSlotsInUse`, not an agent
+ *     count. The Harness shows agents and tasks; this is the number of our own execution slots, which
+ *     it does not.
+ *   * **WKR** is the same idea as the old `HW` box, renamed to what it actually is (§39): concurrency in
+ *     use against the hardware cap. `HW` as a health light is not resident — a healthy machine is not
+ *     news.
+ *   * **AUTO** replaces `SUB` (§40): the sub-worker's *auto-delegation* switch, which is a control the
+ *     user has, rather than the agent state the Harness already draws.
+ *   * **Q** and **ERR** appear only when they are non-zero (§38, §36, §43) — an empty queue and a fault
+ *     count of zero are the normal state and do not get permanent attention.
+ *   * **PEAK is gone from the rail** (§41): it was the electricity-price window, which is a billing fact
+ *     and not a power policy. It stays in the expanded summary's own cards, where it belongs.
+ */
+let megaItemRegistry = null
+function megaItems() {
+  if (megaItemRegistry) return megaItemRegistry
+  megaItemRegistry = createMegaItems()
+  // §44's budget is the registry's, and the ordering below is each item's own claim about how much of
+  // the rail it deserves.
+  registerMegaItems()
+  return megaItemRegistry
+}
+
+/** Build the rail items. Kept apart from the IPC layer so a test can ask what the rail would show. */
+function registerMegaItems() {
+  const registry = megaItemRegistry
+  if (!registry) return []
+  const items = [
+    // §37: our own worker slots in use — a DS-Hns number the official UI does not show.
+    { id: 'workers', priority: 10, hint: 'DS-Hns worker slots in use', section: 'execution', current: (snapshot) => {
+      const inUse = snapshot?.scheduler?.activeQueue?.workerSlotsInUse ?? 0
+      const running = Number(snapshot?.scheduler?.counts?.RUNNING || 0) + Number(snapshot?.scheduler?.counts?.DISPATCHING || 0)
+      return { label: 'RUN', value: Math.max(Number(inUse) || 0, running) }
+    } },
+    // §39: concurrency against the hardware cap, named for what it is.
+    { id: 'slots', priority: 20, hint: 'concurrency in use against the hardware cap', section: 'resources', current: (snapshot) => {
+      const concurrency = snapshot?.scheduler?.concurrency || {}
+      const current = concurrency.current
+      const cap = concurrency.hardwareCap
+      if (current === undefined || current === null) return null
+      return { label: 'WKR', value: `${current}/${cap ?? '—'}`, detail: 'in use / hardware cap' }
+    } },
+    // §40: the control the user has, instead of a second copy of the agent state.
+    { id: 'automation', priority: 30, hint: 'auto delegation', section: 'automation', current: (snapshot) => {
+      const sub = snapshot?.subWorker
+      if (!sub || sub.available === false) return null
+      const auto = Boolean(sub.config?.autoDelegate)
+      return { label: 'AUTO', value: auto ? 'ON' : 'OFF', tone: auto ? 'ok' : 'quiet', action: 'automation' }
+    } },
+    // §38: a queue that is empty is not news.
+    { id: 'queue', priority: 40, hint: 'queued tasks', section: 'execution', current: (snapshot) => {
+      const queued = Number(snapshot?.scheduler?.activeQueue?.queued ?? 0)
+      return queued > 0 ? { label: 'Q', value: queued, tone: 'busy', action: 'queue' } : null
+    } },
+    // §36/§43: neither is a fault count of zero.
+    { id: 'errors', priority: 50, hint: 'blocked, retrying or failed tasks', section: 'health', current: (snapshot) => {
+      const counts = snapshot?.scheduler?.counts || {}
+      const failing = Number(counts.BLOCKED || 0) + Number(counts.RETRYING || 0) + Number(counts.FAILED || 0)
+      return failing > 0 ? { label: 'ERR', value: failing, tone: 'bad', action: 'health' } : null
+    } },
+    // The enhancement layer's own health, from the protection control plane (§42).
+    { id: 'protection', priority: 60, hint: 'degraded enhancement modules', section: 'health', current: () => {
+      const degraded = ctx?.protection?.describe?.()?.degraded || []
+      return degraded.length > 0 ? { label: 'EXT', value: degraded.length, tone: 'warn', action: 'protection', detail: degraded.join(', ') } : null
+    } }
+  ]
+  const registered = []
+  for (const item of items) {
+    const outcome = registry.register(item)
+    if (outcome.ok) registered.push(item.id)
+  }
+  return registered
+}
 function bundled() {
   if (bundledPlugins) return bundledPlugins
   const list = () => {

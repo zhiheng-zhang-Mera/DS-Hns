@@ -125,6 +125,15 @@ Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($
 Check 'The user''s decision and unknown versions are respected, not overwritten' (($bundled -match 'USER_DISABLED') -and ($bundled -match 'AHEAD_OF_PIN'))
 Check 'Bundled plugins are registered as protected modules' (($bundled -match 'registerProtected') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'bundled\(\)\.registerProtected\(\)'))
 Check 'The bundled set belongs to MEGA, and its policy pass is not on the boot path' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:bundled-plugins'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match '\.then\(\(\) => bundled\(\)\.ensure\(\)\)'))
+# ---- MEGA rail: registry-driven, deduplicated, budgeted (startup2.md section 36-44) ----
+$megaItems = Get-Content "$ROOT\app\extensions\mega\mega-items.cjs" -Raw -ErrorAction SilentlyContinue
+$dockHtml = Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw
+$dockJs = Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw
+Check 'MegaItemRegistry exists with a budget' (($megaItems -match 'function createMegaItems') -and ($megaItems -match 'MEGA_ITEM_BUDGET = 5') -and ($megaItems -match 'overflow'))
+Check 'Zero is not news: a quiet item is not rendered' (($megaItems -match 'if \(item\.quiet\) continue') -and ($megaItems -match 'quiet'))
+Check 'The rail is a container fed by the registry, not fixed boxes' ((($dockHtml -match 'id="railItems"') -and ($dockHtml -match 'id="railItemTemplate"')) -and (-not ($dockHtml -match 'id="railRunning"')))
+Check 'The dock renders the rail and knows nothing about what the items mean' (($dockJs -match 'function renderRail') -and ($dockJs -match 'snapshot\.megaItems'))
+Check 'The rail no longer duplicates the sub-worker state or the price window' ((-not ($dockHtml -match 'railSubWorker')) -and (-not ($dockHtml -match 'railPeak')))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

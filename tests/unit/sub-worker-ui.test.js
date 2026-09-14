@@ -286,8 +286,10 @@ test('the Sub-worker panel exists in the dock with every documented control', ()
   ]) {
     assert.match(dockHtml, new RegExp(`id="${id}"`), `${id} must be part of the Sub-worker panel`)
   }
-  // The rail shows the worker at a glance without opening the panel.
-  assert.match(dockHtml, /id="railSubWorker"/)
+  // The rail no longer carries a copy of the worker's own state (§40): that duplicated what the panel
+  // and the official UI already say. What the rail shows is auto delegation, registered in MEGA like
+  // every other rail item — `tests/unit/mega-items.test.js` holds that contract.
+  assert.match(dockHtml, /id="railItems"/)
   // Settings for the optional layer live in the settings overlay.
   assert.match(dockHtml, /id="subWorkerForm"/)
   for (const id of ['swEnabledOnStartup', 'swAutoDelegate', 'swCfgWorkspaceMode', 'swKeepChanges', 'swAllowCommit', 'swShowNotifications']) {
@@ -342,7 +344,6 @@ test('the panel renders live worker state, queue and history', async () => {
   await settle()
 
   assert.equal(h.dom.element('swState').textContent, 'RUNNING')
-  assert.equal(h.dom.element('railSubWorker').textContent, 'BUSY')
   assert.match(h.dom.element('swSummary').innerHTML, /sub-1/)
   assert.match(h.dom.element('swSummary').innerHTML, /Executor/)
   assert.match(h.dom.element('swSummary').innerHTML, /boss-kb-031/)
@@ -367,7 +368,6 @@ test('an unavailable or disabled worker degrades gracefully', async () => {
   const off = loadDock(megaSnapshot({ feature: 'optional-sub-worker', available: true, enabled: false, state: 'OFF', queue: [], history: [], events: [], live: null }))
   await settle()
   assert.equal(off.dom.element('swState').textContent, 'OFF')
-  assert.equal(off.dom.element('railSubWorker').textContent, 'OFF')
   assert.equal(off.dom.element('swEnable').hidden, false)
   assert.match(off.dom.element('swEnable').textContent, /Enable Sub-worker/)
   assert.equal(off.dom.element('swStop').disabled, true)

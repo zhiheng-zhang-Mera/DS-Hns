@@ -76,7 +76,9 @@ const MEGA_FEATURES = Object.freeze([
     group: 'Observability',
     purpose: { cn: '按 DeepSeek 峰谷时段决定任务何时执行', en: 'Decide when a task may run from the peak/off-peak window' },
     panels: [],
-    elements: ['allowPeak', 'defaultAllowPeak', 'interruptRunningAtPeak', 'railPeak'],
+    // `railPeak` is gone: the rail is composed from registered items now (`mega/mega-items.cjs`), and
+    // a peak/valley window is a billing fact that belongs in the expanded summary, not on the rail.
+    elements: ['allowPeak', 'defaultAllowPeak', 'interruptRunningAtPeak'],
     channels: []
   },
   {

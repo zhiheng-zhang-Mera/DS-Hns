@@ -156,7 +156,9 @@ test('Mega degrades to exactly its previous behaviour when no manager is provide
   assert.match(mega, /\{ label: bilingualTitle\('强制退出 DS-Harness', 'Force Exit DS-Harness'\)/)
   // The Sub-worker panel is additive: the existing panels are untouched.
   const dockHtml = read('app/extensions/mega/ui/dock.html')
-  for (const id of ['railRunning', 'railQueued', 'railWorkers', 'summary', 'queue', 'hardware', 'balanceCards', 'settingsOverlay']) {
+  // `railItems` replaces the three fixed rail boxes: the rail is composed from registered items now
+  // (`updateplan/startup2.md` §41-§44), and the panels behind it are untouched.
+  for (const id of ['railItems', 'summary', 'queue', 'hardware', 'balanceCards', 'settingsOverlay']) {
     assert.match(dockHtml, new RegExp(`id="${id}"`), `${id} must survive the change`)
   }
 })

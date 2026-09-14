@@ -108,15 +108,55 @@ function nextValleyText(snapshot) {
 
 function updateLivePeriod() {
   if (!latestSnapshot) return
-  const peak = Boolean(latestSnapshot.scheduler?.peak?.peak)
   const timer = $('nextValleyValue')
   if (timer) timer.textContent = nextValleyText(latestSnapshot)
-  const railPeak = $('railPeak')
-  if (railPeak) {
-    railPeak.textContent = peak ? 'PEAK' : 'VALLEY'
-    railPeak.classList.toggle('peak', peak)
-    railPeak.classList.toggle('offpeak', !peak)
+}
+
+/**
+ * The collapsed rail, rendered from what MEGA registered (`updateplan/startup2.md` §41-§44).
+ *
+ * This function knows nothing about what the items mean, which is the point: adding a rail item is a
+ * registration in the extension, not an edit here, and the plan's dedup work (no `SUB` duplicating the
+ * agent state, no `PEAK` billing window, no `QUEUE 0` box) is expressed as "the item answers `null`".
+ * The overflow count is rendered as `More` because the rail's budget is a promise, not a hope (§44).
+ */
+function renderRail(items) {
+  const container = $('railItems')
+  if (!container) return
+  const template = $('railItemTemplate')
+  const data = items && Array.isArray(items.items) ? items : { items: [], overflow: 0 }
+  const nodes = []
+  for (const item of data.items) {
+    const node = template && template.content && template.content.firstElementChild
+      ? template.content.firstElementChild.cloneNode(true)
+      : (typeof document.createElement === 'function' ? document.createElement('div') : null)
+    if (!node) continue
+    node.dataset.megaItem = item.id
+    if (item.tone) node.dataset.tone = item.tone
+    if (item.action) node.dataset.action = item.action
+    if (item.detail) node.title = item.detail
+    const label = node.querySelector ? node.querySelector('small') : null
+    const value = node.querySelector ? node.querySelector('b') : null
+    if (label) label.textContent = item.label
+    else node.textContent = item.label
+    if (value) value.textContent = item.value
+    nodes.push(node)
   }
+  if (data.overflow > 0) {
+    const more = typeof document.createElement === 'function' ? document.createElement('div') : null
+    if (more) {
+      more.className = 'rail-more'
+      more.dataset.megaItem = 'more'
+      more.textContent = `+${data.overflow}`
+      more.title = `${data.overflow} more item(s) in the Control Center`
+      nodes.push(more)
+    }
+  }
+  // `innerHTML = ''` + `appendChild` rather than `replaceChildren`: the dock's own tests run this
+  // script against a minimal document, and a rail that only works in a full browser would make every
+  // panel assertion about the rail untestable.
+  container.innerHTML = ''
+  for (const node of nodes) container.appendChild(node)
 }
 
 const PROVIDER_STATUS_TEXT = {
@@ -415,6 +455,10 @@ function renderSubWorker(snapshot) {
     stateChip.className = `status-chip ${subWorkerStateClass(state)}`
   }
   const rail = $('railSubWorker')
+  // `railSubWorker` is gone (§40): the rail no longer carries a copy of the worker's own state, which
+  // duplicated what the panel and the official UI already say. What the rail shows instead is the
+  // *decision* — auto delegation — registered in the extension like every other rail item. This last
+  // line stays only so a dock document from an older build is not fed an "undefined" by mistake.
   if (rail) rail.textContent = sw.available === false ? 'N/A' : (sw.enabled ? (busy ? 'BUSY' : 'ON') : 'OFF')
 
   const config = sw.config || {}
@@ -912,9 +956,9 @@ function render(snapshot) {
   const queuedCount = (counts.PENDING || 0) + (counts.SUSPENDED || 0) || queued.length || 0
 
   setExpanded(Boolean(dock.expanded))
-  $('railRunning').textContent = String(activeCount)
-  $('railQueued').textContent = String(queuedCount)
-  $('railWorkers').textContent = `${concurrency.current ?? '—'}/${concurrency.hardwareCap ?? '—'}`
+  // The rail is whatever MEGA registered for it (mega/mega-items.cjs): ordered, budgeted, and silent
+  // about zeros. The dock renders that data and knows nothing about what the items mean.
+  renderRail(snapshot.megaItems)
 
   $('summary').innerHTML = `
     <div class="summary-card period-card ${peak ? 'peak' : 'offpeak'}">

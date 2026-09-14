@@ -106,8 +106,6 @@ MEGA Control Center 的 Protection 面板与插件修复入口（§45–§47）�
 `[BOOT]` 的阶段账目不变），而**状态与失败**由 protection 层持有：模块失败时 boot 只看到「这一项降级了」，
 MEGA 面板看到的是状态、最近错误、重试次数与 fallback 现状。启动结束时会多一行 `[protection] {...}` 全量报告。
 
-## 4. 验收怎么读
-
 ## 3.2 第三轮：Bundled Plugin Manager（`updateplan/startup2.md` §19–§23）
 
 MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那两个插件：
@@ -136,6 +134,34 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
 测试：`tests/unit/bundled-plugins.test.js` 9 项（清单为真且不追 latest、未测试不安装、缺失的已测试版本按 pin 安装、
 用户禁用优先、未知版本只报告、不兼容只报告且只有 repair 会重装、repair 拒绝未测试 pin、受保护模块与 fallback、
 以及接线与"安装路径尚未接线"的静态断言）。
+
+## 3.3 第四轮：MEGA 折叠栏去重（`updateplan/startup2.md` §36–§44）
+
+折叠栏原本是 dock 标记里五个固定方框（RUN/QUEUE/HW/SUB + 峰谷芯片），由 dock 脚本按 id 填数。这个形状正是
+"状态栏变成第二条状态栏"的原因：每个新数字都要新开一个框，删掉一个要改三个文件，而且 dock 必须知道
+"RUN 到底是什么意思"。
+
+现在它是**注册表驱动**的：[app/extensions/mega/mega-items.cjs](../app/extensions/mega/mega-items.cjs)。
+模块注册条目（`registerMegaItem({ id, priority, current })`），`current(snapshot)` 回答"我现在要说什么"，
+返回 `null` 就是"我没什么要说的"。于是计划书的两条规则变成机制而不是纪律：
+
+- **零不是新闻**（§36/§43）：值为 0 / 空 / `OFF` 的条目不出现——空队列、零重试、零错误是正常状态，正常状态
+  不占永久注意力。
+- **折叠栏有预算**（§44）：最多 5 项，按 `priority` 排序，装不下的计入 `overflow`，dock 渲染成 `+N`
+  指向展开态的 Control Center，因此它不会无限增长。
+
+去重的落点（§37–§41）：`RUN` = **DS-Hns 自己的 worker slot 占用数**（`activeQueue.workerSlotsInUse`，
+官方 UI 不显示这个数）；`WKR` = 并发 / 硬件上限（原名 `HW`，改成它真正的含义）；`AUTO` 取代 `SUB`
+（显示"自动委派"这个用户拥有的开关，而不是再抄一遍 agent 状态）；`Q` / `ERR` 只在非零时出现；
+**峰谷芯片从折叠栏移除**——那是电费时段，属于展开态的账单卡片，不是资源策略。另外多一项 `EXT`：保护层里
+处于降级状态的可选模块数（§42），同样只在非零时出现。
+
+dock 只负责渲染（`renderRail`），不知道任何条目的含义；`features.cjs` 的 peak 元素表也去掉了 `railPeak`。
+测试：`tests/unit/mega-items.test.js`（排序、零即静默、预算与 overflow、坏条目不影响整条栏、id 不可重复，
+以及"折叠栏由注册表驱动"的静态断言），并同步更新了原先钉住旧方框的四个测试（architecture-contract、
+mega-dock-render、sub-worker-ui、sub-worker-default-regression）。
+
+## 4. 验收怎么读
 
 - `tests/unit/startup.test.js`：状态顺序、预算记录、`defer` 的故障隔离、`onInteractive`、
   `ENHANCED` 只在延迟工作落定后出现，以及**启动顺序**（骨架先于 Harness、可选层全部晚于

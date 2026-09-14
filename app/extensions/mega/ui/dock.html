@@ -29,14 +29,21 @@
     <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
     <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>
     <!--
-      The collapsed rail's live counters. It used to lead with a dual-UI mode switch; the
-      product has one frontend now, so the rail shows what the runtime is doing instead.
+      The collapsed rail. It used to be five fixed boxes — RUN, QUEUE, HW, SUB and a peak chip — which
+      is exactly how a status rail turns into a second status bar: every new number needed a box, and
+      nothing could be removed without editing three files.
+
+      Now it is a container that renders what MEGA's item registry reports (`mega/mega-items.cjs`,
+      `updateplan/startup2.md` §41-§44): each item decides whether it has anything to say (a zero does
+      not), the registry orders them by priority, and the budget keeps the rail from growing. The
+      factory below is the one shape every item renders as; what it holds comes from the snapshot.
     -->
-    <div class="rail-stat"><small>RUN</small><b id="railRunning">0</b></div>
-    <div class="rail-stat"><small>QUEUE</small><b id="railQueued">0</b></div>
-    <div class="rail-stat"><small>HW</small><b id="railWorkers">—</b></div>
-    <div class="rail-stat"><small>SUB</small><b id="railSubWorker">OFF</b></div>
-    <div id="railPeak" class="rail-mode">OFF</div>
+    <div id="railItems" class="rail-items" role="status" aria-live="polite"></div>
+    <template id="railItemTemplate">
+      <div class="rail-stat">
+        <small></small><b></b>
+      </div>
+    </template>
   </aside>
 
   <main id="detail">
