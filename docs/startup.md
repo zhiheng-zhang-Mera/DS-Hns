@@ -142,6 +142,12 @@ MEGA 现在自己管"随本体提供、工程上仍是可选社区插件"的那�
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
 路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。
 
+**移除与兼容检查也按同一个通道走**：`removeBundled(entry, …)` 与 `installBundled` 对称 —— 让**我们的商店**去删一个
+Harness 客户端插件会"什么都没删却报告成功"，而一个静默无效的"修复"比失败的修复更糟；`unresolved` 同样直接拒绝
+（从来没装过，就没有可删的东西）。`compatibility(entry, record)` 则由**持有描述符的一方**回答：`dshns.plugin/v1`
+插件查商店自己的记录（native/compat），Harness 客户端插件的兼容性属于 Harness 与它的 profile —— 本产品如实报
+`checked: 'harness'`，而不是声称自己检查过一件看不见的事。
+
 （历史：`installPinnedPlugin()` 之前只用商店自己的两步 —— `stage({ source, branch: ref })` 与 `enable({ id })`
 —— 来安装清单钉住的引用；那条路对真正是 `dshns.plugin/v1` 的插件仍然正确，只是不适用于上面这两个 Harness 插件。）
 

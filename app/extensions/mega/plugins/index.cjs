@@ -376,11 +376,48 @@ async function installBundled(entry = {}, { harnessAdd = null, store = null, pro
   return { ok: true, channel, id, version: staged?.entry?.version || entry.ref }
 }
 
+/**
+ * Remove one bundled entry through **its own channel**, the same way `installBundled` installs it.
+ *
+ * This matters for repair: replacing a Harness client plugin by asking *our* store to remove it would remove
+ * nothing (it was never there) and then report success — a repair that silently did nothing is worse than one
+ * that fails. `channel: 'unresolved'` refuses here too: there is nothing to remove for an entry that has never
+ * had a way to be installed.
+ *
+ * @param {object}   entry
+ * @param {object}   [hooks]
+ * @param {Function} [hooks.harnessRemove] `({ profile, package: spec }) => { ok, reason }`
+ * @param {object}   [hooks.store]         `{ remove }`
+ * @param {string}   [hooks.profile]
+ */
+async function removeBundled(entry = {}, { harnessRemove = null, store = null, profile = 'web' } = {}) {
+  const channel = String(entry.channel || 'dshns-store')
+  if (channel === 'unresolved') {
+    return { ok: false, channel, reason: entry.reason || `${entry.id} has no installation channel, so there is nothing to remove` }
+  }
+  if (channel === 'harness-profile') {
+    if (typeof harnessRemove !== 'function') return { ok: false, channel, reason: 'no Harness plugin CLI is available' }
+    if (!entry.package) return { ok: false, channel, reason: `${entry.id} names no package to remove` }
+    try {
+      const outcome = await harnessRemove({ profile, package: entry.package })
+      if (outcome?.ok === false) return { ok: false, channel, reason: outcome.reason || 'the Harness refused to remove it' }
+      return { ok: true, channel, profile, package: entry.package }
+    } catch (error) {
+      return { ok: false, channel, reason: String(error?.message || error) }
+    }
+  }
+  if (channel !== 'dshns-store') return { ok: false, channel, reason: `"${channel}" is not an installation channel` }
+  if (!store || typeof store.remove !== 'function') return { ok: false, channel, reason: 'no store is available' }
+  const outcome = await store.remove({ id: entry.id })
+  return outcome?.ok === false ? { ok: false, channel, reason: outcome.reason || 'the store refused to remove it' } : { ok: true, channel, id: entry.id }
+}
+
 module.exports = {
   createBundledPlugins,
   BUNDLED_MANIFEST,
   BUNDLED_STATE,
   BUNDLED_FALLBACK,
   BUNDLED_CHANNELS,
-  installBundled
+  installBundled,
+  removeBundled
 }

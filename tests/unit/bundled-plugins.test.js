@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { createBundledPlugins, BUNDLED_MANIFEST, BUNDLED_STATE } = require('../../app/extensions/mega/plugins/index.cjs')
+const { createBundledPlugins, installBundled, removeBundled, BUNDLED_MANIFEST, BUNDLED_STATE } = require('../../app/extensions/mega/plugins/index.cjs')
 const { createProtectionLayer, MODULE_STATE } = require('../../app/extensions/mega/protection/index.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
@@ -155,7 +155,7 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   const main = read('app/desktop-main.cjs')
   // MEGA owns the bundled set (§19): the manager is created there, reads the store's own record, and
   // its protected modules are registered on start.
-  assert.match(index, /const \{ createBundledPlugins, installBundled \} = require\('\.\/plugins\/index\.cjs'\)/)
+  assert.match(index, /const \{ createBundledPlugins, installBundled, removeBundled \} = require\('\.\/plugins\/index\.cjs'\)/)
   assert.match(index, /bundled\(\)\.registerProtected\(\)/)
   assert.match(index, /installed: \(\) => list\(\)/)
   assert.match(index, /protection: ctx\?\.protection \|\| null/)
@@ -168,6 +168,46 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   // The shell hands the layer over, and the install call is the store's own two steps behind one function.
   assert.match(main, /officialSurfaces: officialSurfaceAdapter,[\s\S]{0,400}protection,/, 'the protection layer never reaches the extension')
   assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/, 'the bundled manager cannot install a pinned reference')
+})
+
+/**
+ * Removal follows the same channel as installation — and that is not symmetry for its own sake: a repair which
+ * asked *our* store to remove a Harness client plugin would remove nothing and then report success, which is
+ * worse than a repair that fails.
+ */
+test('removal follows the entry\'s channel, and an unresolved entry has nothing to remove', async () => {
+  const calls = []
+  const harness = await removeBundled(BUNDLED_MANIFEST.plugins[0], { harnessRemove: async (input) => { calls.push(input); return { ok: true } } })
+  assert.equal(harness.ok, true)
+  assert.deepEqual(calls[0], { profile: 'web', package: 'dsh-plugin-wallpaper-engine' })
+
+  const store = await removeBundled({ id: 'dshns.some-plugin', channel: 'dshns-store' }, { store: { remove: async (input) => { calls.push(input); return { ok: true } } } })
+  assert.equal(store.ok, true)
+  assert.deepEqual(calls[1], { id: 'dshns.some-plugin' })
+
+  const unresolved = await removeBundled(BUNDLED_MANIFEST.plugins[1], {})
+  assert.equal(unresolved.ok, false)
+  assert.match(unresolved.reason, /no dsh descriptor/)
+  assert.equal((await removeBundled({ id: 'x', channel: 'neon' }, {})).ok, false)
+  // A channel with no tool available is a refusal, not a silent success.
+  assert.equal((await removeBundled(BUNDLED_MANIFEST.plugins[0], {})).ok, false)
+
+  // And the installer dispatches the same way, for the same reason.
+  assert.equal((await installBundled(BUNDLED_MANIFEST.plugins[0], { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
+  assert.deepEqual(calls[2], { profile: 'web', package: 'dsh-plugin-wallpaper-engine@v0.7.1' })
+})
+
+test('compatibility is answered by whoever owns the descriptor, and says which one answered', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  // A Harness client plugin's descriptor belongs to the Harness; the product says so instead of claiming it
+  // checked something it cannot see.
+  assert.match(index, /entry\?\.channel === 'harness-profile'[\s\S]{0,300}checked: 'harness'/)
+  // A dshns plugin is checked against the store's own record.
+  assert.match(index, /checked: 'store'/)
+  assert.match(index, /compatibility: \(entry, record\) => \{/)
+  // Removal and installation are wired to the same dispatch.
+  assert.match(index, /uninstall: \(id\) => \{[\s\S]{0,400}removeBundled\(entry, \{/)
+  assert.match(index, /harnessRemove: \(\{ profile, package: spec \}\) => runHarnessPluginCli\(\['plugin', '--profile', profile, 'remove', spec\]\)/)
 })
 
 /**
@@ -189,7 +229,7 @@ test('a pin goes through the channel its entry names', () => {
   assert.match(plugins, /store\.stage\(\{ source: entry\.repo, revision: entry\.ref \}\)/)
   assert.match(plugins, /store\.stage\(\{ source: entry\.repo, branch: entry\.ref \}\)/)
   assert.match(index, /install: \(entry\) => installPinnedPlugin\(entry\)/)
-  assert.match(index, /uninstall: async \(id\) => \{/)
+  assert.match(index, /uninstall: \(id\) => \{/)
   // The Harness command is the Harness' own tool, run against the profile the product boots.
   assert.match(index, /function harnessProfile\(\)/)
   assert.match(index, /1000|120_000/, 'the Harness CLI call is bounded')

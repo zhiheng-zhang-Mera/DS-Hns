@@ -22,7 +22,7 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
-const { createBundledPlugins, installBundled } = require('./plugins/index.cjs')
+const { createBundledPlugins, installBundled, removeBundled } = require('./plugins/index.cjs')
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
@@ -1604,6 +1604,16 @@ function harnessProfile() {
   return process.env.DSH_PROFILE || 'web'
 }
 
+/** One bundled entry by id, from the shipped manifest — what a channel decision is made about. */
+function bundledEntry(id) {
+  try {
+    const { BUNDLED_MANIFEST } = require('./plugins/index.cjs')
+    return (BUNDLED_MANIFEST.plugins || []).find((entry) => entry.id === id) || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Run the Harness' own plugin CLI (`dsh plugin …`, which forwards to pnpm inside the profile directory).
  *
@@ -1899,13 +1909,44 @@ function bundled() {
     },
     protection: ctx?.protection || null,
     install: (entry) => installPinnedPlugin(entry),
-    uninstall: async (id) => {
-      const outcome = installer().remove({ id })
-      return outcome?.ok === false ? { ok: false, reason: outcome.reason || 'the store refused to remove it' } : { ok: true }
+    /**
+     * Removal follows the same channel as installation.
+     *
+     * A repair that asked *our* store to remove a Harness client plugin would remove nothing and then report
+     * success — and a repair which silently does nothing is worse than one that fails. So the entry's channel
+     * decides the tool here exactly as it does for installation.
+     */
+    uninstall: (id) => {
+      const entry = bundledEntry(id)
+      if (!entry) return Promise.resolve({ ok: false, reason: `${id} is not a bundled plugin` })
+      return removeBundled(entry, {
+        profile: harnessProfile(),
+        harnessRemove: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'remove', spec]),
+        store: { remove: (input) => installer().remove(input) }
+      })
     },
-    // The store classifies a repository itself while staging (native manifest or compatibility mode); a second
-    // opinion here would be a second answer to the same question.
-    compatibility: () => ({ ok: true }),
+    /**
+     * Compatibility, for the channel that can answer it.
+     *
+     * A `dshns.plugin/v1` plugin is checked by the store's own pre-flight (the classifier that decides native
+     * versus compatibility mode). A Harness *client* plugin's compatibility belongs to the Harness and its
+     * profile: DS-Hns does not own that descriptor and a second opinion here would be a second answer to a
+     * question this product cannot see. Both paths say which one they are, rather than both claiming `ok`.
+     */
+    compatibility: (entry, record) => {
+      if (entry?.channel === 'harness-profile') {
+        return { ok: true, checked: 'harness', note: 'the Harness owns its profile plugins; DS-Hns does not second-guess that' }
+      }
+      if (!record || !record.id) return { ok: true, checked: 'none', note: 'nothing installed to check' }
+      try {
+        const verdict = installer().preflight ? installer().entry({ id: record.id }) : null
+        const compatibility = verdict?.compatibility || null
+        if (compatibility === 'native' || compatibility === 'compat') return { ok: true, checked: 'store', compatibility }
+        return { ok: true, checked: 'store', compatibility: compatibility || 'unknown' }
+      } catch (error) {
+        return { ok: true, checked: 'store', note: `the store's own record could not be read: ${error?.message || error}` }
+      }
+    },
     log: (message) => log(message)
   })
   return bundledPlugins

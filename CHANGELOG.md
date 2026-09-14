@@ -3,6 +3,20 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 移除与兼容检查也按通道走（updateplan/startup2.md §19–§23）
+
+**`removeBundled(entry, …)` 与 `installBundled` 对称**：让**我们的商店**去删一个 Harness 客户端插件会"什么都没删
+却报告成功"，而一个静默无效的"修复"比失败的修复更糟。所以移除同样按 `channel` 分派：`harness-profile` 走
+`dsh plugin --profile <p> remove <package>`（真实调用 Harness 自己的 CLI），`dshns-store` 走商店的 `remove`，
+`unresolved` 直接拒绝（从来没有可安装通道，就没有可删的东西）。
+
+**`compatibility(entry, record)` 由持有描述符的一方回答**：`dshns.plugin/v1` 插件查商店自己的记录（native/compat，
+读不到就如实报 unknown 与原因），Harness 客户端插件的兼容性属于 Harness 与它的 profile —— 本产品返回
+`checked: 'harness'` 并说明不重复判断，而不是声称检查过一件自己看不见的事。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12（新增：移除按通道分派、unresolved 拒绝、缺工具是拒绝而非
+静默成功、安装与移除用同一个包名规格、兼容检查由谁回答的静态断言）；`scripts/verify.ps1` 增加对应的通道一致性检查。
+
 ## bundled plugins — 安装通道按仓库事实修正（updateplan/startup2.md §19–§23）
 
 **读了两个仓库的 `package.json`，结论与计划书的假设不同，清单按事实修正。**
