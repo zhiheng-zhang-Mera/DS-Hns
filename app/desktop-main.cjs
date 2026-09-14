@@ -72,14 +72,17 @@ function bilingualTitle(cn, en) {
 /**
  * The official Overlay (Update-Plan/Dual-UI.md 任务 1).
  *
- * DEPRECATED and DISABLED by default. The overlay was the previous official
- * theming architecture; Dual-UI replaces it with the native frontend, so the
- * product no longer stacks a transparent view above the official renderer. The
- * code is kept (and the module still supports it) behind an explicit opt-in so
- * an old theme package can still be inspected, but nothing creates it unless
- * DSH_OFFICIAL_OVERLAY=1 is set on purpose.
+ * It was the previous official *theming* architecture, and as a theme surface it is still retired:
+ * nothing hands it a theme payload's effects, and the Appearance panel has no control that reaches
+ * it. What it is created for now is the user's wallpaper — a background is the one thing that
+ * cannot be drawn anywhere else, because every other surface DS-Hns owns is either behind the
+ * official page or a strip beside it, and a background has to be over the page to be seen at all.
+ *
+ * So the view is created unconditionally, and the document it loads carries the wallpaper and its
+ * scrim and nothing else that any surface can switch on. Setting `DSH_OFFICIAL_OVERLAY=0` still
+ * turns it off for a run that would rather not have a view above the official renderer.
  */
-const OFFICIAL_OVERLAY_ENABLED = process.env.DSH_OFFICIAL_OVERLAY === '1'
+const OFFICIAL_OVERLAY_ENABLED = process.env.DSH_OFFICIAL_OVERLAY !== '0'
 
 /** Accept only a real usable port; anything else silently keeps the default. */
 function normalizeHarnessPort(value) {
@@ -1725,12 +1728,12 @@ async function createOfficialSurfaces() {
     // unless an operator explicitly asks for the legacy architecture.
     if (OFFICIAL_OVERLAY_ENABLED) {
       officialSurfaces.createOverlay()
-      logLine('DEPRECATED: official_overlay created because DSH_OFFICIAL_OVERLAY=1; the overlay architecture is retired')
+      logLine('official_overlay attached for the user wallpaper (input-transparent, script-free); it takes no theme effect')
     } else {
-      logLine('official_overlay disabled by default (Update-Plan/Dual-UI.md P0 task 1); only the official_shell frame is attached')
+      logLine('official_overlay turned off for this run (DSH_OFFICIAL_OVERLAY=0); the wallpaper cannot be drawn over the official UI')
     }
     officialSurfaces.applyLayout()
-    logLine(`official_shell view attached (visual-only, input passthrough); overlay=${OFFICIAL_OVERLAY_ENABLED ? 'legacy-opt-in' : 'disabled'}`)
+    logLine(`official_shell view attached (visual-only, input passthrough); overlay=${OFFICIAL_OVERLAY_ENABLED ? 'wallpaper' : 'disabled'}`)
     return true
   } catch (error) {
     logLine(`official surfaces failed to attach; the official renderer keeps running unthemed: ${error?.stack || error}`)

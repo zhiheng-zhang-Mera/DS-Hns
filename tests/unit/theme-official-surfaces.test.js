@@ -318,15 +318,18 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // The official view is created first (centre), then the surfaces...
   assert.match(main, /await createOfficialHarnessView\(readyUrl\)/)
   assert.match(main, /await createOfficialSurfaces\(\)/)
-  // ...and, since Update-Plan/Dual-UI.md 任务 1, the shell is the only surface
-  // created by default: the overlay is DEPRECATED and explicitly opt-in, because
-  // Work Mode must stay untouched official UI.
+  // ...and the shell is created by default. The overlay is no longer a *theme* surface — nothing
+  // hands it a theme payload's effects — but it is created, for the one thing that cannot be drawn
+  // anywhere else: the user's wallpaper. Every other surface DS-Hns owns is either behind the
+  // official page or a strip beside it, and a background has to be over the page to be seen at all.
+  // It stays opt-*out*, so a run that would rather not have a view above the official renderer can
+  // still say so.
   assert.match(main, /official_shell view attached \(visual-only, input passthrough\)/)
-  assert.match(main, /const OFFICIAL_OVERLAY_ENABLED = process\.env\.DSH_OFFICIAL_OVERLAY === '1'/)
+  assert.match(main, /const OFFICIAL_OVERLAY_ENABLED = process\.env\.DSH_OFFICIAL_OVERLAY !== '0'/)
   assert.match(main, /if \(OFFICIAL_OVERLAY_ENABLED\) \{\n\s*officialSurfaces\.createOverlay\(\)/)
   const surfacesFactory = main.slice(main.indexOf('async function createOfficialSurfaces('), main.indexOf('async function createIntegratedMegaDock'))
   const overlayCalls = surfacesFactory.match(/officialSurfaces\.createOverlay\(\)/g) || []
-  assert.equal(overlayCalls.length, 1, 'the overlay is created in exactly one place, inside the opt-in guard')
+  assert.equal(overlayCalls.length, 1, 'the overlay is created in exactly one place, inside its own guard')
   // ...and the extension receives an adapter whose only operation is a paint.
   assert.match(main, /function createOfficialSurfaceAdapter\(\)/)
   assert.match(main, /officialSurfaceAdapter,/)
