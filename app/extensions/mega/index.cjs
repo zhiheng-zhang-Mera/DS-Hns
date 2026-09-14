@@ -26,6 +26,7 @@ const { createBundledPlugins, installBundled, removeBundled } = require('./plugi
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
+const { createGovernanceBridge } = require('../../core/governance-bridge.cjs')
 const { createStartupCache } = require('./startup-cache.cjs')
 const { createAppearanceProviders } = require('./appearance/providers.cjs')
 const { createAppearanceState } = require('./appearance/state.cjs')
@@ -1477,6 +1478,32 @@ function installer() {
 }
 
 /**
+ * The governance bridge (`app/core/governance-bridge.cjs`, `updateplan/pluginize.md` Phase 1).
+ *
+ * The plan moves Mega into the official Harness UI as a plugin, and that plugin runs in the Harness process —
+ * a different process from this one. So it needs a channel to ask what governance knows and to ask for the
+ * actions governance allows, and this is that channel.
+ *
+ * It answers with **exactly what the Control Center shows** (`controlCenter()`) and performs **exactly the
+ * actions the Control Center offers** (`controlAction()`). One truth, two surfaces: a second assembly of the
+ * same facts would be a second answer, and the plugin and the dock would eventually disagree about whether a
+ * module is healthy.
+ */
+let governanceBridgeState = null
+function governanceBridge() {
+  if (governanceBridgeState) return governanceBridgeState
+  governanceBridgeState = createGovernanceBridge({
+    // The Harness child is spawned with `DSH_HOME=<root>/data`, so its plugin finds the discovery file from its
+    // own environment instead of a hard-coded path.
+    stateDir: path.join(PATHS.ROOT, 'data', 'state'),
+    snapshot: () => controlCenter(),
+    act: (payload) => controlAction(payload),
+    log: (message) => log(message)
+  })
+  return governanceBridgeState
+}
+
+/**
  * The MEGA Control Center (`updateplan/startup2.md` §45-§47).
  *
  * The expanded dock is where the enhancement layer is *managed*: what is running, what it costs, what is
@@ -1527,6 +1554,13 @@ function controlCenter() {
     appearance: (() => {
       try {
         return appearanceCost()
+      } catch {
+        return null
+      }
+    })(),
+    bridge: (() => {
+      try {
+        return governanceBridgeState ? governanceBridgeState.describe() : { ok: false, host: '127.0.0.1', port: null, requests: 0, refused: 0 }
       } catch {
         return null
       }
@@ -2923,6 +2957,19 @@ async function start(context) {
       .then(() => rememberStartup())
       .then((recorded) => log(`startup cache: ${recorded?.ok === false ? `not updated (${recorded.reason})` : `remembered ${(recorded?.keys || []).join(', ')}`}`))
       .catch((error) => log(`the startup cache pass failed without affecting anything else: ${error?.message || error}`))
+    /**
+     * The governance bridge, last and in the background (pluginize Phase 1).
+     *
+     * It is what the Mega Core Plugin talks to once Mega lives in the official UI: the same data the Control
+     * Center shows, on loopback with a per-run token. A bridge that cannot bind is a line in the log and a
+     * plugin that reports "governance unavailable" — never a start that fails.
+     */
+    Promise.resolve()
+      .then(() => governanceBridge().start())
+      .then((outcome) => {
+        if (outcome?.ok === false) log(`the governance bridge did not start (${outcome.reason}); the plugin will report it unavailable`)
+      })
+      .catch((error) => log(`the governance bridge failed without affecting anything else: ${error?.message || error}`))
   } catch (error) {
     log(`bundled plugin registration failed (the rest of Mega is unaffected): ${error?.message || error}`)
   }
@@ -3006,6 +3053,9 @@ function stop() {
   // must not repaint a renderer that is about to be destroyed.
   try { themeEngine?.stop?.() } catch {}
   themeEngine = null
+  // The governance bridge holds a listening socket and a token on disk; both go with the process.
+  try { governanceBridgeState?.stop?.() } catch {}
+  governanceBridgeState = null
   skillService = null
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
