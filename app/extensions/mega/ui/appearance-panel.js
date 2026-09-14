@@ -248,6 +248,67 @@
     return true
   }
 
+  /**
+   * The readability presets (`updateplan/startup2.md` §26-§28).
+   *
+   * One control over two layers, and the panel renders what the *shell* reports: the preset list comes
+   * from the controller (so a new preset needs no change here), and the selected entry is what the
+   * numbers in force look like — a hand-tuned mixture leaves the select on "custom" rather than
+   * pretending to be the nearest preset.
+   */
+  function appearanceApi() {
+    return window.megaTools && window.megaTools.appearance ? window.megaTools.appearance : null
+  }
+
+  async function loadAppearancePresets() {
+    const api = appearanceApi()
+    const select = $('appearancePreset')
+    if (!select || !api || typeof api.describe !== 'function') return null
+    try {
+      const described = await api.describe()
+      if (!described || described.ok === false) return null
+      const options = []
+      for (const preset of described.presets || []) {
+        const option = document.createElement('option')
+        option.value = preset.id
+        option.textContent = preset.label
+        if (preset.note) option.title = preset.note
+        options.push(option)
+      }
+      const custom = document.createElement('option')
+      custom.value = ''
+      custom.textContent = '自定义 · custom'
+      options.push(custom)
+      select.innerHTML = ''
+      for (const option of options) select.appendChild(option)
+      select.value = described.active || ''
+      return described
+    } catch {
+      return null
+    }
+  }
+
+  function bindAppearancePresets() {
+    const api = appearanceApi()
+    const select = $('appearancePreset')
+    if (!select || !api || typeof api.set !== 'function') return false
+    select.addEventListener('change', () => {
+      const preset = String(select.value || '')
+      if (!preset) return
+      Promise.resolve(api.set(preset)).then((result) => {
+        if (result && result.ok === false) {
+          setMessage(result.reason || '该预设未被接受 · the preset was refused', 'error')
+          return
+        }
+        setMessage('')
+        // The layers changed underneath the sliders, so the card re-reads them rather than guessing.
+        loadWallpaper()
+        return loadAppearancePresets()
+      })
+    })
+    return loadAppearancePresets().then(() => true)
+  }
+
   function attach() {
     const panel = $('appearancePanel')
     if (!panel) return null
@@ -258,6 +319,7 @@
       return null
     }
     bindControls()
+    bindAppearancePresets()
     bindWallpaperControls()
     // Follow the layer, so a change made anywhere else lands on these controls too.
     api.onChange(render)

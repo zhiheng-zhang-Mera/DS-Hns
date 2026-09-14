@@ -176,6 +176,15 @@ contextBridge.exposeInMainWorld('megaTools', {
     pick: (options) => ipcRenderer.invoke('mega:wallpaper-pick', options),
     onChanged: (callback) => ipcRenderer.on('mega:wallpaper-changed', (_event, payload) => callback(payload))
   },
+  /**
+   * The appearance presets: one decision over the glass and the wallpaper
+   * (`updateplan/startup2.md` §26-§28). The panel writes one preset and renders the answer, which
+   * reports each layer separately.
+   */
+  appearance: {
+    describe: () => ipcRenderer.invoke('mega:appearance'),
+    set: (preset) => ipcRenderer.invoke('mega:appearance-set', { preset })
+  },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),

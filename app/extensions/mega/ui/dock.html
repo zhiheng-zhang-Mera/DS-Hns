@@ -101,6 +101,16 @@
           <span class="bi-title bi-sm"><span class="bi-cn">磨砂玻璃</span><span class="bi-en">Frosted glass</span></span>
         </label>
         <p class="glass-note">半透明并模糊背后的内容；底盘不涂任何颜色，因此不会与被覆盖的官方界面抢色。<br><small>Translucent and blurred; the chassis paints no colour of its own, so it never clashes with the official UI it covers.</small></p>
+        <!--
+          The readability presets (`updateplan/startup2.md` §5, §26-§28): one decision over the glass and
+          the picture behind each backdrop, because "how readable is this" is not something a user should
+          have to assemble out of five sliders in two cards. Work is the default, Immersive trades text
+          for picture, Reading does the opposite.
+        -->
+        <div class="glass-range">
+          <span>阅读预设 · Readability</span>
+          <select id="appearancePreset"></select>
+        </div>
         <label class="glass-range" for="glassBlur">
           <span>模糊强度 · Blur <b id="glassBlurValue">18</b>px</span>
           <input type="range" id="glassBlur" min="0" max="40" step="1" value="18">

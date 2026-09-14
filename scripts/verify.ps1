@@ -134,6 +134,12 @@ Check 'Zero is not news: a quiet item is not rendered' (($megaItems -match 'if \
 Check 'The rail is a container fed by the registry, not fixed boxes' ((($dockHtml -match 'id="railItems"') -and ($dockHtml -match 'id="railItemTemplate"')) -and (-not ($dockHtml -match 'id="railRunning"')))
 Check 'The dock renders the rail and knows nothing about what the items mean' (($dockJs -match 'function renderRail') -and ($dockJs -match 'snapshot\.megaItems'))
 Check 'The rail no longer duplicates the sub-worker state or the price window' ((-not ($dockHtml -match 'railSubWorker')) -and (-not ($dockHtml -match 'railPeak')))
+# ---- Appearance controller and readability presets (startup2.md section 26-28) ----
+$appearance = Get-Content "$ROOT\app\extensions\mega\appearance\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Appearance controller ships the three readability presets' (($appearance -match "'work'") -and ($appearance -match "'immersive'") -and ($appearance -match "'reading'"))
+Check 'Readability comes first: every preset is complete without a wallpaper' (($appearance -match 'works with \*no\*') -and ($appearance -match 'scrim'))
+Check 'One layer failing does not take the other with it' (($appearance -match 'the glass layer refused') -and ($appearance -match 'the wallpaper refused'))
+Check 'The presets are wired to both layers and to the panel' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:appearance'") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearancePreset"'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

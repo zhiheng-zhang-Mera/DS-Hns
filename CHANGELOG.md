@@ -3,6 +3,25 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## appearance — 阅读预设：对两个图层的一个决定（updateplan/startup2.md §26–§28、§5）
+
+**新增 `app/extensions/mega/appearance/index.cjs`：三套阅读预设，数值就是计划书 §5 的那一组。** 两个图层
+早就存在（壁纸：每个底片一张图 + 不透明度/模糊/压暗；磨砂玻璃：Dock 的材质），缺的是对它们的一个决定：
+**工作 · Work**（默认，玻璃 12px/82%，主屏幕 60/12/18）、**沉浸 · Immersive**（玻璃 10px/60%，主屏幕
+78/8/12——展示壁纸用，明确不是默认）、**阅读 · Reading**（玻璃 14px/90%，主屏幕 45/14/22——长文本与代码审阅）。
+
+两条被当作要求而不是偏好的规则：**可读性优先**（每套预设在*没有壁纸*时也完整，阅读档最严）；**失败属于
+单个图层**（玻璃先写、壁纸后写，各自返回各自的答案，一个失败不带走另一个——"玻璃层拒绝了这个预设"和
+"壁纸拒绝了这个预设"是两条独立记录）。
+
+面板只多一个控件（外观卡片里的"阅读预设"）：选项来自控制器的 `describe()`，当前选中项是**从两个图层读数
+反推**的，手工调出的混合值显示为"自定义"而不是硬凑到最近的预设；预设落地后把两层的新状态推给 Dock，避免
+面板显示一个屏幕上不存在的玻璃。IPC 为 `mega:appearance` / `mega:appearance-set`。
+
+**验证**：`tests/unit/appearance-presets.test.js` 7/7（三套预设只有一个是默认、数值在图层会夹取的范围内、
+阅读档最严、应用时两层各收到正确数值、玻璃失败不带走壁纸、未知预设按名拒绝、混合值报混合、接线静态断言）；
+`scripts/verify.ps1` 增加预设存在性、无壁纸可用、逐层失败与接线检查。
+
 ## mega rail — 折叠栏去重，且不再是一条状态栏（updateplan/startup2.md §36–§44）
 
 **折叠栏从五个固定方框变成注册表驱动的条目。** 旧形状是"每个数字一个方框、dock 脚本按 id 填数"：新增一个

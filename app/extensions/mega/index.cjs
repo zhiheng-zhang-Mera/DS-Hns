@@ -24,6 +24,7 @@ const { createDockTarget } = require('./dock/target')
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
 const { createBundledPlugins } = require('./plugins/index.cjs')
 const { createMegaItems } = require('./mega-items.cjs')
+const { createAppearanceController } = require('./appearance/index.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -81,6 +82,8 @@ const CHANNELS = [
   // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
   // numbers that describe how strong it is (the official UI has no part in it).
   'mega:ui-glass', 'mega:ui-glass-set',
+  // The appearance presets: one decision over both layers (updateplan/startup2.md section 26-28).
+  'mega:appearance', 'mega:appearance-set',
   // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
   'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
   // The bundled community plugins: what the release pinned, what is installed, and repair.
@@ -1499,6 +1502,8 @@ let bundledPlugins = null
  *     and not a power policy. It stays in the expanded summary's own cards, where it belongs.
  */
 let megaItemRegistry = null
+/** The appearance controller: one decision over the glass and the wallpaper (`./appearance/index.cjs`). */
+let appearance = null
 function megaItems() {
   if (megaItemRegistry) return megaItemRegistry
   megaItemRegistry = createMegaItems()
@@ -1822,6 +1827,8 @@ function registerIpc() {
   // so it is never gated — a user who switched a feature off must still be able to read the
   // panel that says so.
   registerGlassIpc()
+  // The appearance presets: one decision over the two layers, registered beside the glass they use.
+  registerAppearanceIpc()
   // The wallpaper is chrome for the same reason, and it is also what the dock's first paint asks
   // for, so it is registered with the glass rather than behind a switch.
   registerWallpaperIpc()
@@ -1835,6 +1842,63 @@ function registerIpc() {
  * force. The state is pushed to the dock on every change, because the Appearance panel and any
  * other surface that shows a switch have to move together.
  */
+/**
+ * The appearance controller's channels (`./appearance/index.cjs`, §26-§28).
+ *
+ * One decision over both layers: the glass the dock is made of, and the picture behind each backdrop.
+ * The panel reads the presets and which one the numbers in force look like, and writes one preset at a
+ * time; each layer's answer travels back so "the glass took it and the wallpaper refused" is visible
+ * rather than rounded to a success.
+ */
+function appearanceController() {
+  if (appearance) return appearance
+  appearance = createAppearanceController({
+    glass: (patch) => glass().set(patch),
+    wallpaper: (patch) => wallpaper().set(patch),
+    log: (message) => log(message)
+  })
+  return appearance
+}
+
+function registerAppearanceIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`appearance ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:appearance', guard(() => {
+    // The numbers in force are read from the two layers, never remembered here: a hand-tuned mixture
+    // must show as a mixture rather than as whichever preset it is closest to.
+    const glassState = glass().describe()
+    const wallpaperState = wallpaper().describe()
+    return appearanceController().describe({
+      glass: { blur: glassState.blur, opacity: glassState.opacity },
+      wallpaper: {
+        main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
+        dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
+      }
+    })
+  }))
+  ipcMain.handle('mega:appearance-set', guard(async (_event, payload = {}) => {
+    const result = await appearanceController().apply(String(payload?.preset || payload?.id || ''))
+    // The dock draws both layers from pushed state, so a preset that landed has to be pushed like any
+    // other change — otherwise the panel would show a glass that is not on screen.
+    if (result.ok !== false) {
+      pushWallpaper()
+      try {
+        dockTarget.send('mega:ui-glass-changed', glass().describe())
+      } catch (error) {
+        log(`the preset could not be pushed to the dock: ${error?.message || error}`)
+      }
+    }
+    return result
+  }))
+}
+
 function registerGlassIpc() {
   const { ipcMain } = ctx.electron
   const guard = (handler) => async (...args) => {
