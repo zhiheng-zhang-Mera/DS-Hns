@@ -17,6 +17,7 @@ const runtimeProcess = require('./runtime-process.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 const { createStartupManager } = require('./startup.cjs')
+const { createProtectionLayer } = require('./extensions/mega/protection/index.cjs')
 const frontendMode = require('./frontend-mode/index.cjs')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the extension
 // so the integrated view and the legacy window cannot disagree about where the dock starts.
@@ -110,6 +111,13 @@ let wallpaperLayer = null
  * with its own failure and its own line in the boot log.
  */
 let startup = null
+/**
+ * The enhancement layer's control plane (`app/extensions/mega/protection/index.cjs`).
+ *
+ * Every optional module below is registered here and started through it, so its failure is a
+ * degradation the MEGA panel can show rather than something the boot has to survive by luck.
+ */
+let protection = null
 /**
  * The official frontend runtime: the backend bridge, the domain adapter and the
  * compatibility probe. It is the only frontend runtime there is — the mode state machine
@@ -2304,6 +2312,13 @@ app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return
   registerIntegratedDockIpc()
   startup = createStartupManager({ log: logLine })
+  protection = createProtectionLayer({ log: logLine })
+  // The optional layers this shell owns, registered before anything starts. Ids are what the MEGA
+  // panel shows; `optional: true` is what makes a failure DEGRADED instead of FAILED — the difference
+  // between "a backdrop is missing" and "the product is broken".
+  protection.register({ id: 'wallpaper-layer', optional: true, start: () => createOfficialSurfaces(), fallback: [{ id: 'official-ui', run: () => 'the official UI is the background' }] })
+  protection.register({ id: 'mega-extension-host', optional: true, start: () => startExtensions(resolveNodeExe()), fallback: [{ id: 'core-ipc-only', run: () => 'the shell IPC surface still answers' }] })
+  protection.register({ id: 'mega-dock', optional: true, start: () => createIntegratedMegaDock(), fallback: [{ id: 'dock-hidden', run: () => 'the strip stays empty' }] })
   createWindow()
   startup.mark('window-created')
   try {
@@ -2351,7 +2366,7 @@ app.whenReady().then(async () => {
     // None of it can delay the user, none of it can fail the boot, and each piece reports its own
     // failure. The wallpaper and the dock are enhancements: a workstation that cannot show them is
     // still a workstation.
-    startup.defer('official-surfaces-ready', () => createOfficialSurfaces())
+    startup.defer('official-surfaces-ready', () => protection.start('wallpaper-layer'))
 
     // The Sub-worker layer is created here, after the official UI is ready and
     // before any extension can ask for it. Creation is inert (no process), so
@@ -2390,7 +2405,7 @@ app.whenReady().then(async () => {
       logLine('plugins: disabled by config/app.json')
     }
 
-    const extensionsReady = await startup.defer('extensions-ready', () => startExtensions(nodeExe))
+    const extensionsReady = await startup.defer('extensions-ready', () => protection.start('mega-extension-host'))
     // The scheduled restart exists from boot, not from the first look at the dock: a plan set
     // yesterday must still fire on a shell whose panels nobody opened, and the ticker is what makes
     // its countdown true. `resumeOnStartup` is the other side of the boundary — if this start is the
@@ -2405,8 +2420,8 @@ app.whenReady().then(async () => {
       // own phase, and a second error path here would be a second story about one event.
     // The official renderer is the product's frontend, so the dock is the only view left
     // to attach: it reserves its strip on the right and the official UI keeps the rest.
-    if (extensionsReady.value && INTEGRATED_MEGA_DOCK) {
-      await startup.defer('dock-ready', () => createIntegratedMegaDock())
+    if (extensionsReady.value?.ok && INTEGRATED_MEGA_DOCK) {
+      await startup.defer('dock-ready', () => protection.start('mega-dock'))
       showOfficialFrontend()
       layoutIntegratedViews()
     }
@@ -2421,6 +2436,8 @@ app.whenReady().then(async () => {
     // ENHANCED: every deferred layer has settled, and the boot report says what each of them cost.
     await startup.complete()
     logLine(`[BOOT] boot report ${JSON.stringify(startup.summary())}`)
+    // The enhancement layer's own report: what is healthy, what degraded, and what is carrying it.
+    logLine(`[protection] ${JSON.stringify(protection.describe())}`)
   } catch (error) {
     await dialog.showMessageBox({
       type: 'error',

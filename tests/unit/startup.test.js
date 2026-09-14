@@ -157,6 +157,15 @@ test('the shell starts the official UI first, and only then the optional layers'
   assert.match(main, /if \(!mainWindow\.isVisible\(\)\) mainWindow\.show\(\)/, 'the window is never shown with the official UI')
   assert.match(main, /await startup\.complete\(\)/, 'the boot never reaches ENHANCED')
   assert.match(main, /startup\?\.mark\('wallpaper-ready'/, 'the wallpaper is not a boot phase of its own')
+  // The optional layers are *registered* in the enhancement layer's control plane and *started*
+  // through it, so a failure is a degradation the MEGA panel can show (startup2.md §12-§18) — and the
+  // boot phase is still the startup machine's, which is what keeps the two accounts consistent.
+  assert.match(main, /createProtectionLayer\(\{ log: logLine \}\)/)
+  for (const id of ['wallpaper-layer', 'mega-extension-host', 'mega-dock']) {
+    assert.match(main, new RegExp(`protection\\.register\\(\\{ id: '${id}', optional: true`), `${id} is not registered as an optional protected module`)
+    assert.match(main, new RegExp(`protection\\.start\\('${id}'\\)`), `${id} does not start through the protection layer`)
+  }
+  assert.match(main, /\[protection\] \$\{JSON\.stringify\(protection\.describe\(\)\)\}/, 'the protection report never reaches the log')
 
   // The skeleton itself: ours, inert, and readable. A blank screen is a defect (§14).
   const splash = read('app/splash.html')

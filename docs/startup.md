@@ -100,8 +100,11 @@ MEGA 不再只是右侧状态栏，而是增强能力的控制平面；**任何�
 **仍然没做**（`startup2.md` 的 P1/P2）：社区插件 `dsh-wallpaper-engine` 与 `@dsh-market/plugin` 的实际接入、
 MEGA Control Center 的 Protection 面板与插件修复入口（§45–§47）、`MegaItemRegistry` 的前端注册（§49）、
 启动/壁纸/市场缓存（§52–§54）、以及 MEGA 折叠栏去重（§36–§41，仍是 RUN/QUEUE/HW/SUB/PEAK）。
-本轮**没有**把 protection 层接到 `desktop-main.cjs` 的实际模块上——它是被完整测试的机制，接线属于下一轮
-（接线时必须同时改 `docs/startup.md` 与 `scripts/verify.ps1`，免得机制在而无人使用）。
+**接线（本轮补上）**：`desktop-main.cjs` 在启动时创建 protection 层，并注册三个可选模块 ——
+`wallpaper-layer`（壁纸窗口，fallback = 官方界面本身）、`mega-extension-host`（扩展宿主，fallback = 仅核心 IPC）、
+`mega-dock`（Mega 侧栏，fallback = 隐藏侧栏）。它们的**启动**仍通过 `startup.defer()` 走启动状态机（所以
+`[BOOT]` 的阶段账目不变），而**状态与失败**由 protection 层持有：模块失败时 boot 只看到「这一项降级了」，
+MEGA 面板看到的是状态、最近错误、重试次数与 fallback 现状。启动结束时会多一行 `[protection] {...}` 全量报告。
 
 ## 4. 验收怎么读
 

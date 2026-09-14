@@ -17,7 +17,11 @@ MEGA 从"右侧状态栏"变成增强能力的**控制平面**，规则只有一
 Background`），最后一级也失败就如实报 `unavailable`。健康检查重新通过时状态回到 `HEALTHY` 并清掉错误，
 否则面板会一直报告模块已经离开的状态。
 
-**边界**：本轮交付的是被完整测试的**机制**，还没有接到 `desktop-main.cjs` 的真实模块上——社区插件
+**接线（本轮补上）**：`desktop-main.cjs` 现在创建 protection 层并注册三个可选模块（`wallpaper-layer`、
+`mega-extension-host`、`mega-dock`），它们的启动仍走启动状态机（`[BOOT]` 阶段不变），状态与失败由保护层
+持有；启动结束多一行 `[protection] {...}` 全量报告。一个模块失败时，boot 只看到「这一项降级了」。
+
+**边界**：社区插件
 `dsh-wallpaper-engine` / `@dsh-market/plugin` 的接入、MEGA Control Center 的 Protection 面板、`MegaItemRegistry`
 前端注册、启动缓存与折叠栏去重都**未做**，条目记在 `docs/startup.md` §3.1，下一轮接线时一并更新文档与
 `verify.ps1`。
