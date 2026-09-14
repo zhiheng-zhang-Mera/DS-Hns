@@ -159,7 +159,7 @@
           // An adopted plugin carries what it is and what it still needs, on the row: compatibility
           // is a reduced guarantee, and a reduced guarantee that is not shown is not a guarantee.
           const compatLabel = plugin.compatibility === 'compat'
-            ? ` · 兼容模式 · compat${plugin.compatState && plugin.compatState !== 'ready' && plugin.compatState !== 'staged' ? ` (${plugin.compatState})` : ''}`
+            ? ` · 兼容模式 · compat${plugin.compatState && plugin.compatState !== 'ready' ? ` (${plugin.compatState})` : ''}`
             : ''
           left.appendChild(el('div', 'pm-meta', `${plugin.source || plugin.repo} · ${stateLabel}${compatLabel}`))
           if (plugin.compatibility === 'compat' && plugin.compatReason) {
@@ -167,7 +167,14 @@
           }
           row.appendChild(left)
           const actions = el('div', 'pm-actions')
-          if (plugin.state === 'enabled') {
+          // What can be done with a row depends on whether the plugin can run at all. A compat
+          // plugin whose derivation found nothing to activate ('unsupported') cannot be enabled
+          // into anything: the only honest action is to take it away again, and the reason above
+          // says why.
+          const cannotRun = plugin.compatibility === 'compat' && plugin.compatState === 'unsupported'
+          if (cannotRun) {
+            actions.appendChild(el('span', 'pm-badge bad', '无法运行 · cannot run'))
+          } else if (plugin.state === 'enabled') {
             actions.appendChild(actionButton('停用 · Disable', 'danger', () => act('disable', plugin.id)))
           } else if (plugin.state === 'staged') {
             actions.appendChild(actionButton('启用 · Enable', '', () => act('enable', plugin.id)))
@@ -175,8 +182,11 @@
             actions.appendChild(actionButton('重新安装 · Reinstall', '', () => act('reinstall', plugin.id)))
           }
           // The one action a reduced guarantee implies: it needs a package manager or a build, and
-          // the shell will describe the commands and ask before running them.
-          if (plugin.compatibility === 'compat' && plugin.state === 'enabled'
+          // the shell will describe the commands and ask before running them. It is offered while
+          // the plugin is still only staged, because needing the step and being enabled are
+          // independent: hiding it until after Enable asks the user to take a step that cannot work
+          // yet — the isolated process has nothing to load until the dependencies are there.
+          if (!cannotRun && plugin.compatibility === 'compat'
             && ['needs-dependencies', 'needs-build'].includes(plugin.compatState)) {
             actions.appendChild(actionButton('安装依赖 / 构建 · Install & build', '', () => compatSetup(plugin.id)))
           }

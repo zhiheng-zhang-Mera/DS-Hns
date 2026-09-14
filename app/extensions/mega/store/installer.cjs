@@ -502,6 +502,19 @@ function createStoreInstaller(options = {}) {
       if (!descriptor) {
         return { ok: false, code: INSTALL_REASONS.BAD_MANIFEST, reason: `${COMPAT_FILE} is missing from ${entry.dir}; stage it again` }
       }
+      // A plugin with nothing to load is refused here rather than enabled into a dead row. The
+      // derivation already knows: `unsupported` means there is no entry point in the package, so
+      // there is no module for the isolated process to activate and no extra step that could
+      // produce one. Enabling it would put a plugin in the manager that can never run and say
+      // nothing about why — which is exactly what a user cannot debug.
+      if (descriptor.state === 'unsupported') {
+        return {
+          ok: false,
+          code: INSTALL_REASONS.BAD_MANIFEST,
+          reason: `${entry.repo} cannot run here: ${descriptor.state_reason || 'there is nothing to activate'}`,
+          state: descriptor.state
+        }
+      }
       entry.enabled = true
       entry.enabledAt = now()
       entry.version = descriptor.version
@@ -568,14 +581,17 @@ function createStoreInstaller(options = {}) {
     return loadState().plugins.map((entry) => ({
       ...entry,
       present: fs.existsSync(entry.dir),
-      // A plugin whose files vanished is reported rather than silently enabled.
+      // A plugin whose files vanished is reported rather than silently enabled. `state` is the
+      // *lifecycle* and nothing else: staged, enabled, or missing from disk.
       state: !fs.existsSync(entry.dir) ? 'missing' : entry.enabled ? 'enabled' : 'staged',
-      // Compatibility mode is a property the panel shows on every row it applies to, with the
-      // state that explains why it may not be running yet.
+      // Compatibility mode is a property the panel shows on every row it applies to. `compatState`
+      // is the *derivation* — what the package turned out to be and what it still needs — and it is
+      // reported whether or not the plugin has been enabled yet, because that is the fact that
+      // decides what the user can do with the row. It used to be replaced by `'staged'` until the
+      // plugin was enabled, which hid exactly the two answers a user needs here: "this needs an
+      // install and a build first" and "there is nothing here to activate at all".
       compatibility: entry.compatibility === 'compat' ? 'compat' : 'native',
-      compatState: entry.compatibility === 'compat'
-        ? (entry.enabled ? entry.compatState || 'ready' : 'staged')
-        : null,
+      compatState: entry.compatibility === 'compat' ? entry.compatState || (entry.enabled ? 'ready' : null) : null,
       compatReason: entry.compatibility === 'compat' ? entry.compatReason || null : null
     }))
   }

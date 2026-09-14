@@ -199,6 +199,118 @@ test('id and version derivation stay inside the platform alphabet', () => {
   assert.deepEqual(semverFor('not-a-version'), { version: '0.0.0', source: 'unknown' })
 })
 
+test('a package with nothing to activate is refused before it is downloaded, and never enabled', async () => {
+  // The shape the store's real target had, taken from its own package.json: a workspace root that
+  // declares no entry point at all — the plugin lives in a package inside it. Two things must follow
+  // from that, and neither did: the store must not spend a 933 MB clone to learn what the package
+  // metadata already said, and it must not hand back a row that can be enabled into nothing.
+  const workspaceRoot = {
+    name: 'dsh-web',
+    version: '0.1.1',
+    type: 'module',
+    private: true,
+    dependencies: { '@linxin666/dsh-web-all': 'workspace:*' },
+    scripts: { build: 'pnpm -r build' },
+    dsh: { bundle: { patch: './packages/dsh-web-all/cordis.patch.yml' } }
+  }
+  const { createPluginStore } = require('../../app/extensions/mega/store/github-store.cjs')
+  const store = createPluginStore({
+    request: async (url) => {
+      if (url.includes('package.json')) return { ok: true, json: workspaceRoot, status: 200 }
+      if (url.includes('raw.githubusercontent.com')) return { ok: false, code: 'STORE_NO_MANIFEST', status: 404, reason: 'not found' }
+      return { ok: true, json: { default_branch: 'dev' }, status: 200 }
+    }
+  })
+  const verdict = await store.inspect({ id: 'zhu1090093659/dsh-web' })
+  assert.equal(verdict.installable, false)
+  assert.equal(verdict.compat.possible, false, 'a package with no entry point was reported as adoptable')
+  assert.match(verdict.compat.reason, /no entry point/)
+  // The reason has to be actionable: the plugin is a package *inside* that repository, and the
+  // store can address one.
+  assert.match(verdict.compat.reason, /#<path>|#packages\//)
+  assert.match(verdict.reason, /cannot be adopted either/)
+
+  const { dir, dispose } = scratch()
+  try {
+    const normalized = { id: 'zhu1090093659/dsh-web', repo: 'zhu1090093659/dsh-web', ok: true, ...verdict }
+    let cloned = 0
+    const installer = createStoreInstaller({
+      root: dir,
+      storeDir: path.join(dir, 'data', 'plugins', 'store'),
+      stateFile: path.join(dir, 'data', 'plugins', 'installed.json'),
+      historyFile: path.join(dir, 'data', 'plugins', 'history.json'),
+      log: () => {},
+      probe: async () => normalized,
+      clone: () => {
+        cloned += 1
+        return { ok: true }
+      }
+    })
+
+    // The pre-flight is what stands between this verdict and the download — the shell runs it and
+    // hands the verdict to `stage` — so both halves are exercised the way the shell wires them.
+    const refused = await installer.preflight({ source: 'zhu1090093659/dsh-web', compat: true })
+    assert.equal(refused.ok, false, 'the pre-flight let a package with no entry point through')
+    assert.match(refused.reason, /no entry point/)
+    assert.equal(refused.code, INSTALL_REASONS.BAD_MANIFEST)
+    // And if a verdict does reach `stage` — a caller that ran the pre-flight and passed it on — the
+    // clone is refused there too, before the disk is touched.
+    const staged = installer.stage({ source: 'zhu1090093659/dsh-web', compat: true, verdict: refused.checked || normalized })
+    assert.equal(staged.ok, false)
+    assert.equal(cloned, 0, 'the repository was cloned to learn what the package metadata already said')
+    assert.equal(fs.existsSync(path.join(installer.storeDir, 'zhu1090093659_dsh-web')), false, 'a refused stage left a directory behind')
+  } finally {
+    dispose()
+  }
+})
+
+test('a compat plugin with nothing to activate cannot be enabled into a dead row', () => {
+  const { dir, dispose } = scratch()
+  try {
+    const installer = createStoreInstaller({
+      root: dir,
+      storeDir: path.join(dir, 'data', 'plugins', 'store'),
+      stateFile: path.join(dir, 'data', 'plugins', 'installed.json'),
+      historyFile: path.join(dir, 'data', 'plugins', 'history.json'),
+      log: () => {},
+      clone: (url, target) => {
+        fs.mkdirSync(target, { recursive: true })
+        // A package that declares the other host's bundle metadata and no entry point at all.
+        writeJson(path.join(target, 'package.json'), {
+          name: 'dsh-web',
+          version: '0.1.1',
+          type: 'module',
+          main: undefined,
+          scripts: { build: 'pnpm -r build' },
+          dsh: { bundle: { patch: './cordis.patch.yml' } }
+        })
+        return { ok: true }
+      }
+    })
+    const staged = installer.stage({ source: 'acme/workspace-root', compat: true })
+    assert.equal(staged.ok, true, staged.reason)
+    assert.equal(staged.entry.compatState, COMPAT_STATES.UNSUPPORTED)
+
+    // The row has to say it before anybody tries: "staged" is a lifecycle, and this is the fact that
+    // decides what can be done with the plugin.
+    const before = installer.list().find((entry) => entry.id === staged.entry.id)
+    assert.equal(before.state, 'staged')
+    assert.equal(before.compatState, COMPAT_STATES.UNSUPPORTED, 'the row hides why the plugin cannot run')
+    assert.match(before.compatReason, /no entry point/)
+
+    // Enabling it would put a plugin in the manager that can never run, and say nothing about why.
+    const enabled = installer.enable({ id: staged.entry.id })
+    assert.equal(enabled.ok, false, 'a plugin with nothing to activate was enabled anyway')
+    assert.match(enabled.reason, /cannot run here/)
+    assert.match(enabled.reason, /no entry point/)
+    const after = installer.list().find((entry) => entry.id === staged.entry.id)
+    assert.equal(after.state, 'staged', 'the refused enable still changed the recorded state')
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'data', 'plugins', 'installed.json'), 'utf8')).plugins[0].enabled, false, 'the refused enable was written to disk')
+  } finally {
+    dispose()
+  }
+})
+
 test('staging adopts a package when compatibility mode is on, and refuses it when it is off', () => {
   const { dir, dispose } = scratch()
   try {

@@ -517,6 +517,35 @@ function createPluginStore(options = {}) {
     const dependencies = Object.keys(pkg.dependencies && typeof pkg.dependencies === 'object' ? pkg.dependencies : {})
     const peers = Object.keys(pkg.peerDependencies && typeof pkg.peerDependencies === 'object' ? pkg.peerDependencies : {})
     const build = (pkg.scripts && (pkg.scripts.build || pkg.scripts.prepare)) || null
+    const workspaces = Array.isArray(pkg.workspaces) || Boolean(pkg.workspaces && typeof pkg.workspaces === 'object')
+    // An entry point is the one thing a package cannot be adopted without, and this is the request
+    // that already carries the answer: the JSON below is the same file the clone would be read from.
+    // Refusing on it here is the difference between a four-millisecond answer and a gigabyte — the
+    // store's real target was a 933 MB workspace root whose plugin lives in a package inside it, and
+    // cloning it to learn "the package declares no entry point" is the defect this check removes.
+    const entry = typeof pkg.main === 'string' && pkg.main ? String(pkg.main) : null
+    const exported = pkg.exports && typeof pkg.exports === 'object'
+      ? (typeof pkg.exports === 'string' ? pkg.exports : (typeof pkg.exports['.'] === 'string' ? pkg.exports['.'] : null))
+      : null
+    if (!entry && !exported) {
+      // A workspace root is not a plugin, it is where plugins live. Saying only "no entry point"
+      // would leave the user holding a repository that *does* contain what they wanted, so the
+      // reason names the way to ask for it: the store can address a package inside a repository.
+      const hint = workspaces || dependencies.length === 1
+        ? `; the plugin is probably a package inside the repository — name it as <owner>/<repo>#<path> (for example #packages/<name>)`
+        : ''
+      return {
+        possible: false,
+        probed: true,
+        url,
+        kind: pkg.dsh || pkg.cordis ? 'dsh-bundle' : 'package',
+        name: pkg.name ? String(pkg.name) : null,
+        version: pkg.version ? String(pkg.version) : null,
+        workspaces,
+        build,
+        reason: `the package declares no entry point (\`main\` or \`exports\`)${hint}`
+      }
+    }
     return {
       possible: true,
       probed: true,
@@ -525,7 +554,7 @@ function createPluginStore(options = {}) {
       name: pkg.name ? String(pkg.name) : null,
       version: pkg.version ? String(pkg.version) : null,
       format: pkg.type === 'module' ? 'esm' : null,
-      entry: typeof pkg.main === 'string' ? pkg.main : null,
+      entry: entry || exported,
       build,
       packages: [...new Set([...dependencies, ...peers])].slice(0, 25),
       note: 'what the package metadata already says; the entry, its build and its installed dependencies are confirmed after the clone'
@@ -573,7 +602,7 @@ function createPluginStore(options = {}) {
           + (compat.possible
             ? `; it can be adopted in compatibility mode (${compat.kind})`
             : compat.probed
-              ? `, and it has no package.json to adopt either`
+              ? `, and it cannot be adopted either: ${compat.reason}`
               : `, and whether it could be adopted is unknown (${compat.reason})`)
         return remember({ ok: true, url, installable: false, verified, branch: branch || null, sourcePath, code, reason, compat })
       }
