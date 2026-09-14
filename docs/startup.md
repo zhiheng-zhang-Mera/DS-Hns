@@ -165,6 +165,18 @@ exit 0，并且那个 profile 的 `package.json` 里出现的正是这两个**�
 ——那需要在产品的 `data/profiles/web` 里装上并重启应用，属于用户环境的一步（诊断面板里的 `EXT`/保护层也会
 在那一刻开始显示它们的状态）。临时 `DSH_HOME` 已删除，未触碰用户数据。
 
+**最接近真机的一步：用产品自己的 profile 配置（拷贝，不是修改）验证。** 把产品的
+`data/profiles/web/package.json`（真实的 `dsh.profile.bundles: ["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`）
+拷进一次性 `DSH_HOME`，按 `plugin add` 的方式加上两个插件并安装，再启动 web 应用：
+`plugin install: exit 0`、**`both plugins activated with the product's own profile configuration: true`**、
+服务器正常应答。用户的 profile 只被**读取**，一次性目录已删除。
+
+**唯一剩下的**就是在产品自己的 `data/profiles/web` 里装上这两个依赖并重启应用，看它们在 DS-Hns 窗口里的实际
+表现——这是对正在运行的官方界面的真实改动，属于用户的决定（装与回滚各一条命令：`plugin --profile web add …`
+与 `removeBundled`/商店的 remove）。在那之前两条 pin 保持 `tested: false`：`channelVerified: true` 说的是
+"命令与版本实测过"，激活证据说的是"Harness 装得上、加载得出、激活得了"，`tested` 说的是"在这台机器的窗口里
+真的能用"——三件事分得很清楚。
+
 于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
 路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。

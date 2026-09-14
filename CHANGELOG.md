@@ -3,6 +3,19 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 用产品自己的 profile 配置验证激活（updateplan/startup2.md §19–§23）
+
+**最接近真机的一步**：把产品的 `data/profiles/web/package.json`（真实 bundle 栈
+`["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`）**拷贝**进一次性 `DSH_HOME`，按 `plugin add` 的方式加上
+两个钉住的插件并安装，启动 web 应用 —— `plugin install: exit 0`，
+**`both plugins activated with the product's own profile configuration: true`**，服务器正常应答。用户的 profile
+只被读取，一次性目录已删除。
+
+于是接入的证据链是完整的四步：**安装命令 → 插件树注册 → 随 web 应用激活 → 用产品自己的 profile 配置激活**。
+唯一剩下的仍是在产品的 `data/profiles/web` 里真正装上并重启应用，看它们在 DS-Hns 窗口里的表现——那是对正在运行的
+官方界面的真实改动，属于用户的决定（装与回滚各一条命令）。因此 `channelVerified: true` 保持，`tested: false` 也保持：
+这两件事从来不是一个意思。
+
 ## bundled plugins — 两个插件在带 web 应用的 profile 里真的激活了（updateplan/startup2.md §19–§23）
 
 **装上 web 应用 bundle 的 profile 里，两个插件都激活**：一次性 `DSH_HOME` 中建了与产品 `data/profiles/web` 同构的
