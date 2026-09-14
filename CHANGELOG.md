@@ -3,6 +3,20 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 插件树实测：两个插件都被 Harness 加载并注册（updateplan/startup2.md §19–§23）
+
+**在一次性 `DSH_HOME` 里启动那个 profile，Harness 的 profile 启动如实报了**：
+`2 entries did not activate` + `@dsh-market/plugin: pending (waiting for service: webServer)` +
+`dsh-plugin-wallpaper-engine: pending (waiting for service: webServer)`。这既是"两个插件都被装进 profile 的插件树、
+完成注册"的证据，也解释了它们为何停在那里：那个一次性 profile 没有 web 应用的 bundle，而产品自带的
+`data/profiles/web` 才有 `dsh.profile.bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]`。
+
+**因此接入的确切形式是**：把两个插件作为依赖装进 `data/profiles/web`，由**产品自己启动的 Harness** 加载它们；
+剩下的一步是真机验证（装进去、重启应用、看它工作），那是用户环境里才能完成的事。临时目录已删除、未触碰用户数据。
+
+**验证**：本条不改变代码；证据记在 `docs/startup.md` §3.2，与既有的 `channelVerified` 字段配套（命令实测 vs
+插件树实测 vs 产品内运行时，三件事分得很清楚）。
+
 ## bundled plugins — 安装通道实测通过，两个 claim 分开记（updateplan/startup2.md §19–§23）
 
 **通道不是推出来的，是跑出来的**：用一个**一次性 `DSH_HOME`**（临时目录，用完删除，绝不碰用户的 `data/`）执行

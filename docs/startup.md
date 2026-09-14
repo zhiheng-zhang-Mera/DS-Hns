@@ -149,6 +149,14 @@ exit 0，并且那个 profile 的 `package.json` 里出现的正是这两个**�
 `channelVerified: true`（命令形态、包名、版本都实测过）与 `tested: false`（**插件在本产品里的运行时行为还没测**）。
 顺带确认一个环境前提：这条通道需要 `pnpm`（Harness 的 `plugin` 子命令就是转发给它）。
 
+**插件树也实测过**：在同一个一次性 `DSH_HOME` 里启动那个 profile，Harness 的 profile 启动报的是
+`2 entries did not activate` + `@dsh-market/plugin: pending (waiting for service: webServer)` +
+`dsh-plugin-wallpaper-engine: pending (waiting for service: webServer)` —— 也就是说**两个插件都被装进了 profile 的
+插件树并完成注册**，只是那个一次性 profile 没有 web 应用的 bundle（产品自带的 `data/profiles/web` 才有
+`dsh.profile.bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]`），所以它们停在"等 webServer"。
+这条证据同时解释了产品的接入方式：**装进 `data/profiles/web` 的依赖里、由产品自己启动的 Harness 加载**，
+剩下的一步就是真机验证（装进去 + 重启应用看它工作），那是用户环境里的事。
+
 于是 `installBundled(entry, { harnessAdd, store, profile })` 按 `channel` 分派：
 `harness-profile` 走 Harness 自己的 CLI；`dshns-store` 走本产品商店的两步（`stage`/`enable`，提交 pin 走 revision
 路径）；`unresolved` 直接按清单里记录的理由拒绝。非 resolution 的 pin 仍然等一次真机测试才翻 `tested: true`。
