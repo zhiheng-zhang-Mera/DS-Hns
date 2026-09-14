@@ -179,11 +179,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .header-actions button{padding:7px 10px}
 .header-actions .icon-button{width:36px;padding:7px 0;font-size:18px}
 
-/* The overview: one row of four counters inside the same card every other module uses. The row is
-   the module's whole body, so the grid carries no spacing of its own — the panel's padding and the
-   panel-head above it already separate it from what follows. */
-.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
-.summary-card{min-width:0;padding:9px 8px;background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);border-radius:10px}
+/* The overview: one row of four counters inside the same card every other module uses, and the row
+   stays one row at every dock width. The narrowest dock is 440px, which leaves about 390px inside
+   the card — so each counter gets roughly 92px, and everything in a counter is sized to fit that:
+   the tight padding, the 6px gutter, a 6px split between the two task numbers, and labels that
+   ellipsize rather than push the row wider. */
+.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.summary-card{min-width:0;padding:8px 6px;background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);border-radius:10px}
 .summary-card>span{display:block;color:var(--hns-color-label-secondary);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .summary-card>b{display:block;margin-top:4px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .summary-card.period-card{position:relative;overflow:hidden}
@@ -195,7 +197,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .summary-card.period-card.offpeak::before{background:var(--hns-state-completed)}
 .summary-card.period-card.offpeak b{color:var(--hns-state-completed)}
 .summary-card.timer-card b{font-variant-numeric:tabular-nums;letter-spacing:.01em}
-.task-summary-values{display:grid;grid-template-columns:1fr 1px 1fr;align-items:end;gap:8px;margin-top:4px}
+.task-summary-values{display:grid;grid-template-columns:1fr 1px 1fr;align-items:end;gap:6px;margin-top:4px}
 .task-summary-values>div{min-width:0}
 .task-summary-values small{display:block;color:var(--hns-color-label-secondary);font-size:10px;line-height:1.1}
 .task-summary-values b{display:block;margin-top:2px;font-size:15px;line-height:1.05;font-variant-numeric:tabular-nums}
@@ -453,7 +455,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .settings-note{margin:0;font-size:11px;color:var(--hns-color-label-secondary);word-break:break-all}
 .settings-status{min-height:14px;margin:0;font-size:11px;color:var(--hns-color-label-secondary)}
 
-@media(max-width:620px){.summary-grid{grid-template-columns:1fr 1fr}.balance-grid{grid-template-columns:1fr 1fr}.update-grid{grid-template-columns:1fr 1fr}.settings-row{grid-template-columns:1fr}}
+/* The narrow-width fallbacks. The overview is deliberately absent: it is four counters in one row
+   and it stays that way at every dock width, because a 2x2 grid of them is two rows of a module
+   that exists to be read in one glance. Its cards are sized to fit the narrowest dock instead
+   (see `.summary-grid`). */
+@media(max-width:620px){.balance-grid{grid-template-columns:1fr 1fr}.update-grid{grid-template-columns:1fr 1fr}.settings-row{grid-template-columns:1fr}}
 
 @media(max-width:520px){.hardware-grid{grid-template-columns:1fr}.update-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr 1fr}.form-row .check{grid-column:1/-1}}
 

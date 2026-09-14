@@ -33,6 +33,21 @@ test('the four counters are one row inside one card, and that card does not fold
   const grid = css.match(/\.summary-grid\{([^}]*)\}/)
   assert.ok(grid, '.summary-grid has no rule')
   assert.match(grid[1], /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, 'the counters are not one row of four')
+
+  // And it stays one row at *every* dock width. This is the assertion the defect needed: the
+  // narrow-width fallback used to re-declare `.summary-grid` as 2x2, and the dock is 560px wide by
+  // default, so the fallback was what the user actually saw — a 2x2 grid in a one-row module. A
+  // later media query that names it again is the same bug coming back.
+  const mediaQueries = css.match(/@media[^{]*\{[^@]*?\}\}/g) || []
+  assert.ok(mediaQueries.length > 0, 'the stylesheet has no media queries to check')
+  for (const query of mediaQueries) {
+    assert.equal(/\.summary-grid/.test(query), false, `a media query rewrites the overview row: ${query.slice(0, 80)}`)
+  }
+  // The cards are sized for the narrowest dock instead: 4 x 92px plus gutters fits inside the card
+  // at 440px, so the row never has to wrap.
+  const card = css.match(/\.summary-card\{([^}]*)\}/)
+  assert.match(card[1], /padding:8px 6px/, 'the counters are not sized for four in a row')
+  assert.match(grid[1], /gap:6px/, 'the counters are not sized for four in a row')
   assert.equal(/margin-bottom/.test(grid[1]), false, 'the grid spaces itself; the card already does')
 })
 

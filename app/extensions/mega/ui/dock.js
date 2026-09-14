@@ -932,7 +932,7 @@ function render(snapshot) {
       </div>
     </div>
     <div class="summary-card">
-      <span>并行</span><b>${esc(`${concurrency.current ?? '—'} / HW ${concurrency.hardwareCap ?? '—'}`)}</b>
+      <span>并行</span><b>${esc(`${concurrency.current ?? '—'} / ${concurrency.hardwareCap ?? '—'}`)}</b>
     </div>`
 
   $('queue').innerHTML = tasks.slice(0, 24).map((task) => {
