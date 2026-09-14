@@ -134,15 +134,22 @@ test('the frosted layers are the ones content passes under, and the fallback kee
   assert.match(block, /@supports not \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{[\s\S]{0,160}--hns-color-bg-base:var\(--hns-glass-src-base\)[\s\S]{0,80}--hns-glass-alpha:92%/, 'the no-blur fallback leaves the pane colourless and unreadable')
 })
 
-test('a second-layer sheet frosts harder than the pane behind it', () => {
+test('a second-layer surface frosts harder than the pane behind it', () => {
   const css = read('app/extensions/mega/ui/dock.css')
   const { tokens, block } = glassBlock()
   // A sheet is read *over* the dock's own text: a pane you can read the dock through is two texts
   // on top of each other. The float therefore takes more ink and a stronger blur than a pane.
   assert.match(tokens, /--hns-glass-float-alpha:calc\(var\(--hns-glass-alpha\) \+ 55%\)/, 'a sheet is as thin as the pane behind it')
   assert.match(tokens, /--hns-glass-float-blur:calc\(var\(--hns-glass-blur\) \+ 14px\)/, 'a sheet has no extra blur')
-  assert.match(block, /:is\(\.pm-sheet,\.settings-sheet,\.live-view-sheet\)\{[\s\S]{0,120}background-color:color-mix\(in srgb,var\(--hns-glass-src-layer2\) var\(--hns-glass-float-alpha\),transparent\)/, 'the sheets do not use the float tint')
-  assert.match(block, /:is\(\.pm-sheet,\.settings-sheet,\.live-view-sheet\)\{[\s\S]{0,220}backdrop-filter:var\(--hns-glass-float-filter\)/, 'the sheets do not use the float blur')
+  // The sheets, and the cards that stand in the same position one level down: the execution
+  // settings are read over the plugin list, not over the dock.
+  const frosted = block.match(/:is\(([^)]*)\)\{\s*background-color:color-mix\(in srgb,var\(--hns-glass-src-layer2\) var\(--hns-glass-float-alpha\),transparent\)/)
+  assert.ok(frosted, 'no surface uses the float tint')
+  const selectors = frosted[1].split(',')
+  for (const selector of ['.pm-sheet', '.settings-sheet', '.live-view-sheet', '.plug-execution']) {
+    assert.ok(selectors.includes(selector), `${selector} does not use the float tint`)
+  }
+  assert.match(block, /:is\(\.pm-sheet,\.settings-sheet,\.live-view-sheet,\.plug-execution\)\{[\s\S]{0,220}backdrop-filter:var\(--hns-glass-float-filter\)/, 'the float does not use the float blur')
   // And the scrim under a sheet is dark enough that the dock behind reads as background.
   assert.match(tokens, /--hns-glass-scrim-alpha:calc\(var\(--hns-glass-alpha\) \+ 52%\)/, 'the scrim is as thin as the pane the dock already is')
   assert.match(block, /:is\(\.pm-backdrop,\.settings-overlay,\.live-view-overlay\)\{[\s\S]{0,160}var\(--hns-glass-scrim-alpha\)/, 'the scrims do not use the stronger tint')

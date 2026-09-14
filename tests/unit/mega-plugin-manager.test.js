@@ -151,15 +151,64 @@ test('the execution settings are their own card, and never an empty one', () => 
   assert.match(rule[1], /border:1px solid var\(--hns-color-border-l1\)/)
   assert.match(rule[1], /border-radius:10px/)
   assert.match(rule[1], /background:var\(--hns-color-bg-layer2\)/)
-  assert.match(rule[1], /padding:9px/)
+  assert.match(rule[1], /padding:10px/)
   // The block is only rendered when the runtime answers, so an empty one must draw nothing: a card
   // around nothing reads as "something went wrong here".
   assert.match(css, /\.plug-execution:empty\{display:none\}/, 'an unanswered execution block would draw an empty card')
   // Its heading belongs to the card rather than floating above it.
-  assert.match(css, /\.plug-execution>h3\{[^}]*margin:0 0 6px\}/, 'the card heading is not attached to the card')
+  assert.match(css, /\.plug-execution>h3\{[^}]*margin:0 0 7px\}/, 'the card heading is not attached to the card')
   // Two settings per row need room for the key, the input and the layer it came from; at the
   // narrowest dock there is not enough, so they go one per row instead of ellipsizing the key.
   assert.match(css, /@media\(max-width:520px\)\{[^}]*\}?[^@]*\.plug-settings\{grid-template-columns:1fr\}/, 'the settings rows would ellipsize their keys in a narrow dock')
+})
+
+test('the plugin panel is bilingual, wider where it was cramped, and read through its own frost', () => {
+  const panel = read('app/extensions/mega/ui/plugin-panel.js')
+  const css = read('app/extensions/mega/ui/dock.css')
+
+  // Every line the user reads goes through the shared bilingual helper: the state words, the fact
+  // labels, the buttons, the lock lines and the messages. The panel used to be the product's one
+  // English-only surface, exactly where it explains itself.
+  assert.match(panel, /function bi\(cn, en, separator = ' · '\)/, 'the panel has no bilingual helper')
+  assert.match(panel, /const STATE_TEXT = Object\.freeze\(\{/, 'the state words are not in both languages')
+  assert.match(panel, /const EXECUTION_LABELS = Object\.freeze\(\{/, 'the execution fields are not in both languages')
+  for (const label of ['状态', '健康', '延迟', '提供能力', '必需依赖', '事件订阅', '重启次数']) {
+    assert.ok(panel.includes(label), `the fact label ${label} is missing`)
+  }
+  for (const label of ['启用', '停用', '重启', '体检', '写入锁', '应用']) {
+    assert.ok(new RegExp(`bi\\((\`|')${label}`).test(panel), `the button ${label} is not bilingual`)
+  }
+  // Nothing user-facing is left as a bare English literal in a rendering position. (The English
+  // still appears inside `bi(...)` and as the fallback for a key the panel has never heard of,
+  // which is the point: it is shown *with* the Chinese, never instead of it.)
+  for (const orphan of ["{ label: 'not installed'", "{ label: 'disabled'", "{ label: 'unhealthy'", "el('button', 'quiet', 'Restart')", "el('strong', null, 'Lockfile')", "add('Capabilities'", "add('Status',", "' compat · '"]) {
+    assert.equal(panel.includes(orphan), false, `${orphan} is still English-only`)
+  }
+  // An unknown execution field still renders — with the host's own label — rather than vanishing.
+  assert.match(panel, /if \(!entry\) return \{ cn: String\(fallback \|\| key \|\| ''\)/, 'an unknown setting key would render as nothing')
+
+  // The inputs have a real floor: a `<select>` showing `isolated_worktree` was being cut off by an
+  // 84px column, and the layer a value came from now has its own line instead of competing with the
+  // setting's name for width.
+  const setting = css.match(/\.plug-setting\{([^}]*)\}/)
+  assert.match(setting[1], /minmax\(104px,132px\)/, 'the control column has no usable floor')
+  assert.match(setting[1], /font-size:12px/)
+  assert.match(css, /\.plug-setting-source\{grid-column:1\/-1/, 'the value source still competes with the setting name')
+  assert.match(css, /\.plug-input\{[^}]*width:100%/, 'the inputs do not fill their column')
+  assert.match(css, /\.plug-input\{[^}]*min-width:0/)
+  // And the state word has room for both languages.
+  assert.match(css, /\.plug-row\{[^}]*grid-template-columns:16px 1fr 56px 104px/, 'the state column is too narrow for a bilingual word')
+
+  // Legibility: nothing in the panel's own text is drawn in the dimmest colour any more.
+  for (const selector of ['\\.plug-line', '\\.plug-empty', '\\.plug-fact-label', '\\.plug-fault']) {
+    const body = css.match(new RegExp(`${selector}\\{([^}]*)\\}`))
+    assert.ok(body, `${selector} has no rule`)
+    assert.equal(/label-tertiary/.test(body[1]), false, `${selector} is still drawn in the dimmest colour`)
+  }
+  // The panel takes a stronger edge, because it is read through two and three layers of glass.
+  assert.match(css, /\.plugins-panel\{--hns-text-stroke-width:1\.25px;-webkit-text-stroke-width:var\(--hns-text-stroke-width\)\}/, 'the panel does not carry its own edge')
+  // Harder frost for the card read over the list.
+  assert.match(css, /:is\(\.pm-sheet,\.settings-sheet,\.live-view-sheet,\.plug-execution\)\{[\s\S]{0,140}backdrop-filter:var\(--hns-glass-float-filter\)/, 'the execution card frosts like the list behind it')
 })
 
 test('the float is markup inside the dock window, never a second window', () => {

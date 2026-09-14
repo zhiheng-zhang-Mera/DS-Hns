@@ -701,6 +701,13 @@ button:hover{background:var(--hns-color-bg-layer2)}
 .eng-phase.reached{color:var(--hns-state-completed);border-color:var(--hns-state-completed)}
 .eng-empty{margin:4px 0;font-size:11px;color:var(--hns-color-label-tertiary)}
 
+/* The plugin panel reads its own text through two and three layers of glass, so it takes a
+   stronger edge than the dock's default: the stroke is re-declared here because a custom property
+   override alone would not change an inherited `-webkit-text-stroke-width`. The increase is
+   deliberately small — past about a tenth of the font size a stroke starts closing the counters
+   and the text gets *less* legible, not more. */
+.plugins-panel{--hns-text-stroke-width:1.25px;-webkit-text-stroke-width:var(--hns-text-stroke-width)}
+
 /* Plugin panel (Update-Plan/accleration.md sections 45, 46). The four states are
    drawn with four colours on purpose: "off" and "broken" must not look alike. */
 .plug-execution,.plug-groups,.plug-detail,.plug-lock{margin-top:8px}
@@ -708,41 +715,54 @@ button:hover{background:var(--hns-color-bg-layer2)}
    a different subject from the list below them — what the runtime is allowed to do with a plugin,
    rather than which plugins there are — and the card is what says so. `:empty` matters as much as
    the border: the block is only rendered when the runtime answers, and a card drawn around nothing
-   would be a box that means "something went wrong here". */
-.plug-execution{padding:9px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
+   would be a box that means "something went wrong here".
+   It also frosts harder than the panel it sits in (the same step a sheet takes over the dock):
+   this card is read over the plugin list, and a card you can read the list through is two texts on
+   top of each other. */
+.plug-execution{padding:10px;border:1px solid var(--hns-color-border-l1);border-radius:10px;background:var(--hns-color-bg-layer2)}
 .plug-execution:empty{display:none}
-.plug-execution>h3{margin:0 0 6px}
+.plug-execution>h3{margin:0 0 7px}
 .plug-group{margin-top:6px}
 .plug-group-title{margin:0 0 4px;font-size:11px;font-weight:600;color:var(--hns-color-label-secondary);text-transform:uppercase;letter-spacing:.04em}
 .plug-groups{display:flex;flex-direction:column;gap:4px}
-.plug-row{display:grid;grid-template-columns:16px 1fr 72px 74px;gap:6px;align-items:center;width:100%;
-  padding:4px 7px;border-radius:8px;background:var(--hns-color-bg-layer1);border:1px solid transparent;
-  border-left:3px solid var(--hns-color-border-l2);font-size:11px;color:var(--hns-color-label-primary);
+.plug-row{display:grid;grid-template-columns:16px 1fr 56px 104px;gap:6px;align-items:center;width:100%;
+  padding:5px 7px;border-radius:8px;background:var(--hns-color-bg-layer1);border:1px solid transparent;
+  border-left:3px solid var(--hns-color-border-l2);font-size:12px;color:var(--hns-color-label-primary);
   text-align:left;cursor:pointer}
 .plug-row:hover{background:var(--hns-color-bg-layer2)}
 .plug-row.active{border-color:var(--hns-state-completed)}
 .plug-mark{text-align:center;color:var(--hns-state-completed)}
-.plug-mark.muted{color:var(--hns-color-label-tertiary)}
+.plug-mark.muted{color:var(--hns-color-label-secondary)}
 .plug-mark.bad{color:var(--hns-state-failed)}
 .plug-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.plug-fault{font-size:10px;color:var(--hns-color-label-tertiary)}
-.plug-state{font-size:10px;text-align:right}
+/* The two small columns of a row carry the fault level and the state word. Both were the dimmest
+   colour in the panel at the smallest size, which is the wrong way round: they are what the user
+   scans down. The state column grew from 74px to 104px so a bilingual state word fits at 12px. */
+.plug-fault{font-size:11px;color:var(--hns-color-label-secondary)}
+.plug-state{font-size:11px;text-align:right}
 .plug-state.ok{color:var(--hns-state-completed)}
 .plug-state.bad{color:var(--hns-state-failed)}
-.plug-state.muted{color:var(--hns-color-label-tertiary)}
-.plug-state.neutral{color:var(--hns-color-label-secondary)}
-.plug-settings{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px}
-.plug-setting{display:grid;grid-template-columns:1fr 84px auto;gap:6px;align-items:center;font-size:11px;color:var(--hns-color-label-secondary)}
+.plug-state.muted{color:var(--hns-color-label-secondary)}
+.plug-state.neutral{color:var(--hns-color-label-primary)}
+.plug-settings{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+/* Name, control, and the layer the value came from. The control is a flexible column with a real
+   floor (a `<select>` showing `isolated_worktree` needs the room), the source has its own line
+   under the row rather than a third column competing with the name for width. */
+.plug-setting{display:grid;grid-template-columns:minmax(0,1fr) minmax(104px,132px);gap:4px 8px;align-items:center;font-size:12px;color:var(--hns-color-label-primary)}
 .plug-setting-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.plug-input{padding:2px 5px;border-radius:6px;background:var(--hns-color-bg-layer1);
-  border:1px solid var(--hns-color-border-l1);color:var(--hns-color-label-primary);font-size:11px}
-.plug-facts{display:flex;flex-direction:column;gap:1px;margin-top:4px}
-.plug-line{margin:1px 0;font-size:11px;color:var(--hns-color-label-secondary);word-break:break-word}
+.plug-setting-source{grid-column:1/-1;font-size:11px}
+.plug-input{width:100%;min-width:0;padding:3px 6px;border-radius:6px;background:var(--hns-color-bg-layer1);
+  border:1px solid var(--hns-color-border-l2);color:var(--hns-color-label-primary);font-size:12px}
+.plug-input[type="checkbox"]{width:auto;justify-self:start}
+.plug-facts{display:flex;flex-direction:column;gap:2px;margin-top:5px}
+.plug-line{margin:1px 0;font-size:12px;line-height:1.45;color:var(--hns-color-label-primary);word-break:break-word}
 .plug-line.bad{color:var(--hns-state-failed)}
-.plug-line.plug-dim,.plug-dim{color:var(--hns-color-label-tertiary)}
-.plug-fact-label{color:var(--hns-color-label-tertiary)}
+/* "dim" is a step down, not a step into the background: these lines carry the layer a value came
+   from and the file it lives in, which is information the user came here to read. */
+.plug-line.plug-dim,.plug-dim{color:var(--hns-color-label-secondary)}
+.plug-fact-label{color:var(--hns-color-label-secondary)}
 .plug-detail-head{margin-top:4px}
-.plug-empty{margin:4px 0;font-size:11px;color:var(--hns-color-label-tertiary)}
+.plug-empty{margin:5px 0;font-size:12px;color:var(--hns-color-label-secondary)}
 
 /* The plugin manager float: an overlay inside the dock window, never a second window.
    It is the one surface a feature switch may not hide, so it is not feature-gated. */
@@ -918,13 +938,14 @@ body[data-glass="on"] :is(.pm-backdrop,.settings-overlay,.live-view-overlay){
   background:color-mix(in srgb,var(--hns-color-bg-overlay) 55%,transparent);
   backdrop-filter:var(--hns-glass-filter)
 }
-/* ---- Second-layer surfaces (sheets and their scrims) -------------------------------------
+/* ---- Second-layer surfaces (sheets, and the cards read over other content) ----------------
    A sheet is not a pane like the ones behind it: it is read *over* the dock's own text, and a
    pane you can read the dock through is two texts on top of each other. So the float takes its
    own, stronger frost — the same relationship to the user's numbers, one step up — and it is
    derived from `--hns-glass-alpha` rather than being a second control, so the Appearance panel
-   still has exactly three. */
-body[data-glass="on"] :is(.pm-sheet,.settings-sheet,.live-view-sheet){
+   still has exactly three. The execution settings card is in the same position one level down:
+   read over the plugin list rather than over the dock. */
+body[data-glass="on"] :is(.pm-sheet,.settings-sheet,.live-view-sheet,.plug-execution){
   background-color:color-mix(in srgb,var(--hns-glass-src-layer2) var(--hns-glass-float-alpha),transparent);
   backdrop-filter:var(--hns-glass-float-filter)
 }
