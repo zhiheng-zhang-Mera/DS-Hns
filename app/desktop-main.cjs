@@ -17,6 +17,9 @@ const runtimeProcess = require('./runtime-process.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 const frontendMode = require('./frontend-mode/index.cjs')
+// The dock's rectangle, including the band it yields to the official UI. Shared with the extension
+// so the integrated view and the legacy window cannot disagree about where the dock starts.
+const { dockBounds, dockTopInset } = require('./extensions/mega/dock/geometry.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -1498,7 +1501,12 @@ function layoutIntegratedViews() {
     logLine(`layout: content=${contentWidth}px official=${officialWidth}px dock=${dockWidth}px expanded=${megaDockExpanded}`)
   }
   if (megaDockView) {
-    megaDockView.setBounds({ x: officialWidth, y: 0, width: dockWidth, height })
+    // The dock yields the top band to the official UI (see `dock/geometry.cjs`): in this build the
+    // official page *is* the window's document, laid out against the full width, so it cannot know
+    // that a strip of its right edge is covered — and the conversation header's controls live in
+    // exactly that strip's top. Both the rail and the panel move together, because they are one
+    // view.
+    megaDockView.setBounds(dockBounds({ x: officialWidth, width: dockWidth, height, inset: dockTopInset() }))
   }
   // The official surfaces follow the official view bounds (Update-Plan 任务 3):
   // the overlay tracks it exactly, the shell spans the window so its frame band

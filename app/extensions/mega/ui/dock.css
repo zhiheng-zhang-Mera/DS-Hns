@@ -792,21 +792,25 @@ button:hover{background:var(--hns-color-bg-layer2)}
       `glass-layer.js` from `data/state/ui-glass.json`, so the Appearance panel's controls and
       this stylesheet cannot disagree about what is in force — and a slider's `input` event is
       the whole update path, so the pane changes on the frame the user drags.
-   6. **Translucency is graded, not uniform.** The pane itself keeps more of its colour than the
-      cards on top of it, or a window with nothing behind it would be unreadable; the fallback
-      below raises both when the renderer cannot blur at all.
+   6. **The pane paints no colour at all.** The dock covers the official interface, so any tint of
+      ours is a colour taken from somebody else's UI: the controls underneath would come through
+      shifted, and two translucent layers of different hues read as mud. `bg-base` is therefore
+      `transparent` with the layer on — the chassis is the *blur* and nothing else, and what
+      distinguishes a module from the chassis is the module's own faint tint plus its 1px border,
+      which is the smallest amount of ink that still shows a boundary.
+   7. **The text keeps its contrast from the blur.** The tint floor is 5%, which is nearly nothing;
+      legibility comes from the blur and from the labels, not from a wash of colour behind them.
+      The fallback below is what covers a renderer that cannot blur at all.
    ===================================================================================== */
 :root{
   /* Baseline effect. Both numbers are overwritten by the dock's glass script. */
   --hns-glass-blur:18px;
-  --hns-glass-alpha:62%;
-  /* The pane itself, which has to stay the most opaque layer or the desktop shows through the
-     text. It is a fraction of the cards' translucency, not a second independent number. */
-  --hns-glass-base-alpha:calc(var(--hns-glass-alpha) + 22%);
+  --hns-glass-alpha:18%;
   --hns-glass-saturate:1.4;
   --hns-glass-sheen:7%;
   --hns-glass-filter:blur(var(--hns-glass-blur)) saturate(var(--hns-glass-saturate));
-  /* The dock's own colours, captured before they are redirected. */
+  /* The dock's own colours, captured before they are redirected — and what the fallback below
+     restores the chassis from when the renderer cannot blur at all. */
   --hns-glass-src-base:var(--hns-color-bg-base);
   --hns-glass-src-layer1:var(--hns-color-bg-layer1);
   --hns-glass-src-layer2:var(--hns-color-bg-layer2);
@@ -823,7 +827,8 @@ button:hover{background:var(--hns-color-bg-layer2)}
   --hns-glass-src-header:var(--hns-slot-header-bg);
 }
 body[data-glass="on"]{
-  --hns-color-bg-base:color-mix(in srgb,var(--hns-glass-src-base) var(--hns-glass-base-alpha),transparent);
+  /* 无色：绝对透明。底盘只有模糊，没有颜色，因此不会与被它覆盖的官方组件抢色。 */
+  --hns-color-bg-base:transparent;
   --hns-color-bg-layer1:color-mix(in srgb,var(--hns-glass-src-layer1) var(--hns-glass-alpha),transparent);
   --hns-color-bg-layer2:color-mix(in srgb,var(--hns-glass-src-layer2) var(--hns-glass-alpha),transparent);
   --hns-color-bg-raised:color-mix(in srgb,var(--hns-glass-src-raised) var(--hns-glass-alpha),transparent);
@@ -860,11 +865,11 @@ body[data-glass="on"] :is(.pm-backdrop,.settings-overlay,.live-view-overlay){
   background:color-mix(in srgb,var(--hns-color-bg-overlay) 55%,transparent);
   backdrop-filter:var(--hns-glass-filter)
 }
-/* Without backdrop blur the panes keep their translucency and simply do not blur, so both
-   numbers are raised to hold the contrast the palette had. The layer is never silently
-   dropped, and the pane is never left too thin to read text on. */
+/* Without backdrop blur there is no frost, and a colourless pane with no frost is a hole in the
+   window: the chassis takes its own colour back and the modules go nearly solid, so the dock is
+   still readable. The layer is never silently dropped. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  body[data-glass="on"]{--hns-glass-alpha:92%;--hns-glass-base-alpha:100%}
+  body[data-glass="on"]{--hns-color-bg-base:var(--hns-glass-src-base);--hns-glass-alpha:92%}
 }
 
 /* The Appearance panel's frosted-glass block: the switch and the two numbers behind it. It is

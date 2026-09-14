@@ -248,15 +248,47 @@ test('every class the glass controls use is styled: markup and stylesheet agree'
   assert.match(css, /:is\([^)]*\.glass\)\{/, 'the glass control block is not frosted with the rest of the dock')
 })
 
-test('the glass layer reaches the window: the document base is translucent with the layer on', () => {
+test('the chassis is colourless: the layer paints no colour over the official UI', () => {
   const css = read('app/extensions/mega/ui/dock.css')
-  // The token block, then the redirection — the same shape the layer has always had.
   const block = css.slice(css.indexOf('body[data-glass="on"]{'))
-  assert.match(block, /--hns-color-bg-base:color-mix\(/, 'the pane itself is still opaque, so nothing behind it can show through')
-  assert.match(css, /--hns-glass-src-base:var\(--hns-color-bg-base\)/, 'the base has no captured source, so the redirection would refer to itself')
-  assert.match(css, /--hns-glass-base-alpha:/, 'the pane has no translucency of its own')
-  // `:root` must not paint the canvas, or the body's translucent colour never becomes the canvas.
+  assert.match(block, /--hns-color-bg-base:transparent;/, 'the chassis paints a colour, which clashes with the components it covers')
+  // The colourless chassis must still be recoverable: without blur there is no frost, and a
+  // colourless pane that cannot blur is a hole in the window rather than a dock.
+  assert.match(css, /--hns-glass-src-base:var\(--hns-color-bg-base\)/, 'the chassis colour is not captured for the fallback')
+  assert.match(block, /@supports not \(\(backdrop-filter:blur\(1px\)\)[\s\S]{0,160}--hns-color-bg-base:var\(--hns-glass-src-base\)/, 'the no-blur fallback leaves a hole in the window')
+  // `:root` must not paint the canvas, or the colourless chassis never becomes the canvas and the
+  // pane would stop at the document's edge.
   const root = css.slice(0, css.indexOf('*{box-sizing'))
   assert.equal(/^\s*background:/m.test(root), false, ':root still paints an opaque background over the pane')
-  assert.match(css, /body\{display:flex;background:var\(--hns-color-bg-base\)/, 'the body no longer carries the base the layer makes translucent')
+  assert.match(css, /body\{display:flex;background:var\(--hns-color-bg-base\)/, 'the body no longer carries the base the layer owns')
+  // And the floor the user asked for, on the shipped control as well as in the state module: a
+  // slider whose minimum is higher than the file allows would make the setting unreachable.
+  const html = read('app/extensions/mega/ui/dock.html')
+  assert.match(html, /id="glassOpacity" min="5"/, 'the panel\'s slider cannot reach the 5% floor')
+})
+
+test('the dock starts below the official header, and the whole dock moves together', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  const main = read('app/desktop-main.cjs')
+  const geometry = require(path.join(ROOT, 'app', 'extensions', 'mega', 'dock', 'geometry.cjs'))
+
+  // The default is the official conversation header's own `min-height`: the band that carries the
+  // controls the dock used to cover.
+  assert.equal(geometry.OFFICIAL_HEADER_MIN_HEIGHT, 76)
+  assert.equal(geometry.dockTopInset({}), 76, 'the dock no longer yields the official header band')
+  assert.equal(geometry.dockTopInset({ DSH_MEGA_DOCK_TOP_INSET: '0' }), 0, 'a build without a header above the dock cannot say so')
+  assert.equal(geometry.dockTopInset({ DSH_MEGA_DOCK_TOP_INSET: '120' }), 120)
+  assert.equal(geometry.dockTopInset({ DSH_MEGA_DOCK_TOP_INSET: 'nonsense' }), 76, 'an unreadable override must not silently cover the controls again')
+  assert.equal(geometry.dockTopInset({ DSH_MEGA_DOCK_TOP_INSET: '9999' }), geometry.MAX_TOP_INSET, 'a typo must not park the dock off the bottom')
+
+  // The rectangle: the dock keeps its column, loses the band, and never shrinks to nothing.
+  assert.deepEqual(geometry.dockBounds({ x: 900, width: 560, height: 800, inset: 76 }), { x: 900, y: 76, width: 560, height: 724 })
+  assert.deepEqual(geometry.dockBounds({ x: 0, width: 48, height: 800, inset: 0 }), { x: 0, y: 0, width: 48, height: 800 })
+  const tiny = geometry.dockBounds({ x: 0, width: 48, height: 40, inset: 76 })
+  assert.ok(tiny.height >= 1, 'a window shorter than the band must still have a dock')
+
+  // Both backends use it, which is the point of a shared function: the rail and the panel are one
+  // view, and a second opinion about the top would break the seam between them.
+  assert.match(main, /megaDockView\.setBounds\(dockBounds\(\{ x: officialWidth, width: dockWidth, height, inset: dockTopInset\(\) \}\)\)/, 'the integrated dock still starts at the top of the window')
+  assert.match(index, /const bounds = dockBounds\(\{ x, width, height, inset: dockTopInset\(\) \}\)/, 'the legacy dock still starts at the top of the window')
 })

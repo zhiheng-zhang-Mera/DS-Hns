@@ -199,9 +199,22 @@ numbers.
 外观 · Appearance
 ├── 磨砂玻璃 / Frosted glass          [ on ] / off
 ├── 模糊强度 · Blur                   0 – 40 px   (18)
-└── 玻璃通透度 · Glass opacity        20 – 100 %  (62)
+└── 玻璃通透度 · Glass opacity        5 – 100 %   (18)
 ```
 
+- **The chassis paints no colour** — with the layer on, the dock's base is `transparent`: the
+  chassis is the *blur* and nothing else. The dock covers the official interface, and any tint of
+  ours is a colour taken from that interface — the controls underneath would come through shifted,
+  and two translucent layers of different hues read as mud. A module is visible by its own faint
+  tint and its 1px border, which is the least ink that still shows a boundary.
+- **The floor is 5%** — nearly nothing, for the times when the blur alone says everything. It stops
+  short of 0 because 0 is not "more transparent", it is "off", and off is what the switch is for.
+- **The dock starts below the official header** — in the integrated build the official page *is* the
+  window's document, laid out against the full width, so it cannot know that a strip of its right
+  edge is covered; and the conversation header's controls live at the top of exactly that strip. The
+  rail and the panel yield that band together, because they are one view: `dock/geometry.cjs` holds
+  the number (the header's own `min-height:76px`) and `DSH_MEGA_DOCK_TOP_INSET` overrides it. What
+  is left above the dock is the official UI, drawn by the official UI.
 - **Live, not on save** — dragging a slider writes the new value into the document on the frame
   it moves; only the release persists it through the shell. The numbers live in
   `data/state/ui-glass.json` and the panel renders whatever the layer reports, so a value the
@@ -209,11 +222,12 @@ numbers.
 - **The window is part of the material** — the dock window is created `transparent` with the
   Windows `acrylic` background material, and the integrated dock view is given a fully
   transparent background, so the OS frost blurs the desktop behind the pane instead of a flat
-  rectangle. The stylesheet redirects the dock's own base colour too, so the pane itself is
-  translucent and the window material reaches the screen.
+  rectangle.
 - **It cannot fail the dock** — a missing layer, a rejecting shell or an absent control all
   degrade to "the layer keeps the numbers it already has". The markup ships the layer on, so a
-  dock that never reaches the shell is still glass, with no flash of an unstyled panel.
+  dock that never reaches the shell is still glass, with no flash of an unstyled panel. A renderer
+  that cannot blur at all gets the chassis colour back and a nearly solid tint, because a
+  colourless pane with no frost is a hole in the window.
 
 ### Unified theme system (official surfaces)
 
@@ -566,7 +580,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run.ps1
 
 Mega dock: `Ctrl+Shift+M`. Mega settings: ⚙ in the dock header.
 Appearance: the **Appearance** panel — turn the frosted glass on or off, set its blur
-(0–40 px) and its glass opacity (20–100 %); the dock itself is never skinned.
+(0–40 px) and its glass opacity (5–100 %); the dock itself is never skinned.
 Themes: managed by the theme engine and stored under `data\themes\`; they paint the official
 shell and overlay, never the dock.
 Skills: the **Skills** panel — search, paste a GitHub link, or pick a local folder to

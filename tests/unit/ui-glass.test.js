@@ -73,11 +73,11 @@ test('the official UI cannot be frosted: it is a different document that never l
 
 test('coverage is by token, and the surfaces really do paint with those tokens', () => {
   const { tokens, block } = glassBlock()
-  // The palette the surfaces use, and the palette the layer redirects. `bg-base` is in the list
-  // now: the pane itself has to be translucent, or the window's own material never reaches the
-  // screen and the layer can only frost the document's flat background.
+  // The palette the surfaces use, and the palette the layer redirects. `bg-base` is deliberately
+  // NOT in this list: it is set to `transparent` rather than mixed, because the chassis must paint
+  // no colour at all — the dock covers the official UI, and any tint of ours would be a colour
+  // taken from somebody else's interface.
   const redirected = [
-    '--hns-color-bg-base',
     '--hns-color-bg-layer1', '--hns-color-bg-layer2', '--hns-color-bg-raised', '--hns-color-bg-overlay',
     '--hns-color-border-l1', '--hns-color-border-l2',
     '--hns-slot-shell-bg', '--hns-slot-panel-bg', '--hns-slot-card-bg', '--hns-slot-queue-bg',
@@ -86,17 +86,22 @@ test('coverage is by token, and the surfaces really do paint with those tokens',
   for (const token of redirected) {
     assert.match(block, new RegExp(`${token}:color-mix\\(`), `${token} is not redirected, so its surfaces stay opaque`)
   }
+  // The chassis: colourless, absolutely transparent.
+  assert.match(block, /--hns-color-bg-base:transparent;/, 'the chassis paints a colour, which would clash with the UI it covers')
   // The capture of the dock's own values, which is what keeps the redirection free of a cycle.
   for (const token of redirected) {
     assert.match(tokens, new RegExp(`--hns-glass-src-[\\w-]+:var\\(${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`), `${token} has no captured source, so the redirection would refer to itself`)
   }
+  // The chassis colour still has to exist *somewhere*: without blur there is no frost, and a
+  // colourless pane that cannot blur is a hole in the window rather than a dock.
+  assert.match(tokens, /--hns-glass-src-base:var\(--hns-color-bg-base\)/, 'the chassis colour is not captured for the no-blur fallback')
   // The surfaces must actually be painted with those tokens, or the layer covers nothing.
   const css = read('app/extensions/mega/ui/dock.css')
   assert.match(css, /\.panel\{[^}]*background:var\(--hns-slot-panel-bg\)/, 'panels no longer paint with the slot palette')
   assert.match(css, /button,input,select,textarea\{[^}]*background:var\(--hns-color-bg-layer1\)/, 'buttons and inputs no longer paint with the palette')
   assert.match(css, /\.pm-sheet\{[^}]*background:var\(--hns-color-bg-layer1\)/, 'the plugin manager sheet no longer paints with the palette')
-  // And the canvas: `:root` must not paint a background of its own, or the body's translucent
-  // colour would never become the canvas and the pane would stop at the document's edge.
+  // And the canvas: `:root` must not paint a background of its own, or the colourless chassis would
+  // never become the canvas and the pane would stop at the document's edge.
   assert.equal(/^\s*background:/m.test(tokens.slice(tokens.lastIndexOf(':root{'))), false, ':root paints an opaque background over the pane')
 })
 
@@ -106,12 +111,10 @@ test('the glass has no colours of its own: every tint is mixed out of the dock p
   assert.equal(/#[0-9a-f]{3,8}\b/i.test(rules), false, 'the glass block hard-codes a hex colour instead of mixing the palette')
   assert.equal(/\brgba?\(/i.test(rules), false, 'the glass block hard-codes an rgb colour instead of mixing the palette')
   assert.equal(/\bhsla?\(/i.test(rules), false, 'the glass block hard-codes an hsl colour instead of mixing the palette')
-  // The pane has its own translucency, above the cards': a window whose base is as thin as its
-  // panels is unreadable over a bright desktop.
-  assert.match(rules, /--hns-glass-base-alpha:calc\(var\(--hns-glass-alpha\) \+ 22%\)/, 'the pane has no translucency of its own, or it is not derived from the user\'s')
-  // And the numbers the layer is made of are the ones the shell owns.
+  // The tint is the *modules'*, and it starts at the faintest value that still reads as a pane:
+  // the chassis has no colour of its own to be more opaque than.
+  assert.match(rules, /--hns-glass-alpha:18%/, 'the baseline tint is missing')
   assert.match(rules, /--hns-glass-blur:18px/, 'the baseline blur is missing')
-  assert.match(rules, /--hns-glass-alpha:62%/, 'the baseline translucency is missing')
   // The skin's own effect blur is gone with the skin: the filter is the product's blur alone.
   assert.match(rules, /--hns-glass-filter:blur\(var\(--hns-glass-blur\)\) saturate\(var\(--hns-glass-saturate\)\)/, 'the filter is not built from the user\'s blur')
 })
@@ -123,11 +126,12 @@ test('the frosted layers are the ones content passes under, and the fallback kee
     assert.match(block, rule, `${selector} does not frost anything behind it`)
   }
   // The scrims behind a float: the dock's own content is what they frost, and their hard-coded
-  // black is replaced by the skin's overlay colour like everything else here.
+  // black is replaced by the palette's overlay colour like everything else here.
   assert.match(block, /:is\(\.pm-backdrop,\.settings-overlay,\.live-view-overlay\)\{[^}]*backdrop-filter:var\(--hns-glass-filter\)/, 'the float scrims do not frost the dock behind them')
   assert.match(block, /\.pm-backdrop[\s\S]{0,200}background:color-mix\(in srgb,var\(--hns-color-bg-overlay\)/, 'the plugin manager scrim still paints a literal black')
-  // A renderer without backdrop blur keeps the translucency and raises the tint.
-  assert.match(block, /@supports not \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{[\s\S]{0,120}--hns-glass-alpha:92%/, 'the no-blur fallback does not hold the contrast')
+  // A renderer without backdrop blur gets the chassis colour back and a nearly solid tint: there is
+  // no frost to carry the contrast, and a colourless pane with no frost is a hole in the window.
+  assert.match(block, /@supports not \(\(backdrop-filter:blur\(1px\)\) or \(-webkit-backdrop-filter:blur\(1px\)\)\)\{[\s\S]{0,160}--hns-color-bg-base:var\(--hns-glass-src-base\)[\s\S]{0,80}--hns-glass-alpha:92%/, 'the no-blur fallback leaves the pane colourless and unreadable')
 })
 
 test('the switch persists, and refuses values it cannot honour', () => {
@@ -144,6 +148,11 @@ test('the switch persists, and refuses values it cannot honour', () => {
     assert.equal(initial.source, 'default')
     assert.equal(initial.file, file)
     assert.deepEqual(initial.limits.blur, { ...GLASS_LIMITS.blur })
+    // The floor is a requirement, not a taste: the dock sits over the official UI, and 5% is what
+    // lets the blur alone do the work when the user asks for it. Anything above this is ink the
+    // official interface no longer owns.
+    assert.equal(GLASS_LIMITS.opacity.min, 5, 'the glass floor moved away from nearly invisible')
+    assert.equal(initial.limits.opacity.min, 5, 'the panel would clamp higher than the state file allows')
 
     // A change is written, and a second reader sees it.
     const changed = glass.set({ enabled: false, blur: 26, opacity: 71 })

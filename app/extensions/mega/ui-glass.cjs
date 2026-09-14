@@ -3,22 +3,20 @@
 /**
  * The frosted-glass layer's durable switch.
  *
- * The requirement is that every DS-Hns surface — the dock, its panels, its floats, every sheet
- * and every card — is translucent frosted glass, while the official UI is untouched, and that
- * the layer composes with whatever desktop skin is active rather than replacing it.
+ * The requirement is that the dock is translucent frosted glass while the official UI is
+ * untouched — and "untouched" now includes the colour of it. The dock covers the official
+ * interface, so every point of tint it paints is a point of somebody else's UI that is no longer
+ * its own colour; the dock therefore paints no base colour at all (see `dock.css`) and its panels
+ * carry the faintest tint that still reads as a pane.
  *
  * Two decisions live here, and both are deliberately the smallest possible:
  *
- *  1. **What the layer is made of.** Three numbers: whether it is on, how strong the blur is,
- *     and how much of the active skin's surface colour survives in a glass panel. They are
- *     numbers and not colours because the *colours* must keep coming from the skin: the dock
- *     stylesheet mixes the skin's own tokens with transparency, so a theme installed after this
- *     feature still decides what the glass looks like. That is what "works alongside other
- *     desktop skin plugins" means in practice — the layer is an effect over the skin, never a
- *     palette beside it.
+ *  1. **What the layer is made of.** Three numbers: whether it is on, how strong the blur is, and
+ *     how much tint a module keeps. The blur is the material; the tint only says where a module
+ *     ends, which is why its floor reaches almost nothing and its default is low.
  *  2. **Where the numbers live.** `data/state/ui-glass.json`, beside the feature decisions and
- *     for the same reason: this is user state, not deployment configuration, so a theme package
- *     cannot overwrite it and an application update does not reset it.
+ *     for the same reason: this is user state, not deployment configuration, so an application
+ *     update does not reset it.
  *
  * The shell owns the file and validates every patch; the dock receives the resolved state.
  */
@@ -26,13 +24,25 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-/** The shipped defaults: on, with a real blur and a tint that still reads as the skin. */
-const GLASS_DEFAULT = Object.freeze({ enabled: true, blur: 18, opacity: 62 })
+/**
+ * The shipped defaults: on, with a real blur and the faintest tint that still reads as a pane.
+ *
+ * The opacity is low on purpose. The dock sits over the official UI, and the blur is what makes
+ * the pane legible; the tint only has to mark the boundary, and the border marks that too. A user
+ * who wants more ink has the whole range above this.
+ */
+const GLASS_DEFAULT = Object.freeze({ enabled: true, blur: 18, opacity: 18 })
 
-/** Values a patch is clamped into: a blur of 0 is "off by numbers" and 100 is "no glass at all". */
+/**
+ * Values a patch is clamped into.
+ *
+ * The floor is 5%: low enough to be nearly nothing, which is the setting the dock wants when it
+ * is over a busy official screen and the blur alone is doing the work. It stops short of 0 because
+ * 0 is not "very transparent" — it is "off", and off is what the switch is for.
+ */
 const GLASS_LIMITS = Object.freeze({
   blur: Object.freeze({ min: 0, max: 40 }),
-  opacity: Object.freeze({ min: 20, max: 100 })
+  opacity: Object.freeze({ min: 5, max: 100 })
 })
 
 /**
@@ -82,6 +92,10 @@ function createUiGlass(options = {}) {
       opacity: clamp('opacity', raw.opacity, cache.opacity),
       source: 'user'
     }
+    // Said out loud, because a saved preference is invisible otherwise and the shipped defaults are
+    // never seen again: "the frost is not applied" is the report this line answers, and the answer
+    // is usually here — a blur of 0 is a legitimate value and it really does mean no frost.
+    log(`frosted glass from the saved preference: ${cache.enabled ? 'on' : 'off'}, blur ${cache.blur}px, opacity ${cache.opacity}% (${file})`)
     return cache
   }
 

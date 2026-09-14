@@ -65,6 +65,9 @@ jobs:
             # input, and the panel that drives it is part of the shipped surface.
             'app/extensions/mega/ui/glass-layer.js',
             'app/extensions/mega/ui/appearance-panel.js',
+            # Where the dock is allowed to be drawn: it yields the official header band, and one
+            # shared module decides that for both backends.
+            'app/extensions/mega/dock/geometry.cjs',
             'tests/unit/appearance-panel.test.js',
             'tests/unit/official-frontend.test.js',
             'docs/dual-ui.md'

@@ -19,6 +19,9 @@ const { HarnessUpdater } = require('./updater/harness-updater')
 const { createThemeEngine } = require('./theme')
 const { createSkillService } = require('./skills/skill-service')
 const { createDockTarget } = require('./dock/target')
+// The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
+// the legacy window and the integrated view cannot disagree about where the dock starts.
+const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
 // The store's GitHub settings are validated by the same helpers the channel builds its requests
 // with, so a value the shell accepts is a value the store can use.
 const {
@@ -634,7 +637,10 @@ function positionDock() {
   const desiredHeight = content.height
   const y = Math.max(work.y, Math.min(desiredY, workBottom - Math.min(desiredHeight, work.height)))
   const height = Math.max(160, Math.min(desiredHeight, workBottom - y))
-  dockWindow.setBounds({ x, y, width, height }, false)
+  // The top band belongs to the official UI here too (see `dock/geometry.cjs`): the rail and the
+  // panel are one window, so they move together.
+  const bounds = dockBounds({ x, width, height, inset: dockTopInset() })
+  dockWindow.setBounds({ ...bounds, y: y + bounds.y, height: Math.max(160, bounds.height) }, false)
 }
 
 function syncDockVisibility() {

@@ -24,7 +24,7 @@
  */
 ;(function attachGlassLayer(global) {
   /** The shipped defaults, matching `app/extensions/mega/ui-glass.cjs`. */
-  const DEFAULT_STATE = Object.freeze({ enabled: true, blur: 18, opacity: 62 })
+  const DEFAULT_STATE = Object.freeze({ enabled: true, blur: 18, opacity: 18 })
 
   let state = { ...DEFAULT_STATE }
   const listeners = []
