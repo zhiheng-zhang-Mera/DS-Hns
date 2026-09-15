@@ -145,6 +145,16 @@ window.__ModuleLoader__.load({
 			return { ...style, right: `${position.right}px` };
 		}
 
+		/**
+		 * The orb's right edge, as a distance from the layer's right edge — the anchor a panel on the orb's
+		 * left side aligns to. An edge-snapped orb's number has to be derived the same way `positionStyle`
+		 * derives its rendering, or the panel would align to where the orb *would* be instead of where it is.
+		 */
+		function orbRightOffset(position, boxWidth) {
+			if (position.edge === 'left' && boxWidth) return Math.max(MARGIN, boxWidth - MARGIN - ORB_SIZE);
+			return position.right;
+		}
+
 		/** The offsets, kept inside the layer's box. An unmeasured box (0) clamps nothing but the minimum. */
 		function clampOffsets(offsets, box) {
 			const width = Number.isFinite(box?.width) && box.width > 0 ? box.width : Infinity;
@@ -167,6 +177,35 @@ window.__ModuleLoader__.load({
 				if (free.right <= EDGE_SNAP) return { ...free, edge: 'right' };
 			}
 			return free;
+		}
+
+		/**
+		 * Which side of the orb the panel opens on: **the side that faces the middle of the screen**.
+		 *
+		 * This is the rule the third UI review asked for in as many words ("根据位置向屏幕中心扩大"), and it
+		 * is deliberately decided by which half the orb is in rather than by how much room each side has —
+		 * "where is there space" is what produced a panel that always preferred upward.
+		 *
+		 * It needs no room-based tie-break, and that is worth saying because it looks like it should: the side
+		 * that faces the middle **is** the roomier side. An orb whose centre is in the lower half has more than
+		 * half the layer above it by definition, and likewise on the left. So "toward the centre" and "into the
+		 * room" are the same instruction, and the one the user gave is the one that is implemented.
+		 *
+		 * The height is still clamped to the room on the chosen side (`maxHeight` at the call site), which is
+		 * what keeps a very short layer from drawing a panel taller than the screen.
+		 *
+		 * @param {object} input the layer's box, the orb's position in it, and the panel's width
+		 */
+		function choosePanelSide({ boxWidth = 0, boxHeight = 0, orbLeft = 0, orbTop = 0 } = {}) {
+			// An unmeasured layer has no halves to speak of: the default corner's answer stands.
+			if (!boxWidth || !boxHeight) return { above: true, toTheRight: false };
+			// Lower half → up (toward the middle); upper half → down.
+			// Left half → the panel extends to the orb's right (growing right, toward the middle); right half →
+			// to its left.
+			return {
+				above: orbTop + ORB_SIZE / 2 > boxHeight / 2,
+				toTheRight: orbLeft + ORB_SIZE / 2 < boxWidth / 2
+			};
 		}
 
 		/** The orb's glyph: a dot, plus how many things want attention when any do. */
@@ -616,18 +655,24 @@ window.__ModuleLoader__.load({
 			}, label);
 
 			/**
-			 * Where the panel goes, and the review that changed it.
+			 * Where the panel goes, and the two reviews that changed it.
 			 *
 			 * The first version pinned a `top` and a `left`, gave the panel a fixed 70vh and let it scroll:
-			 * opening "详情" made a longer document inside a box that was already the wrong shape. What a
-			 * panel anchored to a corner of the screen should do is **grow away from that corner** — so this
-			 * one is anchored by `bottom`/`right` (or `left`, when the orb is on the left) and its size is
-			 * whatever its content is. Open it and the window extends upward and leftward, toward the room
-			 * that is actually free, instead of growing a scrollbar.
+			 * opening "详情" made a longer document inside a box that was already the wrong shape. The second
+			 * anchored it by `bottom`/`right`, which fixed the scrolling but overcorrected in the direction
+			 * the next review named: it *preferred upward* whenever there was room above, so an orb parked in
+			 * the top half still opened a panel up into the top edge.
 			 *
-			 * The two fallbacks are the honest ones: when there is more room on the other side of the orb the
-			 * panel uses that side, and when the content is taller than the whole layer it scrolls — which is
-			 * a last resort rather than the layout.
+			 * What it does now is what that review asked for: the panel opens **toward the middle of the
+			 * screen**, decided by which half the orb is in. Lower half → above the orb, growing up; upper
+			 * half → below, growing down; left half → to its right, growing right; right half → to its left.
+			 * The room the panel takes is always the room between the orb and the middle, and its far edge is
+			 * what moves as its content grows.
+			 *
+		 * One guard remains, and it is about the size of the layer rather than about taste: the panel caps its
+		 * own height at the room on the side it chose, so a scrollbar appears only when the content is taller
+		 * than the whole layer — a last resort, not the layout. (The horizontal side gets a stronger veto, in
+		 * the rule below: a panel's *width* cannot be clamped the way its height can.)
 			 */
 			const boxWidth = layer.width || 0;
 			const boxHeight = layer.height || 0;
@@ -636,11 +681,12 @@ window.__ModuleLoader__.load({
 			const orbLeft = !boxWidth
 				? 0
 				: (position.edge === 'left' ? MARGIN : Math.max(MARGIN, boxWidth - position.right - ORB_SIZE));
-			const spaceAbove = boxHeight ? Math.max(0, boxHeight - position.bottom - ORB_SIZE) : 0;
+			const orbTop = boxHeight ? Math.max(0, boxHeight - position.bottom - ORB_SIZE) : 0;
+			const spaceAbove = orbTop;
 			const spaceBelow = boxHeight ? position.bottom : 0;
-			const above = !boxHeight || spaceAbove >= PANEL_MIN_HEIGHT || spaceAbove >= spaceBelow;
-			const onRight = !boxWidth || orbLeft + ORB_SIZE / 2 >= boxWidth / 2;
 			const panelWidth = boxWidth ? Math.min(PANEL_WIDTH, Math.max(220, boxWidth - 2 * MARGIN)) : PANEL_WIDTH;
+			const side = choosePanelSide({ boxWidth, boxHeight, orbLeft, orbTop });
+			const above = side.above;
 			const room = above ? spaceAbove : spaceBelow;
 			const panelStyle = {
 				all: 'initial',
@@ -649,10 +695,12 @@ window.__ModuleLoader__.load({
 				// Anchored to the orb's own corner: the panel's near edges stay put and the far ones move.
 				...(above
 					? { bottom: `${position.bottom + ORB_SIZE + GAP}px` }
-					: { top: `${Math.max(MARGIN, boxHeight - position.bottom + GAP)}px` }),
-				...(onRight
-					? { right: `${position.right}px` }
-					: { left: `${Math.max(MARGIN, orbLeft)}px` }),
+					: { top: `${orbTop + ORB_SIZE + GAP}px` }),
+				// Horizontally it *aligns* with the orb rather than standing off it — the near edge is the
+				// orb's near edge, and the far edge is the one that moves as the content grows.
+				...(side.toTheRight
+					? { left: `${orbLeft}px` }
+					: { right: `${orbRightOffset(position, boxWidth)}px` }),
 				// Only ever as tall as the room on the side it opened on; that is the scrollbar's last resort.
 				...(room ? { maxHeight: `${Math.max(PANEL_MIN_HEIGHT, room - GAP - MARGIN)}px` } : {}),
 				overflowY: 'auto',
@@ -667,6 +715,7 @@ window.__ModuleLoader__.load({
 			const panel = !open ? null : box('div', {
 				'data-hns-mega-panel': 'on',
 				'data-hns-mega-panel-side': above ? 'above' : 'below',
+				'data-hns-mega-panel-across': side.toTheRight ? 'right' : 'left',
 				role: 'dialog',
 				'aria-label': 'Mega',
 				style: panelStyle

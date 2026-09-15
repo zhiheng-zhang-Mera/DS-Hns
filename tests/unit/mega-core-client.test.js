@@ -426,6 +426,9 @@ test('the panel grows up and left out of the corner it is anchored to, not in a 
   // The default corner: bottom-right. There is room above, so the panel opens *upward*, its right edge
   // aligned with the orb's, and its height is the room that is actually there — not a `70vh` box.
   assert.equal(driver.panel.props['data-hns-mega-panel-side'], 'above')
+  // ...and it extends toward the middle horizontally as well: the orb is in the right half, so the panel's
+  // left edge is where its growth happens.
+  assert.equal(driver.panel.props['data-hns-mega-panel-across'], 'left')
   const opened = driver.panelStyle()
   assert.equal(opened.bottom, '64px', 'the panel sits above the orb, so its bottom is the orb\'s top + gap')
   assert.equal(opened.right, '14px', 'its right edge is the orb\'s, so it grows leftward')
@@ -442,6 +445,7 @@ test('the panel grows up and left out of the corner it is anchored to, not in a 
   await tick()
   driver.rerender()
   assert.equal(driver.panel.props['data-hns-mega-panel-side'], 'below')
+  assert.equal(driver.panel.props['data-hns-mega-panel-across'], 'left')
   const flipped = driver.panelStyle()
   assert.equal(flipped.top, '130px', 'below the orb: its top is the orb\'s bottom + gap')
   assert.equal(flipped.maxHeight, '756px')
@@ -456,6 +460,18 @@ test('the panel grows up and left out of the corner it is anchored to, not in a 
   const left = driver.panelStyle()
   assert.equal(left.left, '14px', 'the panel follows the orb to the left edge')
   assert.equal('right' in left, false)
+  // Left half → the panel extends rightward, which is the other half of "toward the middle".
+  assert.equal(driver.panel.props['data-hns-mega-panel-across'], 'right')
+
+  // And the two axes are decided independently, by the half the orb is in rather than by the room: an orb in
+  // the middle of the left edge opens its panel to the right *and* downward, because the middle of the screen
+  // is to its right and below it.
+  mounted.store.setPosition({ right: 1200, bottom: 500, edge: 'left' })
+  await tick()
+  driver.rerender()
+  assert.equal(driver.panel.props['data-hns-mega-panel-side'], 'below')
+  assert.equal(driver.panel.props['data-hns-mega-panel-across'], 'right')
+  assert.equal(driver.panelStyle().top, '410px', 'below an orb whose top is 360 px down: 360 + 40 + 10')
 
   // The readability fix from the same review: both surfaces sit on an opaque card of their own, because the
   // page is drawn on the official frosted panel and our text has its own palette.

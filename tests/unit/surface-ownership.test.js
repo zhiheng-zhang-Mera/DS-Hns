@@ -23,9 +23,15 @@ const path = require('node:path')
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
 
-/** Channel literals a file hands to `ipcRenderer`, and whether any of them is built dynamically. */
-function preloadChannels() {
-  const source = read('app/extensions/mega/ui/preload.cjs')
+/**
+ * Channel literals a file hands to `ipcRenderer`, and whether any of them is built dynamically.
+ *
+ * Both preloads are read: the dock's is the dock's whole reachable surface, and the system orb's
+ * (`orb-preload.cjs`) is the same thing for a window that floats over every application. A preload nobody
+ * audits is exactly where an unowned channel would hide.
+ */
+function preloadChannels(file = 'app/extensions/mega/ui/preload.cjs') {
+  const source = read(file)
   const channels = [...source.matchAll(/ipcRenderer\.(?:invoke|send|on)\(\s*'([^']+)'/g)].map((match) => match[1])
   // A channel assembled at runtime cannot be audited, so it is itself a finding.
   const dynamic = [...source.matchAll(/ipcRenderer\.(?:invoke|send|on)\(\s*(?!')/g)]
@@ -49,6 +55,20 @@ test('every channel the dock can call is owned by a module that declares it', ()
   const unowned = channels.filter((channel) => !declared.has(channel))
   assert.deepEqual(unowned, [], `these channels have no owner: ${unowned.join(', ')}`)
   assert.equal(dynamic, 0, 'a channel built at runtime cannot be audited by the cleanup path or the feature gate')
+})
+
+test('the system orb\'s window has the same rule, and a much smaller surface', () => {
+  const { channels, dynamic } = preloadChannels('app/extensions/mega/ui/orb-preload.cjs')
+  const declared = declaredChannels()
+  // Six: one per thing that window can do. Anything more than that is a surface nobody asked for.
+  assert.deepEqual(channels, [
+    'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
+    // Plus the one push the ball listens on: six ways in, one way out.
+    'mega:orb-state'
+  ])
+  const unowned = channels.filter((channel) => !declared.has(channel))
+  assert.deepEqual(unowned, [], `these channels have no owner: ${unowned.join(', ')}`)
+  assert.equal(dynamic, 0)
 })
 
 test('the appearance vocabulary crosses the boundary, and nothing else does', () => {

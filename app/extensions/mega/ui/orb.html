@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!--
+    The system orb's window (app/extensions/mega/system-orb.cjs): a ball that floats over every application,
+    and the panel behind it.
+
+    The policy is the dock's, for the same reason: this is a document of ours and needs nothing from outside
+    itself. No network, no remote script, no inline style — the geometry travels as element-level properties
+    written through the CSSOM (which style-src has never gated), so the numbers that move the ball and the
+    panel cannot become a way to inject a rule.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'">
+  <title>Mega</title>
+  <link rel="stylesheet" href="orb.css">
+</head>
+<body>
+  <!--
+    The ball. It is the whole window while the panel is closed, and it is never a hit target the user did not
+    aim at: the window ignores mouse events until this element (or the panel) says the cursor is on it.
+  -->
+  <button id="ball" type="button" aria-label="DS-Hns Mega">
+    <span id="ballGlyph">●</span>
+  </button>
+
+  <!--
+    The panel. It exists only while it is open; its position and its maximum height are the shell's answer
+    (the window is resized around it), and it is emptied rather than left showing a stale snapshot.
+  -->
+  <section id="panel" hidden aria-label="Mega">
+    <header id="panelHead">
+      <span id="panelTitle">Mega</span>
+      <span id="panelState">—</span>
+      <button id="panelClose" class="ghost" type="button" title="收起 · Collapse">×</button>
+    </header>
+    <div id="panelBody"></div>
+  </section>
+
+  <script src="orb.js"></script>
+</body>
+</html>

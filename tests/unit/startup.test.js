@@ -162,7 +162,9 @@ test('the shell starts the official UI first, and only then the optional layers'
   // boot phase is still the startup machine's, which is what keeps the two accounts consistent.
   assert.match(main, /createProtectionLayer\(\{ log: logLine \}\)/)
   for (const id of ['wallpaper-layer', 'mega-extension-host', 'mega-dock']) {
-    assert.match(main, new RegExp(`protection\\.register\\(\\{ id: '${id}', optional: true`), `${id} is not registered as an optional protected module`)
+    // Whitespace-tolerant: a module whose registration grew a reason to be spelled over several lines is
+    // still the same registration, and the property this asserts is `optional: true`.
+    assert.match(main, new RegExp(`protection\\.register\\(\\{\\s*id: '${id}',\\s*optional: true`), `${id} is not registered as an optional protected module`)
     assert.match(main, new RegExp(`protection\\.start\\('${id}'\\)`), `${id} does not start through the protection layer`)
   }
   assert.match(main, /\[protection\] \$\{JSON\.stringify\(protection\.describe\(\)\)\}/, 'the protection report never reaches the log')

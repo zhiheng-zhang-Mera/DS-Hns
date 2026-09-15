@@ -163,9 +163,13 @@ test('the product is one window: the tray keeps its exit actions and adds Sub-wo
   const { mega, handlers, mainWindow } = await startExtension()
   t.after(() => mega.stop())
 
-  // Exactly one extension window (the dock); no tools page is loaded anywhere.
-  assert.equal(shell.windows.length, 1, 'no secondary Mega window may be created')
-  assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['dock.html'])
+  /**
+   * Exactly one window is created at boot, and it is now the **system ball** rather than the dock: the old
+   * Mega sidebar is retired (it is not built until it is asked for), and the surface that replaced it is a
+   * window of ours that floats over every application. No Mega management page is loaded anywhere.
+   */
+  assert.equal(shell.windows.length, 1, 'no secondary Mega window may be created at boot')
+  assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['orb.html'])
 
   // Tray: double-click restores/focuses, and the menu carries Show/Mega, the
   // Sub-worker submenu (plan §16) and the two original exit actions.
@@ -191,6 +195,13 @@ test('the product is one window: the tray keeps its exit actions and adds Sub-wo
   trayItem('退出 DS-Harness · Exit DS-Harness').click()
   trayItem('强制退出 DS-Harness · Force Exit DS-Harness').click()
   assert.deepEqual(shell.shutdownCalls, ['graceful:tray', 'force:tray'], 'exit actions route to the shell, which owns the managed harness')
+
+  /**
+   * ...and the dock is still reachable, which is the other half of "hidden by default": the tray's Mega entry
+   * creates it on the spot (it was not there a moment ago) rather than leaving the user with no console at all.
+   */
+  trayItem('Mega 控制台 · Mega').click()
+  assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['orb.html', 'dock.html'], 'the dock was not created when it was asked for')
 
   // The Sub-worker submenu is present and inert without a shell-owned manager:
   // nothing may spawn a worker process while the feature is off (AC-01/AC-02).
@@ -276,10 +287,15 @@ test('the tray mirrors the shell-owned Sub-worker and routes its controls to it'
   await new Promise((resolve) => setTimeout(resolve, 10))
   assert.deepEqual(calls, ['pause', 'stop'], 'tray actions are routed to the shell-owned manager')
 
-  // "Open Live View" never opens a window: it reveals the pane inside the dock.
+  /**
+   * "Open Live View" never opens a window *of its own*: it reveals the pane inside the dock. The dock itself
+   * can be created by this request — it is not built until somebody asks for it (the sidebar is retired, and
+   * this is one of the ways to ask) — so the count may grow by exactly that one console and no more.
+   */
   const before = shell.windows.length
   item.submenu.find((entry) => entry.label === 'Open Live View').click()
-  assert.equal(shell.windows.length, before, 'the Live View must not create a window')
+  assert.equal(shell.windows.length, before + 1, 'the Live View must not create a window of its own')
+  assert.equal(path.basename(shell.loadedFiles[shell.loadedFiles.length - 1]), 'dock.html', 'the Live View reveals its pane inside the dock')
 
   // The snapshot exposes the worker to the dock panel.
   const snapshot = await handlers.get('mega:snapshot')()

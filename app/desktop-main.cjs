@@ -125,6 +125,21 @@ let protection = null
  */
 let frontendRuntime = null
 let megaDockExpanded = false
+/**
+ * Whether the old Mega dock is on screen at all.
+ *
+ * **It starts hidden, and that is the point of this round.** The user asked for the residual Mega sidebar to
+ * be dealt with ("Mega侧栏一直残留没有处理"), and the two surfaces that replace it are already live: the orb
+ * inside the official UI (`dsh-plugin-mega-core`) and the system ball that floats over every application
+ * (`app/extensions/mega/system-orb.cjs`). A strip that is given a whole column of the window and a rail whose
+ * only job is to be expanded is not a thing to keep by default.
+ *
+ * It is **on demand**, not unreachable: the tray's "Mega 控制台", the plugin-manager entry and `Ctrl+Shift+M`
+ * all ask for it and it appears (this flag turns true, the view is created if it does not exist yet, and the
+ * layout gives it its strip back). `DSH_MEGA_DOCK=1` brings it up with the app, which is how the pre-retirement
+ * behaviour can be restored in one environment variable.
+ */
+let megaDockShown = process.env.DSH_MEGA_DOCK === '1' || process.env.DSH_MEGA_INTEGRATED_DOCK === '1'
 let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 /**
  * The dock-collapse watch (see `watchOfficialUseToCollapseDock`): a focus event before this
@@ -1505,8 +1520,12 @@ function layoutIntegratedViews() {
     MEGA_DOCK_COLLAPSED_WIDTH,
     Math.min(MEGA_DOCK_MAX_WIDTH, Math.max(MEGA_DOCK_COLLAPSED_WIDTH, contentWidth - OFFICIAL_VIEW_MIN_WIDTH))
   )
+  // A hidden dock takes no width at all: the official page (which is the window's own document) keeps the
+  // whole content box, and the wallpaper has no strip to cut out (`wallpaperNotch`).
   const desiredDockWidth = megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
-  const dockWidth = Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desiredDockWidth, maxDockWidth))
+  const dockWidth = megaDockShown
+    ? Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desiredDockWidth, maxDockWidth))
+    : 0
   const officialWidth = Math.max(0, contentWidth - dockWidth)
   const height = Math.max(1, contentHeight)
 
@@ -1527,12 +1546,17 @@ function layoutIntegratedViews() {
     logLine(`layout: content=${contentWidth}px official=${officialWidth}px dock=${dockWidth}px expanded=${megaDockExpanded}`)
   }
   if (megaDockView) {
+    try {
+      megaDockView.setVisible(megaDockShown)
+    } catch (error) {
+      logLine(`the dock view could not be ${megaDockShown ? 'shown' : 'hidden'}: ${error?.message || error}`)
+    }
     // The dock yields the top band to the official UI (see `dock/geometry.cjs`): in this build the
     // official page *is* the window's document, laid out against the full width, so it cannot know
     // that a strip of its right edge is covered — and the conversation header's controls live in
     // exactly that strip's top. Both the rail and the panel move together, because they are one
     // view.
-    megaDockView.setBounds(dockBounds({ x: officialWidth, width: dockWidth, height, inset: dockTopInset() }))
+    if (megaDockShown) megaDockView.setBounds(dockBounds({ x: officialWidth, width: dockWidth, height, inset: dockTopInset() }))
   }
   // The official surfaces follow the official view bounds (Update-Plan 任务 3):
   // the overlay tracks it exactly, the shell spans the window so its frame band
@@ -1581,11 +1605,58 @@ function contentBounds() {
 function applyIntegratedDockState(payload = {}) {
   if (!INTEGRATED_MEGA_DOCK) return
   if (typeof payload.expanded === 'boolean') megaDockExpanded = payload.expanded
+  /**
+   * The extension's own state is the user's intent, so this is where a hidden dock comes back: an `expanded:
+   * true` means somebody asked for the console (the tray, the plugin manager, the shortcut, or the dock's own
+   * rail toggle if it is already up), and a dock that does not exist yet is created first. `expanded: false`
+   * hides it again — the strip is only on screen while the dock is being used.
+   */
+  if (payload.expanded === true && !megaDockShown) showIntegratedMegaDock().catch((error) => logLine(`the dock could not be shown: ${error?.message || error}`))
+  // Collapsing hides the strip: with the dock retired there is no persistent rail to keep, and a collapsed
+  // dock is exactly the "residual sidebar" this round removed. The next request brings it back.
+  if (payload.expanded === false && megaDockShown) hideIntegratedMegaDock()
   const candidate = Number(payload.expandedWidth ?? payload.width)
   if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
     megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
   }
   layoutIntegratedViews()
+}
+
+/**
+ * Put the dock on screen, creating it if this session never did.
+ *
+ * "Hidden by default" and "unreachable" are different things, and the difference matters most on the day the
+ * ball is what broke: every entry point the product already has (tray, plugin manager, Ctrl+Shift+M) goes
+ * through here.
+ */
+async function showIntegratedMegaDock() {
+  if (!INTEGRATED_MEGA_DOCK) return false
+  megaDockShown = true
+  if (!megaDockView) await createIntegratedMegaDock()
+  if (megaDockView) {
+    try {
+      megaDockView.setVisible(true)
+    } catch (error) {
+      logLine(`the dock view could not be shown: ${error?.message || error}`)
+    }
+  }
+  layoutIntegratedViews()
+  logLine('Mega dock shown on request')
+  return Boolean(megaDockView)
+}
+
+function hideIntegratedMegaDock() {
+  if (!INTEGRATED_MEGA_DOCK) return false
+  megaDockShown = false
+  if (megaDockView) {
+    try {
+      megaDockView.setVisible(false)
+    } catch (error) {
+      logLine(`the dock view could not be hidden: ${error?.message || error}`)
+    }
+  }
+  layoutIntegratedViews()
+  return true
 }
 
 function registerIntegratedDockIpc() {
@@ -1909,7 +1980,9 @@ function createWallpaperLayer() {
  * dock there is nothing to cut.
  */
 function wallpaperNotch() {
-  if (!megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
+  // No dock on screen, no strip to cut: the picture covers the whole window (and only the strip the dock
+  // actually occupies is ever cut, which is the rule this function has always followed).
+  if (!megaDockShown || !megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
   const [contentWidth] = mainWindow.getContentSize()
   const width = Math.max(1, Number(contentWidth) || 0)
   const dockWidth = Math.max(1, Math.min(integratedDockWidth(), width))
@@ -2324,7 +2397,14 @@ app.whenReady().then(async () => {
   // between "a backdrop is missing" and "the product is broken".
   protection.register({ id: 'wallpaper-layer', optional: true, start: () => createOfficialSurfaces(), fallback: [{ id: 'official-ui', run: () => 'the official UI is the background' }] })
   protection.register({ id: 'mega-extension-host', optional: true, start: () => startExtensions(resolveNodeExe()), fallback: [{ id: 'core-ipc-only', run: () => 'the shell IPC surface still answers' }] })
-  protection.register({ id: 'mega-dock', optional: true, start: () => createIntegratedMegaDock(), fallback: [{ id: 'dock-hidden', run: () => 'the strip stays empty' }] })
+  // The dock starts hidden (see `megaDockShown`): it is created on request, so the boot path neither waits
+  // for its renderer nor reserves a strip for a console nobody has opened.
+  protection.register({
+    id: 'mega-dock',
+    optional: true,
+    start: () => (megaDockShown ? createIntegratedMegaDock() : 'hidden until it is asked for'),
+    fallback: [{ id: 'dock-hidden', run: () => 'the strip stays empty' }]
+  })
   createWindow()
   startup.mark('window-created')
   try {
@@ -2427,7 +2507,12 @@ app.whenReady().then(async () => {
     // The official renderer is the product's frontend, so the dock is the only view left
     // to attach: it reserves its strip on the right and the official UI keeps the rest.
     if (extensionsReady.value?.ok && INTEGRATED_MEGA_DOCK) {
-      await startup.defer('dock-ready', () => protection.start('mega-dock'))
+      /**
+       * The dock is started only when it is meant to be on screen. `showOfficialFrontend` and the layout pass
+       * are *not* about the dock — they are how the official UI gets its bounds re-applied after the page
+       * loads — so they still run with the dock hidden, with no strip reserved.
+       */
+      if (megaDockShown) await startup.defer('dock-ready', () => protection.start('mega-dock'))
       showOfficialFrontend()
       layoutIntegratedViews()
     }

@@ -218,6 +218,21 @@ Check 'Theme and dock pushes never read dockWindow directly' ($megaDockReads -eq
 Check 'Dock state reports its generation' ($mega -match 'dockTarget\.getState\(')
 Check 'Shell hands the extension a dock adapter' (($main -match 'dockAdapter') -and ($main -match 'function createDockAdapter'))
 Check 'Shell notifies the extension when the dock renderer is ready' (($main -match 'notifyDockReady') -and ($mega -match 'registerDockReadyHook'))
+# ---- The system floating orb: a window of ours over every application (system-orb.cjs) ----
+$systemOrb = Get-Content "$ROOT\app\extensions\mega\system-orb.cjs" -Raw -ErrorAction SilentlyContinue
+$orbPreload = Get-Content "$ROOT\app\extensions\mega\ui\orb-preload.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The system orb is a window that floats over other applications' (($systemOrb -match 'alwaysOnTop: true') -and ($systemOrb -match 'skipTaskbar: true') -and ($systemOrb -match 'focusable: false'))
+Check 'It takes no click it was not offered' (($systemOrb -match 'setIgnoreMouseEvents\(!next, \{ forward: true \}\)') -and ($systemOrb -match 'setInteractive\(false\)'))
+Check 'The ball grows its panel toward the middle of the screen' (($systemOrb -match 'function layoutOrbWindow') -and ($systemOrb -match 'const above = ballCentre\.y > areaCentre\.y') -and ($systemOrb -match 'const toTheRight = ballCentre\.x < areaCentre\.x'))
+Check 'The ball remembers where it was left, in a file rather than in a page' (($systemOrb -match 'function createOrbState') -and ($mega -match "data', 'state', 'system-orb\.json'"))
+Check 'The orb window has a document, a stylesheet and an enumerable surface' ((Test-Path "$ROOT\app\extensions\mega\ui\orb.html") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.css") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.js") -and ($orbPreload -match 'mega:orb-snapshot') -and ($orbPreload -match 'mega:orb-action'))
+Check 'The ball draws the same view model as the official orb and page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
+Check 'The ball is created with the other windows and torn down with them' (($mega -match 'createSystemOrbWindow\(\)') -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
+# ---- The old Mega dock is retired: off by default, back on request ----
+Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))
+Check 'A hidden dock reserves no strip and no wallpaper notch' (($main -match 'megaDockShown\s*\r?\n?\s*\?\s*Math\.max\(MEGA_DOCK_COLLAPSED_WIDTH') -and ($main -match 'if \(!megaDockShown \|\| !megaDockView'))
+Check 'It comes back when it is asked for, creating the view if needed' (($main -match 'async function showIntegratedMegaDock') -and ($main -match 'if \(!megaDockView\) await createIntegratedMegaDock\(\)') -and ($mega -match 'if \(dockExpanded && !dockWindow && dockEnabled\(\)\) createDock\(\)'))
+Check 'The extension does not build its own dock at boot either' (($mega -match 'function dockAutoStart') -and ($mega -match 'if \(dockAutoStart\(\)\) createDock\(\)'))
 # ---- updater rollback transaction ----
 $runner = Get-Content "$ROOT\app\extensions\mega\updater\update-runner.js" -Raw
 $rollbackBody = ($runner -split 'function restorePreviousInstallation')[1]
