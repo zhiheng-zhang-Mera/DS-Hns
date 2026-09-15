@@ -152,6 +152,21 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
   const degraded = (protection?.degraded || []).length
   const failed = (protection?.failed || []).length
   const failing = Number(counts.BLOCKED || 0) + Number(counts.RETRYING || 0) + Number(counts.FAILED || 0)
+  /**
+   * The tasks that have not run yet — the half of the queue a person can still change.
+   *
+   * `snapshot.tasks` is the scheduler's own active queue (`listTasks`, which is also what the dock's queue panel
+   * draws), so a count and the list under it cannot disagree. The two statuses are `lifecycle.js`'s
+   * `QUEUED_STATUSES`: PENDING has not been decided yet, SUSPENDED is waiting for its instant (or for the valley
+   * price), and both are reorderable and editable — which is exactly why they are published as tasks with ids
+   * rather than only as a number.
+   */
+  const queuedTasks = Array.isArray(snapshot.tasks)
+    ? snapshot.tasks.filter((t) => t.status === 'PENDING' || t.status === 'SUSPENDED')
+    : []
+  const suspendedCount = Number(active.suspended || 0)
+  const queuedCount = Number(active.queued || 0)
+  const pendingCount = Math.max(0, queuedCount - suspendedCount)
 
   const sections = [
     {
@@ -338,6 +353,14 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
       ])
     ],
     execution: [
+      /**
+       * The queue's own state line, **first**, and it is first for the same reason the ball's entry point is: the
+       * four categories fold, and a shut fold keeps only its heading and one value. "Running workers" was that
+       * value, which meant a task that had just been suspended changed a number the user had to open the fold (and
+       * scroll past three rows) to see — reported as "挂起任务数量没有改变". `:state` is the id the two balls look
+       * for when they pick a shut fold's headline, so the number that moves is the number on the heading.
+       */
+      row('队列状态', 'Queue state', `已挂起 ${suspendedCount} · 等待 ${pendingCount}`, suspendedCount ? 'busy' : null, { id: 'execution:state' }),
       row('运行中的 worker', 'Running workers', active.workerSlotsInUse ?? 0, Number(active.workerSlotsInUse) ? 'busy' : null, { id: 'execution:running' }),
       row('排队任务', 'Queued tasks', active.queued ?? 0, null, { id: 'execution:queued' }),
       row('已挂起', 'Suspended', active.suspended ?? 0, null, { id: 'execution:suspended' }),
@@ -374,6 +397,41 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
   dashboard.actions = balanceState === 'ok'
     ? []
     : [{ id: 'refresh-balance', cn: '刷新余额', en: 'Refresh balance', reason: balanceState }]
+
+  /**
+   * The queue itself: the tasks that have not run yet, as tasks.
+   *
+   * A count is not enough to act on. "已挂起 1" tells the user a task is waiting; it does not let them change what
+   * it says, fix a time they mistyped, or move it in front of another one — which is what "不能编辑，也不能调顺序"
+   * was. So the same list the dock's queue panel draws is published here with the fields a surface needs to *offer*
+   * those operations: the id to address it by, the instant (as an ISO instant, never as a number of seconds that
+   * was already stale when it was written), the decision the gate made, and its rank in the queue.
+   *
+   * What is **not** here is a promise about what may be done to a task: that is the scheduler's answer, and a
+   * surface that guessed it would offer buttons the layer refuses. The two operations are the scheduler's own
+   * (`editTask`, `reorderTask`), and both refuse a RUNNING task by name.
+   */
+  dashboard.queue = {
+    ok: true,
+    reason: null,
+    counts: {
+      pending: pendingCount,
+      suspended: suspendedCount,
+      running: Number(active.running || 0),
+      total: Number(active.total || 0)
+    },
+    headline: `已挂起 ${suspendedCount} · 等待 ${pendingCount}`,
+    tasks: queuedTasks.map((t) => ({
+      id: String(t.id),
+      prompt: String(t.promptPreview || t.prompt || ''),
+      status: String(t.status || ''),
+      reason: t.reason || null,
+      startAtIso: Number.isFinite(t.startAtMs) ? new Date(t.startAtMs).toISOString() : null,
+      allowPeak: t.allowPeak === true,
+      deliveryMode: t.deliveryMode || null,
+      rank: Number(t.queueRank) || null
+    }))
+  }
 
   return { ok: true, sections, dashboard, modules, plugins, degraded, failed, failing }
 }

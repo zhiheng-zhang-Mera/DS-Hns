@@ -168,6 +168,48 @@ test('a time that has already passed is refused — because a past instant runs 
   }
 })
 
+test('a queued task can be changed and moved, and a running one cannot be edited', async () => {
+  /**
+   * "也不能编辑，也不能调顺序" — the two things a queue has to allow, asserted on the scheduler that owns them.
+   *
+   * Editing a queued task is not a special kind of task: the prompt is trimmed and required, the instant goes through
+   * the same `futureInstant` a new task does, and the queue is **re-decided** afterwards rather than patched — moving
+   * an instant from an hour out to three hours out has to put the task back to sleep. A RUNNING task is refused by
+   * name, because it is a conversation that has already started.
+   */
+  const { service, dir } = makeScheduler()
+  try {
+    const first = service.addTask({ prompt: '第一件事', startAt: new Date(Date.now() + 60 * 60_000).toISOString() })
+    const second = service.addTask({ prompt: '第二件事', startAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString() })
+    await service.tick()
+    assert.deepEqual(service.listTasks().map((t) => t.id), [first.id, second.id])
+
+    // Moving: the scheduler's own `reorderTask`, and the rank it publishes is what a surface draws.
+    service.reorderTask(second.id, 'top')
+    assert.deepEqual(service.listTasks().map((t) => t.id), [second.id, first.id])
+    assert.equal(service.listTasks()[0].queueRank, 1)
+    assert.throws(() => service.reorderTask(second.id, 'sideways'), /invalid queue move/)
+
+    // Editing: the words, the instant and the peak decision.
+    const edited = service.editTask(first.id, { prompt: '改过的第一件事', allowPeak: true, startAt: new Date(Date.now() + 3 * 60 * 60_000).toISOString() })
+    assert.equal(edited.prompt, '改过的第一件事')
+    assert.equal(edited.allowPeak, true)
+    assert.ok(edited.startAtMs > Date.now() + 2 * 60 * 60_000, 'the edited instant was not stored')
+    // The queue is re-decided from the new instant: still waiting, and now for the new time.
+    await service.tick()
+    assert.equal(service.listTasks().find((t) => t.id === first.id).reason, 'waiting-schedule')
+    assert.throws(() => service.editTask(first.id, { prompt: '   ' }), /needs a prompt/)
+    assert.throws(() => service.editTask(first.id, { startAt: new Date(Date.now() - 1000).toISOString() }), /already passed/)
+    assert.throws(() => service.editTask('task-that-never-existed', { prompt: 'x' }), /task not found/)
+
+    // A task that is running is not an editable thing: it is a conversation that has already started.
+    service.tasks.find((t) => t.id === second.id).status = 'RUNNING'
+    assert.throws(() => service.editTask(second.id, { prompt: 'nope' }), /only pending\/suspended tasks can be edited/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('the task a scheduled run produces carries no second prompt, no header and no rewrite', async () => {
   /**
    * "Same as a normal conversation" has one failure mode worth a test of its own: the dispatch path quietly

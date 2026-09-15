@@ -181,6 +181,15 @@ function loadOrb({ snapshot = null } = {}) {
       calls.push(`createTask:${JSON.stringify(input)}`)
       return taskAnswer || { ok: true, task: { id: 'task-1', status: 'PENDING' } }
     },
+    /** The two operations on a queued task (`scheduler.editTask` / `scheduler.reorderTask`). */
+    editTask: async (input) => {
+      calls.push(`editTask:${JSON.stringify(input)}`)
+      return { ok: true, task: { id: input.taskId, status: 'SUSPENDED', reason: 'waiting-schedule' } }
+    },
+    moveTask: async (input) => {
+      calls.push(`moveTask:${JSON.stringify(input)}`)
+      return { ok: true, task: { id: input.taskId } }
+    },
     hover: async () => ({ ok: true }),
     drag: async () => ({ ok: true }),
     onState() {}
@@ -290,6 +299,39 @@ function fixtureTiming(overrides = {}) {
   }
 }
 
+/** The queue, shaped like `control-center.cjs`'s `dashboard.queue`. */
+function fixtureQueue(tasks = null) {
+  const list = tasks || [
+    {
+      id: 'task-a',
+      prompt: '总结今天的构建日志',
+      status: 'SUSPENDED',
+      reason: 'waiting-schedule',
+      startAtIso: new Date(Date.now() + 3 * 60_000).toISOString(),
+      allowPeak: false,
+      deliveryMode: 'official-session',
+      rank: 1
+    },
+    {
+      id: 'task-b',
+      prompt: '把报告发到工作区',
+      status: 'PENDING',
+      reason: null,
+      startAtIso: null,
+      allowPeak: true,
+      deliveryMode: 'official-session',
+      rank: 2
+    }
+  ]
+  const suspended = list.filter((task) => task.status === 'SUSPENDED').length
+  return {
+    ok: true,
+    counts: { pending: list.length - suspended, suspended, running: 0, total: list.length },
+    headline: `已挂起 ${suspended} · 等待 ${list.length - suspended}`,
+    tasks: list
+  }
+}
+
 /** Click the ball's own new-task entry and let the timing read settle. */
 async function openTaskForm(orb) {
   const said = strings(orb.elements.get('panelBody')).join(' | ')
@@ -373,7 +415,9 @@ test('the system ball folds the same categories, all shut at first, one open at 
     return found
   }
 
-  assert.deepEqual(folds().map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'])
+  // `queue` is a fold of its own and always drawn: its heading carries the counts that move when a task is
+  // scheduled, and its body is the tasks themselves (see the queue test below).
+  assert.deepEqual(folds().map((fold) => fold.id), ['price', 'balance', 'execution', 'queue', 'parallelism'])
   // The rule on the first frame: **all shut**, and no card anywhere.
   assert.deepEqual(openIds(), [], 'a category opened itself')
   assert.deepEqual(cards(), [], 'a shut panel drew a card')
@@ -689,6 +733,81 @@ test('a poll redraw keeps the cursor in the field being typed in, at the offset 
   assert.equal(orb.sandbox.document.activeElement, redrawn, 'the redraw took the cursor out of the composer')
   assert.equal(redrawn.selectionStart, 2, 'the redraw moved the caret')
   assert.equal(redrawn.value, '半句话')
+})
+
+test('the queue fold counts what waits, and lets a task be moved and edited in this window', async () => {
+  /**
+   * The user's report, for the system ball: "定时任务测试成功，但是页面切换后，悬浮球信息页挂起任务数量没有改变，也不能编辑，
+   * 也不能调顺序". The count is on the shut fold's heading (it used to hide behind three rows inside the fold), the tasks
+   * are rows with the two operations the scheduler offers, and both go through this window's own channels — the same
+   * `reorderTask`/`editTask` the official UI reaches over HTTP.
+   */
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  // The queue arrives inside the view the shell pushes — there is no separate read for it (see the host half's note).
+  const view = fixtureView()
+  view.dashboard.queue = fixtureQueue()
+  orb.apply(payload(view))
+
+  // The number the user watches is on the heading, while the fold is shut.
+  const heading = () => findNode(orb.elements.get('panelBody'), (node) => node.dataset.category === 'queue')
+  assert.match(heading().children.map((child) => child.textContent).join(' · '), /已挂起 1 · 等待 1/)
+
+  heading().fire('click')
+  const body = orb.elements.get('panelBody')
+  const said = strings(body).join(' | ')
+  assert.match(said, /总结今天的构建日志/)
+  assert.match(said, /把报告发到工作区/)
+  assert.match(said, /已挂起 · 等到点/)
+
+  /** One task's buttons, found fresh because a redraw replaces the nodes. */
+  const buttons = (taskId) => {
+    const row = findNode(body, (node) => node.dataset.task === taskId)
+    assert.ok(row, `no row for ${taskId}`)
+    const found = []
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return
+      if (node.tagName === 'BUTTON') found.push(node)
+      for (const child of node.children || []) walk(child)
+    }
+    walk(row)
+    return found
+  }
+  // The first task cannot move up and the last cannot move down: a button that cannot change anything is not offered.
+  assert.equal(buttons('task-a')[0].disabled, true, 'the first task offered to move up')
+  assert.equal(buttons('task-b')[1].disabled, true, 'the last task offered to move down')
+
+  // Moving posts the scheduler's own move, addressed by id.
+  buttons('task-a')[1].fire('click')
+  await tick()
+  const moved = orb.calls.find((call) => call.startsWith('moveTask:'))
+  assert.ok(moved, `the move never left this window: ${orb.calls.join(', ')}`)
+  assert.deepEqual(JSON.parse(moved.slice('moveTask:'.length)), { taskId: 'task-a', move: 'down' })
+
+  // Editing opens this window's form on that task, with the task's own words in it.
+  buttons('task-a')[2].fire('click')
+  await tick()
+  await tick()
+  const form = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbEditing === 'task-a')
+  assert.ok(form, 'editing a queued task opened no form')
+  const prompt = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt')
+  assert.equal(prompt.value, '总结今天的构建日志', 'the form did not start from the task')
+  assert.match(strings(orb.elements.get('panelBody')).join(' | '), /编辑队列 #1/)
+
+  // ...and saving posts the change to the edit channel, addressed by id.
+  prompt.value = '总结今天和昨天的构建日志'
+  prompt.fire('input')
+  findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbAction === 'create-task').fire('click')
+  await tick()
+  await tick()
+  await tick()
+  const edited = orb.calls.filter((call) => call.startsWith('editTask:')).pop()
+  assert.ok(edited, `the edit never left this window: ${orb.calls.join(', ')}`)
+  const changes = JSON.parse(edited.slice('editTask:'.length))
+  assert.equal(changes.taskId, 'task-a')
+  assert.equal(changes.prompt, '总结今天和昨天的构建日志')
+  assert.equal('deliveryMode' in changes, false, 'an edit rewrote the delivery the user chose when they created it')
+  assert.match(strings(orb.elements.get('panelBody')).join(' | '), /已更新/)
 })
 
 test('the window is asked for the whole panel: the head plus the body, never the height it was given', () => {

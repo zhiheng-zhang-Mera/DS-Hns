@@ -436,6 +436,31 @@ window.__ModuleLoader__.load({
 			}
 
 			/**
+			 * Move a queued task, and re-read.
+			 *
+			 * The answer is the queue's own (`reorderTask` refuses anything that is not queued), and the re-read is
+			 * what makes the panel show the order the scheduler actually recorded rather than the order the click
+			 * implied. The action is reported through the same `snapshot.action` line every other request uses, so a
+			 * refusal is visible in the panel instead of being a button that did nothing.
+			 */
+			async function moveTask(taskId, move) {
+				try {
+					const response = await send(TASK_MOVE_URL, {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						credentials: 'same-origin',
+						body: JSON.stringify({ taskId, move })
+					});
+					const body = await readJson(response, 'the queue route');
+					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id: taskId, action: `move:${move}`, reason: body?.reason || null } };
+				} catch (error) {
+					snapshot = { ...snapshot, action: { ok: false, id: taskId, action: `move:${move}`, reason: String(error?.message || error) } };
+				}
+				emit();
+				await refresh();
+			}
+
+			/**
 			 * Start polling. Returns the disposer Cordis calls when the plugin unloads (a disabled or
 			 * hot-reloaded plugin that kept its interval would be a leak with a UI attached).
 			 */
@@ -461,7 +486,7 @@ window.__ModuleLoader__.load({
 				};
 			}
 
-			return { snapshot: () => snapshot, subscribe, start, refresh, loadPosition, setPosition, savePosition, act, actDashboard };
+			return { snapshot: () => snapshot, subscribe, start, refresh, loadPosition, setPosition, savePosition, act, actDashboard, moveTask };
 		}
 
 		/** Subscribe a component to the store, with the two hooks every environment has. */
@@ -580,6 +605,88 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
+		 * One task waiting in the queue — the row that makes "已挂起 1" actionable.
+		 *
+		 * A count was all this panel ever had, and a count cannot be edited or moved: it says a task is waiting and
+		 * nothing about which one, what it says, or when. So each queued task is drawn with the three things a
+		 * person needs to decide about it — its place, the decision the scheduler made (waiting for its instant, or
+		 * for the valley price), and when it is due — and with the two operations the scheduler offers: move it, or
+		 * change it.
+		 *
+		 * The buttons are the same "one implementation per fact" shape as everything else here: they post to
+		 * `/mega-core/task-move` and `/mega-core/task-edit`, which the host half proxies to the scheduler's own
+		 * `reorderTask`/`editTask`. This panel never decides what may be done to a task — it asks.
+		 */
+		function QueueTaskRow({ task, index, count, onMove, onEdit }) {
+			const statusCn = task.status === 'SUSPENDED' ? '已挂起' : '等待中';
+			const reasonCn = task.reason === 'waiting-schedule' ? '等到点'
+				: task.reason === 'peak-window' ? '等谷价'
+					: (task.reason || '');
+			const button = (key, label, title, onClick, disabled) => box('button', {
+				key,
+				type: 'button',
+				title,
+				disabled,
+				onClick,
+				style: {
+					all: 'initial',
+					padding: '2px 7px',
+					borderRadius: '5px',
+					border: '1px solid rgba(255,255,255,.2)',
+					background: 'rgba(255,255,255,.04)',
+					color: disabled ? FAINT : MUTED,
+					cursor: disabled ? 'default' : 'pointer',
+					font: font(10, 400)
+				}
+			}, label);
+			return box('div', {
+				'data-hns-mega-task-row': task.id,
+				style: { padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }
+			}, [
+				box('div', { key: 'head', style: { display: 'flex', alignItems: 'baseline', gap: '6px' } }, [
+					text(`#${task.rank || index + 1}`, { key: 'rank', flex: '0 0 auto', color: FAINT, font: font(10, 400) }),
+					text(`${statusCn}${reasonCn ? ` · ${reasonCn}` : ''}`, {
+						key: 'state',
+						flex: '1 1 auto',
+						color: task.status === 'SUSPENDED' ? TONES.busy : MUTED,
+						font: font(10, 400)
+					}),
+					text(task.startAtText ? `→ ${task.startAtText}` : '—', { key: 'at', flex: '0 0 auto', color: MUTED, font: font(10, 400) })
+				]),
+				text(task.prompt || '—', { display: 'block', margin: '3px 0 4px', color: '#ededed', font: font(11, 400), wordBreak: 'break-word' }),
+				box('div', { key: 'acts', style: { display: 'flex', gap: '4px' } }, [
+					button('up', '↑ 上移', '在这条前面 · move up in the queue', () => onMove(task.id, 'up'), index === 0),
+					button('down', '↓ 下移', '排到后面 · move down in the queue', () => onMove(task.id, 'down'), index === count - 1),
+					button('edit', '✎ 编辑', '改这条任务的内容或时间 · edit this task', () => onEdit(task), false)
+				])
+			]);
+		}
+
+		/**
+		 * The queue's body: its tasks, or the reason there are none.
+		 *
+		 * "Empty" and "unreadable" are different pictures here for the same reason they are everywhere else in this
+		 * panel: an empty queue is a fact about the user's work, and a queue DS-Hns did not publish is a fact about
+		 * the layer. Only one of them is something to act on.
+		 */
+		function queueBody(queue, handlers) {
+			if (!queue || queue.ok === false) {
+				return [box('div', { key: 'queue-reason', style: { padding: '4px 0', color: MUTED, fontWeight: '400' } }, queue?.reason || '队列不可读 · the queue cannot be read')];
+			}
+			if (!queue.tasks.length) {
+				return [box('div', { key: 'queue-empty', style: { padding: '4px 0', color: MUTED, fontWeight: '400' } }, '队列是空的 · the queue is empty')];
+			}
+			return queue.tasks.map((task, index) => React.createElement(QueueTaskRow, {
+				key: task.id,
+				task,
+				index,
+				count: queue.tasks.length,
+				onMove: handlers.onMove,
+				onEdit: handlers.onEdit
+			}));
+		}
+
+		/**
 		 * The live dashboard: the price window and its countdown, the account, the queue and the parallelism.
 		 *
 		 * It is drawn from `view.dashboard`, which the host composed out of the *same* governance snapshot the
@@ -593,16 +700,25 @@ window.__ModuleLoader__.load({
 		 * whose colour separates it from the headings around it, so "this is the one I am looking at" needs no
 		 * reading.
 		 */
-		function Dashboard({ dashboard, at, onDashboardAction }) {
+		function Dashboard({ dashboard, at, onDashboardAction, onTaskAction }) {
 			// Hooks first, unconditionally: the ticker below is what keeps the countdown a countdown, and the
 			// open fold is component state, so a poll that redraws the panel does not shut what the user opened.
 			const remaining = useCountdown(dashboard, at);
+			/**
+			 * The queue is a fold of its own, and it is kept even when it is empty.
+			 *
+			 * Its rows are **tasks** rather than measurements, and the heading carries the two numbers that move when
+			 * anything is scheduled — so a shut panel still answers "is anything waiting for me", which is the half
+			 * of the report that was missing ("悬浮球信息页挂起任务数量没有改变").
+			 */
+			const queue = dashboard?.queue || null;
 			/** Which fold is open, by id — and at most **one**. Shut is the first state the user sees. */
 			const groups = (dashboard?.ok === false || !dashboard) ? [] : [
 				...(dashboard.lines || []).map((entry) => ({ id: entry.id || `group:${entry.cn}`, cn: entry.cn, en: entry.en, rows: entry.rows || [] })),
 				{ id: 'execution', cn: '任务', en: 'Tasks', rows: dashboard.execution || [] },
+				{ id: 'queue', cn: '队列', en: 'Queue', rows: [], queue },
 				{ id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
-			].filter((entry) => entry.rows.length);
+			].filter((entry) => entry.rows.length || entry.id === 'queue');
 			const [openCategory, setOpenCategory] = React.useState(null);
 			if (!dashboard) return null;
 			if (dashboard.ok === false) {
@@ -652,10 +768,13 @@ window.__ModuleLoader__.load({
 			 * readable with everything shut, and the fold is what hides the *detail* behind them.
 			 */
 			const headline = (group) => {
-				const row = (group.rows || []).find((entry) => String(entry.id || '').endsWith(':state')) || (group.rows || [])[0] || null;
-				if (!row || !row.value || row.value === '—') return null;
-				const value = String(row.value);
-				return value.length > 18 ? `${value.slice(0, 17)}…` : value;
+				const rows = group.rows || [];
+				const row = rows.find((entry) => String(entry.id || '').endsWith(':state')) || rows[0] || null;
+				// The queue's own headline says how much is waiting; a group of rows says it with its `:state` row.
+				const value = group.queue?.headline || row?.value || null;
+				if (!value || value === '—') return null;
+				const summary = String(value);
+				return summary.length > 18 ? `${summary.slice(0, 17)}…` : summary;
 			};
 			const fold = (group) => {
 				const isOpen = openCategory === group.id;
@@ -723,7 +842,12 @@ window.__ModuleLoader__.load({
 					box('div', {
 						key: 'body',
 						style: { padding: '0 9px 6px' }
-					}, group.rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${group.id}:${entry.cn}`, ...row(entry) })))
+					}, group.id === 'queue'
+						? queueBody(group.queue, {
+							onMove: (taskId, move) => onTaskAction(taskId, move),
+							onEdit: (task) => onTaskAction(task.id, 'edit', task)
+						})
+						: group.rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${group.id}:${entry.cn}`, ...row(entry) })))
 				]);
 			};
 			return box('div', { key: 'dash', 'data-hns-mega-dashboard': openCategory ? 'open' : 'shut' }, [
@@ -773,7 +897,7 @@ window.__ModuleLoader__.load({
 		 * the reason the two surfaces cannot drift: both render the same `view`, and the numbers on the ball come
 		 * from the same snapshot the page's fields do.
 		 */
-		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded, onDashboardAction }) {
+		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded, onDashboardAction, onTaskAction }) {
 			const view = snapshot?.view;
 			if (!view) {
 				return box('div', { style: { padding: '8px 0', color: '#ededed', font: font(12) } }, [
@@ -793,7 +917,11 @@ window.__ModuleLoader__.load({
 			const dashboard = expanded ? null : React.createElement(Dashboard, {
 				dashboard: view.dashboard,
 				at: view.at,
-				onDashboardAction: (action) => onDashboardAction(action)
+				onDashboardAction: (action) => onDashboardAction(action),
+				// Moving and editing a queued task belong to the ball's panel (§4.2's live half), and the page — which
+				// draws governance — is handed no such handler: a settings page that could reorder the user's queue
+				// would be a second place where the queue is managed.
+				onTaskAction: onTaskAction || (() => {})
 			});
 			const lines = (view.lines || []).map(StatusLine);
 			const numbers = [
@@ -868,14 +996,19 @@ window.__ModuleLoader__.load({
 			// actions are one click away behind the toggle, which is the page's own body at page size.
 			const [expanded, setExpanded] = React.useState(false);
 			/**
-			 * Whether the panel is showing the ball's own new-task form instead of the dashboard.
+			 * Whether the panel is showing the ball's own new-task form instead of the dashboard — and **which** task
+			 * it is about.
 			 *
 			 * The form is a **mode of the panel**, not a sub-page of the page — which is the fix the user's report
 			 * asked for: a dialog portalled to `document.body` is outside this panel, and this panel dismisses itself
 			 * when something outside it is clicked, so the dialog died on the very click that would have focused it.
 			 * Nothing inside the panel can be dismissed by the panel's own outside-click rule.
+			 *
+			 * `null` is shut, `{ task: null }` is "make one", and `{ task }` is "change that one" — the same form, for
+			 * the same reason the queue's edit button exists at all: a queued task the user cannot correct is a task
+			 * they have to cancel and retype.
 			 */
-			const [taskForm, setTaskForm] = React.useState(false);
+			const [taskForm, setTaskForm] = React.useState(null);
 			const drag = React.useRef(null);
 			// The wrapper is the layer's own box: `position: fixed; inset: 0` covers whatever box the shell
 			// gave this slot, so everything below is placed relative to *that* and never to the window.
@@ -890,6 +1023,19 @@ window.__ModuleLoader__.load({
 			 */
 			const orbRef = React.useRef(null);
 			const panelRef = React.useRef(null);
+			/**
+			 * Opening the panel is a question about **now**.
+			 *
+			 * The store polls every fifteen seconds, so a panel opened just after a task was suspended showed the
+			 * queue as it had been up to fifteen seconds earlier — the user's "页面切换后 … 挂起任务数量没有改变". The
+			 * poll stays as it is (it is what §4.3's low resource use asks for); what changes is that the one moment
+			 * the user is certainly looking is also a moment we ask.
+			 */
+			React.useEffect(() => {
+				if (!open) return undefined;
+				store.refresh();
+				return undefined;
+			}, [open]);
 			React.useEffect(() => {
 				if (!open) return undefined;
 				/**
@@ -916,7 +1062,7 @@ window.__ModuleLoader__.load({
 			// Closing the panel leaves the form too: the next opening is the dashboard, whose first line is the entry
 			// that starts a task — not an empty form nobody asked for a second time.
 			React.useEffect(() => {
-				if (!open) setTaskForm(false);
+				if (!open) setTaskForm(null);
 			}, [ open ]);
 			const layer = useBox(layerRef);
 			const position = resolvePosition(snapshot.position);
@@ -1118,7 +1264,7 @@ window.__ModuleLoader__.load({
 				type: 'button',
 				'data-hns-mega-new-task': 'ball',
 				title: '新建定时任务 · New scheduled task',
-				onClick: () => setTaskForm(true),
+				onClick: () => setTaskForm({ task: null }),
 				style: {
 					all: 'initial',
 					display: 'block',
@@ -1146,7 +1292,7 @@ window.__ModuleLoader__.load({
 				style: panelStyle
 			}, [
 				box('div', { key: 'title', style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' } }, [
-					text(taskForm ? '新建定时任务 · New task' : 'Mega', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
+					text(taskForm && taskForm.task ? '编辑队列任务 · Edit task' : taskForm ? '新建定时任务 · New task' : 'Mega', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
 					React.createElement(ActionButton, { key: 'close', label: '×', title: '收起 · Collapse', onClick: () => setOpen(false) })
 				]),
 				/**
@@ -1159,9 +1305,19 @@ window.__ModuleLoader__.load({
 				 * (`NewTaskFormPanel`) rather than the header's centred sub-page, for the reason that component's note
 				 * gives; and while the form is open the dashboard is not drawn under it, because a form with a
 				 * dashboard beneath it is two surfaces arguing over one 340px column.
+				 *
+				 * The same form serves the queue's `✎` — one implementation of "what a task is", so a task edited from
+				 * the queue cannot end up described differently from one created here.
 				 */
 				taskForm
-					? React.createElement(NewTaskFormPanel, { key: 'task-form', onDone: () => setTaskForm(false) })
+					? React.createElement(NewTaskFormPanel, {
+						key: `task-form:${taskForm.task ? taskForm.task.id : 'new'}`,
+						editing: taskForm.task || null,
+						onDone: () => setTaskForm(null),
+						// An edit or a creation changes the queue this panel draws, so the store is asked rather than
+						// guessed at.
+						onSaved: () => store.refresh()
+					})
 					: newTaskEntry,
 				taskForm ? null : React.createElement(MegaBody, {
 					snapshot,
@@ -1169,7 +1325,18 @@ window.__ModuleLoader__.load({
 					onToggleExpanded: setExpanded,
 					onRefresh: () => store.refresh(),
 					onAction: (action, id) => store.act(action, id),
-					onDashboardAction: (action) => store.actDashboard(action)
+					onDashboardAction: (action) => store.actDashboard(action),
+					/**
+					 * The queue's two operations, from the ball's panel.
+					 *
+					 * `edit` opens this panel's form on that task; anything else is a move, which goes to the scheduler
+					 * through the store and is followed by a re-read — so what the panel shows next is the order the
+					 * layer recorded, not the order the click implied.
+					 */
+					onTaskAction: (taskId, move, task) => {
+						if (move === 'edit') return setTaskForm({ task });
+						return store.moveTask(taskId, move);
+					}
 				})
 			].filter(Boolean));
 
@@ -1207,9 +1374,11 @@ window.__ModuleLoader__.load({
 			]);
 		}
 
-		/** The two routes the new-task dialog talks to. Same origin, and the same bridge everything else uses. */
+		/** The routes the new-task form and the queue talk to. Same origin, and the same bridge everything else uses. */
 		const TIMING_URL = '/mega-core/timing';
 		const TASK_URL = '/mega-core/task';
+		const TASK_EDIT_URL = '/mega-core/task-edit';
+		const TASK_MOVE_URL = '/mega-core/task-move';
 
 		/**
 		 * The page's own `fetch`.
@@ -1320,7 +1489,7 @@ window.__ModuleLoader__.load({
 		 * ball's form is mounted only while it is on screen — so each seat says "the user is filling this in now" in
 		 * its own way, and both get the same one read per opening and the same fresh draft.
 		 */
-		function useNewTaskDraft({ active }) {
+		function useNewTaskDraft({ active, editing = null, onSaved = null }) {
 			// The choices the form offers are DS-Hns' own answer, so nothing here is invented: the default time,
 			// the schedule's time zone and the peak windows all come from `GET /mega-core/timing`.
 			const [timing, setTiming] = React.useState(null);
@@ -1333,6 +1502,14 @@ window.__ModuleLoader__.load({
 			const [result, setResult] = React.useState(null);
 			const [error, setError] = React.useState(null);
 			const [now, setNow] = React.useState(() => Date.now());
+			/**
+			 * What is being changed, readable from the timing read that lands after this render.
+			 *
+			 * A ref rather than the prop, because `loadTiming` is a stable callback (its identity is what keeps it
+			 * from re-reading the surface on every render) and a closure over `editing` would answer with the task
+			 * that was being edited two renders ago.
+			 */
+			const editingRef = React.useRef(null);
 
 			/** Read the timing surface. Called on opening and from the form's own retry. */
 			const loadTiming = React.useCallback(() => {
@@ -1349,8 +1526,18 @@ window.__ModuleLoader__.load({
 						}
 						setTiming(body);
 						setTimingError(null);
-						setAllowPeak(body.defaults?.allowPeak === true);
-						setDeliveryMode(body.defaults?.deliveryMode === 'headless' ? 'headless' : 'official-session');
+						/**
+						 * The defaults fill an **empty** form, never an edit.
+						 *
+						 * A task being changed already has a peak decision and a delivery mode, and overwriting them
+						 * with DS-Hns' defaults would quietly undo what the user chose when they created it — the
+						 * form would show the defaults while the POST carried them, so nothing would look wrong.
+						 * The instant is only ever filled when there is none, which is the same rule.
+						 */
+						if (!editingRef.current) {
+							setAllowPeak(body.defaults?.allowPeak === true);
+							setDeliveryMode(body.defaults?.deliveryMode === 'headless' ? 'headless' : 'official-session');
+						}
 						setStartAt((current) => current || localFromInstant(body.defaults?.startAt));
 					})
 					.catch((failure) => {
@@ -1362,22 +1549,25 @@ window.__ModuleLoader__.load({
 			}, []);
 
 			/**
-			 * One read per opening, and a **fresh draft** each time.
+			 * One read per opening, and a **fresh draft** each time — or the task being edited.
 			 *
 			 * "In three minutes" means three minutes from when the form was opened, not from the last time it was
-			 * opened — and a prompt left over from last time is not a prompt the user meant to send twice. The
-			 * prompt is the one thing cleared here rather than only on a made task, because this effect is also
-			 * what a *re-opened* form with a stale draft would otherwise inherit.
+			 * opened — and a prompt left over from last time is not a prompt the user meant to send twice. Editing is
+			 * the other case: the draft starts as the task, because a form that did not show what is being changed
+			 * would make the user retype it.
 			 */
 			React.useEffect(() => {
 				if (!active) return undefined;
-				setPrompt('');
-				setStartAt('');
+				const task = editing && typeof editing === 'object' ? editing : null;
+				editingRef.current = task;
+				setPrompt(task ? (task.prompt || '') : '');
+				setStartAt(task ? (task.startAtIso ? localFromInstant(task.startAtIso) : '') : '');
+				setAllowPeak(task ? task.allowPeak === true : false);
 				setResult(null);
 				setError(null);
 				setNow(Date.now());
 				return loadTiming();
-			}, [active, loadTiming]);
+			}, [active, editing && editing.id, loadTiming]);
 
 			/**
 			 * Keep the "in 2h 12m" line honest while the form sits open.
@@ -1404,22 +1594,29 @@ window.__ModuleLoader__.load({
 			 */
 			const canSubmit = Boolean(prompt.trim()) && instant !== null && future && !busy;
 
+			/**
+			 * Send it: a new task, or the change to the one being edited.
+			 *
+			 * One function for both because it is one request with one answer — the same route family, the same
+			 * reason text, the same receipt — and because "edit" that went somewhere else would be a second place
+			 * where a task is described. `deliveryMode` travels only on a create: the scheduler's `editTask` takes
+			 * the mode as an optional change, and sending DS-Hns' default with every edit would rewrite a choice the
+			 * user made when they created the task.
+			 */
 			const send = () => {
 				if (!canSubmit) return;
+				const task = editingRef.current;
 				setBusy(true);
 				setError(null);
 				setResult(null);
 				Promise.resolve()
-					.then(() => pageFetch(TASK_URL, {
+					.then(() => pageFetch(task ? TASK_EDIT_URL : TASK_URL, {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
 						credentials: 'same-origin',
-						body: JSON.stringify({
-							prompt,
-							startAt: instant.toISOString(),
-							allowPeak,
-							deliveryMode
-						})
+						body: JSON.stringify(task
+							? { taskId: task.id, prompt, startAt: instant.toISOString(), allowPeak }
+							: { prompt, startAt: instant.toISOString(), allowPeak, deliveryMode })
 					}))
 					.then((response) => readJson(response, 'the task route').then((body) => ({ response, body })))
 					.then(({ response, body }) => {
@@ -1428,7 +1625,10 @@ window.__ModuleLoader__.load({
 							return;
 						}
 						setResult(body.task || { ok: true });
-						setPrompt('');
+						// A made task clears the box, so a second Enter cannot silently schedule the same prompt
+						// again. An edited one keeps what it now says: the form is showing a task that exists.
+						if (!editingRef.current) setPrompt('');
+						saved(body.task || null);
 					})
 					.catch((failure) => setError(String(failure?.message || failure)))
 					.finally(() => setBusy(false));
@@ -1449,6 +1649,7 @@ window.__ModuleLoader__.load({
 
 			/** The summary the user reads before committing: exactly when this will be sent, and how. */
 			const summary = () => {
+				const editing = editingRef.current;
 				if (instant === null) return '还没有选择时间 · no time chosen yet';
 				const clock = `${String(instant.getHours()).padStart(2, '0')}:${String(instant.getMinutes()).padStart(2, '0')}`;
 				const date = `${instant.getFullYear()}-${String(instant.getMonth() + 1).padStart(2, '0')}-${String(instant.getDate()).padStart(2, '0')}`;
@@ -1457,13 +1658,21 @@ window.__ModuleLoader__.load({
 				const peakNote = timing?.peak?.peak && !allowPeak
 					? ' · 现在处于峰价时段，未允许峰值时任务会挂起到谷价'
 					: '';
-				return `将在 ${date} ${clock} 作为${deliveryMode === 'headless' ? 'Headless 后台任务' : '官方新会话'}发出 · sends as ${deliveryMode === 'headless' ? 'a headless job' : 'a new official conversation'} in ${offset}${peakNote}`;
+				const deliver = `作为${deliveryMode === 'headless' ? 'Headless 后台任务' : '官方新会话'}发出 · sends as ${deliveryMode === 'headless' ? 'a headless job' : 'a new official conversation'}`;
+				return editing
+					? `把 #${editing.rank || ''} 改成 ${date} ${clock} ${deliver} in ${offset} · updates the task in the queue${peakNote}`
+					: `将在 ${date} ${clock} ${deliver} in ${offset}${peakNote}`;
+			};
+
+			/** Tell the surface that owns the form that the queue changed, so it can re-read it. */
+			const saved = (task) => {
+				if (typeof onSaved === 'function') onSaved(task, editingRef.current ? 'edit' : 'create');
 			};
 
 			return {
-				timing, timingError, loadTiming,
+				timing, timingError, loadTiming, editing: editingRef.current,
 				prompt, setPrompt, startAt, setStartAt, allowPeak, setAllowPeak, deliveryMode, setDeliveryMode,
-				busy, result, error, now, instant, future, canSubmit, send, onKeyDown, summary
+				busy, result, error, now, instant, future, canSubmit, send, onKeyDown, summary, saved
 			};
 		}
 
@@ -1701,12 +1910,13 @@ window.__ModuleLoader__.load({
 		 * it — the same order the official dialog uses, at the size this surface has. What the two seats share is the
 		 * draft itself (`useNewTaskDraft`), not the pixels.
 		 */
-		function NewTaskFormPanel({ onDone }) {
+		function NewTaskFormPanel({ editing = null, onDone, onSaved = null }) {
 			const {
 				timing, timingError, loadTiming,
 				prompt, setPrompt, startAt, setStartAt, allowPeak, setAllowPeak,
 				busy, result, error, instant, future, canSubmit, send, onKeyDown, summary
-			} = useNewTaskDraft({ active: true });
+			} = useNewTaskDraft({ active: true, editing, onSaved });
+			const isEdit = Boolean(editing);
 			const promptRef = React.useRef(null);
 			/**
 			 * The cursor goes where the user is about to type.
@@ -1748,8 +1958,18 @@ window.__ModuleLoader__.load({
 
 			return box('div', {
 				'data-hns-mega-task-form': 'ball',
+				'data-hns-mega-task-mode': isEdit ? 'edit' : 'create',
 				style: { all: 'initial', display: 'block', minWidth: 0 }
 			}, [
+				// Editing says what it is editing: a form with the task's own words in it and nothing else would be a
+				// form the user has to guess about.
+				isEdit ? text(`✎ 编辑队列 #${editing.rank || ''} · editing a queued task`.trim(), {
+					key: 'editing',
+					display: 'block',
+					marginBottom: '6px',
+					color: TONES.busy,
+					font: font(11)
+				}) : null,
 				// --- the conversation input ---------------------------------------------------------------
 				section('prompt', '要执行的内容', 'What to run', null, [
 					box('div', {
@@ -1855,7 +2075,7 @@ window.__ModuleLoader__.load({
 					wordBreak: 'break-word'
 				}),
 				result ? text(
-					`✓ 已加入队列 #${String(result.id || '').slice(0, 18)} · queued, status ${result.status || 'PENDING'}`,
+					`✓ ${isEdit ? '已更新' : '已加入队列'} #${String(result.id || '').slice(0, 18)} · ${isEdit ? 'updated' : 'queued'}, status ${result.status || (isEdit ? 'SUSPENDED' : 'PENDING')}`,
 					{ display: 'block', marginTop: '6px', color: TONES.ok, font: font(11, 400) }
 				) : null,
 				error ? text(`✖ ${error}`, { display: 'block', marginTop: '6px', color: TONES.bad, font: font(11, 400), wordBreak: 'break-word' }) : null,
@@ -1898,7 +2118,9 @@ window.__ModuleLoader__.load({
 							cursor: canSubmit ? 'pointer' : 'default',
 							font: font(11)
 						}
-					}, busy ? '创建中… · Creating…' : '创建定时任务 · Schedule')
+					}, busy
+						? (isEdit ? '更新中… · Updating…' : '创建中… · Creating…')
+						: (isEdit ? '保存修改 · Save' : '创建定时任务 · Schedule'))
 				])
 			].filter(Boolean));
 		}

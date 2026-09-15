@@ -115,3 +115,37 @@ test('the active queue and the history layer are both exposed to the UI', () => 
   assert.match(scheduler, /activeQueue: \{/)
   assert.match(scheduler, /managedOfficialSessionIds\(/)
 })
+
+test('a queued task is changed and moved through one implementation, for both windows', () => {
+  /**
+   * "也不能编辑，也不能调顺序" — and the risk a fix like that carries: a ball panel that grew its own way to reorder the
+   * queue, beside the dock's and beside the bridge's. So the wiring is asserted where it can drift: the bridge is
+   * created with the *same two functions* the ball's window calls over IPC, and both are the scheduler's own methods.
+   */
+  const mega = read('app/extensions/mega/index.cjs')
+  // The bridge gets the two operations beside the timing pair it already had.
+  assert.match(mega, /timing: \(\) => scheduledTaskSurface\(\)/)
+  assert.match(mega, /createTask: \(input\) => scheduleTask\(input\)/)
+  assert.match(mega, /editTask: \(input\) => editScheduledTask\(input\)/)
+  assert.match(mega, /moveTask: \(input\) => moveScheduledTask\(input\)/)
+  // One implementation each, and it is the scheduler's.
+  for (const fn of ['scheduleTask', 'editScheduledTask', 'moveScheduledTask']) {
+    assert.equal((mega.match(new RegExp(`async function ${fn}\\(`, 'g')) || []).length, 1, `${fn} has more than one implementation`)
+  }
+  assert.match(mega, /scheduler\.editTask\(taskId, changes\)/)
+  assert.match(mega, /scheduler\.reorderTask\(taskId, move\)/)
+  // The ball's window reaches the same two functions, not private copies of them.
+  assert.match(mega, /ipcMain\.handle\('mega:orb-task-edit'[\s\S]{0,200}editScheduledTask\(input \|\| \{\}\)/)
+  assert.match(mega, /ipcMain\.handle\('mega:orb-task-move'[\s\S]{0,200}moveScheduledTask\(input \|\| \{\}\)/)
+  // ...and the queue itself has no second reader: it is the snapshot's own list, published where the ball draws it.
+  assert.match(mega, /tasks: scheduler\.listTasks/)
+  assert.equal(/mega:orb-tasks/.test(mega), false, 'the queue grew a second read beside the view it already travels in')
+  const preload = read('app/extensions/mega/ui/orb-preload.cjs')
+  assert.match(preload, /editTask: \(input\) => ipcRenderer\.invoke\('mega:orb-task-edit'/)
+  assert.match(preload, /moveTask: \(input\) => ipcRenderer\.invoke\('mega:orb-task-move'/)
+  // The scheduler's own methods are the only place a queued task is rewritten.
+  const scheduler = read('app/extensions/mega/scheduler/scheduler.js')
+  assert.match(scheduler, /editTask\(id, \{ prompt, startAt, allowPeak, deliveryMode: requestedDeliveryMode \} = \{\}\)/)
+  assert.match(scheduler, /if \(!isQueued\(t\)\) throw new Error\('only pending\/suspended tasks can be edited'\)/)
+  assert.match(scheduler, /reorderTask\(id, move, options = \{\}\)/)
+})

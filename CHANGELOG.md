@@ -3,6 +3,81 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 悬浮球的队列：挂起数量会动，任务能改、能调顺序
+
+**"定时任务测试成功"（上一轮的路由修复生效了），但"页面切换后，悬浮球信息页挂起任务数量没有改变，也不能编辑，也不能
+调顺序"。** 三件事，两个根因：
+
+**数量为什么不变。** 面板里只有一个数字，没有任务 —— 数字由快照算出来，任务却压根没进视图模型。现在
+`control-center.cjs` 从 `snapshot.tasks`（调度器自己的 `listTasks`，也就是 Dock 队列面板画的那份）挑出
+PENDING/SUSPENDED，作为 `dashboard.queue` 发布：id、状态、原因、**到点时刻（ISO，不是写下来就已经过期的秒数）**、
+队列名次与提示词。计数与它下面的列表来自同一份数据，不可能各说一套。
+
+**数字还被藏在折页里。** 折起来时标题上留的是该组第一行 —— "运行中的 worker"。现在 `execution:state` 是该组
+**第一行**，内容是"已挂起 N · 等待 M"；两颗球挑折页标题时都优先找 `:state`，于是**动的正是标题上那个数**。
+
+**打开面板不再看旧数。** 两颗球的轮询都是 15 秒。界面内那颗球现在**打开面板就当场重读**（`store.refresh()`）；
+系统那颗球本来就在 `mega:orb-open` 里重读，另外 `notifyChanged()` 现在也推球（250 ms 去抖）—— 调度器每次
+`queue-changed`（新建、挂起、改、调序、到点）都会让系统球重画，而不是等下一次轮询。
+
+**能改、能调顺序。** 新增"队列 · Queue"折页：每行一条任务（名次、状态与原因、到点时刻、提示词），三个按钮
+`↑ ↓ ✎`。`↑↓` 调 `scheduler.reorderTask`；`✎` 打开**同一张表单**（界面内那颗球是 `NewTaskFormPanel`，系统球是
+`drawTaskForm`），预填这条任务的内容与时间，保存走 `scheduler.editTask`。首行没有 ↑、末行没有 ↓ —— 一个点了没用的
+按钮不是按钮。
+
+**能力只有一份实现。** `SchedulerService.editTask(id, changes)` 是新的：只允许 PENDING/SUSPENDED（RUNNING 是"已经
+在进行中的对话"，改它会让队列与旁边的会话记录不是同一件事）；提示词、时刻、峰值、投递方式都走与新建**同一套**规则
+（`futureInstant()` 现在同时供 `addTask` 与 `editTask` 用，过去的时间一律拒绝）；改完**重新过闸**而不是打补丁，
+所以把"1 小时后"改成"3 小时后"会重新挂起。两个操作经治理桥（`POST /task-edit`、`POST /task-move`）给官方插件，经
+IPC（`mega:orb-task-edit`、`mega:orb-task-move`）给系统悬浮球，两边调的是**同两个函数**。
+
+**队列没有第二条读取路径。** 它就在 `/view`（与 `/governance`）的 `dashboard.queue` 里，两个球都画它；因此没有
+`GET /tasks`、也没有 `mega:orb-tasks` —— 一个问题的第二个答案就是两个答案。（本轮确实先写了这两条，随后删掉：
+`surface-ownership` 的通道清单与宿主半边的跨半边路由契约都因此少一条。系统球的表单以前也只在重绘时更新，
+输入提示词后"创建"要等最多 15 秒才亮；现在两处**就地更新**。）
+
+**副本**：`data/profiles/web/...` 不再需要手工同步 —— 上一轮那个"手工把 package.json 也抄进 `lib/`"的教训换来了
+启动时的 `app/harness-profile.cjs`，它按 package.json 的声明刷新 profile 里的那份包。
+
+**验证**：全量 **1529/1529**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 230/230。新增/改写：
+`scheduled-task`（编辑与调序，含"运行中不可编辑"）、`control-center`（队列块与状态标题行）、`mega-core-client`（队列
+折页、移动 POST、编辑表单、打开即重读、数量随快照变）、`orb-ui`（系统球同一套）、`mega-core-plugin`（两条新路由 +
+跨半边 URL 契约）、`mega-lifecycle-wiring`（一个实现，两个窗口）。
+
+## 启动失败：profile 里那份插件副本多带了一个 package.json，官方界面不是"没加载出来"，是根本没起来
+
+**症状**：窗口起来了，官方 DeepSeek Harness 界面永远不来。日志最后一屏是 Harness 自己在启动阶段抛出的
+`client-modules: client bundle not found … path: data\profiles\web\node_modules\dsh-plugin-mega-core\lib\lib\client.js`
+——注意路径里有两个 `lib`，而 `lib/` 下并没有 `lib/`。
+
+**根因不在打包，在"最近的那个 package.json"这条规则里。** Harness 组装一个客户端插件的浏览器包时，从它挂载
+的模块向上找**第一个名字等于该包名的 `package.json`**（`@deepseek-ai/dsh-client-modules` 的 `nearestPackage`），
+再从那个目录取 `exports["./client"]`。上一轮为了让**运行中**的实例吃到重新构建的宿主半边，手工把
+`index.js` / `client.js` 同步进了 profile 的 `lib/`（那条说明就写在上一版 changelog 里）——**同一只手把包的
+`package.json` 也带进了 `lib/`**。于是"最近的清单"成了 `lib/package.json`，包根被认成 `lib/`，浏览器包被找成
+`lib/lib/client.js`：整棵插件树组装失败，Harness 在宣布访问地址之前就 `exit 1`，而 shell 的对话框只说
+`Harness service exited before announcing its access URL (code 1)`——真正的原因只留在日志流水里。
+
+**两处一起修：**
+
+1. **每次启动先把这份副本刷新成"产品真正发布的那个包"**（`app/harness-profile.cjs`，在 `--- DSH launch
+   begin ---` 之前调用）：按包自己声明的 `files` 写入 `package.json` 与 `lib/*.js`，再删掉包里不该有的东西——
+   包括任何一层里**与包重名**的 `package.json`，以及 `lib/` 下不是这次发布的文件（"手工同步 + 顺手多带一个
+   文件"正是这次的成因，而内容相同的文件不重写、不碰时间戳）。包还没装进 profile 时什么都不做；刷新失败只记
+   一行日志，绝不拦启动。profile 是 Harness 自己的安装目录，这是 shell 唯一写它的地方，范围仅限 DS-Hns 自己
+   那一个插件的自有文件——否则就是"发布的是一个包、跑的是另一个"。
+2. **失败时把 Harness 自己的最后几行话带进报错**：`startupError` 现在附上子进程输出的尾部（token 一律打码）。
+   `readLogTail` 走的是流，退出事件可能跑在落盘前面；内存里那份不会漏。启动对话框从此说的是"哪一个包、哪一条
+   路径找不到"，而不是"code 1"。
+
+**验证（真机复现 → 修复 → 再启动）**：把那份 `lib/package.json` 放回 profile，`dsh web` 逐字复现日志里的
+`lib\lib\client.js` 失败；跑一次启动用的那条刷新 → `refreshed: ["lib/package.json (a second manifest for
+this package)"]`；再启动 → `dsh web: http://127.0.0.1:3112/?token=…`，`GET /mega-core/health` 返回 200
+（插件宿主半边已在官方 web server 上）。`tests/unit/harness-profile.test.js` 7 项、`verify.ps1 -SkipTests`
+全通过（含四条新检查：发布的包里没有 `lib/package.json`、启动先刷新副本、已安装副本没有下沉清单、启动失败带上
+Harness 原话）、语法门 **230/230**、全量单元测试 **1522/1523**（唯一未过的是 `multi-supervisor.test.js`
+的墙钟阈值 `parallelMs < 8500`，整机并行跑时实测 8612ms；单跑该文件 13/13 通过——它与本次改动无关）。
+
 ## 定时任务挂起失败：两条路由被删了，而调用它们的那半边还在
 
 **根因不在调度器里。** 挂起机制本身是好的——真机链路探针（真 `SchedulerService` + 真治理桥 + 真宿主半边 + 真

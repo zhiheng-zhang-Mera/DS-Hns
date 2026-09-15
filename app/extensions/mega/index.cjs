@@ -101,8 +101,10 @@ const CHANNELS = [
   // The system floating orb: its own window, its own document, and only these ways in (see `orb-preload.cjs`
   // — the same "the preload is the whole reachable surface" rule the dock follows).
   'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
-  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made.
-  'mega:orb-timing', 'mega:orb-task',
+  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made — plus the two
+  // operations on a queued task (change it, move it), so the panel can act on what it counts. The queue itself has no
+  // channel: it travels inside the view both balls already draw.
+  'mega:orb-timing', 'mega:orb-task', 'mega:orb-task-edit', 'mega:orb-task-move',
   // The push the ball listens on. It has no handler to remove, and it is declared all the same: a channel a
   // preload can subscribe to is part of the surface that has to be enumerable.
   'mega:orb-state',
@@ -547,9 +549,26 @@ function subWorkerAvailable() {
  * Every dock push goes through the adapter. The dock renderer initiates its own
  * IPC calls, but a *push* (a change notification) needs a target, and the
  * integrated dock is the target the product actually ships.
+ *
+ * **The system ball is a target too, and that is a fix rather than a convenience.** It learned about a change only
+ * on its 15-second poll, so a task that had just been suspended showed up in the panel up to fifteen seconds later
+ * — and a user who opened the panel in between opened it on the older view, which is exactly what
+ * "挂起任务数量没有改变" was. The refresh is debounced (250 ms) because the scheduler emits one `queue-changed` per
+ * state transition, and a transparent always-on-top window that rebuilds its view per transition is a window that
+ * flickers.
  */
+let orbPushTimer = null
 function notifyChanged() {
   dockTarget.send('mega:changed')
+  if (!systemOrb || orbPushTimer) return
+  orbPushTimer = setTimeout(() => {
+    orbPushTimer = null
+    Promise.resolve()
+      .then(() => refreshOrbView())
+      .then(() => { if (systemOrb) systemOrb.render(systemOrbView) })
+      .catch(() => {})
+  }, 250)
+  if (typeof orbPushTimer.unref === 'function') orbPushTimer.unref()
 }
 
 /**
@@ -1589,8 +1608,12 @@ function governanceBridge() {
     snapshot: () => controlCenter(),
     act: (payload) => controlAction(payload),
     // The two halves of the timing surface (pluginize Phase 2): what a scheduled task may be, and one being made.
+    // The queue is not a third half — it travels inside `controlCenter()`'s snapshot, which every surface already
+    // reads. What needed adding was the ability to *act* on a queued task: "也不能编辑，也不能调顺序".
     timing: () => scheduledTaskSurface(),
     createTask: (input) => scheduleTask(input),
+    editTask: (input) => editScheduledTask(input),
+    moveTask: (input) => moveScheduledTask(input),
     log: (message) => log(message)
   })
   return governanceBridgeState
@@ -1689,6 +1712,51 @@ async function scheduleTask(input = {}) {
     // The scheduler owns the rules, and it says which field a refusal is about when it knows (`invalid startAt`,
     // a time in the past); passing that through is what lets a form point at the input rather than at the whole
     // form.
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * Change a task that has not run yet (`POST /task-edit`).
+ *
+ * The rules are the scheduler's — a queued task only, a prompt that is not empty, an instant that has not already
+ * gone — and its refusals travel as data with the field they are about, so a form can point at the input rather
+ * than at the whole form. Nothing is re-validated here: a second opinion about the same request is exactly how a
+ * UI starts promising things the layer refuses.
+ */
+async function editScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'editing a task needs its id', field: 'taskId' }
+  const changes = {}
+  if (input.prompt !== undefined) changes.prompt = input.prompt
+  if (input.startAt !== undefined) changes.startAt = input.startAt === null || input.startAt === '' ? null : String(input.startAt)
+  if (input.allowPeak !== undefined) changes.allowPeak = input.allowPeak === true
+  if (input.deliveryMode !== undefined) changes.deliveryMode = input.deliveryMode
+  if (!Object.keys(changes).length) return { ok: false, reason: 'nothing was changed', field: null }
+  try {
+    const task = scheduler.editTask(taskId, changes)
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`editing a task failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/** Move a queued task (`POST /task-move`) — the queue's own `reorderTask`, with its own words when it refuses. */
+async function moveScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'moving a task needs its id', field: 'taskId' }
+  const move = String(input.move || '').trim()
+  if (!['top', 'up', 'down', 'bottom'].includes(move)) {
+    return { ok: false, reason: `"${move}" is not a queue move; expected top, up, down or bottom`, field: 'move' }
+  }
+  try {
+    const task = scheduler.reorderTask(taskId, move)
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`moving a task in the queue failed: ${error?.message || error}`)
     return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
   }
 }
@@ -1912,6 +1980,29 @@ function registerControlCenterIpc() {
     const result = await scheduleTask(input || {})
     // A new task changes the queue the dashboard shows, so the ball is redrawn from the truth rather than from
     // the form's own optimism.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  /**
+   * The two ways to change a task that has not run yet.
+   *
+   * The *queue itself* is not a channel: it travels inside the view the panel already draws (`dashboard.queue`, built
+   * by `control-center.cjs` from the scheduler's own `listTasks`), so a second way to read it would be a second
+   * answer to the same question. What the panel could not do — and what made it "不能编辑，也不能调顺序" — is act on
+   * it. These two are the scheduler's own `editTask` and `reorderTask`, the same two the governance bridge gives the
+   * official plugin, so the ball's window and the official UI cannot disagree about what may be done to a task.
+   */
+  ipcMain.handle('mega:orb-task-edit', guard(async (_event, input = {}) => {
+    const result = await editScheduledTask(input || {})
+    // The edit may have changed a task's instant, its state, or its place in the queue, so the panel is redrawn
+    // from the scheduler's answer rather than from the form's.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  ipcMain.handle('mega:orb-task-move', guard(async (_event, input = {}) => {
+    const result = await moveScheduledTask(input || {})
     await refreshOrbView()
     if (systemOrb) systemOrb.render(systemOrbView)
     return result

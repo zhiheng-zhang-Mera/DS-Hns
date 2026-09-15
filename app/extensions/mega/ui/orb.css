@@ -202,6 +202,23 @@ html, body {
 
 #panelBody .category + .category { border-top: 1px solid var(--orb-line); }
 
+/*
+  The queue's own rows.
+
+  They are not `.field`s: a queued task has a prompt that wraps over lines and two buttons beside it, and the shared
+  dashboard row (a 128px label column and one value) is the wrong shape for either. Giving them their own class is
+  what keeps the fix from reaching into the rows that *are* measurements.
+*/
+#panelBody .queue-task { padding: 5px 9px 5px 20px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+#panelBody .queue-task:last-child { border-bottom: none; }
+#panelBody .queue-head { display: flex; align-items: baseline; gap: 6px; font-size: 10px; }
+#panelBody .queue-head .at { margin-left: auto; }
+#panelBody .queue-head .state { color: var(--orb-muted); }
+#panelBody .queue-task .prompt { margin: 3px 0 4px; font-size: 11px; font-weight: 400; line-height: 1.45; word-break: break-word; }
+#panelBody .queue-actions { display: flex; gap: 4px; }
+#panelBody .queue-actions button.act { font-size: 10px; padding: 2px 7px; }
+#panelBody .queue-actions button.act[disabled] { cursor: default; }
+
 #panelBody .dashboard + .line { margin-top: 6px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
 
 #panelBody .numbers {

@@ -23,11 +23,22 @@ function fixture(overrides = {}) {
     snapshot: {
       scheduler: {
         counts: { RUNNING: 2, PENDING: 3, FAILED: 0 },
-        activeQueue: { workerSlotsInUse: 2, queued: 3 },
+        activeQueue: { workerSlotsInUse: 2, queued: 3, suspended: 1, running: 2, total: 4 },
         concurrency: { current: 2, hardwareCap: 5 },
         peak: { peak: false },
         system: { cpu: { usagePercent: 34.4 }, memory: { usedGb: 12.44 } }
       },
+      /**
+       * The active queue, as `snapshot()` publishes it (`scheduler.listTasks()`).
+       *
+       * Two queued tasks and one running one: the dashboard's queue block is built from exactly this list, so a count
+       * and the tasks under it cannot disagree — and only the queued ones are editable or reorderable.
+       */
+      tasks: [
+        { id: 'task-a', prompt: '总结今天的构建日志', promptPreview: '总结今天的构建日志', status: 'SUSPENDED', reason: 'waiting-schedule', startAtMs: 1_789_468_752_929, allowPeak: false, deliveryMode: 'official-session', queueRank: 1 },
+        { id: 'task-b', prompt: '把报告发到工作区', promptPreview: '把报告发到工作区', status: 'PENDING', reason: null, startAtMs: null, allowPeak: true, deliveryMode: 'official-session', queueRank: 2 },
+        { id: 'task-c', prompt: '正在跑的那件', promptPreview: '正在跑的那件', status: 'RUNNING', reason: 'official-session', startAtMs: null, allowPeak: true, deliveryMode: 'official-session', queueRank: null }
+      ],
       subWorker: { available: true, enabled: true, state: 'RUNNING', config: { autoDelegate: true } },
       features: { 'mega.balance': true, 'mega.theme': false }
     },
@@ -163,6 +174,51 @@ test('the dashboard carries the scheduler\'s queue and parallelism, the price wi
   // And the flat list keeps every group, in reading order, for a surface that draws one column.
   assert.deepEqual(dashboard.fields.map((row) => row.id).slice(0, 2), ['price:window', 'price:windows'])
   assert.equal(dashboard.fields.length, dashboard.lines.reduce((sum, entry) => sum + entry.rows.length, 0) + dashboard.execution.length + dashboard.parallelism.length)
+})
+
+test('the queue is published as tasks, with the counts the shut fold shows', () => {
+  /**
+   * "挂起任务数量没有改变，也不能编辑，也不能调顺序": a count alone answers neither "which one" nor "when", and it cannot be
+   * acted on. So the dashboard carries the tasks themselves — ids, the instant as an ISO instant (never a number of
+   * seconds that was already stale when it was written), the decision the gate made, and the rank a surface draws.
+   *
+   * The count is derived from the *same* two fields the execution rows use (`activeQueue.queued` and `.suspended`), so
+   * "已挂起 2 · 等待 1" and the list under it cannot disagree.
+   */
+  const built = buildControlCenter(fixture())
+  const queue = built.dashboard.queue
+  assert.equal(queue.ok, true)
+  assert.deepEqual(queue.counts, { pending: 2, suspended: 1, running: 2, total: 4 })
+  assert.equal(queue.headline, '已挂起 1 · 等待 2')
+  // Only what has not run yet: a RUNNING task is a conversation that has already started, and is neither editable nor
+  // reorderable — publishing it here would offer buttons the scheduler refuses.
+  assert.deepEqual(queue.tasks.map((task) => task.id), ['task-a', 'task-b'])
+  assert.deepEqual(queue.tasks[0], {
+    id: 'task-a',
+    prompt: '总结今天的构建日志',
+    status: 'SUSPENDED',
+    reason: 'waiting-schedule',
+    startAtIso: new Date(1_789_468_752_929).toISOString(),
+    allowPeak: false,
+    deliveryMode: 'official-session',
+    rank: 1
+  })
+  // A task with no instant says so rather than inventing one.
+  assert.equal(queue.tasks[1].startAtIso, null)
+
+  // The queue's own state line is the execution group's **first** row, because that is the value a shut fold keeps on
+  // its heading — the number that moves when something is scheduled has to be the number that is visible.
+  assert.equal(built.dashboard.execution[0].id, 'execution:state')
+  assert.equal(built.dashboard.execution[0].value, '已挂起 1 · 等待 2')
+  assert.equal(built.dashboard.execution[0].tone, 'busy', 'a task waiting for its time is "something is happening", not a fault')
+  // ...and a queue with nothing in it is quiet rather than alarming.
+  const empty = buildControlCenter(fixture({ snapshot: { ...fixture().snapshot, tasks: [] } }))
+  assert.deepEqual(empty.dashboard.queue.tasks, [])
+  assert.equal(empty.dashboard.queue.counts.suspended, 1, 'the counts are the scheduler\'s, not a second count of the list')
+  assert.equal(empty.dashboard.execution[0].tone, 'busy')
+  // A snapshot with no queue at all (an older DS-Hns) is an empty list, not a crash.
+  const withoutTasks = buildControlCenter(fixture({ snapshot: { ...fixture().snapshot, tasks: undefined } }))
+  assert.deepEqual(withoutTasks.dashboard.queue.tasks, [])
 })
 
 test('a countdown is published as the instant it ends, and a balance never read is not ¥ 0.00', () => {

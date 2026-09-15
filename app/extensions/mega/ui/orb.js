@@ -51,6 +51,13 @@
    * 15-second poll redraws the panel must not throw away half-typed text. `taskDraft` carries the text.
    */
   let mode = 'dashboard'
+  /**
+   * The queued task the form is changing, or `null` when it is making a new one.
+   *
+   * It lives here for the same reason `mode` does: it is the user's doing, and a poll that redraws the panel while
+   * the form is open must not forget which task is being edited.
+   */
+  let editingTask = null
   const taskDraft = { prompt: '', startAt: '', allowPeak: false }
   /** What DS-Hns answered about the timing surface, and what it last said when it could not answer. */
   let timing = null
@@ -122,8 +129,12 @@
     const groups = [
       ...(dashboard.lines || []).map((entry) => ({ id: entry.id || `group:${entry.cn}`, cn: entry.cn, en: entry.en, rows: entry.rows || [] })),
       { id: 'execution', cn: '任务', en: 'Tasks', rows: dashboard.execution || [] },
+      // The queue is a fold of its own, and it is kept even when it is empty: its rows are **tasks**, and its heading
+      // carries the two numbers that move when anything is scheduled — so a shut panel still answers "is anything
+      // waiting for me", which is the half of the report that was missing ("悬浮球信息页挂起任务数量没有改变").
+      { id: 'queue', cn: '队列', en: 'Queue', rows: [], queue: dashboard.queue || null },
       { id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
-    ].filter((entry) => entry.rows.length)
+    ].filter((entry) => entry.rows.length || entry.id === 'queue')
     for (const group of groups) wrap.appendChild(drawFold(group))
     /**
      * The dashboard's own buttons — today `refresh-balance`, the read that makes the account newer.
@@ -145,12 +156,98 @@
     return wrap
   }
 
-  /** A shut category's headline: the row whose id names a state, else the first one, else nothing. */
+  /** A shut category's headline: the queue's counts, the row whose id names a state, else the first one, else nothing. */
   function headlineOf(group) {
     const row = (group.rows || []).find((entry) => String(entry.id || '').endsWith(':state')) || (group.rows || [])[0] || null
-    if (!row || !row.value || row.value === '—') return null
-    const value = String(row.value)
-    return value.length > 18 ? `${value.slice(0, 17)}…` : value
+    const value = group.queue?.headline || row?.value
+    if (!value || value === '—') return null
+    return String(value).length > 18 ? `${String(value).slice(0, 17)}…` : String(value)
+  }
+
+  /**
+   * One queued task, as a row with the two things a person can do about it.
+   *
+   * The panel used to draw the queue as a number, and a number cannot be corrected or moved — which is what
+   * "也不能编辑，也不能调顺序" was. The two buttons are the same operations the official plugin's ball offers
+   * (`scheduler.reorderTask` and `scheduler.editTask`, reached here over this window's own IPC), so both balls let
+   * the user do the same things to the same queue.
+   */
+  function drawQueueTask(task, index, count) {
+    const row = element('div', 'queue-task')
+    row.dataset.task = task.id
+    const head = element('div', 'queue-head')
+    head.appendChild(element('span', 'muted', `#${task.rank || index + 1}`))
+    const stateCn = task.status === 'SUSPENDED' ? '已挂起' : '等待中'
+    const reasonCn = task.reason === 'waiting-schedule' ? '等到点' : task.reason === 'peak-window' ? '等谷价' : (task.reason || '')
+    head.appendChild(element('span', `state ${task.status === 'SUSPENDED' ? 'tone-busy' : 'muted'}`, reasonCn ? `${stateCn} · ${reasonCn}` : stateCn))
+    head.appendChild(element('span', 'muted at', task.startAtIso ? clockOf(task.startAtIso) : '—'))
+    row.appendChild(head)
+    row.appendChild(element('div', 'prompt', task.prompt || '—'))
+    const actions = element('div', 'queue-actions')
+    const move = (label, title, direction, disabled) => {
+      const button = element('button', 'act small', label)
+      button.type = 'button'
+      button.title = title
+      if (disabled) button.disabled = true
+      button.addEventListener('click', () => moveTask(task.id, direction))
+      return button
+    }
+    actions.appendChild(move('↑ 上移', '在这条前面 · move up in the queue', 'up', index === 0))
+    actions.appendChild(move('↓ 下移', '排到后面 · move down in the queue', 'down', index === count - 1))
+    const edit = element('button', 'act small', '✎ 编辑 · Edit')
+    edit.type = 'button'
+    edit.title = '改这条任务的内容或时间 · edit this task'
+    edit.dataset.orbAction = 'edit-task'
+    edit.addEventListener('click', () => openTaskForm(task))
+    actions.appendChild(edit)
+    row.appendChild(actions)
+    return row
+  }
+
+  /** `2026-09-15T09:41:00.000Z` → `09:41`, the wall clock a person reads. */
+  function clockOf(iso) {
+    const at = new Date(String(iso || ''))
+    if (!Number.isFinite(at.getTime())) return '—'
+    const pad = (value) => String(value).padStart(2, '0')
+    return `${pad(at.getHours())}:${pad(at.getMinutes())}`
+  }
+
+  /** The queue's body: its tasks, or the reason there are none — "empty" and "unreadable" are different pictures. */
+  function drawQueue(queue) {
+    const wrap = element('div', 'queue')
+    if (!queue || queue.ok === false) {
+      wrap.appendChild(element('div', 'muted', queue?.reason || '队列不可读 · the queue cannot be read'))
+      return wrap
+    }
+    if (!(queue.tasks || []).length) {
+      wrap.appendChild(element('div', 'muted', '队列是空的 · the queue is empty'))
+      return wrap
+    }
+    queue.tasks.forEach((task, index) => wrap.appendChild(drawQueueTask(task, index, queue.tasks.length)))
+    return wrap
+  }
+
+  /** Move a queued task, then redraw from the answer — the order shown is the order the layer recorded. */
+  function moveTask(taskId, move) {
+    if (!api || typeof api.moveTask !== 'function') {
+      taskNotice = { ok: false, text: '✖ 这个窗口没有调序的通道 · this window has no queue channel' }
+      drawPanel()
+      measure()
+      return
+    }
+    Promise.resolve(api.moveTask({ taskId, move }))
+      .then((answer) => {
+        if (!answer || answer.ok === false) {
+          taskNotice = { ok: false, text: `✖ ${(answer && answer.reason) || 'the move was refused'}` }
+          drawPanel()
+          measure()
+        }
+      })
+      .catch((error) => {
+        taskNotice = { ok: false, text: `✖ ${String((error && error.message) || error)}` }
+        drawPanel()
+        measure()
+      })
   }
 
   /**
@@ -186,7 +283,8 @@
     const card = element('div', 'category-body')
     card.dataset.card = group.id
     card.appendChild(heading)
-    for (const row of group.rows) card.appendChild(drawField(row))
+    if (group.id === 'queue') card.appendChild(drawQueue(group.queue))
+    else for (const row of group.rows) card.appendChild(drawField(row))
     return card
   }
 
@@ -312,8 +410,8 @@
 
   /** The title and the way back, which differ between the dashboard and the form. */
   function drawPanelHead() {
-    if (panelTitle) panelTitle.textContent = mode === 'task' ? '新建定时任务 · New task' : 'Mega'
-    if (panelState && mode === 'task') panelState.textContent = '到点自动发出 · sends when due'
+    if (panelTitle) panelTitle.textContent = mode !== 'task' ? 'Mega' : (editingTask ? '编辑队列任务 · Edit task' : '新建定时任务 · New task')
+    if (panelState && mode === 'task') panelState.textContent = editingTask ? '改完保存 · save to update' : '到点自动发出 · sends when due'
   }
 
   /**
@@ -355,11 +453,15 @@
       })
   }
 
-  function openTaskForm() {
+  function openTaskForm(task = null) {
     mode = 'task'
+    // The form serves both jobs: "make one" (no task) and "change that one" (a queued task from the panel's queue
+    // fold). One form, because a task edited here and a task created here have to mean the same thing.
+    editingTask = task && task.id ? task : null
     taskNotice = null
-    taskDraft.prompt = ''
-    taskDraft.startAt = ''
+    taskDraft.prompt = editingTask ? String(editingTask.prompt || '') : ''
+    taskDraft.startAt = editingTask && editingTask.startAtIso ? localFromInstant(editingTask.startAtIso) : ''
+    taskDraft.allowPeak = editingTask ? editingTask.allowPeak === true : false
     loadTiming()
     drawPanel()
     measure()
@@ -370,6 +472,7 @@
 
   function closeTaskForm() {
     mode = 'dashboard'
+    editingTask = null
     taskNotice = null
     drawPanel()
     measure()
@@ -428,7 +531,17 @@
   function drawTaskForm() {
     const wrap = element('div', 'task-form')
     wrap.dataset.mode = 'task'
+    wrap.dataset.orbEditing = editingTask ? editingTask.id : ''
     if (!panelBody) return wrap
+
+    // Editing says what it is editing: a form holding the task's own words and nothing else would be a form the user
+    // has to guess about.
+    if (editingTask) {
+      const banner = element('div', 'form-label')
+      banner.appendChild(element('span', null, `✎ 编辑队列 #${editingTask.rank || ''}`))
+      banner.appendChild(element('small', null, 'editing a queued task'))
+      wrap.appendChild(banner)
+    }
 
     const promptLabel = element('div', 'form-label')
     promptLabel.appendChild(element('span', null, '要执行的内容 · What to run'))
@@ -537,7 +650,9 @@
     back.type = 'button'
     back.addEventListener('click', () => closeTaskForm())
     buttons.appendChild(back)
-    const create = element('button', 'act primary', taskBusy ? '创建中… · Creating…' : '创建定时任务 · Schedule')
+    const create = element('button', 'act primary', taskBusy
+      ? (editingTask ? '更新中… · Updating…' : '创建中… · Creating…')
+      : (editingTask ? '保存修改 · Save' : '创建定时任务 · Schedule'))
     create.type = 'button'
     create.dataset.orbAction = 'create-task'
     create.dataset.orbPart = 'create'
@@ -627,8 +742,14 @@
       }
       return
     }
-    if (!api || typeof api.createTask !== 'function') {
-      taskNotice = { ok: false, text: '✖ 这个窗口没有创建任务的通道 · this window has no task channel' }
+    const channel = editingTask ? 'editTask' : 'createTask'
+    if (!api || typeof api[channel] !== 'function') {
+      taskNotice = {
+        ok: false,
+        text: editingTask
+          ? '✖ 这个窗口没有改任务的通道 · this window has no edit channel'
+          : '✖ 这个窗口没有创建任务的通道 · this window has no task channel'
+      }
       drawPanel()
       measure()
       return
@@ -637,17 +758,25 @@
     taskNotice = null
     drawPanel()
     measure()
-    Promise.resolve(api.createTask({ prompt: armed.prompt, startAt: armed.instant.toISOString(), allowPeak: taskDraft.allowPeak === true, deliveryMode: 'official-session' }))
+    // One request either way: the difference is the route and whether the id travels — "edit" that went somewhere
+    // else would be a second place where a task is described.
+    Promise.resolve(api[channel](editingTask
+      ? { taskId: editingTask.id, prompt: armed.prompt, startAt: armed.instant.toISOString(), allowPeak: taskDraft.allowPeak === true }
+      : { prompt: armed.prompt, startAt: armed.instant.toISOString(), allowPeak: taskDraft.allowPeak === true, deliveryMode: 'official-session' }))
       .then((answer) => {
         if (!answer || answer.ok === false) {
           taskNotice = { ok: false, text: `✖ ${(answer && answer.reason) || 'the task was refused'}` }
           return
         }
         const task = answer.task || {}
-        taskDraft.prompt = ''
+        // A made task clears the box, so a second Enter cannot silently schedule the same prompt again. An edited
+        // one keeps what it now says: the form is showing a task that exists.
+        if (!editingTask) taskDraft.prompt = ''
         taskNotice = {
           ok: true,
-          text: `✓ 已加入队列 #${String(task.id || '').slice(0, 18)} · queued as ${task.status || 'PENDING'}`
+          text: editingTask
+            ? `✓ 已更新 #${String(task.id || editingTask.id).slice(0, 18)} · updated, status ${task.status || 'SUSPENDED'}`
+            : `✓ 已加入队列 #${String(task.id || '').slice(0, 18)} · queued as ${task.status || 'PENDING'}`
         }
       })
       .catch((error) => {

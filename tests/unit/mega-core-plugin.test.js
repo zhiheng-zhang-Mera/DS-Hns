@@ -106,6 +106,8 @@ test('the host half mounts every route the browser half calls, and unwinds them 
     '/mega-core/health',
     '/mega-core/orb',
     '/mega-core/task',
+    '/mega-core/task-edit',
+    '/mega-core/task-move',
     '/mega-core/timing',
     '/mega-core/view'
   ])
@@ -227,6 +229,7 @@ test('the new-task pair proxies DS-Hns, its refusals included, and the ball posi
   const host = await loadHost()
   const dshHome = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-mega-core-task-'))
   const created = []
+  const moved = []
   const startAt = new Date(Date.now() + 3 * 60_000).toISOString()
   const bridge = createGovernanceBridge({
     stateDir: path.join(dshHome, 'state'),
@@ -244,6 +247,19 @@ test('the new-task pair proxies DS-Hns, its refusals included, and the ball posi
       created.push(input)
       if (!String(input.prompt || '').trim()) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
       return { ok: true, task: { id: 'task-1', status: 'SUSPENDED', reason: 'waiting-schedule', startAtMs: Date.parse(input.startAt) } }
+    },
+    /** The queue's two operations, as the extension wires them (`editScheduledTask` / `moveScheduledTask`). */
+    editTask: async (input) => {
+      if (!input.taskId) return { ok: false, reason: 'editing a task needs its id', field: 'taskId' }
+      if (!String(input.prompt || '').trim()) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+      return { ok: true, task: { id: input.taskId, status: 'SUSPENDED', reason: 'waiting-schedule' } }
+    },
+    moveTask: async (input) => {
+      moved.push(input)
+      if (!['top', 'up', 'down', 'bottom'].includes(String(input.move || ''))) {
+        return { ok: false, reason: `"${input.move}" is not a queue move; expected top, up, down or bottom`, field: 'move' }
+      }
+      return { ok: true, task: { id: input.taskId, queueRank: 1 } }
     },
     log: () => {}
   })
@@ -279,6 +295,38 @@ test('the new-task pair proxies DS-Hns, its refusals included, and the ball posi
     const wrongMethod = fakeExchange({ method: 'GET' })
     await server.routes.get('/mega-core/task').handler(wrongMethod.request, wrongMethod.response)
     assert.equal(wrongMethod.response.statusCode, 405)
+
+    /**
+     * The queue's two operations — what "不能编辑，也不能调顺序" needed and did not have.
+     *
+     * /view carries the queue itself (`dashboard.queue`), so these are the *actions*: each is proxied to the
+     * scheduler's own method, each keeps the bridge's status and words on a refusal, and each is refused by method
+     * rather than treated as a read.
+     */
+    const edited = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', prompt: '改过的内容', allowPeak: true }) })
+    await server.routes.get('/mega-core/task-edit').handler(edited.request, edited.response)
+    assert.equal(edited.response.statusCode, 200)
+    assert.equal(JSON.parse(edited.response.body).task.id, 'task-1')
+
+    const refusedEdit = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', prompt: '   ' }) })
+    await server.routes.get('/mega-core/task-edit').handler(refusedEdit.request, refusedEdit.response)
+    assert.equal(refusedEdit.response.statusCode, 400)
+    assert.equal(JSON.parse(refusedEdit.response.body).field, 'prompt', 'the field a refusal is about did not survive')
+
+    const movedRequest = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', move: 'top' }) })
+    await server.routes.get('/mega-core/task-move').handler(movedRequest.request, movedRequest.response)
+    assert.equal(movedRequest.response.statusCode, 200)
+    assert.deepEqual(moved[0], { taskId: 'task-1', move: 'top' })
+
+    const badMove = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', move: 'sideways' }) })
+    await server.routes.get('/mega-core/task-move').handler(badMove.request, badMove.response)
+    assert.equal(badMove.response.statusCode, 400)
+    assert.match(JSON.parse(badMove.response.body).reason, /not a queue move/)
+
+    const wrongMethodMove = fakeExchange({ method: 'GET' })
+    await server.routes.get('/mega-core/task-move').handler(wrongMethodMove.request, wrongMethodMove.response)
+    assert.equal(wrongMethodMove.response.statusCode, 405)
+    assert.match(JSON.parse(wrongMethodMove.response.body).reason, /moved with POST/)
 
     /**
      * The ball's position: a file under `$DSH_HOME/state`, not `localStorage`.

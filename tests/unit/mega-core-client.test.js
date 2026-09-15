@@ -529,7 +529,9 @@ test('the ball folds its information into cards, all shut at first, one open at 
 
   const first = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   const categories = folds(first)
-  assert.deepEqual(categories.map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'], 'the ball lost a category')
+  // `queue` is a fold of its own and it is always drawn: its heading carries the two numbers that move when a task
+  // is scheduled, and its body is the tasks themselves (see the queue test below).
+  assert.deepEqual(categories.map((fold) => fold.id), ['price', 'balance', 'execution', 'queue', 'parallelism'], 'the ball lost a category')
   // The rule, on the first frame: **all shut**, every heading carrying its headline.
   assert.deepEqual(openIds(first), [], 'a category opened itself')
   assert.deepEqual(cards(first), [], 'a shut panel drew a card')
@@ -658,6 +660,106 @@ test('the ball\'s own panel offers the new-task entry, first, and it opens the b
   assert.equal(mounted.listeners.has('pointerdown'), false, 'the dismiss-on-outside-click rule outlived the form opening');
 });
 
+test('the queue fold counts what is waiting, and lets a task be moved and edited', async () => {
+  /**
+   * The report this test is about: "定时任务测试成功，但是页面切换后，悬浮球信息页挂起任务数量没有改变，也不能编辑，也不能
+   * 调顺序". Three things had to become true, and each is asserted here as what the user does:
+   *
+   *   * the **number** is on the shut fold's heading and follows the snapshot (a fold whose headline was "running
+   *     workers" hid the count the user was watching);
+   *   * opening the panel **asks again** — the poll is fifteen seconds, and a panel opened right after a task was
+   *     suspended used to show the queue as it was before it;
+   *   * the tasks are **tasks**, with the two operations the scheduler offers on a queued one: move it, or change it.
+   */
+  const task = queuedTask();
+  const fetchImpl = fakeNewTaskFetch({ view: withQueue([task, queuedTask({ id: 'task-b', prompt: '把报告发到工作区', status: 'PENDING', reason: null, rank: 2, startAtIso: null, startAtText: null })]) });
+  const mounted = await mount({ fetchImpl });
+
+  // Opening the panel is a question about now: the store is asked again rather than answering from the last poll —
+  // which is the "页面切换后 … 挂起任务数量没有改变" half of the report.
+  const reads = () => fetchImpl.calls.filter((call) => call.url === '/mega-core/view').length;
+  const before = reads();
+  const draw = openPanel(mounted);
+  draw();
+  await settle(draw);
+  assert.ok(reads() > before, 'opening the panel did not re-read the view');
+
+  // The count is on the heading, while the fold is shut — that is the number the user watches.
+  const shut = draw();
+  const queueHeading = find(shut.tree, (element) => element.props['data-hns-mega-category'] === 'queue')[0];
+  assert.ok(queueHeading, 'the panel has no queue fold');
+  assert.match(strings(queueHeading).join(' · '), /已挂起 1 · 等待 1/, `the queue heading lost its counts: ${strings(queueHeading).join(' · ')}`);
+
+  // Opening it shows the tasks themselves.
+  queueHeading.props.onClick();
+  const opened = draw();
+
+  // The tasks themselves: each is a row with its own words, its place, and its state.
+  const said = strings(opened.tree).join(' | ');
+  assert.match(said, /总结今天的构建日志/, 'the queued task was not listed');
+  assert.match(said, /把报告发到工作区/)
+  assert.match(said, /已挂起 · 等到点/)
+  const rows = find(opened.tree, (element) => element.props['data-hns-mega-task-row']);
+  assert.deepEqual(rows.map((row) => row.props['data-hns-mega-task-row']), ['task-a', 'task-b']);
+  // The first row cannot move up and the last cannot move down: a button that cannot change anything is not offered.
+  const rowButtons = (id) => find(rows.find((row) => row.props['data-hns-mega-task-row'] === id), (element) => element.type === 'button');
+  assert.equal(rowButtons('task-a')[0].props.disabled, true, 'the first task offered to move up');
+  assert.equal(rowButtons('task-a')[1].props.disabled, false);
+  assert.equal(rowButtons('task-b')[1].props.disabled, true, 'the last task offered to move down');
+
+  // Moving one posts the scheduler's own move and re-reads the view, so the panel shows the recorded order.
+  rowButtons('task-a')[1].props.onClick();
+  await tick();
+  await tick();
+  const moved = fetchImpl.calls.find((call) => call.url === '/mega-core/task-move');
+  assert.ok(moved, 'the move never left the panel');
+  assert.deepEqual(JSON.parse(moved.init.body), { taskId: 'task-a', move: 'down' });
+
+  // Editing opens the panel's own form on that task: same form as creating, with the task's words already in it.
+  rowButtons('task-a')[2].props.onClick();
+  await settle(draw);
+  const editing = find(draw().tree, (element) => element.props['data-hns-mega-task-form'] === 'ball')[0];
+  assert.ok(editing, 'editing a queued task opened no form');
+  assert.equal(editing.props['data-hns-mega-task-mode'], 'edit', 'the form did not know it was editing');
+  const promptField = find(draw().tree, (element) => element.props['data-hns-mega-task-prompt'] === 'on')[0];
+  assert.equal(promptField.props.value, '总结今天的构建日志', 'the form did not start from the task');
+  // ...and saving posts the change to the task route, addressed by id.
+  promptField.props.onChange({ target: { value: '总结今天和昨天的构建日志' } });
+  const save = find(draw().tree, (element) => element.props['data-hns-mega-task-create'] === 'on')[0];
+  assert.ok(save, `the edit form has no armed save button: ${strings(draw().tree).join(' | ')}`);
+  assert.equal(save.props.disabled, false, 'the form would not save an unchanged-but-valid edit');
+  assert.match(strings(save).join(''), /保存修改|Save/, `the edit form's button is not the edit one: ${strings(save).join('')}`);
+  save.props.onClick();
+  await settle(draw);
+  const edited = fetchImpl.calls.find((call) => call.url === '/mega-core/task-edit');
+  assert.ok(edited, 'the edit never left the panel');
+  const payload = JSON.parse(edited.init.body);
+  assert.equal(payload.taskId, 'task-a');
+  assert.equal(payload.prompt, '总结今天和昨天的构建日志');
+  assert.equal('deliveryMode' in payload, false, 'an edit rewrote the delivery the user chose when they created it');
+})
+
+test('a snapshot with a different queue is drawn as that queue, not as the last one', async () => {
+  // The other half of "挂起任务数量没有改变": the number has to follow the snapshot it is drawn from.
+  const fetchImpl = fakeNewTaskFetch({ view: withQueue([queuedTask()]) });
+  const mounted = await mount({ fetchImpl });
+  const draw = openPanel(mounted);
+  const heading = () => strings(find(draw().tree, (element) => element.props['data-hns-mega-category'] === 'queue')[0]).join(' · ');
+  assert.match(heading(), /已挂起 1 · 等待 0/);
+
+  // The queue grew while the panel was open: the next read is drawn as it is, with no memory of the old number.
+  fetchImpl.setView(withQueue([
+    queuedTask(),
+    queuedTask({ id: 'task-c', prompt: '再跑一次夜里的构建', rank: 2 })
+  ]));
+  await mounted.store.refresh();
+  await settle(draw);
+  assert.match(heading(), /已挂起 2 · 等待 0/, `the count did not follow the snapshot: ${heading()}`);
+  // ...and the task that joined the queue is in the list, not just in the count.
+  find(draw().tree, (element) => element.props['data-hns-mega-category'] === 'queue')[0].props.onClick();
+  assert.match(strings(draw().tree).join(' | '), /再跑一次夜里的构建/);
+})
+
 test('the dialog is as wide as a composer, not as wide as the official component\'s default', async () => {
   /**
    * The user's words were "the new-task dialog is not wide enough", and the cause was not our layout: the official
@@ -781,19 +883,64 @@ function fixtureTiming(overrides = {}) {
   }
 }
 
-/** A `fetch` that also answers the timing surface and the task route. */
-function fakeNewTaskFetch({ timing = fixtureTiming(), task = { ok: true, task: { id: 'task-1', status: 'PENDING' } } } = {}) {
+/** A `fetch` that also answers the timing surface, the task route and the queue's two operations. */
+function fakeNewTaskFetch({ view = fixtureView(), timing = fixtureTiming(), task = { ok: true, task: { id: 'task-1', status: 'PENDING' } } } = {}) {
   const calls = []
+  let current = view
   const impl = async (url, init = {}) => {
     calls.push({ url, init });
-    if (url === '/mega-core/view') return answer(200, fixtureView());
+    if (url === '/mega-core/view') return answer(200, current);
     if (url === '/mega-core/action') return answer(200, { ok: true });
     if (url === '/mega-core/timing') return answer(timing.ok === false ? 503 : 200, timing);
     if (url === '/mega-core/task') return answer(task.ok === false ? 400 : 200, task);
+    if (url === '/mega-core/task-edit') return answer(200, { ok: true, task: { id: 'task-a', status: 'SUSPENDED', reason: 'waiting-schedule' } });
+    if (url === '/mega-core/task-move') return answer(200, { ok: true, task: { id: 'task-a', queueRank: 2 } });
     throw new Error(`no route for ${url}`);
   };
   impl.calls = calls;
+  /** Answer the next `/view` with a different snapshot — what the panel does when the queue has moved on. */
+  impl.setView = (next) => { current = next };
   return impl;
+}
+
+/** The dashboard's queue block, as `control-center.cjs` publishes it: tasks, not just a count. */
+function withQueue(tasks, counts = null) {
+  const view = fixtureView();
+  const suspended = tasks.filter((task) => task.status === 'SUSPENDED').length;
+  const pending = tasks.length - suspended;
+  view.dashboard.queue = {
+    ok: true,
+    reason: null,
+    headline: `已挂起 ${suspended} · 等待 ${pending}`,
+    counts: counts || { pending, suspended, running: 0, total: tasks.length },
+    tasks
+  };
+  return view;
+}
+
+/** One queued task, as `control-center.cjs`'s `dashboard.queue` publishes it. */
+function queuedTask(overrides = {}) {
+  return {
+    id: 'task-a',
+    prompt: '总结今天的构建日志',
+    status: 'SUSPENDED',
+    reason: 'waiting-schedule',
+    startAtIso: new Date(Date.now() + 3 * 60_000).toISOString(),
+    startAtText: '09:41',
+    allowPeak: false,
+    deliveryMode: 'official-session',
+    rank: 1,
+    ...overrides
+  };
+}
+
+/** Open the ball's panel and hand back the render function, so a test can keep drawing it. */
+function openPanel(mounted) {
+  const draw = () => mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState);
+  const ball = find(draw().tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0];
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } });
+  ball.props.onPointerUp();
+  return draw;
 }
 
 /** Open the header action's dialog and hand back what it drew, with DS-Hns' answer already in it. */

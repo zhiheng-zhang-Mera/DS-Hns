@@ -133,8 +133,54 @@ function buildDashboard(source, nowMs) {
       ? source.actions
         .filter((entry) => entry && typeof entry === 'object' && entry.id)
         .map((entry) => ({ id: String(entry.id), cn: entry.cn || '', en: entry.en || '', reason: entry.reason || null }))
-      : []
+      : [],
+    /**
+     * The queue, as **tasks** rather than as a count.
+     *
+     * A surface can do nothing with "已挂起 1": it cannot say what is waiting, let the user fix a sentence or a time,
+     * or move one task in front of another. So the ids and the fields travel with the count, and the two operations
+     * a surface may offer are the scheduler's own (`editTask`, `reorderTask`) — this block says what exists, never
+     * what may be done to it.
+     *
+     * The instant is carried as `startAtIso` and the *number of seconds* is not: the same reason the countdown row
+     * carries an instant, and it matters more here, because a task's remaining time is the thing the user is
+     * deciding about.
+     */
+    queue: source && source.queue && typeof source.queue === 'object'
+      ? {
+          ok: source.queue.ok !== false,
+          reason: source.queue.reason || null,
+          headline: source.queue.headline || null,
+          counts: {
+            pending: Number(source.queue.counts?.pending || 0),
+            suspended: Number(source.queue.counts?.suspended || 0),
+            running: Number(source.queue.counts?.running || 0),
+            total: Number(source.queue.counts?.total || 0)
+          },
+          tasks: (Array.isArray(source.queue.tasks) ? source.queue.tasks : [])
+            .filter((task) => task && task.id)
+            .map((task) => ({
+              id: String(task.id),
+              prompt: String(task.prompt || ''),
+              status: String(task.status || ''),
+              reason: task.reason || null,
+              startAtIso: task.startAtIso || null,
+              startAtText: clockText(task.startAtIso),
+              allowPeak: task.allowPeak === true,
+              deliveryMode: task.deliveryMode || null,
+              rank: Number(task.rank) || null
+            }))
+        }
+      : { ok: false, reason: 'DS-Hns did not publish a queue in its dashboard', headline: null, counts: { pending: 0, suspended: 0, running: 0, total: 0 }, tasks: [] }
   }
+}
+
+/** One instant as the wall clock a person reads (`09:41`), in the zone the machine is in. */
+function clockText(iso) {
+  const at = new Date(String(iso || ''))
+  if (!Number.isFinite(at.getTime())) return null
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${pad(at.getHours())}:${pad(at.getMinutes())}`
 }
 
 /** One field of §4.4: the two labels the plan writes side by side, a value, and the tone that makes it visible. */

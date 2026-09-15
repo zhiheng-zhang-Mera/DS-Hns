@@ -17,16 +17,22 @@
  *   GET  /mega-core/orb         → where the ball was left; POST stores where a drag ended
  *   GET  /mega-core/timing      → what a scheduled task may be (defaults, time zone, peak windows, limits)
  *   POST /mega-core/task        → schedule one, answered with the task DS-Hns actually recorded
+ *   POST /mega-core/task-edit   → change a queued one
+ *   POST /mega-core/task-move   → move a queued one in the queue
  *
  * The last four are the routes the *browser* half reaches for, and they are here because **the surfaces that need
- * them are here**. The ball's position and the new-task form both belong to plugin-drawn surfaces — the
- * `shell.overlay` ball and the two seats of the task form — none of which has an IPC of its own, so this origin is
- * the only way they can reach DS-Hns. `/orb` and the `/timing` + `/task` pair were each removed once on the theory
- * that their caller had gone (the in-UI ball, then the form); both callers came back, the routes did not, and the
- * cost was silent: a 404 or 405 with an empty body, and the client's own `response.json()` throwing
+ * them are here**. The ball's position, the new-task form and the queue panel all belong to plugin-drawn surfaces
+ * — the `shell.overlay` ball and the two seats of the task form — none of which has an IPC of its own, so this
+ * origin is the only way they can reach DS-Hns. `/orb` and the `/timing` + `/task` pair were each removed once on
+ * the theory that their caller had gone (the in-UI ball, then the form); both callers came back, the routes did
+ * not, and the cost was silent: a 404 or 405 with an empty body, and the client's own `response.json()` throwing
  * `SyntaxError: Unexpected end of JSON input` where a sentence about the problem belonged. That is why
- * `tests/unit/mega-core-plugin.test.js` now asserts the contract instead of a list: every URL the browser half
- * calls has to be a route this half registers.
+ * `tests/unit/mega-core-plugin.test.js` asserts the contract instead of a list: every URL the browser half calls
+ * has to be a route this half registers.
+ *
+ * The **queue itself has no route**, and that is deliberate rather than an omission: it travels inside
+ * `/mega-core/view` (`dashboard.queue`, from the scheduler's own `listTasks`), which is what both balls draw — a
+ * separate read would be a second answer to the same question.
  *
  * Three rules the shape of this file is built around:
  *
@@ -358,6 +364,33 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
       answer(res, result.available === false ? 503 : (result.status || 200), result)
     }
   }))
+
+  /**
+   * The queue's two operations, for the ball panel's queue fold.
+   *
+   * A count is not something a surface can act on: "已挂起 1" says a task is waiting and nothing about which one,
+   * what it says, or when — which is what "挂起任务数量没有改变，也不能编辑，也不能调顺序" was about. The queue itself
+   * arrives inside `/view` (see the note at the top of this file); these two are what a surface can *do* to it, and
+   * they are separate routes because they are separate questions with separate refusals ("only pending/suspended
+   * tasks can be edited" versus "invalid queue move"). Both keep DS-Hns' own status (400) and its own words.
+   */
+  for (const [route, refusal] of [['task-edit', 'a task is edited with POST'], ['task-move', 'a task is moved with POST']]) {
+    disposers.push(webServer.register({
+      kind: 'exact',
+      path: `${BASE}/${route}`,
+      handler: async (req, res) => {
+        if (req.method !== 'POST') return answer(res, 405, { ok: false, reason: refusal })
+        let body = null
+        try {
+          body = await readBody(req)
+        } catch (error) {
+          return answer(res, 400, { ok: false, reason: String(error?.message || error) })
+        }
+        const result = await callBridge(`/${route}`, { method: 'POST', body, discovery: readDiscovery(env), fetchImpl })
+        answer(res, result.available === false ? 503 : (result.status || 200), result)
+      }
+    }))
+  }
 
   return () => {
     for (const dispose of disposers.splice(0)) {
