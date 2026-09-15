@@ -162,15 +162,22 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     await server.routes.get('/mega-core/orb').handler(empty.request, empty.response)
     assert.deepEqual(JSON.parse(empty.response.body), { ok: true, position: null })
 
-    const stored = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { x: 320.6, y: 210, edge: 'left' } }) })
+    const stored = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { right: 320.6, bottom: 210, edge: 'left' } }) })
     await server.routes.get('/mega-core/orb').handler(stored.request, stored.response)
     assert.equal(stored.response.statusCode, 200)
-    assert.deepEqual(JSON.parse(stored.response.body).position, { x: 321, y: 210, edge: 'left' })
+    assert.deepEqual(JSON.parse(stored.response.body).position, { right: 321, bottom: 210, edge: 'left' })
     const reread = fakeExchange()
     await server.routes.get('/mega-core/orb').handler(reread.request, reread.response)
-    assert.deepEqual(JSON.parse(reread.response.body).position, { x: 321, y: 210, edge: 'left' })
+    assert.deepEqual(JSON.parse(reread.response.body).position, { right: 321, bottom: 210, edge: 'left' })
 
-    const junk = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { x: 'left-ish', y: 12 } }) })
+    // A version 1 file (`x`/`y` in window coordinates) is not usable and reads as "no position yet": its
+    // numbers cannot be translated without the window size they were measured in.
+    fs.writeFileSync(path.join(dshHome, 'state', 'mega-core-orb.json'), JSON.stringify({ version: 1, position: { x: 10, y: 10, edge: 'left' } }), 'utf8')
+    const legacy = fakeExchange()
+    await server.routes.get('/mega-core/orb').handler(legacy.request, legacy.response)
+    assert.deepEqual(JSON.parse(legacy.response.body).position, null)
+
+    const junk = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { right: 'left-ish', bottom: 12 } }) })
     await server.routes.get('/mega-core/orb').handler(junk.request, junk.response)
     assert.equal(junk.response.statusCode, 400)
     const wrongOrbMethod = fakeExchange({ method: 'DELETE' })

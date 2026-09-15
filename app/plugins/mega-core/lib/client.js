@@ -60,12 +60,18 @@ window.__ModuleLoader__.load({
 		const POLL_MS = 15000;
 		/** The orb's box, in px. Small on purpose: it is a status light, not a widget. */
 		const ORB_SIZE = 40;
-		/** How far from the window's edge the orb stops. */
+		/** How far from the layer's edge the orb stops. */
 		const MARGIN = 14;
 		/** Drag it within this distance of an edge and it snaps there and follows it on resize. */
 		const EDGE_SNAP = 56;
 		/** Keyboard nudge, so the orb is movable without a pointer. */
 		const KEY_STEP = 12;
+		/** The gap between the orb and the panel that is anchored to it. */
+		const GAP = 10;
+		/** The panel's width; it shrinks in a narrow layer rather than hanging off the edge. */
+		const PANEL_WIDTH = 340;
+		/** Below this much room the panel prefers the other side of the orb. */
+		const PANEL_MIN_HEIGHT = 220;
 
 		const TONES = {
 			ok: '#2ea043',
@@ -78,45 +84,89 @@ window.__ModuleLoader__.load({
 		const FAMILY = '-apple-system, "Segoe UI", system-ui, sans-serif';
 		const font = (size = 12, weight = 600) => `${weight} ${size}px/1.45 ${FAMILY}`;
 		/** Muted text, for the second half of a bilingual label or a timestamp. */
-		const MUTED = 'rgba(255,255,255,.5)';
+		const MUTED = 'rgba(255,255,255,.62)';
 		/** Quieter still: a label's English half, a hint. */
-		const FAINT = 'rgba(255,255,255,.42)';
+		const FAINT = 'rgba(255,255,255,.5)';
+
+		/**
+		 * The card both surfaces are drawn on, and why it is opaque.
+		 *
+		 * The first UI review found the Mega page as **white text on the official frosted panel** — unreadable,
+		 * and for a reason that is structural rather than cosmetic: our text has its own colours (the official
+		 * theme's label colour is not ours to assume), while `all: initial` leaves our box with **no background
+		 * at all**, so whatever the host happens to paint behind it comes through. A surface with its own
+		 * palette needs its own ground: this is one near-opaque card, and every piece of text in it sits on it.
+		 */
+		const CARD = {
+			background: 'rgba(14,16,20,.97)',
+			border: '1px solid rgba(255,255,255,.18)',
+			borderRadius: '12px',
+			boxShadow: '0 12px 32px rgba(0,0,0,.45)',
+			color: '#ededed'
+		};
 
 		function clamp(value, low, high) {
 			if (high < low) return low;
 			return Math.min(high, Math.max(low, value));
 		}
 
-		function viewportSize() {
-			const width = typeof window !== 'undefined' && Number.isFinite(window.innerWidth) ? window.innerWidth : 1280;
-			const height = typeof window !== 'undefined' && Number.isFinite(window.innerHeight) ? window.innerHeight : 800;
-			return { width, height };
+		/**
+		 * Where the orb sits, expressed the way the layer it lives in is: `right` and `bottom` are distances
+		 * from **the layer's own** right and bottom edges.
+		 *
+		 * Not `left`/`top` computed from `window.innerWidth`, which is what the first version did and what the
+		 * first UI review caught. The orb does not live in the window: it lives in a slot the shell renders,
+		 * and that box can be smaller than the viewport — or sit inside a transformed ancestor, where
+		 * `position: fixed` is relative to the ancestor and not to the window at all. Distances from the
+		 * corner of the orb's own layer survive every one of those cases, and they need no recomputation when
+		 * the window changes size: the edge moves, the orb comes with it.
+		 */
+		function resolvePosition(stored) {
+			const distance = (value) => (Number.isFinite(value) ? Math.max(MARGIN, Math.round(value)) : MARGIN);
+			if (stored && Number.isFinite(stored.right) && Number.isFinite(stored.bottom)) {
+				const edge = stored.edge === 'left' || stored.edge === 'right' ? stored.edge : null;
+				return { right: distance(stored.right), bottom: distance(stored.bottom), edge };
+			}
+			// §4.3: default bottom-right, which is the corner the composer does not use.
+			return { right: MARGIN, bottom: MARGIN, edge: 'right' };
 		}
 
 		/**
-		 * Where the orb goes, from the stored position and the window — one function, because three callers
-		 * (first paint, a resize, a drag) must not each have their own idea of "the default corner".
+		 * The CSS one position means.
+		 *
+		 * An orb snapped to an edge asks for *that edge* (`left: 14px`) rather than for a remembered pixel
+		 * count from the other one, so a resize moves it with the edge it is on instead of leaving it behind —
+		 * and a free-floating orb keeps its distance from the corner, which is the same promise in the absence
+		 * of an edge to follow.
 		 */
-		function resolvePosition(stored, viewport) {
-			const maxX = Math.max(MARGIN, viewport.width - ORB_SIZE - MARGIN);
-			const maxY = Math.max(MARGIN, viewport.height - ORB_SIZE - MARGIN);
-			if (stored && Number.isFinite(stored.x) && Number.isFinite(stored.y)) {
-				// A position snapped to an edge follows that edge: the window gets narrower, the orb moves
-				// with it, instead of ending up half off-screen where the user left it on a wider window.
-				const x = stored.edge === 'right' ? maxX : clamp(stored.x, MARGIN, maxX);
-				return { x, y: clamp(stored.y, MARGIN, maxY), edge: stored.edge || null };
-			}
-			// §4.3: default bottom-right, which is the corner the composer does not use.
-			return { x: maxX, y: maxY, edge: 'right' };
+		function positionStyle(position) {
+			const style = { bottom: `${position.bottom}px` };
+			if (position.edge === 'left') return { ...style, left: `${MARGIN}px` };
+			return { ...style, right: `${position.right}px` };
+		}
+
+		/** The offsets, kept inside the layer's box. An unmeasured box (0) clamps nothing but the minimum. */
+		function clampOffsets(offsets, box) {
+			const width = Number.isFinite(box?.width) && box.width > 0 ? box.width : Infinity;
+			const height = Number.isFinite(box?.height) && box.height > 0 ? box.height : Infinity;
+			return {
+				right: clamp(offsets.right, MARGIN, Math.max(MARGIN, width - ORB_SIZE - MARGIN)),
+				bottom: clamp(offsets.bottom, MARGIN, Math.max(MARGIN, height - ORB_SIZE - MARGIN)),
+				edge: null
+			};
 		}
 
 		/** Snap a dragged orb to the nearer edge when it is close enough, or leave it where it is. */
-		function snapToEdge(position, viewport) {
-			const maxX = Math.max(MARGIN, viewport.width - ORB_SIZE - MARGIN);
-			const y = clamp(position.y, MARGIN, Math.max(MARGIN, viewport.height - ORB_SIZE - MARGIN));
-			if (position.x <= EDGE_SNAP) return { x: MARGIN, y, edge: 'left' };
-			if (position.x >= maxX - EDGE_SNAP) return { x: maxX, y, edge: 'right' };
-			return { x: clamp(position.x, MARGIN, maxX), y, edge: null };
+		function snapToEdge(offsets, box) {
+			const free = clampOffsets(offsets, box);
+			const width = Number.isFinite(box?.width) && box.width > 0 ? box.width : 0;
+			if (width) {
+				// Measured from the layer's left edge, so "near the left edge" means what it says in the box
+				// the orb is actually in rather than in the window it might not fill.
+				if (width - free.right - ORB_SIZE <= EDGE_SNAP) return { ...free, edge: 'left' };
+				if (free.right <= EDGE_SNAP) return { ...free, edge: 'right' };
+			}
+			return free;
 		}
 
 		/** The orb's glyph: a dot, plus how many things want attention when any do. */
@@ -254,16 +304,43 @@ window.__ModuleLoader__.load({
 			return snapshot;
 		}
 
-		/** The window's size, re-read when it changes, so an edge-snapped orb follows a resize. */
-		function useViewport() {
-			const [size, setSize] = React.useState(viewportSize());
+		/**
+		 * The layer's own box, re-read when it changes.
+		 *
+		 * Everything that needs to know "how much room is there" asks this: clamping a drag, snapping to an
+		 * edge, and choosing which side of the orb the panel opens on. The box belongs to the element the orb
+		 * is mounted in (the wrapper inside the overlay slot), never to `window`, for the reason
+		 * `resolvePosition` gives.
+		 */
+		function useBox(ref) {
+			const [box, setBox] = React.useState({ width: 0, height: 0 });
 			React.useEffect(() => {
-				if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return undefined;
-				const onResize = () => setSize(viewportSize());
-				window.addEventListener('resize', onResize);
-				return () => window.removeEventListener('resize', onResize);
-			}, []);
-			return size;
+				const node = ref.current;
+				if (!node || typeof node.getBoundingClientRect !== 'function') return undefined;
+				const measure = () => {
+					const rect = node.getBoundingClientRect();
+					const width = Math.round(rect.width);
+					const height = Math.round(rect.height);
+					setBox((current) => (current.width === width && current.height === height ? current : { width, height }));
+				};
+				measure();
+				const target = typeof window !== 'undefined' ? window : null;
+				if (target && typeof target.addEventListener === 'function') target.addEventListener('resize', measure);
+				let observer = null;
+				if (typeof ResizeObserver === 'function') {
+					try {
+						observer = new ResizeObserver(measure);
+						observer.observe(node);
+					} catch {
+						observer = null;
+					}
+				}
+				return () => {
+					if (target && typeof target.removeEventListener === 'function') target.removeEventListener('resize', measure);
+					if (observer) observer.disconnect();
+				};
+			}, [ref]);
+			return box;
 		}
 
 		/** One inline-styled element. `all: initial` is the isolation: no official rule reaches inside. */
@@ -282,7 +359,7 @@ window.__ModuleLoader__.load({
 					text(field.cn, { display: 'block', font: font(12) }),
 					text(field.en, { display: 'block', font: font(10, 400), color: FAINT })
 				]),
-				text(field.value, { flex: '1 1 auto', color: field.tone ? TONES[field.tone] : '#e6e6e6', font: font(12), wordBreak: 'break-word' })
+				text(field.value, { flex: '1 1 auto', color: field.tone ? TONES[field.tone] : '#ededed', font: font(12), wordBreak: 'break-word' })
 			]);
 		}
 
@@ -290,7 +367,7 @@ window.__ModuleLoader__.load({
 		function StatusLine(entry, index) {
 			return box('div', { key: `${index}:${entry.text}`, style: { display: 'flex', gap: '6px', padding: '3px 0' } }, [
 				box('span', { key: 'dot', style: { flex: '0 0 auto', color: TONES[entry.tone] || TONES.unknown } }, '•'),
-				text(entry.text, { flex: '1 1 auto', color: entry.tone === 'ok' ? 'rgba(255,255,255,.72)' : '#e6e6e6', font: font(12), wordBreak: 'break-word' })
+				text(entry.text, { flex: '1 1 auto', color: entry.tone === 'ok' ? 'rgba(255,255,255,.72)' : '#ededed', font: font(12), wordBreak: 'break-word' })
 			]);
 		}
 
@@ -311,7 +388,7 @@ window.__ModuleLoader__.load({
 					margin: '2px 4px 2px 0',
 					borderRadius: '6px',
 					border: `1px solid ${tone ? TONES[tone] : 'rgba(255,255,255,.22)'}`,
-					color: tone ? TONES[tone] : '#e6e6e6',
+					color: tone ? TONES[tone] : '#ededed',
 					background: 'rgba(255,255,255,.04)',
 					cursor: 'pointer',
 					font: font(12)
@@ -326,7 +403,7 @@ window.__ModuleLoader__.load({
 		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded }) {
 			const view = snapshot?.view;
 			if (!view) {
-				return box('div', { style: { padding: '8px 0', color: '#e6e6e6', font: font(12) } }, [
+				return box('div', { style: { padding: '8px 0', color: '#ededed', font: font(12) } }, [
 					text(snapshot?.loading ? '正在连接 DS-Hns… · connecting' : 'DS-Hns 没有应答 · no answer from DS-Hns', { display: 'block' }),
 					snapshot?.error ? text(snapshot.error, { display: 'block', marginTop: '4px', color: TONES.warn, fontWeight: '400' }) : null
 				].filter(Boolean));
@@ -335,7 +412,7 @@ window.__ModuleLoader__.load({
 			const attention = Number(view.status?.attention || 0);
 			const header = box('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '6px' } }, [
 				box('span', { key: 'dot', style: { color: TONES[view.status?.tone] || TONES.unknown, fontSize: '14px' } }, '●'),
-				text(view.status?.label || '—', { flex: '1 1 auto', color: '#f5f5f5', font: font(13) }),
+				text(view.status?.label || '—', { flex: '1 1 auto', color: '#ffffff', font: font(13) }),
 				text(attention ? `${attention} 项需处理 · to look at` : '无异常 · nothing to look at', { color: attention ? TONES.warn : MUTED, font: font(10, 400) })
 			]);
 
@@ -347,7 +424,7 @@ window.__ModuleLoader__.load({
 				['更新于 / at', String(view.at || '—').slice(11, 19)]
 			].map(([label, value]) => box('div', { key: label, style: { display: 'flex', gap: '6px', padding: '2px 0' } }, [
 				text(label, { flex: '0 0 132px', color: MUTED }),
-				text(value, { color: '#e6e6e6', font: font(12) })
+				text(value, { color: '#ededed', font: font(12) })
 			]));
 
 			const actions = (view.actions || []).map((action) => React.createElement(ActionButton, {
@@ -363,21 +440,21 @@ window.__ModuleLoader__.load({
 					text('模块 · Modules', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
 					...((view.modules || []).length
 						? view.modules.map((entry) => box('div', { key: `m:${entry.id}`, style: { padding: '3px 0' } }, [
-							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#e6e6e6', fontWeight: '400' }),
+							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
 							...(entry.actions || []).map((action) => React.createElement(ActionButton, { key: `m:${entry.id}:${action}`, label: action, onClick: () => onAction(action, entry.id) }))
 						]))
 						: [text('—', { color: MUTED })]),
 					text('社区插件 · Bundled plugins', { display: 'block', marginTop: '6px', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
 					...((view.plugins || []).length
 						? view.plugins.map((entry) => box('div', { key: `p:${entry.id}`, style: { padding: '3px 0' } }, [
-							text(`${entry.state === 'installed' ? '✓' : '⚠'} ${entry.id} — ${entry.state}${entry.installedVersion ? ` @${entry.installedVersion}` : ''}${entry.expected ? ` · pin ${entry.expected}` : ''}${entry.channel ? ` · ${entry.channel}` : ''}${entry.tested ? ' · tested' : ''}`, { display: 'block', color: TONES[entry.tone] || '#e6e6e6', fontWeight: '400' }),
+							text(`${entry.state === 'installed' ? '✓' : '⚠'} ${entry.id} — ${entry.state}${entry.installedVersion ? ` @${entry.installedVersion}` : ''}${entry.expected ? ` · pin ${entry.expected}` : ''}${entry.channel ? ` · ${entry.channel}` : ''}${entry.tested ? ' · tested' : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
 							...(entry.actions || []).map((action) => React.createElement(ActionButton, { key: `p:${entry.id}:${action}`, label: action, onClick: () => onAction(action, entry.id) }))
 						]))
 						: [text('—', { color: MUTED })])
 				])
 			]) : null;
 
-			return box('div', { style: { color: '#e6e6e6', font: font(12) } }, [
+			return box('div', { style: { color: '#ededed', font: font(12) } }, [
 				header,
 				box('div', { key: 'lines', style: { marginTop: '2px' } }, lines),
 				box('div', { key: 'numbers', style: { marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,.08)' } }, numbers),
@@ -404,21 +481,53 @@ window.__ModuleLoader__.load({
 		/** The orb, its drag and its panel (§4.1-§4.3). */
 		function MegaOrb({ store }) {
 			const snapshot = useStore(store);
-			const viewport = useViewport();
 			const [open, setOpen] = React.useState(false);
 			const [expanded, setExpanded] = React.useState(false);
 			const drag = React.useRef(null);
-			const position = resolvePosition(snapshot.position, viewport);
+			// The wrapper is the layer's own box: `position: fixed; inset: 0` covers whatever box the shell
+			// gave this slot, so everything below is placed relative to *that* and never to the window.
+			const layerRef = React.useRef(null);
+			const layer = useBox(layerRef);
+			const position = resolvePosition(snapshot.position);
 			const tone = TONES[snapshot.view?.status?.tone] || TONES.unknown;
 			const label = orbLabel(snapshot.view);
 			const hover = snapshot.view?.hover || ['DS-Hns'];
+
+			/** The box a drag is clamped to: the layer's, measured live when the pointer is down. */
+			function layerBox(event) {
+				const node = event?.currentTarget?.parentElement;
+				if (node && typeof node.getBoundingClientRect === 'function') {
+					const rect = node.getBoundingClientRect();
+					return { width: Math.round(rect.width), height: Math.round(rect.height) };
+				}
+				return layer;
+			}
 
 			function onPointerDown(event) {
 				// Rule 1: a click must not pull focus out of the composer. `preventDefault` on pointerdown is
 				// what makes that true while keeping the button in the tab order.
 				if (event && typeof event.preventDefault === 'function') event.preventDefault();
 				if (event && event.button !== undefined && event.button !== 0) return;
-				drag.current = { dx: event.clientX - position.x, dy: event.clientY - position.y, moved: false, x: position.x, y: position.y };
+				// The drag is measured from the orb's own rectangle, so it works the same whether that
+				// rectangle is in window coordinates or inside a transformed ancestor — and the offsets it
+				// produces are distances from the layer's corner, which is what gets stored.
+				const rect = event?.currentTarget && typeof event.currentTarget.getBoundingClientRect === 'function'
+					? event.currentTarget.getBoundingClientRect()
+					: null;
+				drag.current = {
+					startX: rect ? rect.left : Number(event?.clientX || 0),
+					startY: rect ? rect.top : Number(event?.clientY || 0),
+					// The offsets the drag started from. They are what every move is measured against: using
+					// the *running* offsets instead would apply each pointer event's whole delta again, and
+					// the orb would accelerate away from the pointer.
+					startRight: position.right,
+					startBottom: position.bottom,
+					right: position.right,
+					bottom: position.bottom,
+					edge: position.edge,
+					box: layerBox(event),
+					moved: false
+				};
 				if (event.currentTarget && typeof event.currentTarget.setPointerCapture === 'function') {
 					try {
 						event.currentTarget.setPointerCapture(event.pointerId);
@@ -429,14 +538,13 @@ window.__ModuleLoader__.load({
 			function onPointerMove(event) {
 				const current = drag.current;
 				if (!current) return;
-				const next = {
-					x: clamp(event.clientX - current.dx, MARGIN, Math.max(MARGIN, viewport.width - ORB_SIZE - MARGIN)),
-					y: clamp(event.clientY - current.dy, MARGIN, Math.max(MARGIN, viewport.height - ORB_SIZE - MARGIN)),
-					edge: null
-				};
+				const dx = Number(event?.clientX || 0) - current.startX;
+				const dy = Number(event?.clientY || 0) - current.startY;
+				// Left and up both *increase* the distances from the corner: the orb follows the pointer.
+				const next = clampOffsets({ right: current.startRight - dx, bottom: current.startBottom - dy }, current.box);
 				current.moved = true;
-				current.x = next.x;
-				current.y = next.y;
+				current.right = next.right;
+				current.bottom = next.bottom;
 				store.setPosition(next);
 			}
 
@@ -444,7 +552,7 @@ window.__ModuleLoader__.load({
 				const current = drag.current;
 				drag.current = null;
 				if (!current) return;
-				const snapped = snapToEdge({ x: current.x, y: current.y }, viewport);
+				const snapped = snapToEdge({ right: current.right, bottom: current.bottom }, current.box);
 				store.savePosition(snapped);
 				// A press that did not move is a click: that is what opens the panel.
 				if (!current.moved) setOpen((value) => !value);
@@ -461,7 +569,9 @@ window.__ModuleLoader__.load({
 				const delta = deltas[key];
 				if (!delta) return;
 				if (typeof event.preventDefault === 'function') event.preventDefault();
-				const moved = snapToEdge({ x: position.x + delta[0], y: position.y + delta[1] }, viewport);
+				// Arrow left/right move the orb, so they *add to* the distance from the right edge; up/down
+				// likewise add to the distance from the bottom.
+				const moved = snapToEdge({ right: position.right - delta[0], bottom: position.bottom - delta[1] }, layer);
 				store.savePosition(moved);
 			}
 
@@ -481,9 +591,10 @@ window.__ModuleLoader__.load({
 				style: {
 					// `all: initial` first: nothing the official stylesheet says applies inside this subtree.
 					all: 'initial',
-					position: 'fixed',
-					left: `${position.x}px`,
-					top: `${position.y}px`,
+					// `absolute` inside the wrapper, not `fixed` against the window: the wrapper *is* the box
+					// the slot gave us, and `fixed` would silently become relative to a transformed ancestor.
+					position: 'absolute',
+					...positionStyle(position),
 					width: `${ORB_SIZE}px`,
 					height: `${ORB_SIZE}px`,
 					display: 'flex',
@@ -504,37 +615,64 @@ window.__ModuleLoader__.load({
 				}
 			}, label);
 
-			if (!open) return orb;
-
-			const panelWidth = 320;
-			const onRight = position.x + ORB_SIZE / 2 > viewport.width / 2;
-			const left = onRight ? Math.max(8, position.x - panelWidth - 10) : Math.min(viewport.width - panelWidth - 8, position.x + ORB_SIZE + 10);
-			const top = clamp(position.y + ORB_SIZE - 260, 8, Math.max(8, viewport.height - 120));
-			const panel = box('div', {
+			/**
+			 * Where the panel goes, and the review that changed it.
+			 *
+			 * The first version pinned a `top` and a `left`, gave the panel a fixed 70vh and let it scroll:
+			 * opening "详情" made a longer document inside a box that was already the wrong shape. What a
+			 * panel anchored to a corner of the screen should do is **grow away from that corner** — so this
+			 * one is anchored by `bottom`/`right` (or `left`, when the orb is on the left) and its size is
+			 * whatever its content is. Open it and the window extends upward and leftward, toward the room
+			 * that is actually free, instead of growing a scrollbar.
+			 *
+			 * The two fallbacks are the honest ones: when there is more room on the other side of the orb the
+			 * panel uses that side, and when the content is taller than the whole layer it scrolls — which is
+			 * a last resort rather than the layout.
+			 */
+			const boxWidth = layer.width || 0;
+			const boxHeight = layer.height || 0;
+			// The orb's real left edge, which for an edge-snapped orb is the margin rather than a number
+			// derived from the other edge — the same rule `positionStyle` applies when it renders it.
+			const orbLeft = !boxWidth
+				? 0
+				: (position.edge === 'left' ? MARGIN : Math.max(MARGIN, boxWidth - position.right - ORB_SIZE));
+			const spaceAbove = boxHeight ? Math.max(0, boxHeight - position.bottom - ORB_SIZE) : 0;
+			const spaceBelow = boxHeight ? position.bottom : 0;
+			const above = !boxHeight || spaceAbove >= PANEL_MIN_HEIGHT || spaceAbove >= spaceBelow;
+			const onRight = !boxWidth || orbLeft + ORB_SIZE / 2 >= boxWidth / 2;
+			const panelWidth = boxWidth ? Math.min(PANEL_WIDTH, Math.max(220, boxWidth - 2 * MARGIN)) : PANEL_WIDTH;
+			const room = above ? spaceAbove : spaceBelow;
+			const panelStyle = {
+				all: 'initial',
+				position: 'absolute',
+				width: `${Math.round(panelWidth)}px`,
+				// Anchored to the orb's own corner: the panel's near edges stay put and the far ones move.
+				...(above
+					? { bottom: `${position.bottom + ORB_SIZE + GAP}px` }
+					: { top: `${Math.max(MARGIN, boxHeight - position.bottom + GAP)}px` }),
+				...(onRight
+					? { right: `${position.right}px` }
+					: { left: `${Math.max(MARGIN, orbLeft)}px` }),
+				// Only ever as tall as the room on the side it opened on; that is the scrollbar's last resort.
+				...(room ? { maxHeight: `${Math.max(PANEL_MIN_HEIGHT, room - GAP - MARGIN)}px` } : {}),
+				overflowY: 'auto',
+				padding: '10px 12px',
+				...CARD,
+				pointerEvents: 'auto',
+				zIndex: 2147483000,
+				font: font(12)
+			};
+			// The panel is built only when it is open, but the *wrapper* is always rendered: it is the box the
+			// orb measures, so a panel's very first frame already knows how much room it has.
+			const panel = !open ? null : box('div', {
 				'data-hns-mega-panel': 'on',
+				'data-hns-mega-panel-side': above ? 'above' : 'below',
 				role: 'dialog',
 				'aria-label': 'Mega',
-				style: {
-					all: 'initial',
-					position: 'fixed',
-					left: `${Math.round(left)}px`,
-					top: `${Math.round(top)}px`,
-					width: `${panelWidth}px`,
-					maxHeight: '70vh',
-					overflow: 'auto',
-					padding: '10px 12px',
-					borderRadius: '10px',
-					border: '1px solid rgba(255,255,255,.16)',
-					background: 'rgba(16,18,22,.96)',
-					boxShadow: '0 10px 30px rgba(0,0,0,.45)',
-					pointerEvents: 'auto',
-					zIndex: 2147483000,
-					color: '#e6e6e6',
-					font: font(12)
-				}
+				style: panelStyle
 			}, [
 				box('div', { key: 'title', style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' } }, [
-					text('Mega', { flex: '1 1 auto', color: '#f5f5f5', font: font(14) }),
+					text('Mega', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
 					React.createElement(ActionButton, { key: 'close', label: '×', title: '收起 · Collapse', onClick: () => setOpen(false) })
 				]),
 				React.createElement(MegaBody, {
@@ -546,8 +684,15 @@ window.__ModuleLoader__.load({
 				})
 			]);
 
-			// The orb and its panel are siblings, so the panel can never be clipped by the orb's own box.
-			return box('div', { key: 'mega-orb-stack', style: { pointerEvents: 'none' } }, [orb, panel]);
+			// The wrapper is the layer's box: `inset: 0` on it, and both the orb and the panel are absolute
+			// inside it, so the panel can never be clipped by the orb's own box and neither is positioned
+			// against the window.
+			return box('div', {
+				key: 'mega-orb-stack',
+				ref: layerRef,
+				'data-hns-mega-layer': 'on',
+				style: { all: 'initial', position: 'fixed', inset: '0', pointerEvents: 'none' }
+			}, [orb, panel].filter(Boolean));
 		}
 
 		/** The Mega settings page (§4.4). The official shell owns the modal; we own one section inside it. */
@@ -555,10 +700,12 @@ window.__ModuleLoader__.load({
 			const snapshot = useStore(store);
 			return box('div', {
 				'data-hns-mega-page': 'on',
-				style: { all: 'initial', display: 'block', padding: '4px 0', maxWidth: '720px', color: '#e6e6e6', font: font(12) }
+				// The official settings column is frosted glass, and our text has its own palette: the page
+				// therefore brings its own opaque card (see `CARD`) instead of assuming a background.
+				style: { all: 'initial', display: 'block', padding: '14px 16px', maxWidth: '760px', ...CARD, font: font(12) }
 			}, [
 				box('div', { key: 'head', style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } }, [
-					text('Mega · DS-Hns 监督层', { flex: '1 1 auto', color: '#f5f5f5', font: font(14) }),
+					text('Mega · DS-Hns 监督层', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
 					typeof close === 'function' ? React.createElement(ActionButton, { key: 'close', label: '关闭 · Close', onClick: close }) : null
 				].filter(Boolean)),
 				React.createElement(MegaBody, {

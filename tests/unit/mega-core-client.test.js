@@ -54,10 +54,25 @@ function fixtureView(overrides = {}) {
 /**
  * The React stand-in: `createElement`, the four hooks the bundle uses, and a renderer that walks the tree so
  * only host elements are left. Hook state is per component instance and survives a re-render (`hooks`).
+ *
+ * Host elements also get a `node` with the two DOM affordances this UI actually uses — `getBoundingClientRect`
+ * (measured against the box the test configures) and `parentElement` — plus ref attachment, because the orb
+ * measures the layer it is mounted in and drags itself relative to the pointer. That is the difference between
+ * testing the geometry rules and testing a mock of them.
  */
-function createReactShim() {
+function createReactShim(initialBox = { width: 1440, height: 900 }) {
   let current = null
   let pendingEffects = []
+  let box = { ...initialBox }
+
+  function makeNode(parentNode) {
+    return {
+      getBoundingClientRect: () => ({ width: box.width, height: box.height, left: 0, top: 0 }),
+      parentElement: parentNode,
+      setPointerCapture() {},
+      releasePointerCapture() {}
+    }
+  }
 
   const React = {
     createElement(type, props, ...children) {
@@ -97,19 +112,21 @@ function createReactShim() {
   }
 
   /** Replace every function component with what it renders, so assertions read the real element tree. */
-  function expand(element, children) {
+  function expand(element, children, parentNode = null) {
     if (!element || typeof element !== 'object' || element.$$element !== true) return element
     if (typeof element.type === 'function') {
       const hooks = children.get(element.type) || []
       const rendered = invoke(element.type, element.props, hooks)
       children.set(element.type, hooks)
-      return expand(rendered, children)
+      return expand(rendered, children, parentNode)
     }
+    const node = makeNode(parentNode)
+    if (element.props.ref && typeof element.props.ref === 'object') element.props.ref.current = node
     const kids = element.props.children
     const next = Array.isArray(kids)
-      ? kids.map((child) => expand(child, children))
-      : (kids === undefined ? undefined : expand(kids, children))
-    return { ...element, props: { ...element.props, children: next } }
+      ? kids.map((child) => expand(child, children, node))
+      : (kids === undefined ? undefined : expand(kids, children, node))
+    return { ...element, props: { ...element.props, children: next }, node }
   }
 
   /**
@@ -125,7 +142,13 @@ function createReactShim() {
     return { tree, state, effects: effects.length }
   }
 
-  return { React, render, poked: () => pendingEffects }
+  return {
+    React,
+    render,
+    /** Resize the box the host elements report, the way a window or panel resize would. */
+    resize(next) { box = { ...box, ...next } },
+    box: () => ({ ...box })
+  }
 }
 
 /** A `fetch` that answers the plugin's three routes and records every call. */
@@ -305,37 +328,83 @@ test('apply registers the orb in the official overlay slot and the page in the s
   assert.equal(mounted.listeners.has('visibilitychange'), false, 'the visibility listener outlived the plugin')
 })
 
+/**
+ * The orb, mounted and drivable.
+ *
+ * The first render measures the layer (an effect) and the second renders with the answer, which is exactly
+ * what React does; `open()` then presses and releases without moving, which is a click. Hook state is carried
+ * between renders, so `open` and the measured box survive.
+ */
+function mountOrb(mounted, box = { width: 1440, height: 900 }) {
+  mounted.shim.resize(box)
+  const MegaOrb = mounted.orbRegistration.Component().type
+  let rendered = mounted.shim.render(MegaOrb, { store: mounted.store })
+  rendered = mounted.shim.render(MegaOrb, { store: mounted.store }, rendered.state)
+  const rerender = () => { rendered = mounted.shim.render(MegaOrb, { store: mounted.store }, rendered.state) }
+  return {
+    get tree() { return rendered.tree },
+    get layer() { return rendered.tree },
+    get orb() { return rendered.tree.props.children[0] },
+    get panel() { return rendered.tree.props.children[1] || null },
+    panelStyle: () => (rendered.tree.props.children[1] || { props: { style: {} } }).props.style,
+    rerender,
+    /** Press and release without moving: a click that must neither drag nor steal focus. */
+    press({ move = null, event = {} } = {}) {
+      const orb = rendered.tree.props.children[0]
+      const base = { button: 0, clientX: 0, clientY: 0, pointerId: 1, preventDefault: () => {}, currentTarget: orb.node }
+      orb.props.onPointerDown({ ...base, ...event })
+      if (move) orb.props.onPointerMove({ ...base, ...move })
+      orb.props.onPointerUp()
+      rerender()
+      return orb
+    }
+  }
+}
+
 test('the orb draws §4.2: its four hover lines, the attention count and the tone', async () => {
   const mounted = await mount()
-  const { tree } = mounted.shim.render(mounted.orbRegistration.Component().type, { store: mounted.store })
-  assert.equal(tree.type, 'button', 'the orb must be a real button, so the keyboard can reach it')
-  assert.equal(tree.props['data-hns-mega-orb'], 'on')
-  assert.equal(tree.props['data-tone'], 'warn')
-  assert.deepEqual(strings(tree), ['● 2'], 'the badge is the number of things that want attention')
-  assert.equal(tree.props.title, 'DS-Hns\nDegraded\n5 of 7 plugin(s) active\n1 pending')
-  assert.equal(tree.props['aria-label'], 'DS-Hns · Degraded · 5 of 7 plugin(s) active · 1 pending')
-  // A floating surface in a click-through layer: fixed, opted into pointer events, and above the app.
-  assert.equal(tree.props.style.position, 'fixed')
-  assert.equal(tree.props.style.pointerEvents, 'auto')
-  assert.equal(tree.props.style.all, 'initial', 'the orb must not inherit official styles into its subtree')
+  const driver = mountOrb(mounted)
+  const { orb, layer } = driver
+  assert.equal(orb.type, 'button', 'the orb must be a real button, so the keyboard can reach it')
+  assert.equal(orb.props['data-hns-mega-orb'], 'on')
+  assert.equal(orb.props['data-tone'], 'warn')
+  assert.deepEqual(strings(orb), ['● 2'], 'the badge is the number of things that want attention')
+  assert.equal(orb.props.title, 'DS-Hns\nDegraded\n5 of 7 plugin(s) active\n1 pending')
+  assert.equal(orb.props['aria-label'], 'DS-Hns · Degraded · 5 of 7 plugin(s) active · 1 pending')
+  assert.equal(orb.props.style.pointerEvents, 'auto', 'the click-through layer needs the orb to opt back in')
+  assert.equal(orb.props.style.all, 'initial', 'the orb must not inherit official styles into its subtree')
+
+  /**
+   * Positioning, which the first UI review changed: the orb is placed **inside the layer's own box**, not
+   * against the window. The wrapper is `fixed; inset: 0` (so it covers whatever box the slot gave us, even
+   * inside a transformed ancestor) and the orb is `absolute` in it, anchored by `right`/`bottom`.
+   */
+  assert.equal(layer.props['data-hns-mega-layer'], 'on')
+  assert.equal(layer.props.style.position, 'fixed')
+  assert.equal(layer.props.style.inset, '0')
+  assert.equal(orb.props.style.position, 'absolute')
+  assert.equal(orb.props.style.bottom, '14px', 'the orb is anchored from the layer corner, not the window')
+  assert.equal(orb.props.style.right, '14px')
+  assert.equal('left' in orb.props.style, false, 'a window-coordinate position would use left/top')
+  assert.equal('top' in orb.props.style, false)
 })
 
 test('a click opens the panel without taking focus, and the panel carries the lines and the fields', async () => {
   const mounted = await mount()
-  const MegaOrb = mounted.orbRegistration.Component().type
-  let rendered = mounted.shim.render(MegaOrb, { store: mounted.store })
+  const driver = mountOrb(mounted)
+  const orb = driver.orb
 
   const prevented = []
-  const event = { button: 0, clientX: 1400, clientY: 860, pointerId: 7, preventDefault: () => prevented.push('pointerdown'), currentTarget: null }
-  rendered.tree.props.onPointerDown(event)
+  const event = { button: 0, clientX: 1400, clientY: 860, pointerId: 7, preventDefault: () => prevented.push('pointerdown'), currentTarget: orb.node }
+  orb.props.onPointerDown(event)
   // §4.3: a click on the orb must not pull focus out of the composer mid-sentence. `preventDefault` on
   // pointerdown is what makes that true while the button stays in the tab order.
   assert.deepEqual(prevented, ['pointerdown'])
-  rendered.tree.props.onPointerUp(event)
+  orb.props.onPointerUp(event)
   await tick()
 
-  rendered = mounted.shim.render(MegaOrb, { store: mounted.store }, rendered.state)
-  const panel = find(rendered.tree, (element) => element.props['data-hns-mega-panel'] === 'on')[0]
+  driver.rerender()
+  const panel = driver.panel
   assert.ok(panel, 'the click did not open the panel')
   const said = strings(panel).join(' | ')
   assert.match(said, /mega:dock degraded/)
@@ -349,21 +418,74 @@ test('a click opens the panel without taking focus, and the panel carries the li
   assert.equal(panel.props.role, 'dialog')
 })
 
+test('the panel grows up and left out of the corner it is anchored to, not in a fixed scrolling box', async () => {
+  const mounted = await mount()
+  const driver = mountOrb(mounted, { width: 1440, height: 900 })
+  driver.press()
+
+  // The default corner: bottom-right. There is room above, so the panel opens *upward*, its right edge
+  // aligned with the orb's, and its height is the room that is actually there — not a `70vh` box.
+  assert.equal(driver.panel.props['data-hns-mega-panel-side'], 'above')
+  const opened = driver.panelStyle()
+  assert.equal(opened.bottom, '64px', 'the panel sits above the orb, so its bottom is the orb\'s top + gap')
+  assert.equal(opened.right, '14px', 'its right edge is the orb\'s, so it grows leftward')
+  assert.equal('left' in opened, false)
+  assert.equal('top' in opened, false)
+  // 900 (layer) - 14 (orb bottom) - 40 (orb) = 846 above the orb, minus the gap and the margin.
+  assert.equal(opened.maxHeight, '822px')
+  assert.equal(/vh$/.test(String(opened.maxHeight)), false, 'a viewport-relative cap ignores the layer box')
+  assert.equal('height' in opened, false, 'the panel is as tall as its content, not a fixed box')
+
+  // An orb near the top of the layer has the room below it instead, and the panel uses that side: the rule is
+  // "grow away from the corner", and which corner that is depends on where the user left the orb.
+  mounted.store.setPosition({ right: 14, bottom: 780, edge: 'right' })
+  await tick()
+  driver.rerender()
+  assert.equal(driver.panel.props['data-hns-mega-panel-side'], 'below')
+  const flipped = driver.panelStyle()
+  assert.equal(flipped.top, '130px', 'below the orb: its top is the orb\'s bottom + gap')
+  assert.equal(flipped.maxHeight, '756px')
+
+  // An orb dragged to the left edge keeps its panel on that side, growing rightward: the panel never hangs
+  // off the edge it is anchored to.
+  mounted.store.setPosition({ right: 1200, bottom: 14, edge: 'left' })
+  await tick()
+  driver.rerender()
+  assert.equal(driver.orb.props.style.left, '14px', 'an edge-snapped orb asks for that edge')
+  assert.equal('right' in driver.orb.props.style, false)
+  const left = driver.panelStyle()
+  assert.equal(left.left, '14px', 'the panel follows the orb to the left edge')
+  assert.equal('right' in left, false)
+
+  // The readability fix from the same review: both surfaces sit on an opaque card of their own, because the
+  // page is drawn on the official frosted panel and our text has its own palette.
+  assert.equal(left.background, 'rgba(14,16,20,.97)')
+  assert.equal(left.color, '#ededed')
+})
+
 test('a drag moves the orb, snaps it to the nearer edge and stores it exactly once', async () => {
   const mounted = await mount({ fetchImpl: fakeFetch({ position: null }) })
-  const MegaOrb = mounted.orbRegistration.Component().type
-  const rendered = mounted.shim.render(MegaOrb, { store: mounted.store })
-  const orb = rendered.tree
+  const driver = mountOrb(mounted)
   const before = mounted.fetchImpl.calls.filter((call) => call.url === '/mega-core/orb' && String(call.init.method || 'GET') === 'POST').length
 
-  // Grab the orb where it is (its default corner for 1440x900), drag into open space, then to the left edge.
-  // The drag is grab-relative — the orb keeps the offset it was picked up with — which is what makes a small
-  // nudge a small movement instead of a jump to the pointer.
-  const start = { x: 1386, y: 846 }
-  orb.props.onPointerDown({ button: 0, clientX: start.x + 10, clientY: start.y + 10, preventDefault: () => {}, currentTarget: null })
-  orb.props.onPointerMove({ clientX: 700, clientY: 700 })
-  assert.deepEqual(plain(mounted.store.snapshot().position), { x: 690, y: 690, edge: null }, 'the drag did not move the orb')
-  orb.props.onPointerMove({ clientX: 24, clientY: 702 })
+  /**
+   * The drag is **relative**: it adds the pointer's movement to the distances from the layer's corner, which
+   * is why the same gesture works whether the orb is at the window's bottom-right or inside a box that does
+   * not fill it. Left and up both increase those distances.
+   */
+  const box = { width: 1440, height: 900 }
+  // Where the orb actually is: its default corner, so its rectangle starts 1386/846 in from the corner.
+  const grabbed = {
+    getBoundingClientRect: () => ({ left: 1386, top: 846, width: 40, height: 40 }),
+    parentElement: { getBoundingClientRect: () => ({ ...box, left: 0, top: 0 }) },
+    setPointerCapture() {}
+  }
+  const orb = driver.orb
+  orb.props.onPointerDown({ button: 0, clientX: 1406, clientY: 866, pointerId: 4, preventDefault: () => {}, currentTarget: grabbed })
+  // 680 px left and 140 px up from the grab point: 14 + 680 from the right, 14 + 140 from the bottom.
+  orb.props.onPointerMove({ clientX: 706, clientY: 706 })
+  assert.deepEqual(plain(mounted.store.snapshot().position), { right: 694, bottom: 154, edge: null }, 'the drag did not move the orb')
+  orb.props.onPointerMove({ clientX: 34, clientY: 866 })
   assert.equal(mounted.store.snapshot().position.edge, null, 'a drag in progress is not snapped yet')
   orb.props.onPointerUp()
   await tick()
@@ -371,22 +493,25 @@ test('a drag moves the orb, snaps it to the nearer edge and stores it exactly on
   const posts = mounted.fetchImpl.calls.filter((call) => call.url === '/mega-core/orb' && String(call.init.method || 'GET') === 'POST')
   assert.equal(posts.length, before + 1, 'a drag must end in exactly one stored position, not one per pixel')
   const stored = JSON.parse(posts[posts.length - 1].init.body)
-  assert.deepEqual(stored.position, { x: 14, y: 692, edge: 'left' })
+  // Released 34 px from the layer's left edge: close enough to snap, and the orb follows that edge from now on.
+  assert.deepEqual(stored.position, { right: 1366, bottom: 14, edge: 'left' })
   assert.equal(mounted.store.snapshot().position.edge, 'left')
 
   // And a keyboard nudge moves it the same way, so the orb is not pointer-only. (The store told the component
   // to re-render, which is what React does through `useStore`; the shim re-renders when it is asked to.)
-  const afterDrag = mounted.shim.render(MegaOrb, { store: mounted.store }, rendered.state)
+  driver.rerender()
   const arrows = []
-  afterDrag.tree.props.onKeyDown({ key: 'ArrowUp', preventDefault: () => arrows.push('up') })
+  driver.orb.props.onKeyDown({ key: 'ArrowUp', preventDefault: () => arrows.push('up') })
   await tick()
   assert.deepEqual(arrows, ['up'])
-  assert.equal(mounted.store.snapshot().position.y, 680)
+  // Up by one step: 14 px from the bottom becomes 26.
+  assert.equal(mounted.store.snapshot().position.bottom, 26)
+  assert.equal(mounted.store.snapshot().position.edge, 'left')
 })
 
 test('the orb comes back where it was left, from the host — not from localStorage', async () => {
-  const mounted = await mount({ fetchImpl: fakeFetch({ position: { x: 300, y: 250, edge: 'left' } }) })
-  assert.deepEqual(mounted.store.snapshot().position, { x: 300, y: 250, edge: 'left' })
+  const mounted = await mount({ fetchImpl: fakeFetch({ position: { right: 300, bottom: 250, edge: 'left' } }) })
+  assert.deepEqual(mounted.store.snapshot().position, { right: 300, bottom: 250, edge: 'left' })
   // The reason is the loopback port: an origin-scoped store is a position that resets on every restart, and
   // the host half exists precisely to be the place that does not.
   // The comment above explains why; the assertion is that nothing in the bundle ever *touches* it.
@@ -416,6 +541,10 @@ test('the settings page renders §4.4 and its actions go through the governance 
   assert.match(said, /Plugin health/)
   assert.match(said, /版本钉/)
   assert.match(said, /dsh-wallpaper-engine @ v0\.7\.1/)
+  // The first UI review found this page as white text on the official frosted panel. Our text has its own
+  // palette, so the page brings its own opaque card instead of assuming a background.
+  assert.equal(rendered.tree.props.style.background, 'rgba(14,16,20,.97)', 'the page must bring its own card')
+  assert.equal(rendered.tree.props.style.color, '#ededed')
   // Every action the page offers is one governance accepts, and asking is a POST of `{ action, id }`.
   const buttons = find(rendered.tree, (element) => element.type === 'button')
   const labels = buttons.map((element) => strings(element).join(''))

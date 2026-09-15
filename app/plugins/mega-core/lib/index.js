@@ -127,8 +127,15 @@ function answer(res, status, payload) {
  *
  * The store is deliberately tiny and forgiving: an unreadable file is "no position yet" (the orb falls back
  * to its default corner), and a position that is not two finite numbers is refused rather than stored.
+ *
+ * **The two numbers changed meaning in version 2, and that is the fix rather than a nuisance.** Version 1
+ * stored `x`/`y` in *window* coordinates, which is only correct when the overlay the orb lives in happens to
+ * fill the window — inside a transformed ancestor, or a frame smaller than the viewport, it is not. Version 2
+ * stores `right`/`bottom` as distances from the **layer's own** corner, which is what the orb's own CSS uses.
+ * A version 1 file is not translated (its numbers cannot be, without the window size they were measured in):
+ * it reads as "no position yet" and the orb returns to its default corner once.
  */
-const ORB_FILE_VERSION = 1
+const ORB_FILE_VERSION = 2
 
 function orbFile(env = process.env) {
   return path.join(stateDir(env), 'mega-core-orb.json')
@@ -137,12 +144,12 @@ function orbFile(env = process.env) {
 /** One stored position, normalised — or null when there is nothing usable in it. */
 export function normalizeOrbPosition(raw) {
   if (!raw || typeof raw !== 'object') return null
-  const x = Number(raw.x)
-  const y = Number(raw.y)
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-  // An edge is `left`/`right` (the orb follows that edge when the window is resized) or absent (free).
+  const right = Number(raw.right)
+  const bottom = Number(raw.bottom)
+  if (!Number.isFinite(right) || !Number.isFinite(bottom)) return null
+  // An edge is `left`/`right` (the orb asks for that edge, so a resize moves it with it) or absent (free).
   const edge = raw.edge === 'left' || raw.edge === 'right' ? raw.edge : null
-  return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)), edge }
+  return { right: Math.max(0, Math.round(right)), bottom: Math.max(0, Math.round(bottom)), edge }
 }
 
 /** Read the stored position; never throws, because "no position" is a valid answer. */
