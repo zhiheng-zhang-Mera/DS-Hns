@@ -388,6 +388,6 @@ test('the extension wires the orb to the same view model and the same actions as
   }
   assert.equal(/ipcRenderer\.invoke\(\s*`/.test(preload), false, 'a dynamic channel name cannot be audited')
   // The ball is not on the boot path: it is created with the other windows, after the tray.
-  assert.match(index, /createTray\(\)[\s\S]{0,400}?createSystemOrbWindow\(\)/)
+  assert.match(index, /createTray\(\)[\s\S]{0,900}?if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)/)
   assert.match(index, /if \(systemOrb\) systemOrb\.stop\(\)/)
 })

@@ -3094,7 +3094,12 @@ async function start(context) {
   createTray()
   // The system floating orb: another window of ours, after the tray and off the boot path. It is the one
   // surface that is visible without the official UI (and without the dock) having to be looked at.
-  createSystemOrbWindow()
+  // The ball lives in the official page now (the plugin's browser half registers it into the
+  // `shell.overlay` slot), which is where the user asked for it: one ball, drawn by the surface
+  // the user is already looking at. The system orb — our own always-on-top window over every
+  // application — is kept in the tree and turned off by default, because it flickered whenever its
+  // panel opened and a second ball showing the same snapshot was the thing being removed.
+  if (process.env.DSH_SYSTEM_ORB === '1') createSystemOrbWindow()
   // Theme system starts last: it must never be able to delay the official UI,
   // the scheduler or the dock. A failure here is logged and the product runs on
   // the Dark recovery theme. It paints the official shell and overlay only — the dock is

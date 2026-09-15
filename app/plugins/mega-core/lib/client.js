@@ -341,6 +341,79 @@ window.__ModuleLoader__.load({
 			]);
 		}
 
+		/**
+		 * The ball (球), and its panel.
+		 *
+		 * It reads the *same* store as the settings page, so the number on the ball and the number in
+		 * the page cannot disagree — there is no second computation of governance here.
+		 *
+		 * Clicking anywhere outside the panel closes it. The listener exists only while the panel does,
+		 * and it is registered in the capture phase, so a click that another layer stops still closes
+		 * the panel rather than leaving it open over the page.
+		 */
+		function MegaOrb({ store }) {
+			const [snapshot, setSnapshot] = React.useState(null);
+			const [open, setOpen] = React.useState(false);
+			const root = React.useRef(null);
+			React.useEffect(() => store.subscribe(setSnapshot), [store]);
+			React.useEffect(() => {
+				if (!open) return undefined;
+				const onPointerDown = (event) => {
+					const node = root.current;
+					if (node && typeof node.contains === 'function' && node.contains(event.target)) return;
+					setOpen(false);
+				};
+				document.addEventListener('pointerdown', onPointerDown, true);
+				return () => document.removeEventListener('pointerdown', onPointerDown, true);
+			}, [open]);
+			const view = (snapshot && snapshot.view) || {};
+			const status = view.status || {};
+			const tone = TONES[status.tone] || TONES.unknown;
+			const attention = Number(status.attention || 0);
+			const lines = Array.isArray(view.lines) ? view.lines.slice(0, 6) : [];
+			const ball = React.createElement('button', {
+				type: 'button',
+				title: status.label || 'Mega',
+				onClick: () => setOpen((value) => !value),
+				style: { width: '46px', height: '46px', borderRadius: '50%', cursor: 'pointer',
+					background: 'rgba(18,22,30,.92)', color: tone, border: `2px solid ${tone}`,
+					boxShadow: '0 6px 18px rgba(0,0,0,.35)', font: font(15), lineHeight: 1 }
+			}, attention > 0 ? String(attention) : '●');
+			if (!open) return React.createElement('div', { ref: root, style: { position: 'fixed', right: '18px', bottom: '18px', zIndex: 40 } }, ball);
+			/**
+			 * The panel is the page, in a frame. Everything the old ball showed — price and peak/valley,
+			 * the countdown to the next valley, the account balance, the scheduled tasks, the queue and
+			 * the parallel-worker counts — is what `MegaPage` renders, from this same store; so the panel
+			 * draws that component rather than a second, thinner summary of it. A summary is how the ball
+			 * came to be missing six sections and nobody noticed: two renderings of one view drift.
+			 */
+			const panel = React.createElement('div', {
+				style: {
+					width: 'min(420px, 92vw)', maxHeight: 'min(70vh, 640px)', overflow: 'auto',
+					borderRadius: '12px', background: 'rgba(18,22,30,.94)',
+					border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 10px 30px rgba(0,0,0,.4)'
+				}
+			}, [
+				React.createElement('div', {
+					key: 'head',
+					style: { position: 'sticky', top: 0, display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: 'rgba(18,22,30,.96)', borderBottom: '1px solid rgba(255,255,255,.12)', font: font(13) }
+				}, [
+					React.createElement('span', { key: 'dot', style: { color: tone, fontSize: '14px' } }, '●'),
+					React.createElement('span', { key: 'label', style: { flex: '1 1 auto', color: '#ffffff' } }, status.label || 'Mega'),
+					React.createElement('button', { key: 'close', type: 'button', title: '关闭 · close',
+						onClick: () => setOpen(false),
+						style: { background: 'transparent', border: 0, color: '#c3cbd9', cursor: 'pointer', fontSize: '15px', lineHeight: 1 } }, '×')
+				]),
+				React.createElement('div', { key: 'body', style: { padding: '6px 4px 10px' } },
+					React.createElement(MegaPage, { store, close: () => setOpen(false) })
+				)
+			]);
+			return React.createElement('div', {
+				ref: root,
+				style: { position: 'fixed', right: '18px', bottom: '18px', zIndex: 40, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }
+			}, [panel, ball]);
+		}
+
 		const inject = ['slots'];
 
 		function apply(ctx) {
@@ -350,11 +423,23 @@ window.__ModuleLoader__.load({
 			if (ctx && typeof ctx.effect === 'function') ctx.effect(() => store.start());
 			if (ctx && ctx.slots) {
 				/**
-				 * The page, and nothing else. A fresh id, so this adds a section rather than taking one over —
+				 * The page, and a ball: a fresh id, so this adds a section rather than taking one over —
 				 * and the ball is *not* registered here: the one ball is the system one
 				 * (`app/extensions/mega/system-orb.cjs`), which the user can see without this window being in
 				 * front. Two balls showing one snapshot was the review's finding, not the goal.
 				 */
+				/**
+				 * The ball, back in the page.
+				 *
+				 * It was removed once because a *second* ball — our own always-on-top window — was drawing
+				 * the same snapshot beside it. That window is off by default now, so this is the one ball
+				 * again, and it is on the surface the user is already looking at, which is what an orb is
+				 * for. Both halves read one store, so they still cannot disagree.
+				 */
+				ctx.slots.inject('shell.overlay', () => ctx.slots.register(
+					{ name: 'shell.overlay', id: 'mega-orb', order: 900 },
+					() => React.createElement(MegaOrb, { store })
+				));
 				ctx.slots.inject('settings.section', () => ctx.slots.register(
 					{ name: 'settings.section', id: 'mega', order: 500, label: 'Mega' },
 					(props) => React.createElement(MegaPage, { store, close: props && props.close })

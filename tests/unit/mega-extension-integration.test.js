@@ -164,12 +164,14 @@ test('the product is one window: the tray keeps its exit actions and adds Sub-wo
   t.after(() => mega.stop())
 
   /**
-   * Exactly one window is created at boot, and it is now the **system ball** rather than the dock: the old
-   * Mega sidebar is retired (it is not built until it is asked for), and the surface that replaced it is a
-   * window of ours that floats over every application. No Mega management page is loaded anywhere.
+   * No window of this extension is created at boot, and that is the contract now: the ball is the
+   * plugin's, drawn into the official page (the `shell.overlay` slot), and the system orb window —
+   * the second ball, which flickered whenever its panel opened — is opt-in
+   * (`DSH_SYSTEM_ORB=1`) rather than the product's boot shape. No Mega management page is loaded
+   * anywhere.
    */
-  assert.equal(shell.windows.length, 1, 'no secondary Mega window may be created at boot')
-  assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['orb.html'])
+  assert.equal(shell.windows.length, 0, 'a Mega window is created at boot')
+  assert.deepEqual(shell.loadedFiles, [], 'the ball is drawn by the official page, not by a window of ours')
 
   // Tray: double-click restores/focuses, and the menu carries Show/Mega, the
   // Sub-worker submenu (plan §16) and the two original exit actions.

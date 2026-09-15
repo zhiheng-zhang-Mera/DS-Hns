@@ -231,8 +231,12 @@ Check 'The orb window has a document, a stylesheet and an enumerable surface' ((
 Check 'The ball draws the same view model as the official page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
 # There is one ball, and it is the system one: the plugin's browser half registers the settings section only.
 $orbClient = Get-Content "$ROOT\app\plugins\mega-core\lib\client.js" -Raw -ErrorAction SilentlyContinue
-Check 'The plugin draws one surface, and the ball is not it' ((-not ($orbClient -match "inject\(\s*'shell\.overlay'")) -and ($orbClient -match "inject\('settings\.section'"))
-Check 'The ball is created with the other windows and torn down with them' (($mega -match 'createSystemOrbWindow\(\)') -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
+# The ball is the plugin's, drawn into the official overlay slot: one ball, on the surface the
+# user is looking at. The window that used to draw the second one is off by default now.
+Check 'The plugin draws the ball, into the official overlay slot' (($orbClient -match "inject\('shell\.overlay'") -and ($orbClient -match 'function MegaOrb'))
+Check 'The plugin still draws the settings section' ($orbClient -match "inject\('settings\.section'")
+Check 'The ball closes when the user clicks outside it' (($orbClient -match "addEventListener\('pointerdown'") -and ($orbClient -match 'node\.contains\(event\.target\)') -and ($orbClient -match 'setOpen\(false\)'))
+Check 'The system orb is opt-in, and torn down with the other windows' (($mega -match "if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)") -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
 # ---- The old Mega dock is retired: off by default, back on request ----
 Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))
 Check 'A hidden dock reserves no strip and no wallpaper notch' (($main -match 'megaDockShown\s*\r?\n?\s*\?\s*Math\.max\(MEGA_DOCK_COLLAPSED_WIDTH') -and ($main -match 'if \(!megaDockShown \|\| !megaDockView'))
