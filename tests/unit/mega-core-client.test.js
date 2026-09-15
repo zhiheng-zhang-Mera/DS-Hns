@@ -213,12 +213,8 @@ function fakeFetch({ view = fixtureView(), action = { ok: true } } = {}) {
 
 /**
  * The bundle, loaded the way the shell loads it.
- *
- * `primitives` is the platform table's owner of the official component primitives. This stand-in keeps their
- * *contract* (a `Modal` that is a portal with `role="dialog"`, a `Button` that is a real button and refuses to
- * fire while disabled) without keeping their styling, which is what the tests are about.
  */
-function load({ fetchImpl = fakeFetch(), visibility = 'visible', react = true, primitives = true } = {}) {
+function load({ fetchImpl = fakeFetch(), visibility = 'visible', react = true } = {}) {
   const definitions = []
   const required = []
   const intervals = []
@@ -254,44 +250,9 @@ function load({ fetchImpl = fakeFetch(), visibility = 'visible', react = true, p
     required.push(name)
     if (!react) throw new Error('no react here')
     if (name === 'react') return shim.React
-    if (name === '@deepseek-ai/dsh-client-ui-primitives' && primitives) return createPrimitivesShim(shim.React)
     throw new Error(`the bundle required ${name}, which is not in the platform table`)
   })
   return { definition, plugin, required, shim, sandbox, document, intervals, cleared, listeners, fetchImpl }
-}
-
-/** The official primitives, in the shapes the plugin uses: `Modal`, `Button`, `IconPlusOutline16`. */
-function createPrimitivesShim(React) {
-  function Modal(props) {
-    return React.createElement('div', {
-      'data-primitive': 'modal',
-      role: 'dialog',
-      'aria-modal': 'true',
-      'aria-label': props.title,
-      open: props.open,
-      headless: props.headless
-    }, props.children)
-  }
-  function Button(props) {
-    const { variant, size, icon, loading, ...rest } = props
-    return React.createElement('button', {
-      ...rest,
-      type: 'button',
-      'data-primitive': 'button',
-      'data-variant': variant || 'ghost',
-      disabled: props.disabled === true || loading === true,
-      onClick: (event) => {
-        // A real button does not fire while disabled, and a test that allowed it would prove nothing about the
-        // "there is nothing to send yet" state.
-        if (props.disabled === true || loading === true) return
-        if (typeof props.onClick === 'function') props.onClick(event)
-      }
-    }, [ icon || null, props.children ].filter(Boolean))
-  }
-  function IconPlusOutline16() {
-    return React.createElement('span', { 'data-primitive': 'icon' }, '+')
-  }
-  return { Modal, Button, IconPlusOutline16 }
 }
 
 /** A slot service that records what a plugin injects, like the official one. */
@@ -373,33 +334,31 @@ async function mount(options = {}) {
     effects,
     orbRegistration,
     pageRegistration,
-    newTaskRegistration: injected.find((entry) => entry.name === 'conversation.session.header.actions').callback(),
     // The registered components are `(props) => React.createElement(MegaOrb, { store })` and the same for the
     // page, so the store comes out of the element they return.
     orbComponent: orbRegistration.Component({}).type,
     pageComponent: pageRegistration.Component({}).type,
-    newTaskComponent: injected.find((entry) => entry.name === 'conversation.session.header.actions').callback().Component({}).type,
     orbState: { hooks: [], children: new Map() },
-    newTaskState: { hooks: [], children: new Map() },
     store: pageRegistration.Component({}).props.store
   }
 }
 
-test('the bundle requires only what the platform table seeds', () => {
+test('the bundle is the shape the module loader materialises, and it requires only React', () => {
   const loaded = load()
   assert.equal(loaded.definition.id, 'dsh-plugin-mega-core')
   assert.equal(typeof loaded.definition.factory, 'function')
   /**
-   * The client bundle used to require React and nothing else. It now also uses the official component primitives
-   * — the centred `Modal` and `Button` the new-task dialog is built from — and that name is in the platform table
-   * the frontend builds (`{react, "react/jsx-runtime", "react-dom", …dsh-client-ui-slots, …primitives,
-   * …dockkit}`), which is why requiring it is legal rather than a second dependency to install.
+   * React and nothing else — again, and deliberately.
+   *
+   * The new-task form used to live in this window and needed the official component primitives for its centred
+   * dialog. It lives in the floating ball's own window now (`app/extensions/mega/ui/orb.js`), which is plain DOM
+   * and talks to DS-Hns over its own IPC, so this half is back to its single dependency.
    */
-  assert.deepEqual(loaded.required, ['react', '@deepseek-ai/dsh-client-ui-primitives'], 'the browser half may only require what the platform table seeds')
+  assert.deepEqual(loaded.required, ['react'], 'the browser half may only require what the platform table seeds')
   assert.equal(typeof loaded.plugin.apply, 'function')
   assert.deepEqual(plain(loaded.plugin.inject), ['slots'])
   assert.equal(/^\s*import\s/m.test(source), false, 'the client half must not use ESM imports')
-  assert.equal(/require\((['"])(?!react|@deepseek-ai\/dsh-client-ui-primitives)/.test(source), false, 'the client half required something the platform table does not seed')
+  assert.equal(/require\((['"])(?!react)/.test(source), false, 'the client half must not require anything but react')
 })
 
 test('the bundle parses as a classic script, the way a combo is delivered', () => {
@@ -412,18 +371,20 @@ test('the bundle parses as a classic script, the way a combo is delivered', () =
   assert.equal(/(^|\n)\s*(export|import)\s/.test(source), false, 'module syntax would not parse in a classic script')
 })
 
-test('apply claims three official slots: the ball, the page, and the conversation header', async () => {
+test('apply claims both slots this window owns: the ball and the page', async () => {
   const mounted = await mount()
   assert.deepEqual(mounted.injected.map((entry) => entry.name), [
     'shell.overlay',
-    'settings.section',
-    'conversation.session.header.actions'
+    'settings.section'
   ])
   assert.deepEqual(plain(mounted.orbRegistration.descriptor), { name: 'shell.overlay', id: 'mega-orb', order: 100, label: 'Mega' })
   assert.deepEqual(plain(mounted.pageRegistration.descriptor), { name: 'settings.section', id: 'mega', order: 500, label: 'Mega' })
-  // The new-task entry sits with the official header actions (the jobs list is 20, the schedule clock is in the
-  // lower twenties): a place you go to start something, not one more button inside the composer.
-  assert.deepEqual(plain(mounted.newTaskRegistration.descriptor), { name: 'conversation.session.header.actions', id: 'mega-new-task', order: 30, label: '新建任务 · New task' })
+  /**
+   * And **no** new-task entry: making a task belongs to the floating ball's window, which is the surface that is
+   * on screen over every application. A header action here would only reach a user who already has that
+   * conversation open, and it would be a second place to start the same thing.
+   */
+  assert.equal(mounted.injected.some((entry) => entry.name === 'conversation.session.header.actions'), false, 'the new-task entry is back in the conversation header')
   // The ball is draggable, so its position is read from and written to the host's own file; the *page* has no
   // business with it at all, which is the part that would be a bug if it drifted.
   assert.match(source, /const ORB_URL = '\/mega-core\/orb'/)
@@ -626,169 +587,6 @@ test('a hidden document is not polled, and becoming visible again polls immediat
   mounted.listeners.get('visibilitychange')()
   await tick()
   assert.equal(polls(), before + 1)
-})
-
-/** The timing surface as DS-Hns answers it, shaped like `scheduledTaskSurface()`. */
-function fixtureTiming(overrides = {}) {
-  return {
-    ok: true,
-    kind: 'scheduled-task',
-    defaults: {
-      startAt: new Date(Date.now() + 3 * 60_000).toISOString(),
-      allowPeak: false,
-      deliveryMode: 'official-session'
-    },
-    schedule: {
-      timeZone: 'Asia/Shanghai',
-      weekdays: [1, 2, 3, 4, 5],
-      peakPeriods: [{ start: '09:00', end: '12:00' }, { start: '14:00', end: '18:00' }]
-    },
-    peak: { peak: false, nextChange: null },
-    interruptRunningAtPeak: false,
-    limits: { minStartOffsetSeconds: 0, maxStartAheadDays: 365 },
-    deliveryModes: [
-      { id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true },
-      { id: 'headless', cn: 'Headless 后台', en: 'Headless background', default: false }
-    ],
-    ...overrides
-  }
-}
-
-/** A `fetch` that also answers the timing surface and the task route. */
-function fakeNewTaskFetch({ timing = fixtureTiming(), task = { ok: true, task: { id: 'task-1', status: 'PENDING' } } } = {}) {
-  const calls = []
-  const impl = async (url, init = {}) => {
-    calls.push({ url, init });
-    if (url === '/mega-core/view') return { ok: true, status: 200, json: async () => fixtureView() };
-    if (url === '/mega-core/action') return { ok: true, status: 200, json: async () => ({ ok: true }) };
-    if (url === '/mega-core/timing') return { ok: timing.ok !== false, status: timing.ok === false ? 503 : 200, json: async () => timing };
-    if (url === '/mega-core/task') return { ok: task.ok !== false, status: task.ok === false ? 400 : 200, json: async () => task };
-    throw new Error(`no route for ${url}`);
-  };
-  impl.calls = calls;
-  return impl;
-}
-
-/** Open the header action's dialog and hand back what it drew, with DS-Hns' answer already in it. */
-async function openNewTask(options = {}) {
-  const fetchImpl = options.fetchImpl || fakeNewTaskFetch(options.routes || {});
-  const mounted = await mount({ fetchImpl });
-  const draw = () => mounted.shim.render(mounted.newTaskComponent, {}, mounted.newTaskState);
-  const trigger = find(draw().tree, (element) => element.type === 'button')[0];
-  assert.ok(trigger, 'the header action drew no entry point');
-  trigger.props.onClick();
-  await settle(draw);
-  return { ...mounted, rendered: draw(), draw, fetchImpl };
-}
-
-test('the header action opens a centred sub-page whose composer is the input and whose schedule is under it', async () => {
-  const task = await openNewTask();
-  const said = strings(task.rendered.tree).join(' | ');
-
-  // The entry point is a real button in the conversation header, and what it opens is the official Modal — a
-  // portal with `role="dialog"`, i.e. the centred sub-page rather than a card we positioned ourselves.
-  const modal = find(task.rendered.tree, (element) => element.props['data-primitive'] === 'modal')[0];
-  assert.ok(modal, 'the entry point opened no modal');
-  assert.equal(modal.props['aria-modal'], 'true');
-  assert.equal(modal.props.headless, true, 'the official chrome would put our footer in the wrong place');
-  assert.match(said, /新建定时任务/);
-  assert.match(said, /New scheduled task/);
-
-  // The conversation input: a prompt box with the chat placeholder and the chat grammar.
-  const prompt = find(task.rendered.tree, (element) => element.props['data-hns-mega-task-prompt'] === 'on')[0];
-  assert.ok(prompt, 'the dialog has no prompt input');
-  assert.equal(prompt.type, 'textarea');
-  assert.match(prompt.props.placeholder, /和平时对话一样/);
-
-  // The schedule sits **below** the input, and it is the DS-Hns answer that fills it in: the time field, the
-  // presets, the peak switch, and the zone the windows belong to.
-  const schedule = find(task.rendered.tree, (element) => element.props['data-hns-mega-task-schedule'] === 'on')[0];
-  assert.ok(schedule, 'the dialog has no schedule section');
-  assert.match(said, /定时设置/);
-  assert.match(said, /发送时间/);
-  assert.match(said, /时区 Asia\/Shanghai/);
-  assert.match(said, /峰价时段 09:00-12:00, 14:00-18:00/);
-  assert.match(said, /3 分钟后/);
-  const timeField = find(task.rendered.tree, (element) => element.props['data-hns-mega-task-time'] === 'on')[0];
-  assert.ok(timeField, 'the schedule has no time field');
-  assert.match(timeField.props.value, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, 'the default time is not in the field\'s own shape');
-  // The spoken summary: when it will be sent, and how — the sentence the user commits to.
-  assert.match(said, /作为官方新会话发出/);
-})
-
-test('Enter schedules the task, Shift+Enter is a newline, and an IME composition is neither', async () => {
-  const task = await openNewTask();
-  const postCount = () => task.fetchImpl.calls.filter((call) => call.url === '/mega-core/task').length;
-  const promptField = (rendered) => find(rendered.tree, (element) => element.props['data-hns-mega-task-prompt'] === 'on')[0];
-
-  // The button is disabled until there is something to send: no prompt, no task — and the dialog says so by
-  // refusing rather than by posting an empty one.
-  assert.equal(createButton(task.rendered).props.disabled, true, 'the dialog would schedule an empty task');
-
-  // Typing goes through the ordinary onChange, and Enter during an IME composition must not send: a Chinese user
-  // pressing Enter to commit a candidate would otherwise fire an unfinished prompt.
-  promptField(task.rendered).props.onChange({ target: { value: '总结今天的构建日志' } });
-  const typed = promptField(task.draw());
-  const prevented = [];
-  typed.props.onKeyDown({ key: 'Enter', shiftKey: false, nativeEvent: { isComposing: true }, preventDefault: () => prevented.push('composing') });
-  assert.equal(postCount(), 0, 'an IME composition scheduled a task');
-  // A newline never posts either.
-  typed.props.onKeyDown({ key: 'Enter', shiftKey: true, nativeEvent: { isComposing: false }, preventDefault: () => prevented.push('shift') });
-  assert.equal(postCount(), 0, 'Shift+Enter posted a task');
-  assert.deepEqual(prevented, [], 'a newline or a composition was prevented');
-
-  // And a real Enter does, with the prompt, the instant the field says, and the peak decision.
-  const armed = promptField(task.draw());
-  armed.props.onKeyDown({ key: 'Enter', shiftKey: false, nativeEvent: { isComposing: false }, preventDefault: () => prevented.push('send') });
-  assert.deepEqual(prevented, ['send'], 'Enter did not take the keystroke');
-  await settle(task.draw);
-  const posted = task.fetchImpl.calls.filter((call) => call.url === '/mega-core/task');
-  assert.equal(posted.length, 1, 'Enter did not schedule anything');
-  const payload = JSON.parse(posted[0].init.body);
-  assert.equal(payload.prompt, '总结今天的构建日志');
-  assert.equal(payload.deliveryMode, 'official-session', 'a scheduled conversation must be delivered as a conversation');
-  assert.equal(payload.allowPeak, false);
-  // The instant is what the field meant: the same wall clock, as an ISO instant. (The default is three minutes
-  // out, which is why this is not merely "some time in the future".)
-  const typedInstant = new Date(payload.startAt);
-  assert.equal(Number.isFinite(typedInstant.getTime()), true, `startAt is not an instant: ${payload.startAt}`);
-  assert.ok(typedInstant.getTime() > Date.now() && typedInstant.getTime() <= Date.now() + 4 * 60_000, `the default time is not the field's own: ${payload.startAt}`);
-})
-
-test('a refusal is shown in DS-Hns words, and a task that exists is confirmed with its own id', async () => {
-  const refused = await openNewTask({ routes: { task: { ok: false, reason: 'a task needs a prompt' } } });
-  const promptField = (rendered) => find(rendered.tree, (element) => element.props['data-hns-mega-task-prompt'] === 'on')[0];
-  promptField(refused.rendered).props.onChange({ target: { value: 'x' } });
-  createButton(refused.draw()).props.onClick();
-  await settle(refused.draw);
-  assert.match(strings(refused.draw().tree).join(' | '), /a task needs a prompt/, 'a refusal was swallowed');
-
-  const accepted = await openNewTask({ routes: { task: { ok: true, task: { id: 'task-abc123', status: 'PENDING', startAtMs: Date.now() + 120_000 } } } });
-  promptField(accepted.rendered).props.onChange({ target: { value: '把报告发到工作区' } });
-  createButton(accepted.draw()).props.onClick();
-  await settle(accepted.draw);
-  const said = strings(accepted.draw().tree).join(' | ');
-  assert.match(said, /已加入队列 #task-abc123/, 'the dialog did not confirm the task it actually made');
-  assert.match(said, /PENDING/);
-  // A made task clears the box, so a second Enter cannot silently schedule the same prompt again.
-  assert.equal(promptField(accepted.draw()).props.value, '');
-})
-
-/** The dialog's own submit button, by the words on it. */
-function createButton(rendered) {
-  return find(rendered.tree, (element) => element.props['data-primitive'] === 'button' && strings(element).join('') === '创建定时任务 · Schedule')[0];
-}
-
-test('a host without the official primitives draws no entry point rather than a broken box', () => {
-  const loaded = load({ primitives: false })
-  const { ctx, injected } = fakeSlots()
-  loaded.plugin.apply(ctx)
-  const registration = injected.find((entry) => entry.name === 'conversation.session.header.actions').callback()
-  const rendered = loaded.shim.render(registration.Component({}).type, {}, { hooks: [], children: new Map() })
-  assert.equal(rendered.tree, null, 'the entry point appeared on a host that cannot render its dialog')
-  // ...and the plugin still registered the slot: an empty occupant is harmless, a missing one would mean a
-  // different code path for a host that merely lacks a module.
-  assert.deepEqual(injected.map((entry) => entry.name), ['shell.overlay', 'settings.section', 'conversation.session.header.actions'])
 })
 
 test('DS-Hns not answering is drawn as the reason, not as an empty page', async () => {

@@ -382,11 +382,20 @@ test('the extension wires the orb to the same view model and the same actions as
   // The action channel is the Control Center's own path, not a second implementation of the closed set.
   assert.match(index, /ipcMain\.handle\('mega:orb-action'[\s\S]{0,200}controlAction\(payload \|\| \{\}\)/)
   // The channels are declared for cleanup, and the preload is the whole reachable surface of that window.
-  for (const channel of ['mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action']) {
+  for (const channel of ['mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action', 'mega:orb-timing', 'mega:orb-task']) {
     assert.match(index, new RegExp(`'${channel.replace(/[:]/g, ':')}'`), `${channel} is not declared`)
     assert.match(preload, new RegExp(`'${channel.replace(/[:]/g, ':')}'`), `${channel} is not exposed by the preload`)
   }
   assert.equal(/ipcRenderer\.invoke\(\s*`/.test(preload), false, 'a dynamic channel name cannot be audited')
+  /**
+   * The timing pair is the ball's new-task form, and it answers with the **same two functions** the governance
+   * bridge exposes to the official plugin: one implementation of "what a task may be" and one of "make a task",
+   * shared by every surface that can schedule one.
+   */
+  assert.match(index, /ipcMain\.handle\('mega:orb-timing'[\s\S]{0,200}scheduledTaskSurface\(\)/)
+  assert.match(index, /ipcMain\.handle\('mega:orb-task'[\s\S]{0,200}scheduleTask\(input \|\| \{\}\)/)
+  assert.match(index, /timing: \(\) => scheduledTaskSurface\(\)/)
+  assert.match(index, /createTask: \(input\) => scheduleTask\(input\)/)
   // The ball is not on the boot path: it is created with the other windows, after the tray.
   assert.match(index, /createTray\(\)[\s\S]{0,900}?if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)/)
   assert.match(index, /if \(systemOrb\) systemOrb\.stop\(\)/)

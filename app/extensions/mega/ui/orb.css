@@ -226,6 +226,94 @@ html, body {
 #panelBody .roster .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 0; }
 #panelBody .note { margin-top: 8px; color: var(--orb-faint); font-size: 10px; }
 
+/*
+  The new-task form, in this window rather than in the official UI.
+
+  It is the same conversation-first shape the official dialog has — a prompt box, then the schedule under it — laid
+  out for a panel that is a third of the width: one column, the schedule as a block, and the one sentence that says
+  what will happen above the two buttons.
+*/
+#panelBody .task-form .form-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0 4px;
+  color: var(--orb-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#panelBody .task-form .form-label small { color: var(--orb-faint); font-size: 10px; text-transform: none; letter-spacing: 0; }
+
+/** The prompt box: a real textarea, so Enter/Shift+Enter behave the way they do in a chat. */
+#panelBody .task-form .prompt {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .04);
+  color: var(--orb-text);
+  font: 400 12px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+  pointer-events: auto;
+}
+#panelBody .task-form .prompt::placeholder { color: var(--orb-faint); }
+#panelBody .task-form .prompt:focus { outline: none; border-color: var(--busy); }
+
+/** The schedule: under the input, one row per choice. */
+#panelBody .task-form .schedule {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--orb-line);
+}
+#panelBody .task-form .schedule .field { border-bottom: none; padding: 3px 0; }
+#panelBody .task-form .schedule .field .label { flex: 0 0 74px; }
+#panelBody .task-form .field .hint { margin-top: 3px; color: var(--orb-faint); font-size: 10px; }
+#panelBody .task-form input[type="datetime-local"] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .04);
+  color: var(--orb-text);
+  font: 400 12px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+  pointer-events: auto;
+}
+#panelBody .task-form input[type="checkbox"] {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 4px;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+#panelBody .task-form input[type="checkbox"]:checked { background: var(--busy); }
+#panelBody .task-form .presets { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px 82px; }
+#panelBody .task-form .presets button.act { font-size: 10px; padding: 2px 6px; }
+
+/** What will happen, in one sentence — the thing the user is agreeing to. */
+#panelBody .task-form .summary { margin-top: 8px; color: var(--orb-muted); font-size: 11px; font-weight: 400; line-height: 1.45; }
+#panelBody .task-form .summary.warn { color: var(--warn); }
+#panelBody .task-form .summary.ok { color: var(--ok); }
+#panelBody .task-form .summary.bad { color: var(--bad); }
+#panelBody .task-form .actions { margin-top: 8px; }
+
+/** The ball's own new-task entry reads as the primary thing to do on this panel. */
+button.act.primary {
+  border-color: color-mix(in srgb, var(--busy) 60%, transparent);
+  background: rgba(88, 166, 255, .12);
+  color: #fff;
+}
+button.act.primary:hover { background: rgba(88, 166, 255, .2); }
+button.act[disabled] { opacity: .45; cursor: default; }
+
 button.act {
   display: inline-flex;
   align-items: center;

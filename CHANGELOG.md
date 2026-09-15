@@ -3,6 +3,37 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 新建定时任务搬进悬浮球；子窗口按内容自适应（修掉"只显示一半"）
+
+**入口搬家。** 上一版把"新建任务"放在官方对话的头部动作里 —— 但那要求用户先把某个对话打开，而悬浮球是**盖在
+所有应用之上、永远在屏幕上**的那一面：从哪儿都能起一个定时任务，才是球的意义。现在按钮在球的面板里
+（`新建定时任务 · New task`，主色），点击后**同一个窗口**切换成表单；官方对话头部不再有第二个入口，插件那半边
+因此删掉了整套对话框（React 侧 ~430 行与官方组件库依赖），回到"只需要 React"。
+
+**表单仍是"对话优先、定时在输入栏下方"**：提示词输入框（`Enter 发送 / Shift+Enter 换行`，**输入法组字时的 Enter
+只确认候选**）→ 定时设置（发送时间 + 3 分钟/30 分钟/1 小时/明天 9:00 + 允许峰价 + 时区与峰价时段）→ 一句人话总结
+（"将在 … 作为官方新会话发出 · in 4m 33s"）→ 返回 / 创建。创建回执显示真实任务 id 与状态，拒绝显示 DS-Hns 原话。
+表单在 15 秒轮询重绘时**不会被弹回仪表盘**，半句话不会丢。
+
+**"只显示一半"是一个真 bug，修在测量上。** 面板是 flex 纵向布局、`#panelBody` 自己滚动，所以
+`panel.scrollHeight` 读数**不是内容高度，而是面板当前高度** —— 也就是主进程刚给它的那个数。把它当成"内容需要
+多高"再报回去是一个闭环：窗口被调成"刚好装得下现在这么多"，多出来的部分留在 body 里滚动，看上去就是被裁掉
+一半。现在测量的是 **`#panelHead.offsetHeight + #panelBody.scrollHeight`**（body 是滚动元素，它的 `scrollHeight`
+才是内容自身高度）：折页展开、表单出现、报错行增加，窗口都会跟着长高。测试用一个"面板被夹在 300px、内容需要
+900px"的用例把它钉死：请求的必须是 `340x933`，而不是 `340x300`。
+
+**能力仍由 DS-Hns 回答。** 球的新通道 `mega:orb-timing` / `mega:orb-task` 调用的是**治理桥暴露给官方插件的同两个
+函数**（`scheduledTaskSurface` / `scheduleTask`），所以两个能建任务的界面不可能对"任务可以是什么"有不同说法，
+"建一个任务"也只有一份实现。表面因此从六个通道变成八个（`surface-ownership.test.js` 逐个审计）。
+
+**验证**：`orb-ui.test.js` 12 项（新增 5：球自己开表单且顺序是 提示词→时间→峰值、Enter 三种情况 + 提交载荷、
+拒绝原话 + 返回仪表盘、表单扛住轮询 + 无能力面时如实报错、**测量必须是头+body**）；`mega-core-client.test.js` 11 项
+（回到"只 require React"、只注册两个槽、**明确断言头部动作里没有新任务入口**）；`mega-core-plugin.test.js` 5 项
+（路由回到四条）；`surface-ownership.test.js` 八个通道全有主。全量 **1502/1502**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 229/229。**真机验证**（运行中的产品，重启后已载入新构建）：
+`GET /timing` → `kind=scheduled-task`、`defaults={startAt: now+3m, allowPeak:false, deliveryMode:'official-session'}`、
+`timeZone=Asia/Shanghai`、`peakPeriods=09:00-12:00, 14:00-18:00`、`peak now: true`。
+
 ## 新建定时任务：官方界面中间的浮窗，对话式输入，定时设置输入栏下方
 
 **入口在官方对话的头部动作里**（和官方的闹钟、任务列表并排，`conversation.session.header.actions`），点一下弹出

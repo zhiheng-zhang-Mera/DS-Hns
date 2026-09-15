@@ -60,10 +60,19 @@ test('every channel the dock can call is owned by a module that declares it', ()
 test('the system orb\'s window has the same rule, and a much smaller surface', () => {
   const { channels, dynamic } = preloadChannels('app/extensions/mega/ui/orb-preload.cjs')
   const declared = declaredChannels()
-  // Six: one per thing that window can do. Anything more than that is a surface nobody asked for.
+  /**
+   * Eight: one per thing that window can do, and no more.
+   *
+   * The last two are the timing pair the ball's own new-task form uses (`mega:orb-timing`, `mega:orb-task`). They
+   * are two named channels rather than one that takes an arbitrary request, for the same reason the governance
+   * actions are a closed set: a window that can ask for "anything" has to be trusted with everything. The form
+   * itself lives in this window (`ui/orb.js`) because the ball is the surface that is on screen over every
+   * application — so the channels it needs are counted here rather than added to the plugin's origin.
+   */
   assert.deepEqual(channels, [
     'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
-    // Plus the one push the ball listens on: six ways in, one way out.
+    'mega:orb-timing', 'mega:orb-task',
+    // Plus the one push the ball listens on: eight ways in, one way out.
     'mega:orb-state'
   ])
   const unowned = channels.filter((channel) => !declared.has(channel))

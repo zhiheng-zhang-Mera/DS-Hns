@@ -101,6 +101,8 @@ const CHANNELS = [
   // The system floating orb: its own window, its own document, and only these ways in (see `orb-preload.cjs`
   // — the same "the preload is the whole reachable surface" rule the dock follows).
   'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
+  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made.
+  'mega:orb-timing', 'mega:orb-task',
   // The push the ball listens on. It has no handler to remove, and it is declared all the same: a channel a
   // preload can subscribe to is part of the surface that has to be enumerable.
   'mega:orb-state',
@@ -1881,6 +1883,29 @@ function registerControlCenterIpc() {
   }))
   ipcMain.handle('mega:orb-action', guard(async (_event, payload = {}) => {
     const result = await controlAction(payload || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  /**
+   * The timing pair, for the ball's own new-task form (`ui/orb.js`).
+   *
+   * They answer with the **same two functions the governance bridge exposes** to the official plugin
+   * (`scheduledTaskSurface` / `scheduleTask`), so the two surfaces that can schedule a task cannot disagree about
+   * what a task may be — and there is exactly one implementation of "make a task", not one per window.
+   */
+  ipcMain.handle('mega:orb-timing', guard(() => {
+    try {
+      return scheduledTaskSurface()
+    } catch (error) {
+      log(`the timing surface could not be read for the orb: ${error?.message || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }))
+  ipcMain.handle('mega:orb-task', guard(async (_event, input = {}) => {
+    const result = await scheduleTask(input || {})
+    // A new task changes the queue the dashboard shows, so the ball is redrawn from the truth rather than from
+    // the form's own optimism.
     await refreshOrbView()
     if (systemOrb) systemOrb.render(systemOrbView)
     return result

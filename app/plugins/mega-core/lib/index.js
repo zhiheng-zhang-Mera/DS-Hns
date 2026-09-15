@@ -14,13 +14,12 @@
  *   GET  /mega-core/governance  → the snapshot the Control Center shows
  *   GET  /mega-core/view        → the same snapshot, composed into what the orb and the page draw
  *   POST /mega-core/action      → one of the named actions (check, retry, reset-fallback, repair, disable, enable)
- *   GET  /mega-core/timing      → what a scheduled task may be (windows, time zone, defaults, limits)
- *   POST /mega-core/task        → schedule one task (`{ prompt, startAt?, allowPeak? }`)
  *
- * The last two are the **timing surface** (pluginize Phase 2). Scheduling is not one of the recovery actions —
- * it is not something done *to* a module — so it is its own pair of routes and the bridge's closed action set is
- * unchanged. What they carry is still DS-Hns' own answer: the same `scheduler.addTask` the dock's form calls, and
- * the same price schedule a task is billed against.
+ * Scheduling is **not** one of these routes, and that is a deliberate narrowing: the new-task form lives in the
+ * floating ball's own window (`app/extensions/mega/ui/orb.js`), which talks to DS-Hns over its own IPC rather than
+ * through this origin. A route here for a form that no longer lives in this window would be a surface to keep in
+ * step for nothing — and DS-Hns' own bridge still answers `/timing` and `/task` for whenever a browser-side
+ * surface wants them.
  *
  * Three rules the shape of this file is built around:
  *
@@ -234,46 +233,6 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
         governance: governance && governance.ok !== false ? governance : null
       })
       answer(res, 200, view)
-    }
-  }))
-
-  /**
-   * What a scheduled task may be, for the new-task dialog (pluginize Phase 2).
-   *
-   * `503` with `available: false` when DS-Hns is not running, and `404` when the DS-Hns that *is* running predates
-   * this surface — two different answers, because they need two different sentences in the dialog ("start DS-Hns"
-   * versus "this build cannot schedule").
-   */
-  disposers.push(webServer.register({
-    kind: 'exact',
-    path: `${BASE}/timing`,
-    handler: async (_req, res) => {
-      const result = await callBridge('/timing', { discovery: readDiscovery(env), fetchImpl })
-      answer(res, result.available === false ? 503 : (result.status || 200), result)
-    }
-  }))
-
-  /**
-   * Schedule one task.
-   *
-   * The body is passed through **as it stands** (`prompt`, `startAt`, `allowPeak`, `deliveryMode`) rather than
-   * re-validated here: DS-Hns owns what a task is, and a host half that trimmed or defaulted anything would be a
-   * second opinion about the same request. Its refusal keeps its own status (400) and its own words, which the
-   * dialog shows verbatim.
-   */
-  disposers.push(webServer.register({
-    kind: 'exact',
-    path: `${BASE}/task`,
-    handler: async (req, res) => {
-      if (req.method !== 'POST') return answer(res, 405, { ok: false, reason: 'a task is POSTed' })
-      let body = null
-      try {
-        body = await readBody(req)
-      } catch (error) {
-        return answer(res, 400, { ok: false, reason: String(error?.message || error) })
-      }
-      const result = await callBridge('/task', { method: 'POST', body, discovery: readDiscovery(env), fetchImpl })
-      answer(res, result.available === false ? 503 : (result.status || 200), result)
     }
   }))
 

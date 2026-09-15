@@ -75,10 +75,12 @@ function makeElement(tag, id) {
 /** Load the renderer in a sandbox whose document has exactly the elements `orb.html` declares. */
 function loadOrb({ snapshot = null } = {}) {
   const elements = new Map()
-  for (const id of ['ball', 'ballGlyph', 'panel', 'panelState', 'panelBody', 'panelClose']) {
+  for (const id of ['ball', 'ballGlyph', 'panel', 'panelHead', 'panelTitle', 'panelState', 'panelBody', 'panelClose']) {
     elements.set(id, makeElement(id === 'ball' ? 'button' : 'div', id))
   }
   const calls = []
+  let timingAnswer = null
+  let taskAnswer = null
   const document = {
     getElementById: (id) => elements.get(id) || null,
     createElement: (tag) => makeElement(tag),
@@ -99,10 +101,22 @@ function loadOrb({ snapshot = null } = {}) {
       calls.push(`open:${value}`)
       return { ok: true, open: value === true, view: snapshot }
     },
-    measure: async () => ({ ok: true }),
+    measure: async (size) => {
+      calls.push(`measure:${size ? `${size.width}x${size.height}` : 'none'}`)
+      return { ok: true }
+    },
     action: async (action, id) => {
       calls.push(`action:${action}:${id}`)
       return { ok: true }
+    },
+    /** The timing surface, as DS-Hns answers it (see `scheduledTaskSurface`). */
+    timing: async () => {
+      calls.push('timing')
+      return timingAnswer || { ok: false, reason: 'timingAnswer is not set' }
+    },
+    createTask: async (input) => {
+      calls.push(`createTask:${JSON.stringify(input)}`)
+      return taskAnswer || { ok: true, task: { id: 'task-1', status: 'PENDING' } }
     },
     hover: async () => ({ ok: true }),
     drag: async () => ({ ok: true }),
@@ -114,7 +128,11 @@ function loadOrb({ snapshot = null } = {}) {
   vm.createContext(sandbox)
   vm.runInContext(source, sandbox, { filename: 'orb.js' })
   const apply = (state) => sandbox.hnsOrbView.apply(state)
-  return { sandbox, elements, calls, apply, api }
+  return {
+    sandbox, elements, calls, apply, api,
+    setTiming: (answer) => { timingAnswer = answer },
+    setTask: (answer) => { taskAnswer = answer }
+  }
 }
 
 /** Every string in a rendered tree, depth first. */
@@ -182,6 +200,57 @@ function fixtureView() {
 function payload(view, overrides = {}) {
   return { ...PANEL_STATE, view, ...overrides }
 }
+
+/** The timing surface, shaped like `scheduledTaskSurface()` in the extension. */
+function fixtureTiming(overrides = {}) {
+  return {
+    ok: true,
+    kind: 'scheduled-task',
+    fields: { prompt: { required: true }, startAt: { required: false, format: 'iso-8601' } },
+    defaults: {
+      startAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+      allowPeak: false,
+      deliveryMode: 'official-session'
+    },
+    schedule: {
+      timeZone: 'Asia/Shanghai',
+      weekdays: [1, 2, 3, 4, 5],
+      peakPeriods: [{ start: '09:00', end: '12:00' }, { start: '14:00', end: '18:00' }]
+    },
+    peak: { peak: false, nextChange: null },
+    interruptRunningAtPeak: false,
+    limits: { minStartOffsetSeconds: 0, maxStartAheadDays: 365 },
+    deliveryModes: [{ id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true }],
+    ...overrides
+  }
+}
+
+/** Click the ball's own new-task entry and let the timing read settle. */
+async function openTaskForm(orb) {
+  const said = strings(orb.elements.get('panelBody')).join(' | ')
+  assert.match(said, /新建定时任务 · New task/, 'the ball has no new-task entry')
+  const entry = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbAction === 'new-task')
+  assert.ok(entry, 'the new-task entry is not a node with the action on it')
+  entry.fire('click')
+  await tick()
+  await tick()
+  await tick()
+  return orb.elements.get('panelBody')
+}
+
+/** The first node under `root` the predicate accepts, depth first. */
+function findNode(root, predicate) {
+  let found = null
+  const visit = (node) => {
+    if (!node || typeof node !== 'object' || found) return
+    if (predicate(node)) { found = node; return }
+    for (const child of node.children || []) visit(child)
+  }
+  visit(root)
+  return found
+}
+
+const tick = () => new Promise((resolve) => setImmediate(resolve))
 
 test('the ball draws every category shut, each with its own headline', () => {
   const orb = loadOrb({ snapshot: fixtureView() })
@@ -348,6 +417,150 @@ test('a closed panel draws nothing, and no snapshot is a sentence rather than an
   const empty = loadOrb({ snapshot: null })
   empty.apply(payload(null))
   assert.match(strings(empty.elements.get('panelBody')).join(' | '), /no answer from DS-Hns/)
+})
+
+test('the ball itself starts a task: the form opens in this window, above the schedule', async () => {
+  /**
+   * The new-task entry lives here, not in the official UI's header: this ball is the surface that is on screen over
+   * every application, so starting a task from wherever the user is happens here. The form is the same
+   * conversation-first shape — the prompt, then the schedule under it — and what it may offer comes from DS-Hns.
+   */
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.apply(payload(fixtureView()))
+
+  const body = await openTaskForm(orb)
+  const said = strings(body).join(' | ')
+  assert.ok(orb.calls.includes('timing'), 'the form did not ask DS-Hns what a task may be')
+  assert.match(said, /要执行的内容/)
+  assert.match(said, /Enter 发送/)
+  // The prompt box is a chat-shaped box: the placeholder says so (it is an attribute, not text).
+  assert.match(findNode(body, (node) => node.dataset.orbField === 'prompt').placeholder, /和平时对话一样输入/)
+  // The schedule is under the input, and it says which zone the windows belong to.
+  assert.match(said, /定时设置/)
+  assert.match(said, /发送时间/)
+  assert.match(said, /时区 Asia\/Shanghai/)
+  assert.match(said, /峰价 09:00-12:00, 14:00-18:00/)
+  // The one sentence the user commits to, and the default time the surface published (five minutes out).
+  assert.match(said, /将在 .* 作为官方新会话发出 · sends as a new official conversation in /)
+
+  // The prompt box is the first control and the schedule comes after it: "the settings are under the input".
+  const order = []
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return
+    if (node.dataset && node.dataset.orbField) order.push(node.dataset.orbField)
+    for (const child of node.children || []) walk(child)
+  }
+  walk(body)
+  assert.deepEqual(order, ['prompt', 'startAt', 'allowPeak'])
+})
+
+test('Enter schedules it, Shift+Enter is a newline, and an IME composition is neither', async () => {
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.setTask({ ok: true, task: { id: 'task-abc123', status: 'PENDING' } })
+  orb.apply(payload(fixtureView()))
+  const body = await openTaskForm(orb)
+
+  const prompt = findNode(body, (node) => node.dataset.orbField === 'prompt')
+  prompt.value = '总结今天的构建日志'
+  prompt.fire('input')
+  const prevented = []
+  // An IME composition: Enter is how a Chinese user commits a candidate, so it must not send.
+  prompt.fire('keydown', { key: 'Enter', shiftKey: false, isComposing: true, preventDefault: () => prevented.push('composing') })
+  assert.equal(orb.calls.filter((call) => call.startsWith('createTask:')).length, 0, 'a composition scheduled a task')
+  prompt.fire('keydown', { key: 'Enter', shiftKey: true, isComposing: false, preventDefault: () => prevented.push('shift') })
+  assert.equal(orb.calls.filter((call) => call.startsWith('createTask:')).length, 0, 'Shift+Enter scheduled a task')
+  assert.deepEqual(prevented, [], 'a newline or a composition was prevented')
+
+  prompt.fire('keydown', { key: 'Enter', shiftKey: false, isComposing: false, preventDefault: () => prevented.push('send') })
+  assert.deepEqual(prevented, ['send'], 'Enter did not take the keystroke')
+  await tick()
+  await tick()
+  await tick()
+
+  const posted = orb.calls.filter((call) => call.startsWith('createTask:'))
+  assert.equal(posted.length, 1, 'Enter did not schedule anything')
+  const input = JSON.parse(posted[0].slice('createTask:'.length))
+  assert.equal(input.prompt, '总结今天的构建日志')
+  assert.equal(input.deliveryMode, 'official-session', 'a scheduled task must be delivered as a conversation')
+  assert.equal(input.allowPeak, false)
+  assert.ok(Date.parse(input.startAt) > Date.now(), 'the task was scheduled in the past')
+  // The receipt names the task DS-Hns actually made, and the box is cleared so a second Enter cannot repeat it.
+  const after = strings(orb.elements.get('panelBody')).join(' | ')
+  assert.match(after, /已加入队列 #task-abc123/)
+  assert.equal(findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt').value, '')
+})
+
+test('a refusal is repeated in DS-Hns words, and the window can go back to the dashboard', async () => {
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.setTask({ ok: false, reason: 'a task needs a prompt', field: 'prompt' })
+  orb.apply(payload(fixtureView()))
+  const body = await openTaskForm(orb)
+
+  const prompt = findNode(body, (node) => node.dataset.orbField === 'prompt')
+  prompt.value = 'x'
+  prompt.fire('input')
+  findNode(body, (node) => node.dataset.orbAction === 'create-task').fire('click')
+  await tick()
+  await tick()
+  await tick()
+  assert.match(strings(orb.elements.get('panelBody')).join(' | '), /a task needs a prompt/, 'the refusal was swallowed')
+
+  // Back to the dashboard: the ball is a glance first, and the form is a place you visit.
+  findNode(orb.elements.get('panelBody'), (node) => node.textContent === '返回 · Back').fire('click')
+  const dashboard = strings(orb.elements.get('panelBody')).join(' | ')
+  assert.match(dashboard, /价格 · Price/)
+  assert.doesNotMatch(dashboard, /要执行的内容/)
+})
+
+test('the form survives a poll, and a snapshot with no timing surface says so instead of guessing', async () => {
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.apply(payload(fixtureView()))
+  await openTaskForm(orb)
+  const prompt = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt')
+  prompt.value = '半句话'
+  prompt.fire('input')
+
+  // The shell pushes a new view every 15 seconds. Being thrown back to the dashboard mid-sentence would lose the
+  // text, so the form stays and keeps what was typed.
+  orb.apply(payload(fixtureView()))
+  const afterPoll = strings(orb.elements.get('panelBody')).join(' | ')
+  assert.match(afterPoll, /要执行的内容/, 'a poll closed the form')
+  assert.equal(findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt').value, '半句话')
+
+  // A DS-Hns that cannot answer the timing question is reported, not papered over with invented defaults.
+  const withoutTiming = loadOrb({ snapshot: fixtureView() })
+  withoutTiming.setTiming({ ok: false, reason: 'this build does not answer timing questions' })
+  withoutTiming.apply(payload(fixtureView()))
+  const said = strings(await openTaskForm(withoutTiming)).join(' | ')
+  assert.match(said, /读不到调度能力：this build does not answer timing questions/)
+})
+
+test('the window is asked for the whole panel: the head plus the body, never the height it was given', () => {
+  /**
+   * This is the "only half of it is shown" bug, asserted where it happened.
+   *
+   * The panel is a flex column whose body scrolls, so `panel.scrollHeight` is the height the panel *currently has*
+   * — the number the shell just gave it. Measuring that and asking for it back is a closed loop: the window is
+   * sized to what already fits, the overflow stays inside the body, and the panel looks cropped. The measurement
+   * has to be the head plus the body's own content height.
+   */
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.apply(payload(fixtureView()))
+  orb.calls.length = 0
+  // What a browser would report: the panel is capped at 300px, its body scrolls, and the content needs 900.
+  orb.elements.get('panel').offsetWidth = 340
+  orb.elements.get('panel').scrollHeight = 300
+  orb.elements.get('panelHead').offsetHeight = 33
+  orb.elements.get('panelBody').scrollHeight = 900
+  // A new content height has to be measured even though the panel's own height did not change: this is what a fold
+  // opening, or the form appearing, looks like.
+  orb.sandbox.hnsOrbView.measure()
+  const measured = orb.calls.filter((call) => call.startsWith('measure:'))
+  assert.deepEqual(measured, ['measure:340x933'], `the panel's own height leaked into the measurement: ${measured.join(', ')}`)
 })
 
 test('the ball keeps its tone and its glyph from the view, not from the dashboard', () => {
