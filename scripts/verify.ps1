@@ -112,6 +112,18 @@ Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'fun
 Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
 Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
 Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
+# ---- The Harness profile's copy of the plugin DS-Hns ships (app\harness-profile.cjs) ----
+# The profile holds a plain *copy* of `app\plugins\mega-core` (pnpm materialises a `file:` dependency),
+# and the round that synced it by hand carried the package manifest into `lib/` along with the two halves.
+# The Harness resolves a client plugin's bundle through the nearest manifest that names the package, so
+# that file made it look for `lib\lib\client.js`: the plugin tree failed to compose and the launch ended
+# before the official UI existed. The launch now refreshes the copy from the shipped package first.
+Check 'The shipped plugin keeps its manifest at the root' (-not (Test-Path "$ROOT\app\plugins\mega-core\lib\package.json"))
+Check 'The launch refreshes the profile copy of the shipped plugin' ((Test-Path "$ROOT\app\harness-profile.cjs") -and ($desktopMain -match 'syncShippedPackage') -and ($desktopMain.IndexOf('syncHarnessProfilePlugin()') -lt $desktopMain.IndexOf("logLine('--- DSH launch begin ---')")))
+$profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } else { 'web' }
+$profilePlugin = "$ROOT\data\profiles\$profileName\node_modules\dsh-plugin-mega-core"
+Check 'The installed profile copy carries no manifest below its root' ((-not (Test-Path $profilePlugin)) -or (-not (Test-Path "$profilePlugin\lib\package.json")))
+Check 'Startup failures carry the Harness own last words' (($desktopMain -match 'function harnessOutputTail') -and ($desktopMain -match 'Harness output \(tail\)'))
 # ---- MEGA Protection Layer: the enhancement layer fails safely (startup2.md section 12-section 18) ----
 $protection = Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'MEGA Protection Layer exists with the six module states' (($protection -match 'DISABLED') -and ($protection -match 'STARTING') -and ($protection -match 'HEALTHY') -and ($protection -match 'DEGRADED') -and ($protection -match 'FAILED') -and ($protection -match 'RECOVERING'))

@@ -5,6 +5,7 @@ $node = (Get-Command node).Source
 $syntaxFiles = @(
   "$ROOT\app\desktop-main.cjs",
   "$ROOT\app\runtime-process.cjs",
+  "$ROOT\app\harness-profile.cjs",
   "$ROOT\app\extensions\manager.cjs",
   "$ROOT\app\sub-worker\manager.cjs",
   "$ROOT\app\sub-worker\runtime.cjs",
