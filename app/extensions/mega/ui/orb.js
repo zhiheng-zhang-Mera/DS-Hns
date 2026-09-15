@@ -35,8 +35,13 @@
   let measured = null
   let over = false
 
-  /** The tone vocabulary, in one place: the view model's names, the CSS variables' names. */
-  const TONE_CLASS = { ok: 'tone-ok', warn: 'tone-warn', bad: 'tone-bad', unknown: 'tone-unknown' }
+  /**
+   * The tone vocabulary, in one place: the view model's names, the CSS variables' names.
+   *
+   * `busy` is not a severity — it is "something is happening right now" (a worker slot in use, a balance being
+   * refreshed) — so it is a colour of its own rather than being folded into `ok`, which would read as "fine".
+   */
+  const TONE_CLASS = { ok: 'tone-ok', warn: 'tone-warn', bad: 'tone-bad', unknown: 'tone-unknown', busy: 'tone-busy' }
 
   function element(tag, className, text) {
     const node = doc.createElement(tag)
@@ -47,6 +52,70 @@
 
   function toneClass(tone) {
     return TONE_CLASS[tone] || 'muted'
+  }
+
+  /**
+   * One dashboard row: the plan's two labels, the value, and the tone that makes a fault visible.
+   *
+   * The value's colour is the *tone's* colour when there is one and plain text otherwise — the rule the official
+   * page and the panel already follow, applied to the live numbers so a failed queue and a healthy one cannot
+   * look alike.
+   */
+  function drawField(entry) {
+    const row = element('div', 'field')
+    const label = element('div', 'label')
+    label.appendChild(element('span', 'muted', entry.cn))
+    label.appendChild(element('small', null, entry.en))
+    row.appendChild(label)
+    row.appendChild(element('div', `value ${toneClass(entry.tone)}`, entry.value))
+    return row
+  }
+
+  /**
+   * The dashboard: the price window and its countdown, the account, the queue and the parallelism — the four
+   * cards the old expanded dock drew, now read out of the same view model the official page uses.
+   *
+   * It is drawn **instead of** the module roster, not instead of governance: the ball is a glance, and the
+   * rosters are a page. So the dashboard comes first, and what governance has to say follows it.
+   *
+   * A snapshot without a dashboard block is a reason, not a wall of `—`: an empty dashboard and an unreachable
+   * one are different pictures, and only one of them is the user's problem.
+   */
+  function drawDashboard(dashboard) {
+    if (!dashboard) return null
+    const wrap = element('div', 'dashboard')
+    if (dashboard.ok === false) {
+      wrap.appendChild(element('div', 'muted', dashboard.reason || '仪表盘不可用 · dashboard unavailable'))
+      return wrap
+    }
+    for (const entry of dashboard.lines || []) {
+      if (!entry.rows || !entry.rows.length) continue
+      wrap.appendChild(element('h4', null, `${entry.cn} · ${entry.en}`))
+      for (const row of entry.rows) wrap.appendChild(drawField(row))
+    }
+    for (const [title, rows] of [['任务 · Tasks', dashboard.execution], ['并行 · Parallelism', dashboard.parallelism]]) {
+      if (!rows || !rows.length) continue
+      wrap.appendChild(element('h4', null, title))
+      for (const row of rows) wrap.appendChild(drawField(row))
+    }
+    /**
+     * The dashboard's own buttons — today `refresh-balance`, the read that makes the account newer.
+     *
+     * They are drawn only when the snapshot offers them (`control-center.cjs` withholds one while the balance is
+     * already current), and they go through the same action channel every other button in this panel uses.
+     */
+    const actions = element('div', 'actions')
+    for (const action of dashboard.actions || []) {
+      const button = element('button', 'act', `${action.cn} · ${action.en}`)
+      button.type = 'button'
+      if (action.reason) button.title = `余额状态：${action.reason} · balance state: ${action.reason}`
+      button.addEventListener('click', () => {
+        if (api && typeof api.action === 'function') Promise.resolve(api.action(action.id, null)).catch(() => {})
+      })
+      actions.appendChild(button)
+    }
+    if (actions.children.length) wrap.appendChild(actions)
+    return wrap
   }
 
   /** The ball's glyph: a dot, plus how many things want attention when any do. */
@@ -66,7 +135,7 @@
     ball.style.height = `${Math.round(Number(state.ballSize) || 44)}px`
   }
 
-  /** The panel: the same body the in-UI orb shows, drawn in this window's own document. */
+  /** The panel: the live dashboard first, then what governance has to say about itself. */
   function drawPanel() {
     if (!panel || !panelBody) return
     panel.hidden = !state.open
@@ -82,6 +151,9 @@
       panelBody.appendChild(element('div', 'muted', 'DS-Hns 没有应答 · no answer from DS-Hns'))
       return
     }
+
+    const dashboard = drawDashboard(view.dashboard)
+    if (dashboard) panelBody.appendChild(dashboard)
 
     // The §4.2 lines: faults first, then what is fine.
     for (const entry of view.lines || []) {
@@ -121,52 +193,13 @@
     actions.appendChild(refresh)
     panelBody.appendChild(actions)
 
-    // §4.4's fields: the full page in the panel too, because this window is the one that has no settings page.
-    const fields = element('div', 'fields')
-    for (const field of view.fields || []) {
-      const row = element('div', 'field')
-      const label = element('div', 'label')
-      label.appendChild(element('span', 'muted', field.cn))
-      label.appendChild(element('small', null, field.en))
-      row.appendChild(label)
-      row.appendChild(element('div', `value ${toneClass(field.tone)}`, field.value))
-      fields.appendChild(row)
-    }
-    panelBody.appendChild(fields)
-
-    const roster = element('div', 'roster')
-    roster.appendChild(element('h4', null, '模块 · Modules'))
-    for (const entry of view.modules || []) {
-      const row = element('div', 'row')
-      const mark = entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : '⚠'
-      row.appendChild(element('span', toneClass(entry.tone), `${mark} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}`))
-      for (const action of entry.actions || []) {
-        const button = element('button', 'act', action)
-        button.type = 'button'
-        button.addEventListener('click', () => {
-          if (api && typeof api.action === 'function') Promise.resolve(api.action(action, entry.id)).catch(() => {})
-        })
-        row.appendChild(button)
-      }
-      roster.appendChild(row)
-    }
-    roster.appendChild(element('h4', null, '社区插件 · Bundled plugins'))
-    for (const entry of view.plugins || []) {
-      const row = element('div', 'row')
-      const mark = entry.state === 'installed' ? '✓' : '⚠'
-      row.appendChild(element('span', toneClass(entry.tone), `${mark} ${entry.id} — ${entry.state}${entry.installedVersion ? ` @${entry.installedVersion}` : ''}`))
-      for (const action of entry.actions || []) {
-        const button = element('button', 'act', action)
-        button.type = 'button'
-        button.addEventListener('click', () => {
-          if (api && typeof api.action === 'function') Promise.resolve(api.action(action, entry.id)).catch(() => {})
-        })
-        row.appendChild(button)
-      }
-      roster.appendChild(row)
-    }
-    panelBody.appendChild(roster)
-    panelBody.appendChild(element('div', 'note', 'Mega 也在 官方 Settings › Mega · the full page is also in Settings › Mega'))
+    /**
+     * §4.4's fields, the modules and the bundled plugins belong to the official Settings page — this window has
+     * nowhere to put a settings page, so it says where the rest lives rather than growing one of its own. The
+     * governance facts that *do* belong on a ball (what is degraded, what wants attention, what can be done
+     * about it) are the lines and the action buttons above.
+     */
+    panelBody.appendChild(element('div', 'note', '完整细节与恢复动作见 官方 Settings › Mega · details and recovery live in Settings › Mega'))
   }
 
   /** Where the panel goes and how tall it may be: the shell's answer, applied to this element. */

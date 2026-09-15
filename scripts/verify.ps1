@@ -229,13 +229,16 @@ Check 'The ball grows its panel toward the middle of the screen' (($systemOrb -m
 Check 'The ball remembers where it was left, in a file rather than in a page' (($systemOrb -match 'function createOrbState') -and ($mega -match "data', 'state', 'system-orb\.json'"))
 Check 'The orb window has a document, a stylesheet and an enumerable surface' ((Test-Path "$ROOT\app\extensions\mega\ui\orb.html") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.css") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.js") -and ($orbPreload -match 'mega:orb-snapshot') -and ($orbPreload -match 'mega:orb-action'))
 Check 'The ball draws the same view model as the official page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
-# There is one ball, and it is the system one: the plugin's browser half registers the settings section only.
+# There IS a ball again, in the official overlay slot, and the plugin's browser half also draws the settings
+# section: one view model, two surfaces, and the system ball is the same module's (`system-orb.cjs`).
 $orbClient = Get-Content "$ROOT\app\plugins\mega-core\lib\client.js" -Raw -ErrorAction SilentlyContinue
-# The ball is the plugin's, drawn into the official overlay slot: one ball, on the surface the
-# user is looking at. The window that used to draw the second one is off by default now.
+# The ball is the plugin's, drawn into the official overlay slot: on the surface the user is looking at.
 Check 'The plugin draws the ball, into the official overlay slot' (($orbClient -match "inject\('shell\.overlay'") -and ($orbClient -match 'function MegaOrb'))
 Check 'The plugin still draws the settings section' ($orbClient -match "inject\('settings\.section'")
-Check 'The ball closes when the user clicks outside it' (($orbClient -match "addEventListener\('pointerdown'") -and ($orbClient -match 'node\.contains\(event\.target\)') -and ($orbClient -match 'setOpen\(false\)'))
+Check 'The ball closes when the user clicks outside it' (($orbClient -match "addEventListener\('pointerdown'") -and ($orbClient -match 'node\.contains\(target\)') -and ($orbClient -match 'setOpen\(false\)'))
+# The two surfaces draw the two halves of the view model: the ball the live dashboard, the page the governance
+# fields. Both come from `view.js`, so a number on one cannot disagree with the other.
+Check 'The ball draws the dashboard and the page draws governance' (($orbClient -match 'dashboard: view\.dashboard') -and ($orbClient -match 'view\.fields \|\| \[\]\)\.map\(FieldRow\)') -and ($orbClient -match 'COUNTDOWN_ROW'))
 Check 'The system orb is opt-in, and torn down with the other windows' (($mega -match "if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)") -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
 # ---- The old Mega dock is retired: off by default, back on request ----
 Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))

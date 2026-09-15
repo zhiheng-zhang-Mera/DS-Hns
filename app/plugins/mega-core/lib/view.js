@@ -32,8 +32,110 @@ export const MEGA_ACTIONS = Object.freeze(['check', 'retry', 'reset-fallback', '
 /** The snapshot key §7's Human Gate will publish. Absent today; read, never required. */
 export const PENDING_KEY = 'pending'
 
+/**
+ * The dashboard's countdown row.
+ *
+ * DS-Hns publishes the row with the instant the window changes (`nextChangeIso`), not with a number of seconds:
+ * the subtraction belongs where the view is built, so a panel opened three minutes after the snapshot shows
+ * three minutes less rather than a stale figure. The two halves agree on this id by string, which is exactly
+ * what `tests/unit/mega-core-view.test.js` checks.
+ */
+export const COUNTDOWN_ROW = 'price:until-off-peak'
+
 /** Deliberately dot-free so a float can never grow a fractional part from arithmetic on it. */
 const DEFAULT_SIZE = 40
+
+/**
+ * The countdown, re-derived here rather than read out of the snapshot.
+ *
+ * `controlCenter()` computes `secondsLeft` once, when the snapshot is taken; a panel opened three minutes later
+ * would otherwise show the number from three minutes ago. The instant (`iso`) and the status it changes *to*
+ * are facts that do not go stale, so those are what the snapshot carries and this is where the subtraction
+ * happens — with the snapshot's own timestamp as the other end, so a view never mixes two clocks.
+ */
+function countdownText(iso, nowMs) {
+  const target = Date.parse(String(iso || ''))
+  if (!Number.isFinite(target)) return '—'
+  const whole = Math.max(0, Math.floor((target - nowMs) / 1000))
+  const hours = Math.floor(whole / 3600)
+  const minutes = Math.floor((whole % 3600) / 60)
+  const seconds = whole % 60
+  if (hours) return `${hours}h ${minutes}m`
+  if (minutes) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+/**
+ * One row of the dashboard, kept in the snapshot's own vocabulary (a bilingual label, a value, a tone) so a
+ * surface renders it with the same code it renders a §4.4 field with.
+ */
+function dashboardRow(entry, nowMs) {
+  if (!entry || typeof entry !== 'object') return null
+  const value = entry.id === COUNTDOWN_ROW && entry.nextChangeIso
+    ? countdownText(entry.nextChangeIso, nowMs)
+    : entry.value
+  return {
+    id: entry.id || null,
+    cn: entry.cn || '',
+    en: entry.en || '',
+    value: value === undefined || value === null || value === '' ? '—' : String(value),
+    tone: entry.tone || null
+  }
+}
+
+/**
+ * The dashboard: the old expanded dock's live summary — the price window and its countdown, the account
+ * balance, the queue and the parallelism — read out of the governance snapshot's `dashboard` block.
+ *
+ * It is carried through, not recomputed: the numbers are the Control Center's, so the ball and the dock cannot
+ * disagree about how many tasks are queued. An absent block is reported with a reason instead of as a wall of
+ * `—` that would look like a measurement.
+ *
+ * @param {object|null} source `controlCenter().dashboard`
+ * @param {number} nowMs       the instant the view was built
+ */
+function buildDashboard(source, nowMs) {
+  const price = (source?.lines || []).find((entry) => entry.id === 'price') || null
+  const balance = (source?.lines || []).find((entry) => entry.id === 'balance') || null
+  const subWorker = (source?.lines || []).find((entry) => entry.id === 'sub-worker') || null
+  const list = (entry) => (entry?.rows || []).map((item) => dashboardRow(item, nowMs)).filter(Boolean)
+
+  return {
+    ok: Boolean(source),
+    reason: source ? null : 'DS-Hns did not publish a dashboard block in its snapshot',
+    /**
+     * The three groups, in the order the old dock's cards read: what the window costs, what is left to spend,
+     * what the optional worker is doing. With no source the list is **empty** rather than three empty groups:
+     * a group heading over no rows is a panel that looks measured and says nothing, and the reason above is
+     * the honest answer to "why is there nothing here".
+     */
+    lines: source
+      ? [
+          { id: 'price', cn: price?.cn || '价格', en: price?.en || 'Price', rows: list(price) },
+          { id: 'balance', cn: balance?.cn || '账户', en: balance?.en || 'Account', rows: list(balance) },
+          { id: 'sub-worker', cn: subWorker?.cn || '子工作器', en: subWorker?.en || 'Sub-worker', rows: list(subWorker) }
+        ]
+      : [],
+    /** The queue, as the old dock's task card counted it. */
+    execution: list({ rows: source?.execution || [] }),
+    /** Parallelism and the machine it was computed from. */
+    parallelism: list({ rows: source?.parallelism || [] }),
+    /**
+     * The dashboard's own actions — today exactly one: `refresh-balance`, the read that makes the account
+     * newer. It is a dashboard action rather than a member of `MEGA_ACTIONS` because it is the only thing here
+     * that *reads* instead of acting on a module, and because it names no id: the closed set above is about the
+     * protection layer and the plugin set, and widening it would widen what a plugin may ask governance to do.
+     *
+     * The list is carried through from the snapshot (`control-center.cjs` decides when a read could change the
+     * answer); with no snapshot there is nothing to refresh, so there is no button.
+     */
+    actions: source && Array.isArray(source.actions)
+      ? source.actions
+        .filter((entry) => entry && typeof entry === 'object' && entry.id)
+        .map((entry) => ({ id: String(entry.id), cn: entry.cn || '', en: entry.en || '', reason: entry.reason || null }))
+      : []
+  }
+}
 
 /** One field of §4.4: the two labels the plan writes side by side, a value, and the tone that makes it visible. */
 function field(id, cn, en, value, tone = null) {
@@ -87,6 +189,7 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
   const pluginId = plugin.id || 'dsh-plugin-mega-core'
   const version = plugin.version || null
   const at = now()
+  const atMs = Date.parse(at)
   const bridgeOk = Boolean(bridge?.available)
 
   // Unavailable first: everything below assumes a snapshot, and a missing one is not "zero faults".
@@ -110,6 +213,9 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
       modules: [],
       plugins: [],
       capabilities: [],
+      // No snapshot means no numbers: the dashboard says why rather than drawing a queue of zero (§4.2's rule,
+      // applied to the live summary: an empty dashboard and an unreachable one are different pictures).
+      dashboard: buildDashboard(null, atMs),
       version: { plugin: version, schema: bridge?.schema ?? null },
       at
     }
@@ -195,6 +301,12 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
     modules,
     plugins,
     capabilities,
+    /**
+     * The live summary, next to — never instead of — the governance fields above. The ball draws this, the
+     * Settings page draws the fields; both are this one object, so the two surfaces cannot show two opinions of
+     * what the queue is doing.
+     */
+    dashboard: buildDashboard(governance.dashboard || null, Number.isFinite(atMs) ? atMs : Date.now()),
     version: { plugin: version, schema: bridge?.schema ?? null },
     at
   }

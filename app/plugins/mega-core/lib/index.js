@@ -193,6 +193,9 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
       }
       const result = await callBridge('/action', { method: 'POST', body: { action: body.action, id: body.id }, discovery: readDiscovery(env), fetchImpl })
       // The bridge's own status decides: 409 for a refused action, 503 for an unreachable bridge, 200 otherwise.
+      // `refresh-balance` comes back as soon as governance has *started* the read, which is what the button in
+      // the panel needs: an account read has a 20-second timeout, and holding the panel open for it would freeze
+      // the surface it is meant to update. The answer arrives on the next `/view`.
       const status = result.available === false ? 503 : (result.status || (result.ok === false ? 409 : 200))
       answer(res, status, result)
     }

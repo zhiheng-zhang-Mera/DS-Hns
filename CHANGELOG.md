@@ -3,6 +3,95 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 余额：启动后自己读一次，仪表盘上补回一个真的刷新按钮
+
+**余额显示不出来，不是显示的问题，是没人去读。** 面板上的账户三行一直是 `—`、状态一直是"未刷新"，因为
+`balanceService` 在这套 UI 里**从来没有触发点**：旧 Dock 是"Balance 模块被滚进视野"时才刷新的，而那个模块已经
+不存在了。所以这一轮补的是两个触发点，不是一个样式问题。
+
+**启动后自读一次。** `scheduleStartupBalanceRead()` 在启动序列里排在托盘与悬浮球之后，**3 秒延迟 + `unref()`
+定时器**：慢的或挂住的 provider 永远不能拖住官方 UI、Dock 或球（§29 的故障隔离）。只读一次 —— 重复读就是轮询，
+而账户不值得轮询。`startup` 因此成为 `BalanceService` 的第四个触发名（`startup | module-open | manual | retry`），
+走的还是同一个实现：合并并发、隔离 provider、失败保留上次成功值。
+
+**仪表盘的刷新按钮回来了，而且它真的去读。** 旧 Dock 的"刷新"按钮走 `mega:balance`，而插件的浏览器半边在
+**另一个进程**（Harness），够不到那条 IPC —— 这就是按钮"消失"的原因。现在它走**已有的具名动作**通道：
+`refresh-balance` 作为 Control Center 的动作，经治理桥 → `controlAction()` → 同一个 `refreshBalance()`。
+三点是刻意的：
+
+* **不需要 id。** 别的动作都指向某个模块或插件，重读账户是关于账户的：所以它在 id 检查**之前**被回答，而不是
+  硬塞一个假 id（也**没有**因此扩大治理桥的动作闭集：`check/retry/reset-fallback/repair/disable/enable` 原样）。
+* **不等待。** provider 读有 20 秒超时，调用者是 340px 面板里的一个按钮：它会立刻回"已开始"，读数在后台跑，
+  结果由下一次 `/view` 带回来（服务在此期间自报 `refreshing`，面板就显示"刷新中"）。面板随后补一次确认读，
+  免得一秒就能完成的读要等满 15 秒轮询。
+* **该有时才有。** 按钮由**快照**决定：未读 / 上次成功值 / 读取失败 / 未配置密钥 / 正在刷新 → 有；余额是当前的
+  → **没有**（重读一个已经正确的余额只会花掉额度）。渲染端不自己发明，也不自己隐藏。
+
+**顺带一个新状态：未配置密钥。** 启动自读会让"这台机器根本没有 DeepSeek key"变成可见状态，所以
+`MISSING_CREDENTIAL` 是**自己的状态**——普通颜色、写明原因（"未配置密钥 · no API key"）、刷新按钮仍然给（去配上
+key 再点它，就是修好它的路径），而不是每次开机都亮一条永远为真的警告。
+
+**还顺手把"一条刷新路径"变回字面事实。** `mega-lifecycle-wiring.test.js` 一直断言 index 里只有一个
+`refreshBalances(` 调用点（防止第二套策略悄悄长出来）。我这轮先写成了两个调用点，测试当场挡下 —— 于是收敛成
+`refreshBalance(trigger)`，启动读、Dock 的 `mega:balance`、仪表盘按钮三条触发共用它。
+
+**验证**：`balance-service.test.js` 11 项（新增 2：`startup` 与其它触发同路，且 `describe/describeCached` **不会**
+发起读；无密钥的启动读是数据不是异常）；`control-center.test.js` 11 项（新增 2：按钮在四种状态下出现、余额当前时
+不出现；无密钥是普通状态）；`mega-core-client.test.js` 10 项（新增 1：面板有这个按钮，点了 POST
+`{action:'refresh-balance', id:null}`）；`orb-ui.test.js` 7 项（新增 1：系统球画同一个按钮、快照不给就不画）。
+真机验证（本机 35 位 key，一次一次性 state 目录）：`startup read: ok [{"currency":"CNY","total":114.81,…}]` →
+dashboard `总余额 = ¥ 114.81 (ok)`、`读取状态 = 正常 · ok`、`actions: []`（已是最新，不给按钮）。
+
+## 仪表盘回家：价格 / 谷价倒计时 / 余额 / 调度 / 队列 / 并行度，接回真实数据源
+
+**问题是一句大实话**：球的面板打开后是治理字段（插件健康、版本、重试、回退…），而旧 Dock 顶部那四张卡
+（时段与谷价倒计时、任务运行/等待、并行 current/cap、余额三张卡）**一个都没接进来**。不是画错了，是
+**没有数据**：`buildControlCenter()` 只回 `{ sections, modules, plugins, degraded, failed, failing }`，
+治理桥转发的就是这一份，于是运行中的球拿不到余额、拿不到倒计时。
+
+**数据源是找回的，不是新造的。** 新加的 `dashboard` 块由 `buildControlCenter()` 从**同一份快照**里装配，
+另外两件它自己拿不到的事实由扩展交给它（都是各自的真实 owner）：
+
+| 仪表盘上的东西 | 来源 |
+| --- | --- |
+| 时段 PEAK/OFF-PEAK、下一次切换的时刻 | `scheduler.describe().peak`（`billing/peak-engine.js` 的 `nextChangeInfo`） |
+| 峰价时段表 + 价格来源 | `PricingRepository.getSchedule()` / `.describe()` —— **与计费同源**，不重新加载一份 |
+| 余额（总/充值/赠送 + 读取状态） | `balanceService.describe()` —— 读不到就 `—`，**绝不编一个 ¥0.00** |
+| 运行中 / 等待 / 阻塞 / 重试 / 失败 / 总数 | `scheduler.describe().activeQueue` 与 `.counts`，与执行段同一份数字 |
+| 并行 current/cap、CPU、空闲内存 | `scheduler.describe().concurrency` / `.system`（硬件探针） |
+| 子工作器 / 自动委派 | `snapshot.subWorker` |
+
+**倒计时按"时刻"发布，不按"剩余秒数"。** 快照每 15 秒一份，而倒计时每一秒都在变：所以 dashboard 行里存的是
+`nextChangeIso`（切换的那个瞬间），由 `view.js` 用**自己的时钟**减出来 —— 旧 Dock 每秒 `Date.now()` 重算的
+那行逻辑，在新结构里由"发布时刻 + 视图重算"承担。面板打开着的时候还每秒自减一次（`useCountdown`），
+所以它不是 15 秒跳一格。下一次变化的时间按**计费时区**（Asia/Shanghai）打印：06:00Z 显示成 14:00，与用户
+对照的价格页一致。
+
+**一行标题也据实改了。** 旧 Dock 那张 timer 卡叫"距下一次谷价"，但 `nextChange` 是**下一次价格切换**
+（两个方向都算）：谷价时段里它指的是"下一次峰价"，照旧文案会让人等一个已经在手的东西。现在叫
+"距价格切换 / Until price change"；谷价时段里这一行显示"已是谷价 · off-peak now"。
+
+**两个界面各画自己那一半，同一份 view model。** 球的面板：仪表盘在上，治理的 lines/数字/动作按钮跟在后面
+（能看到、能点，但名册不占地方），再点"治理详情"才展开 §4.4 字段与模块名册。官方 Settings › Mega 整页：
+§4.4 的十一个字段、模块名册、社区插件名册 —— 不重复画仪表盘（那是球的活）。系统球（`orb.js`）用同一份
+`view.dashboard` 画同样的分组。**一个数字只有一个来源**，所以球和整页不可能各说一套。
+
+**顺带补上一个真缺陷**：verify 里那条"球点外面会收起"一直是 **FAIL** —— 检查项找的是
+`node.contains(event.target)`，而浏览器半边实际只有 Esc 与 × 能关面板（"点外面收起"这套逻辑当时只在**系统球
+自己的窗口**里实现了，`orb.js` 的 `onDocumentPointerDown`）。复查结论那轮把 in-UI 球拿掉时，检查项没跟着走。
+现在球真的实现了这件事（`document` 上 `pointerdown` + 球与面板两个 box 的 `contains`，不 `preventDefault`：
+点击照样落到它原本该落的地方），检查项也改成断言真实代码。
+
+**验证**：`control-center.test.js` 9 项（新增 2：仪表盘与 sections 同源、余额没读过不编 ¥0.00 / 失败保留上次成功值）、
+`mega-core-view.test.js` 9 项（新增 3：仪表盘数字 + 十一个字段原样、倒计时按时刻重算三档、无 dashboard 块给理由）、
+`mega-core-client.test.js` 9 项（新增 2：球开在仪表盘且页面不重复画、倒计时每秒自减）、
+新增 `orb-ui.test.js` 5 项（系统球面板画出五组数字与三种色调、仪表盘在治理之前、缺 dashboard 给理由、
+关着不画、球的色调仍来自治理）。真实链路验证：用**真实 SchedulerService + PricingRepository**（一次性
+state 目录）构建 dashboard → view，得到 `OFF-PEAK | 09:00-12:00, 14:00-18:00 · Asia/Shanghai | official ·
+2026-09-07 | 14:00 → 峰价 Peak | 并行 4/4 | 空闲内存 13.4 GB`。全量测试唯一失败仍是既有的
+`mega-extension-integration`（要 `DSH_SYSTEM_ORB=1` 才建球窗口，基线同样失败）；`verify.ps1` 现在
+**ALL CHECKS PASSED**（含上面那条被修好的检查）。
+
 ## 只留系统悬浮球；球能盖住别的应用了；点击不再闪烁
 
 第四轮复查的结论（"Mega侧栏已正确移除"是确认，另外三条都改掉了，其中两条是真缺陷）。

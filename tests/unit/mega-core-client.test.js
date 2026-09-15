@@ -9,11 +9,12 @@ const vm = require('node:vm')
 /**
  * The Mega Core Plugin's browser half (`app/plugins/mega-core/lib/client.js`).
  *
- * One surface now — the Mega page in the official Settings — because the review of the two balls was "只要系统
- * 最外层那个" and the survivor is the system ball (`app/extensions/mega/system-orb.cjs`), which does not need
- * this window to be in front. So the properties worth asserting here are the bundle's shape (loaded the way
- * the shell loads it), that it registers **only** the settings section, that the page renders §4.4 from the
- * shell's view model with its own opaque card, and that it stops asking DS-Hns anything while it is hidden.
+ * Two surfaces, and each draws the half of the view model it is for: the orb opens on the **dashboard** (the
+ * price window and its countdown, the account balance, the queue and the parallelism — what the old expanded
+ * dock showed) and the official Settings page renders **governance** (§4.4's fields, the module roster, the
+ * bundled plugins and their actions). So the properties worth asserting here are the bundle's shape (loaded the
+ * way the shell loads it), which slots it claims, that the ball draws the live numbers while the page draws the
+ * governance body, and that it stops asking DS-Hns anything while it is hidden.
  *
  * The React stand-in is deliberately tiny: it renders element trees and runs effects, which is as much as
  * these properties need. It is not a substitute for the manual UI review.
@@ -23,8 +24,16 @@ const ROOT = path.resolve(__dirname, '..', '..')
 const CLIENT = path.join(ROOT, 'app', 'plugins', 'mega-core', 'lib', 'client.js')
 const source = fs.readFileSync(CLIENT, 'utf8')
 
-/** A governance view, shaped like `view.js`'s answer. */
+/** A governance view, shaped like `view.js`'s answer — dashboard block and governance fields together. */
 function fixtureView() {
+  /**
+   * The countdown and the moment the snapshot was taken, as one pair.
+   *
+   * They are relative to each other on purpose: the panel re-bases the countdown against `at` and ticks it, so
+   * what a test can assert is the difference, not a wall-clock instant that would rot by tomorrow.
+   */
+  const at = new Date();
+  const nextChange = new Date(at.getTime() + (27 * 60 + 12) * 1000).toISOString();
   return {
     ok: true,
     available: true,
@@ -40,13 +49,55 @@ function fixtureView() {
       { id: 'health', cn: '插件健康', en: 'Plugin health', value: '5/7', tone: 'warn' },
       { id: 'pin', cn: '版本钉', en: 'Update pin', value: 'dsh-wallpaper-engine @ v0.7.1', tone: null }
     ],
+    /**
+     * The live half. It is the same rows the Control Center's dashboard carries, countdown included, because
+     * that is where they come from: `view.js` copies `controlCenter().dashboard` and turns `nextChangeIso` into
+     * the countdown against `at`.
+     */
+    dashboard: {
+      ok: true,
+      reason: null,
+      lines: [
+        {
+          id: 'price',
+          cn: '价格',
+          en: 'Price',
+          rows: [
+            { id: 'price:window', cn: '电费时段', en: 'Price window', value: 'OFF-PEAK', tone: null },
+            { id: 'price:until-off-peak', cn: '距下一次谷价', en: 'Until off-peak', value: '27m 12s', tone: 'ok', nextChangeIso: nextChange }
+          ]
+        },
+        {
+          id: 'balance',
+          cn: '账户',
+          en: 'Account',
+          rows: [
+            { id: 'balance:total', cn: '总余额', en: 'Total balance', value: '¥ 12.50', tone: 'ok' },
+            { id: 'balance:state', cn: '读取状态', en: 'Balance read', value: '正常 · ok', tone: 'ok' }
+          ]
+        }
+      ],
+      execution: [
+        { id: 'execution:running', cn: '运行中的 worker', en: 'Running workers', value: '2', tone: 'busy' },
+        { id: 'execution:queued', cn: '排队任务', en: 'Queued tasks', value: '3', tone: null }
+      ],
+      parallelism: [
+        { id: 'parallelism:current', cn: '当前并行', en: 'Concurrency now', value: '4', tone: null },
+        { id: 'parallelism:hardware-cap', cn: '硬件上限', en: 'Hardware cap', value: '6', tone: null }
+      ],
+      /**
+       * The dashboard's own action, as the snapshot offers it: offered while a read could change the account
+       * (this fixture has never been read) and withheld while it is current (`control-center.cjs` decides).
+       */
+      actions: [{ id: 'refresh-balance', cn: '刷新余额', en: 'Refresh balance', reason: 'unread' }]
+    },
     modules: [{ id: 'mega:dock', state: 'DEGRADED', retries: 2, lastError: 'the dock did not paint', tone: 'warn', actions: ['check', 'retry'] }],
     plugins: [{ id: 'dsh-wallpaper-engine', state: 'installed', installedVersion: '0.7.1', expected: 'v0.7.1', channel: 'harness-profile', tested: true, tone: 'ok', actions: ['repair'] }],
-    at: '2026-09-15T00:00:00.000Z'
+    at: at.toISOString()
   }
 }
 
-/** The React stand-in: `createElement`, the hooks the page uses, and a renderer that walks the tree. */
+/** The React stand-in: `createElement`, the hooks the two surfaces use, and a renderer that walks the tree. */
 function createReactShim() {
   let current = null
   let pendingEffects = []
@@ -69,7 +120,23 @@ function createReactShim() {
       const changed = !previous || !Array.isArray(deps) || !Array.isArray(previous.deps)
         || deps.length !== previous.deps.length
         || deps.some((value, position) => value !== previous.deps[position])
-      if (changed) pendingEffects.push(fn)
+      // A cleaned-up effect is a cleared interval: the countdown's ticker has to be able to stop, or every
+      // render of a panel would leave a timer behind it.
+      if (changed) {
+        if (previous && typeof previous.cleanup === 'function') previous.cleanup()
+        pendingEffects.push({ index, fn })
+      }
+    },
+    /**
+     * `{ current }`, kept across renders like the real one.
+     *
+     * `current` stays `null` here, which is what makes the re-measuring path in `useBox` a no-op: there is no
+     * layout in this sandbox, and a shim that pretended to measure would be asserting its own arithmetic.
+     */
+    useRef(initial) {
+      const index = current.cursor++
+      if (!current.hooks[index]) current.hooks[index] = { value: { current: initial === undefined ? null : initial } }
+      return current.hooks[index].value
     }
   }
 
@@ -102,7 +169,12 @@ function createReactShim() {
     const tree = expand(element, state.children)
     const effects = pendingEffects.slice()
     pendingEffects = []
-    for (const effect of effects) effect()
+    for (const entry of effects) {
+      const cleanup = entry.fn()
+      // Kept on the effect's own slot, so the next run of the same effect can call it — the same contract React
+      // has, and the one the countdown's interval depends on.
+      state.hooks[entry.index] = { ...(state.hooks[entry.index] || {}), cleanup: typeof cleanup === 'function' ? cleanup : null }
+    }
     return { tree, state }
   }
 
@@ -210,21 +282,28 @@ function find(element, predicate, out = []) {
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 const plain = (value) => JSON.parse(JSON.stringify(value ?? null))
 
-/** Apply the plugin and hand back the store the page uses (taken from the page's own props). */
+/** Apply the plugin and hand back the store both surfaces use (taken from their own props). */
 async function mount(options = {}) {
   const loaded = load(options)
   const { ctx, injected, effects } = fakeSlots()
   loaded.plugin.apply(ctx)
   await tick()
+  const orb = injected.find((entry) => entry.name === 'shell.overlay')
   const page = injected.find((entry) => entry.name === 'settings.section')
+  const orbRegistration = orb.callback()
   const pageRegistration = page.callback()
   return {
     ...loaded,
     ctx,
     injected,
     effects,
+    orbRegistration,
     pageRegistration,
-    // The registered component is `(props) => React.createElement(MegaPage, { store, close })`.
+    // The registered components are `(props) => React.createElement(MegaOrb, { store })` and the same for the
+    // page, so the store comes out of the element they return.
+    orbComponent: orbRegistration.Component({}).type,
+    pageComponent: pageRegistration.Component({}).type,
+    orbState: { hooks: [], children: new Map() },
     store: pageRegistration.Component({}).props.store
   }
 }
@@ -250,15 +329,15 @@ test('the bundle parses as a classic script, the way a combo is delivered', () =
   assert.equal(/(^|\n)\s*(export|import)\s/.test(source), false, 'module syntax would not parse in a classic script')
 })
 
-test('apply registers the Mega page — and no orb, because the only ball is the system one', async () => {
+test('apply claims both official slots: the ball draws the dashboard, the page draws governance', async () => {
   const mounted = await mount()
-  assert.deepEqual(mounted.injected.map((entry) => entry.name), ['settings.section'])
+  assert.deepEqual(mounted.injected.map((entry) => entry.name), ['shell.overlay', 'settings.section'])
+  assert.deepEqual(plain(mounted.orbRegistration.descriptor), { name: 'shell.overlay', id: 'mega-orb', order: 100, label: 'Mega' })
   assert.deepEqual(plain(mounted.pageRegistration.descriptor), { name: 'settings.section', id: 'mega', order: 500, label: 'Mega' })
-  // The one ball lives in its own window (`system-orb.cjs`), so nothing here may claim the overlay slot: the
-  // review that found two balls is the reason this assertion exists at all. (The code, not the prose: the
-  // comment above the registration explains why the slot is gone, and it has to be able to name it.)
-  assert.equal(/inject\(\s*['"]shell\.overlay['"]/.test(source), false, 'the in-UI orb is back')
-  assert.equal(/mega-core\/orb/.test(source), false, 'the page has no business asking for a ball position')
+  // The ball is draggable, so its position is read from and written to the host's own file; the *page* has no
+  // business with it at all, which is the part that would be a bug if it drifted.
+  assert.match(source, /const ORB_URL = '\/mega-core\/orb'/)
+  assert.equal(/MegaPage[\s\S]{0,400}ORB_URL/.test(source), false, 'the settings page reached for the ball position')
   // One poller, at the interval §4.3's "low resource use" asks for, with a disposer that really stops it.
   assert.equal(mounted.intervals.length, 1)
   assert.equal(mounted.intervals[0].ms, 15000)
@@ -268,10 +347,89 @@ test('apply registers the Mega page — and no orb, because the only ball is the
   assert.equal(mounted.listeners.has('visibilitychange'), false, 'the visibility listener outlived the plugin')
 })
 
-test('the page renders §4.4 on its own card, and its actions go through the governance route', async () => {
+test('the ball opens on the live dashboard — price, countdown, balance, queue, parallelism', async () => {
   const mounted = await mount()
-  const MegaPage = mounted.pageRegistration.Component().type
-  const rendered = mounted.shim.render(MegaPage, { store: mounted.store, close: () => {} })
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  assert.ok(ball, 'the orb drew no ball to click')
+
+  // A press that does not move is a click: that is what opens the panel, so this is the real route in.
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
+  ball.props.onPointerUp()
+  const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const said = strings(opened.tree).join(' | ')
+
+  // Every number the old expanded dock showed, and each one from the view's dashboard block.
+  assert.match(said, /价格 · Price/)
+  assert.match(said, /电费时段/)
+  assert.match(said, /OFF-PEAK/)
+  assert.match(said, /27m 12s/, 'the valley countdown is missing from the ball')
+  assert.match(said, /账户 · Account/)
+  assert.match(said, /¥ 12\.50/)
+  assert.match(said, /任务 · Tasks/)
+  assert.match(said, /排队任务/)
+  assert.match(said, /并行 · Parallelism/)
+  assert.match(said, /Concurrency now/)
+  // The recovery actions stay on the ball: a degraded module with no way to act on it is a status light.
+  const labels = find(opened.tree, (element) => element.type === 'button').map((element) => strings(element).join(''))
+  assert.ok(labels.includes('retry'), `the ball lost its actions: ${labels.join(', ')}`)
+  // The rosters are the page's: a settings page behind a 40px dot is what this split exists to avoid.
+  assert.doesNotMatch(said, /Bundled plugins/)
+})
+
+test('the panel offers the balance refresh, and clicking it posts the dashboard action with no id', async () => {
+  const mounted = await mount()
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
+  ball.props.onPointerUp()
+  const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+
+  /**
+   * The button exists because the account is the one number a *read* makes newer, and it is the snapshot's own
+   * (`dashboard.actions`) — so a surface cannot offer a read the Control Center withheld, and cannot hide one it
+   * offers.
+   */
+  const buttons = find(opened.tree, (element) => element.type === 'button')
+  const refresh = buttons.find((element) => strings(element).join('') === '刷新余额 · Refresh balance')
+  assert.ok(refresh, `the ball has no balance refresh: ${buttons.map((element) => strings(element).join('')).join(', ')}`)
+  // The state that earned the button is on its hover text, so "why is this here" is answerable without a trip to
+  // the logs.
+  assert.match(refresh.props.title, /unread/)
+
+  refresh.props.onClick()
+  await tick()
+  const action = mounted.fetchImpl.calls.find((call) => call.url === '/mega-core/action')
+  assert.ok(action, 'the dashboard action never left the panel')
+  // `id: null`: reading the account again is about the account, not about a module (`controlAction` answers this
+  // one before its own id check, and the bridge's closed set is not widened by a read).
+  assert.deepEqual(JSON.parse(action.init.body), { action: 'refresh-balance', id: null })
+})
+
+test('the countdown ticks on its own, once a second — not in fifteen-second jumps', async () => {
+  const mounted = await mount()
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
+  ball.props.onPointerUp()
+  mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+
+  /**
+   * The view arrives every 15 s, so a countdown drawn straight from it would move in 15-second jumps. The panel
+   * re-bases it against `view.at` and ticks it: the assertion is that one tick of the 1 s timer is one second
+   * off the number, computed from the pair the snapshot published rather than from this machine's clock.
+   */
+  const ticker = mounted.intervals.find((interval) => interval.ms === 1000)
+  assert.ok(ticker, `the dashboard did not start a countdown ticker: ${mounted.intervals.map((i) => i.ms).join(', ')}`)
+  ticker.fn()
+  const ticked = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  assert.match(strings(ticked.tree).join(' | '), /27m 11s/, 'the countdown did not move')
+  assert.doesNotMatch(strings(ticked.tree).join(' | '), /27m 12s/)
+})
+
+test('the page renders §4.4 governance on its own card, and its actions go through the governance route', async () => {
+  const mounted = await mount()
+  const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
   const said = strings(rendered.tree).join(' | ')
 
   assert.match(said, /插件健康/, 'the page must show §4.4\'s fields')
@@ -280,6 +438,9 @@ test('the page renders §4.4 on its own card, and its actions go through the gov
   assert.match(said, /dsh-wallpaper-engine @ v0\.7\.1/)
   assert.match(said, /mega:dock degraded/)
   assert.match(said, /5\/7/)
+  // Governance is what the page is for: the live dashboard belongs to the ball, so the page does not repeat it.
+  assert.doesNotMatch(said, /价格 · Price/)
+  assert.doesNotMatch(said, /27m 12s/)
   // The page is drawn on the official frosted column, and our text has its own palette: it brings its own
   // opaque card rather than assuming a background.
   assert.equal(rendered.tree.props.style.background, 'rgba(14,16,20,.97)')

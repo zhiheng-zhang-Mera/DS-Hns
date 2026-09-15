@@ -21,9 +21,87 @@
  *     never as a tone, because the tone is what draws the eye.
  */
 
-/** A row: the two labels the plan writes side by side, a value, and the tone that makes it visible. */
-function row(cn, en, value, tone = null) {
-  return { cn, en, value: value === undefined || value === null ? '—' : String(value), tone }
+/**
+ * A row: the two labels the plan writes side by side, a value, and the tone that makes it visible.
+ *
+ * `extra` carries the fields a *dashboard* row needs and a Control Center row does not — its id, and (for the
+ * countdown) the instant the price window changes, so the view model can subtract against its own clock
+ * instead of carrying a number of seconds that was already stale when it was written.
+ */
+function row(cn, en, value, tone = null, extra = null) {
+  return { cn, en, value: value === undefined || value === null ? '—' : String(value), tone, ...(extra || {}) }
+}
+
+/** A row of the view model's dashboard: the same two labels, a value, a tone — and an id, so a surface can find it. */
+function field(id, cn, en, value, tone = null) {
+  return { id, cn, en, value: value === undefined || value === null || value === '' ? '—' : String(value), tone }
+}
+
+/** A titled group of rows. Same shape as the Control Center's own sections, one level down. */
+function group(id, cn, en, rows) {
+  return { id, cn, en, rows }
+}
+
+/** `172` → `2m 52s`; anything that is not a finite count of seconds answers `—` rather than inventing a zero. */
+function durationText(seconds) {
+  const total = Number(seconds)
+  if (!Number.isFinite(total)) return '—'
+  const whole = Math.max(0, Math.floor(total))
+  const hours = Math.floor(whole / 3600)
+  const minutes = Math.floor((whole % 3600) / 60)
+  const rest = whole % 60
+  if (hours) return `${hours}h ${minutes}m`
+  if (minutes) return `${minutes}m ${rest}s`
+  return `${rest}s`
+}
+
+/** `8231` → `8.2 GB`. A megabyte is the smallest unit that is still readable here. */
+function bytesText(kilobytes) {
+  const value = Number(kilobytes)
+  if (!Number.isFinite(value)) return '—'
+  if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} GB`
+  if (value >= 1024) return `${(value / 1024).toFixed(1)} MB`
+  return `${Math.round(value)} KB`
+}
+
+/**
+ * A clock time in the **billing** zone, which is not necessarily this machine's.
+ *
+ * The price windows are wall-clock times in the schedule's own zone (`billing/peak-engine.js`: Asia/Shanghai),
+ * so the next change has to be printed there — a user in another zone reading a local time would see a figure
+ * that matches nothing on the price page, and a task suspended "until 06:00" would look wrong.
+ */
+const zoneClockFormat = new Map()
+function clockInZone(iso, timeZone) {
+  const at = new Date(String(iso || ''))
+  if (Number.isNaN(at.getTime())) return null
+  try {
+    let format = zoneClockFormat.get(timeZone)
+    if (!format) {
+      format = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      zoneClockFormat.set(timeZone, format)
+    }
+    return format.format(at)
+  } catch {
+    // A zone the runtime does not know is the engine's own fallback too, and UTC is better than no time.
+    return `${String(at.getUTCHours()).padStart(2, '0')}:${String(at.getUTCMinutes()).padStart(2, '0')}`
+  }
+}
+
+/** A currency code as the symbol people read, falling back to the code itself rather than to a guess at ¥. */
+function currencySymbol(code) {
+  const key = String(code || '').toUpperCase()
+  if (key === 'CNY' || key === 'RMB') return '¥'
+  if (key === 'USD') return '$'
+  return key || ''
+}
+
+/** The balance headline: `¥ 12.34`, and `—` when there has never been a successful read (never `¥ 0.00`). */
+function balanceAmount(balance) {
+  const rows = Array.isArray(balance?.balances) ? balance.balances : []
+  const primary = rows[0]
+  if (!primary || primary.total === undefined || primary.total === null || !Number.isFinite(Number(primary.total))) return null
+  return `${currencySymbol(primary.currency)} ${Number(primary.total).toFixed(2)}`
 }
 
 function moduleTone(state) {
@@ -61,8 +139,10 @@ function pluginActions(state) {
  * @param {object} [input.cache]      `startupCache().describe()` — a warm-start hint, never an owner (§52)
  * @param {object} [input.appearance] `appearanceCost()` — what the appearance costs (§55-§57)
  * @param {object} [input.bridge]     `governanceBridge().describe()` — the channel the Mega plugin talks to
+ * @param {object} [input.balance]    `balanceService.describe()` — the account the runs are billed to (MEGA-04)
+ * @param {object} [input.pricing]    `PricingRepository.describe()` — which price list the cost is billed against
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -180,7 +260,122 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
     actions: pluginActions(plugin.state)
   }))
 
-  return { ok: true, sections, modules, plugins, degraded, failed, failing }
+  /**
+   * The dashboard: the same live numbers the old expanded dock showed — the price window and its countdown,
+   * the account balance, the scheduler's queue, and the parallelism it is allowed — moved here so the view
+   * model can carry them to a surface that has no dock.
+   *
+   * It is assembled from the **same snapshot** the sections above are drawn from, plus the two reports that
+   * were only ever read by the dock's own renderer (the billing service's answer and the price list the cost
+   * is billed against). Nothing here is computed a second way, and a fact that is missing is reported as
+   * missing rather than as zero: an account whose balance has never been read shows `—`, not `¥ 0.00`.
+   *
+   * The countdown is the one fact here that goes stale between reads — it ticks whether or not anyone asks —
+   * so the snapshot carries the **instant** the window changes (`nextChangeIso`) rather than only a number of
+   * seconds, and the view model subtracts against its own clock. A surface that drew the stored seconds would
+   * show a countdown frozen at the moment of the snapshot.
+   */
+  const peak = scheduler.peak || {}
+  const nextChange = peak.nextChange || null
+  const nextIsValley = nextChange?.statusAfter === 'OFF-PEAK'
+  const tariff = nextIsValley ? 'OFF-PEAK' : nextChange?.statusAfter || null
+  const tariffCn = tariff === 'OFF-PEAK' ? '谷价' : tariff === 'PEAK' ? '峰价' : null
+  const tariffEn = tariff === 'OFF-PEAK' ? 'Off-peak' : tariff === 'PEAK' ? 'Peak' : null
+  const tariffSchedule = pricing?.schedule || null
+  const tariffRates = Array.isArray(tariffSchedule?.peakPeriods)
+    ? tariffSchedule.peakPeriods.map((window) => `${window.start}-${window.end}`).join(', ')
+    : null
+  const balanceRows = Array.isArray(balance?.balances) ? balance.balances : []
+  const balancePrimary = balanceRows[0] || null
+  const balanceTotal = balanceAmount(balance)
+  const balanceState = balance?.refreshing ? 'refreshing'
+    : balance?.ok ? 'ok'
+      : balance?.hasData ? 'stale'
+        : (balance?.error?.code === 'MISSING_CREDENTIAL' || balance?.error?.code === 'UNCONFIGURED') ? 'unconfigured'
+          : (balance?.failedProviders || []).length ? 'failed' : 'unread'
+  const balanceTone = balanceState === 'ok' ? 'ok' : balanceState === 'refreshing' ? 'busy' : (balanceState === 'unread' || balanceState === 'unconfigured') ? null : 'warn'
+  const balanceNote = balanceState === 'ok' ? (balance?.stale ? '显示上次成功余额 · last good read' : '正常 · ok')
+    : balanceState === 'refreshing' ? '刷新中 · refreshing'
+      : balanceState === 'stale' ? '上次成功值 · stale'
+        // A machine with no key is *not configured*, not broken: a warning tone on every boot of a machine that
+        // never had a DeepSeek key would be a permanent alarm about a setting nobody was asked for.
+        : balanceState === 'unconfigured' ? '未配置密钥 · no API key'
+          : balanceState === 'failed' ? `读取失败 · ${balance?.error?.message || 'read failed'}`
+            : '未刷新 · not read yet'
+
+  const dashboard = {
+    ok: true,
+    lines: [
+      group('price', '价格', 'Price', [
+        // Being in the peak window is not a fault, it is the window (§41): the tone is the drawer of the eye,
+        // and the Control Center's own resources section draws the same fact the same way.
+        row('电费时段', 'Price window', peak.peak ? 'PEAK' : 'OFF-PEAK', peak.peak ? 'warn' : null, { id: 'price:window' }),
+        row('峰价时段表', 'Peak windows', tariffRates ? `${tariffRates} · ${tariffSchedule.timeZone || '—'}` : (pricing ? '—' : 'unavailable'), pricing ? null : 'warn', { id: 'price:windows' }),
+        row('价格来源', 'Price source', pricing ? `${pricing.source}${pricing.retrievedAt ? ` · ${pricing.retrievedAt}` : ''}` : '—', pricing ? null : 'warn', { id: 'price:source' }),
+        // The countdown the old dock's timer card showed, relabelled for what it actually is: the time until the
+        // price *changes*, which is "until off-peak" only while the peak window is on — the engine's
+        // `nextChange` is the next transition in either direction, and calling that "until off-peak" during
+        // off-peak would tell the user to wait for what they already have. The value here is the figure at
+        // snapshot time; the view model re-derives it from `nextChangeIso` against its own clock, so a panel
+        // opened later counts down from *its* now rather than from the moment the snapshot was taken. The
+        // instant is what the view can use, so it is always published when the engine names one.
+        row('距价格切换', 'Until price change', nextIsValley ? durationText(nextChange.secondsLeft) : nextChange ? '已是谷价 · off-peak now' : '—', nextIsValley ? 'ok' : null, {
+          id: 'price:until-off-peak',
+          nextChangeIso: nextChange?.iso || null
+        }),
+        row('下一次变化', 'Next change', nextChange?.iso ? `${clockInZone(nextChange.iso, tariffSchedule?.timeZone || 'Asia/Shanghai')} → ${tariffCn} ${tariffEn}` : '—', null, { id: 'price:next-change' })
+      ]),
+      group('balance', '账户', 'Account', [
+        row('总余额', 'Total balance', balanceTotal, balanceTotal ? balanceTone : null, { id: 'balance:total' }),
+        row('充值余额', 'Topped up', balancePrimary ? `${currencySymbol(balancePrimary.currency)} ${Number(balancePrimary.toppedUp || 0).toFixed(2)}` : '—', null, { id: 'balance:topped-up' }),
+        row('赠送余额', 'Granted', balancePrimary ? `${currencySymbol(balancePrimary.currency)} ${Number(balancePrimary.granted || 0).toFixed(2)}` : '—', null, { id: 'balance:granted' }),
+        row('读取状态', 'Balance read', balanceNote, balanceTone, { id: 'balance:state' }),
+        row('上次成功', 'Last good read', balance?.lastUpdatedAt ? new Date(balance.lastUpdatedAt).toISOString() : '—', null, { id: 'balance:updated-at' })
+      ]),
+      group('sub-worker', '子工作器', 'Sub-worker', [
+        row('子工作器', 'Sub-worker', sub.available === false ? 'UNAVAILABLE' : String(sub.state || 'OFF').toUpperCase(), sub.enabled ? 'ok' : null, { id: 'sub-worker:state' }),
+        row('自动委派', 'Auto delegation', sub.config?.autoDelegate ? 'ON' : 'OFF', sub.config?.autoDelegate ? 'ok' : null, { id: 'sub-worker:auto-delegate' })
+      ])
+    ],
+    execution: [
+      row('运行中的 worker', 'Running workers', active.workerSlotsInUse ?? 0, Number(active.workerSlotsInUse) ? 'busy' : null, { id: 'execution:running' }),
+      row('排队任务', 'Queued tasks', active.queued ?? 0, null, { id: 'execution:queued' }),
+      row('已挂起', 'Suspended', active.suspended ?? 0, null, { id: 'execution:suspended' }),
+      row('阻塞', 'Blocked', counts.BLOCKED || 0, counts.BLOCKED ? 'warn' : null, { id: 'execution:blocked' }),
+      row('重试中', 'Retrying', counts.RETRYING || 0, counts.RETRYING ? 'warn' : null, { id: 'execution:retrying' }),
+      row('失败', 'Failed', counts.FAILED || 0, counts.FAILED ? 'bad' : null, { id: 'execution:failed' }),
+      row('队列任务总数', 'Tasks in queue', active.total ?? 0, null, { id: 'execution:total' })
+    ],
+    parallelism: [
+      row('当前并行', 'Concurrency now', concurrency.current ?? '—', null, { id: 'parallelism:current' }),
+      row('硬件上限', 'Hardware cap', concurrency.hardwareCap ?? '—', null, { id: 'parallelism:hardware-cap' }),
+      row('CPU 负载', 'CPU load', system.cpu?.usagePercent === undefined ? '—' : `${Math.round(system.cpu.usagePercent)}%`, null, { id: 'parallelism:cpu' }),
+      row('空闲内存', 'Free RAM', system.memory?.freeGb === undefined ? '—' : `${Number(system.memory.freeGb).toFixed(1)} GB`, null, { id: 'parallelism:free-ram' })
+    ]
+  }
+  // The three groups and the two bare lists as one flat list, in the order a dashboard reads: what it costs,
+  // what is queued, what is left to spend, what may run at once. (`dashboardRow` is the Control Center's name
+  // for one of these; the view model copies it as it stands.)
+  dashboard.fields = [
+    ...dashboard.lines.flatMap((entry) => entry.rows),
+    ...dashboard.execution,
+    ...dashboard.parallelism
+  ]
+  /**
+   * What the dashboard's refresh button does, and when it is offered.
+   *
+   * The account is the one number on this dashboard that a *read* makes newer (everything else is recomputed by
+   * every snapshot), so it is the one thing a refresh button can honestly promise. It is offered whenever a
+   * read could change the answer — not read yet, stale, failed, unconfigured, or already refreshing (where the
+   * button is what re-reads once the read in flight is done) — and **withheld** while the balance is fine,
+   * because a button that re-reads a balance that is already current is a button that spends the rate limit to
+   * change nothing.
+   */
+  dashboard.actions = balanceState === 'ok'
+    ? []
+    : [{ id: 'refresh-balance', cn: '刷新余额', en: 'Refresh balance', reason: balanceState }]
+
+  return { ok: true, sections, dashboard, modules, plugins, degraded, failed, failing }
 }
 
 module.exports = { buildControlCenter, moduleActions, pluginActions, moduleTone, pluginTone }

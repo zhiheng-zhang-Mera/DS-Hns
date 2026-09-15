@@ -27,6 +27,8 @@
   --warn: #d29922;
   --bad: #f85149;
   --unknown: #8b949e;
+  /* Not a severity: "something is happening right now" (a worker slot in use, a refresh in flight). */
+  --busy: #58a6ff;
   color-scheme: dark;
 }
 
@@ -112,9 +114,28 @@ html, body {
 #panelBody .tone-warn { color: var(--warn); }
 #panelBody .tone-bad { color: var(--bad); }
 #panelBody .tone-unknown { color: var(--unknown); }
+#panelBody .tone-busy { color: var(--busy); }
 #panelBody .plain { color: var(--orb-text); }
 #panelBody .muted { color: var(--orb-muted); }
 #panelBody .faint { color: var(--orb-faint); }
+
+/*
+  The dashboard: the live numbers first, because the ball is a glance.
+
+  It is the same `.field` row the governance fields use — two labels, a value — so the panel has one row shape
+  rather than two that drift apart. The group headings are what makes it readable at a glance: without them the
+  price, the account and the queue would be one undifferentiated list of twelve numbers.
+*/
+#panelBody .dashboard .field { padding: 3px 0; }
+#panelBody .dashboard h4 {
+  margin: 8px 0 2px;
+  font-size: 11px;
+  color: var(--orb-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#panelBody .dashboard h4:first-child { margin-top: 0; }
+#panelBody .dashboard + .line { margin-top: 6px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
 
 #panelBody .numbers {
   display: grid;

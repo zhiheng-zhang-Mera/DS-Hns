@@ -64,6 +64,18 @@ test('the dock hosts the settings layer and the shared Balance module controller
   const mega = read('app/extensions/mega/index.cjs')
   assert.match(mega, /balanceService\.refreshBalances\(/)
   assert.equal((mega.match(/refreshBalances\(/g) || []).length, 1, 'one balance refresh implementation')
+  /**
+   * ...and every trigger goes through that one call: the startup read, the dock's own `mega:balance` channel, and
+   * the dashboard's refresh button in the official UI (which arrives as a Control Center action, because the
+   * plugin's browser half cannot reach this process' IPC).
+   */
+  assert.equal((mega.match(/refreshBalance\(/g) || []).length, 4, 'the refresh paths have stopped sharing one entry point')
+  assert.match(mega, /function refreshBalance\(trigger = 'manual'/)
+  assert.match(mega, /refreshBalance\('startup'\)/)
+  assert.match(mega, /refreshBalance\('manual'\)/)
+  // The startup read is off the boot path: a slow provider may not delay the UI, the dock or the ball.
+  assert.match(mega, /function scheduleStartupBalanceRead\(\)/)
+  assert.match(mega, /timer\.unref\(\)/)
 })
 
 test('all former Full Mega Tools capabilities are reachable from the dock settings layer', () => {

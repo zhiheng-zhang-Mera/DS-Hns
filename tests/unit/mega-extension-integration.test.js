@@ -201,9 +201,13 @@ test('the product is one window: the tray keeps its exit actions and adds Sub-wo
   /**
    * ...and the dock is still reachable, which is the other half of "hidden by default": the tray's Mega entry
    * creates it on the spot (it was not there a moment ago) rather than leaving the user with no console at all.
+   *
+   * The dock is the *only* window this reaches: the ball is the plugin's (the official `shell.overlay` slot),
+   * and the system orb window is opt-in (`DSH_SYSTEM_ORB=1`) — so asking for the console must not quietly
+   * create a second, always-on-top window on a machine that never asked for one.
    */
   trayItem('Mega 控制台 · Mega').click()
-  assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['orb.html', 'dock.html'], 'the dock was not created when it was asked for')
+  assert.deepEqual(shell.loadedFiles.map((file) => path.basename(file)), ['dock.html'], 'the dock was not created when it was asked for')
 
   // The Sub-worker submenu is present and inert without a shell-owned manager:
   // nothing may spawn a worker process while the feature is off (AC-01/AC-02).

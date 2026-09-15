@@ -18,6 +18,13 @@
  *   * **the Mega page** into the official `settings.section` slot (§4.4) — a first-level settings page, which
  *     is what §28 means by "every other entry goes through the official Settings system".
  *
+ * Each surface draws the half of the view model it is for, and they come from **one** composed object
+ * (`lib/view.js`): the orb opens on the **dashboard** — the price window and its countdown, the account
+ * balance, the queue and the parallelism, which is what the old expanded dock showed — and the page renders
+ * the **governance** half: §4.4's eleven fields, the module roster, the plugin roster and their actions. A
+ * ball that drew the rosters would be a settings page behind a 40 px dot; a settings page that drew the
+ * countdown would be a dashboard nobody can find.
+ *
  * Three rules from §4.3 are properties of this file rather than of a config:
  *
  *   1. **It never takes focus on its own.** Nothing autofocuses, and `pointerdown` calls `preventDefault()`
@@ -308,6 +315,33 @@ window.__ModuleLoader__.load({
 			}
 
 			/**
+			 * Ask for a dashboard action — today `refresh-balance`.
+			 *
+			 * Governance answers as soon as the account read has *started* (a provider read has a 20-second
+			 * timeout and the panel must not wait for it), so the immediate re-read is not enough on its own:
+			 * the account will not have changed yet. The panel shows the service's own `refreshing` state and the
+			 * 15-second poller picks the answer up — but a read that only takes a second should not take fifteen
+			 * to appear, so one confirmation read follows it.
+			 */
+			async function actDashboard(action) {
+				try {
+					const response = await send(ACTION_URL, {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						credentials: 'same-origin',
+						body: JSON.stringify({ action, id: null })
+					});
+					const body = await response.json();
+					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id: null, action, reason: body?.reason || null } };
+				} catch (error) {
+					snapshot = { ...snapshot, action: { ok: false, id: null, action, reason: String(error?.message || error) } };
+				}
+				emit();
+				await refresh();
+				if (typeof setTimeout === 'function') setTimeout(() => { void refresh(); }, 1500);
+			}
+
+			/**
 			 * Start polling. Returns the disposer Cordis calls when the plugin unloads (a disabled or
 			 * hot-reloaded plugin that kept its interval would be a leak with a UI attached).
 			 */
@@ -333,7 +367,7 @@ window.__ModuleLoader__.load({
 				};
 			}
 
-			return { snapshot: () => snapshot, subscribe, start, refresh, loadPosition, setPosition, savePosition, act };
+			return { snapshot: () => snapshot, subscribe, start, refresh, loadPosition, setPosition, savePosition, act, actDashboard };
 		}
 
 		/** Subscribe a component to the store, with the two hooks every environment has. */
@@ -402,6 +436,114 @@ window.__ModuleLoader__.load({
 			]);
 		}
 
+		/**
+		 * The countdown row's id, spelled the same way `view.js` spells it.
+		 *
+		 * It is repeated rather than imported because this half is a bundle with no imports; the two strings are
+		 * checked against each other by the unit tests instead of by the loader.
+		 */
+		const COUNTDOWN_ROW = 'price:until-off-peak';
+
+		/** `true`, false → `12m 30s`, the same shape the host uses when it derives this from the snapshot. */
+		function countdownText(seconds) {
+			const whole = Math.max(0, Math.floor(seconds));
+			const hours = Math.floor(whole / 3600);
+			const minutes = Math.floor((whole % 3600) / 60);
+			const rest = whole % 60;
+			if (hours) return `${hours}h ${minutes}m`;
+			if (minutes) return `${minutes}m ${rest}s`;
+			return `${rest}s`;
+		}
+
+		/**
+		 * The countdown, ticking while the panel is open.
+		 *
+		 * The view arrives every 15 s and the countdown is the one number in it that is stale the moment it
+		 * arrives, so it is *re-based* against the clock the snapshot was taken with (`view.at`) and then ticked
+		 * once a second here. Re-basing rather than trusting this machine's clock matters: the instant comes from
+		 * DS-Hns, and a UI whose countdown disagreed with the scheduler's own window would be worse than no
+		 * countdown at all.
+		 *
+		 * @returns {number|null} seconds left, or `null` when the dashboard carries no countdown at all
+		 */
+		function useCountdown(dashboard, at) {
+			const row = ((dashboard?.lines || []).find((entry) => entry.id === 'price')?.rows || []).find((entry) => entry.id === COUNTDOWN_ROW);
+			const target = Date.parse(String(row?.nextChangeIso || ''));
+			const baseAt = Date.parse(String(at || ''));
+			const baseSeconds = Number.isFinite(target) && Number.isFinite(baseAt) ? (target - baseAt) / 1000 : null;
+			const [seconds, setSeconds] = React.useState(() => baseSeconds);
+			React.useEffect(() => {
+				if (baseSeconds === null) {
+					setSeconds(null);
+					return undefined;
+				}
+				setSeconds(baseSeconds);
+				if (typeof setInterval !== 'function') return undefined;
+				const timer = setInterval(() => setSeconds((current) => (current === null ? null : Math.max(0, current - 1))), 1000);
+				return () => clearInterval(timer);
+			}, [ row?.nextChangeIso, at ]);
+			return seconds;
+		}
+
+		/**
+		 * The live dashboard: the price window and its countdown, the account, the queue and the parallelism.
+		 *
+		 * It is drawn from `view.dashboard`, which the host composed out of the *same* governance snapshot the
+		 * fields below come from — the numbers cannot disagree with the Control Center's, because there is only
+		 * one set of them. A snapshot with no dashboard block is a reason, not a wall of `—`.
+		 */
+		function Dashboard({ dashboard, at, onDashboardAction }) {
+			// Hooks first, unconditionally: the ticker below is what keeps the countdown a countdown.
+			const remaining = useCountdown(dashboard, at);
+			if (!dashboard) return null;
+			if (dashboard.ok === false) {
+				return box('div', { key: 'dash', style: { padding: '4px 0', color: MUTED, fontWeight: '400' } }, dashboard.reason || '仪表盘不可用 · dashboard unavailable');
+			}
+			// The countdown row is the one number that moves between two polls, so it is drawn from the ticker
+			// rather than from the figure the snapshot carried (`view.js` explains the pairing).
+			const row = (entry) => (entry.id === COUNTDOWN_ROW && remaining !== null
+				? { ...entry, value: countdownText(remaining) }
+				: entry);
+			const groups = [
+				...(dashboard.lines || []).map((entry) => [ `${entry.cn} · ${entry.en}`, (entry.rows || []).map(row) ]),
+				[ '任务 · Tasks', dashboard.execution ],
+				[ '并行 · Parallelism', dashboard.parallelism ]
+			].filter(([, rows]) => (rows || []).length);
+			/**
+			 * The dashboard's own buttons — today `refresh-balance`, the read that makes the account newer.
+			 *
+			 * They are drawn only when the snapshot offers them (`control-center.cjs` withholds one while the
+			 * balance is already current), which is the rule the module actions follow too: a button that cannot
+			 * change anything is a button that promises something the layer will not do.
+			 */
+			const actions = (dashboard.actions || []).map((action) => box('button', {
+				key: `dash:${action.id}`,
+				type: 'button',
+				title: action.reason ? `余额状态：${action.reason} · balance state: ${action.reason}` : `${action.cn} · ${action.en}`,
+				onClick: () => onDashboardAction(action.id),
+				style: {
+					all: 'initial',
+					display: 'inline-flex',
+					alignItems: 'center',
+					padding: '3px 8px',
+					margin: '6px 6px 0 0',
+					borderRadius: '6px',
+					border: `1px solid ${TONES.busy}`,
+					color: TONES.busy,
+					background: 'rgba(88,166,255,.08)',
+					cursor: 'pointer',
+					font: font(11)
+				}
+			}, `${action.cn} · ${action.en}`));
+			return box('div', { key: 'dash' }, [
+				...groups.map(([title, rows], index) => box('div', { key: `g:${title}`, style: { marginTop: index ? '8px' : '2px' } }, [
+					text(title, { display: 'block', color: MUTED, font: font(11), textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '2px' }),
+					...rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${title}:${entry.cn}`, ...entry }))
+				])),
+				actions.length ? box('div', { key: 'dash-actions' }, actions) : null
+			].filter(Boolean));
+		}
+
 		/** A line of the panel's list: faults first, positives after (both matter — see `view.js`). */
 		function StatusLine(entry, index) {
 			return box('div', { key: `${index}:${entry.text}`, style: { display: 'flex', gap: '6px', padding: '3px 0' } }, [
@@ -436,10 +578,14 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * The governance body: the lines, the fields, the rosters and the actions — §4.2's expanded panel and
-		 * §4.4's page are the same body at two sizes, which is why they are one component.
+		 * One body for both surfaces, at the size each one is.
+		 *
+		 * The dashboard is the orb's (§4.2's expanded panel is where the live numbers live now); the §4.4 fields,
+		 * the module roster and the plugin roster are the page's. That split is what `expanded` selects, and it is
+		 * the reason the two surfaces cannot drift: both render the same `view`, and the numbers on the ball come
+		 * from the same snapshot the page's fields do.
 		 */
-		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded }) {
+		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded, onDashboardAction }) {
 			const view = snapshot?.view;
 			if (!view) {
 				return box('div', { style: { padding: '8px 0', color: '#ededed', font: font(12) } }, [
@@ -455,6 +601,12 @@ window.__ModuleLoader__.load({
 				text(attention ? `${attention} 项需处理 · to look at` : '无异常 · nothing to look at', { color: attention ? TONES.warn : MUTED, font: font(10, 400) })
 			]);
 
+			// What the ball exists for: the price window and its countdown, the account, the queue, the parallelism.
+			const dashboard = expanded ? null : React.createElement(Dashboard, {
+				dashboard: view.dashboard,
+				at: view.at,
+				onDashboardAction: (action) => onDashboardAction(action)
+			});
 			const lines = (view.lines || []).map(StatusLine);
 			const numbers = [
 				['活动 / active', `${view.status?.active ?? 0}/${view.status?.total ?? 0}`],
@@ -495,12 +647,13 @@ window.__ModuleLoader__.load({
 
 			return box('div', { style: { color: '#ededed', font: font(12) } }, [
 				header,
+				dashboard,
 				box('div', { key: 'lines', style: { marginTop: '2px' } }, lines),
 				box('div', { key: 'numbers', style: { marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,.08)' } }, numbers),
 				box('div', { key: 'actions', style: { marginTop: '6px' } }, [
 					...actions,
 					React.createElement(ActionButton, { key: 'refresh', label: '刷新 · Refresh', onClick: () => onRefresh() }),
-					onToggleExpanded ? React.createElement(ActionButton, { key: 'expand', label: expanded ? '收起 · Collapse' : '详情 · Full page', onClick: () => onToggleExpanded(!expanded) }) : null
+					onToggleExpanded ? React.createElement(ActionButton, { key: 'expand', label: expanded ? '收起 · Collapse' : '治理详情 · Governance', onClick: () => onToggleExpanded(!expanded) }) : null
 				].filter(Boolean)),
 				snapshot.action ? text(
 					snapshot.action.ok ? `✓ ${snapshot.action.action}${snapshot.action.id ? ` ${snapshot.action.id}` : ''}` : `✖ ${snapshot.action.reason || '操作被拒绝 · refused'}`,
@@ -512,7 +665,7 @@ window.__ModuleLoader__.load({
 				 * UI (there is no public "open settings at section X"), so this says where the page lives
 				 * instead of offering a button that could not work.
 				 */
-				text('完整页面也在 官方 Settings › Mega · the full page is also in Settings › Mega', { display: 'block', marginTop: '6px', color: FAINT, font: font(10, 400) }),
+				expanded ? null : text('完整页面也在 官方 Settings › Mega · the full page is also in Settings › Mega', { display: 'block', marginTop: '6px', color: FAINT, font: font(10, 400) }),
 				detail
 			].filter(Boolean));
 		}
@@ -521,14 +674,39 @@ window.__ModuleLoader__.load({
 		function MegaOrb({ store }) {
 			const snapshot = useStore(store);
 			const [open, setOpen] = React.useState(false);
-			// Open on the full body. The old ball showed the price and its valley timer, the account
-			// balance, the scheduled tasks, the queue and the parallelism counts; those are the iew.fields
-			// MegaBody renders when it is expanded, so the panel opens expanded and keeps the toggle.
-			const [expanded, setExpanded] = React.useState(true);
+			// The panel opens on the dashboard, and that is a decision about what a ball is for: the old ball showed
+			// the price and its valley timer, the account balance, the queue and the parallelism, and those are the
+			// same `view.dashboard` the system ball draws. The §4.4 fields, the rosters and the recovery
+			// actions are one click away behind the toggle, which is the page's own body at page size.
+			const [expanded, setExpanded] = React.useState(false);
 			const drag = React.useRef(null);
 			// The wrapper is the layer's own box: `position: fixed; inset: 0` covers whatever box the shell
 			// gave this slot, so everything below is placed relative to *that* and never to the window.
 			const layerRef = React.useRef(null);
+			/**
+			 * A click anywhere that is not the ball or its panel closes the panel.
+			 *
+			 * It listens on `document` and tests the two boxes, which is the rule the system ball's own window
+			 * follows (`orb.js`): a panel that only closes by its own × is a panel the user has to hunt for, and
+			 * nothing is captured or prevented here — the click that dismisses the panel also does whatever the
+			 * user meant by it, which is what keeps this from eating a click aimed at the composer.
+			 */
+			const orbRef = React.useRef(null);
+			const panelRef = React.useRef(null);
+			React.useEffect(() => {
+				if (!open) return undefined;
+				const doc = typeof document !== 'undefined' ? document : null;
+				if (!doc || typeof doc.addEventListener !== 'function') return undefined;
+				const onDocumentPointerDown = (event) => {
+					const target = event?.target;
+					for (const node of [orbRef.current, panelRef.current]) {
+						if (node && typeof node.contains === 'function' && node.contains(target)) return;
+					}
+					setOpen(false);
+				};
+				doc.addEventListener('pointerdown', onDocumentPointerDown);
+				return () => doc.removeEventListener('pointerdown', onDocumentPointerDown);
+			}, [ open ]);
 			const layer = useBox(layerRef);
 			const position = resolvePosition(snapshot.position);
 			const tone = TONES[snapshot.view?.status?.tone] || TONES.unknown;
@@ -619,6 +797,7 @@ window.__ModuleLoader__.load({
 
 			const orb = box('button', {
 				type: 'button',
+				ref: orbRef,
 				// The name a screen reader reads, and the hover text §4.2 describes, are the same four lines.
 				'aria-label': hover.join(' · '),
 				'aria-expanded': open,
@@ -716,6 +895,7 @@ window.__ModuleLoader__.load({
 			// The panel is built only when it is open, but the *wrapper* is always rendered: it is the box the
 			// orb measures, so a panel's very first frame already knows how much room it has.
 			const panel = !open ? null : box('div', {
+				ref: panelRef,
 				'data-hns-mega-panel': 'on',
 				'data-hns-mega-panel-side': above ? 'above' : 'below',
 				'data-hns-mega-panel-across': side.toTheRight ? 'right' : 'left',
@@ -732,7 +912,8 @@ window.__ModuleLoader__.load({
 					expanded,
 					onToggleExpanded: setExpanded,
 					onRefresh: () => store.refresh(),
-					onAction: (action, id) => store.act(action, id)
+					onAction: (action, id) => store.act(action, id),
+					onDashboardAction: (action) => store.actDashboard(action)
 				})
 			]);
 

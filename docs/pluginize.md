@@ -373,3 +373,77 @@ Dock 文档里没有 `<video>`、层脚本里没有 `wallpaperVideo` / `isVideo`
 schedule UI`、`重复普通 permission classifier` 要等对应的社区插件（notify-sound / dsh-automation /
 dsh-auto-mode）接入并验收。§5.2 已定的方向不变：DS-Hns 自己的 Store 不删除，收敛为 **Plugin Governance**
 （manifest 校验、exact pin、兼容性、回滚、安全禁用），发现与搜索交给市场插件。
+
+---
+
+## 仪表盘接回真实数据源（DashboardView）
+
+**这一轮解决的问题不是画得不好，是没有数据。** 球的面板打开后画的是 §4.4 的治理字段（插件健康/依赖/版本/
+能力/重试/回退/最近错误/待人工/恢复动作/兼容性/版本钉），而旧 Dock 顶部那四张卡 —— 时段与谷价倒计时、任务
+运行/等待、并行 current/cap、余额三张卡 —— **在治理快照里根本不存在**：`buildControlCenter()` 只回答
+`{ sections, modules, plugins, degraded, failed, failing }`，治理桥转发的就是这一份，所以运行中的球拿不到余额，
+也拿不到倒计时。
+
+### 数据源是找回的，不是新造的
+
+新增的 `dashboard` 块由 `buildControlCenter()` 装配，**与 sections/modules/plugins 同一份快照**，另外两件它
+自己拿不到的事实由扩展交给它（各自真实 owner，绝不重新加载第二份）：
+
+| 仪表盘 | 来源 |
+| --- | --- |
+| 时段 PEAK/OFF-PEAK、下一次切换时刻 | `scheduler.describe().peak`（`billing/peak-engine.js`） |
+| 峰价时段表、价格来源 | `PricingRepository.getSchedule()/describe()` —— 与计费同源 |
+| 余额（总/充值/赠送/读取状态） | `balanceService.describe()` |
+| 运行/等待/挂起/阻塞/重试/失败/总数 | `scheduler.describe().activeQueue` / `.counts` |
+| 并行 current/cap、CPU、空闲内存 | `scheduler.describe().concurrency` / `.system` |
+| 子工作器、自动委派 | `snapshot.subWorker` |
+
+三条不撒谎的规则写在代码里并被断言：**没读过的余额是 `—` 而不是 `¥ 0.00`**；读取失败保留上次成功值并标
+`stale`；`controlCenter()` 与 `view.js` 都拿不到某个事实时给**理由**，不给一排零。
+
+### 倒计时按"时刻"发布，不按"剩余秒数"
+
+快照 15 秒一份，倒计时每秒都在变。所以 dashboard 行里存的是 `nextChangeIso`（价格切换的那个瞬间），由
+`view.js` 用它**自己的时钟**减出来 —— 旧 Dock 每秒重算那行逻辑，在新结构里由"发布时刻 + 视图重算"承担。
+再加一条：面板打开时 `useCountdown` 每秒自减一次，所以它不是 15 秒跳一格。下一次变化的钟点按**计费时区**
+（`schedule.timeZone`，Asia/Shanghai）格式化：06:00Z 显示成 14:00，与用户对照的价格页一致。
+
+标题也据实改了：旧 timer 卡叫"距下一次谷价"，但 `nextChange` 是**下一次价格切换**（两个方向都算）——谷价
+时段里它指向的是"下一次峰价"，照旧文案会让人等一个已经在手的东西。现在叫"距价格切换 / Until price change"。
+
+### 一条真相，两个界面各画一半
+
+* **球的面板**（`client.js` 的 `MegaOrb`，以及系统球 `orb.js`）：**仪表盘在上** —— 价格/账户/子工作器三组，
+  加任务与并行两组 —— 然后是治理的 lines、数字与动作按钮（`check`/`retry`/… 就在手边）；再点
+  "治理详情 · Governance" 才展开 §4.4 字段与模块名册。
+* **官方 Settings › Mega 整页**（`MegaPage`）：§4.4 十一个字段、模块名册、社区插件名册与它们的动作。
+  **不重复画仪表盘**（那是球的活）。
+* 两半来自**同一个** `buildMegaView()` 的返回对象（`fields` 与 `dashboard`），所以一个数字只有一个来源。
+
+### 顺带修掉一个真缺陷
+
+`verify.ps1` 里那条"球点外面会收起"**一直是 FAIL**：检查项找 `node.contains(event.target)`，而浏览器半边
+实际只有 Esc 与 × 能关面板 —— 那套"点外面收起"的逻辑当时只实现在**系统球自己的窗口**里（`orb.js` 的
+`documentPointerDown`）。复查结论那轮把 in-UI 球拿掉时，检查项没跟着走，于是它一直在报一个不存在的东西。
+现在球真的实现了这件事（`document` 上 `pointerdown` + 球与面板两个 box 的 `contains`，**不**
+`preventDefault`：点击照样落到它原本该落的地方），检查项也改成断言真实代码。
+
+### 验证
+
+`tests/unit/control-center.test.js` 9 项（新增 2：仪表盘与 sections 同源、余额没读过不编 `¥0.00` 且失败保留
+上次成功值）；`tests/unit/mega-core-view.test.js` 9 项（新增 3：仪表盘数字 + 十一个字段原样不动、倒计时按
+时刻重算三档、无 dashboard 块给理由）；`tests/unit/mega-core-client.test.js` 9 项（新增 2：球开在仪表盘而
+页面不重复画、倒计时每秒自减）；新增 `tests/unit/orb-ui.test.js` 5 项（系统球面板画出五组数字与三种色调、
+仪表盘在治理之前、缺 dashboard 给理由、关着不画、球的色调仍来自治理）。
+
+真实链路验证（`buildControlCenter` + **真实 `SchedulerService`/`PricingRepository`** + 一次性 state 目录）：
+
+```text
+电费时段=OFF-PEAK | 峰价时段表=09:00-12:00, 14:00-18:00 · Asia/Shanghai | 价格来源=official · 2026-09-07
+距价格切换=已是谷价 · off-peak now | 下一次变化=14:00 → 峰价 Peak
+账户=未刷新（未读，不编 0）| 并行 current=4 / cap=4 | 空闲内存=13.4 GB
+view.dashboard: price:until-off-peak=3m 59s（由 nextChangeIso 与视图时钟算出）
+```
+
+全量测试唯一失败是既有的 `mega-extension-integration`（orb 窗口要 `DSH_SYSTEM_ORB=1` 才创建，基线同样
+失败）；`verify.ps1`（`-SkipTests`）**ALL CHECKS PASSED**。

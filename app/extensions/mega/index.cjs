@@ -68,7 +68,7 @@ function bilingualTitle(cn, en) {
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
-  'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
+  'mega:balance', 'mega:balance-restore', 'mega:pick-workspace', 'mega:pick-sound',
   'mega:update-check', 'mega:update-apply',
   'mega:dock-toggle', 'mega:dock-expand',
   // The compatibility report the dock's status panel shows. It used to be answered
@@ -277,6 +277,65 @@ async function observedRegions() {
 }
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
+
+/**
+ * The one balance refresh path (MEGA-04).
+ *
+ * Every trigger — the startup read, the dock's Balance panel, the dashboard's refresh button in the official UI —
+ * comes through here, so "read the account" has a single implementation with a single call site. That is what the
+ * lifecycle test has always asserted (`one balance refresh implementation`), and it is worth keeping literally
+ * true: a second call site is how a second policy (a different timeout, a different trigger name, a retry that
+ * nobody agreed to) gets introduced without anybody deciding to.
+ *
+ * @param {string} trigger `startup` | `module-open` | `manual` | `retry`
+ * @param {{only?: string[]|null}} [options] `only` re-reads just the providers that failed
+ */
+async function refreshBalance(trigger = 'manual', { only = null } = {}) {
+  const result = await balanceService.refreshBalances(trigger, { only })
+  notifyChanged()
+  return result
+}
+
+/**
+ * Whether a balance read is already running because somebody asked for one.
+ *
+ * The service coalesces its own reads (`refreshBalance` reuses the in-flight call), so this flag is not about
+ * protecting the provider — it is about answering the *button* honestly: a second click while the first read is
+ * still out reports "already going" instead of pretending to have started a second one.
+ */
+let balanceRefreshInFlight = false
+
+/**
+ * Read the account once as the product comes up (MEGA-04).
+ *
+ * Until this existed the dashboard said `未刷新 · not read yet` until a human pressed something, which made the
+ * balance look broken rather than unread — the old dock refreshed when its Balance module was scrolled into
+ * view, and there is no such module any more.
+ *
+ * Three properties are the point, and all three are why it lives here rather than on the boot path:
+ *
+ *   * **it is off the boot path** — `setTimeout` with an `unref`'d timer, so a slow or hanging provider can
+ *     never delay the official UI, the dock or the ball;
+ *   * **it happens once** — a startup read that repeated itself would be a poll, and the account does not
+ *     change often enough to be worth one;
+ *   * **a failure is data**, not an error: the service returns the failure as state (and marks a stale answer
+ *     as stale), so a missing credential or an offline machine costs a line in the log and one honest row on
+ *     the dashboard.
+ */
+function scheduleStartupBalanceRead() {
+  const delayMs = Math.max(0, Number(process.env.DSH_MEGA_BALANCE_STARTUP_MS ?? 3000))
+  const timer = setTimeout(() => {
+    Promise.resolve()
+      .then(() => refreshBalance('startup'))
+      .then((result) => {
+        const state = result?.ok ? `${result.balances?.length || 0} row(s)` : (result?.error?.code || 'no result')
+        log(`startup balance read: ${state}`)
+      })
+      .catch((error) => log(`the startup balance read failed without affecting anything else: ${error?.message || error}`))
+  }, delayMs)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
 
 /**
  * Terminal alerts are one pipeline for every task path (official user session,
@@ -1593,6 +1652,39 @@ function controlCenter() {
       } catch {
         return null
       }
+    })(),
+    /**
+     * The two billing sources the expanded dock used to read on its own.
+     *
+     * They are handed to the Control Center rather than to each surface, because "what does an hour of this
+     * cost, and what is left to spend" is one fact with several readers: the dashboard in the system orb, the
+     * governance snapshot the Mega plugin fetches, and the old dock's own summary. The balance is the
+     * *service's* answer — which keeps the last successful read and marks it stale rather than blanking it —
+     * and the price list is the repository's, so the schedule shown is the schedule the cost is billed
+     * against (`billing/pricing-repository.js`).
+     */
+    balance: (() => {
+      try {
+        // The **cached** answer, deliberately: this runs on every Control Center read (the orb's 15-second poll,
+        // every plugin request), and a provider call per repaint would spend the user's rate limit on drawing.
+        // Nothing here may start a read: the two places one starts are the startup pass and the refresh action.
+        return balanceService.describeCached()
+      } catch (error) {
+        log(`the balance could not be read for the Control Center: ${error?.message || error}`)
+        return null
+      }
+    })(),
+    pricing: (() => {
+      try {
+        // The scheduler owns the loaded price list (`billing/pricing-repository.js`); a second load here
+        // could disagree with the rates a task is actually billed at.
+        const described = scheduler.pricing?.describe?.() || null
+        const schedule = scheduler.pricing?.getSchedule?.() || null
+        return described ? { ...described, schedule } : null
+      } catch (error) {
+        log(`the price list could not be read for the Control Center: ${error?.message || error}`)
+        return null
+      }
     })()
   })
 }
@@ -1603,10 +1695,29 @@ function controlCenter() {
  * `repair` is the bundled manager's own path — which refuses while the pin is untested — and `disable` /
  * `enable` go through the store, because the user's decision about a plugin belongs in the store's record
  * rather than in a second copy here.
+ *
+ * `refresh-balance` is the odd one out in two ways, and both are deliberate:
+ *
+ *   * **it needs no id.** Every other action names the module or plugin it acts on; reading the account again
+ *     is about the account. So it is answered before the id check rather than being given a fake one.
+ *   * **it does not wait.** A provider read has a 20-second timeout, and the caller is a button in a 340px
+ *     panel: holding the answer back for the whole read would freeze the panel it is meant to update. It
+ *     returns immediately, the read runs in the background, and the next view read carries the result — the
+ *     service marks itself `refreshing` in the meantime, which the dashboard draws as 刷新中.
  */
 async function controlAction(payload = {}) {
   const action = String(payload.action || '')
   const id = String(payload.id || '')
+  if (action === 'refresh-balance') {
+    if (balanceRefreshInFlight) return { ok: true, action, id: null, coalesced: true, started: false }
+    balanceRefreshInFlight = true
+    Promise.resolve()
+      .then(() => refreshBalance('manual'))
+      .then((result) => log(`balance refreshed by request: ${result?.ok ? `${result.balances?.length || 0} row(s)` : (result?.error?.code || 'no result')}`))
+      .catch((error) => log(`balance refresh failed: ${error?.message || error}`))
+      .finally(() => { balanceRefreshInFlight = false })
+    return { ok: true, action, id: null, started: true }
+  }
   if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
   try {
     if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
@@ -2373,9 +2484,7 @@ function registerIpc() {
   ipcMain.handle('mega:balance', async (_event, trigger = 'manual', options = {}) => {
     try {
       const only = Array.isArray(options?.only) && options.only.length ? options.only : null
-      const result = await balanceService.refreshBalances(typeof trigger === 'string' ? trigger : 'manual', { only })
-      notifyChanged()
-      return result
+      return await refreshBalance(typeof trigger === 'string' ? trigger : 'manual', { only })
     } catch (error) {
       // A balance failure is an outer-service failure: report, never throw.
       log(`balance refresh failed: ${error?.stack || error}`)
@@ -2383,6 +2492,13 @@ function registerIpc() {
       return { ...balanceService.describe(), error: { code: 'REFRESH_FAILED', message: String(error?.message || error) } }
     }
   })
+  /**
+   * The account as it stands, without reading it again.
+   *
+   * A renderer that is about to draw (the dock's Balance panel) asks this instead of `mega:balance`: the
+   * refresh is what costs a provider call, and drawing must not be able to trigger one by accident.
+   */
+  ipcMain.handle('mega:balance-restore', () => balanceService.describeCached())
   ipcMain.handle('mega:pick-workspace', () => pickWorkspaceDirectory(dialog))
   ipcMain.handle('mega:pick-sound', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
@@ -3100,6 +3216,9 @@ async function start(context) {
   // application — is kept in the tree and turned off by default, because it flickered whenever its
   // panel opened and a second ball showing the same snapshot was the thing being removed.
   if (process.env.DSH_SYSTEM_ORB === '1') createSystemOrbWindow()
+  // The account is read once, in the background, so the dashboard's balance is the account's real state instead
+  // of "not read yet" until somebody clicks something (see `scheduleStartupBalanceRead`).
+  scheduleStartupBalanceRead()
   // Theme system starts last: it must never be able to delay the official UI,
   // the scheduler or the dock. A failure here is logged and the product runs on
   // the Dark recovery theme. It paints the official shell and overlay only — the dock is
