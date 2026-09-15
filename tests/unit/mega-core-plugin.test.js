@@ -106,6 +106,7 @@ test('the host half mounts every route the browser half calls, and unwinds them 
     '/mega-core/health',
     '/mega-core/orb',
     '/mega-core/task',
+    '/mega-core/task-delete',
     '/mega-core/task-edit',
     '/mega-core/task-move',
     '/mega-core/timing',
@@ -261,6 +262,11 @@ test('the new-task pair proxies DS-Hns, its refusals included, and the ball posi
       }
       return { ok: true, task: { id: input.taskId, queueRank: 1 } }
     },
+    deleteTask: async (input) => {
+      if (!input.taskId) return { ok: false, reason: 'deleting a task needs its id', field: 'taskId' }
+      if (input.taskId === 'task-gone') return { ok: false, reason: `"${input.taskId}" is not in the active queue`, field: 'taskId' }
+      return { ok: true, task: { id: input.taskId, status: 'CANCELED', reason: 'user-cancel' }, deleted: true }
+    },
     log: () => {}
   })
   await bridge.start()
@@ -327,6 +333,28 @@ test('the new-task pair proxies DS-Hns, its refusals included, and the ball posi
     await server.routes.get('/mega-core/task-move').handler(wrongMethodMove.request, wrongMethodMove.response)
     assert.equal(wrongMethodMove.response.statusCode, 405)
     assert.match(JSON.parse(wrongMethodMove.response.body).reason, /moved with POST/)
+
+    /**
+     * Deleting one — the third of the queue's operations, and the one the user asked for by name
+     * ("队列任务需要允许删除"). It keeps the bridge's status and words, and a task that is not in the queue is refused
+     * rather than reported as deleted.
+     */
+    const deleted = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1' }) })
+    await server.routes.get('/mega-core/task-delete').handler(deleted.request, deleted.response)
+    assert.equal(deleted.response.statusCode, 200)
+    const deletion = JSON.parse(deleted.response.body)
+    assert.equal(deletion.deleted, true)
+    assert.equal(deletion.task.status, 'CANCELED', 'a deleted task is cancelled, which is what keeps it in history')
+
+    const gone = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-gone' }) })
+    await server.routes.get('/mega-core/task-delete').handler(gone.request, gone.response)
+    assert.equal(gone.response.statusCode, 400)
+    assert.match(JSON.parse(gone.response.body).reason, /not in the active queue/)
+
+    const wrongMethodDelete = fakeExchange({ method: 'GET' })
+    await server.routes.get('/mega-core/task-delete').handler(wrongMethodDelete.request, wrongMethodDelete.response)
+    assert.equal(wrongMethodDelete.response.statusCode, 405)
+    assert.match(JSON.parse(wrongMethodDelete.response.body).reason, /deleted with POST/)
 
     /**
      * The ball's position: a file under `$DSH_HOME/state`, not `localStorage`.

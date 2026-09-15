@@ -58,6 +58,14 @@
    * the form is open must not forget which task is being edited.
    */
   let editingTask = null
+  /**
+   * The task whose row is asking to be deleted, or `null`.
+   *
+   * Module state for the same reason `openCategory` is: the shell redraws this panel every fifteen seconds, and a
+   * confirmation that lived in the row would be thrown away by a poll — leaving the user to start the question over
+   * at the moment they were answering it.
+   */
+  let pendingDelete = null
   const taskDraft = { prompt: '', startAt: '', allowPeak: false }
   /** What DS-Hns answered about the timing surface, and what it last said when it could not answer. */
   let timing = null
@@ -165,12 +173,17 @@
   }
 
   /**
-   * One queued task, as a row with the two things a person can do about it.
+   * One queued task, as a row with the three things a person can do about it.
    *
-   * The panel used to draw the queue as a number, and a number cannot be corrected or moved — which is what
-   * "也不能编辑，也不能调顺序" was. The two buttons are the same operations the official plugin's ball offers
-   * (`scheduler.reorderTask` and `scheduler.editTask`, reached here over this window's own IPC), so both balls let
+   * The panel used to draw the queue as a number, and a number cannot be corrected, moved or removed — which is what
+   * "也不能编辑，也不能调顺序" was. The buttons are the same operations the official plugin's ball offers
+   * (`scheduler.reorderTask`, `editTask`, `cancelTask`, reached here over this window's own IPC), so both balls let
    * the user do the same things to the same queue.
+   *
+   * **Delete asks first.** It is the one button here that cannot be undone from the panel, and a row of small buttons
+   * is exactly where a mis-click happens: the first click turns the row into its own confirmation, and the second
+   * deletes. `pendingDelete` holds which task is asking, for the same reason `openCategory` is module state — a
+   * redraw from the shell's poll must not throw the question away.
    */
   function drawQueueTask(task, index, count) {
     const row = element('div', 'queue-task')
@@ -184,22 +197,40 @@
     row.appendChild(head)
     row.appendChild(element('div', 'prompt', task.prompt || '—'))
     const actions = element('div', 'queue-actions')
-    const move = (label, title, direction, disabled) => {
-      const button = element('button', 'act small', label)
-      button.type = 'button'
-      button.title = title
-      if (disabled) button.disabled = true
-      button.addEventListener('click', () => moveTask(task.id, direction))
-      return button
+    const button = (label, title, onClick, disabled) => {
+      const node = element('button', 'act small', label)
+      node.type = 'button'
+      node.title = title
+      if (disabled) node.disabled = true
+      node.addEventListener('click', onClick)
+      return node
     }
-    actions.appendChild(move('↑ 上移', '在这条前面 · move up in the queue', 'up', index === 0))
-    actions.appendChild(move('↓ 下移', '排到后面 · move down in the queue', 'down', index === count - 1))
-    const edit = element('button', 'act small', '✎ 编辑 · Edit')
-    edit.type = 'button'
-    edit.title = '改这条任务的内容或时间 · edit this task'
-    edit.dataset.orbAction = 'edit-task'
-    edit.addEventListener('click', () => openTaskForm(task))
-    actions.appendChild(edit)
+    if (pendingDelete === task.id) {
+      row.dataset.confirming = 'on'
+      actions.appendChild(element('span', 'muted ask', '删除这条？ · delete this one?'))
+      const confirm = button('删除 · Delete', '从队列里删除（历史里留下 CANCELED 记录）· delete it (it stays in history as cancelled)', () => deleteTask(task.id), false)
+      confirm.dataset.orbAction = 'delete-task'
+      confirm.classList.add('danger')
+      actions.appendChild(confirm)
+      actions.appendChild(button('取消 · Cancel', '不删了 · keep it', () => {
+        pendingDelete = null
+        drawPanel()
+        measure()
+      }, false))
+    } else {
+      actions.appendChild(button('↑ 上移', '在这条前面 · move up in the queue', () => moveTask(task.id, 'up'), index === 0))
+      actions.appendChild(button('↓ 下移', '排到后面 · move down in the queue', () => moveTask(task.id, 'down'), index === count - 1))
+      const edit = button('✎ 编辑 · Edit', '改这条任务的内容或时间 · edit this task', () => openTaskForm(task), false)
+      edit.dataset.orbAction = 'edit-task'
+      actions.appendChild(edit)
+      const remove = button('✕ 删除 · Delete', '从队列里删除 · delete it from the queue', () => {
+        pendingDelete = task.id
+        drawPanel()
+        measure()
+      }, false)
+      remove.dataset.orbAction = 'ask-delete-task'
+      actions.appendChild(remove)
+    }
     row.appendChild(actions)
     return row
   }
@@ -245,6 +276,38 @@
       })
       .catch((error) => {
         taskNotice = { ok: false, text: `✖ ${String((error && error.message) || error)}` }
+        drawPanel()
+        measure()
+      })
+  }
+
+  /**
+   * Delete a queued task, and redraw from the answer.
+   *
+   * The deletion is the scheduler's `cancelTask`: the task leaves the active queue and lands in the history layer as
+   * CANCELED, so "I deleted it" and "what became of it" stay answerable from the same record. The row that asked is
+   * cleared either way — a confirmation that survived its own answer would be a question with no subject.
+   */
+  function deleteTask(taskId) {
+    pendingDelete = null
+    if (!api || typeof api.deleteTask !== 'function') {
+      taskNotice = { ok: false, text: '✖ 这个窗口没有删除的通道 · this window has no delete channel' }
+      drawPanel()
+      measure()
+      return
+    }
+    Promise.resolve(api.deleteTask({ taskId }))
+      .then((answer) => {
+        if (!answer || answer.ok === false) {
+          taskNotice = { ok: false, text: `✖ ${(answer && answer.reason) || 'the task was not deleted'}` }
+        } else {
+          taskNotice = { ok: true, text: `✓ 已删除 #${String(taskId).slice(0, 18)} · deleted from the queue` }
+        }
+      })
+      .catch((error) => {
+        taskNotice = { ok: false, text: `✖ ${String((error && error.message) || error)}` }
+      })
+      .then(() => {
         drawPanel()
         measure()
       })
@@ -344,6 +407,17 @@
 
     const dashboard = drawDashboard(view.dashboard)
     if (dashboard) panelBody.appendChild(dashboard)
+
+    /**
+     * What the last queue operation answered, next to the queue it was about.
+     *
+     * A move or a deletion is refused by the scheduler in its own words ("only pending/suspended tasks can be
+     * edited", "not in the active queue"), and a panel that swallowed that would be a panel whose buttons sometimes
+     * do nothing. It is drawn here rather than in the form because the queue's own buttons are here.
+     */
+    if (taskNotice) {
+      panelBody.appendChild(element('div', `queue-notice ${taskNotice.ok ? 'ok' : 'bad'}`, taskNotice.text))
+    }
 
     // The §4.2 lines: faults first, then what is fine.
     for (const entry of view.lines || []) {
@@ -455,6 +529,9 @@
 
   function openTaskForm(task = null) {
     mode = 'task'
+    // Opening the form answers any question the queue was asking: a delete confirmation left behind a row the user
+    // has navigated away from is a question about nothing.
+    pendingDelete = null
     // The form serves both jobs: "make one" (no task) and "change that one" (a queued task from the panel's queue
     // fold). One form, because a task edited here and a task created here have to mean the same thing.
     editingTask = task && task.id ? task : null
@@ -900,6 +977,8 @@
       ballSize: next.ballSize || state.ballSize,
       panel: next.panel || null
     }
+    // Closing the panel forgets the last queue receipt: it belonged to a conversation the user has left.
+    if (openChanged && !state.open) taskNotice = null
     if (openChanged) measured = null
     drawBall()
     drawPanel()

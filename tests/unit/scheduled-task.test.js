@@ -210,6 +210,43 @@ test('a queued task can be changed and moved, and a running one cannot be edited
   }
 })
 
+test('a queued task can be deleted, and the record of it stays in history', async () => {
+  /**
+   * "队列任务需要允许删除." The deletion is the scheduler's `cancelTask` rather than a second removal path: a queued task
+   * is cancelled and leaves the active queue, a *running* one is interrupted first, and either way it is finalized
+   * through the one terminal pipeline — so the history layer can still answer "what became of the task I deleted"
+   * after the queue has forgotten it. A task that is already gone is not silently re-deleted.
+   */
+  const { service, client, dir } = makeScheduler()
+  try {
+    const first = service.addTask({ prompt: '删掉我', startAt: new Date(Date.now() + 60 * 60_000).toISOString() })
+    const second = service.addTask({ prompt: '留着我', startAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString() })
+    await service.tick()
+    assert.equal(service.listTasks().length, 2)
+    /** The one terminal pipeline is what the history layer and the notifier consume (`notifications/terminal-dispatch`). */
+    const terminated = []
+    service.on('TASK_TERMINATED', (event) => terminated.push(event))
+
+    const deleted = service.cancelTask(first.id)
+    assert.equal(deleted.status, 'CANCELED', 'a deleted task is cancelled, not quietly dropped')
+    assert.equal(deleted.reason, 'user-cancel')
+    // It left the active queue, and it is nowhere in the list a panel draws.
+    assert.deepEqual(service.listTasks().map((t) => t.id), [second.id])
+    // ...but it was finalized through the terminal pipeline, which is what puts it in the history layer — so "what
+    // became of the task I deleted" is answerable after the queue has forgotten it.
+    assert.equal(terminated.length, 1, 'a deletion did not go through the terminal pipeline')
+    assert.equal(terminated[0].status, 'CANCELED')
+    assert.equal(terminated[0].id, first.id)
+    // Deleting it again finds nothing rather than pretending it worked.
+    assert.equal(service.cancelTask(first.id), null)
+    // And the queue it left is untouched: deletion is not a clear-all.
+    assert.deepEqual(service.listTasks().map((t) => t.id), [second.id])
+    assert.equal(client.dispatched.length, 0, 'deleting a queued task dispatched something')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('the task a scheduled run produces carries no second prompt, no header and no rewrite', async () => {
   /**
    * "Same as a normal conversation" has one failure mode worth a test of its own: the dispatch path quietly

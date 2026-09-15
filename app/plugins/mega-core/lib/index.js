@@ -19,8 +19,9 @@
  *   POST /mega-core/task        → schedule one, answered with the task DS-Hns actually recorded
  *   POST /mega-core/task-edit   → change a queued one
  *   POST /mega-core/task-move   → move a queued one in the queue
+ *   POST /mega-core/task-delete → delete one from the queue
  *
- * The last four are the routes the *browser* half reaches for, and they are here because **the surfaces that need
+ * The last five are the routes the *browser* half reaches for, and they are here because **the surfaces that need
  * them are here**. The ball's position, the new-task form and the queue panel all belong to plugin-drawn surfaces
  * — the `shell.overlay` ball and the two seats of the task form — none of which has an IPC of its own, so this
  * origin is the only way they can reach DS-Hns. `/orb` and the `/timing` + `/task` pair were each removed once on
@@ -366,15 +367,20 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
   }))
 
   /**
-   * The queue's two operations, for the ball panel's queue fold.
+   * The queue's three operations, for the ball panel's queue fold: change a task, move it, delete it.
    *
    * A count is not something a surface can act on: "已挂起 1" says a task is waiting and nothing about which one,
-   * what it says, or when — which is what "挂起任务数量没有改变，也不能编辑，也不能调顺序" was about. The queue itself
-   * arrives inside `/view` (see the note at the top of this file); these two are what a surface can *do* to it, and
-   * they are separate routes because they are separate questions with separate refusals ("only pending/suspended
-   * tasks can be edited" versus "invalid queue move"). Both keep DS-Hns' own status (400) and its own words.
+   * what it says, or when — which is what "挂起任务数量没有改变，也不能编辑，也不能调顺序" was about, and a queue with no
+   * way to remove a task is a queue you can only add mistakes to. The queue itself arrives inside `/view` (see the
+   * note at the top of this file); these three are what a surface can *do* to it, and they are separate routes
+   * because they are separate questions with separate refusals ("only pending/suspended tasks can be edited",
+   * "invalid queue move", "not in the active queue"). Each keeps DS-Hns' own status (400) and its own words.
    */
-  for (const [route, refusal] of [['task-edit', 'a task is edited with POST'], ['task-move', 'a task is moved with POST']]) {
+  for (const [route, refusal] of [
+    ['task-edit', 'a task is edited with POST'],
+    ['task-move', 'a task is moved with POST'],
+    ['task-delete', 'a task is deleted with POST']
+  ]) {
     disposers.push(webServer.register({
       kind: 'exact',
       path: `${BASE}/${route}`,

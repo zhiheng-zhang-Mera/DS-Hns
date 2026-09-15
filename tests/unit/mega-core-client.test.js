@@ -739,6 +739,60 @@ test('the queue fold counts what is waiting, and lets a task be moved and edited
   assert.equal('deliveryMode' in payload, false, 'an edit rewrote the delivery the user chose when they created it');
 })
 
+test('deleting a queued task asks first, and only the second click deletes it', async () => {
+  /**
+   * "队列任务需要允许删除." Delete is the one button on a queue row that cannot be undone from the panel, and a row of
+   * small buttons in a 340px panel is where a mis-click happens — so the first click turns the row into its own
+   * confirmation and the second one deletes. What is asserted is the two-step shape, the route it posts to, and that
+   * the row's own question survives the redraw a poll causes.
+   */
+  const fetchImpl = fakeNewTaskFetch({ view: withQueue([queuedTask(), queuedTask({ id: 'task-b', prompt: '把报告发到工作区', rank: 2, status: 'PENDING', reason: null })]) });
+  const mounted = await mount({ fetchImpl });
+  const draw = openPanel(mounted);
+  draw();
+  find(draw().tree, (element) => element.props['data-hns-mega-category'] === 'queue')[0].props.onClick();
+
+  const rowFor = (id) => find(draw().tree, (element) => element.props['data-hns-mega-task-row'] === id)[0];
+  const step = (id, which) => find(rowFor(id), (element) => element.props['data-hns-mega-task-delete'] === which)[0];
+  const deletes = () => fetchImpl.calls.filter((call) => call.url === '/mega-core/task-delete');
+
+  // The row offers the delete button, and nothing has been posted yet.
+  const ask = step('task-b', 'ask');
+  assert.ok(ask, `the queue row has no delete button: ${strings(rowFor('task-b')).join(' | ')}`);
+  assert.equal(deletes().length, 0, 'a delete was posted before anyone asked for one');
+  ask.props.onClick();
+
+  // The first click asks: the row is now a question, and it still has not deleted anything.
+  const asking = rowFor('task-b');
+  assert.equal(asking.props['data-hns-mega-task-confirming'], 'on', 'the row did not turn into its own confirmation');
+  assert.match(strings(asking).join(' | '), /删除这条？/);
+  assert.equal(step('task-b', 'confirm').props.disabled === true, false, 'the confirmation cannot be answered');
+  assert.match(strings(step('task-b', 'confirm')).join(''), /删除 · Delete/, 'the confirmation does not say what it does');
+  assert.equal(deletes().length, 0, 'asking deleted the task');
+
+  // A redraw (the shell's poll) must not throw the question away — it is the panel's state, not the row's.
+  await settle(draw);
+  assert.equal(rowFor('task-b').props['data-hns-mega-task-confirming'], 'on', 'a poll dismissed the confirmation');
+
+  // 取消 keeps it, and the row goes back to its buttons.
+  const cancel = find(rowFor('task-b'), (element) => element.type === 'button' && /Cancel/.test(strings(element).join('')))[0];
+  assert.ok(cancel, 'the confirmation has no way out');
+  cancel.props.onClick();
+  assert.equal(rowFor('task-b').props['data-hns-mega-task-confirming'], 'off');
+  assert.equal(deletes().length, 0);
+
+  // ...and the second click on 删除 is what deletes: the scheduler's `cancelTask`, addressed by id.
+  step('task-b', 'ask').props.onClick();
+  step('task-b', 'confirm').props.onClick();
+  await tick();
+  await tick();
+  const posted = deletes();
+  assert.equal(posted.length, 1, `the delete never left the panel: ${fetchImpl.calls.map((call) => call.url).join(', ')}`);
+  assert.deepEqual(JSON.parse(posted[0].init.body), { taskId: 'task-b' });
+  // The question is closed and the queue was re-read, so the row is drawn from what the layer holds now.
+  assert.equal(rowFor('task-b').props['data-hns-mega-task-confirming'], 'off', 'the confirmation outlived its own answer');
+})
+
 test('a snapshot with a different queue is drawn as that queue, not as the last one', async () => {
   // The other half of "挂起任务数量没有改变": the number has to follow the snapshot it is drawn from.
   const fetchImpl = fakeNewTaskFetch({ view: withQueue([queuedTask()]) });
@@ -895,6 +949,7 @@ function fakeNewTaskFetch({ view = fixtureView(), timing = fixtureTiming(), task
     if (url === '/mega-core/task') return answer(task.ok === false ? 400 : 200, task);
     if (url === '/mega-core/task-edit') return answer(200, { ok: true, task: { id: 'task-a', status: 'SUSPENDED', reason: 'waiting-schedule' } });
     if (url === '/mega-core/task-move') return answer(200, { ok: true, task: { id: 'task-a', queueRank: 2 } });
+    if (url === '/mega-core/task-delete') return answer(200, { ok: true, task: { id: 'task-b', status: 'CANCELED', reason: 'user-cancel' }, deleted: true });
     throw new Error(`no route for ${url}`);
   };
   impl.calls = calls;

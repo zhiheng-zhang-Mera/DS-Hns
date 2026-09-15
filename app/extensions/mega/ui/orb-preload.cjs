@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('hnsOrb', {
   editTask: (input) => ipcRenderer.invoke('mega:orb-task-edit', input || {}),
   /** Move a queued task — the same `scheduler.reorderTask`. */
   moveTask: (input) => ipcRenderer.invoke('mega:orb-task-move', input || {}),
+  /** Delete a queued task — the same `scheduler.cancelTask`: it leaves the queue and stays in history as cancelled. */
+  deleteTask: (input) => ipcRenderer.invoke('mega:orb-task-delete', input || {}),
   /** Every state change, pushed by the shell. */
   onState: (callback) => ipcRenderer.on('mega:orb-state', (_event, payload) => callback(payload))
 })

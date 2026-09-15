@@ -215,9 +215,17 @@ html, body {
 #panelBody .queue-head .at { margin-left: auto; }
 #panelBody .queue-head .state { color: var(--orb-muted); }
 #panelBody .queue-task .prompt { margin: 3px 0 4px; font-size: 11px; font-weight: 400; line-height: 1.45; word-break: break-word; }
-#panelBody .queue-actions { display: flex; gap: 4px; }
+#panelBody .queue-actions { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 #panelBody .queue-actions button.act { font-size: 10px; padding: 2px 7px; }
 #panelBody .queue-actions button.act[disabled] { cursor: default; }
+#panelBody .queue-actions .ask { color: var(--warn); }
+/* The one irreversible button in the panel is the only red one that is not a fault row. */
+#panelBody .queue-actions button.act.danger { border-color: var(--bad); color: var(--bad); background: rgba(248, 81, 73, .12); }
+#panelBody .queue-task[data-confirming='on'] { background: rgba(210, 153, 34, .06); }
+/* What the last queue operation answered — a refusal in the scheduler's own words, next to the queue it was about. */
+#panelBody .queue-notice { margin-top: 6px; font-size: 11px; font-weight: 400; line-height: 1.45; word-break: break-word; }
+#panelBody .queue-notice.ok { color: var(--ok); }
+#panelBody .queue-notice.bad { color: var(--bad); }
 
 #panelBody .dashboard + .line { margin-top: 6px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
 

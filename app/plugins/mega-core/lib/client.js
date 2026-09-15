@@ -436,25 +436,36 @@ window.__ModuleLoader__.load({
 			}
 
 			/**
-			 * Move a queued task, and re-read.
+			 * Move a queued task, delete one, and re-read.
 			 *
-			 * The answer is the queue's own (`reorderTask` refuses anything that is not queued), and the re-read is
-			 * what makes the panel show the order the scheduler actually recorded rather than the order the click
-			 * implied. The action is reported through the same `snapshot.action` line every other request uses, so a
-			 * refusal is visible in the panel instead of being a button that did nothing.
+			 * The answers are the queue's own (`reorderTask` refuses anything that is not queued, `cancelTask` cancels
+			 * and leaves the task in history), and the re-read is what makes the panel show the queue the layer
+			 * actually holds rather than the one the click implied. Both report through the same `snapshot.action`
+			 * line every other request uses, so a refusal is visible in the panel instead of being a button that did
+			 * nothing.
 			 */
 			async function moveTask(taskId, move) {
+				return taskOperation(TASK_MOVE_URL, { taskId, move }, taskId, `move:${move}`);
+			}
+
+			/** Delete a queued task: the scheduler's `cancelTask`, which cancels it and keeps it in history. */
+			async function deleteTask(taskId) {
+				return taskOperation(TASK_DELETE_URL, { taskId }, taskId, 'delete');
+			}
+
+			/** One request against one of the queue's routes, then a re-read whoever answered what. */
+			async function taskOperation(url, body, taskId, label) {
 				try {
-					const response = await send(TASK_MOVE_URL, {
+					const response = await send(url, {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
 						credentials: 'same-origin',
-						body: JSON.stringify({ taskId, move })
+						body: JSON.stringify(body)
 					});
-					const body = await readJson(response, 'the queue route');
-					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id: taskId, action: `move:${move}`, reason: body?.reason || null } };
+					const answer = await readJson(response, 'the queue route');
+					snapshot = { ...snapshot, action: { ok: answer?.ok !== false, id: taskId, action: label, reason: answer?.reason || null } };
 				} catch (error) {
-					snapshot = { ...snapshot, action: { ok: false, id: taskId, action: `move:${move}`, reason: String(error?.message || error) } };
+					snapshot = { ...snapshot, action: { ok: false, id: taskId, action: label, reason: String(error?.message || error) } };
 				}
 				emit();
 				await refresh();
@@ -486,7 +497,7 @@ window.__ModuleLoader__.load({
 				};
 			}
 
-			return { snapshot: () => snapshot, subscribe, start, refresh, loadPosition, setPosition, savePosition, act, actDashboard, moveTask };
+			return { snapshot: () => snapshot, subscribe, start, refresh, loadPosition, setPosition, savePosition, act, actDashboard, moveTask, deleteTask };
 		}
 
 		/** Subscribe a component to the store, with the two hooks every environment has. */
@@ -610,14 +621,19 @@ window.__ModuleLoader__.load({
 		 * A count was all this panel ever had, and a count cannot be edited or moved: it says a task is waiting and
 		 * nothing about which one, what it says, or when. So each queued task is drawn with the three things a
 		 * person needs to decide about it — its place, the decision the scheduler made (waiting for its instant, or
-		 * for the valley price), and when it is due — and with the two operations the scheduler offers: move it, or
-		 * change it.
+		 * for the valley price), and when it is due — and with the three operations the scheduler offers: move it,
+		 * change it, delete it.
+		 *
+		 * **Delete asks first.** It is the one button here that cannot be undone from the panel, and a row of small
+		 * buttons in a 340px panel is exactly where a mis-click happens: the first click turns the row's buttons into
+		 * its own confirmation, and the second deletes. That is the whole of the state — no global dialog, and nothing
+		 * a stray click elsewhere can confirm.
 		 *
 		 * The buttons are the same "one implementation per fact" shape as everything else here: they post to
-		 * `/mega-core/task-move` and `/mega-core/task-edit`, which the host half proxies to the scheduler's own
-		 * `reorderTask`/`editTask`. This panel never decides what may be done to a task — it asks.
+		 * `/mega-core/task-move`, `/mega-core/task-edit` and `/mega-core/task-delete`, which the host half proxies to
+		 * the scheduler's own methods. This panel never decides what may be done to a task — it asks.
 		 */
-		function QueueTaskRow({ task, index, count, onMove, onEdit }) {
+		function QueueTaskRow({ task, index, count, confirming, onMove, onEdit, onDelete, onConfirm }) {
 			const statusCn = task.status === 'SUSPENDED' ? '已挂起' : '等待中';
 			const reasonCn = task.reason === 'waiting-schedule' ? '等到点'
 				: task.reason === 'peak-window' ? '等谷价'
@@ -641,6 +657,7 @@ window.__ModuleLoader__.load({
 			}, label);
 			return box('div', {
 				'data-hns-mega-task-row': task.id,
+				'data-hns-mega-task-confirming': confirming ? 'on' : 'off',
 				style: { padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }
 			}, [
 				box('div', { key: 'head', style: { display: 'flex', alignItems: 'baseline', gap: '6px' } }, [
@@ -654,11 +671,40 @@ window.__ModuleLoader__.load({
 					text(task.startAtText ? `→ ${task.startAtText}` : '—', { key: 'at', flex: '0 0 auto', color: MUTED, font: font(10, 400) })
 				]),
 				text(task.prompt || '—', { display: 'block', margin: '3px 0 4px', color: '#ededed', font: font(11, 400), wordBreak: 'break-word' }),
-				box('div', { key: 'acts', style: { display: 'flex', gap: '4px' } }, [
-					button('up', '↑ 上移', '在这条前面 · move up in the queue', () => onMove(task.id, 'up'), index === 0),
-					button('down', '↓ 下移', '排到后面 · move down in the queue', () => onMove(task.id, 'down'), index === count - 1),
-					button('edit', '✎ 编辑', '改这条任务的内容或时间 · edit this task', () => onEdit(task), false)
-				])
+				confirming
+					? box('div', { key: 'confirm', style: { display: 'flex', alignItems: 'center', gap: '4px' } }, [
+						text('删除这条？ · delete this one?', { key: 'ask', flex: '1 1 auto', color: TONES.warn, font: font(10, 400) }),
+						box('button', {
+							key: 'yes',
+							type: 'button',
+							'data-hns-mega-task-delete': 'confirm',
+							title: '从队列里删除（历史里留下 CANCELED 记录）· delete it (it stays in history as cancelled)',
+							onClick: () => onDelete(task.id),
+							style: {
+								all: 'initial', padding: '2px 7px', borderRadius: '5px', border: `1px solid ${TONES.bad}`,
+								background: 'rgba(248,81,73,.12)', color: TONES.bad, cursor: 'pointer', font: font(10, 400)
+							}
+						}, '删除 · Delete'),
+						button('no', '取消 · Cancel', '不删了 · keep it', () => onConfirm(null), false)
+					])
+					: box('div', { key: 'acts', style: { display: 'flex', gap: '4px' } }, [
+						button('up', '↑ 上移', '在这条前面 · move up in the queue', () => onMove(task.id, 'up'), index === 0),
+						button('down', '↓ 下移', '排到后面 · move down in the queue', () => onMove(task.id, 'down'), index === count - 1),
+						button('edit', '✎ 编辑', '改这条任务的内容或时间 · edit this task', () => onEdit(task), false),
+						// `data-hns-mega-task-delete` marks both steps — `ask` and `confirm` — so "the first click asks and
+						// the second deletes" is a property a test can hold the panel to.
+						box('button', {
+							key: 'delete',
+							type: 'button',
+							'data-hns-mega-task-delete': 'ask',
+							title: '从队列里删除 · delete it from the queue',
+							onClick: () => onConfirm(task.id),
+							style: {
+								all: 'initial', padding: '2px 7px', borderRadius: '5px', border: '1px solid rgba(255,255,255,.2)',
+								background: 'rgba(255,255,255,.04)', color: MUTED, cursor: 'pointer', font: font(10, 400)
+							}
+						}, '✕ 删除')
+					])
 			]);
 		}
 
@@ -681,8 +727,11 @@ window.__ModuleLoader__.load({
 				task,
 				index,
 				count: queue.tasks.length,
+				confirming: handlers.confirming === task.id,
 				onMove: handlers.onMove,
-				onEdit: handlers.onEdit
+				onEdit: handlers.onEdit,
+				onDelete: handlers.onDelete,
+				onConfirm: handlers.onConfirm
 			}));
 		}
 
@@ -720,6 +769,14 @@ window.__ModuleLoader__.load({
 				{ id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
 			].filter((entry) => entry.rows.length || entry.id === 'queue');
 			const [openCategory, setOpenCategory] = React.useState(null);
+			/**
+			 * The task whose row is asking to be deleted, by id — `null` when none is.
+			 *
+			 * It is component state rather than a row's own, because a redraw replaces every row: a confirmation that
+			 * lived in the row would be thrown away by the fifteen-second poll, which is the one moment the user
+			 * would have to start over.
+			 */
+			const [confirmingDelete, setConfirmingDelete] = React.useState(null);
 			if (!dashboard) return null;
 			if (dashboard.ok === false) {
 				return box('div', { key: 'dash', style: { padding: '4px 0', color: MUTED, fontWeight: '400' } }, dashboard.reason || '仪表盘不可用 · dashboard unavailable');
@@ -844,8 +901,16 @@ window.__ModuleLoader__.load({
 						style: { padding: '0 9px 6px' }
 					}, group.id === 'queue'
 						? queueBody(group.queue, {
+							confirming: confirmingDelete,
 							onMove: (taskId, move) => onTaskAction(taskId, move),
-							onEdit: (task) => onTaskAction(task.id, 'edit', task)
+							onEdit: (task) => onTaskAction(task.id, 'edit', task),
+							// Two steps, and the second one clears the confirmation: the row is replaced by the
+							// queue the layer answered with, which may not have this task in it at all.
+							onConfirm: (taskId) => setConfirmingDelete(taskId),
+							onDelete: (taskId) => {
+								setConfirmingDelete(null);
+								onTaskAction(taskId, 'delete');
+							}
 						})
 						: group.rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${group.id}:${entry.cn}`, ...row(entry) })))
 				]);
@@ -1327,14 +1392,15 @@ window.__ModuleLoader__.load({
 					onAction: (action, id) => store.act(action, id),
 					onDashboardAction: (action) => store.actDashboard(action),
 					/**
-					 * The queue's two operations, from the ball's panel.
+					 * The queue's three operations, from the ball's panel.
 					 *
-					 * `edit` opens this panel's form on that task; anything else is a move, which goes to the scheduler
-					 * through the store and is followed by a re-read — so what the panel shows next is the order the
-					 * layer recorded, not the order the click implied.
+					 * `edit` opens this panel's form on that task; `delete` goes to the scheduler's `cancelTask`;
+					 * anything else is a move. Both of the latter re-read the view, so what the panel shows next is
+					 * the queue the layer holds rather than the one the click implied.
 					 */
 					onTaskAction: (taskId, move, task) => {
 						if (move === 'edit') return setTaskForm({ task });
+						if (move === 'delete') return store.deleteTask(taskId);
 						return store.moveTask(taskId, move);
 					}
 				})
@@ -1379,6 +1445,7 @@ window.__ModuleLoader__.load({
 		const TASK_URL = '/mega-core/task';
 		const TASK_EDIT_URL = '/mega-core/task-edit';
 		const TASK_MOVE_URL = '/mega-core/task-move';
+		const TASK_DELETE_URL = '/mega-core/task-delete';
 
 		/**
 		 * The page's own `fetch`.

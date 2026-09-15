@@ -3,6 +3,32 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 队列任务可以删除（并且先问一句）
+
+**"队列任务需要允许删除，其余修改全部正常。"** 队列的第三个操作补上了：每条排队任务现在有 `✕ 删除`，两个球面板
+一样。
+
+**删除是什么。** 它是调度器自己的 `cancelTask`，不是第二条移除路径：排队的任务被取消并**离开活动队列**，正在跑的
+任务先被中断，两种情况都走**同一条终态管线** —— 所以任务会以 `CANCELED` 落进历史层，"我删掉了它"和"它后来怎么了"
+仍然能从同一份记录回答，而不是凭空消失。一个已经不在队列里的 id 会**明说**"not in the active queue"，而不是假装
+删成功（一个悄悄什么都没做的删除比一个说没找到的更糟）。
+
+**先问一句。** 这是队列行上唯一一个无法从面板撤销的按钮，而 340px 宽的一行小按钮正是误点的地方：第一次点击把这一行
+**变成它自己的确认**（"删除这条？ · delete this one?" + `删除` / `取消`），第二次点击才真的删。确认状态是**面板的
+状态**（界面内那颗球是 `Dashboard` 的 state，系统球是模块级的 `pendingDelete`），因为外壳每 15 秒重绘一次 —— 一个
+存在行里的确认会被那次轮询丢掉，正好丢在用户要回答它的时候。
+
+**能力仍只有一份实现。** 经治理桥（`POST /task-delete`）给官方插件，经 IPC（`mega:orb-task-delete`）给系统悬浮球，
+两边调的是同一个 `deleteScheduledTask` → `scheduler.cancelTask`。队列本身依旧没有第二条读取路径。
+
+**顺手补的一处**：系统球面板原来只在**表单**里画 `taskNotice`，所以队列上的移动/删除被拒绝时面板什么都不说 —— 现在
+队列下方的收据行（`.queue-notice`）会说明结果，面板关闭时清掉。
+
+**验证**：全量 **1532/1532**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 230/230。新增：`scheduled-task`（删除走终态
+管线、重复删除返回空、不误伤其它任务）、`mega-core-client`（两次点击的形状、轮询不丢确认、POST 到 `task-delete`）、
+`orb-ui`（同一套，走 `deleteTask` 通道）、`mega-core-plugin`（第三条路由 + 方法/不在队列两种拒绝）、
+`surface-ownership`（通道清单 11 条）、`mega-lifecycle-wiring`（三个操作，一个实现）。
+
 ## 悬浮球的队列：挂起数量会动，任务能改、能调顺序
 
 **"定时任务测试成功"（上一轮的路由修复生效了），但"页面切换后，悬浮球信息页挂起任务数量没有改变，也不能编辑，也不能

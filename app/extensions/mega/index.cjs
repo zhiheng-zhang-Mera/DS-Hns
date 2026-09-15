@@ -101,10 +101,10 @@ const CHANNELS = [
   // The system floating orb: its own window, its own document, and only these ways in (see `orb-preload.cjs`
   // — the same "the preload is the whole reachable surface" rule the dock follows).
   'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
-  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made — plus the two
-  // operations on a queued task (change it, move it), so the panel can act on what it counts. The queue itself has no
-  // channel: it travels inside the view both balls already draw.
-  'mega:orb-timing', 'mega:orb-task', 'mega:orb-task-edit', 'mega:orb-task-move',
+  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made — plus the
+  // three operations on a queued task (change it, move it, delete it), so the panel can act on what it counts. The
+  // queue itself has no channel: it travels inside the view both balls already draw.
+  'mega:orb-timing', 'mega:orb-task', 'mega:orb-task-edit', 'mega:orb-task-move', 'mega:orb-task-delete',
   // The push the ball listens on. It has no handler to remove, and it is declared all the same: a channel a
   // preload can subscribe to is part of the surface that has to be enumerable.
   'mega:orb-state',
@@ -1609,11 +1609,13 @@ function governanceBridge() {
     act: (payload) => controlAction(payload),
     // The two halves of the timing surface (pluginize Phase 2): what a scheduled task may be, and one being made.
     // The queue is not a third half — it travels inside `controlCenter()`'s snapshot, which every surface already
-    // reads. What needed adding was the ability to *act* on a queued task: "也不能编辑，也不能调顺序".
+    // reads. What needed adding was the ability to *act* on a queued task: "也不能编辑，也不能调顺序", and then to
+    // delete one.
     timing: () => scheduledTaskSurface(),
     createTask: (input) => scheduleTask(input),
     editTask: (input) => editScheduledTask(input),
     moveTask: (input) => moveScheduledTask(input),
+    deleteTask: (input) => deleteScheduledTask(input),
     log: (message) => log(message)
   })
   return governanceBridgeState
@@ -1757,6 +1759,38 @@ async function moveScheduledTask(input = {}) {
     return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
   } catch (error) {
     log(`moving a task in the queue failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * Delete a task from the queue (`POST /task-delete`).
+ *
+ * It is the scheduler's own `cancelTask`, and that is the honest meaning of "delete" here rather than a second
+ * removal path: a queued task is cancelled and leaves the active queue, a *running* one is interrupted first, and
+ * either way the task lands in the history layer as CANCELED — so "I deleted it" and "what became of it" are
+ * answerable from the same record instead of the task evaporating. An id that is not in the active queue is refused
+ * out loud: a delete that quietly did nothing is worse than one that says it found nothing.
+ */
+async function deleteScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'deleting a task needs its id', field: 'taskId' }
+  const known = (() => {
+    try {
+      return scheduler.listTasks({ limit: 200 }).find((t) => t.id === taskId) || null
+    } catch (error) {
+      log(`the queue could not be read to delete a task: ${error?.message || error}`)
+      return null
+    }
+  })()
+  if (!known) return { ok: false, reason: `"${taskId}" is not in the active queue`, field: 'taskId' }
+  try {
+    const task = scheduler.cancelTask(taskId)
+    if (!task) return { ok: false, reason: `"${taskId}" is not in the active queue`, field: 'taskId' }
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null }, deleted: true }
+  } catch (error) {
+    log(`deleting a task failed: ${error?.message || error}`)
     return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
   }
 }
@@ -1985,13 +2019,13 @@ function registerControlCenterIpc() {
     return result
   }))
   /**
-   * The two ways to change a task that has not run yet.
+   * The three ways to change a task that has not run yet: change it, move it, delete it.
    *
    * The *queue itself* is not a channel: it travels inside the view the panel already draws (`dashboard.queue`, built
    * by `control-center.cjs` from the scheduler's own `listTasks`), so a second way to read it would be a second
    * answer to the same question. What the panel could not do — and what made it "不能编辑，也不能调顺序" — is act on
-   * it. These two are the scheduler's own `editTask` and `reorderTask`, the same two the governance bridge gives the
-   * official plugin, so the ball's window and the official UI cannot disagree about what may be done to a task.
+   * it. These three are the scheduler's own methods, the same ones the governance bridge gives the official plugin,
+   * so the ball's window and the official UI cannot disagree about what may be done to a task.
    */
   ipcMain.handle('mega:orb-task-edit', guard(async (_event, input = {}) => {
     const result = await editScheduledTask(input || {})
@@ -2003,6 +2037,13 @@ function registerControlCenterIpc() {
   }))
   ipcMain.handle('mega:orb-task-move', guard(async (_event, input = {}) => {
     const result = await moveScheduledTask(input || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  ipcMain.handle('mega:orb-task-delete', guard(async (_event, input = {}) => {
+    const result = await deleteScheduledTask(input || {})
+    // A deleted task leaves the queue the panel is drawing, so the panel is redrawn from the queue it left.
     await refreshOrbView()
     if (systemOrb) systemOrb.render(systemOrbView)
     return result

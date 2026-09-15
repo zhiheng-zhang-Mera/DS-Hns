@@ -181,7 +181,7 @@ function loadOrb({ snapshot = null } = {}) {
       calls.push(`createTask:${JSON.stringify(input)}`)
       return taskAnswer || { ok: true, task: { id: 'task-1', status: 'PENDING' } }
     },
-    /** The two operations on a queued task (`scheduler.editTask` / `scheduler.reorderTask`). */
+    /** The three operations on a queued task (`scheduler.editTask` / `reorderTask` / `cancelTask`). */
     editTask: async (input) => {
       calls.push(`editTask:${JSON.stringify(input)}`)
       return { ok: true, task: { id: input.taskId, status: 'SUSPENDED', reason: 'waiting-schedule' } }
@@ -189,6 +189,10 @@ function loadOrb({ snapshot = null } = {}) {
     moveTask: async (input) => {
       calls.push(`moveTask:${JSON.stringify(input)}`)
       return { ok: true, task: { id: input.taskId } }
+    },
+    deleteTask: async (input) => {
+      calls.push(`deleteTask:${JSON.stringify(input)}`)
+      return { ok: true, task: { id: input.taskId, status: 'CANCELED' }, deleted: true }
     },
     hover: async () => ({ ok: true }),
     drag: async () => ({ ok: true }),
@@ -808,6 +812,59 @@ test('the queue fold counts what waits, and lets a task be moved and edited in t
   assert.equal(changes.prompt, '总结今天和昨天的构建日志')
   assert.equal('deliveryMode' in changes, false, 'an edit rewrote the delivery the user chose when they created it')
   assert.match(strings(orb.elements.get('panelBody')).join(' | '), /已更新/)
+})
+
+test('deleting a queued task asks first, and only the second click deletes it', async () => {
+  /**
+   * "队列任务需要允许删除." The deletion is the scheduler's own `cancelTask` (the task leaves the queue and stays in
+   * history as CANCELED), and it asks first: it is the one button on a queue row that cannot be undone from this
+   * window. `pendingDelete` is module state, so the shell's fifteen-second poll cannot throw the question away.
+   */
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  const view = fixtureView()
+  view.dashboard.queue = fixtureQueue()
+  orb.apply(payload(view))
+  findNode(orb.elements.get('panelBody'), (node) => node.dataset.category === 'queue').fire('click')
+
+  const body = orb.elements.get('panelBody')
+  const rowFor = (id) => findNode(body, (node) => node.dataset.task === id)
+  const byAction = (id, action) => {
+    const row = rowFor(id)
+    let found = null
+    const walk = (node) => {
+      if (!node || typeof node !== 'object' || found) return
+      if (node.tagName === 'BUTTON' && node.dataset.orbAction === action) { found = node; return }
+      for (const child of node.children || []) walk(child)
+    }
+    walk(row)
+    return found
+  }
+  const deletes = () => orb.calls.filter((call) => call.startsWith('deleteTask:'))
+
+  const ask = byAction('task-b', 'ask-delete-task')
+  assert.ok(ask, `the queue row has no delete button: ${strings(rowFor('task-b')).join(' | ')}`)
+  assert.equal(deletes().length, 0, 'a delete was posted before anyone asked for one')
+  ask.fire('click')
+
+  // The first click asks: the row is a question, and the shell's next push does not dismiss it.
+  assert.equal(rowFor('task-b').dataset.confirming, 'on', 'the row did not turn into its own confirmation')
+  assert.match(strings(body).join(' | '), /删除这条？/)
+  assert.equal(deletes().length, 0, 'asking deleted the task')
+  orb.apply(payload(view))
+  assert.equal(rowFor('task-b').dataset.confirming, 'on', 'a redraw dismissed the confirmation')
+  assert.ok(byAction('task-b', 'delete-task'), 'the confirmation has nothing to confirm with')
+
+  // 取消 keeps it; the second click on 删除 deletes it, addressed by id.
+  findNode(rowFor('task-b'), (node) => node.tagName === 'BUTTON' && node.textContent === '取消 · Cancel').fire('click')
+  assert.equal(rowFor('task-b').dataset.confirming, undefined)
+  assert.equal(deletes().length, 0)
+  byAction('task-b', 'ask-delete-task').fire('click')
+  byAction('task-b', 'delete-task').fire('click')
+  await tick()
+  await tick()
+  assert.deepEqual(JSON.parse(deletes()[0].slice('deleteTask:'.length)), { taskId: 'task-b' })
+  assert.match(strings(orb.elements.get('panelBody')).join(' | '), /已删除/)
 })
 
 test('the window is asked for the whole panel: the head plus the body, never the height it was given', () => {
