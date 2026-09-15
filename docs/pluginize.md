@@ -274,6 +274,60 @@ Control Center 用的同一份 `controlCenter()`；动作走的是**同一个** 
 
 ---
 
+## 人工 UI 复查标记（checkpoint 5：只留系统球，修好置顶与闪烁）
+
+**标记**：`manual-ui-review-5`。第四轮复查给出四条，其中"侧栏已正确移除"是确认，另外三条都改掉了 ——
+而且两条是**真缺陷**，不是观感问题。
+
+### 1. 两个球 → 只留系统那一个
+
+第一版把球注册进官方 `shell.overlay` 槽，第二版又加了系统球，于是同一个快照有两个地方在看。用户的判词是
+"现在有两个球，只要系统最外层那个"。现在浏览器半边**只注册 `settings.section`**（Mega 整页），
+`shell.overlay` 不再占用；球的位置、唤醒/收起、动作全部由系统球那一侧负责（它们本来就共用同一个视图模型
+与同一个 `controlAction`）。`client.js` 里也留了断言：没有任何 `inject('shell.overlay')`。
+
+### 2. 球盖不住别的应用 → 是 `parent` 的错
+
+第一版给球设了 `parent: mainWindow`（当时的理由是"关掉产品窗口时球一起走"）。这在 Windows 上是致命的：
+**被拥有的窗口（owned window）的 z 序跟随 owner，`alwaysOnTop` 不被遵守** —— 于是球永远只能待在产品窗口
+之上、别的应用之前。现在球是**顶层窗口**（无 parent），`setAlwaysOnTop(true, 'screen-saver')` 在创建时
+再确认一次；它仍然随扩展一起销毁（那是 parent 唯一买到的东西）。单测直接断言 `options.parent === undefined`
+与创建参数，注释里写明原因，免得下一个人"顺手"把 parent 加回来。
+
+### 3. 点击闪烁 → 自己在跟自己打架
+
+两个原因叠在一起，都修了：
+
+* **交互状态被"悬停"一个人决定**。打开面板会重排窗口，于是有一两帧光标落在透明边距而不是球上：悬停变
+  false → 窗口切成穿透 → 转发的指针事件又把光标判成"在球上" → 再切回来，两个状态互相追。现在
+  `syncInteractive()` 由**三件事**决定：光标在不在我们身上、**是否正在拖动**、**面板是否开着**。后两件都是
+  "用户正在用这个东西"的明确信号，不依赖一个会在脚下变的命中测试。原生的 `setIgnoreMouseEvents` 也只在
+  答案**变化**时才写（并且`interactive` 的初值是 `null` 而不是 `false`：新窗口默认是"可交互"的，
+  "答案恰好是 false"和"窗口已经是穿透"不是一回事，第一版就是在这里漏掉了首次写入）。
+* **原生 reshape 太频繁**：`setBounds` 现在只在矩形**真的变了**时才调用（`sameBounds`），15 秒一次的
+  状态推送不再无意义地重塑一扇透明的置顶窗口；面板测量也从"把 `max-height` 去掉再量"改成读
+  `scrollHeight`（内容高度，即使被夹住也正确），省掉每次推送两次强制重排。
+
+顺带补了一条交互：面板打开时，点在面板和球之外会**收起面板**（那时窗口本来就是可交互的），所以不必先去
+找关闭按钮。
+
+### 4. 侧栏：确认已移除，代码删除排在下一轮
+
+用户确认"Mega 侧栏已经正确移除"。删除那套代码（dock.html/css/js、dock target、geometry、十几个测试与
+verify 检查）仍是 §30 的独立阶段：它和本轮的三处修正没有耦合，单独一轮做完更安全。
+
+### 验证
+
+`tests/unit/system-orb.test.js` 13 项（新增：`parent` 必须不存在；开着面板时悬停变 false 也不会把窗口
+切成穿透，拖动同理；重复的悬停答案不产生原生写入；相同状态的推送不重塑窗口，打开面板则必须重塑）。
+`tests/unit/mega-core-client.test.js` 7 项（重写为单界面：只注册 `settings.section`、源码里没有
+`shell.overlay` 注册、整页渲染 §4.4 与自带的深色卡片、动作走 `/mega-core/action`、隐藏不轮询、
+DS-Hns 不应答时画出原因、没有 React 时只画空气）。`mega-core-plugin.test.js` 5 项（路由从五条回到四条，
+`/orb` 随界面一起消失）。语法门 229/229；`verify.ps1 -SkipTests` ALL PASSED（新增"插件只画一个界面、
+球不在其中"的检查）。
+
+---
+
 ## Phase 7 — 去重（第一步：重复 wallpaper backend）
 
 **这一条为什么能先做，而其余去重不能。** §30 把"旧 Mega feature pages / 重复 market discovery UI"的删除放在

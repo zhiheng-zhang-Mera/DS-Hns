@@ -87,16 +87,19 @@ test('the package declares the bundle patch, the client half and the web platfor
   assert.equal(/- remove:|replace:/.test(patch), false, 'the patch must be additive only')
 })
 
-test('the host half mounts its five routes and unwinds them on unload', async () => {
+test('the host half mounts its four routes and unwinds them on unload', async () => {
   const host = await loadHost()
   const server = stubWebServer()
   const dispose = host.apply({ webServer: server })
-  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/orb', '/mega-core/view'])
+  // No `/orb`: the only ball is the system one (`app/extensions/mega/system-orb.cjs`), which keeps its own
+  // position in its own file. A route here for a surface that no longer exists would be a surface to keep in
+  // step for nothing.
+  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/view'])
   for (const route of server.routes.values()) assert.equal(route.kind, 'exact')
   assert.equal(typeof dispose, 'function')
   dispose()
   assert.equal(server.routes.size, 0, 'the routes outlived the plugin')
-  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/orb', '/mega-core/view'])
+  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/view'])
   // `inject` is what makes the loader wait for the web server, so it must be declared.
   assert.deepEqual(host.inject, ['webServer'])
   assert.equal(host.name, 'dsh-plugin-mega-core')
@@ -156,33 +159,6 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     assert.equal(viewBody.version.schema, 1)
     assert.deepEqual(viewBody.hover, ['DS-Hns', 'Healthy', '2 of 2 plugin(s) active', '0 pending'])
     assert.equal(viewBody.fields.length, 11, '§4.4 names eleven fields')
-
-    // The orb's position: nothing stored yet, then what a drag stored, then a refusal for something unusable.
-    const empty = fakeExchange()
-    await server.routes.get('/mega-core/orb').handler(empty.request, empty.response)
-    assert.deepEqual(JSON.parse(empty.response.body), { ok: true, position: null })
-
-    const stored = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { right: 320.6, bottom: 210, edge: 'left' } }) })
-    await server.routes.get('/mega-core/orb').handler(stored.request, stored.response)
-    assert.equal(stored.response.statusCode, 200)
-    assert.deepEqual(JSON.parse(stored.response.body).position, { right: 321, bottom: 210, edge: 'left' })
-    const reread = fakeExchange()
-    await server.routes.get('/mega-core/orb').handler(reread.request, reread.response)
-    assert.deepEqual(JSON.parse(reread.response.body).position, { right: 321, bottom: 210, edge: 'left' })
-
-    // A version 1 file (`x`/`y` in window coordinates) is not usable and reads as "no position yet": its
-    // numbers cannot be translated without the window size they were measured in.
-    fs.writeFileSync(path.join(dshHome, 'state', 'mega-core-orb.json'), JSON.stringify({ version: 1, position: { x: 10, y: 10, edge: 'left' } }), 'utf8')
-    const legacy = fakeExchange()
-    await server.routes.get('/mega-core/orb').handler(legacy.request, legacy.response)
-    assert.deepEqual(JSON.parse(legacy.response.body).position, null)
-
-    const junk = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { right: 'left-ish', bottom: 12 } }) })
-    await server.routes.get('/mega-core/orb').handler(junk.request, junk.response)
-    assert.equal(junk.response.statusCode, 400)
-    const wrongOrbMethod = fakeExchange({ method: 'DELETE' })
-    await server.routes.get('/mega-core/orb').handler(wrongOrbMethod.request, wrongOrbMethod.response)
-    assert.equal(wrongOrbMethod.response.statusCode, 405)
 
     const governance = fakeExchange()
     await server.routes.get('/mega-core/governance').handler(governance.request, governance.response)

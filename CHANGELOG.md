@@ -3,6 +3,39 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 只留系统悬浮球；球能盖住别的应用了；点击不再闪烁
+
+第四轮复查的结论（"Mega侧栏已正确移除"是确认，另外三条都改掉了，其中两条是真缺陷）。
+
+**两个球变成一个。** 官方界面里那颗球（注册在 `shell.overlay` 槽）已经移除，浏览器半边只注册
+`settings.section`（Mega 整页）。用户要的是"系统最外层那个"：能看见它的前提不是产品窗口在最前面，而正是
+这一点让它在日常使用里有用。两个界面本来就用同一个视图模型与同一个 `controlAction`，所以留下的那个不会
+少任何信息。
+
+**球现在真的盖在其它应用之上 —— 之前是 `parent` 的错。** 球原本设了 `parent: mainWindow`（理由是"关掉产品
+窗口时一起走"）。在 Windows 上，**被拥有窗口的 z 序跟随 owner，`alwaysOnTop` 不被遵守**，于是球只能待在
+产品窗口之上、其它应用之下。现在它是**顶层窗口**（无 parent），创建时再确认一次 `setAlwaysOnTop(true,
+'screen-saver')`；它仍随扩展一起销毁，也就是 parent 唯一买到的东西。
+
+**点击闪烁是自己在跟自己打架，两个原因都修了。**
+
+* **交互状态原先只看"悬停"**：打开面板会重排窗口，那一两帧光标落在透明边距而不是球上 → 悬停变 false →
+  窗口切成穿透 → 转发的指针事件又把光标判成"在球上" → 再切回来。现在由**三件事**决定：光标在不在我们身上、
+  是否正在拖动、面板是否开着（后两件是"用户正在用"的明确信号，不依赖会在脚下变的命中测试）。原生
+  `setIgnoreMouseEvents` 只在答案变化时才写；`interactive` 的初值改为 `null`（新窗口默认"可交互"，
+  "答案恰好是 false"与"窗口已经穿透"不是一回事 —— 第一版就在这里漏了首次写入）。
+* **原生 reshape 太频繁**：`setBounds` 只在矩形真的变了时才调用（15 秒一次的状态推送不再无意义地重塑一扇
+  透明置顶窗口）；面板测量从"去掉 `max-height` 再量"改成读 `scrollHeight`，省掉每次推送两次强制重排。
+
+另外补了一条交互：面板打开时，点在面板与球之外会收起面板（那时窗口本来就是可交互的）。
+
+**验证**：`system-orb.test.js` 13 项（`parent` 必须不存在；开着面板或正在拖动时悬停变 false 也不会切成
+穿透；重复答案不产生原生写入；相同状态不重塑窗口、打开面板必须重塑），`mega-core-client.test.js` 7 项
+（单界面：只注册 `settings.section`、源码无 `shell.overlay` 注册、整页 §4.4 与自带深色卡片、动作路由、
+隐藏不轮询、无应答画原因、无 React 只画空气），`mega-core-plugin.test.js` 5 项（路由回到四条）。全套
+1473/1474（唯一失败仍是既有的 multi-supervisor 墙钟断言）；`verify.ps1 -SkipTests` ALL PASSED；语法门
+229/229。这一轮标记 `manual-ui-review-5`。
+
 ## 系统悬浮球、向中心展开的详情窗、以及旧 Mega 侧栏退场
 
 第三轮人工 UI 复查的三条，逐条落地。

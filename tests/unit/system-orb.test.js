@@ -40,12 +40,16 @@ function stubElectron({ workArea = SCREEN } = {}) {
       this.listeners = new Map()
       this.sent = []
       this.ignored = null
+      /** Every native ignore-mouse write, so a test can prove it is not re-written for nothing. */
+      this.ignoreWrites = 0
       this.focusable = null
       this.alwaysOnTop = null
       this.visibleOnAllWorkspaces = null
       this.visible = false
       this.destroyed = false
       this.loaded = null
+      /** Every bounds write, so a test can prove the window is not reshaped for nothing. */
+      this.resizes = 0
       this.webContents = {
         on: (name, handler) => this.listeners.set(`wc:${name}`, handler),
         send: (channel, payload) => { this.sent.push({ channel, payload }) }
@@ -56,8 +60,8 @@ function stubElectron({ workArea = SCREEN } = {}) {
     isDestroyed() { return this.destroyed }
     isVisible() { return this.visible }
     getBounds() { return { ...this.bounds } }
-    setBounds(next) { this.bounds = { ...next } }
-    setIgnoreMouseEvents(value, options) { this.ignored = { value, options } }
+    setBounds(next) { this.bounds = { ...next }; this.resizes += 1 }
+    setIgnoreMouseEvents(value, options) { this.ignored = { value, options }; this.ignoreWrites += 1 }
     setFocusable(value) { this.focusable = value }
     setAlwaysOnTop(value) { this.alwaysOnTop = value }
     setVisibleOnAllWorkspaces(value, options) { this.visibleOnAllWorkspaces = { value, options } }
@@ -180,6 +184,12 @@ test('the window is created always-on-top, never focusable, and ignoring the mou
     assert.equal(win.options.frame, false)
     assert.equal(win.options.transparent, true)
     assert.equal(win.options.resizable, false)
+    /**
+     * **No parent.** The first version parented the ball to the product window, and on Windows an owned
+     * window's z-order belongs to its owner — so `alwaysOnTop` was not honoured and the ball could never cover
+     * another application, which is exactly what the review reported ("悬浮球没有盖在其它应用上").
+     */
+    assert.equal(win.options.parent, undefined, 'an owned window cannot be topmost on Windows')
     assert.equal(win.visible, true)
     assert.equal(win.ignored.value, true, 'a floating ball that takes clicks is not a ball, it is an obstacle')
     assert.deepEqual(win.ignored.options, { forward: true }, 'the renderer still has to see the pointer move')
@@ -190,6 +200,13 @@ test('the window is created always-on-top, never focusable, and ignoring the mou
     assert.equal(win.ignored.value, false)
     orb.setInteractive(false)
     assert.equal(win.ignored.value, true)
+    // …and the native style is written only when the answer changes: a transparent topmost window that
+    // re-writes its style on every pointer move is a window that flickers.
+    const writes = win.ignoreWrites
+    orb.setInteractive(false)
+    assert.equal(win.ignoreWrites, writes, 'a repeated answer must not be a repeated native call')
+    orb.setInteractive(true)
+    assert.equal(win.ignoreWrites, writes + 1)
   } finally {
     dispose()
   }
@@ -257,6 +274,62 @@ test('opening the panel grows the window toward the middle and tells the rendere
     orb.setOpen(false)
     assert.deepEqual(win.bounds, { x: before.x - MARGIN, y: before.y - MARGIN, width: BALL_SIZE + MARGIN * 2, height: BALL_SIZE + MARGIN * 2 })
     assert.equal(orb.describe().panel, null)
+  } finally {
+    dispose()
+  }
+})
+
+test('an open panel keeps the window interactive, so opening it cannot make the pointer chase itself', () => {
+  const electron = stubElectron()
+  const { file, dispose } = scratch()
+  try {
+    const orb = createSystemOrb({ electron, log: () => {}, state: createOrbState(file), workAreaOf: () => SCREEN })
+    orb.create()
+    const win = electron.last()
+    win.fire('wc:did-finish-load')
+
+    /**
+     * The flicker the review caught: opening the panel resizes and re-places the window, so for a frame the
+     * cursor is over the transparent margin instead of the ball. Hover therefore says "not over anything" —
+     * and with hover as the only input to `setIgnoreMouseEvents`, the window became click-through, the
+     * forwarded move found the cursor on the ball again, and the two states chased each other.
+     */
+    orb.setInteractive(true)
+    orb.setOpen(true)
+    orb.setPanelSize({ width: 340, height: 300 })
+    orb.setInteractive(false)
+    assert.equal(win.ignored.value, false, 'an open panel is an unambiguous "the user is using this"')
+    // A drag is the third unambiguous one: releasing the pointer must not make the window click-through
+    // halfway through a gesture either.
+    orb.setOpen(false)
+    assert.equal(win.ignored.value, true, 'a closed panel with the cursor elsewhere goes back to click-through')
+    orb.dragStart({ x: 100, y: 100 })
+    assert.equal(win.ignored.value, false)
+    orb.dragEnd()
+    assert.equal(win.ignored.value, true)
+  } finally {
+    dispose()
+  }
+})
+
+test('the window is reshaped only when its bounds actually change', () => {
+  const electron = stubElectron()
+  const { file, dispose } = scratch()
+  try {
+    const orb = createSystemOrb({ electron, log: () => {}, state: createOrbState(file), workAreaOf: () => SCREEN })
+    orb.create()
+    const win = electron.last()
+    win.fire('wc:did-finish-load')
+    const settled = win.resizes
+    // The same state pushed again (the poller does this every 15 s) must not reshape the window: a native
+    // reshape of a transparent, always-on-top window is a visible flicker.
+    orb.render({ status: { tone: 'ok' } })
+    orb.render({ status: { tone: 'warn' } })
+    orb.apply?.()
+    assert.equal(win.resizes, settled, 'the window was reshaped for a state that did not move it')
+    orb.setOpen(true)
+    orb.setPanelSize({ width: 340, height: 300 })
+    assert.ok(win.resizes > settled, 'opening the panel must reshape the window')
   } finally {
     dispose()
   }

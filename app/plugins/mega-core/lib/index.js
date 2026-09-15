@@ -14,7 +14,6 @@
  *   GET  /mega-core/governance  → the snapshot the Control Center shows
  *   GET  /mega-core/view        → the same snapshot, composed into what the orb and the page draw
  *   POST /mega-core/action      → one of the named actions (check, retry, reset-fallback, repair, disable, enable)
- *   GET  /mega-core/orb         → where the orb was left; POST stores where a drag ended
  *
  * Three rules the shape of this file is built around:
  *
@@ -30,7 +29,6 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { buildMegaView } from './view.js'
@@ -115,65 +113,6 @@ function answer(res, status, payload) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.setHeader('Cache-Control', 'no-store')
   res.end(text)
-}
-
-/**
- * The orb's own position, kept where a position can survive the thing that resets the page.
- *
- * `localStorage` looks like the obvious home for this and is the wrong one: the official UI is served from a
- * `--port 0` loopback URL, so its origin — and with it every `localStorage` entry — changes on every restart
- * of DS-Hns Desktop (the community wallpaper engine documents the same trap). A file under `$DSH_HOME/state`
- * is origin-independent, which is exactly the property "the orb comes back where I put it" needs.
- *
- * The store is deliberately tiny and forgiving: an unreadable file is "no position yet" (the orb falls back
- * to its default corner), and a position that is not two finite numbers is refused rather than stored.
- *
- * **The two numbers changed meaning in version 2, and that is the fix rather than a nuisance.** Version 1
- * stored `x`/`y` in *window* coordinates, which is only correct when the overlay the orb lives in happens to
- * fill the window — inside a transformed ancestor, or a frame smaller than the viewport, it is not. Version 2
- * stores `right`/`bottom` as distances from the **layer's own** corner, which is what the orb's own CSS uses.
- * A version 1 file is not translated (its numbers cannot be, without the window size they were measured in):
- * it reads as "no position yet" and the orb returns to its default corner once.
- */
-const ORB_FILE_VERSION = 2
-
-function orbFile(env = process.env) {
-  return path.join(stateDir(env), 'mega-core-orb.json')
-}
-
-/** One stored position, normalised — or null when there is nothing usable in it. */
-export function normalizeOrbPosition(raw) {
-  if (!raw || typeof raw !== 'object') return null
-  const right = Number(raw.right)
-  const bottom = Number(raw.bottom)
-  if (!Number.isFinite(right) || !Number.isFinite(bottom)) return null
-  // An edge is `left`/`right` (the orb asks for that edge, so a resize moves it with it) or absent (free).
-  const edge = raw.edge === 'left' || raw.edge === 'right' ? raw.edge : null
-  return { right: Math.max(0, Math.round(right)), bottom: Math.max(0, Math.round(bottom)), edge }
-}
-
-/** Read the stored position; never throws, because "no position" is a valid answer. */
-export function readOrbPosition(env = process.env) {
-  try {
-    const parsed = JSON.parse(readFileSync(orbFile(env), 'utf8'))
-    return normalizeOrbPosition(parsed?.position)
-  } catch {
-    return null
-  }
-}
-
-/** Store one position. Answers from `normalizeOrbPosition`, so a caller cannot write something unusable. */
-export function writeOrbPosition(position, env = process.env) {
-  const normalized = normalizeOrbPosition(position)
-  if (!normalized) return { ok: false, reason: 'the orb position needs a finite x and y' }
-  try {
-    const file = orbFile(env)
-    mkdirSync(path.dirname(file), { recursive: true })
-    writeFileSync(file, `${JSON.stringify({ version: ORB_FILE_VERSION, position: normalized }, null, 2)}\n`, 'utf8')
-    return { ok: true, position: normalized, file }
-  } catch (error) {
-    return { ok: false, reason: `the orb position could not be written: ${error?.message || error}` }
-  }
 }
 
 function readBody(req, limit = 64 * 1024) {
@@ -285,30 +224,6 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
         governance: governance && governance.ok !== false ? governance : null
       })
       answer(res, 200, view)
-    }
-  }))
-
-  /**
-   * Where the orb is.
-   *
-   * GET is what the orb asks on first paint; POST is where a drag ends. Both answer the *stored* position
-   * (`null` when nothing has been stored yet, which the client reads as "use your default corner"), so the
-   * client never has to keep a second copy of the rule.
-   */
-  disposers.push(webServer.register({
-    kind: 'exact',
-    path: `${BASE}/orb`,
-    handler: async (req, res) => {
-      if (req.method === 'GET') return answer(res, 200, { ok: true, position: readOrbPosition(env) })
-      if (req.method !== 'POST') return answer(res, 405, { ok: false, reason: 'the orb position is read with GET and written with POST' })
-      let body = null
-      try {
-        body = await readBody(req)
-      } catch (error) {
-        return answer(res, 400, { ok: false, reason: String(error?.message || error) })
-      }
-      const stored = writeOrbPosition(body?.position, env)
-      answer(res, stored.ok === false ? 400 : 200, stored)
     }
   }))
 

@@ -184,18 +184,29 @@
   /**
    * Measure the panel's natural size and ask the shell for that much room.
    *
-   * The cap is removed first: measuring a panel that is already clamped would report the clamp back and the
-   * window would never grow. The shell answers with the layout, which is where the cap comes back.
+   * `scrollHeight` rather than a bounding box, and that is the point: it is the *content's* height even while
+   * the element is capped, so nothing has to be un-capped to be measured. The first version set the cap to
+   * `none`, measured, and let the shell put it back — a forced relayout of a transparent, always-on-top window
+   * twice per state push, which is one of the things that made clicking flicker.
    */
   function measure() {
     if (!panel || panel.hidden || !api || typeof api.measure !== 'function') return
-    if (!doc || typeof panel.getBoundingClientRect !== 'function') return
-    panel.style.maxHeight = 'none'
-    const rect = panel.getBoundingClientRect()
-    const size = { width: Math.ceil(rect.width), height: Math.ceil(rect.height) }
+    const width = Math.ceil(Number(panel.offsetWidth) || (typeof panel.getBoundingClientRect === 'function' ? panel.getBoundingClientRect().width : 0))
+    const height = Math.ceil(Number(panel.scrollHeight) || 0)
+    if (!width || !height) return
+    const size = { width, height }
     if (measured && measured.width === size.width && measured.height === size.height) return
     measured = size
     Promise.resolve(api.measure(size)).then(apply).catch(() => {})
+  }
+
+  /** A click anywhere that is not the panel closes it — the window is interactive while it is open. */
+  function onDocumentPointerDown(event) {
+    if (!state.open) return
+    const target = event.target
+    if (panel && typeof panel.contains === 'function' && panel.contains(target)) return
+    if (ball && typeof ball.contains === 'function' && ball.contains(target)) return
+    if (api && typeof api.open === 'function') Promise.resolve(api.open(false)).then(apply).catch(() => {})
   }
 
   /** Apply one state from the shell. Everything drawn here is a function of it. */
@@ -267,6 +278,7 @@
   }
   if (doc) {
     doc.addEventListener('pointermove', onPointerMove)
+    doc.addEventListener('pointerdown', onDocumentPointerDown)
     doc.addEventListener('mouseleave', () => setOver(false))
   }
 

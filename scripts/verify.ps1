@@ -222,11 +222,16 @@ Check 'Shell notifies the extension when the dock renderer is ready' (($main -ma
 $systemOrb = Get-Content "$ROOT\app\extensions\mega\system-orb.cjs" -Raw -ErrorAction SilentlyContinue
 $orbPreload = Get-Content "$ROOT\app\extensions\mega\ui\orb-preload.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'The system orb is a window that floats over other applications' (($systemOrb -match 'alwaysOnTop: true') -and ($systemOrb -match 'skipTaskbar: true') -and ($systemOrb -match 'focusable: false'))
-Check 'It takes no click it was not offered' (($systemOrb -match 'setIgnoreMouseEvents\(!next, \{ forward: true \}\)') -and ($systemOrb -match 'setInteractive\(false\)'))
+Check 'It takes no click it was not offered' (($systemOrb -match 'setIgnoreMouseEvents\(!next, \{ forward: true \}\)') -and ($systemOrb -match 'let interactive = null') -and ($systemOrb -match 'hovering = false'))
+Check 'An open panel or a drag keeps the window interactive, so the pointer cannot chase itself' (($systemOrb -match 'hovering \|\| dragging \|\| open') -and ($systemOrb -match 'function sameBounds'))
+Check 'The ball is a top-level window, so it can cover other applications' (-not ($systemOrb -match 'getParentWindow'))
 Check 'The ball grows its panel toward the middle of the screen' (($systemOrb -match 'function layoutOrbWindow') -and ($systemOrb -match 'const above = ballCentre\.y > areaCentre\.y') -and ($systemOrb -match 'const toTheRight = ballCentre\.x < areaCentre\.x'))
 Check 'The ball remembers where it was left, in a file rather than in a page' (($systemOrb -match 'function createOrbState') -and ($mega -match "data', 'state', 'system-orb\.json'"))
 Check 'The orb window has a document, a stylesheet and an enumerable surface' ((Test-Path "$ROOT\app\extensions\mega\ui\orb.html") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.css") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.js") -and ($orbPreload -match 'mega:orb-snapshot') -and ($orbPreload -match 'mega:orb-action'))
-Check 'The ball draws the same view model as the official orb and page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
+Check 'The ball draws the same view model as the official page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
+# There is one ball, and it is the system one: the plugin's browser half registers the settings section only.
+$orbClient = Get-Content "$ROOT\app\plugins\mega-core\lib\client.js" -Raw -ErrorAction SilentlyContinue
+Check 'The plugin draws one surface, and the ball is not it' ((-not ($orbClient -match "inject\(\s*'shell\.overlay'")) -and ($orbClient -match "inject\('settings\.section'"))
 Check 'The ball is created with the other windows and torn down with them' (($mega -match 'createSystemOrbWindow\(\)') -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
 # ---- The old Mega dock is retired: off by default, back on request ----
 Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))

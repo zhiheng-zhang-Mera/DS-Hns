@@ -60,6 +60,13 @@ function clamp(value, low, high) {
   return Math.min(high, Math.max(low, value))
 }
 
+/** Whether two rectangles are the same one, so a window is never reshaped for nothing. */
+function sameBounds(a, b) {
+  if (!a || !b) return false
+  return round(a.x) === round(b.x) && round(a.y) === round(b.y)
+    && round(a.width) === round(b.width) && round(a.height) === round(b.height)
+}
+
 function round(value) {
   const number = Number(value)
   return Number.isFinite(number) ? Math.round(number) : 0
@@ -220,7 +227,6 @@ function createOrbState(file) {
  *
  * @param {object}   options
  * @param {object}   options.electron           `{ BrowserWindow, screen }` — the shell's own modules
- * @param {Function} [options.getParentWindow]  () => the main window, so the ball closes with the app
  * @param {Function} [options.log]
  * @param {string}   [options.documentPath]
  * @param {string}   [options.preloadPath]
@@ -230,7 +236,6 @@ function createOrbState(file) {
  */
 function createSystemOrb({
   electron = null,
-  getParentWindow = () => null,
   log = () => {},
   documentPath = path.join(__dirname, 'ui', 'orb.html'),
   preloadPath = path.join(__dirname, 'ui', 'orb-preload.cjs'),
@@ -244,7 +249,17 @@ function createSystemOrb({
 
   let window_ = null
   let ready = false
-  let interactive = false
+  /**
+   * `null` until the window's mouse style has been written at least once.
+   *
+   * A new window is *interactive* by default, so "the answer is false" and "the window is already not
+   * interactive" are different states — and skipping the first write because the target value happens to be
+   * `false` is exactly how a ball ends up swallowing clicks it was never meant to take.
+   */
+  let interactive = null
+  /** Whether the cursor is on something of ours, and whether a drag is in progress (see `syncInteractive`). */
+  let hovering = false
+  let dragging = false
   let position = null
   let open = false
   let panel = null
@@ -314,19 +329,38 @@ function createSystemOrb({
     }
   }
 
-  /** The one thing that makes an always-on-top window safe: everything goes through unless we opt in. */
-  function setInteractive(value) {
-    const next = value === true
+  /**
+   * The one thing that makes an always-on-top window safe: everything goes through unless we opt in.
+   *
+   * `syncInteractive` decides, and it decides from **three** facts rather than one: the cursor being on
+   * something of ours, a drag being in progress, and the panel being open. The first version only looked at
+   * the cursor, and that is what made clicking flicker: opening the panel resizes and re-places the window, so
+   * for a frame or two the cursor is over the *margin* instead of the ball — hover went false, the window
+   * became click-through, the forwarded pointer move found the cursor over the ball again, and the two states
+   * chased each other. An open panel or an active drag is an unambiguous "the user is using this", so neither
+   * depends on a hit test that can change under it.
+   *
+   * The native call is made only when the answer changes: `setIgnoreMouseEvents` is a window-style write, and
+   * a transparent topmost window that re-writes its style every frame is a window that flickers.
+   */
+  function syncInteractive() {
+    const next = Boolean(hovering || dragging || open)
+    if (next === interactive) return interactive
     interactive = next
-    if (!live()) return false
+    if (!live()) return interactive
     try {
-      if (typeof window_.setIgnoreMouseEvents !== 'function') return false
+      if (typeof window_.setIgnoreMouseEvents !== 'function') return interactive
       window_.setIgnoreMouseEvents(!next, { forward: true })
-      return true
     } catch (error) {
       lastError = String(error?.message || error)
-      return false
     }
+    return interactive
+  }
+
+  /** The renderer says whether the cursor is on the ball or the panel. */
+  function setInteractive(value) {
+    hovering = value === true
+    return syncInteractive()
   }
 
   /** Recompute the window from the ball's position and the panel (when open), then draw it. */
@@ -338,7 +372,10 @@ function createSystemOrb({
     // and the drawn ball disagreeing the moment it is pushed against an edge of the work area.
     position = { ...layout.ball, edge: position.edge }
     try {
-      window_.setBounds(layout.bounds)
+      // Only when it actually changed. A `setBounds` on a transparent, always-on-top window is a native
+      // reshape, and doing it on every state push (or worse, on every pointer move of a drag) is a visible
+      // flicker for no reason at all.
+      if (!sameBounds(window_.getBounds?.(), layout.bounds)) window_.setBounds(layout.bounds)
     } catch (error) {
       lastError = String(error?.message || error)
       return { ok: false, reason: lastError }
@@ -391,7 +428,15 @@ function createSystemOrb({
         alwaysOnTop: true,
         autoHideMenuBar: true,
         backgroundColor: '#00000000',
-        parent: getParentWindow() || undefined,
+        /**
+         * **Deliberately not `parent: mainWindow`.**
+         *
+         * The first version parented the ball to the product window, which is exactly wrong for a *system*
+         * ball: on Windows an owned window's z-order belongs to its owner, so `alwaysOnTop` is not honoured
+         * and the ball can never cover another application — which is what the user reported ("悬浮球没有盖在
+         * 其它应用上"). The ball is a top-level window; it is destroyed with the extension, which is what the
+         * parent relationship was buying.
+         */
         webPreferences: {
           preload: preloadPath,
           contextIsolation: true,
@@ -408,12 +453,20 @@ function createSystemOrb({
     }
     try {
       if (typeof window_.setFocusable === 'function') window_.setFocusable(false)
-      if (typeof window_.setAlwaysOnTop === 'function') window_.setAlwaysOnTop(true)
+      if (typeof window_.setAlwaysOnTop === 'function') {
+        // The level is a hint some platforms ignore; Windows maps it to the window's own topmost style.
+        try {
+          window_.setAlwaysOnTop(true, 'screen-saver')
+        } catch {
+          window_.setAlwaysOnTop(true)
+        }
+      }
       if (typeof window_.setVisibleOnAllWorkspaces === 'function') window_.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
       if (typeof window_.setMenuBarVisibility === 'function') window_.setMenuBarVisibility(false)
     } catch { /* each of these is a nicety; the mechanism is alwaysOnTop + ignore-mouse-events */ }
     // Out of the way to begin with, and *staying* out of the way is the default state.
-    setInteractive(false)
+    hovering = false
+    syncInteractive()
     window_.webContents.on('did-finish-load', () => {
       ready = true
       apply()
@@ -426,7 +479,8 @@ function createSystemOrb({
     window_.on('closed', () => {
       window_ = null
       ready = false
-      interactive = false
+      // Unknown again: the next window's style has never been written either.
+      interactive = null
     })
     window_.loadFile(documentPath).catch((error) => {
       lastError = String(error?.message || error)
@@ -452,7 +506,11 @@ function createSystemOrb({
     setOpen(value, { view = null } = {}) {
       open = value === true
       if (!open) panel = null
-      return apply({ view })
+      const result = apply({ view })
+      // An open panel is an unambiguous "the user is using this", so the window stays interactive for as long
+      // as it is open (see `syncInteractive`).
+      syncInteractive()
+      return result
     },
     /** The renderer's measured panel. A request, answered with the size it actually got. */
     setPanelSize(measured, { view = null } = {}) {
@@ -479,6 +537,8 @@ function createSystemOrb({
      */
     dragStart(point) {
       if (!position) return { ok: false, reason: 'no_ball' }
+      dragging = true
+      syncInteractive()
       drag = { startX: round(point?.x), startY: round(point?.y), ball: { ...position } }
       return { ok: true }
     },
@@ -498,12 +558,14 @@ function createSystemOrb({
     /** Release: snap to an edge when it is close enough, store the result, and redraw. */
     dragEnd() {
       drag = null
+      dragging = false
       if (!position) return { ok: false, reason: 'no_ball' }
       position = snapBallPosition(position, workAreaOfPoint(position), { ballSize })
       // Applied *before* storing, because the layout clamps the ball and that clamp is part of where it is:
       // storing the pre-clamp number would leave the file and the drawn ball disagreeing by a few pixels.
       apply()
       const stored = persist()
+      syncInteractive()
       return { ok: true, position: { ...position }, stored: stored.ok !== false }
     },
     setInteractive,

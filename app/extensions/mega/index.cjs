@@ -1795,7 +1795,6 @@ function createSystemOrbWindow() {
   try {
     systemOrb = createSystemOrb({
       electron: ctx.electron,
-      getParentWindow: () => (mainAlive() ? ctx.mainWindow : null),
       log: (message) => log(`system orb: ${message}`),
       state: createOrbState(path.join(PATHS.ROOT, 'data', 'state', 'system-orb.json')),
       enabled: true
