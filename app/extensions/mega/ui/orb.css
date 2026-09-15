@@ -123,18 +123,52 @@ html, body {
   The dashboard: the live numbers first, because the ball is a glance.
 
   It is the same `.field` row the governance fields use — two labels, a value — so the panel has one row shape
-  rather than two that drift apart. The group headings are what makes it readable at a glance: without them the
-  price, the account and the queue would be one undifferentiated list of twelve numbers.
+  rather than two that drift apart. The categories are folds, one open at a time, and the heading is what makes
+  that readable: a caret for the state (colour is already spoken for by faults), the two labels, and the group's
+  headline pushed to the right so a shut fold still says the one number it exists to say.
 */
 #panelBody .dashboard .field { padding: 3px 0; }
-#panelBody .dashboard h4 {
-  margin: 8px 0 2px;
-  font-size: 11px;
+
+#panelBody .category {
+  all: initial;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  font: 600 11px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  text-align: left;
   color: var(--orb-muted);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#panelBody .category:hover .label { color: var(--orb-text); }
+#panelBody .category .caret { flex: none; color: var(--orb-faint); }
+#panelBody .category .label {
+  flex: 1 1 auto;
   text-transform: uppercase;
   letter-spacing: .04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-#panelBody .dashboard h4:first-child { margin-top: 0; }
+#panelBody .category .value {
+  flex: 0 1 auto;
+  color: var(--orb-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+#panelBody .category[data-open="on"] .label { color: var(--orb-text); }
+
+/* A fold's rows sit under their heading, indented by the caret so the hierarchy is visible rather than guessed. */
+#panelBody .category-body .field { padding: 3px 0 3px 14px; }
+#panelBody .category + .category { border-top: 1px solid var(--orb-line); }
+
 #panelBody .dashboard + .line { margin-top: 6px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
 
 #panelBody .numbers {

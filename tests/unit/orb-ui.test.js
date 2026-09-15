@@ -189,21 +189,20 @@ test('the ball draws the live dashboard: price, countdown, balance, queue and pa
   orb.apply(payload(view))
   const said = strings(orb.elements.get('panelBody')).join(' | ')
 
-  // The four cards the old expanded dock drew, each from the view's own dashboard block.
+  // The four categories the old expanded dock drew, each from the view's own dashboard block — and each carrying
+  // its own headline while it is shut, so the fold hides detail rather than the numbers a glance is for.
   assert.match(said, /价格 · Price/)
   assert.match(said, /Price window/)
   assert.match(said, /PEAK/)
   assert.match(said, /距下一次谷价/)
   assert.match(said, /12m 30s/)
   assert.match(said, /账户 · Account/)
-  assert.match(said, /¥ 12\.50/)
+  assert.match(said, /¥ 12\.50/, 'the shut account fold lost its headline')
   assert.match(said, /任务 · Tasks/)
-  assert.match(said, /排队任务/)
   assert.match(said, /并行 · Parallelism/)
-  assert.match(said, /Concurrency now/)
 
-  // The tones reach the DOM: a peak window is the warn colour, a running worker is the busy one, and a
-  // healthy balance is green. A dashboard whose numbers were all one colour would say nothing.
+  // The tones reach the DOM: a peak window is the warn colour, a running worker is the busy one, and a healthy
+  // balance is green. A dashboard whose numbers were all one colour would say nothing.
   const classes = []
   const walk = (node) => {
     if (!node || typeof node !== 'object') return
@@ -212,13 +211,94 @@ test('the ball draws the live dashboard: price, countdown, balance, queue and pa
   }
   walk(orb.elements.get('panelBody'))
   assert.ok(classes.includes('tone-warn'), `the peak window lost its tone: ${classes.join(', ')}`)
-  assert.ok(classes.includes('tone-busy'), 'a running worker lost its tone')
   assert.ok(classes.includes('tone-ok'), 'a healthy balance lost its tone')
 
   // Governance still follows the numbers: what is degraded, what wants attention, and what can be done.
   assert.match(said, /mega:dock degraded/)
   assert.match(said, /待人工 · pending/)
   assert.match(said, /Settings › Mega/)
+})
+
+test('the system ball folds the same categories, and only one of them is open at a time', () => {
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.apply(payload(fixtureView()))
+  const body = orb.elements.get('panelBody')
+
+  /** The folds as the document carries them: id, open state, and the folds that are actually drawn open. */
+  const folds = () => {
+    const found = []
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return
+      if (node.dataset && node.dataset.category) {
+        found.push({ id: node.dataset.category, open: node.dataset.open === 'on', expanded: node.attributes['aria-expanded'], says: node.children.map((child) => child.textContent).join(' · ') })
+      }
+      for (const child of node.children || []) walk(child)
+    }
+    walk(body)
+    return found
+  }
+  const openIds = () => folds().filter((fold) => fold.open).map((fold) => fold.id)
+
+  assert.deepEqual(folds().map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'])
+  // The rule on the first frame: exactly one open, and it is the one the old ball opened on.
+  assert.deepEqual(openIds(), ['price'])
+  assert.equal(folds()[0].expanded, 'true')
+  assert.equal(folds()[1].says, '▸ · 账户 · Account · ¥ 12.50')
+
+  /** Every `.category-body` that is *on screen*: a fold with a head is a fold that is drawn open. */
+  const openFolds = () => {
+    const found = []
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return
+      if (String(node.className || '').split(/\s+/).includes('category-body')) {
+        const head = (node.children || []).find((child) => child.dataset && child.dataset.category)
+        found.push(head ? head.dataset.category : `?:${node.children.map((child) => child.textContent).join(',')}`)
+      }
+      for (const child of node.children || []) walk(child)
+    }
+    walk(body)
+    return found
+  }
+
+  /**
+   * Click a heading, the way a pointer does: find it fresh in the document (a redraw replaces the nodes, so a
+   * reference taken before one is stale) and fire.
+   *
+   * The returned fold ids are read from the *document*, not from the renderer's own state, because "only one at a
+   * time" is a claim about what is on screen.
+   */
+  const click = (id) => {
+    let node = null
+    const seek = (current) => {
+      if (!current || typeof current !== 'object' || node) return
+      if (current.dataset && current.dataset.category === id && current.tagName === 'BUTTON') node = current
+      for (const child of current.children || []) seek(child)
+    }
+    seek(body)
+    assert.ok(node, `no heading for ${id}`)
+    node.fire('click')
+  }
+
+  // Opening the account shuts the price — that is what "only one at a time" means, asserted on the document.
+  click('balance')
+  assert.deepEqual(openIds(), ['balance'], 'opening the account left the price fold open too')
+  assert.deepEqual(openFolds(), ['balance'], 'two category bodies are on screen at once')
+  const balanceSaid = strings(body).join(' | ')
+  assert.match(balanceSaid, /¥ 12\.50/)
+  assert.doesNotMatch(balanceSaid, /12m 30s/, 'the price detail is still drawn while the account is open')
+
+  click('execution')
+  assert.deepEqual(openIds(), ['execution'])
+  assert.deepEqual(openFolds(), ['execution'])
+  assert.match(strings(body).join(' | '), /排队任务/)
+
+  // Clicking the open heading shuts it: all folds shut is a state the panel is allowed to be in, and the headlines
+  // are still there when it is.
+  click('execution')
+  assert.deepEqual(openIds(), [])
+  assert.deepEqual(openFolds(), [])
+  assert.match(strings(body).join(' | '), /PEAK/)
+  assert.match(strings(body).join(' | '), /¥ 12\.50/)
 })
 
 test('the panel opens on the dashboard, and the governance facts follow it', () => {

@@ -34,6 +34,21 @@
   let drag = null
   let measured = null
   let over = false
+  /**
+   * Which dashboard category is open — **at most one**, by id, or `null` when they are all shut.
+   *
+   * It lives here rather than in `state` because `state` is what the shell pushes: the open fold is the user's
+   * doing and must survive a poll that redraws the panel, the same way the panel being open survives one.
+   */
+  let openCategory = null
+  /**
+   * Whether the first category has been opened yet.
+   *
+   * The default is applied **once**, not "whenever nothing is open": the second reading of that condition is how
+   * a fold that the user just shut springs back open on the next redraw. `null` means "all shut", and all shut is
+   * a state the user is allowed to choose.
+   */
+  let defaultedCategory = false
 
   /**
    * The tone vocabulary, in one place: the view model's names, the CSS variables' names.
@@ -78,6 +93,11 @@
    * It is drawn **instead of** the module roster, not instead of governance: the ball is a glance, and the
    * rosters are a page. So the dashboard comes first, and what governance has to say follows it.
    *
+   * The categories are **folds, one open at a time** — the same rule and the same shape as the in-UI ball's
+   * (`app/plugins/mega-core/lib/client.js`), because two balls that folded their information differently would be
+   * two products. A shut category keeps its headline on the heading line, so folding hides the *detail* rather
+   * than the numbers a glance is for.
+   *
    * A snapshot without a dashboard block is a reason, not a wall of `—`: an empty dashboard and an unreachable
    * one are different pictures, and only one of them is the user's problem.
    */
@@ -88,16 +108,19 @@
       wrap.appendChild(element('div', 'muted', dashboard.reason || '仪表盘不可用 · dashboard unavailable'))
       return wrap
     }
-    for (const entry of dashboard.lines || []) {
-      if (!entry.rows || !entry.rows.length) continue
-      wrap.appendChild(element('h4', null, `${entry.cn} · ${entry.en}`))
-      for (const row of entry.rows) wrap.appendChild(drawField(row))
+    const groups = [
+      ...(dashboard.lines || []).map((entry) => ({ id: entry.id || `group:${entry.cn}`, cn: entry.cn, en: entry.en, rows: entry.rows || [] })),
+      { id: 'execution', cn: '任务', en: 'Tasks', rows: dashboard.execution || [] },
+      { id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
+    ].filter((entry) => entry.rows.length)
+    // The first category is open to begin with — once: a panel that opens on four shut headings shows nothing, and
+    // the rule "clicking a heading opens it" has to be discoverable from the first frame. Applying it *every* time
+    // nothing is open would instead make "all shut" impossible to reach.
+    if (!defaultedCategory && groups.length) {
+      defaultedCategory = true
+      openCategory = groups[0].id
     }
-    for (const [title, rows] of [['任务 · Tasks', dashboard.execution], ['并行 · Parallelism', dashboard.parallelism]]) {
-      if (!rows || !rows.length) continue
-      wrap.appendChild(element('h4', null, title))
-      for (const row of rows) wrap.appendChild(drawField(row))
-    }
+    for (const group of groups) wrap.appendChild(drawFold(group))
     /**
      * The dashboard's own buttons — today `refresh-balance`, the read that makes the account newer.
      *
@@ -116,6 +139,46 @@
     }
     if (actions.children.length) wrap.appendChild(actions)
     return wrap
+  }
+
+  /** A shut category's headline: the row whose id names a state, else the first one, else nothing. */
+  function headlineOf(group) {
+    const row = (group.rows || []).find((entry) => String(entry.id || '').endsWith(':state')) || (group.rows || [])[0] || null
+    if (!row || !row.value || row.value === '—') return null
+    const value = String(row.value)
+    return value.length > 18 ? `${value.slice(0, 17)}…` : value
+  }
+
+  /**
+   * One fold: a heading that opens and shuts, and the rows under it when it is open.
+   *
+   * Opening one closes the other because `openCategory` holds a single id — the one-at-a-time rule is the shape of
+   * the state, not a condition applied while drawing. The heading is a real `button` with `aria-expanded`, and the
+   * click redraws the panel in place (the panel's size is then re-measured by the same path every other change
+   * goes through).
+   */
+  function drawFold(group) {
+    const isOpen = openCategory === group.id
+    const summary = headlineOf(group)
+    const heading = element('button', 'category')
+    heading.type = 'button'
+    heading.dataset.category = group.id
+    heading.dataset.open = isOpen ? 'on' : 'off'
+    heading.setAttribute('aria-expanded', isOpen ? 'true' : 'false')
+    heading.title = isOpen ? `收起 ${group.cn} · collapse ${group.en}` : `展开 ${group.cn} · expand ${group.en}`
+    heading.appendChild(element('span', 'caret', isOpen ? '▾' : '▸'))
+    heading.appendChild(element('span', 'label', `${group.cn} · ${group.en}`))
+    if (summary) heading.appendChild(element('span', 'value', summary))
+    heading.addEventListener('click', () => {
+      openCategory = isOpen ? null : group.id
+      drawPanel()
+      measure()
+    })
+    if (!isOpen) return heading
+    const body = element('div', 'category-body')
+    body.appendChild(heading)
+    for (const row of group.rows) body.appendChild(drawField(row))
+    return body
   }
 
   /** The ball's glyph: a dot, plus how many things want attention when any do. */

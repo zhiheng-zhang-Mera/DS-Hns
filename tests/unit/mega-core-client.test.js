@@ -359,22 +359,73 @@ test('the ball opens on the live dashboard — price, countdown, balance, queue,
   const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   const said = strings(opened.tree).join(' | ')
 
-  // Every number the old expanded dock showed, and each one from the view's dashboard block.
-  assert.match(said, /价格 · Price/)
+  // Every category is there, and the one that is open is open: the old ball showed the price window and its
+  // timer first, so that is what the panel opens on.
+  for (const label of ['价格 · Price', '账户 · Account', '任务 · Tasks', '并行 · Parallelism']) {
+    assert.match(said, new RegExp(label), `the ball lost the ${label} category`)
+  }
   assert.match(said, /电费时段/)
   assert.match(said, /OFF-PEAK/)
   assert.match(said, /27m 12s/, 'the valley countdown is missing from the ball')
-  assert.match(said, /账户 · Account/)
-  assert.match(said, /¥ 12\.50/)
-  assert.match(said, /任务 · Tasks/)
-  assert.match(said, /排队任务/)
-  assert.match(said, /并行 · Parallelism/)
-  assert.match(said, /Concurrency now/)
+  // A shut category keeps its headline: folding must not turn the panel into six bare labels.
+  assert.match(said, /正常 · ok/, 'the account fold lost its headline')
   // The recovery actions stay on the ball: a degraded module with no way to act on it is a status light.
   const labels = find(opened.tree, (element) => element.type === 'button').map((element) => strings(element).join(''))
   assert.ok(labels.includes('retry'), `the ball lost its actions: ${labels.join(', ')}`)
   // The rosters are the page's: a settings page behind a 40px dot is what this split exists to avoid.
   assert.doesNotMatch(said, /Bundled plugins/)
+})
+
+test('the ball folds its information into categories, and only one of them is open at a time', async () => {
+  const mounted = await mount()
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
+  ball.props.onPointerUp()
+
+  /** The folds, in the order they are drawn, each with the value its heading carries while it is shut. */
+  const folds = (rendered) => find(rendered.tree, (element) => element.props['data-hns-mega-category'])
+    .map((element) => ({
+      id: element.props['data-hns-mega-category'],
+      open: element.props['data-open'] === 'on',
+      expanded: element.props['aria-expanded'],
+      says: strings(element).join(' · ')
+    }));
+  const openIds = (rendered) => folds(rendered).filter((fold) => fold.open).map((fold) => fold.id);
+
+  const first = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const categories = folds(first)
+  assert.deepEqual(categories.map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'], 'the ball lost a category')
+  // The rule, on the first frame: exactly one open, and it is the first.
+  assert.deepEqual(openIds(first), ['price'])
+  assert.equal(categories[0].expanded, true)
+  // A shut heading carries its own headline, so nothing a glance needs is hidden by the fold.
+  assert.equal(categories[1].says, '▸ · 账户 · Account · 正常 · ok')
+
+  /** Clicking a heading opens it — and shuts whatever was open, which is the whole of "only one at a time". */
+  const click = (rendered, id) => {
+    const heading = find(rendered.tree, (element) => element.props['data-hns-mega-category'] === id)[0]
+    assert.ok(heading, `no heading for ${id}`)
+    heading.props.onClick()
+    return mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  }
+
+  const balanceOpen = click(first, 'balance')
+  assert.deepEqual(openIds(balanceOpen), ['balance'], 'opening the account left the price fold open too')
+  const balanceSaid = strings(balanceOpen.tree).join(' | ')
+  assert.match(balanceSaid, /¥ 12\.50/, 'the account fold opened without its detail')
+  assert.doesNotMatch(balanceSaid, /27m 12s/, 'the price fold stayed open with the account')
+
+  const tasksOpen = click(balanceOpen, 'execution')
+  assert.deepEqual(openIds(tasksOpen), ['execution'])
+  assert.match(strings(tasksOpen.tree).join(' | '), /排队任务/)
+
+  // Clicking the open heading shuts it: all folds shut is a state the panel is allowed to be in.
+  const allShut = click(tasksOpen, 'execution')
+  assert.deepEqual(openIds(allShut), [])
+  // Everything is still *there* — the headings and their headlines — it is the detail that is folded away.
+  assert.match(strings(allShut.tree).join(' | '), /OFF-PEAK/)
+  assert.match(strings(allShut.tree).join(' | '), /¥ 12\.50|正常 · ok/)
 })
 
 test('the panel offers the balance refresh, and clicking it posts the dashboard action with no id', async () => {

@@ -491,10 +491,28 @@ window.__ModuleLoader__.load({
 		 * It is drawn from `view.dashboard`, which the host composed out of the *same* governance snapshot the
 		 * fields below come from — the numbers cannot disagree with the Control Center's, because there is only
 		 * one set of them. A snapshot with no dashboard block is a reason, not a wall of `—`.
+		 *
+		 * The groups are **folds, one open at a time**. Every category costs a heading and one line while it is
+		 * shut, which is what lets the same rows be readable on a surface with room (the page) and on one without
+		 * (a 340px panel): the old panel listed fifteen numbers at once and the six that mattered were somewhere
+		 * in the middle of them.
 		 */
 		function Dashboard({ dashboard, at, onDashboardAction }) {
-			// Hooks first, unconditionally: the ticker below is what keeps the countdown a countdown.
+			// Hooks first, unconditionally: the ticker below is what keeps the countdown a countdown, and the
+			// open fold is component state, so a poll that redraws the panel does not shut what the user opened.
 			const remaining = useCountdown(dashboard, at);
+			/**
+			 * Which fold is open, by id — and at most **one**.
+			 *
+			 * The first group is open to begin with, so the panel opens on something rather than on six headings,
+			 * and so the rule "clicking a heading opens it" is discoverable from the first frame.
+			 */
+			const groups = (dashboard?.ok === false || !dashboard) ? [] : [
+				...(dashboard.lines || []).map((entry) => ({ id: entry.id || `group:${entry.cn}`, cn: entry.cn, en: entry.en, rows: entry.rows || [] })),
+				{ id: 'execution', cn: '任务', en: 'Tasks', rows: dashboard.execution || [] },
+				{ id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
+			].filter((entry) => entry.rows.length);
+			const [openCategory, setOpenCategory] = React.useState(() => (groups[0] ? groups[0].id : null));
 			if (!dashboard) return null;
 			if (dashboard.ok === false) {
 				return box('div', { key: 'dash', style: { padding: '4px 0', color: MUTED, fontWeight: '400' } }, dashboard.reason || '仪表盘不可用 · dashboard unavailable');
@@ -504,11 +522,6 @@ window.__ModuleLoader__.load({
 			const row = (entry) => (entry.id === COUNTDOWN_ROW && remaining !== null
 				? { ...entry, value: countdownText(remaining) }
 				: entry);
-			const groups = [
-				...(dashboard.lines || []).map((entry) => [ `${entry.cn} · ${entry.en}`, (entry.rows || []).map(row) ]),
-				[ '任务 · Tasks', dashboard.execution ],
-				[ '并行 · Parallelism', dashboard.parallelism ]
-			].filter(([, rows]) => (rows || []).length);
 			/**
 			 * The dashboard's own buttons — today `refresh-balance`, the read that makes the account newer.
 			 *
@@ -535,11 +548,73 @@ window.__ModuleLoader__.load({
 					font: font(11)
 				}
 			}, `${action.cn} · ${action.en}`));
+			/**
+			 * One fold: a heading that opens and shuts, the group's headline while it is shut, and the rows under it
+			 * when it is open.
+			 *
+			 * The heading is a real `button` (keyboard-reachable, `aria-expanded` set), and opening one closes the
+			 * other — `setOpenCategory(id)` *is* the one-at-a-time rule, rather than a condition applied when the
+			 * rows are drawn.
+			 *
+			 * A shut group keeps its **headline** on the heading line. Folding must not turn the panel into six
+			 * labels: the numbers a glance is for (the window, the balance, the queue, the parallelism) stay
+			 * readable with everything shut, and the fold is what hides the *detail* behind them.
+			 */
+			const headline = (group) => {
+				const row = (group.rows || []).find((entry) => String(entry.id || '').endsWith(':state')) || (group.rows || [])[0] || null;
+				if (!row || !row.value || row.value === '—') return null;
+				const value = String(row.value);
+				return value.length > 18 ? `${value.slice(0, 17)}…` : value;
+			};
+			const fold = (group) => {
+				const isOpen = openCategory === group.id;
+				const summary = headline(group);
+				const heading = box('button', {
+					key: `h:${group.id}`,
+					type: 'button',
+					'aria-expanded': isOpen,
+					'data-hns-mega-category': group.id,
+					'data-open': isOpen ? 'on' : 'off',
+					title: isOpen ? `收起 ${group.cn} · collapse ${group.en}` : `展开 ${group.cn} · expand ${group.en}`,
+					onClick: () => setOpenCategory(isOpen ? null : group.id),
+					style: {
+						all: 'initial',
+						display: 'flex',
+						alignItems: 'center',
+						gap: '6px',
+						width: '100%',
+						boxSizing: 'border-box',
+						padding: '4px 0',
+						margin: 0,
+						border: 'none',
+						borderTop: '1px solid rgba(255,255,255,.08)',
+						background: 'transparent',
+						color: MUTED,
+						cursor: 'pointer',
+						textAlign: 'left',
+						font: font(11)
+					}
+				}, [
+					// A caret rather than a colour change: the panel already spends colour on faults, and a state
+					// that is only a hue is a state half the users cannot see.
+					text(isOpen ? '▾' : '▸', { key: 'caret', flex: '0 0 auto', color: FAINT }),
+					text(`${group.cn} · ${group.en}`, {
+						key: 'label',
+						flex: '1 1 auto',
+						textTransform: 'uppercase',
+						letterSpacing: '.04em',
+						color: isOpen ? '#ededed' : MUTED
+					}),
+					summary ? text(summary, { key: 'value', flex: '0 1 auto', color: '#ededed', font: font(11), textAlign: 'right' }) : null
+				].filter(Boolean));
+				if (!isOpen) return heading;
+				return box('div', { key: `g:${group.id}` }, [
+					heading,
+					...group.rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${group.id}:${entry.cn}`, ...row(entry) }))
+				]);
+			};
 			return box('div', { key: 'dash' }, [
-				...groups.map(([title, rows], index) => box('div', { key: `g:${title}`, style: { marginTop: index ? '8px' : '2px' } }, [
-					text(title, { display: 'block', color: MUTED, font: font(11), textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: '2px' }),
-					...rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${title}:${entry.cn}`, ...entry }))
-				])),
+				...groups.map(fold),
 				actions.length ? box('div', { key: 'dash-actions' }, actions) : null
 			].filter(Boolean));
 		}
