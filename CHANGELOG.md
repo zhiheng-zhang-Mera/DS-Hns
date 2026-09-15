@@ -3,6 +3,26 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 两个入口都在：官方头部恢复，两个悬浮球都有一条显眼的新任务按钮
+
+**上一轮把入口搬错了地方。** 用户要的是"球里也要有"，我做成了"只有球里有" —— 官方对话头部那个入口被删掉了，
+而球的那条又排在面板最底下（四个折页 + 治理行之下，本身就在折页的折叠线以下），所以两头都不好用。现在：
+
+* **官方头部入口恢复**（`conversation.session.header.actions`，`order: 30`，与官方闹钟、任务列表并排）——
+  对话开着的时候，那里就是"起一件事"的地方。对话框（官方组件库的 `Modal`）随之恢复，插件的浏览器半边又重新
+  require `@deepseek-ai/dsh-client-ui-primitives`（platform table 里有它，不是新增依赖）。
+* **两个球都在最上面给了一条**：Electron 那个系统悬浮球的面板里，`＋ 新建定时任务 · New task` 是**面板第一行**
+  （以前在最底下），主色、通栏；官方界面里那颗球（`shell.overlay`）的面板原本**一条都没有**，现在标题行下面就是它。
+
+**一处实现，两个座位。** `NewTaskAction` 一个组件，`compact` 决定形态（球里通栏主按钮 / 头部小按钮），**同一个
+对话框、同一份请求、同一份回执**；系统球是纯 DOM，用它自己的 `drawTaskForm` 与 `mega:orb-timing` /
+`mega:orb-task` 两条通道，调用的仍是治理桥给官方插件的那两个函数。所以"任务可以是什么"与"怎么建一个任务"
+各只有一份实现，界面不会各说一套。
+
+**测试**：`mega-core-client.test.js` 16 项（恢复 4 个对话框用例 + 新增 1 个"球的面板里有这条且排在仪表盘之前、
+点开是同一个对话框"）；`orb-ui.test.js` 12 项（"球自己开表单"的用例现在同时断言它**在面板首行**）。全量
+**1507/1507**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
 ## 新建定时任务搬进悬浮球；子窗口按内容自适应（修掉"只显示一半"）
 
 **入口搬家。** 上一版把"新建任务"放在官方对话的头部动作里 —— 但那要求用户先把某个对话打开，而悬浮球是**盖在

@@ -305,15 +305,6 @@ html, body {
 #panelBody .task-form .summary.bad { color: var(--bad); }
 #panelBody .task-form .actions { margin-top: 8px; }
 
-/** The ball's own new-task entry reads as the primary thing to do on this panel. */
-button.act.primary {
-  border-color: color-mix(in srgb, var(--busy) 60%, transparent);
-  background: rgba(88, 166, 255, .12);
-  color: #fff;
-}
-button.act.primary:hover { background: rgba(88, 166, 255, .2); }
-button.act[disabled] { opacity: .45; cursor: default; }
-
 button.act {
   display: inline-flex;
   align-items: center;
@@ -329,6 +320,30 @@ button.act {
 }
 
 button.act:hover { background: rgba(255, 255, 255, .1); }
+
+/**
+  The ball's own new-task entry: the panel's primary action, and it spans the panel.
+
+  It has to read as *the* thing to do here, because everything else on this panel is a reading — and a control
+  that starts work should not look like one of the buttons that reports it.
+*/
+button.act.primary {
+  border-color: color-mix(in srgb, var(--busy) 60%, transparent);
+  background: rgba(88, 166, 255, .12);
+  color: #fff;
+}
+button.act.primary:hover { background: rgba(88, 166, 255, .2); }
+button.act.wide {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 7px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+button.act[disabled] { opacity: .45; cursor: default; }
+
 button.ghost {
   border: none;
   background: transparent;

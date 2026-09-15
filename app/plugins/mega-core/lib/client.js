@@ -59,6 +59,28 @@ window.__ModuleLoader__.load({
 			React = null;
 		}
 
+		/**
+		 * The official component primitives, if this host has them.
+		 *
+		 * This is where they belong rather than beside the dialog that uses them: the orb's panel renders on the
+		 * plugin's first frame, so a `let` further down the file would be in its temporal dead zone when the panel
+		 * asks for it — a crash at boot rather than a missing button.
+		 *
+		 * The centred sub-page is the official `Modal` rather than a card of ours: it already brings the portal to
+		 * `document.body`, the mask, `role="dialog"` with `aria-modal`, the Escape key and the centring — the
+		 * things a hand-rolled overlay gets subtly wrong. When the platform table has no primitives (a host we were
+		 * not written for), the entry point simply does not appear: a "新建任务" button that opened a broken box
+		 * would be worse than no button.
+		 */
+		let primitives = null;
+		let primitivesError = null;
+		try {
+			primitives = require('@deepseek-ai/dsh-client-ui-primitives');
+		} catch (error) {
+			primitives = null;
+			primitivesError = String(error?.message || error);
+		}
+
 		const VIEW_URL = '/mega-core/view';
 		const ACTION_URL = '/mega-core/action';
 		const ORB_URL = '/mega-core/orb';
@@ -1001,6 +1023,15 @@ window.__ModuleLoader__.load({
 					text('Mega', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
 					React.createElement(ActionButton, { key: 'close', label: '×', title: '收起 · Collapse', onClick: () => setOpen(false) })
 				]),
+				/**
+				 * The ball's own new-task entry, **first** in the panel.
+				 *
+				 * First rather than last because it is the one thing on this panel that starts something instead of
+				 * reporting something: below the dashboard's categories it would be a line the user has to scroll to,
+				 * which is how it went unnoticed. The same component the official header registers (see
+				 * `NewTaskAction`), in its compact shape.
+				 */
+				React.createElement(NewTaskAction, { key: 'new-task', compact: true }),
 				React.createElement(MegaBody, {
 					snapshot,
 					expanded,
@@ -1045,6 +1076,444 @@ window.__ModuleLoader__.load({
 			]);
 		}
 
+		/** The two routes the new-task dialog talks to. Same origin, and the same bridge everything else uses. */
+		const TIMING_URL = '/mega-core/timing';
+		const TASK_URL = '/mega-core/task';
+
+		/**
+		 * The page's own `fetch`.
+		 *
+		 * The bundle is loaded into a document, not a module with a global scope of its own, so the function that
+		 * exists is the one on `window` — the same one `createStore` uses. Reaching for a bare `fetch` works in a
+		 * browser by accident and fails anywhere else (a sandbox, an older embedder), which is exactly the kind of
+		 * accident a "the dialog does nothing" bug report is made of.
+		 */
+		function pageFetch(url, init) {
+			const target = typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch : (typeof fetch === 'function' ? fetch : null);
+			if (!target) return Promise.reject(new Error('this page has no fetch'));
+			return target(url, init);
+		}
+
+		/** `172` → `2m 52s`; the same shape the dashboard's countdown uses, for the same reason. */
+		function offsetText(milliseconds) {
+			const whole = Math.max(0, Math.round(milliseconds / 1000));
+			const hours = Math.floor(whole / 3600);
+			const minutes = Math.floor((whole % 3600) / 60);
+			const seconds = whole % 60;
+			if (hours) return `${hours}h ${minutes}m`;
+			if (minutes) return `${minutes}m ${seconds}s`;
+			return `${seconds}s`;
+		}
+
+		/**
+		 * A local `datetime-local` value as an instant.
+		 *
+		 * The browser's own local time is the right reading here — the user typed a wall clock in the time zone
+		 * they are sitting in — and `new Date('2026-09-15T14:30')` is *local* by specification (no `Z`, no offset).
+		 * What DS-Hns stores is the instant, so this is where the two meet.
+		 */
+		function instantFromLocal(value) {
+			const text = String(value || '').trim();
+			if (!text) return null;
+			const at = new Date(text);
+			return Number.isFinite(at.getTime()) ? at : null;
+		}
+
+		/** The same instant back in the `datetime-local` shape, for the field's initial value. */
+		function localFromInstant(iso) {
+			const at = new Date(String(iso || ''));
+			if (!Number.isFinite(at.getTime())) return '';
+			const pad = (value) => String(value).padStart(2, '0');
+			return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
+		}
+
+		/**
+		 * The new-task dialog: **a conversation, sent at a time** (pluginize Phase 2).
+		 *
+		 * It is an official centred sub-page whose composer is the shape of a chat: a prompt box you type into,
+		 * and under it — at the bottom of the dialog, where the schedule belongs — when it should be sent. The
+		 * thing it makes is the same task the dock's own form makes (`scheduler.addTask` in DS-Hns), delivered as a
+		 * new official session, which is also what pressing send in the composer does.
+		 */
+		function NewTaskDialog({ open, onClose }) {
+			// The choices the dialog offers are DS-Hns' own answer, so nothing here is invented: the budget, the
+			// schedule's time zone and the peak windows all come from `GET /mega-core/timing`.
+			const [timing, setTiming] = React.useState(null);
+			const [timingError, setTimingError] = React.useState(null);
+			const [prompt, setPrompt] = React.useState('');
+			const [startAt, setStartAt] = React.useState('');
+			const [allowPeak, setAllowPeak] = React.useState(false);
+			const [deliveryMode, setDeliveryMode] = React.useState('official-session');
+			const [busy, setBusy] = React.useState(false);
+			const [result, setResult] = React.useState(null);
+			const [error, setError] = React.useState(null);
+			const [now, setNow] = React.useState(() => Date.now());
+
+			/** Read the timing surface. Called on open and from the dialog's own retry. */
+			const loadTiming = React.useCallback(() => {
+				let live = true;
+				Promise.resolve()
+					.then(() => pageFetch(TIMING_URL, { headers: { accept: 'application/json' }, credentials: 'same-origin' }))
+					.then((response) => response.json().then((body) => ({ response, body })))
+					.then(({ response, body }) => {
+						if (!live) return;
+						if (!response.ok || !body || body.ok === false) {
+							setTiming(null);
+							setTimingError(body?.reason || `the timing surface answered ${response.status}`);
+							return;
+						}
+						setTiming(body);
+						setTimingError(null);
+						setAllowPeak(body.defaults?.allowPeak === true);
+						setDeliveryMode(body.defaults?.deliveryMode === 'headless' ? 'headless' : 'official-session');
+						setStartAt((current) => current || localFromInstant(body.defaults?.startAt));
+					})
+					.catch((failure) => {
+						if (!live) return;
+						setTiming(null);
+						setTimingError(String(failure?.message || failure));
+					});
+				return () => { live = false; };
+			}, []);
+
+			// One read per opening, and a fresh default time each time: "in three minutes" means three minutes
+			// from now, not from the last time the dialog was opened.
+			React.useEffect(() => {
+				if (!open) return undefined;
+				setResult(null);
+				setError(null);
+				setNow(Date.now());
+				return loadTiming();
+			}, [open, loadTiming]);
+
+			/**
+			 * Keep the "in 2h 12m" line honest while the dialog sits open.
+			 *
+			 * A minute is enough: this is a sentence about a time the user chose, not a countdown to a deadline,
+			 * and a ticking clock in a form is noise.
+			 */
+			React.useEffect(() => {
+				if (!open || typeof setInterval !== 'function') return undefined;
+				const timer = setInterval(() => setNow(Date.now()), 30_000);
+				return () => clearInterval(timer);
+			}, [open]);
+
+			if (!open || !primitives) return null;
+
+			const instant = instantFromLocal(startAt);
+			const future = instant !== null && instant.getTime() > now;
+			const canSubmit = Boolean(prompt.trim()) && instant !== null && !busy;
+
+			/** One preset: a wall-clock instant a given number of minutes from now, in the field's own shape. */
+			const preset = (label, minutes) => React.createElement(primitives.Button, {
+				key: `p:${label}`,
+				variant: 'ghost',
+				size: 'sm',
+				onClick: () => setStartAt(localFromInstant(new Date(Date.now() + minutes * 60_000).toISOString()))
+			}, label);
+
+			const send = () => {
+				if (!canSubmit) return;
+				setBusy(true);
+				setError(null);
+				setResult(null);
+				Promise.resolve()
+					.then(() => pageFetch(TASK_URL, {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						credentials: 'same-origin',
+						body: JSON.stringify({
+							prompt,
+							startAt: instant.toISOString(),
+							allowPeak,
+							deliveryMode
+						})
+					}))
+					.then((response) => response.json().then((body) => ({ response, body })))
+					.then(({ response, body }) => {
+						if (!response.ok || !body || body.ok === false) {
+							setError(body?.reason || `the task was refused (${response.status})`);
+							return;
+						}
+						setResult(body.task || { ok: true });
+						setPrompt('');
+					})
+					.catch((failure) => setError(String(failure?.message || failure)))
+					.finally(() => setBusy(false));
+			};
+
+			/**
+			 * The composer's keyboard grammar, which is the one thing "behaves like the official input" means in
+			 * practice: **Enter sends, Shift+Enter is a newline, and Enter during an IME composition commits the
+			 * candidate instead of sending**. The last one is why `isComposing` is read off the native event: a
+			 * Chinese or Japanese user pressing Enter to pick a candidate would otherwise fire an unfinished task.
+			 */
+			const onKeyDown = (event) => {
+				if (event.key !== 'Enter' || event.shiftKey) return;
+				if (event.nativeEvent && event.nativeEvent.isComposing) return;
+				event.preventDefault();
+				send();
+			};
+
+			const label = (cn, en) => box('span', { key: `l:${en}`, style: { display: 'block' } }, [
+				text(cn, { key: 'cn', display: 'block', color: '#ededed', font: font(12) }),
+				text(en, { key: 'en', display: 'block', color: FAINT, font: font(10, 400) })
+			]);
+
+			const field = (id, cn, en, control, hint) => box('div', {
+				key: id,
+				style: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '5px 0' }
+			}, [
+				box('div', { key: 'label', style: { flex: '0 0 120px', paddingTop: '3px' } }, [label(cn, en)]),
+				box('div', { key: 'control', style: { flex: '1 1 auto', minWidth: 0 } }, [
+					control,
+					hint ? text(hint, { key: 'hint', display: 'block', marginTop: '3px', color: FAINT, font: font(10, 400), wordBreak: 'break-word' }) : null
+				].filter(Boolean))
+			]);
+
+			const inputStyle = {
+				all: 'initial',
+				boxSizing: 'border-box',
+				width: '100%',
+				padding: '5px 8px',
+				borderRadius: '6px',
+				border: '1px solid rgba(255,255,255,.18)',
+				background: 'rgba(255,255,255,.04)',
+				color: '#ededed',
+				font: font(12),
+				colorScheme: 'dark'
+			};
+
+			/** The summary the user reads before committing: exactly when this will be sent, and how. */
+			const summary = () => {
+				if (instant === null) return '还没有选择时间 · no time chosen yet';
+				const clock = `${String(instant.getHours()).padStart(2, '0')}:${String(instant.getMinutes()).padStart(2, '0')}`;
+				const date = `${instant.getFullYear()}-${String(instant.getMonth() + 1).padStart(2, '0')}-${String(instant.getDate()).padStart(2, '0')}`;
+				if (!future) return `⚠ 这个时间已经过去 · that time is in the past (${date} ${clock})`;
+				const offset = offsetText(instant.getTime() - now);
+				const peakNote = timing?.peak?.peak && !allowPeak
+					? ' · 现在处于峰价时段，未允许峰值时任务会挂起到谷价'
+					: '';
+				return `将在 ${date} ${clock} 作为${deliveryMode === 'headless' ? 'Headless 后台任务' : '官方新会话'}发出 · sends as ${deliveryMode === 'headless' ? 'a headless job' : 'a new official conversation'} in ${offset}${peakNote}`;
+			};
+
+			const body = box('div', {
+				'data-hns-mega-new-task': 'on',
+				style: { display: 'block', padding: '16px 18px 14px', maxWidth: '620px', minWidth: 'min(560px, 86vw)' }
+			}, [
+				// The title and the way out. The official modal's own chrome is skipped (`headless`) so the input
+				// and its schedule are one block rather than two halves of a form.
+				box('div', { key: 'head', style: { display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '10px' } }, [
+					text('新建定时任务', { flex: '1 1 auto', color: '#ffffff', font: font(15) }),
+					text('New scheduled task', { color: FAINT, font: font(11, 400) })
+				]),
+
+				// --- the conversation input -------------------------------------------------------------
+				box('div', {
+					key: 'composer',
+					style: {
+						border: '1px solid rgba(255,255,255,.2)',
+						borderRadius: '10px',
+						background: 'rgba(255,255,255,.04)',
+						padding: '8px 10px 6px'
+					}
+				}, [
+					box('textarea', {
+						key: 'prompt',
+						'data-hns-mega-task-prompt': 'on',
+						value: prompt,
+						rows: 4,
+						placeholder: '输入要执行的内容，和平时对话一样 · type what to run, just like a normal chat',
+						onChange: (event) => setPrompt(event.target.value),
+						onKeyDown,
+						style: {
+							all: 'initial',
+							boxSizing: 'border-box',
+							display: 'block',
+							width: '100%',
+							minHeight: '76px',
+							maxHeight: '34vh',
+							resize: 'vertical',
+							border: 'none',
+							background: 'transparent',
+							color: '#ededed',
+							font: font(13, 400),
+							lineHeight: '1.5',
+							outline: 'none'
+						}
+					}),
+					box('div', { key: 'hint', style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' } }, [
+						text('Enter 发送 · Enter sends', { color: FAINT, font: font(10, 400) }),
+						text('Shift+Enter 换行 · newline', { color: FAINT, font: font(10, 400) }),
+						text(`${prompt.trim().length}`, { flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400) })
+					])
+				]),
+
+				// --- the schedule, at the bottom of the input --------------------------------------------
+				box('div', {
+					key: 'schedule',
+					'data-hns-mega-task-schedule': 'on',
+					style: { marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,.12)' }
+				}, [
+					box('div', { key: 'title', style: { display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '2px' } }, [
+						text('定时设置', { color: MUTED, font: font(12) }),
+						text('Schedule', { color: FAINT, font: font(10, 400) }),
+						box('span', { key: 'tz', style: { flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400) } },
+							timing?.schedule?.timeZone ? `时区 ${timing.schedule.timeZone}` : '')
+					]),
+					field('startAt', '发送时间', 'Send at', box('input', {
+						key: 'input',
+						'data-hns-mega-task-time': 'on',
+						type: 'datetime-local',
+						value: startAt,
+						onChange: (event) => setStartAt(event.target.value),
+						style: inputStyle
+					})),
+					box('div', { key: 'presets', style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '2px 0 4px 130px' } }, [
+						preset('3 分钟后 · in 3m', 3),
+						preset('30 分钟后 · in 30m', 30),
+						preset('1 小时后 · in 1h', 60),
+						preset('明天 9:00 · tomorrow 9am', (() => {
+							const at = new Date();
+							at.setDate(at.getDate() + 1);
+							at.setHours(9, 0, 0, 0);
+							return Math.max(1, Math.round((at.getTime() - Date.now()) / 60_000));
+						})())
+					]),
+					field('peak', '允许峰值', 'Allow peak hours',
+						box('label', { key: 'wrap', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ededed', font: font(12) } }, [
+							box('input', {
+								key: 'box',
+								'data-hns-mega-task-peak': 'on',
+								type: 'checkbox',
+								checked: allowPeak,
+								onChange: (event) => setAllowPeak(event.target.checked),
+								// A native checkbox is a light-mode control; `appearance: none` plus the accent keeps it
+								// from being the one bright rectangle in a dark dialog.
+								style: {
+									all: 'initial',
+									appearance: 'none',
+									width: '13px',
+									height: '13px',
+									borderRadius: '4px',
+									border: '1px solid rgba(255,255,255,.35)',
+									background: allowPeak ? TONES.busy : 'transparent',
+									cursor: 'pointer'
+								}
+							}),
+							text(allowPeak ? '峰价时段也执行' : '遇到峰价时段就挂起', { font: font(12, 400), color: MUTED })
+						]),
+						timing?.schedule?.peakPeriods?.length
+							? `峰价时段 ${timing.schedule.peakPeriods.map((window) => `${window.start}-${window.end}`).join(', ')} · ${timing.schedule.timeZone || ''}`
+							: null),
+					deliveryMode === 'headless' ? field('delivery', '执行方式', 'Delivery',
+						box('select', {
+							key: 'select',
+							value: deliveryMode,
+							onChange: (event) => setDeliveryMode(event.target.value),
+							style: inputStyle
+						}, [
+							box('option', { key: 'official', value: 'official-session' }, '官方新会话（和正常对话一样）'),
+							box('option', { key: 'headless', value: 'headless' }, 'Headless 后台（无对话）')
+						]),
+						'这是 DS-Hns 默认的执行方式；「官方新会话」才会出现在左侧历史里。') : null,
+					timingError ? box('div', { key: 'timing-error', style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' } }, [
+						text(`读不到调度能力：${timingError}`, { flex: '1 1 auto', color: TONES.warn, font: font(11, 400), wordBreak: 'break-word' }),
+						React.createElement(primitives.Button, { key: 'retry', variant: 'ghost', size: 'sm', onClick: loadTiming }, '重试 · Retry')
+					]) : null
+				]),
+
+				// --- what will happen, and the two buttons ------------------------------------------------
+				text(summary(), {
+					key: 'summary',
+					display: 'block',
+					marginTop: '10px',
+					color: instant !== null && !future ? TONES.warn : MUTED,
+					font: font(11, 400),
+					wordBreak: 'break-word'
+				}),
+				result ? text(
+					`✓ 已加入队列 #${String(result.id || '').slice(0, 18)} · queued, status ${result.status || 'PENDING'}${result.startAtMs ? ` · ${new Date(result.startAtMs).toLocaleString()}` : ''}`,
+					{ display: 'block', marginTop: '6px', color: TONES.ok, font: font(11, 400) }
+				) : null,
+				error ? text(`✖ ${error}`, { display: 'block', marginTop: '6px', color: TONES.bad, font: font(11, 400), wordBreak: 'break-word' }) : null,
+				box('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px' } }, [
+					text('任务会进入左侧「手动队列」，到点后作为新会话发出 · the task waits in the manual queue and is sent as a new session when its time comes', {
+						flex: '1 1 auto',
+						color: FAINT,
+						font: font(10, 400)
+					}),
+					React.createElement(primitives.Button, { key: 'cancel', variant: 'ghost', size: 'md', onClick: onClose }, '取消 · Cancel'),
+					React.createElement(primitives.Button, {
+						key: 'create',
+						variant: 'primary',
+						size: 'md',
+						disabled: !canSubmit,
+						loading: busy,
+						onClick: send
+					}, '创建定时任务 · Schedule')
+				])
+			].filter(Boolean));
+
+			return React.createElement(primitives.Modal, {
+				open: true,
+				onClose,
+				headless: true,
+				title: '新建定时任务',
+				closeLabel: '关闭 · Close'
+			}, body);
+		}
+
+		/**
+		 * One entry point, two seats — the same dialog, opened from wherever the user already is.
+		 *
+		 * It is registered **both** in the official conversation header (beside the shipped schedule clock and jobs
+		 * list) and inside this plugin's own floating ball. Two seats rather than two implementations: the form, the
+		 * request it makes and the receipt it shows are the one component below, so the two cannot drift — and each
+		 * is where a user would look for it, which is a conversation they have open or the ball that follows them
+		 * around the desktop.
+		 */
+		function NewTaskAction({ compact }) {
+			const [open, setOpen] = React.useState(false);
+			if (!primitives) return null;
+			const trigger = compact
+				// Inside the ball's panel the label is the whole line, so it reads as the panel's primary action.
+				? box('button', {
+					key: 'trigger',
+					type: 'button',
+					'data-hns-mega-new-task': 'on',
+					title: '新建定时任务 · New scheduled task',
+					onClick: () => setOpen(true),
+					style: {
+						all: 'initial',
+						display: 'block',
+						width: '100%',
+						boxSizing: 'border-box',
+						padding: '6px 8px',
+						marginBottom: '6px',
+						borderRadius: '6px',
+						border: `1px solid ${TONES.busy}`,
+						background: 'rgba(88,166,255,.12)',
+						color: '#ffffff',
+						cursor: 'pointer',
+						textAlign: 'center',
+						font: font(12)
+					}
+				}, '＋ 新建定时任务 · New task')
+				: React.createElement(primitives.Button, {
+					key: 'trigger',
+					variant: 'ghost',
+					size: 'sm',
+					icon: primitives.IconPlusOutline16 ? React.createElement(primitives.IconPlusOutline16, null) : undefined,
+					title: '新建定时任务 · New scheduled task',
+					onClick: () => setOpen(true)
+				}, '新建任务 · New task');
+			return box('span', { 'data-hns-mega-new-task-action': compact ? 'ball' : 'header', style: { display: 'block' } }, [
+				trigger,
+				React.createElement(NewTaskDialog, { key: 'dialog', open, onClose: () => setOpen(false) })
+			]);
+		}
+
 		const inject = ['slots'];
 
 		function apply(ctx) {
@@ -1068,14 +1537,17 @@ window.__ModuleLoader__.load({
 					(props) => React.createElement(MegaPage, { store, close: props && props.close })
 				));
 				/**
-				 * **No new-task entry in this window.** Creating a scheduled task belongs to the floating ball's own
-				 * window (`app/extensions/mega/ui/orb.js`), which is the surface that is on screen over every
-				 * application: starting a task from wherever the user happens to be is what that ball is for, and a
-				 * header button inside one conversation would only reach a user who already has it open.
+				 * The new-task entry, beside the official header actions. `order: 30` puts it after the jobs list and
+				 * the schedule clock (both in the lower twenties) — the slot is a list, so the shipped entries are
+				 * added beside and never displaced.
 				 *
-				 * This window keeps its own job — the orb draws the dashboard, `settings.section` draws governance —
-				 * and a task is made in the one place that can also make it without a conversation at all.
+				 * It is here **and** in the ball's own panel (see `NewTaskAction`'s note): a conversation the user
+				 * has open is one of the two places they look for "start something".
 				 */
+				ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register(
+					{ name: 'conversation.session.header.actions', id: 'mega-new-task', order: 30, label: '新建任务 · New task' },
+					() => React.createElement(NewTaskAction, null)
+				));
 			}
 			return () => {};
 		}

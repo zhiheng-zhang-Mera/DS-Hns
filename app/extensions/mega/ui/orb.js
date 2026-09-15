@@ -227,9 +227,19 @@
     panelBody.replaceChildren()
 
     if (!view) {
+      panelBody.appendChild(drawTaskEntry())
       panelBody.appendChild(element('div', 'muted', 'DS-Hns 没有应答 · no answer from DS-Hns'))
       return
     }
+
+    /**
+     * The new-task entry is **first in the panel**, before the dashboard.
+     *
+     * It used to sit at the bottom with the other buttons, below four categories and the governance lines — which
+     * is to say below the fold of a panel that is itself a fold. It is the one control here that *starts* something
+     * rather than reporting something, so it is the one control that has to be visible without scrolling.
+     */
+    panelBody.appendChild(drawTaskEntry())
 
     const dashboard = drawDashboard(view.dashboard)
     if (dashboard) panelBody.appendChild(dashboard)
@@ -256,18 +266,6 @@
 
     // Actions: the closed set the governance bridge accepts, and nothing invented here.
     const actions = element('div', 'actions')
-    /**
-     * The new-task entry, **here** rather than in the official UI's header.
-     *
-     * The ball is the surface that is always on screen, over every application: starting a task from wherever the
-     * user happens to be is the point of it. It opens the same form the official header action does (see
-     * `drawTaskForm`), in this window, because this window *is* the product's other half.
-     */
-    const newTask = element('button', 'act primary', '新建定时任务 · New task')
-    newTask.type = 'button'
-    newTask.dataset.orbAction = 'new-task'
-    newTask.addEventListener('click', () => openTaskForm())
-    actions.appendChild(newTask)
     for (const action of view.actions || []) {
       const button = element('button', 'act', action)
       button.type = 'button'
@@ -291,6 +289,22 @@
      * about it) are the lines and the action buttons above.
      */
     panelBody.appendChild(element('div', 'note', '完整细节与恢复动作见 官方 Settings › Mega · details and recovery live in Settings › Mega'))
+  }
+
+  /**
+   * The new-task entry: the one control in this panel that starts something instead of reporting something.
+   *
+   * It is drawn first (`drawPanel`) because everything else here is a reading, and a reading you have to scroll to
+   * find is a reading you do not have. Clicking it switches this window to the form (`drawTaskForm`) — the ball is
+   * the surface that is on screen over every application, so starting a task from wherever the user is happens
+   * here, in this window.
+   */
+  function drawTaskEntry() {
+    const entry = element('button', 'act primary wide', '＋ 新建定时任务 · New task')
+    entry.type = 'button'
+    entry.dataset.orbAction = 'new-task'
+    entry.addEventListener('click', () => openTaskForm())
+    return entry
   }
 
   /** The title and the way back, which differ between the dashboard and the form. */
