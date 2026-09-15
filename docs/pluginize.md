@@ -497,3 +497,61 @@ DS-Hns 原话。Enter 的三种情况（发送 / Shift 换行 / 输入法组字�
 {startAt: now+3m, allowPeak: false, deliveryMode: 'official-session'}`、`timeZone: Asia/Shanghai`、
 `peakNow: true`；空提示词 → `{ok:false, reason:'a task needs a prompt', field:'prompt'}`，坏时间 →
 `not a time this scheduler can read`，正常创建 → `status: PENDING` → 随即 `SUSPENDED`（未到点）。
+
+## 定时任务挂起失败：路由被删了，调用它的那半边还在（人工复查 6）
+
+**用户报的现象**："定时任务挂起失败"。**根因不在调度器里**：真机探针把 `addTask` → 立刻 `SUSPENDED /
+waiting-schedule` → 重启后仍在 → 到点作为官方会话发出一次，整条链路走通了。坏的是**官方界面那半边从来没有把
+任务交给调度器** —— `9801d7e` 删掉了插件宿主半边的 `GET /mega-core/timing` 与 `POST /mega-core/task`（当时的
+理由是"新表单只住在系统悬浮球的窗口里、走它自己的 IPC"，而那个窗口 **不** 走这两条路由），但调用它们的**客户端
+半边一直在**。于是 `GET /timing` → **404**、`POST /task` → **405**，两个都是**空 body**，客户端的
+`response.json()` 直接抛 `SyntaxError: Unexpected end of JSON input`：用户看到的是解析器的报错，而不是问题的
+陈述。任务从未被创建，所以"挂起"永远没有发生。
+
+**同一个 bug 还有第二处**：`/mega-core/orb`（球的坐标读写）是**同一个故事** —— 它在 `56f3e7f`（"只留系统球"）
+随界面内的球一起被删，而 `8781543` 又把界面内的球装了回来。于是球的坐标既读不到也存不下（每次重启回到默认
+角），只是这次失败得**完全静默**（catch 里写着"默认角是一个完整的答案"）。它现在也回来了。
+
+三件事一起修：
+
+1. **路由回来了**：`/timing`、`/task`（原样透传请求、保留 DS-Hns 的 400 与原话）、`/orb`
+   （存 `$DSH_HOME/state/mega-core-orb.json`；不用 `localStorage`，因为官方界面是 `--port 0`，origin 每次重启都变）。
+2. **不再有解析器报错**：客户端读 body 一律先读文本再解析，没有 JSON 时把**状态码**当作原因
+   （`the timing surface answered 404 without JSON`）。"路由不在"这种失败从此是一句话，不是一个异常。
+3. **一条会自己发现的测试**：`mega-core-plugin.test.js` 不再断言"这一半有哪几条路由"（那只是快照），而是从
+   **客户端半边的源码里抽出它调用的每个 URL**，断言宿主半边**每一条都注册了** —— 这正是 `9801d7e` 会当场
+   失败的那条断言。同一个文件里还端到端跑通 `/timing` + `/task`（真治理桥）与 `/orb`（真文件）。
+
+### 顺带修掉两处"表里不一"
+
+* **过去的时间会被立刻执行，而不是挂起。** `decideTask` 把 `now >= startAtMs` 读作 ready（对"到点了"的队列项
+  是对的），而 `datetime-local` 只精确到分钟——用户选"这一分钟"时它其实已经过去了，于是任务**立刻跑**，而
+  用户以为自己排的是一个定时任务。现在 `SchedulerService.addTask` 拒绝过去的时间（拒绝带 `field: 'startAt'`，
+  经 `scheduleTask` 一路传到表单），两张表单因此也不为一个层会拒绝的时间点亮提交按钮（禁用时用 hover 文本
+  说明原因）。**没有 `startAt` 仍然是"现在就跑"** —— 规则针对的是"给了时间而那个时间已经过去"。
+* **球的表单只在重绘时才更新。** 以前输入提示词后"创建"按钮会灰着最多 15 秒（等下一次轮询），改时间后总结句
+  还说着旧时间。现在这两处**就地更新**（`syncFormState`，只写两个节点）——不重建表单，因为重建会关掉原生
+  日期选择器、也可能打断输入法组字。
+
+### 球里那张表单："点了就关、没法编辑"
+
+上一版把官方 `Modal`（portal 到 `document.body`）当成球里那张表单，而**面板自己的规则是"点面板外面就收起"**：
+portal 出去的表单正好在面板"外面"，所以点进输入框那一下就把拥有它的面板收掉了 —— 表单不是不能编辑，是被
+"要编辑它的那一次点击"卸载了。现在：
+
+* 界面内球的面板里是**它自己的表单**（`NewTaskFormPanel`），与官方头部那扇居中浮窗**共用同一份草稿**
+  （`useNewTaskDraft`：同一次 timing 读取、同一个 POST、同一句拒绝）。表单打开期间面板不挂"点外面收起"那条
+  规则（半句话不该被一次误点丢掉），它的出口是 `← 返回`、`×` 和球本身。
+* 系统悬浮球那扇窗口同理：**面板打开期间窗口才可获焦**（`syncFocusable` —— `focusable: false` 的窗口根本收不到
+  按键，这正是"无法编辑"的机制），关闭时先 `blur()` 再收回可获焦（Windows 不会因为加了 no-activate 样式就把
+  已经激活的窗口停用，否则用户接下来几下按键会掉进那扇窗口里）；表单也不会被外面的点击关掉，重绘还会把
+  光标放回原来那个字段、原来的位置。
+* 官方头部入口不变，仍然是官方居中子页面；宿主没有官方组件库时它不出现，而球自己那张表单照常工作（它只用
+  我们自己的盒子）。
+
+**验证**：真机链路探针（真 `SchedulerService` + 真治理桥 + 真宿主半边 + 真 HTTP）：`GET /mega-core/timing` →
+200（真实 surface）、`POST /mega-core/task` → 200 → `SUSPENDED / waiting-schedule` 且已持久化、派发 **0**；
+`GET /mega-core/orb` → 200 `{ok:true, position:null}`，POST 后读回同一组数字，坏坐标 400 且不覆盖旧值。
+
+**运行中的实例仍需重启**：宿主半边的路由表是挂载时解析的，所以线上那个进程里 `/timing` 现在仍然是 404 ——
+`data/profiles/web/node_modules/dsh-plugin-mega-core/lib/` 已经同步成新的 `index.js` / `client.js`，重启即生效。

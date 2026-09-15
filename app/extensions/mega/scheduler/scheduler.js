@@ -318,7 +318,30 @@ class SchedulerService extends EventEmitter {
       officialLastSeenAt: null,
       error: null
     }
-    if (Number.isNaN(task.startAtMs)) throw new Error('invalid startAt')
+    if (Number.isNaN(task.startAtMs)) {
+      const invalid = new Error('invalid startAt')
+      invalid.field = 'startAt'
+      throw invalid
+    }
+    /**
+     * A time that has already passed is **not** a time to run at.
+     *
+     * This is the "定时任务挂起失败" report, stated as a rule. The gate treats `now >= startAtMs` as ready — which is
+     * right for a queue entry whose moment has come — so a task created with an instant a few seconds in the past
+     * (easy to pick: a `datetime-local` field truncates to the minute, so "now" is usually already behind us) runs
+     * immediately instead of being suspended. Nothing about that is visible to the user, who asked for a *scheduled*
+     * task and got an immediate one.
+     *
+     * So admission is where it is refused, and it is refused for every caller — the official UI's two seats, the
+     * dock's own form, anything added later — because "a scheduled task is a future time" is a property of a task,
+     * not a policy of one form. The internal peak-retry entry is built directly on the queue rather than through
+     * here, so a retry is unaffected; so is a task with no `startAt` at all, which is the deliberate "run it now".
+     */
+    if (task.startAtMs !== null && task.startAtMs <= Date.now()) {
+      const past = new Error('that time has already passed — a scheduled task needs a time in the future')
+      past.field = 'startAt'
+      throw past
+    }
     this.tasks.push(task)
     if (queuePosition === 'top') this.reorderTask(id, 'top', { save: false, emit: false })
     else this.ensureQueueOrders()

@@ -24,7 +24,7 @@ const ORB = path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'orb.js')
 const source = fs.readFileSync(ORB, 'utf8')
 
 /** One element: the handful of properties the renderer writes, plus what a test needs to read back. */
-function makeElement(tag, id) {
+function makeElement(tag, id, dom) {
   const classes = new Set()
   const listeners = new Map()
   const node = {
@@ -38,6 +38,9 @@ function makeElement(tag, id) {
     attributes: {},
     children: [],
     textContent: '',
+    /** What a field needs to be a field: the caret the renderer restores after a redraw (`orb.js`). */
+    selectionStart: 0,
+    selectionEnd: 0,
     get className() { return [...classes].join(' ') },
     set className(value) {
       classes.clear()
@@ -57,7 +60,22 @@ function makeElement(tag, id) {
       this.children = this.children.filter((entry) => entry !== child)
       return child
     },
-    contains: () => false,
+    /**
+     * A real hit test over the stub's own tree.
+     *
+     * `orb.js` asks "is this click inside me" to decide whether to dismiss the panel, so a stub that always said
+     * `false` could not tell a click *in* the panel from a click outside it — which is the distinction two of these
+     * tests are about.
+     */
+    contains(candidate) {
+      for (const child of this.children || []) {
+        if (child === candidate || (child && typeof child.contains === 'function' && child.contains(candidate))) return true
+      }
+      return false
+    },
+    focus() { if (dom) dom.activeElement = node },
+    blur() { if (dom && dom.activeElement === node) dom.activeElement = null },
+    setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end },
     setAttribute(name, value) { this.attributes[name] = String(value) },
     getAttribute(name) { return Object.prototype.hasOwnProperty.call(this.attributes, name) ? this.attributes[name] : null },
     addEventListener(name, handler) {
@@ -67,25 +85,70 @@ function makeElement(tag, id) {
     fire(name, payload) {
       for (const handler of listeners.get(name) || []) handler(payload)
     },
-    querySelector: () => null
+    /** Only the one selector `orb.js` asks for: a field or a part of the form, by the name it was given. */
+    querySelector(selector) {
+      const match = /^\[data-(orb-field|orb-part)="([^"]+)"\]$/.exec(String(selector))
+      if (!match) return null
+      const key = match[1] === 'orb-field' ? 'orbField' : 'orbPart'
+      let found = null
+      const visit = (current) => {
+        if (!current || typeof current !== 'object' || found) return
+        if (current.dataset && current.dataset[key] === match[2]) { found = current; return }
+        for (const child of current.children || []) visit(child)
+      }
+      for (const child of this.children || []) visit(child)
+      return found
+    }
   }
   return node
 }
 
 /** Load the renderer in a sandbox whose document has exactly the elements `orb.html` declares. */
 function loadOrb({ snapshot = null } = {}) {
+  /** The focus the stub's fields share, so `doc.activeElement` means what it means in a browser. */
+  const dom = { activeElement: null }
   const elements = new Map()
   for (const id of ['ball', 'ballGlyph', 'panel', 'panelHead', 'panelTitle', 'panelState', 'panelBody', 'panelClose']) {
-    elements.set(id, makeElement(id === 'ball' ? 'button' : 'div', id))
+    elements.set(id, makeElement(id === 'ball' ? 'button' : 'div', id, dom))
   }
+  dom.body = makeElement('body', '', dom)
+  dom.activeElement = dom.body
+  /**
+   * The document's tree, as `orb.html` declares it.
+   *
+   * It matters for the two rules that ask "is this click inside me": `panel.contains(target)` decides whether the
+   * panel is dismissed, and `panel.contains(activeElement)` decides whether a redraw has to put the cursor back. A
+   * flat bag of elements could answer neither.
+   */
+  elements.get('ball').appendChild(elements.get('ballGlyph'))
+  const panel = elements.get('panel')
+  panel.appendChild(elements.get('panelHead'))
+  elements.get('panelHead').appendChild(elements.get('panelTitle'))
+  elements.get('panelHead').appendChild(elements.get('panelState'))
+  elements.get('panelHead').appendChild(elements.get('panelClose'))
+  panel.appendChild(elements.get('panelBody'))
+  dom.body.appendChild(elements.get('ball'))
+  dom.body.appendChild(panel)
   const calls = []
   let timingAnswer = null
   let taskAnswer = null
+  const listeners = new Map()
   const document = {
     getElementById: (id) => elements.get(id) || null,
-    createElement: (tag) => makeElement(tag),
-    addEventListener() {},
-    removeEventListener() {}
+    createElement: (tag) => makeElement(tag, '', dom),
+    /** The document's own listeners, which is where the ball's "click outside me" rule lives. */
+    addEventListener(type, handler) {
+      if (!listeners.has(type)) listeners.set(type, [])
+      listeners.get(type).push(handler)
+    },
+    removeEventListener(type, handler) {
+      if (listeners.has(type)) listeners.set(type, listeners.get(type).filter((entry) => entry !== handler))
+    },
+    fire(type, payload) {
+      for (const handler of listeners.get(type) || []) handler(payload)
+    },
+    get activeElement() { return dom.activeElement },
+    body: dom.body
   }
   const api = {
     /**
@@ -130,6 +193,8 @@ function loadOrb({ snapshot = null } = {}) {
   const apply = (state) => sandbox.hnsOrbView.apply(state)
   return {
     sandbox, elements, calls, apply, api,
+    /** A node in no tree at all: what "the user clicked somewhere else on the screen" looks like. */
+    outside: makeElement('div', 'outside', dom),
     setTiming: (answer) => { timingAnswer = answer },
     setTask: (answer) => { taskAnswer = answer }
   }
@@ -537,6 +602,93 @@ test('the form survives a poll, and a snapshot with no timing surface says so in
   withoutTiming.apply(payload(fixtureView()))
   const said = strings(await openTaskForm(withoutTiming)).join(' | ')
   assert.match(said, /读不到调度能力：this build does not answer timing questions/)
+})
+
+test('the form refuses a time that has already gone, on the button and on Enter', async () => {
+  /**
+   * A `datetime-local` field truncates to the minute, so "this minute" is behind us the moment it is picked — and
+   * the scheduler refuses a *new* task whose instant is in the past, precisely because a past instant is `ready`
+   * in the gate and would run at once instead of waiting (the "定时任务挂起失败" report). The form therefore has to
+   * refuse it too, in the two ways it can be sent: the button, and Enter inside the prompt.
+   */
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.apply(payload(fixtureView()))
+  const body = await openTaskForm(orb)
+
+  const pad = (value) => String(value).padStart(2, '0')
+  const past = new Date(Date.now() - 5 * 60_000)
+  const time = findNode(body, (node) => node.dataset.orbField === 'startAt')
+  time.value = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}T${pad(past.getHours())}:${pad(past.minutes ?? past.getMinutes())}`
+  time.fire('input')
+
+  const prompt = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt')
+  prompt.value = '晚了一步'
+  prompt.fire('input')
+
+  const create = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbAction === 'create-task')
+  assert.equal(create.disabled, true, 'the button would schedule a task for a time that has gone')
+  assert.match(create.title, /已经过去/, 'the disabled button did not say why')
+
+  // Enter reaches the submit path without the button, so it has to refuse too — and say so in the panel.
+  prompt.fire('keydown', { key: 'Enter', shiftKey: false, isComposing: false, preventDefault: () => {} })
+  await tick()
+  await tick()
+  assert.equal(orb.calls.filter((call) => call.startsWith('createTask:')).length, 0, 'a past time was posted anyway')
+  assert.match(strings(orb.elements.get('panelBody')).join(' | '), /这个时间已经过去/)
+})
+
+test('the form is not dismissed by a click elsewhere, and puts the cursor in the composer', async () => {
+  /**
+   * The user's report: "悬浮球的入口打开窗口后无法编辑，任意点击直接关闭弹窗". Both halves are asserted here, because
+   * they are two different mechanisms: the click that focuses a field must not dismiss the surface holding it, and
+   * the window must be able to take the keyboard at all (`syncFocusable` in `system-orb.cjs` grants exactly that,
+   * for exactly as long as the panel is open — see `system-orb.test.js`).
+   */
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.apply(payload(fixtureView()))
+  const body = await openTaskForm(orb)
+
+  // The cursor is in the composer the user just opened, not on the ball.
+  const prompt = findNode(body, (node) => node.dataset.orbField === 'prompt')
+  assert.equal(orb.sandbox.document.activeElement, prompt, 'the form opened without a cursor in it')
+
+  // A click somewhere else on the screen — another application, the desktop, the official page — is not a decision
+  // to throw half-typed text away. It must reach the shell as *nothing*: the panel stays.
+  orb.calls.length = 0
+  orb.sandbox.document.fire('pointerdown', { target: orb.outside })
+  await tick()
+  assert.equal(orb.calls.includes('open:false'), false, `a click outside the panel dismissed the form: ${orb.calls.join(', ')}`)
+  assert.match(strings(orb.elements.get('panelBody')).join(' | '), /要执行的内容/, 'the form closed on a click outside it')
+
+  // The dashboard is the other way round: a click outside it closes it, which is the rule the form is exempt from
+  // only because it holds text.
+  findNode(orb.elements.get('panelBody'), (node) => node.textContent === '返回 · Back').fire('click')
+  orb.calls.length = 0
+  orb.sandbox.document.fire('pointerdown', { target: orb.outside })
+  await tick()
+  assert.ok(orb.calls.includes('open:false'), `the dashboard no longer closes on a click outside it: ${orb.calls.join(', ')}`)
+})
+
+test('a poll redraw keeps the cursor in the field being typed in, at the offset it was at', async () => {
+  const orb = loadOrb({ snapshot: fixtureView() })
+  orb.setTiming(fixtureTiming())
+  orb.apply(payload(fixtureView()))
+  await openTaskForm(orb)
+
+  const prompt = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt')
+  prompt.value = '半句话'
+  prompt.fire('input')
+  prompt.setSelectionRange(2, 2)
+
+  // The shell pushes a new view every 15 seconds, and drawing it replaces the panel's nodes. A redraw that dropped
+  // the cursor would interrupt the user mid-word — so the field, and the caret inside it, come back.
+  orb.apply(payload(fixtureView()))
+  const redrawn = findNode(orb.elements.get('panelBody'), (node) => node.dataset.orbField === 'prompt')
+  assert.equal(orb.sandbox.document.activeElement, redrawn, 'the redraw took the cursor out of the composer')
+  assert.equal(redrawn.selectionStart, 2, 'the redraw moved the caret')
+  assert.equal(redrawn.value, '半句话')
 })
 
 test('the window is asked for the whole panel: the head plus the body, never the height it was given', () => {

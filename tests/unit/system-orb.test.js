@@ -43,6 +43,9 @@ function stubElectron({ workArea = SCREEN } = {}) {
       /** Every native ignore-mouse write, so a test can prove it is not re-written for nothing. */
       this.ignoreWrites = 0
       this.focusable = null
+      /** Every native focusability write, so a test can prove the keyboard is borrowed once per panel. */
+      this.focusableWrites = 0
+      this.focused = false
       this.alwaysOnTop = null
       this.visibleOnAllWorkspaces = null
       this.visible = false
@@ -62,7 +65,10 @@ function stubElectron({ workArea = SCREEN } = {}) {
     getBounds() { return { ...this.bounds } }
     setBounds(next) { this.bounds = { ...next }; this.resizes += 1 }
     setIgnoreMouseEvents(value, options) { this.ignored = { value, options }; this.ignoreWrites += 1 }
-    setFocusable(value) { this.focusable = value }
+    setFocusable(value) { this.focusable = value; this.focusableWrites += 1 }
+    isFocused() { return this.focused }
+    focus() { this.focused = true }
+    blur() { this.focused = false }
     setAlwaysOnTop(value) { this.alwaysOnTop = value }
     setVisibleOnAllWorkspaces(value, options) { this.visibleOnAllWorkspaces = { value, options } }
     setMenuBarVisibility() {}
@@ -207,6 +213,47 @@ test('the window is created always-on-top, never focusable, and ignoring the mou
     assert.equal(win.ignoreWrites, writes, 'a repeated answer must not be a repeated native call')
     orb.setInteractive(true)
     assert.equal(win.ignoreWrites, writes + 1)
+  } finally {
+    dispose()
+  }
+})
+
+test('only the open panel can be typed into: the ball never takes the keyboard, the form needs it', () => {
+  /**
+   * The user's report — "悬浮球的入口打开窗口后无法编辑" — stated as a property of the window rather than of the form:
+   * the form was fine, but a `focusable: false` window cannot take a keystroke, so nothing typed into it ever
+   * arrived. An open panel is the one state that needs the keyboard, and it is exactly the state that borrows it.
+   */
+  const electron = stubElectron()
+  const { file, dispose } = scratch()
+  try {
+    const orb = createSystemOrb({ electron, log: () => {}, state: createOrbState(file), workAreaOf: () => SCREEN })
+    orb.create()
+    const win = electron.last()
+    // A ball, closed: no keyboard at all.
+    assert.equal(orb.describe().focusable, false)
+    assert.equal(win.focusable, false)
+
+    // The panel opens: focusable, and focused, so the prompt the renderer focuses can actually receive keys.
+    orb.setOpen(true)
+    assert.equal(orb.describe().open, true)
+    assert.equal(orb.describe().focusable, true, 'the panel holds a form and cannot be typed into')
+    assert.equal(win.focusable, true)
+    assert.equal(win.focused, true, 'a focusable panel that is never focused still receives no keystrokes')
+
+    // Closing hands the keyboard back — and drops focus *before* the style does. Windows does not deactivate a
+    // window that stops accepting keys, so a window left focused and unfocusable is where keystrokes disappear.
+    orb.setOpen(false)
+    assert.equal(orb.describe().focusable, false)
+    assert.equal(win.focusable, false)
+    assert.equal(win.focused, false, 'the window kept focus while it stopped accepting keys')
+
+    // Native writes only when the answer changes, the same rule the mouse style follows.
+    const writes = win.focusableWrites
+    orb.setOpen(false)
+    assert.equal(win.focusableWrites, writes, 'a repeated answer must not be a repeated native call')
+    orb.setOpen(true)
+    assert.equal(win.focusableWrites, writes + 1)
   } finally {
     dispose()
   }

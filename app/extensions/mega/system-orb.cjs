@@ -15,8 +15,10 @@
  *   1. **It takes nothing it is not offered.** `setIgnoreMouseEvents(true, { forward: true })` is the default
  *      state: every click, wheel and drag goes to the window below, while the renderer still sees the pointer
  *      move so it can tell us when the cursor is over the ball or its panel. Only then is the window made
- *      interactive, and only while the cursor stays there. `focusable: false` keeps it out of the keyboard
- *      chain entirely — clicking a button in the panel cannot take focus from what the user is typing in.
+ *      interactive, and only while the cursor stays there. The window is created `focusable: false` and stays
+ *      that way while it is a ball — clicking it cannot take the keyboard from what the user is typing in — with
+ *      **one** exception, and it is a deliberate one: an **open panel** is focusable, because it contains the
+ *      new-task form and a window that cannot be focused cannot be typed into at all (see `syncFocusable`).
  *   2. **It is never bigger than what it draws.** The window is the ball plus, while the panel is open, the
  *      panel — plus a few transparent pixels of margin for the shadow. That is what lets it be transparent and
  *      always on top without becoming a pane of glass over the desktop: there is nothing in it to block.
@@ -260,6 +262,13 @@ function createSystemOrb({
   /** Whether the cursor is on something of ours, and whether a drag is in progress (see `syncInteractive`). */
   let hovering = false
   let dragging = false
+  /**
+   * `null` until the window's focusability has been written at least once.
+   *
+   * The same rule `interactive` follows: a new `BrowserWindow` is focusable by default, so "the answer is false"
+   * and "the window is already not focusable" are different states.
+   */
+  let focusable = null
   let position = null
   let open = false
   let panel = null
@@ -363,6 +372,38 @@ function createSystemOrb({
     return syncInteractive()
   }
 
+  /**
+   * The one thing that makes this window *typable*: it is focusable exactly while the panel is open.
+   *
+   * The ball is `focusable: false` for a good reason — a status light must not be able to take the keyboard away
+   * from whatever the user is typing in. An **open panel** is a different thing: it holds the new-task form, and a
+   * window that cannot be focused cannot be typed into at all. That is the user's report ("悬浮球的入口打开窗口后
+   * 无法编辑") stated as a property of the window rather than of the form: the form was fine, the window could not
+   * take a keystroke. So the panel borrows focusability for its own duration and hands it back when it closes —
+   * which keeps the ball's rule intact for the state the ball is actually in, and is why this is checked on every
+   * open and close rather than configured once.
+   *
+   * Order matters when it is taken away: Windows does **not** deactivate an already-active window when the
+   * no-activate style is added, so a window that keeps focus while it stops accepting keys is how the user's next
+   * few keystrokes disappear. Focus is dropped first, then the style.
+   *
+   * The native call is made only when the answer changes, for the reason `syncInteractive` gives.
+   */
+  function syncFocusable() {
+    const next = Boolean(open)
+    if (next === focusable) return focusable
+    focusable = next
+    if (!live()) return focusable
+    try {
+      if (!next && typeof window_.isFocused === 'function' && window_.isFocused() && typeof window_.blur === 'function') window_.blur()
+      if (typeof window_.setFocusable === 'function') window_.setFocusable(next)
+      if (next && typeof window_.focus === 'function') window_.focus()
+    } catch (error) {
+      lastError = String(error?.message || error)
+    }
+    return focusable
+  }
+
   /** Recompute the window from the ball's position and the panel (when open), then draw it. */
   function apply({ view = null } = {}) {
     if (!live() || !position) return { ok: false, reason: 'no_ball' }
@@ -464,9 +505,12 @@ function createSystemOrb({
       if (typeof window_.setVisibleOnAllWorkspaces === 'function') window_.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
       if (typeof window_.setMenuBarVisibility === 'function') window_.setMenuBarVisibility(false)
     } catch { /* each of these is a nicety; the mechanism is alwaysOnTop + ignore-mouse-events */ }
-    // Out of the way to begin with, and *staying* out of the way is the default state.
+    // Out of the way to begin with, and *staying* out of the way is the default state. Both answers are written
+    // once here rather than left as "whatever a new window happens to be".
     hovering = false
+    focusable = null
     syncInteractive()
+    syncFocusable()
     window_.webContents.on('did-finish-load', () => {
       ready = true
       apply()
@@ -481,6 +525,7 @@ function createSystemOrb({
       ready = false
       // Unknown again: the next window's style has never been written either.
       interactive = null
+      focusable = null
     })
     window_.loadFile(documentPath).catch((error) => {
       lastError = String(error?.message || error)
@@ -508,8 +553,10 @@ function createSystemOrb({
       if (!open) panel = null
       const result = apply({ view })
       // An open panel is an unambiguous "the user is using this", so the window stays interactive for as long
-      // as it is open (see `syncInteractive`).
+      // as it is open (see `syncInteractive`) — and, for the same reason, keyboard-capable while it is open
+      // (see `syncFocusable`: the panel holds a form).
       syncInteractive()
+      syncFocusable()
       return result
     },
     /** The renderer's measured panel. A request, answered with the size it actually got. */
@@ -576,6 +623,8 @@ function createSystemOrb({
         visible: live(),
         ready,
         interactive,
+        // Whether the window can take the keyboard: true exactly while the panel is open (`syncFocusable`).
+        focusable: focusable === true,
         open,
         panel: layout?.panel || null,
         position: position ? { ...position } : null,

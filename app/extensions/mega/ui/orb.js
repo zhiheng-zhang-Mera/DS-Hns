@@ -220,7 +220,10 @@
     // The form is the user's doing, so it is what the window shows even when the shell's poll redraws the panel
     // underneath it: being thrown back to the dashboard mid-sentence would lose the text being typed.
     if (mode === 'task') {
+      // ...and a redraw must not take the cursor out of the field the user is typing in (see `focusInsidePanel`).
+      const caret = focusInsidePanel()
       panelBody.replaceChildren(drawTaskForm())
+      restoreFocus(caret)
       return
     }
     if (panelState) panelState.textContent = view ? `${view.status?.label || '—'}` : '—'
@@ -360,6 +363,9 @@
     loadTiming()
     drawPanel()
     measure()
+    // The cursor is where the user is about to type. Asking for it again after the timing answer lands is what
+    // `drawPanel`'s `restoreFocus` does, so the read arriving late cannot push the user out of the box.
+    focusPrompt()
   }
 
   function closeTaskForm() {
@@ -433,7 +439,12 @@
     prompt.rows = 4
     prompt.placeholder = '和平时对话一样输入 · type it as you would in a chat'
     prompt.value = taskDraft.prompt
-    prompt.addEventListener('input', () => { taskDraft.prompt = prompt.value })
+    prompt.addEventListener('input', () => {
+      taskDraft.prompt = prompt.value
+      // The button's own state follows the text (see `syncFormState`), but the box is **not** rebuilt: that would
+      // interrupt an IME composition mid-word.
+      syncFormState()
+    })
     prompt.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' || event.shiftKey) return
       // The composition guard: pressing Enter to pick a Chinese candidate must not send the half-typed sentence.
@@ -460,7 +471,11 @@
     timeInput.type = 'datetime-local'
     timeInput.dataset.orbField = 'startAt'
     timeInput.value = taskDraft.startAt
-    timeInput.addEventListener('input', () => { taskDraft.startAt = timeInput.value })
+    timeInput.addEventListener('input', () => {
+      taskDraft.startAt = timeInput.value
+      // In place, not by a redraw: rebuilding the form while the native picker is open would close it.
+      syncFormState()
+    })
     schedule.appendChild(formField('发送时间', 'Send at', timeInput))
 
     const presets = element('div', 'presets')
@@ -476,8 +491,9 @@
           at.setMinutes(at.getMinutes() + minutes)
         }
         taskDraft.startAt = localFromInstant(at.toISOString())
-        drawPanel()
-        measure()
+        // The field is the one place the value is *shown*, so it is written as well as the draft — no rebuild.
+        timeInput.value = taskDraft.startAt
+        syncFormState()
       })
       presets.appendChild(button)
     }
@@ -487,7 +503,10 @@
     peak.type = 'checkbox'
     peak.dataset.orbField = 'allowPeak'
     peak.checked = taskDraft.allowPeak === true
-    peak.addEventListener('change', () => { taskDraft.allowPeak = peak.checked === true })
+    peak.addEventListener('change', () => {
+      taskDraft.allowPeak = peak.checked === true
+      syncFormState()
+    })
     schedule.appendChild(formField('允许峰值', 'Allow peak hours', peak,
       timing && timing.schedule && Array.isArray(timing.schedule.peakPeriods) && timing.schedule.peakPeriods.length
         ? `峰价 ${timing.schedule.peakPeriods.map((window) => `${window.start}-${window.end}`).join(', ')}；不允许时到点若在峰价会挂起`
@@ -496,17 +515,10 @@
 
     // What will happen, in one sentence — the thing the user is agreeing to.
     const summary = element('div', 'summary')
-    const instant = instantFromLocal(taskDraft.startAt)
-    if (instant === null) {
-      summary.textContent = '还没有选择时间 · no time chosen yet'
-      summary.className = 'summary muted'
-    } else if (instant.getTime() <= Date.now()) {
-      summary.textContent = `⚠ 这个时间已经过去 · that time is in the past（${taskDraft.startAt.replace('T', ' ')}）`
-      summary.className = 'summary warn'
-    } else {
-      summary.textContent = `将在 ${taskDraft.startAt.replace('T', ' ')} 作为官方新会话发出 · sends as a new official conversation in ${offsetText(instant.getTime() - Date.now())}`
-      summary.className = 'summary'
-    }
+    summary.dataset.orbPart = 'summary'
+    const described = summaryState()
+    summary.textContent = described.text
+    summary.className = described.className
     wrap.appendChild(summary)
 
     if (timingError) {
@@ -528,19 +540,93 @@
     const create = element('button', 'act primary', taskBusy ? '创建中… · Creating…' : '创建定时任务 · Schedule')
     create.type = 'button'
     create.dataset.orbAction = 'create-task'
-    if (!taskDraft.prompt.trim() || instant === null || taskBusy) create.disabled = true
+    create.dataset.orbPart = 'create'
+    const armed = formArmed()
+    if (!armed.ok) {
+      create.disabled = true
+      create.title = armed.reason
+    }
     create.addEventListener('click', () => submitTask())
     buttons.appendChild(create)
     wrap.appendChild(buttons)
     return wrap
   }
 
+  /**
+   * The sentence under the schedule: exactly when this will be sent, and whether that is even possible.
+   *
+   * One function rather than a block inside `drawTaskForm`, because the same sentence has to be re-written while the
+   * user fills the form in (`syncFormState`) — and two copies of it would be two chances for the panel to say
+   * something the button does not believe.
+   */
+  function summaryState() {
+    const instant = instantFromLocal(taskDraft.startAt)
+    if (instant === null) return { text: '还没有选择时间 · no time chosen yet', className: 'summary muted' }
+    if (instant.getTime() <= Date.now()) {
+      return { text: `⚠ 这个时间已经过去 · that time is in the past（${taskDraft.startAt.replace('T', ' ')}）`, className: 'summary warn' }
+    }
+    return {
+      text: `将在 ${taskDraft.startAt.replace('T', ' ')} 作为官方新会话发出 · sends as a new official conversation in ${offsetText(instant.getTime() - Date.now())}`,
+      className: 'summary'
+    }
+  }
+
+  /**
+   * Whether the form is ready to send, and — when it is not — why.
+   *
+   * The one rule both the button and Enter consult. "A time that has not already gone" is not decoration: the
+   * scheduler refuses a *new* task whose instant is in the past (`SchedulerService.addTask`), because a past instant
+   * is `ready` in the gate and the task would run at once instead of waiting — the "定时任务挂起失败" report. And a
+   * `datetime-local` field truncates to the minute, so picking "this minute" is already behind us.
+   */
+  function formArmed() {
+    const instant = instantFromLocal(taskDraft.startAt)
+    const prompt = String(taskDraft.prompt || '').trim()
+    if (taskBusy) return { ok: false, reason: '创建中 · creating', prompt, instant }
+    if (!prompt) return { ok: false, reason: '要执行的内容还没有写 · nothing to run yet', prompt, instant }
+    if (instant === null) return { ok: false, reason: '还没有选择时间 · no time chosen yet', prompt, instant }
+    if (instant.getTime() <= Date.now()) return { ok: false, reason: '这个时间已经过去 · that time is in the past', prompt, instant }
+    return { ok: true, reason: null, prompt, instant }
+  }
+
+  /**
+   * Keep the sentence and the button honest **while** the user fills the form in.
+   *
+   * The form used to update only when something redrew the panel — a preset click, or the shell's 15-second poll —
+   * so typing a prompt left the Create button greyed out for up to fifteen seconds, and editing the time left the
+   * summary describing the old one. Rewriting two nodes is cheap and, unlike a redraw, it cannot close an open
+   * native date picker or interrupt an IME composition in the prompt box.
+   */
+  function syncFormState() {
+    if (!panelBody || typeof panelBody.querySelector !== 'function') return
+    const described = summaryState()
+    const summary = panelBody.querySelector('[data-orb-part="summary"]')
+    if (summary) {
+      summary.textContent = described.text
+      summary.className = described.className
+    }
+    const create = panelBody.querySelector('[data-orb-part="create"]')
+    if (create) {
+      const armed = formArmed()
+      create.disabled = !armed.ok
+      create.title = armed.ok ? '' : armed.reason
+    }
+  }
+
   /** Ask DS-Hns for the task, and say what it answered — its own words when it refuses. */
   function submitTask() {
     if (taskBusy) return
-    const prompt = String(taskDraft.prompt || '').trim()
-    const instant = instantFromLocal(taskDraft.startAt)
-    if (!prompt || !instant) return
+    const armed = formArmed()
+    if (!armed.ok) {
+      // Enter in the prompt box reaches this without the button ever being armed. An empty form stays quiet (there
+      // is nothing to say yet); a time that has gone is said out loud, because the user believes they filled it in.
+      if (armed.prompt && armed.instant !== null && armed.instant.getTime() <= Date.now()) {
+        taskNotice = { ok: false, text: '✖ 这个时间已经过去，定时任务要一个未来的时间 · that time is in the past' }
+        drawPanel()
+        measure()
+      }
+      return
+    }
     if (!api || typeof api.createTask !== 'function') {
       taskNotice = { ok: false, text: '✖ 这个窗口没有创建任务的通道 · this window has no task channel' }
       drawPanel()
@@ -551,7 +637,7 @@
     taskNotice = null
     drawPanel()
     measure()
-    Promise.resolve(api.createTask({ prompt, startAt: instant.toISOString(), allowPeak: taskDraft.allowPeak === true, deliveryMode: 'official-session' }))
+    Promise.resolve(api.createTask({ prompt: armed.prompt, startAt: armed.instant.toISOString(), allowPeak: taskDraft.allowPeak === true, deliveryMode: 'official-session' }))
       .then((answer) => {
         if (!answer || answer.ok === false) {
           taskNotice = { ok: false, text: `✖ ${(answer && answer.reason) || 'the task was refused'}` }
@@ -615,13 +701,63 @@
     Promise.resolve(api.measure(size)).then(apply).catch(() => {})
   }
 
-  /** A click anywhere that is not the panel closes it — the window is interactive while it is open. */
+  /**
+   * A click anywhere that is not the panel closes it — the window is interactive while it is open.
+   *
+   * **Except while the new-task form is open.** A form holds half-typed text, and a click somewhere else on the
+   * screen is not a decision to throw that away; the form's own ways out are `← 返回`, the ball, and `×`, all of them
+   * deliberate. This is half of the user's report ("任意点击直接关闭弹窗") fixed at its source: the click that
+   * focuses a field must not be able to dismiss the surface that holds it. (The other half is the window itself: a
+   * `focusable: false` window cannot be typed into at all — see `syncFocusable` in `system-orb.cjs`.)
+   */
   function onDocumentPointerDown(event) {
     if (!state.open) return
+    if (mode === 'task') return
     const target = event.target
     if (panel && typeof panel.contains === 'function' && panel.contains(target)) return
     if (ball && typeof ball.contains === 'function' && ball.contains(target)) return
     if (api && typeof api.open === 'function') Promise.resolve(api.open(false)).then(apply).catch(() => {})
+  }
+
+  /**
+   * Whether the keyboard is inside the panel right now — i.e. the user is typing in it.
+   *
+   * It is asked *before* the panel is emptied (`drawPanel`), because a redraw that takes the cursor out of the field
+   * being typed in is a redraw that interrupts the user: the panel is redrawn by a 15-second poll, so this is not a
+   * rare path.
+   */
+  function focusInsidePanel() {
+    if (!doc || !panel || typeof panel.contains !== 'function') return null
+    const active = doc.activeElement
+    if (!active || active === doc.body || !panel.contains(active)) return null
+    const caret = typeof active.selectionStart === 'number'
+      ? { start: active.selectionStart, end: active.selectionEnd, field: active.dataset ? active.dataset.orbField : null }
+      : { start: null, end: null, field: active.dataset ? active.dataset.orbField : null }
+    return caret
+  }
+
+  /** Put the cursor back in the composer — in the field it was in, at the offset it was at. */
+  function restoreFocus(caret) {
+    if (!caret || !caret.field || !panelBody || typeof panelBody.querySelector !== 'function') return
+    const field = panelBody.querySelector(`[data-orb-field="${caret.field}"]`)
+    if (!field || typeof field.focus !== 'function') return
+    field.focus()
+    if (caret.start !== null && typeof field.setSelectionRange === 'function') {
+      try {
+        field.setSelectionRange(caret.start, caret.end)
+      } catch { /* a field that does not support a selection still keeps the focus */ }
+    }
+  }
+
+  /**
+   * Open the form with the cursor already in the composer.
+   *
+   * The ball never takes focus on its own (a press on it must not pull the keyboard out of whatever the user is
+   * typing in behind it) — but a form the user *asked for* is the opposite case: it exists to be typed into, which is
+   * why the shell makes the window focusable for as long as the panel is open.
+   */
+  function focusPrompt() {
+    restoreFocus({ field: 'prompt', start: null, end: null })
   }
 
   /** Apply one state from the shell. Everything drawn here is a function of it. */

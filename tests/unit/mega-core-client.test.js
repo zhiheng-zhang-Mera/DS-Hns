@@ -115,16 +115,30 @@ function createReactShim() {
     },
     useEffect(fn, deps) {
       const index = current.cursor++
-      const previous = current.hooks[index]
-      current.hooks[index] = { fn, deps: Array.isArray(deps) ? deps.slice() : null }
+      /**
+       * The array this effect belongs to — the *component's*, not the render's.
+       *
+       * A tree has many components, each with its own hook slots (`expand` keys them by component type), so the
+       * cleanup has to be filed back where the next run of the same effect will look for it. Filing every cleanup
+       * on the root's array instead is how a child's `removeEventListener` never ran — which is exactly the kind of
+       * leak these tests exist to catch.
+       */
+      const hooks = current.hooks
+      const previous = hooks[index]
       const changed = !previous || !Array.isArray(deps) || !Array.isArray(previous.deps)
         || deps.length !== previous.deps.length
         || deps.some((value, position) => value !== previous.deps[position])
+      /**
+       * The slot keeps whatever it already held — including the cleanup of a run whose dependencies did not
+       * change. React keeps it too, and dropping it here is how a listener that was attached once could never be
+       * removed: the next unrelated render would have wiped the only reference to its disposer.
+       */
+      hooks[index] = { ...(previous || {}), fn, deps: Array.isArray(deps) ? deps.slice() : null }
       // A cleaned-up effect is a cleared interval: the countdown's ticker has to be able to stop, or every
       // render of a panel would leave a timer behind it.
       if (changed) {
         if (previous && typeof previous.cleanup === 'function') previous.cleanup()
-        pendingEffects.push({ index, fn })
+        pendingEffects.push({ hooks, index, fn })
       }
     },
     /**
@@ -190,7 +204,7 @@ function createReactShim() {
       const cleanup = entry.fn()
       // Kept on the effect's own slot, so the next run of the same effect can call it — the same contract React
       // has, and the one the countdown's interval depends on.
-      state.hooks[entry.index] = { ...(state.hooks[entry.index] || {}), cleanup: typeof cleanup === 'function' ? cleanup : null }
+      entry.hooks[entry.index] = { ...(entry.hooks[entry.index] || {}), cleanup: typeof cleanup === 'function' ? cleanup : null }
     }
     return { tree, state }
   }
@@ -203,12 +217,28 @@ function fakeFetch({ view = fixtureView(), action = { ok: true } } = {}) {
   const calls = []
   const impl = async (url, init = {}) => {
     calls.push({ url, init })
-    if (url === '/mega-core/view') return { json: async () => view }
-    if (url === '/mega-core/action') return { json: async () => action }
+    if (url === '/mega-core/view') return answer(200, view)
+    if (url === '/mega-core/action') return answer(200, action)
     throw new Error(`no route for ${url}`)
   }
   impl.calls = calls
   return impl
+}
+
+/**
+ * One route answer, in the shape a real `Response` has.
+ *
+ * `text()` as well as `json()` on purpose: the client reads the body as text so that a route which answers
+ * *nothing* (a 404 from a host half that stopped registering it) becomes a sentence about the status instead of
+ * `SyntaxError: Unexpected end of JSON input`. A double with only `json()` would make that path untestable.
+ */
+function answer(status, payload) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+    text: async () => (payload === undefined ? '' : JSON.stringify(payload))
+  }
 }
 
 /**
@@ -572,46 +602,61 @@ test('the panel offers the balance refresh, and clicking it posts the dashboard 
   assert.deepEqual(JSON.parse(action.init.body), { action: 'refresh-balance', id: null })
 })
 
-test('the ball\'s own panel offers the new-task entry, first, and it opens the same dialog', async () => {
+test('the ball\'s own panel offers the new-task entry, first, and it opens the ball\'s own form', async () => {
   /**
-   * The user's report was "the Electron ball has no new-task entry", and it was true twice over: this panel had
-   * none at all, and the entry in the *other* ball sat below the dashboard where it had to be scrolled to. So the
-   * assertions are about both facts — the entry exists in this panel, and it is the first thing in it.
+   * The user's two reports about this entry, in order: "the Electron ball has no new-task entry" (it had none at
+   * all, and the entry in the *other* ball sat below the dashboard where it had to be scrolled to), and then "悬浮球
+   * 的创建任务入口指向窗口为官方顶部按钮的同一个 … 打开窗口后无法编辑，任意点击直接关闭弹窗".
+   *
+   * The second one is the shape of this test. The ball used to render the official centred sub-page — the same
+   * component the header renders, portalled to `document.body` — and a sub-page portalled to the body is *outside*
+   * this panel, while this panel dismisses itself when anything outside it is clicked. So the first click into the
+   * form (the one that would have focused the prompt) closed the panel that owned the dialog. The fix is that the
+   * ball's entry opens a form **inside the panel**, and that is what is asserted: no modal, the fields are in the
+   * panel, and a click outside does not take them away.
    */
-  const mounted = await mount({ fetchImpl: fakeNewTaskFetch() })
-  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
-  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
-  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
-  ball.props.onPointerUp()
-  const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const mounted = await mount({ fetchImpl: fakeNewTaskFetch() });
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState);
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0];
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } });
+  ball.props.onPointerUp();
+  const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState);
 
-  const entry = find(opened.tree, (element) => element.props['data-hns-mega-new-task'] === 'on')[0]
-  assert.ok(entry, 'the ball\'s panel has no new-task entry')
-  assert.match(strings(entry).join(''), /新建定时任务/)
+  const entry = find(opened.tree, (element) => element.props['data-hns-mega-new-task'] === 'ball')[0];
+  assert.ok(entry, 'the ball\'s panel has no new-task entry');
+  assert.match(strings(entry).join(''), /新建定时任务/);
   // First in the panel: before the dashboard's first category heading and before the balance action.
-  const order = []
+  const order = [];
   const walk = (element) => {
     if (!element || typeof element !== 'object') return
     if (Array.isArray(element)) { element.forEach(walk); return }
     if (element.$$element) {
-      if (element.props['data-hns-mega-new-task'] === 'on') order.push('new-task')
-      if (element.props['data-hns-mega-dashboard']) order.push('dashboard')
-      if (element.props['data-hns-mega-category']) order.push('category')
+      if (element.props['data-hns-mega-new-task'] === 'ball') order.push('new-task');
+      if (element.props['data-hns-mega-dashboard']) order.push('dashboard');
+      if (element.props['data-hns-mega-category']) order.push('category');
     }
-    if (element.$$element) walk(element.props.children)
-  }
-  walk(opened.tree)
-  assert.deepEqual(order.slice(0, 2), ['new-task', 'dashboard'], `the entry is not first: ${order.join(', ')}`)
+    if (element.$$element) walk(element.props.children);
+  };
+  walk(opened.tree);
+  assert.deepEqual(order.slice(0, 2), ['new-task', 'dashboard'], `the entry is not first: ${order.join(', ')}`);
 
-  // And it opens the one dialog: the same component the header renders, with the same form in it.
-  const dialog = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
-  const trigger = find(dialog.tree, (element) => element.props['data-hns-mega-new-task'] === 'on')[0]
-  trigger.props.onClick()
-  await settle(() => mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState))
-  const said = strings(mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState).tree).join(' | ')
-  assert.match(said, /新建定时任务/, 'the entry did not open the dialog')
-  assert.match(said, /发送时间/, 'the dialog opened without its schedule')
-})
+  // It opens a form **in the panel**: the same draft the header's dialog offers, drawn by this panel.
+  const draw = () => mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState);
+  find(draw().tree, (element) => element.props['data-hns-mega-new-task'] === 'ball')[0].props.onClick();
+  await settle(draw);
+  const rendered = draw();
+  const said = strings(rendered.tree).join(' | ');
+  assert.ok(find(rendered.tree, (element) => element.props['data-hns-mega-task-form'] === 'ball')[0], 'the entry opened no form in the panel');
+  assert.equal(find(rendered.tree, (element) => element.props['data-primitive'] === 'modal').length, 0, 'the ball opened the header\'s centred sub-page');
+  assert.match(said, /要执行的内容/, 'the ball\'s form has no prompt');
+  assert.match(said, /发送时间/, 'the ball\'s form opened without its schedule');
+  // The dashboard is not drawn under the form: one column, one surface.
+  assert.equal(find(rendered.tree, (element) => element.props['data-hns-mega-category']).length, 0, 'the dashboard is still drawn under the form');
+
+  // ...and the click that focuses the prompt cannot take the form away: while it is open, the panel's own
+  // "a click outside me dismisses me" rule is not attached at all (see `MegaOrb`'s effect).
+  assert.equal(mounted.listeners.has('pointerdown'), false, 'the dismiss-on-outside-click rule outlived the form opening');
+});
 
 test('the dialog is as wide as a composer, not as wide as the official component\'s default', async () => {
   /**
@@ -741,10 +786,10 @@ function fakeNewTaskFetch({ timing = fixtureTiming(), task = { ok: true, task: {
   const calls = []
   const impl = async (url, init = {}) => {
     calls.push({ url, init });
-    if (url === '/mega-core/view') return { ok: true, status: 200, json: async () => fixtureView() };
-    if (url === '/mega-core/action') return { ok: true, status: 200, json: async () => ({ ok: true }) };
-    if (url === '/mega-core/timing') return { ok: timing.ok !== false, status: timing.ok === false ? 503 : 200, json: async () => timing };
-    if (url === '/mega-core/task') return { ok: task.ok !== false, status: task.ok === false ? 400 : 200, json: async () => task };
+    if (url === '/mega-core/view') return answer(200, fixtureView());
+    if (url === '/mega-core/action') return answer(200, { ok: true });
+    if (url === '/mega-core/timing') return answer(timing.ok === false ? 503 : 200, timing);
+    if (url === '/mega-core/task') return answer(task.ok === false ? 400 : 200, task);
     throw new Error(`no route for ${url}`);
   };
   impl.calls = calls;
@@ -861,12 +906,74 @@ test('a refusal is shown in DS-Hns words, and a task that exists is confirmed wi
   assert.equal(promptField(accepted.draw()).props.value, '');
 })
 
+test('a route that is not there is a sentence about the status, never a parser error', async () => {
+  /**
+   * This is the bug the host half's own test now guards from the other side, asserted here as the user saw it.
+   *
+   * `/mega-core/timing` and `/mega-core/task` were once removed from the host half while this half kept calling
+   * them. Both answers were empty (404 and 405), so `response.json()` threw and the dialog showed
+   * `SyntaxError: Unexpected end of JSON input` — a sentence about a parser, in place of a sentence about the
+   * problem. The body is read as text now, and what is left when there is no JSON is the status.
+   */
+  const noJson = (status) => ({ ok: false, status, json: async () => { throw new SyntaxError('Unexpected end of JSON input') }, text: async () => '' });
+
+  // The read: the form cannot prefill a time, and says which status it got instead of what the parser said.
+  const orphan = await openNewTask({ fetchImpl: async (url) => (url === '/mega-core/view' ? answer(200, fixtureView()) : noJson(404)) });
+  const said = strings(orphan.rendered.tree).join(' | ');
+  assert.match(said, /读不到调度能力/);
+  assert.match(said, /404/, `the status did not survive: ${said}`);
+  assert.doesNotMatch(said, /SyntaxError|Unexpected end of JSON/, 'the user was shown a parser error instead of the problem');
+
+  // The write: the timing surface answers, the task route does not — and the refusal names its own status.
+  const attempt = await openNewTask({
+    fetchImpl: async (url) => {
+      if (url === '/mega-core/view') return answer(200, fixtureView());
+      if (url === '/mega-core/timing') return answer(200, fixtureTiming());
+      return noJson(405);
+    }
+  });
+  find(attempt.rendered.tree, (element) => element.props['data-hns-mega-task-prompt'] === 'on')[0].props.onChange({ target: { value: '发不出去' } });
+  createButton(attempt.draw()).props.onClick();
+  await settle(attempt.draw);
+  const refused = strings(attempt.draw().tree).join(' | ');
+  assert.match(refused, /405/, `the task route's status did not survive: ${refused}`);
+  assert.doesNotMatch(refused, /SyntaxError|Unexpected end of JSON/);
+})
+
+test('the form cannot arm submit for a time that has already gone', async () => {
+  /**
+   * A `datetime-local` field truncates to the minute, so "this minute" is behind us the moment it is picked — and
+   * a past instant is `ready` in the gate, which means the task would run at once instead of waiting. The
+   * scheduler refuses such a task (`SchedulerService.addTask`); the form has to refuse to arm the button for it,
+   * and say which half is missing, rather than posting a request that comes back refused.
+   */
+  const task = await openNewTask();
+  const timeField = (rendered) => find(rendered.tree, (element) => element.props['data-hns-mega-task-time'] === 'on')[0];
+  const past = new Date(Date.now() - 5 * 60_000);
+  const pad = (value) => String(value).padStart(2, '0');
+  const asLocal = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}T${pad(past.getHours())}:${pad(past.getMinutes())}`;
+
+  find(task.rendered.tree, (element) => element.props['data-hns-mega-task-prompt'] === 'on')[0].props.onChange({ target: { value: '晚了一步' } });
+  timeField(task.draw()).props.onChange({ target: { value: asLocal } });
+  const rendered = task.draw();
+  assert.match(strings(rendered.tree).join(' | '), /这个时间已经过去/, 'a past time was not called out in the summary');
+  const create = createButton(rendered);
+  assert.equal(create.props.disabled, true, 'the form would schedule a task for a time that has gone');
+  assert.match(create.props.title, /已经过去/, 'the disabled button did not say why');
+  // And nothing was posted behind the disabled button.
+  create.props.onClick();
+  await tick();
+  assert.equal(task.fetchImpl.calls.filter((call) => call.url === '/mega-core/task').length, 0, 'a past time was posted anyway')
+})
+
 /** The dialog's own submit button, by the words on it. */
 function createButton(rendered) {
-  return find(rendered.tree, (element) => element.props['data-primitive'] === 'button' && strings(element).join('') === '创建定时任务 · Schedule')[0];
+  const byLabel = find(rendered.tree, (element) => strings(element).join('') === '创建定时任务 · Schedule')[0];
+  assert.ok(byLabel, 'the form has no submit button');
+  return byLabel;
 }
 
-test('a host without the official primitives draws no entry point rather than a broken box', () => {
+test('a host without the official primitives draws no header entry point rather than a broken box', async () => {
   const loaded = load({ primitives: false })
   const { ctx, injected } = fakeSlots()
   loaded.plugin.apply(ctx)
@@ -876,6 +983,27 @@ test('a host without the official primitives draws no entry point rather than a 
   // ...and the plugin still registered the slot: an empty occupant is harmless, a missing one would mean a
   // different code path for a host that merely lacks a module.
   assert.deepEqual(injected.map((entry) => entry.name), ['shell.overlay', 'settings.section', 'conversation.session.header.actions'])
+
+  /**
+   * The ball's own form needs none of the platform table: it draws our boxes, so it is still there on that host.
+   *
+   * That is the second reason the two seats stopped sharing one shape. The header's centred sub-page *is* the
+   * official `Modal` and cannot exist without it; the ball's form is ours and can.
+   */
+  const orbRegistration = injected.find((entry) => entry.name === 'shell.overlay').callback()
+  const orbComponent = orbRegistration.Component({}).type
+  const orbState = { hooks: [], children: new Map() }
+  const draw = () => loaded.shim.render(orbComponent, { store: orbRegistration.Component({}).props.store }, orbState)
+  const ball = find(draw().tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
+  ball.props.onPointerUp()
+  const entry = find(draw().tree, (element) => element.props['data-hns-mega-new-task'] === 'ball')[0]
+  assert.ok(entry, 'the ball lost its entry point on a host with no official primitives')
+  entry.props.onClick()
+  await settle(draw)
+  const said = strings(draw().tree).join(' | ')
+  assert.match(said, /要执行的内容/, 'the ball\'s own form needs the official primitives after all')
+  assert.match(said, /发送时间/)
 })
 
 test('DS-Hns not answering is drawn as the reason, not as an empty page', async () => {

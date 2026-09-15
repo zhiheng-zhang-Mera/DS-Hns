@@ -129,6 +129,45 @@ test('a peak window suspends a scheduled task that did not allow peak — and sa
   }
 })
 
+test('a time that has already passed is refused — because a past instant runs at once instead of waiting', async () => {
+  /**
+   * The "定时任务挂起失败" report, stated as a rule.
+   *
+   * The gate reads `now >= startAtMs` as *ready* — right for a queue entry whose moment has come — so a task
+   * created with an instant a few seconds behind it runs immediately rather than being suspended. That is easy to
+   * do by accident, because a `datetime-local` field truncates to the minute: picking "this minute" is already in
+   * the past. The user asked for a *scheduled* task and got an immediate one, with nothing on screen saying why.
+   */
+  const { service, client, dir } = makeScheduler()
+  try {
+    const past = new Date(Date.now() - 1000).toISOString()
+    assert.throws(() => service.addTask({ prompt: '晚了', startAt: past }), /already passed/)
+    assert.equal(service.tasks.length, 0, 'a refused task was queued anyway')
+
+    // The field travels with the refusal, so a form can point at the time input rather than at the whole form.
+    try {
+      service.addTask({ prompt: '晚了', startAt: past })
+      assert.fail('a past instant was accepted')
+    } catch (error) {
+      assert.equal(error.field, 'startAt')
+    }
+
+    // One second ahead is in the future: accepted, and it *suspends* rather than running.
+    const soon = service.addTask({ prompt: '马上就发', startAt: new Date(Date.now() + 1000).toISOString() })
+    assert.equal(soon.status, 'PENDING')
+    await service.tick()
+    assert.equal(client.dispatched.length, 0, 'a task one second out ran immediately')
+    assert.equal(service.listTasks({ limit: 5 })[0].status, 'SUSPENDED')
+    assert.equal(service.listTasks({ limit: 5 })[0].reason, 'waiting-schedule')
+
+    // ...and no time at all is the deliberate "run it now", which stays allowed: the rule is about a time that was
+    // given and has gone, not about scheduling in general.
+    assert.equal(service.addTask({ prompt: '现在跑' }).startAtMs, null)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('the task a scheduled run produces carries no second prompt, no header and no rewrite', async () => {
   /**
    * "Same as a normal conversation" has one failure mode worth a test of its own: the dispatch path quietly

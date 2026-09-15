@@ -69,8 +69,13 @@ window.__ModuleLoader__.load({
 		 * The centred sub-page is the official `Modal` rather than a card of ours: it already brings the portal to
 		 * `document.body`, the mask, `role="dialog"` with `aria-modal`, the Escape key and the centring — the
 		 * things a hand-rolled overlay gets subtly wrong. When the platform table has no primitives (a host we were
-		 * not written for), the entry point simply does not appear: a "新建任务" button that opened a broken box
-		 * would be worse than no button.
+		 * not written for), the *header's* entry point simply does not appear: a "新建任务" button that opened a
+		 * broken box would be worse than no button.
+		 *
+		 * The ball's seat needs none of this: it draws its form **inside its own panel** out of our own boxes, and
+		 * that is not a style preference — a sub-page portalled to `document.body` is *outside* the panel, so the
+		 * panel's own rule "a click anywhere else dismisses me" closed the panel that owned the dialog on the first
+		 * click into it. That was the user's report: "悬浮球的入口打开窗口后无法编辑，任意点击直接关闭弹窗".
 		 */
 		let primitives = null;
 		let primitivesError = null;
@@ -145,7 +150,15 @@ window.__ModuleLoader__.load({
 			ok: '#2ea043',
 			warn: '#d29922',
 			bad: '#f85149',
-			unknown: '#8b949e'
+			unknown: '#8b949e',
+			/**
+			 * Not a severity: "something is happening right now" — a worker slot in use, a read in flight.
+			 *
+			 * It is the view model's fifth tone (`view.js`'s `dashboard` rows carry it), and the system ball's
+			 * stylesheet has had the same value as `--busy` all along. Leaving it out of this palette is why
+			 * `${TONES.busy}` interpolated to `undefined` in the ball's own buttons.
+			 */
+			busy: '#58a6ff'
 		};
 
 		/** The one font stack every piece of this UI shares, and the shorthand that keeps it in one place. */
@@ -155,6 +168,26 @@ window.__ModuleLoader__.load({
 		const MUTED = 'rgba(255,255,255,.62)';
 		/** Quieter still: a label's English half, a hint. */
 		const FAINT = 'rgba(255,255,255,.5)';
+
+		/**
+		 * The one style a text-ish form control wears, in **both** seats of the new-task form.
+		 *
+		 * `all: initial` first, because this subtree lives inside the official page and nothing the official
+		 * stylesheet says should reach a control we draw. `colorScheme: dark` is what keeps a native
+		 * `datetime-local` field and its picker from being the one white widget in a dark form.
+		 */
+		const FIELD_STYLE = {
+			all: 'initial',
+			boxSizing: 'border-box',
+			width: '100%',
+			padding: '5px 8px',
+			borderRadius: '6px',
+			border: '1px solid rgba(255,255,255,.18)',
+			background: 'rgba(255,255,255,.04)',
+			color: '#ededed',
+			font: font(12),
+			colorScheme: 'dark'
+		};
 
 		/**
 		 * The card both surfaces are drawn on, and why it is opaque.
@@ -313,7 +346,7 @@ window.__ModuleLoader__.load({
 			async function refresh() {
 				try {
 					const response = await send(VIEW_URL, { headers: { accept: 'application/json' }, credentials: 'same-origin' });
-					const body = await response.json();
+					const body = await readJson(response, 'the view route');
 					snapshot = { ...snapshot, view: body && body.ok !== false ? body : null, error: body && body.ok === false ? (body.reason || 'the view could not be read') : null, loading: false };
 				} catch (error) {
 					snapshot = { ...snapshot, error: String(error?.message || error), loading: false };
@@ -325,7 +358,7 @@ window.__ModuleLoader__.load({
 			async function loadPosition() {
 				try {
 					const response = await send(ORB_URL, { headers: { accept: 'application/json' }, credentials: 'same-origin' });
-					const body = await response.json();
+					const body = await readJson(response, 'the orb position route');
 					if (body?.ok && body.position) {
 						snapshot = { ...snapshot, position: body.position };
 						emit();
@@ -349,7 +382,7 @@ window.__ModuleLoader__.load({
 						credentials: 'same-origin',
 						body: JSON.stringify({ position })
 					});
-					const body = await response.json();
+					const body = await readJson(response, 'the orb position route');
 					if (body?.ok === false) snapshot = { ...snapshot, action: { ok: false, reason: body.reason || 'the position was not saved' } };
 				} catch (error) {
 					snapshot = { ...snapshot, action: { ok: false, reason: `the position was not saved: ${error?.message || error}` } };
@@ -366,7 +399,7 @@ window.__ModuleLoader__.load({
 						credentials: 'same-origin',
 						body: JSON.stringify({ action, id })
 					});
-					const body = await response.json();
+					const body = await readJson(response, 'the action route');
 					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id, action, reason: body?.reason || null } };
 				} catch (error) {
 					snapshot = { ...snapshot, action: { ok: false, id, action, reason: String(error?.message || error) } };
@@ -392,7 +425,7 @@ window.__ModuleLoader__.load({
 						credentials: 'same-origin',
 						body: JSON.stringify({ action, id: null })
 					});
-					const body = await response.json();
+					const body = await readJson(response, 'the action route');
 					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id: null, action, reason: body?.reason || null } };
 				} catch (error) {
 					snapshot = { ...snapshot, action: { ok: false, id: null, action, reason: String(error?.message || error) } };
@@ -834,6 +867,15 @@ window.__ModuleLoader__.load({
 			// same `view.dashboard` the system ball draws. The §4.4 fields, the rosters and the recovery
 			// actions are one click away behind the toggle, which is the page's own body at page size.
 			const [expanded, setExpanded] = React.useState(false);
+			/**
+			 * Whether the panel is showing the ball's own new-task form instead of the dashboard.
+			 *
+			 * The form is a **mode of the panel**, not a sub-page of the page — which is the fix the user's report
+			 * asked for: a dialog portalled to `document.body` is outside this panel, and this panel dismisses itself
+			 * when something outside it is clicked, so the dialog died on the very click that would have focused it.
+			 * Nothing inside the panel can be dismissed by the panel's own outside-click rule.
+			 */
+			const [taskForm, setTaskForm] = React.useState(false);
 			const drag = React.useRef(null);
 			// The wrapper is the layer's own box: `position: fixed; inset: 0` covers whatever box the shell
 			// gave this slot, so everything below is placed relative to *that* and never to the window.
@@ -850,6 +892,15 @@ window.__ModuleLoader__.load({
 			const panelRef = React.useRef(null);
 			React.useEffect(() => {
 				if (!open) return undefined;
+				/**
+				 * The task form is exempt, and that is the whole point of the exemption.
+				 *
+				 * A form holds half-typed text, and a click somewhere else on the screen is not a decision to throw
+				 * that away. Its own ways out are `← 返回`, the ball, and `×` — all deliberate. (This is also what
+				 * the user's report was really about: the form they had just opened was being unmounted by the
+				 * click that focused it.)
+				 */
+				if (taskForm) return undefined;
 				const doc = typeof document !== 'undefined' ? document : null;
 				if (!doc || typeof doc.addEventListener !== 'function') return undefined;
 				const onDocumentPointerDown = (event) => {
@@ -861,6 +912,11 @@ window.__ModuleLoader__.load({
 				};
 				doc.addEventListener('pointerdown', onDocumentPointerDown);
 				return () => doc.removeEventListener('pointerdown', onDocumentPointerDown);
+			}, [ open, taskForm ]);
+			// Closing the panel leaves the form too: the next opening is the dashboard, whose first line is the entry
+			// that starts a task — not an empty form nobody asked for a second time.
+			React.useEffect(() => {
+				if (!open) setTaskForm(false);
 			}, [ open ]);
 			const layer = useBox(layerRef);
 			const position = resolvePosition(snapshot.position);
@@ -1049,6 +1105,37 @@ window.__ModuleLoader__.load({
 			};
 			// The panel is built only when it is open, but the *wrapper* is always rendered: it is the box the
 			// orb measures, so a panel's very first frame already knows how much room it has.
+			/**
+			 * The ball's new-task entry: this panel's primary action, drawn first in it.
+			 *
+			 * It is the same offer the system ball's window makes (`drawTaskEntry` in
+			 * `app/extensions/mega/ui/orb.js`) because the two balls are one product: whichever one the user reaches
+			 * for, starting a task is the first line of the panel and happens in the panel, not in a sub-page of the
+			 * page behind it.
+			 */
+			const newTaskEntry = box('button', {
+				key: 'new-task',
+				type: 'button',
+				'data-hns-mega-new-task': 'ball',
+				title: '新建定时任务 · New scheduled task',
+				onClick: () => setTaskForm(true),
+				style: {
+					all: 'initial',
+					display: 'block',
+					width: '100%',
+					boxSizing: 'border-box',
+					padding: '6px 8px',
+					marginBottom: '6px',
+					borderRadius: '6px',
+					border: `1px solid ${TONES.busy}`,
+					background: 'rgba(88,166,255,.12)',
+					color: '#ffffff',
+					cursor: 'pointer',
+					textAlign: 'center',
+					font: font(12)
+				}
+			}, '＋ 新建定时任务 · New task');
+
 			const panel = !open ? null : box('div', {
 				ref: panelRef,
 				'data-hns-mega-panel': 'on',
@@ -1059,19 +1146,24 @@ window.__ModuleLoader__.load({
 				style: panelStyle
 			}, [
 				box('div', { key: 'title', style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' } }, [
-					text('Mega', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
+					text(taskForm ? '新建定时任务 · New task' : 'Mega', { flex: '1 1 auto', color: '#ffffff', font: font(14) }),
 					React.createElement(ActionButton, { key: 'close', label: '×', title: '收起 · Collapse', onClick: () => setOpen(false) })
 				]),
 				/**
-				 * The ball's own new-task entry, **first** in the panel.
+				 * The ball's own new-task entry, **first** in the panel — or the form it opens, **instead of** the
+				 * dashboard.
 				 *
-				 * First rather than last because it is the one thing on this panel that starts something instead of
-				 * reporting something: below the dashboard's categories it would be a line the user has to scroll to,
-				 * which is how it went unnoticed. The same component the official header registers (see
-				 * `NewTaskAction`), in its compact shape.
+				 * The entry is first rather than last because it is the one thing on this panel that *starts*
+				 * something instead of reporting something: below the dashboard's four categories it was a line the
+				 * user had to scroll to, which is how it went unnoticed. It opens this panel's own form
+				 * (`NewTaskFormPanel`) rather than the header's centred sub-page, for the reason that component's note
+				 * gives; and while the form is open the dashboard is not drawn under it, because a form with a
+				 * dashboard beneath it is two surfaces arguing over one 340px column.
 				 */
-				React.createElement(NewTaskAction, { key: 'new-task', compact: true }),
-				React.createElement(MegaBody, {
+				taskForm
+					? React.createElement(NewTaskFormPanel, { key: 'task-form', onDone: () => setTaskForm(false) })
+					: newTaskEntry,
+				taskForm ? null : React.createElement(MegaBody, {
 					snapshot,
 					expanded,
 					onToggleExpanded: setExpanded,
@@ -1079,7 +1171,7 @@ window.__ModuleLoader__.load({
 					onAction: (action, id) => store.act(action, id),
 					onDashboardAction: (action) => store.actDashboard(action)
 				})
-			]);
+			].filter(Boolean));
 
 			// The wrapper is the layer's box: `inset: 0` on it, and both the orb and the panel are absolute
 			// inside it, so the panel can never be clipped by the orb's own box and neither is positioned
@@ -1133,6 +1225,35 @@ window.__ModuleLoader__.load({
 			return target(url, init);
 		}
 
+		/**
+		 * A JSON answer from one of this plugin's own routes — or a reason, never a parse crash.
+		 *
+		 * This is the difference between "the timing surface answered 404" and `SyntaxError: Unexpected end of JSON
+		 * input`, and it is not hypothetical: the host half once stopped registering `/timing` and `/task`, and the
+		 * only thing the user saw was that parse error — a message about a parser, in place of a message about the
+		 * problem. A route that is absent (or a DS-Hns that predates a surface) answers with an empty body, so the
+		 * status is read first and *becomes* the reason when there is no JSON to read.
+		 */
+		function readJson(response, what) {
+			const parsed = typeof response.text === 'function'
+				? response.text().then((text) => {
+					if (!text) return null;
+					try {
+						return JSON.parse(text);
+					} catch {
+						return null;
+					}
+				})
+				// A caller that hands us something without `text()` (a test double, an older embedder) still gets a
+				// plain object back, or a rejection that turns into the same sentence below.
+				: Promise.resolve().then(() => response.json()).catch(() => null);
+			return Promise.resolve(parsed)
+				.catch(() => null)
+				.then((body) => (body && typeof body === 'object'
+					? body
+					: { ok: false, reason: `${what} answered ${response.status} without JSON` }));
+		}
+
 		/** `172` → `2m 52s`; the same shape the dashboard's countdown uses, for the same reason. */
 		function offsetText(milliseconds) {
 			const whole = Math.max(0, Math.round(milliseconds / 1000));
@@ -1167,16 +1288,41 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * The new-task dialog: **a conversation, sent at a time** (pluginize Phase 2).
+		 * The four shortcuts, as **offsets in minutes** from now, in the user's own zone.
 		 *
-		 * It is an official centred sub-page whose composer is the shape of a chat: a prompt box you type into,
-		 * and under it — at the bottom of the dialog, where the schedule belongs — when it should be sent. The
-		 * thing it makes is the same task the dock's own form makes (`scheduler.addTask` in DS-Hns), delivered as a
-		 * new official session, which is also what pressing send in the composer does.
+		 * One list rather than one seat's buttons: the official dialog and the ball's panel offer the same four
+		 * times, and a shortcut that meant three minutes in one place and four in the other is exactly the drift a
+		 * shared list makes impossible. "Tomorrow 9:00" is computed here, at render, rather than at load, so it
+		 * cannot go stale in a session that runs past midnight.
 		 */
-		function NewTaskDialog({ open, onClose }) {
-			// The choices the dialog offers are DS-Hns' own answer, so nothing here is invented: the budget, the
-			// schedule's time zone and the peak windows all come from `GET /mega-core/timing`.
+		function presetChoices() {
+			const tomorrow = new Date();
+			tomorrow.setDate(tomorrow.getDate() + 1);
+			tomorrow.setHours(9, 0, 0, 0);
+			return [
+				{ key: 'in-3m', cn: '3 分钟后', en: 'in 3m', minutes: 3 },
+				{ key: 'in-30m', cn: '30 分钟后', en: 'in 30m', minutes: 30 },
+				{ key: 'in-1h', cn: '1 小时后', en: 'in 1h', minutes: 60 },
+				{ key: 'tomorrow-9am', cn: '明天 9:00', en: 'tomorrow 9am', minutes: Math.max(1, Math.round((tomorrow.getTime() - Date.now()) / 60_000)) }
+			];
+		}
+
+		/**
+		 * The new-task form, as **one draft** and two shapes (pluginize Phase 2).
+		 *
+		 * Everything that defines a task lives here — what may be chosen (`GET /mega-core/timing`), what was typed,
+		 * the request that is posted and the refusal that comes back — and the two seats are views of it: the
+		 * official centred sub-page in the conversation header, and the ball's own panel (see `NewTaskFormPanel`).
+		 * Two seats with one implementation, because a task that meant one thing in the header and another in the
+		 * ball is the drift this shape exists to make impossible.
+		 *
+		 * `active` rather than an `open` prop: the dialog is always mounted and opens and closes (`open`), while the
+		 * ball's form is mounted only while it is on screen — so each seat says "the user is filling this in now" in
+		 * its own way, and both get the same one read per opening and the same fresh draft.
+		 */
+		function useNewTaskDraft({ active }) {
+			// The choices the form offers are DS-Hns' own answer, so nothing here is invented: the default time,
+			// the schedule's time zone and the peak windows all come from `GET /mega-core/timing`.
 			const [timing, setTiming] = React.useState(null);
 			const [timingError, setTimingError] = React.useState(null);
 			const [prompt, setPrompt] = React.useState('');
@@ -1188,12 +1334,12 @@ window.__ModuleLoader__.load({
 			const [error, setError] = React.useState(null);
 			const [now, setNow] = React.useState(() => Date.now());
 
-			/** Read the timing surface. Called on open and from the dialog's own retry. */
+			/** Read the timing surface. Called on opening and from the form's own retry. */
 			const loadTiming = React.useCallback(() => {
 				let live = true;
 				Promise.resolve()
 					.then(() => pageFetch(TIMING_URL, { headers: { accept: 'application/json' }, credentials: 'same-origin' }))
-					.then((response) => response.json().then((body) => ({ response, body })))
+					.then((response) => readJson(response, 'the timing surface').then((body) => ({ response, body })))
 					.then(({ response, body }) => {
 						if (!live) return;
 						if (!response.ok || !body || body.ok === false) {
@@ -1215,41 +1361,48 @@ window.__ModuleLoader__.load({
 				return () => { live = false; };
 			}, []);
 
-			// One read per opening, and a fresh default time each time: "in three minutes" means three minutes
-			// from now, not from the last time the dialog was opened.
+			/**
+			 * One read per opening, and a **fresh draft** each time.
+			 *
+			 * "In three minutes" means three minutes from when the form was opened, not from the last time it was
+			 * opened — and a prompt left over from last time is not a prompt the user meant to send twice. The
+			 * prompt is the one thing cleared here rather than only on a made task, because this effect is also
+			 * what a *re-opened* form with a stale draft would otherwise inherit.
+			 */
 			React.useEffect(() => {
-				if (!open) return undefined;
+				if (!active) return undefined;
+				setPrompt('');
+				setStartAt('');
 				setResult(null);
 				setError(null);
 				setNow(Date.now());
 				return loadTiming();
-			}, [open, loadTiming]);
+			}, [active, loadTiming]);
 
 			/**
-			 * Keep the "in 2h 12m" line honest while the dialog sits open.
+			 * Keep the "in 2h 12m" line honest while the form sits open.
 			 *
 			 * A minute is enough: this is a sentence about a time the user chose, not a countdown to a deadline,
 			 * and a ticking clock in a form is noise.
 			 */
 			React.useEffect(() => {
-				if (!open || typeof setInterval !== 'function') return undefined;
+				if (!active || typeof setInterval !== 'function') return undefined;
 				const timer = setInterval(() => setNow(Date.now()), 30_000);
 				return () => clearInterval(timer);
-			}, [open]);
-
-			if (!open || !primitives) return null;
+			}, [active]);
 
 			const instant = instantFromLocal(startAt);
 			const future = instant !== null && instant.getTime() > now;
-			const canSubmit = Boolean(prompt.trim()) && instant !== null && !busy;
-
-			/** One preset: a wall-clock instant a given number of minutes from now, in the field's own shape. */
-			const preset = (label, minutes) => React.createElement(primitives.Button, {
-				key: `p:${label}`,
-				variant: 'ghost',
-				size: 'sm',
-				onClick: () => setStartAt(localFromInstant(new Date(Date.now() + minutes * 60_000).toISOString()))
-			}, label);
+			/**
+			 * What it takes to send: something to say, and a time that has not already gone.
+			 *
+			 * `future` is not decoration. The scheduler refuses a new task whose instant is in the past
+			 * (`SchedulerService.addTask` — that is the "定时任务挂起失败" report: a past instant is *ready*, so the
+			 * task runs at once instead of waiting), and a `datetime-local` field truncates to the minute, so
+			 * picking "this minute" is already behind us. The form therefore cannot arm the button for a time the
+			 * layer will refuse, and the summary above it says which of the two is missing.
+			 */
+			const canSubmit = Boolean(prompt.trim()) && instant !== null && future && !busy;
 
 			const send = () => {
 				if (!canSubmit) return;
@@ -1268,7 +1421,7 @@ window.__ModuleLoader__.load({
 							deliveryMode
 						})
 					}))
-					.then((response) => response.json().then((body) => ({ response, body })))
+					.then((response) => readJson(response, 'the task route').then((body) => ({ response, body })))
 					.then(({ response, body }) => {
 						if (!response.ok || !body || body.ok === false) {
 							setError(body?.reason || `the task was refused (${response.status})`);
@@ -1294,6 +1447,50 @@ window.__ModuleLoader__.load({
 				send();
 			};
 
+			/** The summary the user reads before committing: exactly when this will be sent, and how. */
+			const summary = () => {
+				if (instant === null) return '还没有选择时间 · no time chosen yet';
+				const clock = `${String(instant.getHours()).padStart(2, '0')}:${String(instant.getMinutes()).padStart(2, '0')}`;
+				const date = `${instant.getFullYear()}-${String(instant.getMonth() + 1).padStart(2, '0')}-${String(instant.getDate()).padStart(2, '0')}`;
+				if (!future) return `⚠ 这个时间已经过去 · that time is in the past (${date} ${clock})`;
+				const offset = offsetText(instant.getTime() - now);
+				const peakNote = timing?.peak?.peak && !allowPeak
+					? ' · 现在处于峰价时段，未允许峰值时任务会挂起到谷价'
+					: '';
+				return `将在 ${date} ${clock} 作为${deliveryMode === 'headless' ? 'Headless 后台任务' : '官方新会话'}发出 · sends as ${deliveryMode === 'headless' ? 'a headless job' : 'a new official conversation'} in ${offset}${peakNote}`;
+			};
+
+			return {
+				timing, timingError, loadTiming,
+				prompt, setPrompt, startAt, setStartAt, allowPeak, setAllowPeak, deliveryMode, setDeliveryMode,
+				busy, result, error, now, instant, future, canSubmit, send, onKeyDown, summary
+			};
+		}
+
+		/**
+		 * The header's seat: the official centred sub-page.
+		 *
+		 * The shape the user asked for in Phase 2 — a composer you type into, and under it, at the bottom of the
+		 * dialog, when it should be sent — drawn on the official `Modal`, which brings the portal, the mask, the
+		 * Escape key and the centring. Its state is `useNewTaskDraft`'s, so it and the ball's form cannot drift.
+		 */
+		function NewTaskDialog({ open, onClose }) {
+			const draft = useNewTaskDraft({ active: open });
+			if (!open || !primitives) return null;
+			const {
+				timing, timingError, loadTiming,
+				prompt, setPrompt, startAt, setStartAt, allowPeak, setAllowPeak, deliveryMode, setDeliveryMode,
+				busy, result, error, instant, future, canSubmit, send, onKeyDown, summary
+			} = draft;
+
+			/** One preset: a wall-clock instant a given number of minutes from now, in the field's own shape. */
+			const preset = (label, minutes) => React.createElement(primitives.Button, {
+				key: `p:${label}`,
+				variant: 'ghost',
+				size: 'sm',
+				onClick: () => setStartAt(localFromInstant(new Date(Date.now() + minutes * 60_000).toISOString()))
+			}, label);
+
 			const label = (cn, en) => box('span', { key: `l:${en}`, style: { display: 'block' } }, [
 				text(cn, { key: 'cn', display: 'block', color: '#ededed', font: font(12) }),
 				text(en, { key: 'en', display: 'block', color: FAINT, font: font(10, 400) })
@@ -1316,32 +1513,6 @@ window.__ModuleLoader__.load({
 					hint ? text(hint, { key: 'hint', display: 'block', marginTop: '3px', color: FAINT, font: font(10, 400), wordBreak: 'break-word' }) : null
 				].filter(Boolean))
 			]);
-
-			const inputStyle = {
-				all: 'initial',
-				boxSizing: 'border-box',
-				width: '100%',
-				padding: '5px 8px',
-				borderRadius: '6px',
-				border: '1px solid rgba(255,255,255,.18)',
-				background: 'rgba(255,255,255,.04)',
-				color: '#ededed',
-				font: font(12),
-				colorScheme: 'dark'
-			};
-
-			/** The summary the user reads before committing: exactly when this will be sent, and how. */
-			const summary = () => {
-				if (instant === null) return '还没有选择时间 · no time chosen yet';
-				const clock = `${String(instant.getHours()).padStart(2, '0')}:${String(instant.getMinutes()).padStart(2, '0')}`;
-				const date = `${instant.getFullYear()}-${String(instant.getMonth() + 1).padStart(2, '0')}-${String(instant.getDate()).padStart(2, '0')}`;
-				if (!future) return `⚠ 这个时间已经过去 · that time is in the past (${date} ${clock})`;
-				const offset = offsetText(instant.getTime() - now);
-				const peakNote = timing?.peak?.peak && !allowPeak
-					? ' · 现在处于峰价时段，未允许峰值时任务会挂起到谷价'
-					: '';
-				return `将在 ${date} ${clock} 作为${deliveryMode === 'headless' ? 'Headless 后台任务' : '官方新会话'}发出 · sends as ${deliveryMode === 'headless' ? 'a headless job' : 'a new official conversation'} in ${offset}${peakNote}`;
-			};
 
 			const body = box('div', {
 				'data-hns-mega-new-task': 'on',
@@ -1417,21 +1588,12 @@ window.__ModuleLoader__.load({
 						type: 'datetime-local',
 						value: startAt,
 						onChange: (event) => setStartAt(event.target.value),
-						style: inputStyle
+						style: FIELD_STYLE
 					})),
 					// The shortcuts line up with the time field above them, which is what makes them read as shortcuts
 					// *for that field* rather than as four more buttons.
-					box('div', { key: 'presets', style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: `4px 0 4px ${LABEL_COLUMN + 12}px` } }, [
-						preset('3 分钟后 · in 3m', 3),
-						preset('30 分钟后 · in 30m', 30),
-						preset('1 小时后 · in 1h', 60),
-						preset('明天 9:00 · tomorrow 9am', (() => {
-							const at = new Date();
-							at.setDate(at.getDate() + 1);
-							at.setHours(9, 0, 0, 0);
-							return Math.max(1, Math.round((at.getTime() - Date.now()) / 60_000));
-						})())
-					]),
+					box('div', { key: 'presets', style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: `4px 0 4px ${LABEL_COLUMN + 12}px` } },
+						presetChoices().map((choice) => preset(`${choice.cn} · ${choice.en}`, choice.minutes))),
 					field('peak', '允许峰值', 'Allow peak hours',
 						box('label', { key: 'wrap', style: { display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ededed', font: font(12) } }, [
 							box('input', {
@@ -1463,7 +1625,7 @@ window.__ModuleLoader__.load({
 							key: 'select',
 							value: deliveryMode,
 							onChange: (event) => setDeliveryMode(event.target.value),
-							style: inputStyle
+							style: FIELD_STYLE
 						}, [
 							box('option', { key: 'official', value: 'official-session' }, '官方新会话（和正常对话一样）'),
 							box('option', { key: 'headless', value: 'headless' }, 'Headless 后台（无对话）')
@@ -1502,6 +1664,8 @@ window.__ModuleLoader__.load({
 						size: 'md',
 						disabled: !canSubmit,
 						loading: busy,
+						// A disabled button with no explanation is a dead end; this one names the missing half.
+						title: instant !== null && !future ? '这个时间已经过去 · that time is in the past' : undefined,
 						onClick: send
 					}, '创建定时任务 · Schedule')
 				])
@@ -1521,51 +1685,247 @@ window.__ModuleLoader__.load({
 		}
 
 		/**
-		 * One entry point, two seats — the same dialog, opened from wherever the user already is.
+		 * The ball's own seat: the same draft, drawn **inside the ball's panel**.
 		 *
-		 * It is registered **both** in the official conversation header (beside the shipped schedule clock and jobs
-		 * list) and inside this plugin's own floating ball. Two seats rather than two implementations: the form, the
-		 * request it makes and the receipt it shows are the one component below, so the two cannot drift — and each
-		 * is where a user would look for it, which is a conversation they have open or the ball that follows them
-		 * around the desktop.
+		 * This is the seat the user's report was about, and the report named the mechanism exactly: "悬浮球的入口
+		 * 打开窗口后无法编辑，任意点击直接关闭弹窗". A sub-page portalled to `document.body` — the official `Modal` —
+		 * is *outside* this panel, and this panel closes when anything outside it is clicked, so the first click into
+		 * the form (the one that focuses the prompt) unmounted the panel that owned it. The form was never
+		 * uneditable; it was being taken away by the click that would have edited it. A form drawn inside the panel
+		 * has no "outside" for the panel's own rule to find.
+		 *
+		 * It is also the seat that survives a host without the official primitives: it draws our own boxes, so it
+		 * needs nothing from the platform table (see `NewTaskAction`).
+		 *
+		 * One column, because the panel is 340px wide: the composer first, then the schedule as a compact block under
+		 * it — the same order the official dialog uses, at the size this surface has. What the two seats share is the
+		 * draft itself (`useNewTaskDraft`), not the pixels.
 		 */
-		function NewTaskAction({ compact }) {
+		function NewTaskFormPanel({ onDone }) {
+			const {
+				timing, timingError, loadTiming,
+				prompt, setPrompt, startAt, setStartAt, allowPeak, setAllowPeak,
+				busy, result, error, instant, future, canSubmit, send, onKeyDown, summary
+			} = useNewTaskDraft({ active: true });
+			const promptRef = React.useRef(null);
+			/**
+			 * The cursor goes where the user is about to type.
+			 *
+			 * The *ball* never takes focus on its own (see the orb's note: a press on it must not pull the keyboard
+			 * out of whatever is being typed in behind it). A form the user just opened is the opposite case — a
+			 * composer with no cursor in it is a picture of a composer.
+			 */
+			React.useEffect(() => {
+				const node = promptRef.current;
+				if (node && typeof node.focus === 'function') node.focus();
+			}, []);
+
+			const section = (key, cn, en, extra, children) => box('div', { key, style: { marginTop: '8px' } }, [
+				box('div', { key: 'head', style: { display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' } }, [
+					text(cn, { color: MUTED, font: font(11) }),
+					text(en, { color: FAINT, font: font(10, 400) }),
+					extra ? text(extra, { flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400) }) : null
+				].filter(Boolean)),
+				...children
+			]);
+
+			/** One preset: the shared list's minutes, in the field's own shape. */
+			const presetButton = (choice) => box('button', {
+				key: `p:${choice.key}`,
+				type: 'button',
+				onClick: () => setStartAt(localFromInstant(new Date(Date.now() + choice.minutes * 60_000).toISOString())),
+				style: {
+					all: 'initial',
+					padding: '3px 7px',
+					borderRadius: '6px',
+					border: '1px solid rgba(255,255,255,.2)',
+					background: 'rgba(255,255,255,.05)',
+					color: MUTED,
+					cursor: 'pointer',
+					font: font(10, 400)
+				}
+			}, `${choice.cn} · ${choice.en}`);
+
+			return box('div', {
+				'data-hns-mega-task-form': 'ball',
+				style: { all: 'initial', display: 'block', minWidth: 0 }
+			}, [
+				// --- the conversation input ---------------------------------------------------------------
+				section('prompt', '要执行的内容', 'What to run', null, [
+					box('div', {
+						key: 'composer',
+						style: {
+							border: '1px solid rgba(255,255,255,.2)',
+							borderRadius: '8px',
+							background: 'rgba(255,255,255,.04)',
+							padding: '6px 8px 4px'
+						}
+					}, [
+						box('textarea', {
+							key: 'prompt',
+							ref: promptRef,
+							'data-hns-mega-task-prompt': 'on',
+							value: prompt,
+							rows: 3,
+							placeholder: '和平时对话一样输入 · type it as you would in a chat',
+							onChange: (event) => setPrompt(event.target.value),
+							onKeyDown,
+							style: {
+								all: 'initial',
+								boxSizing: 'border-box',
+								display: 'block',
+								width: '100%',
+								minHeight: '58px',
+								resize: 'vertical',
+								border: 'none',
+								background: 'transparent',
+								color: '#ededed',
+								font: font(12, 400),
+								lineHeight: '1.5',
+								outline: 'none'
+							}
+						}),
+						text('Enter 发送 · Enter sends　Shift+Enter 换行 · newline', { display: 'block', color: FAINT, font: font(10, 400) })
+					])
+				]),
+
+				// --- the schedule, under the input -------------------------------------------------------
+				box('div', {
+					key: 'schedule',
+					'data-hns-mega-task-schedule': 'on',
+					style: { marginTop: '8px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,.12)' }
+				}, [
+					box('div', { key: 'title', style: { display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' } }, [
+						text('定时设置', { color: MUTED, font: font(11) }),
+						text('Schedule', { color: FAINT, font: font(10, 400) }),
+						text(timing?.schedule?.timeZone ? `时区 ${timing.schedule.timeZone}` : '', {
+							flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400)
+						})
+					]),
+					text('发送时间 · Send at', { key: 'time-label', display: 'block', marginBottom: '3px', color: MUTED, font: font(11) }),
+					box('input', {
+						key: 'time',
+						'data-hns-mega-task-time': 'on',
+						type: 'datetime-local',
+						value: startAt,
+						onChange: (event) => setStartAt(event.target.value),
+						style: FIELD_STYLE
+					}),
+					box('div', { key: 'presets', style: { display: 'flex', flexWrap: 'wrap', gap: '4px', margin: '5px 0' } },
+						presetChoices().map(presetButton)),
+					box('label', {
+						key: 'peak',
+						style: { display: 'flex', alignItems: 'center', gap: '6px', color: '#ededed', font: font(11, 400) }
+					}, [
+						box('input', {
+							key: 'box',
+							'data-hns-mega-task-peak': 'on',
+							type: 'checkbox',
+							checked: allowPeak,
+							onChange: (event) => setAllowPeak(event.target.checked),
+							// A native checkbox is a light-mode control; `appearance: none` plus the accent keeps it
+							// from being the one bright square in a dark form (the dialog's rule, at this size).
+							style: {
+								all: 'initial',
+								appearance: 'none',
+								width: '13px',
+								height: '13px',
+								borderRadius: '4px',
+								border: '1px solid rgba(255,255,255,.35)',
+								background: allowPeak ? TONES.busy : 'transparent',
+								cursor: 'pointer'
+							}
+						}),
+						text(allowPeak ? '峰价时段也执行' : '遇到峰价时段就挂起')
+					]),
+					timing?.schedule?.peakPeriods?.length
+						? text(`峰价时段 ${timing.schedule.peakPeriods.map((window) => `${window.start}-${window.end}`).join(', ')}`, {
+							display: 'block', marginTop: '4px', color: FAINT, font: font(10, 400), wordBreak: 'break-word'
+						})
+						: null
+				]),
+
+				// --- what will happen, and the two ways out ----------------------------------------------
+				text(summary(), {
+					key: 'summary',
+					display: 'block',
+					marginTop: '8px',
+					color: '#ededed',
+					font: font(11, 400),
+					wordBreak: 'break-word'
+				}),
+				result ? text(
+					`✓ 已加入队列 #${String(result.id || '').slice(0, 18)} · queued, status ${result.status || 'PENDING'}`,
+					{ display: 'block', marginTop: '6px', color: TONES.ok, font: font(11, 400) }
+				) : null,
+				error ? text(`✖ ${error}`, { display: 'block', marginTop: '6px', color: TONES.bad, font: font(11, 400), wordBreak: 'break-word' }) : null,
+				timingError ? box('div', { key: 'timing-error', style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' } }, [
+					text(`读不到调度能力：${timingError}`, { flex: '1 1 auto', color: TONES.warn, font: font(10, 400), wordBreak: 'break-word' }),
+					box('button', {
+						key: 'retry',
+						type: 'button',
+						onClick: () => loadTiming(),
+						style: {
+							all: 'initial', padding: '3px 7px', borderRadius: '6px', border: '1px solid rgba(255,255,255,.2)',
+							background: 'rgba(255,255,255,.05)', color: MUTED, cursor: 'pointer', font: font(10, 400)
+						}
+					}, '重试 · Retry')
+				]) : null,
+				box('div', { key: 'actions', style: { display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' } }, [
+					box('button', {
+						key: 'back',
+						type: 'button',
+						'data-hns-mega-task-back': 'on',
+						onClick: onDone,
+						style: {
+							all: 'initial', flex: '1 1 auto', padding: '5px 8px', borderRadius: '6px',
+							border: '1px solid rgba(255,255,255,.2)', background: 'rgba(255,255,255,.05)',
+							color: MUTED, cursor: 'pointer', font: font(11)
+						}
+					}, '← 返回 · Back'),
+					box('button', {
+						key: 'create',
+						type: 'button',
+						'data-hns-mega-task-create': busy ? 'busy' : 'on',
+						disabled: !canSubmit,
+						title: instant !== null && !future ? '这个时间已经过去 · that time is in the past' : undefined,
+						onClick: () => send(),
+						style: {
+							all: 'initial', flex: '1 1 auto', padding: '5px 8px', borderRadius: '6px',
+							border: `1px solid ${canSubmit ? TONES.busy : 'rgba(255,255,255,.18)'}`,
+							background: canSubmit ? 'rgba(88,166,255,.18)' : 'rgba(255,255,255,.04)',
+							color: canSubmit ? '#ffffff' : FAINT,
+							cursor: canSubmit ? 'pointer' : 'default',
+							font: font(11)
+						}
+					}, busy ? '创建中… · Creating…' : '创建定时任务 · Schedule')
+				])
+			].filter(Boolean));
+		}
+
+		/**
+		 * The conversation header's seat — beside the official schedule clock and the jobs list.
+		 *
+		 * `order: 30` puts it after both (they are in the lower twenties), and the slot is a list, so the shipped
+		 * entries are added beside and never displaced. This is the seat that opens the **official centred
+		 * sub-page**; the ball's panel opens its own in-panel form (`NewTaskFormPanel`), and both are views of the
+		 * one draft, so what a task is cannot differ between them.
+		 *
+		 * A host without the official primitives draws no header entry rather than a broken box — and still gets the
+		 * ball's form, which needs none of them.
+		 */
+		function NewTaskAction() {
 			const [open, setOpen] = React.useState(false);
 			if (!primitives) return null;
-			const trigger = compact
-				// Inside the ball's panel the label is the whole line, so it reads as the panel's primary action.
-				? box('button', {
-					key: 'trigger',
-					type: 'button',
-					'data-hns-mega-new-task': 'on',
-					title: '新建定时任务 · New scheduled task',
-					onClick: () => setOpen(true),
-					style: {
-						all: 'initial',
-						display: 'block',
-						width: '100%',
-						boxSizing: 'border-box',
-						padding: '6px 8px',
-						marginBottom: '6px',
-						borderRadius: '6px',
-						border: `1px solid ${TONES.busy}`,
-						background: 'rgba(88,166,255,.12)',
-						color: '#ffffff',
-						cursor: 'pointer',
-						textAlign: 'center',
-						font: font(12)
-					}
-				}, '＋ 新建定时任务 · New task')
-				: React.createElement(primitives.Button, {
+			return box('span', { 'data-hns-mega-new-task-action': 'header', style: { display: 'block' } }, [
+				React.createElement(primitives.Button, {
 					key: 'trigger',
 					variant: 'ghost',
 					size: 'sm',
 					icon: primitives.IconPlusOutline16 ? React.createElement(primitives.IconPlusOutline16, null) : undefined,
 					title: '新建定时任务 · New scheduled task',
 					onClick: () => setOpen(true)
-				}, '新建任务 · New task');
-			return box('span', { 'data-hns-mega-new-task-action': compact ? 'ball' : 'header', style: { display: 'block' } }, [
-				trigger,
+				}, '新建任务 · New task'),
 				React.createElement(NewTaskDialog, { key: 'dialog', open, onClose: () => setOpen(false) })
 			]);
 		}

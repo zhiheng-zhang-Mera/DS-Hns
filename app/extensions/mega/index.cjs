@@ -1641,7 +1641,10 @@ function scheduledTaskSurface() {
     peak: described.peak || null,
     // The two facts that decide whether "run it now" and "run it at peak" are even possible.
     interruptRunningAtPeak: Boolean(config.interruptRunningAtPeak),
-    limits: { minStartOffsetSeconds: 0, maxStartAheadDays: 365 },
+    // One second rather than none: a *new* task has to be given a time in the future (`SchedulerService.addTask`
+    // refuses a past instant), so "now, exactly" is not on offer — a form that believed offset 0 was legal would
+    // offer a time the scheduler refuses.
+    limits: { minStartOffsetSeconds: 1, maxStartAheadDays: 365 },
     deliveryModes: [
       { id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true },
       { id: 'headless', cn: 'Headless 后台', en: 'Headless background', default: false }
@@ -1683,7 +1686,10 @@ async function scheduleTask(input = {}) {
     return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
   } catch (error) {
     log(`scheduling a task from the official UI failed: ${error?.message || error}`)
-    return { ok: false, reason: String(error?.message || error) }
+    // The scheduler owns the rules, and it says which field a refusal is about when it knows (`invalid startAt`,
+    // a time in the past); passing that through is what lets a form point at the input rather than at the whole
+    // form.
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
   }
 }
 
