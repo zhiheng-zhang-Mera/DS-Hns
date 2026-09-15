@@ -183,7 +183,7 @@ function payload(view, overrides = {}) {
   return { ...PANEL_STATE, view, ...overrides }
 }
 
-test('the ball draws the live dashboard: price, countdown, balance, queue and parallelism', () => {
+test('the ball draws every category shut, each with its own headline', () => {
   const orb = loadOrb({ snapshot: fixtureView() })
   const view = fixtureView()
   orb.apply(payload(view))
@@ -192,26 +192,14 @@ test('the ball draws the live dashboard: price, countdown, balance, queue and pa
   // The four categories the old expanded dock drew, each from the view's own dashboard block — and each carrying
   // its own headline while it is shut, so the fold hides detail rather than the numbers a glance is for.
   assert.match(said, /价格 · Price/)
-  assert.match(said, /Price window/)
   assert.match(said, /PEAK/)
-  assert.match(said, /距下一次谷价/)
-  assert.match(said, /12m 30s/)
   assert.match(said, /账户 · Account/)
   assert.match(said, /¥ 12\.50/, 'the shut account fold lost its headline')
   assert.match(said, /任务 · Tasks/)
   assert.match(said, /并行 · Parallelism/)
-
-  // The tones reach the DOM: a peak window is the warn colour, a running worker is the busy one, and a healthy
-  // balance is green. A dashboard whose numbers were all one colour would say nothing.
-  const classes = []
-  const walk = (node) => {
-    if (!node || typeof node !== 'object') return
-    for (const name of String(node.className || '').split(/\s+/).filter(Boolean)) classes.push(name)
-    for (const child of node.children || []) walk(child)
-  }
-  walk(orb.elements.get('panelBody'))
-  assert.ok(classes.includes('tone-warn'), `the peak window lost its tone: ${classes.join(', ')}`)
-  assert.ok(classes.includes('tone-ok'), 'a healthy balance lost its tone')
+  // Nothing is open, so no detail is drawn: the panel's first state is four headings and their headlines.
+  assert.doesNotMatch(said, /Price window/, 'a shut fold drew its detail anyway')
+  assert.doesNotMatch(said, /12m 30s/, 'a shut fold drew its countdown anyway')
 
   // Governance still follows the numbers: what is degraded, what wants attention, and what can be done.
   assert.match(said, /mega:dock degraded/)
@@ -219,12 +207,12 @@ test('the ball draws the live dashboard: price, countdown, balance, queue and pa
   assert.match(said, /Settings › Mega/)
 })
 
-test('the system ball folds the same categories, and only one of them is open at a time', () => {
+test('the system ball folds the same categories, all shut at first, one open at a time — as a card', () => {
   const orb = loadOrb({ snapshot: fixtureView() })
   orb.apply(payload(fixtureView()))
   const body = orb.elements.get('panelBody')
 
-  /** The folds as the document carries them: id, open state, and the folds that are actually drawn open. */
+  /** The folds as the document carries them: id, open state, and the headings' own words. */
   const folds = () => {
     const found = []
     const walk = (node) => {
@@ -239,33 +227,32 @@ test('the system ball folds the same categories, and only one of them is open at
   }
   const openIds = () => folds().filter((fold) => fold.open).map((fold) => fold.id)
 
-  assert.deepEqual(folds().map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'])
-  // The rule on the first frame: exactly one open, and it is the one the old ball opened on.
-  assert.deepEqual(openIds(), ['price'])
-  assert.equal(folds()[0].expanded, 'true')
-  assert.equal(folds()[1].says, '▸ · 账户 · Account · ¥ 12.50')
-
-  /** Every `.category-body` that is *on screen*: a fold with a head is a fold that is drawn open. */
-  const openFolds = () => {
+  /** The cards that are on screen — one per open fold, by id (`data-card` is the card element itself). */
+  const cards = () => {
     const found = []
     const walk = (node) => {
       if (!node || typeof node !== 'object') return
-      if (String(node.className || '').split(/\s+/).includes('category-body')) {
-        const head = (node.children || []).find((child) => child.dataset && child.dataset.category)
-        found.push(head ? head.dataset.category : `?:${node.children.map((child) => child.textContent).join(',')}`)
-      }
+      if (node.dataset && node.dataset.card) found.push(node.dataset.card)
       for (const child of node.children || []) walk(child)
     }
     walk(body)
     return found
   }
 
+  assert.deepEqual(folds().map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'])
+  // The rule on the first frame: **all shut**, and no card anywhere.
+  assert.deepEqual(openIds(), [], 'a category opened itself')
+  assert.deepEqual(cards(), [], 'a shut panel drew a card')
+  assert.equal(folds()[0].expanded, 'false')
+  assert.equal(folds()[0].says, '▸ · 价格 · Price · PEAK')
+  assert.equal(folds()[1].says, '▸ · 账户 · Account · ¥ 12.50')
+
   /**
    * Click a heading, the way a pointer does: find it fresh in the document (a redraw replaces the nodes, so a
    * reference taken before one is stale) and fire.
    *
-   * The returned fold ids are read from the *document*, not from the renderer's own state, because "only one at a
-   * time" is a claim about what is on screen.
+   * What it opened is read from the *document*, not from the renderer's own state, because "only one at a time" and
+   * "it became a card" are claims about what is on screen.
    */
   const click = (id) => {
     let node = null
@@ -279,24 +266,24 @@ test('the system ball folds the same categories, and only one of them is open at
     node.fire('click')
   }
 
-  // Opening the account shuts the price — that is what "only one at a time" means, asserted on the document.
+  // Opening the account shuts everything else and makes it a card of its own.
   click('balance')
-  assert.deepEqual(openIds(), ['balance'], 'opening the account left the price fold open too')
-  assert.deepEqual(openFolds(), ['balance'], 'two category bodies are on screen at once')
+  assert.deepEqual(openIds(), ['balance'], 'opening the account left another fold open too')
+  assert.deepEqual(cards(), ['balance'], 'the open category is not the one card on screen')
   const balanceSaid = strings(body).join(' | ')
   assert.match(balanceSaid, /¥ 12\.50/)
-  assert.doesNotMatch(balanceSaid, /12m 30s/, 'the price detail is still drawn while the account is open')
+  assert.doesNotMatch(balanceSaid, /12m 30s/, 'a shut fold is still drawing its detail')
 
   click('execution')
   assert.deepEqual(openIds(), ['execution'])
-  assert.deepEqual(openFolds(), ['execution'])
+  assert.deepEqual(cards(), ['execution'], 'two cards are on screen at once')
   assert.match(strings(body).join(' | '), /排队任务/)
 
   // Clicking the open heading shuts it: all folds shut is a state the panel is allowed to be in, and the headlines
   // are still there when it is.
   click('execution')
   assert.deepEqual(openIds(), [])
-  assert.deepEqual(openFolds(), [])
+  assert.deepEqual(cards(), [])
   assert.match(strings(body).join(' | '), /PEAK/)
   assert.match(strings(body).join(' | '), /¥ 12\.50/)
 })

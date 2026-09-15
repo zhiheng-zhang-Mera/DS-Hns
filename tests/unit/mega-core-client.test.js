@@ -347,7 +347,7 @@ test('apply claims both official slots: the ball draws the dashboard, the page d
   assert.equal(mounted.listeners.has('visibilitychange'), false, 'the visibility listener outlived the plugin')
 })
 
-test('the ball opens on the live dashboard — price, countdown, balance, queue, parallelism', async () => {
+test('the ball opens on every category, all shut, each with its own headline', async () => {
   const mounted = await mount()
   const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
@@ -359,16 +359,16 @@ test('the ball opens on the live dashboard — price, countdown, balance, queue,
   const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   const said = strings(opened.tree).join(' | ')
 
-  // Every category is there, and the one that is open is open: the old ball showed the price window and its
-  // timer first, so that is what the panel opens on.
+  // Every category is there, and **nothing is open**: the panel's first state is four headings and their headlines.
   for (const label of ['价格 · Price', '账户 · Account', '任务 · Tasks', '并行 · Parallelism']) {
     assert.match(said, new RegExp(label), `the ball lost the ${label} category`)
   }
-  assert.match(said, /电费时段/)
-  assert.match(said, /OFF-PEAK/)
-  assert.match(said, /27m 12s/, 'the valley countdown is missing from the ball')
-  // A shut category keeps its headline: folding must not turn the panel into six bare labels.
+  // Each heading carries its category's headline, which is what makes a shut panel readable at a glance.
+  assert.match(said, /OFF-PEAK/, 'the price fold lost its window headline')
   assert.match(said, /正常 · ok/, 'the account fold lost its headline')
+  // ...and no detail is drawn while everything is shut.
+  assert.doesNotMatch(said, /电费时段/, 'a shut fold drew its detail anyway')
+  assert.doesNotMatch(said, /27m 12s/, 'a shut fold drew its countdown anyway')
   // The recovery actions stay on the ball: a degraded module with no way to act on it is a status light.
   const labels = find(opened.tree, (element) => element.type === 'button').map((element) => strings(element).join(''))
   assert.ok(labels.includes('retry'), `the ball lost its actions: ${labels.join(', ')}`)
@@ -376,7 +376,7 @@ test('the ball opens on the live dashboard — price, countdown, balance, queue,
   assert.doesNotMatch(said, /Bundled plugins/)
 })
 
-test('the ball folds its information into categories, and only one of them is open at a time', async () => {
+test('the ball folds its information into cards, all shut at first, one open at a time', async () => {
   const mounted = await mount()
   const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
@@ -392,14 +392,18 @@ test('the ball folds its information into categories, and only one of them is op
       says: strings(element).join(' · ')
     }));
   const openIds = (rendered) => folds(rendered).filter((fold) => fold.open).map((fold) => fold.id);
+  /** The cards that are on screen: one per open fold, by id (`data-hns-mega-card` is the card itself). */
+  const cards = (rendered) => find(rendered.tree, (element) => element.props['data-hns-mega-card'])
+    .map((element) => ({ id: element.props['data-hns-mega-card'], background: element.props.style.background, radius: element.props.style.borderRadius }));
 
   const first = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   const categories = folds(first)
   assert.deepEqual(categories.map((fold) => fold.id), ['price', 'balance', 'execution', 'parallelism'], 'the ball lost a category')
-  // The rule, on the first frame: exactly one open, and it is the first.
-  assert.deepEqual(openIds(first), ['price'])
-  assert.equal(categories[0].expanded, true)
-  // A shut heading carries its own headline, so nothing a glance needs is hidden by the fold.
+  // The rule, on the first frame: **all shut**, every heading carrying its headline.
+  assert.deepEqual(openIds(first), [], 'a category opened itself')
+  assert.deepEqual(cards(first), [], 'a shut panel drew a card')
+  assert.equal(categories[0].expanded, false)
+  assert.equal(categories[0].says, '▸ · 价格 · Price · OFF-PEAK')
   assert.equal(categories[1].says, '▸ · 账户 · Account · 正常 · ok')
 
   /** Clicking a heading opens it — and shuts whatever was open, which is the whole of "only one at a time". */
@@ -410,8 +414,18 @@ test('the ball folds its information into categories, and only one of them is op
     return mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
   }
 
-  const balanceOpen = click(first, 'balance')
+  const priceOpen = click(first, 'price')
+  assert.deepEqual(openIds(priceOpen), ['price'])
+  assert.deepEqual(cards(priceOpen).map((card) => card.id), ['price'], 'the open category is not a card of its own')
+  // The card is visibly its own surface: lighter than the panel behind it and rounded, so the eye lands on it
+  // without reading the caret.
+  assert.equal(cards(priceOpen)[0].background, 'rgba(255,255,255,.055)')
+  assert.equal(cards(priceOpen)[0].radius, '8px')
+  assert.match(strings(priceOpen.tree).join(' | '), /27m 12s/, 'the open fold drew no detail')
+
+  const balanceOpen = click(priceOpen, 'balance')
   assert.deepEqual(openIds(balanceOpen), ['balance'], 'opening the account left the price fold open too')
+  assert.deepEqual(cards(balanceOpen).map((card) => card.id), ['balance'], 'two cards are on screen at once')
   const balanceSaid = strings(balanceOpen.tree).join(' | ')
   assert.match(balanceSaid, /¥ 12\.50/, 'the account fold opened without its detail')
   assert.doesNotMatch(balanceSaid, /27m 12s/, 'the price fold stayed open with the account')
@@ -463,6 +477,9 @@ test('the countdown ticks on its own, once a second — not in fifteen-second ju
   const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
   ball.props.onPointerDown({ button: 0, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 0 }) } })
   ball.props.onPointerUp()
+  const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  // The countdown is a detail row, so it is drawn once its category is open (the panel starts with everything shut).
+  find(opened.tree, (element) => element.props['data-hns-mega-category'] === 'price')[0].props.onClick()
   mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
 
   /**

@@ -492,27 +492,24 @@ window.__ModuleLoader__.load({
 		 * fields below come from — the numbers cannot disagree with the Control Center's, because there is only
 		 * one set of them. A snapshot with no dashboard block is a reason, not a wall of `—`.
 		 *
-		 * The groups are **folds, one open at a time**. Every category costs a heading and one line while it is
-		 * shut, which is what lets the same rows be readable on a surface with room (the page) and on one without
-		 * (a 340px panel): the old panel listed fifteen numbers at once and the six that mattered were somewhere
-		 * in the middle of them.
+		 * The groups are **folds, all shut to begin with and one open at a time** afterwards. Every category costs
+		 * one line while it is shut — its heading and its headline — which is what lets the panel be read at a
+		 * glance: the old panel listed fifteen numbers at once and the six that mattered were somewhere in the
+		 * middle of them. What is open is drawn as a **card of its own** (`card` below): a raised, tinted panel
+		 * whose colour separates it from the headings around it, so "this is the one I am looking at" needs no
+		 * reading.
 		 */
 		function Dashboard({ dashboard, at, onDashboardAction }) {
 			// Hooks first, unconditionally: the ticker below is what keeps the countdown a countdown, and the
 			// open fold is component state, so a poll that redraws the panel does not shut what the user opened.
 			const remaining = useCountdown(dashboard, at);
-			/**
-			 * Which fold is open, by id — and at most **one**.
-			 *
-			 * The first group is open to begin with, so the panel opens on something rather than on six headings,
-			 * and so the rule "clicking a heading opens it" is discoverable from the first frame.
-			 */
+			/** Which fold is open, by id — and at most **one**. Shut is the first state the user sees. */
 			const groups = (dashboard?.ok === false || !dashboard) ? [] : [
 				...(dashboard.lines || []).map((entry) => ({ id: entry.id || `group:${entry.cn}`, cn: entry.cn, en: entry.en, rows: entry.rows || [] })),
 				{ id: 'execution', cn: '任务', en: 'Tasks', rows: dashboard.execution || [] },
 				{ id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
 			].filter((entry) => entry.rows.length);
-			const [openCategory, setOpenCategory] = React.useState(() => (groups[0] ? groups[0].id : null));
+			const [openCategory, setOpenCategory] = React.useState(null);
 			if (!dashboard) return null;
 			if (dashboard.ok === false) {
 				return box('div', { key: 'dash', style: { padding: '4px 0', color: MUTED, fontWeight: '400' } }, dashboard.reason || '仪表盘不可用 · dashboard unavailable');
@@ -584,10 +581,10 @@ window.__ModuleLoader__.load({
 						gap: '6px',
 						width: '100%',
 						boxSizing: 'border-box',
-						padding: '4px 0',
+						padding: isOpen ? '6px 9px' : '4px 0',
 						margin: 0,
 						border: 'none',
-						borderTop: '1px solid rgba(255,255,255,.08)',
+						borderTop: isOpen ? 'none' : '1px solid rgba(255,255,255,.08)',
 						background: 'transparent',
 						color: MUTED,
 						cursor: 'pointer',
@@ -603,17 +600,39 @@ window.__ModuleLoader__.load({
 						flex: '1 1 auto',
 						textTransform: 'uppercase',
 						letterSpacing: '.04em',
-						color: isOpen ? '#ededed' : MUTED
+						color: isOpen ? '#ffffff' : MUTED
 					}),
-					summary ? text(summary, { key: 'value', flex: '0 1 auto', color: '#ededed', font: font(11), textAlign: 'right' }) : null
+					summary ? text(summary, { key: 'value', flex: '0 1 auto', color: isOpen ? '#ffffff' : '#ededed', font: font(11), textAlign: 'right' }) : null
 				].filter(Boolean));
 				if (!isOpen) return heading;
-				return box('div', { key: `g:${group.id}` }, [
+				/**
+				 * The open category is a **card**, not a longer run of rows.
+				 *
+				 * Three properties do the work, and each one is about looking rather than about taste: it is
+				 * *lighter* than the panel behind it (`.03` white on `rgba(14,16,20)`), so it reads as raised; the
+				 * heading that opens it is *inside* the card, so the tint has an owner; and the card sits on its
+				 * own line with a margin, so the category above and the one below are visibly not part of it. The
+				 * caret already said which one is open — this is what makes it findable without reading.
+				 */
+				return box('div', {
+					key: `g:${group.id}`,
+					'data-hns-mega-card': group.id,
+					style: {
+						background: 'rgba(255,255,255,.055)',
+						border: '1px solid rgba(255,255,255,.16)',
+						borderRadius: '8px',
+						margin: '4px 0',
+						overflow: 'hidden'
+					}
+				}, [
 					heading,
-					...group.rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${group.id}:${entry.cn}`, ...row(entry) }))
+					box('div', {
+						key: 'body',
+						style: { padding: '0 9px 6px' }
+					}, group.rows.map((entry) => React.createElement(FieldRow, { key: entry.id || `${group.id}:${entry.cn}`, ...row(entry) })))
 				]);
 			};
-			return box('div', { key: 'dash' }, [
+			return box('div', { key: 'dash', 'data-hns-mega-dashboard': openCategory ? 'open' : 'shut' }, [
 				...groups.map(fold),
 				actions.length ? box('div', { key: 'dash-actions' }, actions) : null
 			].filter(Boolean));

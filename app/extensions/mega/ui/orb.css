@@ -123,10 +123,20 @@ html, body {
   The dashboard: the live numbers first, because the ball is a glance.
 
   It is the same `.field` row the governance fields use — two labels, a value — so the panel has one row shape
-  rather than two that drift apart. The categories are folds, one open at a time, and the heading is what makes
-  that readable: a caret for the state (colour is already spoken for by faults), the two labels, and the group's
-  headline pushed to the right so a shut fold still says the one number it exists to say.
+  rather than two that drift apart. The categories are folds, **all shut at first and one open at a time**, and the
+  heading is what makes that readable: a caret for the state (colour is already spoken for by faults), the two
+  labels, and the group's headline pushed to the right so a shut fold still says the one number it exists to say.
+
+  The open fold is a **card**: `--orb-card` is lighter than the panel (`--orb-face`), which is enough to read as a
+  raised surface, and the heading lives *inside* it so the tint has an owner. `--orb-dim` is what the headings do
+  while one of them is open — the siblings step back so the card is the thing the eye lands on.
 */
+:root {
+  --orb-card: rgba(255, 255, 255, .055);
+  --orb-card-line: rgba(255, 255, 255, .16);
+  --orb-dim: .55;
+}
+
 #panelBody .dashboard .field { padding: 3px 0; }
 
 #panelBody .category {
@@ -145,6 +155,7 @@ html, body {
   color: var(--orb-muted);
   cursor: pointer;
   pointer-events: auto;
+  transition: opacity .12s ease, color .12s ease;
 }
 
 #panelBody .category:hover .label { color: var(--orb-text); }
@@ -163,10 +174,32 @@ html, body {
   font-weight: 600;
   white-space: nowrap;
 }
-#panelBody .category[data-open="on"] .label { color: var(--orb-text); }
+#panelBody .category[data-open="on"] .label { color: #fff; }
+#panelBody .category[data-open="on"] .value { color: #fff; }
 
-/* A fold's rows sit under their heading, indented by the caret so the hierarchy is visible rather than guessed. */
-#panelBody .category-body .field { padding: 3px 0 3px 14px; }
+/* The open fold, as a card of its own: raised, rounded, and plainly not part of the headings around it. */
+#panelBody .category-body {
+  background: var(--orb-card);
+  border: 1px solid var(--orb-card-line);
+  border-radius: 8px;
+  margin: 4px 0;
+  padding: 0 2px 4px;
+  overflow: hidden;
+}
+#panelBody .category-body .category { padding: 6px 8px; }
+#panelBody .category-body .field { padding: 3px 9px 3px 20px; }
+/* The rows sit on the card, so their divider is the card's rather than the panel's. */
+#panelBody .category-body .field { border-bottom: 1px solid rgba(255, 255, 255, .06); }
+#panelBody .category-body .field:last-child { border-bottom: none; }
+
+/*
+  While a card is open, the headings beside it step back.
+  `:has()` is a nicety, not the mechanism: without it the card is still a card, and the caret still says which one
+  is open. (Electron ships a Chromium that has it; the fallback is the un-dimmed heading.)
+*/
+#panelBody .dashboard:has(.category-body) > .category { opacity: var(--orb-dim); }
+#panelBody .dashboard:has(.category-body) > .category:hover { opacity: 1; }
+
 #panelBody .category + .category { border-top: 1px solid var(--orb-line); }
 
 #panelBody .dashboard + .line { margin-top: 6px; border-top: 1px solid var(--orb-line); padding-top: 6px; }

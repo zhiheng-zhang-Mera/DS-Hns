@@ -38,17 +38,10 @@
    * Which dashboard category is open — **at most one**, by id, or `null` when they are all shut.
    *
    * It lives here rather than in `state` because `state` is what the shell pushes: the open fold is the user's
-   * doing and must survive a poll that redraws the panel, the same way the panel being open survives one.
+   * doing and must survive a poll that redraws the panel, the same way the panel being open survives one. `null`
+   * is where it starts: the panel's first state is every category shut, each showing its headline.
    */
   let openCategory = null
-  /**
-   * Whether the first category has been opened yet.
-   *
-   * The default is applied **once**, not "whenever nothing is open": the second reading of that condition is how
-   * a fold that the user just shut springs back open on the next redraw. `null` means "all shut", and all shut is
-   * a state the user is allowed to choose.
-   */
-  let defaultedCategory = false
 
   /**
    * The tone vocabulary, in one place: the view model's names, the CSS variables' names.
@@ -93,10 +86,11 @@
    * It is drawn **instead of** the module roster, not instead of governance: the ball is a glance, and the
    * rosters are a page. So the dashboard comes first, and what governance has to say follows it.
    *
-   * The categories are **folds, one open at a time** — the same rule and the same shape as the in-UI ball's
-   * (`app/plugins/mega-core/lib/client.js`), because two balls that folded their information differently would be
-   * two products. A shut category keeps its headline on the heading line, so folding hides the *detail* rather
-   * than the numbers a glance is for.
+   * The categories are **folds, all shut to begin with and one open at a time** — the same rule and the same shape
+   * as the in-UI ball's (`app/plugins/mega-core/lib/client.js`), because two balls that folded their information
+   * differently would be two products. A shut category keeps its headline on the heading line, so folding hides
+   * the *detail* rather than the numbers a glance is for; the open one is drawn as a card of its own
+   * (`drawFold`), tinted and rounded so the eye lands on it without reading a caret.
    *
    * A snapshot without a dashboard block is a reason, not a wall of `—`: an empty dashboard and an unreachable
    * one are different pictures, and only one of them is the user's problem.
@@ -104,6 +98,7 @@
   function drawDashboard(dashboard) {
     if (!dashboard) return null
     const wrap = element('div', 'dashboard')
+    wrap.dataset.dashboard = openCategory ? 'open' : 'shut'
     if (dashboard.ok === false) {
       wrap.appendChild(element('div', 'muted', dashboard.reason || '仪表盘不可用 · dashboard unavailable'))
       return wrap
@@ -113,13 +108,6 @@
       { id: 'execution', cn: '任务', en: 'Tasks', rows: dashboard.execution || [] },
       { id: 'parallelism', cn: '并行', en: 'Parallelism', rows: dashboard.parallelism || [] }
     ].filter((entry) => entry.rows.length)
-    // The first category is open to begin with — once: a panel that opens on four shut headings shows nothing, and
-    // the rule "clicking a heading opens it" has to be discoverable from the first frame. Applying it *every* time
-    // nothing is open would instead make "all shut" impossible to reach.
-    if (!defaultedCategory && groups.length) {
-      defaultedCategory = true
-      openCategory = groups[0].id
-    }
     for (const group of groups) wrap.appendChild(drawFold(group))
     /**
      * The dashboard's own buttons — today `refresh-balance`, the read that makes the account newer.
@@ -156,6 +144,10 @@
    * the state, not a condition applied while drawing. The heading is a real `button` with `aria-expanded`, and the
    * click redraws the panel in place (the panel's size is then re-measured by the same path every other change
    * goes through).
+   *
+   * The open category is drawn as a **card of its own** (`category-body`, styled in `orb.css`): a tinted, rounded
+   * surface the headings around it are plainly not part of, so which category you are looking at is a matter of
+   * seeing rather than of reading the caret.
    */
   function drawFold(group) {
     const isOpen = openCategory === group.id
@@ -175,10 +167,11 @@
       measure()
     })
     if (!isOpen) return heading
-    const body = element('div', 'category-body')
-    body.appendChild(heading)
-    for (const row of group.rows) body.appendChild(drawField(row))
-    return body
+    const card = element('div', 'category-body')
+    card.dataset.card = group.id
+    card.appendChild(heading)
+    for (const row of group.rows) card.appendChild(drawField(row))
+    return card
   }
 
   /** The ball's glyph: a dot, plus how many things want attention when any do. */
