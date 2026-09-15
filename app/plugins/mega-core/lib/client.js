@@ -81,6 +81,45 @@ window.__ModuleLoader__.load({
 			primitivesError = String(error?.message || error);
 		}
 
+		/** The width of a form row's label column — the thing the presets under the time field align to. */
+		const LABEL_COLUMN = 96;
+
+		/**
+		 * The dialog's width, which the official `Modal` does not get to decide.
+		 *
+		 * `Modal`'s own box is a **form dialog**: `width: min(380px, 100%)`, sized for one field and two buttons.
+		 * This one is a composer with a schedule under it, and 380px crushed it — the time field and the peak switch
+		 * ended up in a column two thirds of the width the labels needed, which is what "the dialog is too narrow"
+		 * was. A class of our own on the dialog (passed through `Modal`'s `className`, and specific enough with two
+		 * classes to win over the component's own single-class rule) is how a *surface* overrides a *component*.
+		 *
+		 * The numbers: 720px for a comfortable line of a prompt and a schedule in one row, opened up to 92 vw on a
+		 * narrow layer, and never below 320px so the modal stays a dialog rather than a full-screen sheet. The
+		 * stylesheet it makes is injected once, and it deliberately does not reach for the official CSS variables —
+		 * it is our content, so it carries its own palette.
+		 */
+		const DIALOG_CLASS = 'hns-mega-dialog';
+		function ensureDialogStyles() {
+			if (typeof document === 'undefined' || !document.head || typeof document.createElement !== 'function') return;
+			if (document.querySelector(`style[data-hns-mega="${DIALOG_CLASS}"]`)) return;
+			const style = document.createElement('style');
+			style.dataset.hnsMega = DIALOG_CLASS;
+			style.textContent = `
+.${DIALOG_CLASS}.${DIALOG_CLASS} {
+  width: min(720px, 92vw);
+  min-width: min(320px, 92vw);
+  padding: 0;
+  border-radius: 14px;
+  background: #0e1014;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .55);
+}
+.${DIALOG_CLASS}.${DIALOG_CLASS} > * { width: 100%; min-width: 0; }
+@media (max-width: 560px) {
+  .${DIALOG_CLASS}.${DIALOG_CLASS} { width: 96vw; border-radius: 12px; }
+}`.trim();
+			document.head.appendChild(style);
+		}
+
 		const VIEW_URL = '/mega-core/view';
 		const ACTION_URL = '/mega-core/action';
 		const ORB_URL = '/mega-core/orb';
@@ -1260,11 +1299,18 @@ window.__ModuleLoader__.load({
 				text(en, { key: 'en', display: 'block', color: FAINT, font: font(10, 400) })
 			]);
 
+			/**
+			 * One row of the form: the two labels in a fixed column, the control in the rest.
+			 *
+			 * The label column is a **constant** (`LABEL_COLUMN`) because the presets row below the time field
+			 * aligns to it as well: a form whose rows and whose shortcuts start at different x is a form that reads
+			 * as two.
+			 */
 			const field = (id, cn, en, control, hint) => box('div', {
 				key: id,
-				style: { display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '5px 0' }
+				style: { display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '6px 0' }
 			}, [
-				box('div', { key: 'label', style: { flex: '0 0 120px', paddingTop: '3px' } }, [label(cn, en)]),
+				box('div', { key: 'label', style: { flex: `0 0 ${LABEL_COLUMN}px`, paddingTop: '3px' } }, [label(cn, en)]),
 				box('div', { key: 'control', style: { flex: '1 1 auto', minWidth: 0 } }, [
 					control,
 					hint ? text(hint, { key: 'hint', display: 'block', marginTop: '3px', color: FAINT, font: font(10, 400), wordBreak: 'break-word' }) : null
@@ -1299,7 +1345,11 @@ window.__ModuleLoader__.load({
 
 			const body = box('div', {
 				'data-hns-mega-new-task': 'on',
-				style: { display: 'block', padding: '16px 18px 14px', maxWidth: '620px', minWidth: 'min(560px, 86vw)' }
+				// The dialog's width belongs to the surface, not to this block (see `ensureDialogStyles`): a
+				// `max-width` here would only fight the box it is drawn in. What this owns is the padding and the
+				// rule that its columns may shrink — a flex child without `minWidth: 0` refuses to, which is the
+				// other half of a cramped form.
+				style: { display: 'block', boxSizing: 'border-box', minWidth: 0, padding: '18px 20px 16px' }
 			}, [
 				// The title and the way out. The official modal's own chrome is skipped (`headless`) so the input
 				// and its schedule are one block rather than two halves of a form.
@@ -1369,7 +1419,9 @@ window.__ModuleLoader__.load({
 						onChange: (event) => setStartAt(event.target.value),
 						style: inputStyle
 					})),
-					box('div', { key: 'presets', style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '2px 0 4px 130px' } }, [
+					// The shortcuts line up with the time field above them, which is what makes them read as shortcuts
+					// *for that field* rather than as four more buttons.
+					box('div', { key: 'presets', style: { display: 'flex', flexWrap: 'wrap', gap: '6px', margin: `4px 0 4px ${LABEL_COLUMN + 12}px` } }, [
 						preset('3 分钟后 · in 3m', 3),
 						preset('30 分钟后 · in 30m', 30),
 						preset('1 小时后 · in 1h', 60),
@@ -1455,10 +1507,14 @@ window.__ModuleLoader__.load({
 				])
 			].filter(Boolean));
 
+			// The class goes on the official dialog box (see `ensureDialogStyles`): the component's own width is for
+			// a one-field form, and this is a composer with a schedule under it.
+			ensureDialogStyles();
 			return React.createElement(primitives.Modal, {
 				open: true,
 				onClose,
 				headless: true,
+				className: DIALOG_CLASS,
 				title: '新建定时任务',
 				closeLabel: '关闭 · Close'
 			}, body);

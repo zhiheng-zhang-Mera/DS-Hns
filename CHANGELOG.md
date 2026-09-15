@@ -3,6 +3,35 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 新建任务弹窗的宽度：不是我们的布局窄，是官方 Modal 的宽度写死了 380px
+
+**根因在组件里，不在我们这边。** 官方 `Modal` 的对话框盒子是 `width: min(380px, 100%)` —— 那是**单字段表单**的
+宽度。我们的内容是"输入框 + 一排定时设置"，声明了 `minWidth: 560px`，但它被一个**不可能更宽的父亲**压扁：于是
+时间字段、峰值开关挤成一列，看起来就是"弹窗太窄"。修法是在**官方对话框盒子上**覆盖宽度（通过 `Modal` 自己的
+`className` 传入一个我们的类，用**双类选择器**压过组件那条单类规则）：
+
+```css
+.hns-mega-dialog.hns-mega-dialog { width: min(720px, 92vw); min-width: min(320px, 92vw); }
+@media (max-width: 560px) { .hns-mega-dialog.hns-mega-dialog { width: 96vw; } }
+```
+
+720px 是"提示词一行舒服 + 定时设置一行放得下"的宽度；92vw 让它在窄层里自动收；320px 下限保证它仍是对话框而不是
+整屏抽屉。样式表只在首次打开时注入一次（重复注入会是一份没有读者的泄漏），并且**不依赖官方 CSS 变量** —— 那是
+我们的内容，带自己的调色板。
+
+**顺带修掉一处真实的样式串台。** `orb.css` 里有一条全局的 `#panelBody .field / .label / .value`（仪表盘行的
+128px 标签列），而新任务表单也用同样三个类名 —— 于是**系统球里那张 320px 宽的表单**被这条规则压到只剩一百来像素
+给控件。现在把仪表盘/名册的行规则**按容器限定**（`#panelBody .dashboard .field`、`#panelBody .roster .field`），
+表单自己的行规则（74px 标签列）才真正生效。类名是通用的，所以**容器**才是指认身份的东西。
+
+**对齐也顺手改了**：定时设置的四个快捷值现在与"发送时间"输入框**左边缘对齐**（用同一个标签列常量算出来），
+不再各起一行。
+
+**验证**：`mega-core-client.test.js` 17 项（新增 1：宽度覆盖类真的落在对话框盒子上、样式表真的注入且只注入一次、
+规则是双类、宽度值是 `min(720px, 92vw)`）；全量 **1508/1508**（一次并发跑里 `sub-worker-manager` 的 Live View
+用例超时 —— 它在单独运行时 17/17、耗时 63s，是负载敏感的既有 flake，与本轮只动样式/客户端的改动无关）；
+`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
 ## 两个入口都在：官方头部恢复，两个悬浮球都有一条显眼的新任务按钮
 
 **上一轮把入口搬错了地方。** 用户要的是"球里也要有"，我做成了"只有球里有" —— 官方对话头部那个入口被删掉了，

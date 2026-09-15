@@ -220,10 +220,18 @@ function load({ fetchImpl = fakeFetch(), visibility = 'visible', react = true, p
   const intervals = []
   const cleared = []
   const listeners = new Map()
+  const styles = []
   const document = {
     visibilityState: visibility,
     addEventListener(type, handler) { listeners.set(type, handler) },
-    removeEventListener(type) { listeners.delete(type) }
+    removeEventListener(type) { listeners.delete(type) },
+    /**
+     * The dialog's width override is delivered as a `<style>` in the document's head, so a test needs a head to
+     * put it in — and the two methods the plugin uses to avoid injecting it twice.
+     */
+    head: { appendChild(node) { styles.push(node) } },
+    createElement(tag) { return { tagName: String(tag).toUpperCase(), textContent: '', dataset: {} } },
+    querySelector(selector) { return styles.some((node) => node.dataset.hnsMega && selector.includes(node.dataset.hnsMega)) ? styles[0] : null }
   }
   const sandbox = {
     console,
@@ -253,7 +261,7 @@ function load({ fetchImpl = fakeFetch(), visibility = 'visible', react = true, p
     if (name === '@deepseek-ai/dsh-client-ui-primitives' && primitives) return createPrimitivesShim(shim.React)
     throw new Error(`the bundle required ${name}, which is not in the platform table`)
   })
-  return { definition, plugin, required, shim, sandbox, document, intervals, cleared, listeners, fetchImpl }
+  return { definition, plugin, required, shim, sandbox, document, intervals, cleared, listeners, styles, fetchImpl }
 }
 
 /** The official primitives, in the shapes the plugin uses: `Modal`, `Button`, `IconPlusOutline16`. */
@@ -265,7 +273,10 @@ function createPrimitivesShim(React) {
       'aria-modal': 'true',
       'aria-label': props.title,
       open: props.open,
-      headless: props.headless
+      headless: props.headless,
+      // The width override travels as a class on the dialog box, which is what the official component renders and
+      // therefore what the stylesheet has to beat (its own rule is a single class; ours is a doubled one).
+      'data-dialog-class': props.className
     }, props.children)
   }
   function Button(props) {
@@ -600,6 +611,36 @@ test('the ball\'s own panel offers the new-task entry, first, and it opens the s
   const said = strings(mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState).tree).join(' | ')
   assert.match(said, /新建定时任务/, 'the entry did not open the dialog')
   assert.match(said, /发送时间/, 'the dialog opened without its schedule')
+})
+
+test('the dialog is as wide as a composer, not as wide as the official component\'s default', async () => {
+  /**
+   * The user's words were "the new-task dialog is not wide enough", and the cause was not our layout: the official
+   * `Modal` renders its box at `width: min(380px, 100%)` — sized for a one-field form — and that box is the parent
+   * of everything we draw. Our content asked for a minimum width and was crushed by a parent that could not be
+   * wider, which is why the time field and the peak switch ended up in a column.
+   *
+   * So the fix is an override **on the official dialog box**, through `Modal`'s own `className`, and this asserts
+   * both halves of it: the class reaches the box, and the stylesheet that carries the width is injected.
+   */
+  const task = await openNewTask();
+  const modal = find(task.rendered.tree, (element) => element.props['data-primitive'] === 'modal')[0];
+  assert.ok(modal, 'the entry point opened no modal');
+  const dialogClass = modal.props['data-dialog-class'];
+  assert.equal(dialogClass, 'hns-mega-dialog', 'the width override never reached the dialog box');
+
+  const style = task.styles.find((node) => node.dataset && node.dataset.hnsMega === dialogClass);
+  assert.ok(style, 'no stylesheet was injected for the dialog');
+  // The rule has to beat the component's own single-class width rule, so it is doubled on purpose.
+  assert.match(style.textContent, new RegExp(`\\.${dialogClass}\\.${dialogClass}`));
+  assert.match(style.textContent, /width:\s*min\(720px,\s*92vw\)/, 'the width is not the composer width');
+  assert.match(style.textContent, /min-width:/, 'nothing keeps a narrow layer from collapsing the dialog');
+  // Injected once, however many times the dialog is opened: a second copy would be a leak with no reader.
+  const before = task.styles.length;
+  const trigger = find(task.rendered.tree, (element) => element.props['data-hns-mega-new-task-action'] === 'header')[0];
+  find(trigger, (element) => element.type === 'button')[0].props.onClick();
+  await settle(task.draw);
+  assert.equal(task.styles.length, before, 'the dialog stylesheet was injected again');
 })
 
 test('the countdown ticks on its own, once a second — not in fifteen-second jumps', async () => {

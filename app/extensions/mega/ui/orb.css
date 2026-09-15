@@ -217,10 +217,22 @@ html, body {
 
 #panelBody .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 #panelBody .fields { margin-top: 8px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
-#panelBody .field { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
-#panelBody .field .label { flex: 0 0 128px; }
-#panelBody .field .label small { display: block; color: var(--orb-faint); font-size: 10px; }
-#panelBody .field .value { flex: 1 1 auto; word-break: break-word; }
+/**
+  A dashboard/roster row: the labels, the value, and the tone.
+  
+  Scoped to the two containers that draw one of these, not to `#panelBody` at large: the new-task form draws rows
+  with the same three class names, and a rule that reached them through a bare `.field` was fighting the form's own
+  label width — the 128px column this stylesheet wanted for a dashboard row was crushing a control in a 320px panel.
+  Every class here is a generic name, so the *container* is what says which of the two it is.
+*/
+#panelBody .dashboard .field,
+#panelBody .roster .field { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+#panelBody .dashboard .field .label,
+#panelBody .roster .field .label { flex: 0 0 128px; }
+#panelBody .dashboard .field .label small,
+#panelBody .roster .field .label small { display: block; color: var(--orb-faint); font-size: 10px; }
+#panelBody .dashboard .field .value,
+#panelBody .roster .field .value { flex: 1 1 auto; word-break: break-word; }
 #panelBody .roster { margin-top: 6px; }
 #panelBody .roster h4 { margin: 6px 0 2px; font-size: 11px; color: var(--orb-muted); text-transform: uppercase; letter-spacing: .04em; }
 #panelBody .roster .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 0; }
