@@ -447,3 +447,53 @@ view.dashboard: price:until-off-peak=3m 59s（由 nextChangeIso 与视图时钟�
 
 全量测试唯一失败是既有的 `mega-extension-integration`（orb 窗口要 `DSH_SYSTEM_ORB=1` 才创建，基线同样
 失败）；`verify.ps1`（`-SkipTests`）**ALL CHECKS PASSED**。
+
+---
+
+## Phase 2 — 定时任务：官方界面里的新建浮窗（对话式输入 + 定时设置）
+
+**要解决的问题**：创建定时任务的界面原来只长在旧 Dock 的"手动队列"面板里 —— 而那个 Dock 默认不出现，所以
+"新建一个定时任务"在产品里其实没有入口；即便打开 Dock，它也是一个表单（textarea + 三个 select +
+`datetime-local`），和"对话"没有任何共同点。
+
+### 入口与浮窗
+
+入口注册进 **`conversation.session.header.actions`**（官方闹钟与任务列表所在的槽，`order: 30` 排在它们之后；
+list 型槽是加成，不会顶掉官方条目）。点开的是**官方组件库的居中浮窗**：
+`@deepseek-ai/dsh-client-ui-primitives` 的 `Modal`（该模块名确实在官方前端构建的 platform table 里：
+`{react, "react/jsx-runtime", "react-dom", …, "@deepseek-ai/dsh-client-ui-slots", "@deepseek-ai/dsh-client-ui-primitives",
+"@deepseek-ai/dsh-client-ui-dockkit"}` —— 这是这一轮读出来的事实，也是插件可以 require 它的依据）。
+它自带 portal 到 `document.body`、遮罩、`role="dialog"` + `aria-modal`、Esc 关闭与居中；`headless: true` 让我们
+自己排布内部，于是输入框与定时设置是**一个整体**而不是官方 chrome 切成的两半。宿主没有这个模块时入口不出现
+（`try/catch` 包住 require）：一个会开出坏盒子的按钮比没有按钮更糟。
+
+### 结构与语义
+
+弹窗内自上而下：**对话输入区**（同形输入框 + "Enter 发送 / Shift+Enter 换行"提示 + 字数），**定时设置**
+（发送时间 + 四个快捷值 + 允许峰价 + 时区/峰价时段），**一句人话总结**（"将在 … 作为官方新会话发出 · in 2h 12m"，
+峰价且未允许峰值时多一句"会挂起到谷价"），**两个按钮**。创建回执显示真实任务（id/状态/到点），拒绝显示
+DS-Hns 原话。Enter 的三种情况（发送 / Shift 换行 / 输入法组字）都有独立断言。
+
+### "与正常对话相同"是可断言的性质
+
+新任务走 `scheduler.addTask` → `launchOfficial` → **官方 `session/create` + `session/prompt`**（与真人按发送
+同一对 RPC），提示词原样发送。`tests/unit/scheduled-task.test.js` 用真实 `SchedulerService` + 假 official client
+钉住：早一小时 tick 只挂起（`waiting-schedule`，零发送）；到点后同一 tick 变成官方会话且 `prompt` 逐字相同；
+峰价未允许 → `peak-window` 挂起，允许 → 照发。
+
+### 能力由 DS-Hns 回答
+
+桥新增 `/timing`（能力面：默认时间 now+3m、时区、峰价时段、当前是否峰价、执行方式、限制）与 `/task`
+（创建，原样透传请求，保留 DS-Hns 的 400 与原话）；插件同源暴露 `/mega-core/timing`、`/mega-core/task`。
+**动作闭集没有扩大** —— 调度不是对模块的恢复动作 —— 桥的发现文件 schema 因此升到 **2**；旧版桥对 `/timing`
+回答 404，对话框显示"读不到调度能力：… does not answer timing questions"（**已在运行中的旧实例上实测到 404**，
+即这条兼容路径不是推测）。
+
+### 验证
+
+`mega-core-client.test.js` 15 项（新增 4）、`mega-core-plugin.test.js` 6 项（路由六条 + 经真实治理桥创建并保留
+拒绝原话）、新增 `scheduled-task.test.js` 3 项；全量 **1499/1499**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；
+语法门 229/229。真实链路探针（真实 `SchedulerService` + `PricingRepository`）：`surface.defaults =
+{startAt: now+3m, allowPeak: false, deliveryMode: 'official-session'}`、`timeZone: Asia/Shanghai`、
+`peakNow: true`；空提示词 → `{ok:false, reason:'a task needs a prompt', field:'prompt'}`，坏时间 →
+`not a time this scheduler can read`，正常创建 → `status: PENDING` → 随即 `SUSPENDED`（未到点）。

@@ -87,19 +87,19 @@ test('the package declares the bundle patch, the client half and the web platfor
   assert.equal(/- remove:|replace:/.test(patch), false, 'the patch must be additive only')
 })
 
-test('the host half mounts its four routes and unwinds them on unload', async () => {
+test('the host half mounts its six routes and unwinds them on unload', async () => {
   const host = await loadHost()
   const server = stubWebServer()
   const dispose = host.apply({ webServer: server })
   // No `/orb`: the only ball is the system one (`app/extensions/mega/system-orb.cjs`), which keeps its own
   // position in its own file. A route here for a surface that no longer exists would be a surface to keep in
-  // step for nothing.
-  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/view'])
+  // step for nothing. `/timing` and `/task` are the scheduled-task pair (pluginize Phase 2).
+  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/task', '/mega-core/timing', '/mega-core/view'])
   for (const route of server.routes.values()) assert.equal(route.kind, 'exact')
   assert.equal(typeof dispose, 'function')
   dispose()
   assert.equal(server.routes.size, 0, 'the routes outlived the plugin')
-  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/view'])
+  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/task', '/mega-core/timing', '/mega-core/view'])
   // `inject` is what makes the loader wait for the web server, so it must be declared.
   assert.deepEqual(host.inject, ['webServer'])
   assert.equal(host.name, 'dsh-plugin-mega-core')
@@ -143,7 +143,8 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     // §4.4 asks the page to report a version; it is read from the package manifest, never typed twice.
     assert.equal(healthBody.plugin.id, 'dsh-plugin-mega-core')
     assert.match(healthBody.plugin.version, /^\d+\.\d+\.\d+$/)
-    assert.equal(healthBody.governance.schema, 1)
+    // The discovery file's own schema: 2 carries the two opt-in timing halves (/timing, /task).
+    assert.equal(healthBody.governance.schema, 2)
 
     // The composed view: the same snapshot, in the shape the orb and the page draw. One route rather than
     // two fetches composed in the browser, because the tones and the field names are rules worth testing.
@@ -156,7 +157,7 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     assert.equal(viewBody.status.tone, 'ok', 'a healthy bridge file and a healthy module is not a fault')
     assert.deepEqual(viewBody.status, { tone: 'ok', label: 'Healthy', attention: 0, active: 2, total: 2, pending: 0, failing: 0 })
     assert.equal(viewBody.version.plugin, healthBody.plugin.version)
-    assert.equal(viewBody.version.schema, 1)
+    assert.equal(viewBody.version.schema, 2)
     assert.deepEqual(viewBody.hover, ['DS-Hns', 'Healthy', '2 of 2 plugin(s) active', '0 pending'])
     assert.equal(viewBody.fields.length, 11, '§4.4 names eleven fields')
 
@@ -180,6 +181,92 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     const wrongMethod = fakeExchange({ method: 'GET' })
     await server.routes.get('/mega-core/action').handler(wrongMethod.request, wrongMethod.response)
     assert.equal(wrongMethod.response.statusCode, 405)
+
+    /**
+     * The timing surface: what the new-task dialog is allowed to offer, answered by DS-Hns rather than guessed by
+     * the dialog. A host that predates it answers 404 with its own sentence, which the dialog shows.
+     */
+    const timing = fakeExchange()
+    await server.routes.get('/mega-core/timing').handler(timing.request, timing.response)
+    assert.equal(timing.response.statusCode, 404)
+    assert.match(JSON.parse(timing.response.body).reason, /does not answer timing questions/)
+
+    // And scheduling: the plugin passes the body through and keeps DS-Hns' own status and words, so a refusal the
+    // scheduler made is a refusal the user reads.
+    const noPrompt = fakeExchange({ method: 'POST', body: JSON.stringify({ prompt: '' }) })
+    await server.routes.get('/mega-core/task').handler(noPrompt.request, noPrompt.response)
+    assert.equal(noPrompt.response.statusCode, 404)
+    assert.match(JSON.parse(noPrompt.response.body).reason, /cannot schedule tasks/)
+
+    const wrongTaskMethod = fakeExchange({ method: 'GET' })
+    await server.routes.get('/mega-core/task').handler(wrongTaskMethod.request, wrongTaskMethod.response)
+    assert.equal(wrongTaskMethod.response.statusCode, 405)
+  } finally {
+    await bridge.stop()
+    fs.rmSync(dshHome, { recursive: true, force: true })
+  }
+})
+
+test('the host half schedules through the bridge and keeps DS-Hns\' own answer', async () => {
+  const host = await loadHost()
+  const dshHome = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-mega-core-task-'))
+  const stateDir = path.join(dshHome, 'state')
+  /** What the product's own bridge would hold: the two halves the extension passes in. */
+  const scheduled = []
+  const bridge = createGovernanceBridge({
+    stateDir,
+    snapshot: () => ({ modules: [], plugins: [], degraded: 0, failed: 0, failing: 0 }),
+    act: async () => ({ ok: true }),
+    timing: () => ({
+      ok: true,
+      kind: 'scheduled-task',
+      defaults: { startAt: '2026-09-15T09:00:00.000Z', allowPeak: false, deliveryMode: 'official-session' },
+      schedule: { timeZone: 'Asia/Shanghai', weekdayPeak: true, peakPeriods: [{ start: '09:00', end: '12:00' }] },
+      peak: { peak: true, nextChange: { iso: '2026-09-15T04:00:00.000Z', statusAfter: 'OFF-PEAK', secondsLeft: 600 } },
+      interruptRunningAtPeak: false,
+      limits: { minStartOffsetSeconds: 0, maxStartAheadDays: 365 },
+      deliveryModes: [{ id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true }]
+    }),
+    createTask: async (input) => {
+      scheduled.push(input)
+      if (!String(input.prompt || '').trim()) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+      if (input.startAt && Number.isNaN(Date.parse(input.startAt))) return { ok: false, reason: `"${input.startAt}" is not a time this scheduler can read`, field: 'startAt' }
+      return { ok: true, task: { id: 'task-1', prompt: input.prompt, status: 'PENDING', startAtMs: Date.parse(input.startAt), deliveryMode: 'official-session' } }
+    },
+    log: () => {}
+  })
+  await bridge.start()
+  try {
+    const server = stubWebServer()
+    host.apply({ webServer: server }, { env: { DSH_HOME: dshHome } })
+
+    const timing = fakeExchange()
+    await server.routes.get('/mega-core/timing').handler(timing.request, timing.response)
+    assert.equal(timing.response.statusCode, 200)
+    const surface = JSON.parse(timing.response.body)
+    assert.equal(surface.ok, true)
+    assert.equal(surface.defaults.deliveryMode, 'official-session')
+    assert.equal(surface.schedule.timeZone, 'Asia/Shanghai')
+    assert.equal(surface.peak.peak, true, 'the dialog needs to know a peak window is on to explain a suspension')
+
+    const made = fakeExchange({ method: 'POST', body: JSON.stringify({ prompt: '总结今天的构建日志', startAt: '2026-09-15T09:30:00.000Z', allowPeak: false, deliveryMode: 'official-session' }) })
+    await server.routes.get('/mega-core/task').handler(made.request, made.response)
+    assert.equal(made.response.statusCode, 200)
+    const task = JSON.parse(made.response.body)
+    assert.equal(task.ok, true)
+    assert.equal(task.task.id, 'task-1')
+    // The request reached DS-Hns exactly as the dialog wrote it: the plugin has no opinion about a task.
+    assert.deepEqual(scheduled, [{ prompt: '总结今天的构建日志', startAt: '2026-09-15T09:30:00.000Z', allowPeak: false, deliveryMode: 'official-session' }])
+
+    // A refusal keeps DS-Hns' status and sentence — a dialog that cannot say why is a dialog that makes the user
+    // guess.
+    const refused = fakeExchange({ method: 'POST', body: JSON.stringify({ prompt: '   ' }) })
+    await server.routes.get('/mega-core/task').handler(refused.request, refused.response)
+    assert.equal(refused.response.statusCode, 400)
+    const refusal = JSON.parse(refused.response.body)
+    assert.equal(refusal.ok, false)
+    assert.match(refusal.reason, /a task needs a prompt/)
+    assert.equal(refusal.field, 'prompt')
   } finally {
     await bridge.stop()
     fs.rmSync(dshHome, { recursive: true, force: true })

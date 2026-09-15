@@ -3,6 +3,41 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 新建定时任务：官方界面中间的浮窗，对话式输入，定时设置输入栏下方
+
+**入口在官方对话的头部动作里**（和官方的闹钟、任务列表并排，`conversation.session.header.actions`），点一下弹出
+**官方组件库的居中浮窗**（`@deepseek-ai/dsh-client-ui-primitives` 的 `Modal`：它自带 portal 到 body、遮罩、
+`role="dialog"` + `aria-modal`、Esc 关闭与居中，这些是手搓浮层容易做错的细节）。浮窗结构按"对话优先"排：
+
+1. **对话输入区**：一个和平时打字同形的输入框（placeholder 就是"输入要执行的内容，和平时对话一样"），
+   键盘语法与官方输入一致 —— **Enter 发送、Shift+Enter 换行、输入法组字时的 Enter 只确认候选不发任务**。
+   Enter 的三种情况各有断言，因为"输入法按 Enter 把没写完的句子发出去"是这类界面最容易犯的错。
+2. **定时设置就在输入栏下方**（同一个浮窗的底部，不是另一个页面）：发送时间（`datetime-local` + 3 分钟/30 分钟/
+   1 小时/明天 9:00 四个快捷值）、是否允许峰价、时区与峰价时段、以及**一句人话总结**——
+   "将在 2026-09-15 15:30 作为官方新会话发出 · in 2h 12m"，峰价时段且未允许峰值时这句会**多一句**说明任务会挂起
+   到谷价。
+3. 底部两个按钮 + 一句"任务会进入左侧「手动队列」，到点后作为新会话发出"。创建成功显示**真实任务**
+   （id / 状态 / 到点时间），失败显示 **DS-Hns 原话**（不吞、不翻译成"操作失败"）。
+
+**"与正常对话相同"是接出来的，而且是可断言的。** 新任务走的是 `scheduler.addTask` → `launchOfficial` →
+**官方 `session/create` + `session/prompt`**（`deepseek/official-session-client.js`，与真人按发送走的是同一对
+RPC），提示词**原样发送**（`buildPrompt` 只在有附件时追加附件清单）。新增 `scheduled-task.test.js` 用**真实
+`SchedulerService`** + 假的 official client 钉住这两件事：早一小时 tick 一次只把它挂起（`waiting-schedule`，
+**一个字节都不发**）；到点后同一个 tick 让它变成官方会话，`dispatched[0].prompt` 与用户输入**逐字相同**；
+峰价时段且未允许峰值 → 挂起（`peak-window`），允许峰值 → 照发。
+
+**能力由 DS-Hns 回答，不由前端猜。** 新增两个端点（治理桥 `/timing`、`/task`，插件同源路由
+`/mega-core/timing`、`/mega-core/task`）：默认时间（now+3 分钟）、时区、峰价时段、当前是否峰价、可选的执行方式，
+全部来自 `PricingRepository` 与 scheduler 自己的配置 —— 对话框里没有一个是硬编码的。**治理桥的动作闭集没有
+扩大**（调度不是对模块的恢复动作），桥的发现文件 schema 因此升到 2，旧版桥回答 404，对话框如实显示
+"读不到调度能力：… does not answer timing questions"（这条兼容路径已在运行中的旧实例上实测到 404）。
+
+**验证**：`mega-core-client.test.js` 15 项（新增 4：浮窗结构/输入框/定时设置在同一浮窗且顺序正确、
+Enter 三种情况 + 提交载荷与"作为对话投递"、拒绝与原话、宿主没有官方组件库时不画入口）；
+`mega-core-plugin.test.js` 6 项（路由从四条到六条并断言挂载与卸载、`/timing` 与 `/task` 的 404/405/透传、
+**通过真实治理桥**创建任务并保留 DS-Hns 的 400 与原话）；新增 `scheduled-task.test.js` 3 项。全量 1499/1499；
+`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
 ## 悬浮球：默认全部收起；点开的这一类变成一张自己的卡片
 
 **默认状态改为"全部收起"。** 上一版默认展开第一类，一打开面板就替用户做了选择，而且四类里只有一类是"活的"，其余

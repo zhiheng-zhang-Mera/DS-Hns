@@ -1586,9 +1586,103 @@ function governanceBridge() {
     stateDir: path.join(PATHS.ROOT, 'data', 'state'),
     snapshot: () => controlCenter(),
     act: (payload) => controlAction(payload),
+    // The two halves of the timing surface (pluginize Phase 2): what a scheduled task may be, and one being made.
+    timing: () => scheduledTaskSurface(),
+    createTask: (input) => scheduleTask(input),
     log: (message) => log(message)
   })
   return governanceBridgeState
+}
+
+/**
+ * What a scheduled task may be — the answer to "which choices does the new-task dialog offer".
+ *
+ * It is deliberately a *report about the scheduler*, not a policy: the peak windows come from the same
+ * `PricingRepository` a task is billed against, the time zone from the same schedule, and the defaults from the
+ * scheduler's own config. A dialog that invented these would promise a task at a time the scheduler would not run
+ * it (a task scheduled into a peak window with peak off is suspended until the window closes, not refused — which
+ * is exactly the kind of thing a UI has to be able to say before the user picks a time).
+ */
+function scheduledTaskSurface() {
+  const described = (() => {
+    try {
+      return scheduler.describe() || {}
+    } catch (error) {
+      log(`the scheduler could not be described for the timing surface: ${error?.message || error}`)
+      return {}
+    }
+  })()
+  const schedule = (() => {
+    try {
+      return scheduler.pricing?.getSchedule?.() || null
+    } catch {
+      return null
+    }
+  })()
+  const config = described.config || {}
+  return {
+    kind: 'scheduled-task',
+    // Free text plus this: a task is a prompt sent at a time, and that is the whole of it.
+    fields: { prompt: { required: true, maxLength: 20000 }, startAt: { required: false, format: 'iso-8601' } },
+    defaults: {
+      // Relative to "now" when the dialog opens, not to when DS-Hns started: three minutes is long enough to
+      // type a sentence and short enough that "I will set the real time" is not a chore.
+      startAt: new Date(Date.now() + 3 * 60_000).toISOString(),
+      allowPeak: Boolean(config.defaultAllowPeak),
+      deliveryMode: 'official-session'
+    },
+    schedule: {
+      timeZone: schedule?.timeZone || 'Asia/Shanghai',
+      weekdays: schedule?.weekdays || [1, 2, 3, 4, 5],
+      peakPeriods: schedule?.peakPeriods || []
+    },
+    peak: described.peak || null,
+    // The two facts that decide whether "run it now" and "run it at peak" are even possible.
+    interruptRunningAtPeak: Boolean(config.interruptRunningAtPeak),
+    limits: { minStartOffsetSeconds: 0, maxStartAheadDays: 365 },
+    deliveryModes: [
+      { id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true },
+      { id: 'headless', cn: 'Headless 后台', en: 'Headless background', default: false }
+    ]
+  }
+}
+
+/**
+ * Schedule one task (`POST /task` on the governance bridge).
+ *
+ * It goes through the **same** `scheduler.addTask` the dock's own form uses, so a task made from the official UI
+ * and a task made from the dock are the same kind of thing — and it answers with what the scheduler recorded
+ * rather than with a hopeful `{ ok: true }`, because the dialog shows the user the id and the instant they just
+ * committed to.
+ *
+ * The refusals are the scheduler's own (`prompt is required`, `invalid startAt`), reported as data: a dialog that
+ * cannot say *why* a task was refused is a dialog that makes the user guess.
+ */
+async function scheduleTask(input = {}) {
+  const prompt = String(input.prompt ?? '').trim()
+  if (!prompt) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+  const startAt = input.startAt === undefined || input.startAt === null || input.startAt === '' ? null : String(input.startAt)
+  if (startAt !== null && Number.isNaN(Date.parse(startAt))) {
+    return { ok: false, reason: `"${startAt}" is not a time this scheduler can read`, field: 'startAt' }
+  }
+  try {
+    const task = scheduler.addTask({
+      prompt,
+      startAt,
+      allowPeak: input.allowPeak === undefined ? undefined : input.allowPeak === true,
+      // The one delivery a "scheduled conversation" can have: a new official session, exactly like typing the
+      // same prompt into the composer and pressing send. `headless` stays reachable from the dock's own form,
+      // which is where a background job (no transcript, no session) actually belongs.
+      deliveryMode: input.deliveryMode === 'headless' ? 'headless' : 'official-session',
+      queuePosition: 'bottom',
+      permissionMode: input.permissionMode || undefined
+    })
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`scheduling a task from the official UI failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error) }
+  }
 }
 
 /**
