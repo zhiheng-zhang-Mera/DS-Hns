@@ -47,20 +47,8 @@ if (($InstallMarket -or $InstallWallpaper) -and $SkipOptionalPlugins) {
 $profileName = if ($Profile) { $Profile } elseif ($env:DSH_PROFILE) { $env:DSH_PROFILE } else { 'web' }
 $dshHomePath = if ($DshHome) { $DshHome } elseif ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $ROOT 'data' }
 
-# Is there a person to ask? `-NonInteractive` says no explicitly; a redirected stdin or no console
-# says it too, and in either case the optional plugins are skipped unless a parameter named them.
-$interactive = -not $NonInteractive
-if ($interactive) {
-  try {
-    if ($Host.UI -and $Host.UI.RawUI) {
-      if ([Console]::IsInputRedirected) { $interactive = $false }
-    } else {
-      $interactive = $false
-    }
-  } catch {
-    $interactive = $false
-  }
-}
+# `-NonInteractive` means "ask nothing": the plugins are then skipped unless a parameter named one.
+$skipOptional = [bool]$SkipOptionalPlugins -or [bool]$NonInteractive
 
 $cli = Join-Path $ROOT 'app\extensions\mega\plugins\community-install-cli.cjs'
 if (-not (Test-Path -LiteralPath $cli)) {
@@ -122,14 +110,21 @@ if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
 }
 
 # The plan: the release pin, the profile's own manifest, and whether each plugin is already there.
-$planRaw = & $nodeExe $cli '--describe' '--json' "--profile=$profileName" "--dsh-home=$dshHomePath" "--root=$ROOT" 2>$null
+# Read from a UTF-8 report file rather than from captured stdout -- Windows PowerShell decodes a native
+# command's output through the console code page, and this file is the answer everything below depends on.
+$planReport = Join-Path ([System.IO.Path]::GetTempPath()) "dsh-community-plan-$PID.json"
+Remove-Item -LiteralPath $planReport -Force -ErrorAction SilentlyContinue
+$null = & $nodeExe $cli '--describe' "--profile=$profileName" "--dsh-home=$dshHomePath" "--root=$ROOT" "--report=$planReport" 2>$null
 $plan = $null
-if ($LASTEXITCODE -eq 0) {
-  $planText = (@($planRaw) -join '').Trim()
-  if ($planText) {
-    try { $plan = $planText | ConvertFrom-Json } catch { $plan = $null }
+if (Test-Path -LiteralPath $planReport) {
+  try {
+    $planText = [System.IO.File]::ReadAllText($planReport, [System.Text.Encoding]::UTF8).Trim()
+    if ($planText) { $plan = $planText | ConvertFrom-Json }
+  } catch {
+    $plan = $null
   }
 }
+Remove-Item -LiteralPath $planReport -Force -ErrorAction SilentlyContinue
 $planned = @()
 if ($plan -and $plan.plugins) { $planned = @($plan.plugins) }
 if ($planned.Count -eq 0) {
@@ -146,35 +141,18 @@ foreach ($entry in $planned) {
 $marketRequested = [bool]$InstallMarket
 $wallpaperRequested = [bool]$InstallWallpaper
 
-function Read-PluginChoice([string]$Label) {
-  Write-Host ''
-  Write-Host "  Install the optional community plugin $Label ?"
-  Write-Host "  [1] Install $Label  /  (ZH: install $Label)"
-  Write-Host '  [2] Skip  /  (ZH: skip)'
-  Write-Host '  Default: 2 (Skip).'
-  $answer = ''
-  while (($answer -ne '1') -and ($answer -ne '2')) {
-    $answer = (Read-Host "  Choose 1 or 2 for $Label [2]").Trim()
-    if (-not $answer) { $answer = '2' }
-  }
-  return ($answer -eq '1')
-}
-
-# One plugin, one question. The wallpaper engine is asked about first because it is the one a user
-# notices; the market is asked about separately, so "yes to one and no to the other" is expressible.
-if (-not $marketRequested -and -not $wallpaperRequested -and -not $SkipOptionalPlugins) {
-  if ($interactive) {
-    $wallpaperRequested = Read-PluginChoice 'Wallpaper Engine'
-    $marketRequested = Read-PluginChoice 'Plugin Market'
-  } else {
-    Write-Host '  No interactive console: optional community plugins are skipped unless -InstallMarket or -InstallWallpaper asks for one.'
-  }
-}
-
+# One plugin, one question, one answer -- and the questions are asked by the Node command line, using
+# the bilingual label file, because this script has to stay ASCII-only (Windows PowerShell 5.1 reads a
+# BOM-less .ps1 as ANSI, so a Chinese character written here corrupts the prompt or the parse).
+#
+# A parameter answers; otherwise `--ask` is passed and the command line asks only if it has a console.
+# With a redirected or closed stdin it reads end-of-input and skips, which is the requirement's default
+# for an unattended run: nothing optional is installed, and nothing blocks waiting for an answer.
 $cliArgs = @($cli)
 if ($marketRequested) { $cliArgs += '--install-market' }
 if ($wallpaperRequested) { $cliArgs += '--install-wallpaper' }
-if ($SkipOptionalPlugins) { $cliArgs += '--skip' }
+if ($skipOptional) { $cliArgs += '--skip' }
+if ((-not $marketRequested) -and (-not $wallpaperRequested) -and (-not $skipOptional)) { $cliArgs += '--ask' }
 if ($Json) { $cliArgs += '--json' }
 if ($FixtureMap) { $cliArgs += "--fixture=$FixtureMap" }
 if ($ExtraArgs) { $cliArgs += "--extra=$ExtraArgs" }

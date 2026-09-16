@@ -11,8 +11,10 @@ param(
   [switch]$SkipOptionalPlugins,
   # The Harness profile the community plugins are installed into. The product boots `web`.
   [string]$Profile = '',
-  # Ask nothing: an optional community plugin is then skipped unless -InstallMarket /
-  # -InstallWallpaper named it. Detected automatically when the installer has no console.
+  # Ask nothing: the optional community plugins are then skipped unless -InstallMarket /
+  # -InstallWallpaper named one. Unlike a redirected stdin (which the command line detects and treats
+  # as skip), this says so outright, and combines with a plugin parameter as a contradiction rather
+  # than being silently overridden.
   [switch]$NonInteractive,
   # Test seam, and only that: a JSON file mapping a community plugin's package name to a local
   # directory that stands in for it, so the *installation channel* can be exercised without a
@@ -193,14 +195,15 @@ Write-Host "Root: $ROOT"
 # established, instead of re-deriving it.
 $script:MegaCoreState = 'NOT INSTALLED'
 
-if (($InstallMarket -or $InstallWallpaper) -and $SkipOptionalPlugins) {
+if (($InstallMarket -or $InstallWallpaper) -and ($SkipOptionalPlugins -or $NonInteractive)) {
   # Two different instructions, and a tool that silently picks one has decided something the person
   # did not say. This is a usage error, so it is raised the way the other bad invocations are. The
   # message names the parameters that were actually given, because "which two?" is the first question.
   $named = @()
   if ($InstallMarket) { $named += '-InstallMarket' }
   if ($InstallWallpaper) { $named += '-InstallWallpaper' }
-  throw "$($named -join ' and ') cannot be combined with -SkipOptionalPlugins: one says install an optional community plugin and the other says do not."
+  $against = if ($SkipOptionalPlugins) { '-SkipOptionalPlugins' } else { '-NonInteractive' }
+  throw "$($named -join ' and ') cannot be combined with $against : one says install an optional community plugin and the other says do not."
 }
 
 Write-Step '0/9 PowerShell parser preflight'
@@ -337,21 +340,15 @@ $communitySelections = [ordered]@{
 $communityReport = $null
 $communityAvailable = $false
 
-# Is there a person to ask? `-NonInteractive` says no explicitly; a redirected stdin or no console
-# says it too. The answer decides whether the prompts below run at all -- an unattended install must
-# never block on a question, and must never answer one itself.
-$interactive = -not $NonInteractive
-if ($interactive) {
-  try {
-    if ($Host.UI -and $Host.UI.RawUI) {
-      if ([Console]::IsInputRedirected) { $interactive = $false }
-    } else {
-      $interactive = $false
-    }
-  } catch {
-    $interactive = $false
-  }
-}
+# Whether the questions may be asked is decided in **one** place, and it is not here.
+#
+# The installer passes `--ask` whenever no parameter answered the question, and the Node command line
+# asks only when it really has a console: with a terminal it prints the numbered choice and reads the
+# answer, and with a redirected or closed stdin `readline` answers end-of-input, which the command line
+# treats as *skip*. That split is deliberate -- PowerShell cannot tell a terminal from a pipe reliably
+# (`[Console]::IsInputRedirected` is true under `-File`, under a pipe and under a test harness alike),
+# and a guess here would either silence a real prompt or hang an unattended install. Node can tell, so
+# Node decides, and an unattended install installs nothing.
 
 $communityNode = ''
 try {
@@ -415,7 +412,7 @@ if ($communityAvailable) {
 
 $marketRequested = [bool]$InstallMarket
 $wallpaperRequested = [bool]$InstallWallpaper
-$skipOptional = [bool]$SkipOptionalPlugins
+$skipOptional = [bool]$SkipOptionalPlugins -or [bool]$NonInteractive
 
 if ($communityAvailable) {
   # The plan is what the summary reads before anything happens: the release pin, the profile's own
@@ -437,15 +434,16 @@ if ($communityAvailable) {
   # the note in `scripts\install-community-plugins.ps1`).
   #
   # The split of responsibility is exact:
-  #   * a parameter answers the question, so `--ask` is *not* passed and nothing is asked;
-  #   * otherwise, with a console, `--ask` is passed and Node asks about each plugin separately;
-  #   * without a console, neither parameter nor prompt is possible, so the plugins are skipped --
-  #     which is the requirement's default for an unattended install.
+  #   * a parameter answered the question (`-InstallMarket`, `-InstallWallpaper`), so `--ask` is *not*
+  #     passed and nothing is asked;
+  #   * `-SkipOptionalPlugins` or `-NonInteractive` says skip, so `--skip` records both as declined;
+  #   * otherwise `--ask` is passed, and the command line decides whether it has a console to ask on:
+  #     with one it asks about each plugin separately, and without one it reads end-of-input and skips.
   $cliArgs = @($communityCli)
   if ($InstallMarket) { $cliArgs += '--install-market' }
   if ($InstallWallpaper) { $cliArgs += '--install-wallpaper' }
-  if ($SkipOptionalPlugins) { $cliArgs += '--skip' }
-  if ((-not $InstallMarket) -and (-not $InstallWallpaper) -and (-not $SkipOptionalPlugins) -and $interactive) { $cliArgs += '--ask' }
+  if ($skipOptional) { $cliArgs += '--skip' }
+  if ((-not $InstallMarket) -and (-not $InstallWallpaper) -and (-not $skipOptional)) { $cliArgs += '--ask' }
   if ($CommunityFixtureMap) { $cliArgs += "--fixture=$CommunityFixtureMap" }
   if ($CommunityExtraArgs) { $cliArgs += "--extra=$CommunityExtraArgs" }
   $cliArgs += "--profile=$profileName"
@@ -504,6 +502,8 @@ if ($communityAvailable) {
         Write-Warning "The community plugin report could not be read: $($_.Exception.Message)"
       }
     }
+  } elseif ($skipOptional) {
+    Write-Host '  Optional community plugins were skipped; the decision is recorded so a later boot cannot install them.'
   }
 }
 

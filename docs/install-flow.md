@@ -74,6 +74,14 @@ reads a BOM-less `.ps1` as ANSI, so a Chinese character written into one of them
 prompt or the parse), and `tests\unit\installer-optional-plugins.test.js` keeps both facts tied
 together.
 
+**Who decides whether to ask.** The installer passes `--ask` whenever no parameter answered the
+question, and the command line asks only when it really has a console to ask on: with a terminal it
+prints the numbered choice and reads the answer; with a redirected or closed stdin `readline`
+answers end-of-input, which the command line treats as *skip*. PowerShell cannot tell a terminal
+from a pipe reliably, and a guess there would either silence a real prompt or hang an unattended
+install — so the check lives where the answer is knowable, and an unattended install installs
+nothing rather than blocking or guessing.
+
 ### The parameters
 
 Parameters answer the questions, so nothing is asked:
@@ -83,7 +91,7 @@ Parameters answer the questions, so nothing is asked:
 | `-InstallMarket` | install `@dsh-market/plugin` at the pinned reference |
 | `-InstallWallpaper` | install `dsh-plugin-wallpaper-engine` at the pinned reference |
 | `-SkipOptionalPlugins` | install neither; record both as declined |
-| `-NonInteractive` | ask nothing (also detected when stdin is redirected or there is no console) |
+| `-NonInteractive` | ask nothing: same as `-SkipOptionalPlugins`, and a contradiction with a plugin parameter |
 | `-Profile <name>` | the Harness profile to install into (default `web`, or `$env:DSH_PROFILE`) |
 | `-SkipRuntimeCleanup` | skip step 1/9's sweep, for installing beside another running DS-Harness |
 | `-SkipTests`, `-NoLaunch`, `-NoShortcuts` | the pre-existing switches |
@@ -101,16 +109,17 @@ answered the question.
 says two different things, so the installer stops with:
 
 ```
--InstallMarket cannot be combined with -SkipOptionalPlugins: one says install an optional community
+-InstallMarket cannot be combined with -SkipOptionalPlugins : one says install an optional community
 plugin and the other says do not.
 ```
 
-and exit code 1 — before any step runs. The same rule is enforced a second time inside the Node
-command line (exit code 2), because the standalone script is a surface of its own.
+and exit code 1 — before any step runs. `-NonInteractive` counts on the same side as
+`-SkipOptionalPlugins`. The same rule is enforced a second time inside the Node command line (exit
+code 2), because the standalone script is a surface of its own.
 
-**Unattended installs skip both.** With no console, neither a parameter nor a prompt is possible,
-so nothing optional is installed. That is the default the requirement names: nothing optional is
-ever installed by a default nobody chose.
+**Unattended installs install neither.** With no parameter and no console the question cannot be
+answered, so both are skipped — and skipped, not deferred: the choice is recorded so a later boot
+cannot install them behind the user's back.
 
 ### Which pipeline installs them
 

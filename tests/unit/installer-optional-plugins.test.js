@@ -577,7 +577,7 @@ function installerFixture(label) {
 }
 
 /** Run the real installer in the fixture, with a console-free, prompt-free environment. */
-function runInstaller(root, extraArgs = []) {
+function runInstaller(root, extraArgs = [], options = {}) {
   // The fixture map: the two published packages stand in as local directories, so the *installation
   // channel* is exercised end to end without a registry. It is passed as a flag, exactly as the
   // command line's own `--fixture` seam is documented, and only the tests pass it.
@@ -586,6 +586,10 @@ function runInstaller(root, extraArgs = []) {
     '@dsh-market/plugin': MARKET_FIXTURE,
     'dsh-plugin-wallpaper-engine': WALLPAPER_FIXTURE
   }, null, 2)}\n`, 'utf8')
+  // `-NonInteractive` says "ask nothing", so it is a contradiction with a plugin parameter (the
+  // installer refuses the combination). The tests that name a plugin therefore do not pass it, and the
+  // ones that exercise it pass `-NonInteractive` themselves.
+  const namesAPlugin = extraArgs.some((arg) => arg === '-InstallMarket' || arg === '-InstallWallpaper')
   const args = [
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
@@ -593,7 +597,7 @@ function runInstaller(root, extraArgs = []) {
     '-SkipTests',
     '-NoLaunch',
     '-NoShortcuts',
-    '-NonInteractive',
+    ...(options.keepConsole || namesAPlugin ? [] : ['-NonInteractive']),
     // Passed as two tokens rather than `-Name=Value`: Windows PowerShell 5.1's `-File` argument parser
     // does not accept the `=` form for a string parameter, and a fixture seam that silently receives
     // nothing is a test that quietly asserts the wrong thing.
@@ -605,6 +609,7 @@ function runInstaller(root, extraArgs = []) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 240_000,
+    input: options.input,
     env: {
       ...process.env,
       DEEPSEEK_API_KEY: 'sk-installer-fixture-key',
@@ -748,13 +753,165 @@ test('the installer reports the plugins an existing profile already carries as a
   assert.equal(summary['Adapter registry'], 'OK', 'an already-installed plugin was not verified')
 })
 
+/**
+ * A console, from the command line's point of view.
+ *
+ * `askSelected` is handed `process.stdin`/`process.stdout`, and it is a TTY or it is not: under a pipe
+ * `readline` answers end-of-input, which is the unattended path and is covered by the command line
+ * tests. The interactive path is therefore driven where the decision is actually made, with an input
+ * stream that says it is a terminal and a recorded output stream, so what is asserted is the real
+ * function's own behaviour rather than a description of it.
+ */
+function fakeConsole() {
+  const readline = require('node:readline')
+  const { PassThrough } = require('node:stream')
+  const input = new PassThrough()
+  const output = new PassThrough()
+  input.isTTY = true
+  output.isTTY = true
+  let printed = ''
+  output.on('data', (chunk) => { printed += chunk.toString('utf8') })
+  // The questions and their numbered choices are written to **stderr** (stdout carries the
+  // machine-readable report), so the recording covers both streams.
+  const { Writable } = require('node:stream')
+  const errors = new Writable({
+    write(chunk, _encoding, callback) {
+      printed += chunk.toString('utf8')
+      callback()
+    }
+  })
+  // The prompts are answered in order, one line per question.
+  const answers = []
+  const originalCreate = readline.createInterface
+  readline.createInterface = (options) => {
+    const rl = originalCreate(options)
+    rl.question = (text, callback) => {
+      printed += text
+      const next = answers.shift()
+      setImmediate(() => callback(next === undefined ? '' : next))
+    }
+    return rl
+  }
+  return {
+    input,
+    output,
+    errors,
+    answers,
+    printed: () => printed,
+    restore: () => { readline.createInterface = originalCreate }
+  }
+}
+
+/** Run the interactive prompt with a scripted set of answers and return what it produced. */
+async function askWith(answers) {
+  const console_ = fakeConsole()
+  console_.answers.push(...answers)
+  const plan = community.describeCommunity({ root: scratchDir('ask'), profile: 'web', dshHome: path.join(scratchDir('ask-home'), 'data') }).plugins
+  const originals = {
+    stdin: Object.getOwnPropertyDescriptor(process, 'stdin'),
+    stdout: Object.getOwnPropertyDescriptor(process, 'stdout'),
+    stderr: Object.getOwnPropertyDescriptor(process, 'stderr')
+  }
+  Object.defineProperty(process, 'stdin', { value: console_.input, configurable: true })
+  Object.defineProperty(process, 'stdout', { value: console_.output, configurable: true })
+  Object.defineProperty(process, 'stderr', { value: console_.errors, configurable: true })
+  try {
+    const selection = await cli.askSelected({ plan, labels: cli.loadLabels(), selection: { market: false, wallpaper: false } })
+    return { selection, printed: console_.printed() }
+  } finally {
+    console_.restore()
+    for (const [name, descriptor] of Object.entries(originals)) {
+      if (descriptor) Object.defineProperty(process, name, descriptor)
+    }
+  }
+}
+
+test('each plugin is asked about separately, and only the one answered "1" is selected', async () => {
+  // The four combinations, each driven through the real prompt.
+  const cases = [
+    { answers: ['1', '1'], market: true, wallpaper: true },
+    { answers: ['1', '2'], market: false, wallpaper: true },
+    { answers: ['2', '1'], market: true, wallpaper: false },
+    { answers: ['2', '2'], market: false, wallpaper: false }
+  ]
+  for (const item of cases) {
+    const { selection, printed } = await askWith(item.answers)
+    assert.equal(selection.wallpaper, item.wallpaper, `wallpaper for answers ${item.answers.join(',')}`)
+    assert.equal(selection.market, item.market, `market for answers ${item.answers.join(',')}`)
+
+    // Both questions were asked, separately, in both languages, with the numbered choice the
+    // requirement names. The options are asserted as the label file's own lines: the closing prompt
+    // repeats the number as its default hint, so counting `[2]` occurrences would count that too.
+    assert.match(printed, /Install Wallpaper Engine/)
+    assert.match(printed, /壁纸引擎/)
+    assert.match(printed, /Install Plugin Market/)
+    assert.match(printed, /插件商店/)
+    const labels = cli.loadLabels()
+    for (const id of [WALLPAPER, MARKET]) {
+      assert.ok(printed.includes(labels.labels[id].options[0]), `${id}: the install option was not printed`)
+      assert.ok(printed.includes(labels.labels[id].options[1]), `${id}: the skip option was not printed`)
+    }
+  }
+})
+
+test('an empty answer at each prompt means skip: the default installs nothing', async () => {
+  const { selection, printed } = await askWith(['', ''])
+  assert.equal(selection.wallpaper, false)
+  assert.equal(selection.market, false)
+  assert.match(printed, /默认是 2/)
+})
+
+test('an answer that is neither 1 nor 2 is refused and asked again', async () => {
+  const { selection, printed } = await askWith(['yes', '3', '1', '2'])
+  assert.equal(selection.wallpaper, true, 'the retry after an invalid answer was not honoured')
+  assert.equal(selection.market, false)
+  assert.match(printed, /请输入 1 或 2。|Please answer 1 or 2/)
+})
+
+test('the interactive path installs exactly what its answers said, and nothing else', async () => {
+  // The whole way through: the real command line, with a console, asked to install the market only.
+  const root = scratchDir('interactive-cli')
+  const home = path.join(root, 'data')
+  const prompts = fakeConsole()
+  prompts.answers.push('2', '1') // wallpaper: skip, market: install
+  const realStdin = Object.getOwnPropertyDescriptor(process, 'stdin')
+  const realStdout = Object.getOwnPropertyDescriptor(process, 'stdout')
+  Object.defineProperty(process, 'stdin', { value: prompts.input, configurable: true })
+  Object.defineProperty(process, 'stdout', { value: prompts.output, configurable: true })
+  let code = null
+  try {
+    code = await cli.main([
+      '--ask',
+      '--json',
+      `--profile=web`,
+      `--dsh-home=${home}`,
+      `--root=${ROOT}`
+    ])
+  } finally {
+    prompts.restore()
+    if (realStdin) Object.defineProperty(process, 'stdin', realStdin)
+    if (realStdout) Object.defineProperty(process, 'stdout', realStdout)
+  }
+  assert.equal(code, 1, 'the market cannot install here without the Harness CLI, so the run reports a failure')
+
+  // The answers were asked for, and the profile reflects them: the wallpaper was declined, the market
+  // was attempted. That is the interaction being real rather than described.
+  assert.match(prompts.printed(), /壁纸引擎/)
+  const declared = community.readInstalled({ root, profile: 'web', dshHome: home, packageName: 'dsh-plugin-wallpaper-engine' })
+  assert.equal(declared.installed, false, 'the wallpaper was installed although the answer was 2')
+  const decisions = community.readOptionalPlugins(root).plugins
+  assert.equal(decisions['dsh-wallpaper-engine'], undefined, 'a declined plugin must not be recorded as attempted')
+})
+
 test('the real installer CLI surface is the one the requirement names', () => {
   const text = fs.readFileSync(path.join(ROOT, 'scripts', 'install.ps1'), 'utf8')
-  for (const parameter of ['-InstallMarket', '-InstallWallpaper', '-SkipOptionalPlugins', '-NonInteractive', '-Profile']) {
+  for (const parameter of ['-InstallMarket', '-InstallWallpaper', '-SkipOptionalPlugins', '-NonInteractive', '-Profile', '-SkipRuntimeCleanup']) {
     assert.match(text, new RegExp(parameter.replace('-', '\\-')), `scripts/install.ps1 does not accept ${parameter}`)
   }
-  // The parameters outrank the prompt: the question is asked only when none of the three answered it.
-  assert.match(text, /if \(\(-not \$InstallMarket\) -and \(-not \$InstallWallpaper\) -and \(-not \$SkipOptionalPlugins\) -and \$interactive\) \{ \$cliArgs \+= '--ask' \}/)
+  // The parameters outrank the prompt: `--ask` is passed only when none of them answered the question,
+  // and `--skip` whenever the invocation said not to ask or not to install.
+  assert.match(text, /if \(\(-not \$InstallMarket\) -and \(-not \$InstallWallpaper\) -and \(-not \$skipOptional\)\) \{ \$cliArgs \+= '--ask' \}/)
+  assert.match(text, /\$skipOptional = \[bool\]\$SkipOptionalPlugins -or \[bool\]\$NonInteractive/)
   // The installer calls the existing channel rather than installing anything itself.
   assert.match(text, /community-install-cli\.cjs|communityCli/)
   assert.doesNotMatch(text, /git clone/i, 'the installer must not clone a plugin into place')
