@@ -78,6 +78,13 @@ const SOURCE_DIRS = [
   'core/lockfile',
   'core/resource-manager',
   'core/health-supervisor',
+  // The plugin adapter framework and the Cordis/DSH community adapter. Phase 1 added the framework
+  // and this phase added the bridge, and both escaped this gate until they were listed: the
+  // collector is non-recursive, so a whole new subtree is silent by default. Named here for the
+  // same reason as every other entry.
+  'core/plugin-adapters',
+  'core/plugin-adapters/adapters',
+  'core/plugin-adapters/bridge',
   // The provider that carries the DeepSeek-specific knowledge, so no generic
   // plugin has to.
   'plugins/providers/deepseek',
@@ -119,7 +126,10 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'dshns-baseline.cjs'),
   // The combined acceptance run: plugin acceptance A-D plus the engineering
   // completion checklist, with the evidence named for every check.
-  path.join(ROOT, 'scripts', 'combined-acceptance.cjs')
+  path.join(ROOT, 'scripts', 'combined-acceptance.cjs'),
+  // The Cordis/DSH community adapter acceptance: the two real community plugins plus a plugin the
+  // script writes itself, through the whole install/enable/disable/reload/health/uninstall flow.
+  path.join(ROOT, 'scripts', 'cordis-adapter-acceptance.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

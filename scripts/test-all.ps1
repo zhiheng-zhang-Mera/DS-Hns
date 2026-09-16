@@ -130,6 +130,12 @@ try {
     'plugin-adapters-framework.test.js',
     'plugin-adapters-fault-injection.test.js',
     'plugin-adapters-compatibility.test.js',
+    # The Cordis/DSH community adapter and its controlled bridge. The bridge suite is the one that
+    # asserts a community plugin is handed no HNS Core object, so a renamed file here would drop
+    # the coverage of a security-shaped claim rather than a feature.
+    'plugin-cordis-structure.test.js',
+    'plugin-cordis-bridge.test.js',
+    'plugin-cordis-dsh.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',
