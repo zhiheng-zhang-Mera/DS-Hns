@@ -62,6 +62,19 @@ const RUNTIME_KINDS = Object.freeze({
     summary: 'runs in its own child process',
     detail: 'an import-time throw, a process.exit, a hang or a later crash stay in the child; the declaration is a record of what it may reach, not a sandbox'
   }),
+  /**
+   * A long-lived background process the host starts, watches and stops, and reaches over a declared
+   * protocol. Unlike `isolated-process`, which is a plugin the host *loads*, this is a plugin the
+   * host *runs*: it has its own lifetime, its own heartbeat and its own exit codes, and what it
+   * offers is reached by sending it a message rather than by calling into it.
+   */
+  MANAGED_PROCESS: Object.freeze({
+    id: 'managed-process',
+    enforcement: 'protocol',
+    isolation: 'process',
+    summary: 'runs as a separately managed background process',
+    detail: 'the host starts, watches, restarts and stops it; everything it offers is reached over a declared transport, so no host object is handed over and its capabilities are declared in its manifest rather than discovered at runtime'
+  }),
   DECLARATIVE: Object.freeze({
     id: 'declarative',
     enforcement: 'declared-only',

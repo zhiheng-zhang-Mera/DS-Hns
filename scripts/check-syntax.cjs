@@ -85,6 +85,9 @@ const SOURCE_DIRS = [
   'core/plugin-adapters',
   'core/plugin-adapters/adapters',
   'core/plugin-adapters/bridge',
+  // The managed-process half: the process contract, the two transports and the supervisor that
+  // starts, watches, bounds and stops a background plugin.
+  'core/plugin-adapters/process',
   // The provider that carries the DeepSeek-specific knowledge, so no generic
   // plugin has to.
   'plugins/providers/deepseek',
@@ -129,7 +132,13 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'combined-acceptance.cjs'),
   // The Cordis/DSH community adapter acceptance: the two real community plugins plus a plugin the
   // script writes itself, through the whole install/enable/disable/reload/health/uninstall flow.
-  path.join(ROOT, 'scripts', 'cordis-adapter-acceptance.cjs')
+  path.join(ROOT, 'scripts', 'cordis-adapter-acceptance.cjs'),
+  // The managed-process acceptance: the real dsh-restart-supervisor behind an external companion,
+  // with DS-Hns holding nothing but a restart-control capability bridge.
+  path.join(ROOT, 'scripts', 'process-adapter-acceptance.cjs'),
+  // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
+  // checked like any other program the repository ships.
+  path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

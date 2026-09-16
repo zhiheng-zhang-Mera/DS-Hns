@@ -45,6 +45,7 @@ const { createAdapterFramework } = require('./core/plugin-adapters/index.cjs')
 const { createNativeAdapter } = require('./core/plugin-adapters/adapters/native.cjs')
 const { createCordisAdapter } = require('./core/plugin-adapters/adapters/cordis.cjs')
 const { createCordisDshAdapter } = require('./core/plugin-adapters/adapters/cordis-dsh.cjs')
+const { createProcessPluginAdapter } = require('./core/plugin-adapters/adapters/process.cjs')
 const { PARALLEL_MODES, MODE_POLICY } = require('./plugins/acceleration/parallel-executor/index.cjs')
 const { mountedPlugins } = require('./plugins/mounted/index.cjs')
 const { accelerationPlugins } = require('./plugins/acceleration/index.cjs')
@@ -210,6 +211,13 @@ function createPluginHost(options = {}) {
     policy: options.permissionPolicy && typeof options.permissionPolicy === 'object' ? options.permissionPolicy : {}
   })
   adapters.register(createNativeAdapter())
+  // Managed background processes: a plugin the host *runs* rather than loads. Registered without
+  // services because the adapter needs none -- its whole surface is the process contract, which is
+  // what makes it able to serve a supervisor, a Python server and a compiled binary alike.
+  adapters.register(createProcessPluginAdapter({
+    nodeExe: options.nodeExe,
+    log: (event) => log(`process ${JSON.stringify(event).slice(0, 200)}`)
+  }))
   adapters.register(createCordisDshAdapter({
     // The real services a community plugin's host half is allowed to reach, if this deployment has
     // any. The shell is a different process from the harness, so it usually has no `webServer` —

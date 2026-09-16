@@ -136,6 +136,10 @@ try {
     'plugin-cordis-structure.test.js',
     'plugin-cordis-bridge.test.js',
     'plugin-cordis-dsh.test.js',
+    # The managed-process adapter: the contract, both transports, the bounded restart and the
+    # business-free claim. Asserted by name like the rest, because a renamed file here would drop
+    # the coverage of the "never an infinite restart loop" requirement.
+    'plugin-process-adapter.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

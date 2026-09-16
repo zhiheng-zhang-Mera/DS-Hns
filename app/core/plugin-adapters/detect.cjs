@@ -41,6 +41,8 @@ const PLUGIN_TYPES = Object.freeze({
   DECLARED: 'dshns.declared',
   /** An already-imported module that exports a standard plugin (the in-process case). */
   MODULE: 'dshns.module',
+  /** A `dshns-process.json`: a standalone program the host *runs* rather than loads. */
+  PROCESS: 'dshns.process',
   /** A descriptor a previous compatibility pass derived and wrote beside the package. */
   COMPAT_DESCRIPTOR: 'compat.descriptor',
   /** A package that declares the other DSH host's bundle metadata. */
@@ -61,6 +63,7 @@ const PLUGIN_TYPE_IDS = Object.freeze(Object.values(PLUGIN_TYPES))
 const MANIFEST_FILE = 'dshns-plugin.json'
 const COMPAT_FILE = 'dshns-plugin.compat.json'
 const CORDIS_PATCH_FILE = 'cordis.patch.yml'
+const PROCESS_FILE = 'dshns-process.json'
 
 /** Read a JSON file, returning null instead of throwing: half of these files are optional. */
 function readJson(file) {
@@ -106,6 +109,35 @@ function normalizeArtifact(artifact) {
  */
 function builtinDetectors() {
   return [
+    {
+      id: 'process-manifest',
+      /**
+       * Highest priority, because a process declaration is unambiguous: a directory that says "run
+       * this command" is a process plugin whatever else it also looks like, and letting a
+       * `package.json` beside it win would adapt it as something the host loads.
+       */
+      priority: 110,
+      detect(artifact) {
+        if (!artifact.dir) return null
+        const file = path.join(artifact.dir, PROCESS_FILE)
+        if (!isFile(file)) return null
+        const declaration = readJson(file)
+        if (!declaration) {
+          return {
+            type: PLUGIN_TYPES.UNKNOWN,
+            confidence: 0.4,
+            evidence: [`${PROCESS_FILE} exists but could not be parsed as a JSON object`]
+          }
+        }
+        const version = String(declaration.api_version || '')
+        return {
+          type: PLUGIN_TYPES.PROCESS,
+          confidence: version === 'dshns.process/v1' ? 1 : 0.6,
+          evidence: [`${PROCESS_FILE}#api_version=${version || '(absent)'}`],
+          detail: { declaration }
+        }
+      }
+    },
     {
       id: 'declared-manifest',
       priority: 100,
@@ -323,6 +355,7 @@ module.exports = {
   MANIFEST_FILE,
   COMPAT_FILE,
   CORDIS_PATCH_FILE,
+  PROCESS_FILE,
   createTypeDetector,
   normalizeArtifact,
   builtinDetectors,
