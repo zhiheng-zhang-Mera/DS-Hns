@@ -467,6 +467,17 @@ Check 'The syntax gate covers the engineering runtime' (($engCheck -match "'engi
 Check 'The reference doc records the long-running guarantees (24h plan 1-20)' ((Get-Content "$ROOT\docs\computer-use.md" -Raw) -match 'Long-running execution')
 Check 'The acceptance record targets the soak and the failure matrix (24h plan 23-25)' (((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'soak') -and ((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'failure-injection'))
 
+# ---- The installed shape of the shipped plugin (the one acceptance that leaves the checkout) ----
+# Every other check above reads the source tree. This one is about what the installer puts on disk: the
+# bundle is discovered, is loadable from the profile's own node_modules, and reaches the official Settings.
+Check 'The installation-level Mega Core acceptance ships' (Test-Path "$ROOT\tests\unit\mega-core-install-acceptance.test.js")
+Check 'The install acceptance is asserted by name in the test gate' ((Get-Content "$ROOT\scripts\test-all.ps1" -Raw) -match 'mega-core-install-acceptance\.test\.js')
+Check 'The install acceptance is asserted by name in the CI gate' ((Get-Content "$ROOT\.github\workflows\verify.yml" -Raw) -match 'mega-core-install-acceptance\.test\.js')
+$installAcceptance = Get-Content "$ROOT\tests\unit\mega-core-install-acceptance.test.js" -Raw -ErrorAction SilentlyContinue
+# The three facts, each named in the suite itself: a suite that quietly stopped asserting one of them would
+# still be green, so the words it has to contain are asserted here.
+Check 'The install acceptance checks discovery, loading and the official Settings' (($installAcceptance -match 'shipped') -and ($installAcceptance -match 'settings\.section') -and ($installAcceptance -match 'shadowManifests'))
+
 if (-not $SkipTests) {
   Write-Output ''
   Write-Output '== Unit + architecture tests =='

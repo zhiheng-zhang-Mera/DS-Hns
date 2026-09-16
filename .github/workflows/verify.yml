@@ -339,6 +339,11 @@ jobs:
             'app/plugin-host.cjs',
             'app/core/lockfile/index.cjs',
             'app/extensions/mega/ui/plugin-panel.js',
+            # The installation-level acceptance: the bundle the installer puts on disk is discovered, is
+            # loadable from the profile's own node_modules, and reaches the official Settings. Asserted by
+            # name here for the same reason as the rest: a renamed file must fail the gate rather than
+            # silently drop the one check that leaves the checkout.
+            'tests/unit/mega-core-install-acceptance.test.js',
             'dshns-lock.yaml'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }

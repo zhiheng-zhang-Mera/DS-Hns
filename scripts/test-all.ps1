@@ -147,6 +147,11 @@ try {
     # The unified install pipeline: the pre-install plan, the refusal of unknown formats, and the
     # pin/update/rollback/quarantine/uninstall lifecycle. Asserted by name like the rest.
     'plugin-install-pipeline.test.js',
+    # The installation-level acceptance: the bundle the installer actually puts on disk is discovered,
+    # is loadable from the profile's own `node_modules`, and reaches the official Settings. Asserted by
+    # name like the rest, because a renamed file here would drop the one suite that checks the installed
+    # shape rather than the checkout.
+    'mega-core-install-acceptance.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',
