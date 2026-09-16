@@ -85,6 +85,8 @@ Parameters answer the questions, so nothing is asked:
 | `-SkipOptionalPlugins` | install neither; record both as declined |
 | `-NonInteractive` | ask nothing (also detected when stdin is redirected or there is no console) |
 | `-Profile <name>` | the Harness profile to install into (default `web`, or `$env:DSH_PROFILE`) |
+| `-SkipRuntimeCleanup` | skip step 1/9's sweep, for installing beside another running DS-Harness |
+| `-SkipTests`, `-NoLaunch`, `-NoShortcuts` | the pre-existing switches |
 
 ```
 Install-DS-Harness.cmd -InstallWallpaper          :: just the desktop plugin

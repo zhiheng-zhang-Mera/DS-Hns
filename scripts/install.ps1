@@ -22,7 +22,15 @@ param(
   [string]$CommunityFixtureMap = '',
   # Test seam: comma-separated extra arguments for the Harness plugin CLI, so a test can make the
   # community channel refuse. Never used by a person installing DS-Harness.
-  [string]$CommunityExtraArgs = ''
+  [string]$CommunityExtraArgs = '',
+  # Skip step 1/9's stale-runtime sweep.
+  #
+  # The sweep refuses to run while an unrelated process holds port 3080, and it is right to: it stops
+  # *this* repository's processes and nothing else. That refusal is exactly what makes a real clean
+  # installation impossible to rehearse while another DS-Harness (a development instance, the one this
+  # documentation was written against) is serving. This switch says "I know; the runtime is somebody
+  # else's; install the files anyway" -- and it is a switch a person has to type, never a fallback.
+  [switch]$SkipRuntimeCleanup
 )
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
@@ -213,7 +221,11 @@ foreach ($scriptPath in $criticalScripts) {
 
 Write-Step '1/9 Clean stale runtime and bootstrap directories'
 $cleanupScript = Join-Path $PSScriptRoot 'cleanup-runtime.ps1'
-& $cleanupScript
+if ($SkipRuntimeCleanup) {
+  Write-Host 'Stale-runtime cleanup skipped by -SkipRuntimeCleanup.'
+} else {
+  & $cleanupScript
+}
 
 $dirs = @(
   'app', 'config', 'assets\sounds', 'runtime', 'workspace\active', 'workspace\completed', 'workspace\temp',
