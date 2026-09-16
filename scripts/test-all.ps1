@@ -139,6 +139,10 @@ try {
     # business-free claim. Asserted by name like the rest, because a renamed file here would drop
     # the coverage of the "never an infinite restart loop" requirement.
     'plugin-process-adapter.test.js',
+    # The native path, the long-term-hosting capability vocabulary, and the first complete native
+    # plugin. Asserted by name like the rest: a renamed file here would drop the coverage of the
+    # "one load path" and "the monitor cannot restart anything" claims.
+    'plugin-hns-native.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

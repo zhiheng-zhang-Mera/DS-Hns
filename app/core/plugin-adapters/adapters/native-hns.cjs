@@ -1,21 +1,32 @@
 'use strict'
 
 /**
- * The native adapter: `dshns.plugin/v1` itself.
+ * `NativeHnsAdapter` — `dshns.plugin/v1`, the platform's own format.
  *
- * The platform's own plugins go through an adapter like everything else, and that is deliberate.
- * The alternative — a fast path in the framework for "our" format — is how the framework starts
- * having a privileged format again, which is the thing this whole change exists to remove. Making
- * the native case an adapter also means the native case is the *reference* adapter: whatever shape
- * the framework hands the manager is, by construction, exactly what a first-class plugin looks
- * like.
+ * This is the adapter every plugin written *for* DS-Hns goes through, and the word "every" is the
+ * point. There used to be two paths: store-installed plugins were adapted, while the product's own
+ * shipped sets were handed to the manager as ready-made objects. That second path was not an
+ * optimisation — it was a second loader, and it meant the platform's own plugins skipped the
+ * standard sections (permissions, runtime, adapter, health), the per-artifact fault isolation and
+ * the adaptation record that every other plugin had.
+ *
+ * Formalising it as an adapter rather than a fast path is what removes that asymmetry. The shipped
+ * sets now arrive as *artifacts* like everything else, so:
+ *
+ *   * the native case is the **reference** adapter — whatever shape the framework hands the manager
+ *     is, by construction, exactly what a first-class plugin looks like;
+ *   * a shipped plugin that fails to adapt fails *alone*, with a coded reason, instead of taking
+ *     the world build with it;
+ *   * there is no privileged format for the framework to special-case again.
  *
  * Two artifact shapes arrive here:
  *
  *   * **declared** — a directory with `dshns-plugin.json`. That file is the manifest; when it
  *     names a `main` and the caller has imported it, the module's own hooks are used, and when it
  *     does not, the plugin is *declarative*: it contributes a manifest and nothing to run.
- *   * **module** — a module already imported by the caller, exporting `{ manifest, load, … }`.
+ *   * **module** — a module already imported by the caller, exporting `{ manifest, load, … }`. This
+ *     is the shape the product's shipped sets arrive in, which is why routing them through here
+ *     costs them nothing.
  *
  * The permissions it proposes are exactly what the plugin declared for itself. Nothing is inferred:
  * this is the one format where the author could have said what they need and the adapter has no
@@ -44,7 +55,7 @@ function manifestFromDeclaration(declaration, dir) {
  * @param {object} [options.policy] unused here — the framework owns the policy — but accepted so
  *   every adapter is constructed the same way.
  */
-function createNativeAdapter(options = {}) {
+function createNativeHnsAdapter(options = {}) {
   return {
     id: 'dshns.native',
     name: 'DS-Hns native plugin',
@@ -126,4 +137,4 @@ function createNativeAdapter(options = {}) {
   }
 }
 
-module.exports = { createNativeAdapter, manifestFromDeclaration }
+module.exports = { createNativeHnsAdapter, manifestFromDeclaration }

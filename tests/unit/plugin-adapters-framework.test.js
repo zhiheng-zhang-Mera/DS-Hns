@@ -7,7 +7,7 @@ const os = require('node:os')
 const path = require('node:path')
 
 const { createAdapterFramework } = require('../../app/core/plugin-adapters/index.cjs')
-const { createNativeAdapter } = require('../../app/core/plugin-adapters/adapters/native.cjs')
+const { createNativeHnsAdapter } = require('../../app/core/plugin-adapters/adapters/native-hns.cjs')
 const { createMockAdapter, createMockDetector, registerMockFormat, MOCK_FORMAT_FILE, MOCK_PLUGIN_TYPE } = require('../../app/core/plugin-adapters/adapters/mock.cjs')
 const { ADAPTER_API_VERSION, ADAPTER_FAULT_CODES, RUNTIME_KINDS } = require('../../app/core/plugin-adapters/contract.cjs')
 
@@ -59,7 +59,7 @@ module.exports = {
 
 function frameworkWithNative() {
   const framework = createAdapterFramework({ log: () => {} })
-  framework.register(createNativeAdapter())
+  framework.register(createNativeHnsAdapter())
   return framework
 }
 

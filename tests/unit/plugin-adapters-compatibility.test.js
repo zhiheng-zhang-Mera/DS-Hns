@@ -9,7 +9,7 @@ const path = require('node:path')
 const { createPluginHost } = require('../../app/plugin-host.cjs')
 const { createPluginManager } = require('../../app/core/plugin-manager/index.cjs')
 const { createAdapterFramework } = require('../../app/core/plugin-adapters/index.cjs')
-const { createNativeAdapter } = require('../../app/core/plugin-adapters/adapters/native.cjs')
+const { createNativeHnsAdapter } = require('../../app/core/plugin-adapters/adapters/native-hns.cjs')
 const { registerMockFormat, MOCK_FORMAT_FILE } = require('../../app/core/plugin-adapters/adapters/mock.cjs')
 const { validateManifest, normalizeManifest, PLUGIN_API_VERSION } = require('../../app/core/contracts/plugin.cjs')
 const { classifyCompatible, COMPAT_FILE } = require('../../app/extensions/mega/store/compat.cjs')
@@ -114,7 +114,7 @@ test('the host delegates format knowledge to the framework instead of branching 
   // What it does instead: build artifacts and hand them to the framework.
   assert.match(host, /adapters\.adaptMany\(artifacts\)/)
   assert.match(host, /createAdapterFramework\(\{/)
-  assert.match(host, /adapters\.register\(createNativeAdapter\(\)\)/)
+  assert.match(host, /adapters\.register\(createNativeHnsAdapter\(\)\)/)
   assert.match(host, /adapters\.register\(createCordisAdapter\(\{/)
 })
 
@@ -122,7 +122,7 @@ test('a plugin from any format reaches the manager in one shape', async () => {
   const area = scratch()
   try {
     const framework = createAdapterFramework({ log: () => {} })
-    framework.register(createNativeAdapter())
+    framework.register(createNativeHnsAdapter())
     registerMockFormat(framework)
 
     // Three different origins: the platform's own declared manifest, an imported module, and a
@@ -173,7 +173,7 @@ test('an adapted plugin still participates in capabilities and the event bus', a
   const area = scratch()
   try {
     const framework = createAdapterFramework({ log: () => {} })
-    framework.register(createNativeAdapter())
+    framework.register(createNativeHnsAdapter())
     const adapted = await framework.adapt({
       dir: area.dir,
       module: {
