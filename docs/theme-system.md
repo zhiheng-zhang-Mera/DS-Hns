@@ -140,7 +140,7 @@ User Prompt
 | `ui/wallpaper-window.html` | 壁纸窗口渲染文档（无脚本、无交互元素、pointer-events:none；`clip-path` 切掉 Dock 的矩形） |
 | `ui/appearance-panel.js` | 外观 / Appearance 面板：磨砂玻璃的开关、模糊强度与通透度（Dock 唯一的外观控件） |
 | `ui/glass-layer.js` | 把 `data/state/ui-glass.json` 的三个数值写进 Dock 文档（`window.hnsGlass`） |
-| `ui/wallpaper-layer.js` | 把壁纸画进 Dock 文档（图片/视频、填充、透明度、压暗），并把它按窗口坐标系对齐到整幅图片 |
+| `ui/wallpaper-layer.js` | 把壁纸画进 Dock 文档（图片、填充、透明度、压暗），并把它按窗口坐标系对齐到整幅图片（视频是壁纸插件的活，见 `docs/pluginize.md`） |
 | `../dock/target.js` | Dock Target Adapter：integrated `WebContentsView` 与 legacy `BrowserWindow` 的唯一入口 |
 
 ---

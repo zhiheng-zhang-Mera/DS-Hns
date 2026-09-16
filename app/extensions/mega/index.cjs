@@ -26,7 +26,10 @@ const { createBundledPlugins, installBundled, removeBundled } = require('./plugi
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
+const { createGovernanceBridge } = require('../../core/governance-bridge.cjs')
 const { createStartupCache } = require('./startup-cache.cjs')
+// The system floating orb (a window of ours that floats over every application, not only over this one).
+const { createSystemOrb, createOrbState } = require('./system-orb.cjs')
 const { createAppearanceProviders } = require('./appearance/providers.cjs')
 const { createAppearanceState } = require('./appearance/state.cjs')
 const { estimateAppearanceCost } = require('./appearance/cost.cjs')
@@ -95,6 +98,12 @@ const CHANNELS = [
   // The Control Center: the enhanced layer's execution, resources, extensions, protection and diagnostics,
   // plus the actions that belong to it (retry / repair / disable / enable / fall back).
   'mega:control-center', 'mega:control-action',
+  // The system floating orb: its own window, its own document, and only these ways in (see `orb-preload.cjs`
+  // — the same "the preload is the whole reachable surface" rule the dock follows).
+  'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
+  // The push the ball listens on. It has no handler to remove, and it is declared all the same: a channel a
+  // preload can subscribe to is part of the surface that has to be enumerable.
+  'mega:orb-state',
   // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
   'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
   // The bundled community plugins: what the release pinned, what is installed, and repair.
@@ -645,8 +654,25 @@ function ring(eventName) {
   }
 }
 
+/**
+ * Whether the dock is allowed at all, and whether it comes up with the app.
+ *
+ * The dock is the surface this product is retiring (§30): the orb in the official UI and the system ball are
+ * what Mega shows now, and the sidebar is the thing the user asked to have removed. So the default is **off**
+ * — not created at startup, not on screen — while every existing way of asking for it still works:
+ *
+ *   * `DSH_MEGA_DOCK=0` / `DSH_MEGA_WIDGET=0` — a hard off switch: the dock is never created.
+ *   * `DSH_MEGA_DOCK=1` / `DSH_MEGA_WIDGET=1` — bring it up with the app (the pre-retirement behaviour).
+ *   * neither — the tray's "Mega 控制台", the plugin-manager entry and `Ctrl+Shift+M` create and show it on
+ *     demand. Hidden by default and unreachable are not the same thing, and the difference matters on the day
+ *     the ball is what broke.
+ */
 function dockEnabled() {
   return process.env.DSH_MEGA_DOCK !== '0' && process.env.DSH_MEGA_WIDGET !== '0'
+}
+
+function dockAutoStart() {
+  return process.env.DSH_MEGA_DOCK === '1' || process.env.DSH_MEGA_WIDGET === '1'
 }
 
 function dockCanShow() {
@@ -721,6 +747,10 @@ function notifyShellDockState() {
 function setDockExpanded(expanded, { focus = false, persist = true } = {}) {
   dockExpanded = Boolean(expanded)
   dockUserHidden = false
+  // The dock does not exist until somebody asks for it (`dockAutoStart`), so the first request is also what
+  // creates the companion window — in the integrated mode the shell owns that strip instead, and this is a
+  // no-op there because the extension's own dock is switched off.
+  if (dockExpanded && !dockWindow && dockEnabled()) createDock()
   // `persist: false` is the shell's mode policy (Work Mode collapses the dock so
   // the official UI keeps its width). It must not overwrite the user's own
   // preference, which is what a later Daily switch restores.
@@ -1477,6 +1507,32 @@ function installer() {
 }
 
 /**
+ * The governance bridge (`app/core/governance-bridge.cjs`, `updateplan/pluginize.md` Phase 1).
+ *
+ * The plan moves Mega into the official Harness UI as a plugin, and that plugin runs in the Harness process —
+ * a different process from this one. So it needs a channel to ask what governance knows and to ask for the
+ * actions governance allows, and this is that channel.
+ *
+ * It answers with **exactly what the Control Center shows** (`controlCenter()`) and performs **exactly the
+ * actions the Control Center offers** (`controlAction()`). One truth, two surfaces: a second assembly of the
+ * same facts would be a second answer, and the plugin and the dock would eventually disagree about whether a
+ * module is healthy.
+ */
+let governanceBridgeState = null
+function governanceBridge() {
+  if (governanceBridgeState) return governanceBridgeState
+  governanceBridgeState = createGovernanceBridge({
+    // The Harness child is spawned with `DSH_HOME=<root>/data`, so its plugin finds the discovery file from its
+    // own environment instead of a hard-coded path.
+    stateDir: path.join(PATHS.ROOT, 'data', 'state'),
+    snapshot: () => controlCenter(),
+    act: (payload) => controlAction(payload),
+    log: (message) => log(message)
+  })
+  return governanceBridgeState
+}
+
+/**
  * The MEGA Control Center (`updateplan/startup2.md` §45-§47).
  *
  * The expanded dock is where the enhancement layer is *managed*: what is running, what it costs, what is
@@ -1530,6 +1586,13 @@ function controlCenter() {
       } catch {
         return null
       }
+    })(),
+    bridge: (() => {
+      try {
+        return governanceBridgeState ? governanceBridgeState.describe() : { ok: false, host: '127.0.0.1', port: null, requests: 0, refused: 0 }
+      } catch {
+        return null
+      }
     })()
   })
 }
@@ -1576,6 +1639,47 @@ function registerControlCenterIpc() {
   }
   ipcMain.handle('mega:control-center', guard(() => controlCenter()))
   ipcMain.handle('mega:control-action', guard((_event, payload = {}) => controlAction(payload || {})))
+
+  /**
+   * The system orb's six channels — one per thing its preload can do, and nothing else (`orb-preload.cjs`).
+   *
+   * The action channel goes through `controlAction`, the same one the Control Center's buttons use, so "what
+   * governance will accept" has one implementation rather than one per surface.
+   */
+  ipcMain.handle('mega:orb-snapshot', guard(async () => {
+    await refreshOrbView()
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running', open: false, ball: { x: 8, y: 8 }, ballSize: 44, panel: null, view: null }
+    return systemOrb.snapshot(systemOrbView)
+  }))
+  ipcMain.handle('mega:orb-open', guard(async (_event, value = false) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    await refreshOrbView()
+    return systemOrb.setOpen(value === true, { view: systemOrbView })
+  }))
+  ipcMain.handle('mega:orb-measure', guard((_event, size = null) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    // The view is deliberately *not* re-read here: this is a layout question, and a fetch per measurement
+    // would make resizing the window wait on the governance bridge.
+    return systemOrb.setPanelSize(size, { view: systemOrbView })
+  }))
+  ipcMain.handle('mega:orb-drag', guard((_event, payload = {}) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    const phase = String(payload.phase || '')
+    if (phase === 'start') return systemOrb.dragStart(payload.point)
+    if (phase === 'move') return systemOrb.dragTo(payload.point)
+    if (phase === 'end') return systemOrb.dragEnd()
+    return { ok: false, reason: `"${phase}" is not a drag phase` }
+  }))
+  ipcMain.handle('mega:orb-hover', guard((_event, over = false) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    return { ok: systemOrb.setInteractive(over === true) }
+  }))
+  ipcMain.handle('mega:orb-action', guard(async (_event, payload = {}) => {
+    const result = await controlAction(payload || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
 }
 
 /**
@@ -1597,6 +1701,114 @@ async function installPinnedPlugin(entry = {}) {
     harnessAdd: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'add', spec]),
     store: { stage: (input) => installer().stage(input), enable: (input) => installer().enable(input) }
   })
+}
+
+/**
+ * The system floating orb (`./system-orb.cjs`).
+ *
+ * A window of ours that floats over every application, which is what the user asked for after seeing the
+ * in-UI orb ("可以做成系统悬浮球吗？"). The geometry rules live in that module; this is the wiring: who owns the
+ * window, where its position is kept, what the document is allowed to ask for, and what it draws.
+ */
+let systemOrb = null
+let systemOrbPoll = null
+let systemOrbView = null
+let orbViewModule = null
+let orbPluginVersion = null
+
+function orbEnabled() {
+  return process.env.DSH_MEGA_ORB !== '0'
+}
+
+/** The plugin package's own version, so §4.4's version field is the same number the official page shows. */
+function orbVersion() {
+  if (orbPluginVersion !== null) return orbPluginVersion
+  try {
+    const file = path.join(PATHS.ROOT, 'app', 'plugins', 'mega-core', 'package.json')
+    orbPluginVersion = JSON.parse(fs.readFileSync(file, 'utf8'))?.version || null
+  } catch {
+    orbPluginVersion = null
+  }
+  return orbPluginVersion
+}
+
+/**
+ * The view model the ball draws.
+ *
+ * It is **the same module** the official UI's orb and page render (`app/plugins/mega-core/lib/view.js`), fed
+ * from the same `controlCenter()` the Control Center panel is built from. A second implementation of "which
+ * tone is this" is exactly how two surfaces end up disagreeing about one product.
+ */
+async function refreshOrbView() {
+  try {
+    if (!orbViewModule) {
+      orbViewModule = import(pathToFileURL(path.join(PATHS.ROOT, 'app', 'plugins', 'mega-core', 'lib', 'view.js')).href)
+    }
+    const { buildMegaView } = await orbViewModule
+    const bridge = (() => {
+      try {
+        return governanceBridgeState ? governanceBridgeState.describe() : null
+      } catch {
+        return null
+      }
+    })()
+    systemOrbView = buildMegaView({
+      plugin: { id: 'dsh-plugin-mega-core', version: orbVersion() },
+      bridge: bridge
+        ? { available: bridge.ok === true, host: bridge.host ?? null, port: bridge.port ?? null }
+        : { available: false, reason: 'the governance bridge is not up yet' },
+      governance: (() => {
+        try {
+          return controlCenter()
+        } catch (error) {
+          log(`the Control Center could not be read for the system orb: ${error?.message || error}`)
+          return null
+        }
+      })()
+    })
+  } catch (error) {
+    log(`the Mega view could not be built for the system orb: ${error?.message || error}`)
+    systemOrbView = null
+  }
+  return systemOrbView
+}
+
+/** One poller for the ball, the same 15 s as the in-UI orb's, and never on the boot path. */
+function startOrbPolling() {
+  if (systemOrbPoll) return
+  const tick = async () => {
+    if (!systemOrb) return
+    await refreshOrbView()
+    systemOrb.render(systemOrbView)
+  }
+  systemOrbPoll = setInterval(() => { tick().catch(() => {}) }, 15000)
+  if (typeof systemOrbPoll.unref === 'function') systemOrbPoll.unref()
+  tick().catch(() => {})
+}
+
+function createSystemOrbWindow() {
+  if (systemOrb) return systemOrb
+  if (!orbEnabled()) {
+    log('Mega system orb disabled by DSH_MEGA_ORB=0')
+    return null
+  }
+  try {
+    systemOrb = createSystemOrb({
+      electron: ctx.electron,
+      log: (message) => log(`system orb: ${message}`),
+      state: createOrbState(path.join(PATHS.ROOT, 'data', 'state', 'system-orb.json')),
+      enabled: true
+    })
+  } catch (error) {
+    log(`the system orb could not be wired: ${error?.message || error}`)
+    systemOrb = null
+    return null
+  }
+  const started = systemOrb.create()
+  if (started?.ok === false) log(`the system orb is not on screen: ${started.reason}`)
+  else log(`the system orb is up at ${JSON.stringify(systemOrb.describe().position)}`)
+  startOrbPolling()
+  return systemOrb
 }
 
 /** The Harness profile a bundled client plugin is installed into — the one the product boots (`web`). */
@@ -2424,9 +2636,9 @@ function pushWallpaper() {
   }
   // The layer over the official page takes the image and nothing else — a script-free document
   // whose policy allows an inline image — so what it is handed is the stylesheet the module builds
-  // for it, and a video (or no wallpaper at all) is answered with the same "draw nothing". That
-  // answer travels with the stylesheet, because the layer is a window: an empty one has to be
-  // taken off the screen rather than left there.
+  // for it, and "no wallpaper at all" is answered with the same "draw nothing". That answer travels
+  // with the stylesheet, because the layer is a window: an empty one has to be taken off the screen
+  // rather than left there.
   try {
     if (typeof officialSurfaceTarget.wallpaper === 'function') {
       const layer = wallpaper().windowLayer()
@@ -2454,9 +2666,9 @@ function registerWallpaperIpc() {
     }
   }
   ipcMain.handle('mega:wallpaper', guard(() => wallpaper().describe()))
-  // What the dock itself draws: a `data:` URL for an image, a `file:` URL for a video, and the
-  // attributes a real element needs. It is a separate answer from `describe()` because the panel's
-  // view carries limits and vocabulary the document has no use for.
+  // What the dock itself draws: the picture as a `data:` URL, plus the numbers the element and the
+  // stylesheet need. It is a separate answer from `describe()` because the panel's view carries
+  // limits and vocabulary the document has no use for.
   ipcMain.handle('mega:wallpaper-layer', guard(() => wallpaperLayerPayload()))
   ipcMain.handle('mega:wallpaper-set', guard((_event, payload = {}) => {
     const result = wallpaper().set(payload || {})
@@ -2476,12 +2688,15 @@ function registerWallpaperIpc() {
     const scope = payload && typeof payload === 'object' && payload.scope ? String(payload.scope) : 'both'
     const target = scope === 'both' || WALLPAPER_SURFACES.includes(scope) ? scope : 'both'
     const picked = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: bilingualTitle('选择壁纸（图片或视频）', 'Choose a wallpaper (image or video)'),
+      title: bilingualTitle('选择壁纸（图片）', 'Choose a wallpaper (picture)'),
       properties: ['openFile'],
+      // Two filters, and the second one is deliberate: it makes the boundary *reachable* — someone who
+      // wants a video finds it, is told in their own language that the wallpaper plugin carries it, and
+      // gets the module's refusal sentence below when they pick one. Hiding the extension would leave
+      // them to discover the rule by finding nothing.
       filters: [
-        { name: bilingualTitle('图片与视频', 'Images and videos'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'mp4', 'webm', 'm4v'] },
-        { name: bilingualTitle('图片', 'Images'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] },
-        { name: bilingualTitle('视频', 'Videos'), extensions: ['mp4', 'webm', 'm4v'] }
+        { name: bilingualTitle('图片', 'Pictures'), extensions: ['png', 'apng', 'jpg', 'jpeg', 'jfif', 'webp', 'gif', 'avif', 'bmp', 'ico', 'svg'] },
+        { name: bilingualTitle('视频与网页壁纸（由壁纸插件负责）', 'Videos and web wallpapers (the plugin\'s job)'), extensions: ['mp4', 'webm', 'm4v', 'html', 'htm'] }
       ]
     })
     if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true }
@@ -2874,8 +3089,12 @@ async function start(context) {
   }
   ctx.mainWindow.webContents.on('before-input-event', shortcutHandler)
   bindMainWindow()
-  createDock()
+  // The dock is off by default (see `dockAutoStart`): it is created when it is asked for, not at boot.
+  if (dockAutoStart()) createDock()
   createTray()
+  // The system floating orb: another window of ours, after the tray and off the boot path. It is the one
+  // surface that is visible without the official UI (and without the dock) having to be looked at.
+  createSystemOrbWindow()
   // Theme system starts last: it must never be able to delay the official UI,
   // the scheduler or the dock. A failure here is logged and the product runs on
   // the Dark recovery theme. It paints the official shell and overlay only — the dock is
@@ -2923,6 +3142,19 @@ async function start(context) {
       .then(() => rememberStartup())
       .then((recorded) => log(`startup cache: ${recorded?.ok === false ? `not updated (${recorded.reason})` : `remembered ${(recorded?.keys || []).join(', ')}`}`))
       .catch((error) => log(`the startup cache pass failed without affecting anything else: ${error?.message || error}`))
+    /**
+     * The governance bridge, last and in the background (pluginize Phase 1).
+     *
+     * It is what the Mega Core Plugin talks to once Mega lives in the official UI: the same data the Control
+     * Center shows, on loopback with a per-run token. A bridge that cannot bind is a line in the log and a
+     * plugin that reports "governance unavailable" — never a start that fails.
+     */
+    Promise.resolve()
+      .then(() => governanceBridge().start())
+      .then((outcome) => {
+        if (outcome?.ok === false) log(`the governance bridge did not start (${outcome.reason}); the plugin will report it unavailable`)
+      })
+      .catch((error) => log(`the governance bridge failed without affecting anything else: ${error?.message || error}`))
   } catch (error) {
     log(`bundled plugin registration failed (the rest of Mega is unaffected): ${error?.message || error}`)
   }
@@ -3006,6 +3238,9 @@ function stop() {
   // must not repaint a renderer that is about to be destroyed.
   try { themeEngine?.stop?.() } catch {}
   themeEngine = null
+  // The governance bridge holds a listening socket and a token on disk; both go with the process.
+  try { governanceBridgeState?.stop?.() } catch {}
+  governanceBridgeState = null
   skillService = null
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
@@ -3031,9 +3266,14 @@ function stop() {
   dockReadyHandler = null
   if (dockWindow && !dockWindow.isDestroyed()) dockWindow.destroy()
   if (playerWindow && !playerWindow.isDestroyed()) playerWindow.destroy()
+  if (systemOrbPoll) clearInterval(systemOrbPoll)
+  if (systemOrb) systemOrb.stop()
   tray = null
   dockWindow = null
   playerWindow = null
+  systemOrb = null
+  systemOrbPoll = null
+  systemOrbView = null
   shortcutHandler = null
   ctx = null
 }

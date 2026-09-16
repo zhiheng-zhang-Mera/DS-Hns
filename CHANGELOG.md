@@ -3,6 +3,155 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 只留系统悬浮球；球能盖住别的应用了；点击不再闪烁
+
+第四轮复查的结论（"Mega侧栏已正确移除"是确认，另外三条都改掉了，其中两条是真缺陷）。
+
+**两个球变成一个。** 官方界面里那颗球（注册在 `shell.overlay` 槽）已经移除，浏览器半边只注册
+`settings.section`（Mega 整页）。用户要的是"系统最外层那个"：能看见它的前提不是产品窗口在最前面，而正是
+这一点让它在日常使用里有用。两个界面本来就用同一个视图模型与同一个 `controlAction`，所以留下的那个不会
+少任何信息。
+
+**球现在真的盖在其它应用之上 —— 之前是 `parent` 的错。** 球原本设了 `parent: mainWindow`（理由是"关掉产品
+窗口时一起走"）。在 Windows 上，**被拥有窗口的 z 序跟随 owner，`alwaysOnTop` 不被遵守**，于是球只能待在
+产品窗口之上、其它应用之下。现在它是**顶层窗口**（无 parent），创建时再确认一次 `setAlwaysOnTop(true,
+'screen-saver')`；它仍随扩展一起销毁，也就是 parent 唯一买到的东西。
+
+**点击闪烁是自己在跟自己打架，两个原因都修了。**
+
+* **交互状态原先只看"悬停"**：打开面板会重排窗口，那一两帧光标落在透明边距而不是球上 → 悬停变 false →
+  窗口切成穿透 → 转发的指针事件又把光标判成"在球上" → 再切回来。现在由**三件事**决定：光标在不在我们身上、
+  是否正在拖动、面板是否开着（后两件是"用户正在用"的明确信号，不依赖会在脚下变的命中测试）。原生
+  `setIgnoreMouseEvents` 只在答案变化时才写；`interactive` 的初值改为 `null`（新窗口默认"可交互"，
+  "答案恰好是 false"与"窗口已经穿透"不是一回事 —— 第一版就在这里漏了首次写入）。
+* **原生 reshape 太频繁**：`setBounds` 只在矩形真的变了时才调用（15 秒一次的状态推送不再无意义地重塑一扇
+  透明置顶窗口）；面板测量从"去掉 `max-height` 再量"改成读 `scrollHeight`，省掉每次推送两次强制重排。
+
+另外补了一条交互：面板打开时，点在面板与球之外会收起面板（那时窗口本来就是可交互的）。
+
+**验证**：`system-orb.test.js` 13 项（`parent` 必须不存在；开着面板或正在拖动时悬停变 false 也不会切成
+穿透；重复答案不产生原生写入；相同状态不重塑窗口、打开面板必须重塑），`mega-core-client.test.js` 7 项
+（单界面：只注册 `settings.section`、源码无 `shell.overlay` 注册、整页 §4.4 与自带深色卡片、动作路由、
+隐藏不轮询、无应答画原因、无 React 只画空气），`mega-core-plugin.test.js` 5 项（路由回到四条）。全套
+1473/1474（唯一失败仍是既有的 multi-supervisor 墙钟断言）；`verify.ps1 -SkipTests` ALL PASSED；语法门
+229/229。这一轮标记 `manual-ui-review-5`。
+
+## 系统悬浮球、向中心展开的详情窗、以及旧 Mega 侧栏退场
+
+第三轮人工 UI 复查的三条，逐条落地。
+
+**详情窗现在按位置向屏幕中心展开。** 上一版只要上方有空间就向上，于是球停在屏幕上半部时窗口照样往顶边去。
+现在的规则看的是**球在哪一半**：下半 → 面板在球上方、向上长；上半 → 在下方、向下长；左半 → 在球右侧、向右长；
+右半 → 在左侧、向左长。面板占的永远是"球与屏幕中心之间"那块地方，增长的是它的远边。这条规则不需要"哪边空间
+大"来兜底：朝中心的那一侧按定义就是更宽的一侧。
+
+**新增系统悬浮球**（用户要求："可以做成系统悬浮球吗？"）。这是**我们自己的一扇窗口** —— 透明、无边框、
+常驻最上层、不进任务栏、`focusable: false` —— 画我们自己的文档，浮在**所有应用**之上；官方渲染器里没有注入
+任何东西，也没有被套上任何样式，和壁纸层同一条规矩。三条性质让它成为球而不是打扰：默认**无视鼠标**（点击
+落到下面那扇窗口，只有光标在球或面板上时才切成可交互）；窗口**永远不比它画的东西更大**（球 + 面板 + 几像素
+透明边距），所以它透明又常驻最上层却挡不住任何东西；面板**向屏幕中心长**，而且打开面板时**球在屏幕上不动**。
+它读的是与官方界面里的球、整页**同一个视图模型**，动作走 **同一个** `controlAction`；位置存在
+`data/state/system-orb.json`，重启后回到原处，多显示器按所在显示器的可用区夹取，被拖出屏幕会被拉回。
+
+**旧 Mega 侧栏默认不再出现，但没有变得不可达。** 壳体不再为它保留右侧那条，壁纸不再需要给它切口，扩展自己
+那扇 legacy 窗口也不在启动时创建；托盘「Mega 控制台」、插件管理入口与 `Ctrl+Shift+M` 都会在需要时**当场创建
+并显示**它。`DSH_MEGA_DOCK=1` 恢复旧行为，`=0` 是彻底关掉。代码删除（§30 的最后一步，牵动 dock 的
+html/css/js、dock target、geometry 与几十个测试）单独走下一轮 —— 把它和"球第一次上屏"塞进同一次改动，等于在
+没有退路的情况下换界面。
+
+**验证**：新增 `tests/unit/system-orb.test.js` 11 项；`mega-core-client.test.js` 11 项（含向中心展开的四个
+方向）；`surface-ownership.test.js` 把球的 preload 也纳入审计（六个入口 + 一个推送，全部有主）；
+`mega-extension-integration.test.js`、`startup.test.js` 按新语义更新（启动时唯一的窗口是球，托盘 Mega 入口
+当场创建侧栏）。全套 1475/1476（唯一失败仍是既有的 multi-supervisor 墙钟断言）；`verify.ps1 -SkipTests`
+ALL PASSED（新增 12 项系统悬浮球与侧栏退场的检查）；语法门 229/229。这一轮标记 `manual-ui-review-4`。
+
+## 悬浮球与 Mega 页面：复查后的三处修正（定位、可读性、信息窗展开方向）
+
+第二轮人工 UI 复查确认"其余项目通过"，同时指出三点。前两点是表面，第三点顺带查出了一个真实缺陷。
+
+**信息窗不再"定死区域然后下滑"**：原来用 `top/left` + 固定 `70vh` + 滚动条，点开详情时内容变长，等于一开始
+就框错了盒子。现在面板**锚在球的角上**——竖直方向能向上就用 `bottom`（球的上沿 + 间隔），水平方向靠右就用
+`right` 对齐球的右沿，于是打开就**向上、向左长**；球在左半边或上方空间不够时自动换到有空间的一侧；只有
+内容真的比整个层还高时才滚动。
+
+**两个界面都有自己的不透明底板**：复查看到的"白字磨砂底"是结构性的——我们的文字有自己的调色板，而
+`all: initial` 让我们的盒子完全没有背景，官方那层磨砂玻璃就透上来了。现在面板与整页各带一张不透明卡片
+（`rgba(14,16,20,.97)` + 边框 + 阴影），文字一定落在自己的底上，与官方主题明暗无关；次级文字的不透明度
+从 `.5` 提到 `.62`。
+
+**悬浮球改成相对自己所在的层定位（这同时修掉一个真 bug）**：原实现用 `window.innerWidth/Height` 算
+`left/top`，但球不住在窗口里——它住在官方 `shell.overlay` 槽渲染的那个盒子里，那个盒子可以比视口小，也可能
+在带 `transform` 的祖先里（此时 `position: fixed` 相对的是**祖先**而不是窗口）。坐标因此可能算错，球就会
+落在视野外或错误的位置。现在球外面多一层 wrapper（`fixed; inset: 0` = 槽给的那个盒子），球与面板都是它里面
+的 `absolute`；存的位置也从窗口坐标改成**相对层右/下角的距离 + 吸附边**，于是缩放窗口时吸在边上的球跟着边
+走。宿主端 schema 升到 **version 2**，version 1 的位置文件读作"还没有位置"（没有当时的窗口尺寸无法换算），
+球回到默认角一次。
+
+写这一轮的测试时还暴露并修掉了拖拽的一个真 bug：每次 `pointermove` 都把**整段位移**重复加在"当前偏移量"上
+（而不是按下时的偏移量），球会加速飞走；用例现在断言两次连续移动的绝对位置。
+
+**验证**：`tests/unit/mega-core-client.test.js` 11 项（含面板向上/左展开、换侧、左边吸附后的跟随、拖拽两次
+移动的绝对值、卡片不透明度与文字色）、`mega-core-view.test.js` 6 项、`mega-core-plugin.test.js` 5 项
+（含 version 1 位置文件读作"没有位置"、非法值 400、错误方法 405）。插件已装进产品 profile，重启后即可复查；
+这一轮标记 `manual-ui-review-3`。
+
+## Mega Core 插件 — 悬浮球、迷你面板与整页（pluginize Phase 1 客户端半边）
+
+**Mega 现在真的在官方界面里了**：`app/plugins/mega-core/lib/client.js`，按官方模块加载器的形状
+（`window.__ModuleLoader__.load({ id, factory })` + `apply`/`inject`，与已安装的壁纸插件同一份契约）登记两个
+**官方槽位**——槽名不是猜的，是从官方客户端 runner 自带的槽位目录里读出来的：
+
+| 槽 | 内容 | 为什么 |
+| --- | --- | --- |
+| `shell.overlay` | 悬浮球（含面板） | 官方对"整框浮动层"的定义：list 型（加成，不顶掉官方条目），且这一层 click-through，占位者自己 opt-in 指针事件 |
+| `settings.section` | Mega 整页（§4.4 十一个字段） | §28：其余入口统一进官方 Settings 体系 |
+
+**§4.3 的三条是可被测试的性质**，不是配置：不抢焦点（无 autofocus，且 `pointerdown` 上
+`preventDefault()`——点球不会把焦点从输入框拽走，同时它仍是真按钮、键盘可达）；不空转（两个界面共用一个
+15s 轮询器，文档隐藏时不问、重新可见立刻问）；位置存在**产品侧文件**（`GET/POST /mega-core/orb`，落在
+`$DSH_HOME/state`）而不是 `localStorage`——官方 UI 由 `--port 0` 回环地址提供，用 `localStorage` 等于每次
+重启都丢位置。球可拖动、拖到边缘吸附并跟随窗口缩放、方向键微调、Enter/空格开关面板、Esc 收起。
+
+**视图模型在宿主半边**（`lib/view.js` + `GET /mega-core/view`）：色调、§4.4 的字段名、"不可用"的含义都是
+规则，放在能被 Node 测的地方，所以球与整页不可能各说一套。**"DS-Hns 没在跑"是自己的状态**（灰色
+`Unavailable` + 原因），不是一条静默的空列表；§7 Human Gate 尚未落地时 `pending` 读快照里的同名键（现在
+不存在→报 0，而 0 是真的）。
+
+**真机证据（一次性 `DSH_HOME`，已清理）**：Harness 起来后 `GET /mega-core/health` = 200（带插件版本），
+`GET /mega-core/view` = 200 且内容是**正在运行的 DS-Hns 的真实治理快照**（`4 of 7 plugin(s) active`），
+官方前端把客户端半边当应用组合的一部分发出（`/plugins/??…dsh-plugin-mega-core/client.js…` = 200，含
+`__ModuleLoader__.load`）。插件已装进产品 profile（`dsh plugin --profile web add file:…/app/plugins/mega-core`，
+回滚一条命令 `… remove dsh-plugin-mega-core`），**重启后**即可人工复查；这一轮标记 `manual-ui-review-2`。
+
+**验证**：`tests/unit/mega-core-view.test.js` 6 项、`tests/unit/mega-core-client.test.js` 10 项（按 shell 的
+方式加载再驱动：两个槽的登记、§4.2 的 hover/徽标/色调、点击开面板且不抢焦点、拖动吸附且只写一次位置、
+位置从主机读回、隐藏不轮询/可见即轮询、整页动作走 `/mega-core/action`、经典脚本可解析、没有 React 时只画
+空气）、`mega-core-plugin.test.js` 5 项（含组合视图与 orb 位置的路径）。语法门新增 `plugins/mega-core/lib`
+（226/226）。
+
+## 旧 Mega 去重 — 视频壁纸管线删除，社区插件的 pin 翻成 `tested: true`
+
+**两件事一起做，因为第二件是第一件的前提。** `dsh-plugin-wallpaper-engine` 的 pin 一直是 `tested: false`，
+理由很具体："没人在这台机器的产品里跑过它"；而 `docs/startup.md` 记过一条**条件**——等这个 pin 被标成
+`tested: true`，自有图层里那段"复杂 Video Pipeline"才该删。人工 UI 复查把这个条件结清了（官方 UI 正常、
+壁纸由插件渲染、市场入口在、治理桥可达），所以两件事在同一轮里落地：
+
+- **两个 bundled 插件的 pin 翻成 `tested: true`**。`tested` 的含义照旧是"在产品里真机跑过"，不是"命令能跑"；
+  §23 列的那些故障行（禁用、崩溃、坏配置、断网、版本不符、回滚）**不在**这次复查的范围内，它们由保护层与
+  管理器的策略路径承担，断言在 `mega-protection.test.js` / `bundled-plugins.test.js` / `appearance-providers.test.js` 里。
+- **视频壁纸不再是自有图层的事**：`.mp4/.webm/.m4v` 与网页壁纸（`.html/.htm`）在选择时被**按名字拒绝**，
+  理由就是那句"这是壁纸插件的活，本层只画图片"。Dock 文档里的 `<video>` 元素、`play()/pause()` 的可见性联动、
+  以及 `dockLayer().src` 的 `file:` 分支一起删除。
+- **选择框现在有两个过滤器**：图片，以及"视频与网页壁纸（由壁纸插件负责）"。挑到后者会看到那句拒绝理由——
+  把扩展名藏起来只会让人以为产品坏了，而一个装作接受、然后什么都不画的控件更糟。
+- **净效果是一个功能一份实现**：Dock 与官方两面拿的是同一个 inline `data:` 资源，取源只有一条路径，
+  没有第二个策略需要跟着改。删除是**被断言的**（元素、播放状态、`file:` 源路径三者都不在），因为"只是没用到"
+  的重复实现会在下一次需要视频时回来。
+
+**验证**：`tests/unit/wallpaper.test.js` 5/5（拒绝按名字并给出原因、被拒时旧壁纸原地不动、删除的三个断言）；
+`tests/unit/bundled-plugins.test.js` 13/13（清单是 `tested: true`，"未测试的 pin 永不安装"改用一份 untested
+清单继续断言**规则本身**，而不是把规则一起删掉）。
+
 ## bundled plugins — 两个插件已装进产品的 profile，管理器也认这两处"已安装"
 
 **用户批准后执行**（Harness 自己的 CLI，`DSH_HOME=D:\DS-Hns\data`）：

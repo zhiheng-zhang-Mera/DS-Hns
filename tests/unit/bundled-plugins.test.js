@@ -28,6 +28,18 @@ const TESTED_MANIFEST = {
   ]
 }
 
+/**
+ * The same pins, marked untested — the shape the *policy* is about.
+ *
+ * The shipped manifest now says `tested: true` (§23's flip, earned by the manual UI review), so "an untested
+ * reference is never installed" can no longer be demonstrated with it. The rule did not go away with the
+ * flag, though: the next plugin anyone adds arrives untested, and these two tests are what says so.
+ */
+const UNTESTED_MANIFEST = {
+  version: 'test-untested',
+  plugins: TESTED_MANIFEST.plugins.map((entry) => ({ ...entry, tested: false }))
+}
+
 function build({ manifest = BUNDLED_MANIFEST, installed = [], userEnabled = () => null, install = null, uninstall = null, compatibility = () => ({ ok: true }), protection = null } = {}) {
   const calls = []
   const manager = createBundledPlugins({
@@ -70,28 +82,28 @@ test('the shipped manifest pins real references and never says "latest"', () => 
   assert.equal(market.package, '@dsh-market/plugin')
   assert.match(market.ref, /^\d+\.\d+\.\d+$/, 'the market must be pinned to a published version')
   assert.equal(/latest/i.test(market.ref), false)
-  // Two claims, kept apart: the install command was run for real in a throwaway profile, the plugins have not
-  // been run inside the product yet.
+  // Three claims, kept apart: the install command was run for real in a throwaway profile, it was then run in
+  // the product's own profile, and the manual UI review ran the result inside the product (§23's flip).
   for (const entry of BUNDLED_MANIFEST.plugins) {
     assert.equal(entry.channelVerified, true, `${entry.id}'s installation channel is not recorded as verified`)
-    assert.equal(entry.tested, false, `${entry.id} claims a runtime test nobody ran`)
+    assert.equal(entry.tested, true, `${entry.id} is still marked untested after the UI review passed it`)
   }
   const reported = build().manager.describe().manifest.plugins
   assert.deepEqual(reported.map((entry) => [entry.id, entry.channel, entry.channelVerified, entry.tested]), [
-    ['dsh-wallpaper-engine', 'harness-profile', true, false],
-    ['@dsh-market/plugin', 'harness-profile', true, false]
+    ['dsh-wallpaper-engine', 'harness-profile', true, true],
+    ['@dsh-market/plugin', 'harness-profile', true, true]
   ])
   // The assessment entries carry the same three facts, because that is what the Control Center reads: a panel
   // that saw only the state would show "declared" and "installable" as the same thing.
   const assessments = build().manager.describe().plugins
   assert.deepEqual(assessments.map((entry) => [entry.id, entry.channel, entry.channelVerified, entry.tested]), [
-    ['dsh-wallpaper-engine', 'harness-profile', true, false],
-    ['@dsh-market/plugin', 'harness-profile', true, false]
+    ['dsh-wallpaper-engine', 'harness-profile', true, true],
+    ['@dsh-market/plugin', 'harness-profile', true, true]
   ])
 })
 
 test('an untested pin is declared, reported, and never installed', async () => {
-  const { manager, calls } = build()
+  const { manager, calls } = build({ manifest: UNTESTED_MANIFEST })
   const assessed = manager.assess('dsh-wallpaper-engine')
   assert.equal(assessed.state, BUNDLED_STATE.UNTESTED)
   assert.match(assessed.reason, /nobody has tested it inside DS-Hns yet/)
@@ -147,7 +159,7 @@ test('an incompatible plugin is reported, and repair is the one path that reinst
 })
 
 test('repair refuses to conjure a version out of an untested pin', async () => {
-  const { manager, calls } = build()
+  const { manager, calls } = build({ manifest: UNTESTED_MANIFEST })
   const repaired = await manager.repair('dsh-wallpaper-engine')
   assert.equal(repaired.ok, false)
   assert.match(repaired.reason, /has not been tested inside DS-Hns yet/)

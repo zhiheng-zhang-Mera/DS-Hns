@@ -3,10 +3,10 @@
 /**
  * The wallpaper layer in the dock.
  *
- * The shell owns the file and decides what may be drawn; this applies its answer to two elements
- * that are already in the markup — an image div and a video — and nothing else. It is the dock's
- * lowest layer and the panels frost *it*, which is the point: a background behind frosted glass is
- * what makes the glass read as glass instead of as a flat tint.
+ * The shell owns the file and decides what may be drawn; this applies its answer to the one element
+ * already in the markup — the image div — and nothing else. It is the dock's lowest layer and the
+ * panels frost *it*, which is the point: a background behind frosted glass is what makes the glass
+ * read as glass instead of as a flat tint.
  *
  * The dock shows *part* of a picture that covers the whole window: the layer over the official page
  * draws the rest, and the dock's rectangle is cut out of it so the dock's own view (which sits under
@@ -16,28 +16,29 @@
  * with no frame at all (a dock that is not part of the main window) the layer falls back to its own
  * box, which is what it did before the layer above the official page existed.
  *
- * Three properties it has to keep, whichever way the user drives it:
+ * Two properties it has to keep, whichever way the user drives it:
  *
  *   * **It never takes an event.** The layer is `pointer-events: none` in the stylesheet and
  *     `aria-hidden` in the markup: it is a background, so every click, wheel and selection still
  *     lands on what is in front of it.
- *   * **A video is paused when nobody is looking.** A wallpaper that keeps decoding while the dock
- *     is hidden is a background that costs a laptop its battery, so visibility drives `play()` and
- *     `pause()` — and a paused video keeps its last frame, so nothing flashes.
- *   * **Nothing to draw is a complete answer.** The layer is emptied and hidden rather than left
- *     showing the previous wallpaper, so a file that was deleted or replaced is never still on
- *     screen pretending to be current.
+ *   * **Nothing to draw is a complete answer.** The layer is emptied rather than left showing the
+ *     previous wallpaper, so a file that was deleted or replaced is never still on screen pretending
+ *     to be current.
+ *
+ * It used to play a video too — the one kind of wallpaper a real element can carry and a stylesheet
+ * cannot — with visibility driving `play()`/`pause()` so a hidden dock cost no frames. That pipeline
+ * is the wallpaper plugin's now (`updateplan/pluginize.md` Phase 7), so it left with its element: a
+ * copy of a feature is a second implementation to keep in step, and the plugin's is the better one.
  */
 ;(function attachWallpaperLayer(global) {
-  let state = { active: false, kind: null, src: null, fit: 'cover', opacity: 55, blur: 0, scrim: 35, muted: true, frame: null }
+  let state = { active: false, kind: null, src: null, fit: 'cover', opacity: 55, blur: 0, scrim: 35, frame: null }
 
   function nodes() {
     const document = global.document
     if (!document || typeof document.getElementById !== 'function') return null
     const layer = document.getElementById('wallpaper')
-    const video = document.getElementById('wallpaperVideo')
     if (!layer) return null
-    return { layer, video, body: document.body, root: document.documentElement }
+    return { layer, body: document.body, root: document.documentElement }
   }
 
   /** The object fit a wallpaper's `fit` means on a CSS box. */
@@ -50,7 +51,7 @@
   /**
    * Apply one state.
    *
-   * @param {object} next what the shell said — `{ active, kind, src, fit, opacity, blur, scrim, muted }`
+   * @param {object} next what the shell said — `{ active, kind, src, fit, opacity, blur, scrim }`
    */
   function apply(next = {}) {
     state = {
@@ -61,21 +62,18 @@
       opacity: Number.isFinite(Number(next.opacity)) ? Number(next.opacity) : state.opacity,
       blur: Number.isFinite(Number(next.blur)) ? Number(next.blur) : state.blur,
       scrim: Number.isFinite(Number(next.scrim)) ? Number(next.scrim) : state.scrim,
-      muted: next.muted !== false,
       // Kept when the answer does not carry one: a repaint of the picture is not a re-layout, and
       // forgetting the frame for one frame would move the dock's copy of the picture.
       frame: next.frame || state.frame
     }
     const found = nodes()
     if (!found) return { ...state }
-    const { layer, video, body, root } = found
+    const { layer, body, root } = found
 
     const drawable = state.active && Boolean(state.src)
-    const isVideo = drawable && state.kind === 'video'
-    const isImage = drawable && !isVideo
 
-    // Reset both first: one source must never survive into a state that did not ask for it.
-    layer.style.backgroundImage = isImage ? `url("${state.src}")` : 'none'
+    // Emptied first: one picture must never survive into a state that did not ask for it.
+    layer.style.backgroundImage = drawable ? `url("${state.src}")` : 'none'
     layer.style.backgroundSize = state.fit === 'tile' ? 'auto' : objectFit(state.fit)
     layer.style.backgroundRepeat = state.fit === 'tile' ? 'repeat' : 'no-repeat'
     layer.style.backgroundPosition = 'center'
@@ -94,22 +92,6 @@
       const y = Number(frame.y)
       root.style.setProperty('--hns-wallpaper-origin-x', `${Number.isFinite(x) ? Math.round(x) : 0}px`)
       root.style.setProperty('--hns-wallpaper-origin-y', `${Number.isFinite(y) ? Math.round(y) : 0}px`)
-    }
-    if (video) {
-      if (isVideo) {
-        if (video.getAttribute('src') !== state.src) video.setAttribute('src', state.src)
-        video.muted = state.muted
-        video.hidden = false
-        // A hidden dock must not decode frames. Where the page cannot tell, it simply plays.
-        if (!global.document || global.document.visibilityState !== 'hidden') {
-          const played = typeof video.play === 'function' ? video.play() : null
-          if (played && typeof played.catch === 'function') played.catch(() => {})
-        }
-      } else {
-        if (typeof video.pause === 'function') video.pause()
-        video.hidden = true
-        video.removeAttribute('src')
-      }
     }
     return { ...state }
   }
@@ -149,21 +131,7 @@
     refresh
   }
 
-  // The dock is hidden and shown by the shell, not by a route change, so the fastest honest signal
-  // is the document's own visibility plus the window's focus: a wallpaper nobody can see does not
-  // need frames.
   if (typeof global.addEventListener === 'function') {
-    global.addEventListener('visibilitychange', () => {
-      const found = nodes()
-      if (!found || !found.video || found.video.hidden) return
-      if (global.document && global.document.visibilityState === 'hidden') {
-        if (typeof found.video.pause === 'function') found.video.pause()
-      } else {
-        const played = typeof found.video.play === 'function' ? found.video.play() : null
-        if (played && typeof played.catch === 'function') played.catch(() => {})
-      }
-    })
-
     /**
      * The dock's rectangle inside the window changes whenever the dock is expanded, collapsed or
      * the window is resized — and the origin the dock's copy of the picture is offset by changes

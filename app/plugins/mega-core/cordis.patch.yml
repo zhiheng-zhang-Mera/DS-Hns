@@ -1,0 +1,17 @@
+# dsh-plugin-mega-core bundle patch.
+#
+# Applied over the dsh-web-app layer. This bundle contributes ONE host row — the plugin that bridges
+# DS-Hns' governance state (plugin registry, protection layer, pending human work) into the official UI —
+# and relies on its `dsh.client` manifest (package.json) to load the browser half that draws the orb, the
+# mini panel and the full Mega page.
+#
+# A patch replaces the targeted row's whole `config`, so only additive `insert` rows appear here: this
+# bundle never overrides a shipped row.
+
+- insert:
+    # Host half: serves the governance snapshot and accepts the governance actions over same-origin HTTP
+    # routes the browser half fetches directly. It reads DS-Hns' loopback governance bridge (found through
+    # `$DSH_HOME/state/governance-bridge.json`) and reverses the direction for actions, so the plugin never
+    # needs — and never gets — a channel into the kernel.
+    - id: mega-core
+      name: 'dsh-plugin-mega-core'

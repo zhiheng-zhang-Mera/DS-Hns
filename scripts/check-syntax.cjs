@@ -114,7 +114,11 @@ const SOURCE_DIRS = [
   'plugins/acceleration/reasoning-governor',
   'plugins/acceleration/repo-map',
   'plugins/acceleration/tool-batcher',
-  'plugins/acceleration/workspace-isolation'
+  'plugins/acceleration/workspace-isolation',
+  // The Mega Core plugin (updateplan/pluginize.md Phase 1): its host half and view model are ESM modules next
+  // to a package.json that says so, and its client half is the hand-written browser bundle the loader
+  // materialises. All three are product code and all three belong in the gate.
+  'plugins/mega-core/lib'
 ]
 
 /** Files outside the app directory that still ship as product code. */

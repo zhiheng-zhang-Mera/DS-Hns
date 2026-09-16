@@ -60,8 +60,9 @@ function pluginActions(state) {
  * @param {object} [input.boot]       `startup.summary()`
  * @param {object} [input.cache]      `startupCache().describe()` — a warm-start hint, never an owner (§52)
  * @param {object} [input.appearance] `appearanceCost()` — what the appearance costs (§55-§57)
+ * @param {object} [input.bridge]     `governanceBridge().describe()` — the channel the Mega plugin talks to
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -141,7 +142,9 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
         row('超预算阶段', 'Over budget', (boot?.overBudget || []).join(', ') || 'none', (boot?.overBudget || []).length ? 'warn' : 'ok'),
         // §52: the cache is a hint about the *previous* run, and it says so — a cold start is not a fault.
         row('上次启动缓存', 'Startup cache', cache?.at ? (cache.warm ? 'warm' : 'stale') : 'cold', cache?.warm ? 'ok' : null),
-        row('上次工作区', 'Last workspace', cache?.entries?.workspace || '—')
+        row('上次工作区', 'Last workspace', cache?.entries?.workspace || '—'),
+        // Phase 1 of `pluginize.md`: Mega becomes a Harness plugin, and this is the channel it talks through.
+        row('治理桥 / Mega 插件通道', 'Governance bridge', bridge?.ok ? `${bridge.host}:${bridge.port} · ${bridge.requests} req` : 'not listening', bridge?.ok ? 'ok' : 'warn')
       ]
     }
   ]

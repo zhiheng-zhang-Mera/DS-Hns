@@ -55,9 +55,15 @@
  *     `npx @deepseek-ai/dsh plugin --profile web add @dsh-market/plugin`. So it belongs to the **same channel**:
  *     a Harness client plugin, installed by the Harness' CLI, pinned to a published version.
  *
- * `tested: false` remains on both, and for the wallpaper plugin it now means the narrower thing: the reference
- * exists and its package is real, but nobody has run it inside this product yet. The manager will not install an
- * untested reference, so adoption is still a live test and a one-line flip.
+ * **`tested` is now true on both, and it was earned by a real machine run rather than by the pin being tidy**:
+ * both plugins were installed into the product's own profile, the application was restarted with them loaded,
+ * and the manual UI review found the official Harness interface normal — which is the failure mode a broken
+ * client plugin would have shown as (a client plugin rewrites the official page from inside). The wallpaper
+ * plugin drew its own background, the market's entry appeared, and the governance bridge answered on loopback.
+ * What that review does *not* claim is §23's failure rows one by one — disabled, crash, bad config, network
+ * loss, version mismatch, rollback — they are the protection layer's and this manager's own policy paths, and
+ * they are covered where they live (`mega-protection.test.js`, `bundled-plugins.test.js`,
+ * `appearance-providers.test.js`). `docs/pluginize.md` records the split in full.
  *
  * **`channelVerified`** is the third, narrower thing, and it was earned rather than assumed: the command the
  * `harness-profile` channel builds was run for real, in a throwaway `DSH_HOME` with its own profile —
@@ -78,9 +84,10 @@ const BUNDLED_MANIFEST = Object.freeze({
       package: 'dsh-plugin-wallpaper-engine',
       ref: 'v0.7.1',
       commit: '4de97fc88905077fac879c6bf493aed3575c3b9e',
-      /** The install command was run for real in a throwaway profile (see the note above). Not a runtime test. */
+      /** The install command was run for real in a throwaway profile, and then in the product's own (above). */
       channelVerified: true,
-      tested: false,
+      /** The manual UI review ran this inside the product: the official UI stayed normal with it loaded. */
+      tested: true,
       required: false
     }),
     Object.freeze({
@@ -93,7 +100,7 @@ const BUNDLED_MANIFEST = Object.freeze({
       ref: '0.4.7',
       commit: '2c34728e7e0e478774e91282d6ec1723fe4b9037',
       channelVerified: true,
-      tested: false,
+      tested: true,
       required: false
     })
   ])

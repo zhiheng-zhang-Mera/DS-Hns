@@ -121,7 +121,11 @@ Check 'The protection layer reports what the MEGA panel shows' (($protection -ma
 $bundled = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'Bundled Plugin Manager exists with both bundled plugins' (($bundled -match 'dsh-wallpaper-engine') -and ($bundled -match '@dsh-market/plugin'))
 Check 'Bundled references are pinned, and nothing chases latest' (($bundled -match "ref: '") -and (-not ($bundled -match "ref:\s*'latest'")))
-Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($bundled -match 'tested: false'))
+# The rule is asserted against the *code*, not against the shipped flag: the two bundled pins were flipped to
+# `tested: true` when the manual UI review passed them (pluginize Phase 7), and the next plugin anyone adds
+# arrives untested. `entry.tested !== true` is what still refuses it.
+Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($bundled -match 'entry\.tested !== true'))
+Check 'Both bundled pins are marked tested, and the review that earned it is recorded' ((([regex]::Matches($bundled, 'tested: true')).Count -ge 2) -and ($bundled -match 'manual UI review'))
 Check 'The user''s decision and unknown versions are respected, not overwritten' (($bundled -match 'USER_DISABLED') -and ($bundled -match 'AHEAD_OF_PIN'))
 Check 'Bundled plugins are registered as protected modules' (($bundled -match 'registerProtected') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'bundled\(\)\.registerProtected\(\)'))
 Check 'The bundled set belongs to MEGA, and its policy pass is not on the boot path' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:bundled-plugins'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match '\.then\(\(\) => bundled\(\)\.ensure\(\)\)'))
@@ -188,7 +192,7 @@ Check 'The bundled manifest names a channel per entry' (($bundledPlugins -match 
 Check 'A Harness client plugin is installed by the Harness own CLI' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "plugin', '--profile', profile, 'add'") -and ($bundledPlugins -match 'dsh-plugin-wallpaper-engine'))
 Check 'An entry without a channel is reported, never installed' (($bundledPlugins -match 'BUNDLED_STATE.UNRESOLVED') -and ($bundledPlugins -match "action: 'report'"))
 Check 'Removal and compatibility follow the same channel as installation' (($bundledPlugins -match 'async function removeBundled') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "checked: 'harness'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "harnessRemove:"))
-Check 'The channel is recorded as verified and the runtime as untested' (($bundledPlugins -match 'channelVerified: true') -and ($bundledPlugins -match 'tested: false') -and ($bundledPlugins -match 'channelVerified: entry.channelVerified === true'))
+Check 'The channel is recorded as verified, and the runtime only after it was run' (($bundledPlugins -match 'channelVerified: true') -and ($bundledPlugins -match 'tested: true') -and ($bundledPlugins -match 'channelVerified: entry.channelVerified === true') -and ($bundledPlugins -match 'tested: entry\.tested === true'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")
@@ -214,6 +218,26 @@ Check 'Theme and dock pushes never read dockWindow directly' ($megaDockReads -eq
 Check 'Dock state reports its generation' ($mega -match 'dockTarget\.getState\(')
 Check 'Shell hands the extension a dock adapter' (($main -match 'dockAdapter') -and ($main -match 'function createDockAdapter'))
 Check 'Shell notifies the extension when the dock renderer is ready' (($main -match 'notifyDockReady') -and ($mega -match 'registerDockReadyHook'))
+# ---- The system floating orb: a window of ours over every application (system-orb.cjs) ----
+$systemOrb = Get-Content "$ROOT\app\extensions\mega\system-orb.cjs" -Raw -ErrorAction SilentlyContinue
+$orbPreload = Get-Content "$ROOT\app\extensions\mega\ui\orb-preload.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The system orb is a window that floats over other applications' (($systemOrb -match 'alwaysOnTop: true') -and ($systemOrb -match 'skipTaskbar: true') -and ($systemOrb -match 'focusable: false'))
+Check 'It takes no click it was not offered' (($systemOrb -match 'setIgnoreMouseEvents\(!next, \{ forward: true \}\)') -and ($systemOrb -match 'let interactive = null') -and ($systemOrb -match 'hovering = false'))
+Check 'An open panel or a drag keeps the window interactive, so the pointer cannot chase itself' (($systemOrb -match 'hovering \|\| dragging \|\| open') -and ($systemOrb -match 'function sameBounds'))
+Check 'The ball is a top-level window, so it can cover other applications' (-not ($systemOrb -match 'getParentWindow'))
+Check 'The ball grows its panel toward the middle of the screen' (($systemOrb -match 'function layoutOrbWindow') -and ($systemOrb -match 'const above = ballCentre\.y > areaCentre\.y') -and ($systemOrb -match 'const toTheRight = ballCentre\.x < areaCentre\.x'))
+Check 'The ball remembers where it was left, in a file rather than in a page' (($systemOrb -match 'function createOrbState') -and ($mega -match "data', 'state', 'system-orb\.json'"))
+Check 'The orb window has a document, a stylesheet and an enumerable surface' ((Test-Path "$ROOT\app\extensions\mega\ui\orb.html") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.css") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.js") -and ($orbPreload -match 'mega:orb-snapshot') -and ($orbPreload -match 'mega:orb-action'))
+Check 'The ball draws the same view model as the official page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
+# There is one ball, and it is the system one: the plugin's browser half registers the settings section only.
+$orbClient = Get-Content "$ROOT\app\plugins\mega-core\lib\client.js" -Raw -ErrorAction SilentlyContinue
+Check 'The plugin draws one surface, and the ball is not it' ((-not ($orbClient -match "inject\(\s*'shell\.overlay'")) -and ($orbClient -match "inject\('settings\.section'"))
+Check 'The ball is created with the other windows and torn down with them' (($mega -match 'createSystemOrbWindow\(\)') -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
+# ---- The old Mega dock is retired: off by default, back on request ----
+Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))
+Check 'A hidden dock reserves no strip and no wallpaper notch' (($main -match 'megaDockShown\s*\r?\n?\s*\?\s*Math\.max\(MEGA_DOCK_COLLAPSED_WIDTH') -and ($main -match 'if \(!megaDockShown \|\| !megaDockView'))
+Check 'It comes back when it is asked for, creating the view if needed' (($main -match 'async function showIntegratedMegaDock') -and ($main -match 'if \(!megaDockView\) await createIntegratedMegaDock\(\)') -and ($mega -match 'if \(dockExpanded && !dockWindow && dockEnabled\(\)\) createDock\(\)'))
+Check 'The extension does not build its own dock at boot either' (($mega -match 'function dockAutoStart') -and ($mega -match 'if \(dockAutoStart\(\)\) createDock\(\)'))
 # ---- updater rollback transaction ----
 $runner = Get-Content "$ROOT\app\extensions\mega\updater\update-runner.js" -Raw
 $rollbackBody = ($runner -split 'function restorePreviousInstallation')[1]
