@@ -120,6 +120,15 @@ try {
     'mega-store-installer.test.js',
     'plugin-store-mount.test.js',
     'plugin-compat.test.js',
+    # The plugin adapter framework: the layer that turns an external plugin format into the
+    # platform's own model. Asserted by name for the same reason as the rest: a renamed file must
+    # fail the gate rather than silently drop the coverage of the isolation requirement.
+    'plugin-adapters-contract.test.js',
+    'plugin-adapters-detection.test.js',
+    'plugin-adapters-lifecycle.test.js',
+    'plugin-adapters-framework.test.js',
+    'plugin-adapters-fault-injection.test.js',
+    'plugin-adapters-compatibility.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

@@ -104,11 +104,42 @@ function validateManifest(manifest) {
   if (manifest.fault_level !== undefined && !Object.values(FAULT_LEVELS).includes(manifest.fault_level)) {
     errors.push(`fault_level must be one of ${Object.values(FAULT_LEVELS).join(', ')}`)
   }
+  // The standard sections are validated for *shape* only. Their vocabulary belongs to the adapter
+  // framework, which is where a permission name can be checked against a closed list; the core
+  // contract's job is to guarantee that whatever is stored has the shape every reader expects.
+  for (const field of ['runtime', 'adapter', 'health']) {
+    const value = manifest[field]
+    if (value !== undefined && value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+      errors.push(`${field} must be an object when it is present`)
+    }
+  }
+  if (manifest.permissions !== undefined && manifest.permissions !== null) {
+    if (typeof manifest.permissions !== 'object' || Array.isArray(manifest.permissions)) {
+      errors.push('permissions must be an object when it is present')
+    } else {
+      for (const field of ['declares', 'declared', 'granted']) {
+        const value = manifest.permissions[field]
+        if (value === undefined || value === null) continue
+        if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string' || !entry.trim())) {
+          errors.push(`permissions.${field} must be an array of non-empty permission names`)
+        }
+      }
+    }
+  }
   if (errors.length) return { ok: false, errors, manifest: null }
   return { ok: true, errors: [], manifest: normalizeManifest(manifest) }
 }
 
-/** Apply the documented defaults so nothing downstream has to guess. */
+/**
+ * Apply the documented defaults so nothing downstream has to guess.
+ *
+ * The last four entries are the *standard sections* the adapter framework fills in. They are
+ * normalised here, in the platform's own contract, rather than in the adapter layer, so that a
+ * manifest keeps its declaration no matter which adapter produced it — and so the manager can
+ * report what a plugin asked for without knowing what format it arrived in. A plugin that
+ * declared none of them gets the documented neutral value, which is what a hand-written plugin
+ * has always meant.
+ */
 function normalizeManifest(manifest) {
   return {
     api_version: PLUGIN_API_VERSION,
@@ -127,7 +158,40 @@ function normalizeManifest(manifest) {
     /** Where the plugin's code lives, for diagnostics and for a later reload. */
     entry: manifest.entry ? String(manifest.entry) : null,
     /** Free-form, validated by the plugin itself; the manager never interprets it. */
-    config: manifest.config && typeof manifest.config === 'object' ? manifest.config : {}
+    config: manifest.config && typeof manifest.config === 'object' ? manifest.config : {},
+    /** What the plugin declared it needs, and what the platform granted it. */
+    permissions: normalizePermissions(manifest.permissions),
+    /** How it runs, and what that boundary actually enforces. */
+    runtime: manifest.runtime && typeof manifest.runtime === 'object' ? { ...manifest.runtime } : null,
+    /** Which adapter produced this plugin, and out of what. */
+    adapter: manifest.adapter && typeof manifest.adapter === 'object' ? { ...manifest.adapter } : null,
+    /** The health contract the plugin is subject to, stated before it is asked. */
+    health: manifest.health && typeof manifest.health === 'object' ? { ...manifest.health } : null
+  }
+}
+
+/**
+ * The permission block, with every list present so no surface has to test for `undefined`.
+ *
+ * Two spellings of the same list are accepted on purpose. `declares` is what an author writes in a
+ * manifest ("this is what I am asking for"); `declared` is what the adapter framework writes back
+ * once it has resolved the request against the vocabulary and the deployment policy. Accepting
+ * both means a hand-written manifest and an adapted one normalise to the same shape, and the
+ * resolved form wins when both are present, because it is the later fact.
+ */
+function normalizePermissions(value) {
+  const block = value && typeof value === 'object' ? value : {}
+  const declares = Array.isArray(block.declares) ? block.declares : null
+  return {
+    declared: unique(declares || block.declared),
+    granted: unique(block.granted),
+    unknown: unique(block.unknown),
+    refused: Array.isArray(block.refused)
+      ? block.refused.map((entry) => (entry && typeof entry === 'object'
+        ? { permission: String(entry.permission || ''), reason: entry.reason ? String(entry.reason) : null }
+        : { permission: String(entry), reason: null })).filter((entry) => entry.permission)
+      : [],
+    complete: block.complete !== false
   }
 }
 
@@ -188,6 +252,13 @@ function createPluginContext(input = {}) {
     version: manifest ? manifest.version : null,
     /** Only this plugin's own configuration block, never the whole config. */
     config: input.config && typeof input.config === 'object' ? { ...input.config } : {},
+    /**
+     * What this plugin was granted, resolved by the adapter framework and not by the plugin.
+     *
+     * A plugin reading its own declaration is how "I asked for it" becomes "I may do it"; the
+     * granted list is the platform's answer, and it is the one a plugin should act on.
+     */
+    permissions: manifest && manifest.permissions ? { ...manifest.permissions } : null,
     services: input.services && typeof input.services === 'object' ? input.services : {},
     log(message, detail = {}) {
       scoped('log', { message: String(message), ...detail })
@@ -265,6 +336,7 @@ module.exports = {
   LOAD_REASONS,
   validateManifest,
   normalizeManifest,
+  normalizePermissions,
   validatePlugin,
   createPluginContext,
   unique

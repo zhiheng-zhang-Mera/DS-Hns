@@ -145,6 +145,14 @@ function createPluginManager(options = {}) {
       optional: manifest.optional_capabilities.slice(),
       model_specific: manifest.model_specific,
       fault_level: manifest.fault_level,
+      // The standard sections an adapter filled in. The manager reports them and never
+      // interprets them: which adapter produced a plugin, what it asked for and what it
+      // was granted are facts about the plugin, and the manager is the surface that
+      // publishes facts about plugins.
+      permissions: manifest.permissions,
+      runtime: manifest.runtime,
+      adapter: manifest.adapter,
+      health_contract: manifest.health,
       plugin,
       installedAt: now(),
       loadedAt: null,
@@ -345,6 +353,7 @@ function createPluginManager(options = {}) {
         id: record.id,
         name: record.name,
         version: record.version,
+        apiVersion: record.api_version,
         installed: record.installed,
         enabled: record.enabled,
         loaded: record.loaded,
@@ -354,7 +363,15 @@ function createPluginManager(options = {}) {
         faultLevel: record.fault_level,
         provides: record.capabilities,
         requires: record.requires,
-        modelSpecific: record.model_specific
+        modelSpecific: record.model_specific,
+        // The standard sections. One line each, and the same on every plugin whatever format
+        // it arrived in — that uniformity is what the adapter framework exists to produce.
+        permissions: record.permissions,
+        runtime: record.runtime,
+        adapter: record.adapter,
+        adaptation: record.plugin.adaptation || null,
+        lifecycle: typeof record.plugin.lifecycleState === 'function' ? record.plugin.lifecycleState() : null,
+        errorCount: record.plugin.errorReport ? record.plugin.errorReport().total : 0
       }))
       .sort((a, b) => a.id.localeCompare(b.id))
   }
@@ -390,7 +407,19 @@ function createPluginManager(options = {}) {
       capabilities: record.capabilities.map((capability) => ({ capability, providers: registry.describe(capability) })),
       subscriptions: bus.subscriptionCount(record.id),
       loadedAt: record.loadedAt,
-      faults: record.faults.slice(-10)
+      faults: record.faults.slice(-10),
+      // The diagnostic half of the standard sections: where it runs, what boundary that gives,
+      // what it asked for, and what has gone wrong. All of it comes from the adapter framework's
+      // unified interfaces, so a plugin adopted from a foreign format answers exactly like one
+      // that declared the contract by hand.
+      permissions: record.permissions,
+      runtime: record.runtime,
+      adapter: record.adapter,
+      healthContract: record.health_contract,
+      adaptation: record.plugin.adaptation || null,
+      lifecycle: typeof record.plugin.lifecycleState === 'function' ? record.plugin.lifecycleState() : null,
+      runtimeInfo: typeof record.plugin.runtimeInfo === 'function' ? record.plugin.runtimeInfo() : null,
+      errorReport: typeof record.plugin.errorReport === 'function' ? record.plugin.errorReport() : null
     }
   }
 

@@ -38,6 +38,12 @@ const { createResourceManager, DEFAULT_LIMITS } = require('./core/resource-manag
 const { createHealthSupervisor } = require('./core/health-supervisor/index.cjs')
 const { createPluginLock } = require('./core/lockfile/index.cjs')
 const { describe: describeCapabilities } = require('./core/contracts/capability.cjs')
+// The adapter framework. This host knows that plugins arrive in *some* external format and that
+// an adapter turns them into the platform's model; it does not know which formats exist. Adding
+// one is a registration, not an edit to this file.
+const { createAdapterFramework } = require('./core/plugin-adapters/index.cjs')
+const { createNativeAdapter } = require('./core/plugin-adapters/adapters/native.cjs')
+const { createCordisAdapter } = require('./core/plugin-adapters/adapters/cordis.cjs')
 const { PARALLEL_MODES, MODE_POLICY } = require('./plugins/acceleration/parallel-executor/index.cjs')
 const { mountedPlugins } = require('./plugins/mounted/index.cjs')
 const { accelerationPlugins } = require('./plugins/acceleration/index.cjs')
@@ -151,6 +157,10 @@ function executionDefaults(block = {}) {
  * @param {object} [options.profile] the active profile's config block
  * @param {string} [options.lockFile] an explicit lockfile path
  * @param {boolean} [options.enforceLock] refuse to load when the lock has drifted
+ * @param {string} [options.nodeExe] the node binary an isolated adapter runs its plugin under
+ * @param {number} [options.compatTimeoutMs] the activation budget for an isolated plugin
+ * @param {object} [options.permissionPolicy] `{ allow?: string[], deny?: string[] }`, applied by
+ *   the adapter framework when it decides what a plugin holds. It can only narrow.
  * @param {Function} [options.available] `() => boolean`
  * @param {Function} [options.reason] `() => string`
  * @param {Function} [options.now]
@@ -175,6 +185,29 @@ function createPluginHost(options = {}) {
     log: (event) => log(`plugin config: ${JSON.stringify(event).slice(0, 200)}`)
   })
   const lock = createPluginLock({ root, file: options.lockFile, log: (message) => log(message) })
+
+  /**
+   * The adapter framework: the one place in this host that knows external plugin formats exist.
+   *
+   * Two adapters ship with the product — the platform's own format, and adoption of a foreign
+   * package in an isolated process — and they are registered here rather than hard-coded below.
+   * The registration is the extension point: a third format is one more `register` call, and the
+   * mock adapter in `core/plugin-adapters/adapters/mock.cjs` is the worked example of that.
+   *
+   * The permission policy is the deployment's, and it can only narrow what a plugin holds. It is
+   * deliberately empty by default: shipping a deny-list would make an adopted plugin refuse to
+   * load for a reason the user never chose.
+   */
+  const adapters = createAdapterFramework({
+    log: (event) => log(`adapter ${JSON.stringify(event).slice(0, 200)}`),
+    policy: options.permissionPolicy && typeof options.permissionPolicy === 'object' ? options.permissionPolicy : {}
+  })
+  adapters.register(createNativeAdapter())
+  adapters.register(createCordisAdapter({
+    nodeExe: options.nodeExe,
+    timeoutMs: options.compatTimeoutMs,
+    log: (event) => log(`compat ${JSON.stringify(event).slice(0, 200)}`)
+  }))
 
   /**
    * The resource manager, built from the *configured* limits.
@@ -263,18 +296,25 @@ function createPluginHost(options = {}) {
    * Plugins the user installed from the store and enabled.
    *
    * This is the *second* stage of the store's two-step install and the only place in the product
-   * that imports code the user brought: staging put it on disk and verified its manifest (or
+   * that brings in code the user chose: staging put it on disk and verified its manifest (or
    * derived a compatibility descriptor for it), and `enabled: true` in
-   * `data/plugins/installed.json` is the record that they asked for it to run. A module that
-   * cannot be imported is skipped and reported rather than taken down the whole host — a broken
+   * `data/plugins/installed.json` is the record that they asked for it to run. A plugin that
+   * cannot be mounted is skipped and reported rather than taken down the whole host — a broken
    * third-party plugin must not stop the product from starting.
    *
-   * Two kinds of entry arrive here, and they are loaded differently on purpose:
+   * **This host no longer knows what an external plugin format is.** It does two things and
+   * neither of them names a format:
    *
-   *   * **native** — the plugin declared `dshns.plugin/v1` itself, so its module is imported and
-   *     its own manifest is used;
-   *   * **compat** — the plugin was adopted from another ecosystem, so its module is activated in
-   *     an isolated process and the manifest comes from the descriptor the installer derived.
+   *   1. turn each recorded entry into an *artifact* — a directory, and the module the entry
+   *      names when the plugin is one that runs in this process (an adopted plugin's code is
+   *      deliberately not imported here: running it in the shell is the thing adoption exists to
+   *      avoid);
+   *   2. hand the artifacts to the adapter framework, which detects what each one is, selects an
+   *      adapter and returns the platform's standard plugin model.
+   *
+   * Which formats exist, which adapter wins, and what a refusal is called are all decided below
+   * this line. A new format is a detector and an adapter registered on the framework, and this
+   * function does not change.
    */
   async function installedPlugins() {
     const file = path.join(root, 'data', 'plugins', 'installed.json')
@@ -286,46 +326,73 @@ function createPluginHost(options = {}) {
       return out
     }
     const entries = Array.isArray(raw && raw.plugins) ? raw.plugins : []
+
+    /** Step 1: what the host can contribute without knowing anything about the format. */
+    const artifacts = []
     for (const entry of entries) {
       if (!entry || entry.enabled !== true || !entry.dir) continue
       const id = String(entry.id || entry.dir)
+      const dir = path.resolve(entry.dir)
+      if (entry.compatibility === 'compat') {
+        artifacts.push({ dir, repo: entry.repo || null, branch: entry.branch || null, source: entry.repo || dir, entry })
+        continue
+      }
+      const main = path.resolve(dir, String(entry.main || 'index.cjs'))
+      // The entry point must stay inside the plugin directory: a manifest that points elsewhere
+      // would be a way to import arbitrary files by editing JSON.
+      const relative = path.relative(dir, main)
+      if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        const reason = `${entry.main} escapes the plugin directory`
+        installedFailures.push({ id, reason })
+        log(`installed plugin ${id} could not be mounted: ${reason}`)
+        continue
+      }
       try {
-        const dir = path.resolve(entry.dir)
-        if (entry.compatibility === 'compat') {
-          // The descriptor is the store's own file format, and this host is the only reader of it;
-          // resolving it here rather than copying the shape keeps one definition of the format.
-          const { readCompatDescriptor, COMPAT_FILE } = require('./extensions/mega/store/compat.cjs')
-          const descriptor = readCompatDescriptor(dir)
-          if (!descriptor) throw new Error(`${COMPAT_FILE} is missing or unreadable, so the plugin cannot be adopted again`)
-          const { createCompatPlugin } = require('./core/plugin-compat/index.cjs')
-          const plugin = createCompatPlugin({
-            descriptor,
-            dir,
-            nodeExe: options.nodeExe,
-            compatTimeoutMs: options.compatTimeoutMs,
-            log
-          })
-          if (!plugin.manifest) throw new Error('the compatibility descriptor does not carry a valid manifest')
-          out.push(plugin)
-          compatPlugins.set(String(plugin.manifest.id), plugin)
-          installedIds.add(String(plugin.manifest.id))
-          log(`compat plugin mounted: ${plugin.manifest.id} (${descriptor.kind}, ${descriptor.api}, ${descriptor.format}, ${descriptor.state}) from ${entry.repo}`)
-          continue
-        }
-        const main = path.resolve(dir, String(entry.main || 'index.cjs'))
-        // The entry point must stay inside the plugin directory: a manifest that points
-        // elsewhere would be a way to import arbitrary files by editing JSON.
-        if (path.relative(dir, main).startsWith('..')) throw new Error(`${entry.main} escapes the plugin directory`)
-        const plugin = await importNativeModule(main, dir)
-        if (!plugin || typeof plugin.manifest !== 'object') throw new Error('the module does not export a plugin with a manifest')
-        out.push(plugin)
-        installedIds.add(String(plugin.manifest.id))
-        log(`installed plugin mounted: ${plugin.manifest.id} v${plugin.manifest.version} from ${entry.repo}`)
+        const imported = await importNativeModule(main, dir)
+        artifacts.push({ dir, module: imported, repo: entry.repo || null, branch: entry.branch || null, source: entry.repo || dir, entry })
       } catch (error) {
         const reason = String(error && error.message ? error.message : error)
         installedFailures.push({ id, reason })
         log(`installed plugin ${id} could not be mounted: ${reason}`)
       }
+    }
+
+    /**
+     * Step 2: adapt them all.
+     *
+     * `adaptMany` reports a failure *per artifact* and never one for the batch, and the framework
+     * itself never throws — so however badly one adapter behaves, the other plugins are still
+     * produced and the shell still starts. That is the isolation requirement, implemented once
+     * here rather than trusted to every adapter.
+     */
+    const adapted = await adapters.adaptMany(artifacts)
+    for (const result of adapted.results) {
+      const entry = result.artifact ? result.artifact.entry : null
+      const id = entry ? String(entry.id || entry.dir) : `artifact[${result.index}]`
+      if (result.ok !== true) {
+        const reason = result.reason || 'the plugin could not be adapted'
+        installedFailures.push({
+          id,
+          reason,
+          code: result.code || null,
+          phase: result.phase || null,
+          adapter: result.adapter ? result.adapter.id : null
+        })
+        log(`installed plugin ${id} could not be mounted: ${reason}`)
+        continue
+      }
+      const plugin = result.plugin
+      const adaptation = plugin.adaptation || null
+      out.push(plugin)
+      installedIds.add(String(plugin.manifest.id))
+      // The compat registry is a view of the adopted set, and the panel keys its badge off it.
+      if (plugin.compatibility === 'compat') compatPlugins.set(String(plugin.manifest.id), plugin)
+      log(
+        `installed plugin mounted: ${plugin.manifest.id} v${plugin.manifest.version}`
+        + ` via ${adaptation ? adaptation.adapter.id : 'the native adapter'}`
+        + ` (${adaptation ? adaptation.detected_type : 'unknown'}, ${plugin.standard ? plugin.standard.runtime_kind : 'unknown'} runtime)`
+        + `${entry && entry.repo ? ` from ${entry.repo}` : ''}`
+      )
     }
     return out
   }
@@ -557,7 +624,16 @@ function createPluginHost(options = {}) {
         // as an ordinary plugin with nothing said about it.
         compatibility: compatPlugins.has(entry.id) ? 'compat' : 'native',
         compat: compatPlugins.has(entry.id) ? compatPlugins.get(entry.id).compatibilityState() : null,
-        guarantees: compatPlugins.has(entry.id) ? compatPlugins.get(entry.id).compatibilityInfo.guarantees || null : null
+        guarantees: compatPlugins.has(entry.id) ? compatPlugins.get(entry.id).compatibilityInfo.guarantees || null : null,
+        // The standard sections, straight off the manager's record. Every plugin has them,
+        // including the ones that arrived in a foreign format, which is what makes one panel
+        // able to show all of them.
+        permissions: entry.permissions || null,
+        runtime: entry.runtime || null,
+        adapter: entry.adapter || null,
+        adaptation: entry.adaptation || null,
+        lifecycle: entry.lifecycle || null,
+        errorCount: entry.errorCount || 0
       }
     })
     const groups = []
@@ -881,7 +957,29 @@ function createPluginHost(options = {}) {
       capabilities: registry.capabilities(),
       events: events.slice(-40),
       configIssues: config.issues(),
-      errors: [...errors.entries()].map(([id, value]) => ({ id, error: String((value || {}).reason || value || '') })),
+      /**
+       * Everything that is not working, from both halves of the plugin picture.
+       *
+       * The manager's map covers plugins that were mounted and then faulted. An entry that could
+       * not be *adapted* never becomes a plugin and so never appears there — but it is exactly the
+       * failure a user needs to see, which is why the adapter failures are merged in beside it
+       * with the adapter and phase that produced them.
+       */
+      errors: [
+        ...[...errors.entries()].map(([id, value]) => ({
+          id,
+          error: String((value || {}).reason || value || ''),
+          source: 'plugin'
+        })),
+        ...installedFailures.map((failure) => ({
+          id: failure.id,
+          error: failure.reason,
+          source: 'adapter',
+          code: failure.code || null,
+          phase: failure.phase || null,
+          adapter: failure.adapter || null
+        }))
+      ],
       groups: GROUP_ORDER.slice()
     }
   }
@@ -922,6 +1020,15 @@ function createPluginHost(options = {}) {
     refreshInstalled,
     health,
     capabilities,
+    /**
+     * The adapter framework's own view: every plugin type it can detect, which adapters take
+     * them, what each adapter promises, and the permission vocabulary and policy in force.
+     *
+     * Read-only and side-effect free — it adapts nothing — so the panel can explain an adapted
+     * plugin without holding a plugin object, which is the same rule the rest of this host
+     * follows.
+     */
+    adapters: () => adapters.describe(),
     execution,
     configure,
     lockfile,
