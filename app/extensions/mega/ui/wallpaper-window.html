@@ -84,7 +84,13 @@
     background-repeat: var(--wp-repeat, no-repeat);
     background-position: center;
     opacity: var(--wp-opacity, 0);
-    filter: blur(var(--wp-blur, 0px));
+    /* The picture's filter, under the token names `updateplan/startup2.md` §27 allows a provider to use: the
+       shell writes them from the layer's own numbers, so what an appearance provider may change and what the
+       settings page shows are the same three numbers. */
+    filter: blur(var(--wp-blur, 0px))
+      brightness(var(--dsh-wallpaper-brightness, 1))
+      contrast(var(--dsh-wallpaper-contrast, 1))
+      saturate(var(--dsh-wallpaper-saturation, 1));
     clip-path: var(--wp-shape);
   }
   /* The scrim sits between the picture and the official UI: one flat wash, at the user's

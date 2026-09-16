@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<!--
+  The startup skeleton — what the window shows between "the window exists" and "the official UI is the
+  window page" (`updateplan/startup.md` §13, §14).
+
+  Two rules made this page:
+
+    * **a blank screen is a defect.** The window used to stay hidden until the Harness, the extension
+      host and the dock's renderer were all up, so a slow optional module looked exactly like a
+      product that had not started. This page is the answer to "at worst, a loading state the user can
+      understand, never an unreported void".
+    * **it cannot become anything else.** No script, no network, no form control, so it can only be a
+      picture of the shape that is coming: the frame, the sidebar, the conversation and the input box,
+      all as placeholders. It is replaced by the official page and then never seen again — the shell
+      only ever loads it into its own window, and only before the Harness is in charge of it.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'">
+<title>DS-Hns · 正在启动 / Starting</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --panel: #161a22;
+    --line: #232b3b;
+    --label: #8b96ab;
+    --strong: #e6ebf5;
+    --accent: #4d93f8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--strong);
+    font: 14px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden;
+  }
+  /* The skeleton: the shape the official UI will take, so the swap is a fill-in rather than a
+     rearrangement. Nothing here is interactive and nothing here is clickable. */
+  .frame { display: grid; grid-template-rows: 76px 1fr 96px; height: 100%; }
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 0 28px 0 20px; border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .mark {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(140deg, var(--accent), #2b6fd6);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; letter-spacing: .5px;
+  }
+  .title { display: flex; flex-direction: column; }
+  .title b { font-size: 15px; font-weight: 600; }
+  .title small { color: var(--label); font-size: 11px; }
+  .status { display: flex; align-items: center; gap: 10px; color: var(--label); font-size: 12px; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: .25; transform: scale(.85) } 50% { opacity: 1; transform: scale(1) } }
+  .body { display: grid; grid-template-columns: 260px 1fr; min-height: 0; }
+  .side { border-right: 1px solid var(--line); padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .main { padding: 22px 26px; display: flex; flex-direction: column; gap: 14px; }
+  .bar { height: 12px; border-radius: 6px; background: var(--panel); }
+  .bar.w40 { width: 40%; } .bar.w55 { width: 55%; } .bar.w70 { width: 70%; } .bar.w85 { width: 85%; }
+  .bar.tall { height: 14px; }
+  .grow { flex: 1; }
+  .bottom { border-top: 1px solid var(--line); padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .field { height: 46px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); display: flex; align-items: center; padding: 0 14px; color: var(--label); font-size: 12px; }
+  .hint { color: var(--label); font-size: 11px; padding-left: 2px; }
+</style>
+</head>
+<body data-surface="startup-skeleton">
+  <div class="frame">
+    <div class="top">
+      <div class="brand">
+        <div class="mark">H</div>
+        <div class="title">
+          <b>DS-Hns 工作台</b>
+          <small>DS-Hns Workbench</small>
+        </div>
+      </div>
+      <div class="status">
+        <span class="pulse"></span>
+        <span>正在启动官方界面 · starting the official UI…</span>
+      </div>
+    </div>
+    <div class="body">
+      <div class="side">
+        <div class="bar tall w70"></div>
+        <div class="bar w85"></div>
+        <div class="bar w55"></div>
+        <div class="bar w70"></div>
+        <div class="bar w40"></div>
+      </div>
+      <div class="main">
+        <div class="bar tall w40"></div>
+        <div class="bar w85"></div>
+        <div class="bar w70"></div>
+        <div class="bar w55"></div>
+        <div class="grow"></div>
+      </div>
+    </div>
+    <div class="bottom">
+      <div class="field">正在恢复工作区… · restoring your workspace…</div>
+      <div class="hint">核心界面先就绪，壁纸、Mega 与可选插件随后补齐 · the core UI comes first; wallpaper, Mega and optional plugins fill in behind it</div>
+    </div>
+  </div>
+</body>
+</html>

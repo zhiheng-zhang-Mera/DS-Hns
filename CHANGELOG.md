@@ -3,6 +3,407 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## bundled plugins — 两个插件已装进产品的 profile，管理器也认这两处"已安装"
+
+**用户批准后执行**（Harness 自己的 CLI，`DSH_HOME=D:\DS-Hns\data`）：
+`dsh plugin --profile web add dsh-plugin-wallpaper-engine@0.7.1` 与 `… add @dsh-market/plugin@0.4.7`。产品的
+`data/profiles/web/package.json` 现在带**精确版本**依赖，且 CLI 把两者同时写进 `dsh.profile.bundles`，
+所以下次启动时它们随 profile 一起加载。回滚是同样的命令加 `remove`；Control Center 里也有 Repair/禁用入口。
+
+**管理器现在认这两处"已安装"**：`installed()` 同时读本产品商店的记录与 `data/profiles/<profile>/package.json`
+的依赖（只读——写入永远归 Harness 的 CLI）。顺带修掉一个真实缺陷：清单钉的是壁纸引擎的 **tag**（`v0.7.1`）
+而 npm 记的是**版本**（`0.7.1`），旧比较会把正确安装的插件报成 `ahead-of-pin`；现在两者等价（去前导 `v`）。
+面板因此显示 `installed` + `harness-profile · verified · untested`。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 13/13（新增：两处安装来源的接线、tag 与版本等价、
+两条已安装后状态为 `installed`）。`tested: false` 保留到重启后的真机确认。
+
+## bundled plugins — 用产品自己的 profile 配置验证激活（updateplan/startup2.md §19–§23）
+
+**最接近真机的一步**：把产品的 `data/profiles/web/package.json`（真实 bundle 栈
+`["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`）**拷贝**进一次性 `DSH_HOME`，按 `plugin add` 的方式加上
+两个钉住的插件并安装，启动 web 应用 —— `plugin install: exit 0`，
+**`both plugins activated with the product's own profile configuration: true`**，服务器正常应答。用户的 profile
+只被读取，一次性目录已删除。
+
+于是接入的证据链是完整的四步：**安装命令 → 插件树注册 → 随 web 应用激活 → 用产品自己的 profile 配置激活**。
+唯一剩下的仍是在产品的 `data/profiles/web` 里真正装上并重启应用，看它们在 DS-Hns 窗口里的表现——那是对正在运行的
+官方界面的真实改动，属于用户的决定（装与回滚各一条命令）。因此 `channelVerified: true` 保持，`tested: false` 也保持：
+这两件事从来不是一个意思。
+
+## bundled plugins — 两个插件在带 web 应用的 profile 里真的激活了（updateplan/startup2.md §19–§23）
+
+**装上 web 应用 bundle 的 profile 里，两个插件都激活**：一次性 `DSH_HOME` 中建了与产品 `data/profiles/web` 同构的
+profile（同样的 `dsh.profile.bundles: ["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`），用 Harness 自己的
+`plugin` 命令装上 `@dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1`，启动 web 应用：日志里**没有**
+`did not activate`、**没有** `pending (waiting for service)`，服务器正常应答（未授权根路径 401，是产品的正常回答）。
+
+于是接入的三步都有实测证据：**安装命令 → 插件树注册 → 随 web 应用激活**。唯一还没测的是它们在 DS-Hns 窗口里的实际
+表现（视觉），那需要在产品的 `data/profiles/web` 里装上并重启应用——属于用户环境的一步，因此两条 pin 仍是
+`tested: false`（`channelVerified: true` 保持为真）。临时 `DSH_HOME` 已删除，未触碰用户数据。
+
+## bundled plugins — 插件树实测：两个插件都被 Harness 加载并注册（updateplan/startup2.md §19–§23）
+
+**在一次性 `DSH_HOME` 里启动那个 profile，Harness 的 profile 启动如实报了**：
+`2 entries did not activate` + `@dsh-market/plugin: pending (waiting for service: webServer)` +
+`dsh-plugin-wallpaper-engine: pending (waiting for service: webServer)`。这既是"两个插件都被装进 profile 的插件树、
+完成注册"的证据，也解释了它们为何停在那里：那个一次性 profile 没有 web 应用的 bundle，而产品自带的
+`data/profiles/web` 才有 `dsh.profile.bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]`。
+
+**因此接入的确切形式是**：把两个插件作为依赖装进 `data/profiles/web`，由**产品自己启动的 Harness** 加载它们；
+剩下的一步是真机验证（装进去、重启应用、看它工作），那是用户环境里才能完成的事。临时目录已删除、未触碰用户数据。
+
+**验证**：本条不改变代码；证据记在 `docs/startup.md` §3.2，与既有的 `channelVerified` 字段配套（命令实测 vs
+插件树实测 vs 产品内运行时，三件事分得很清楚）。
+
+## bundled plugins — 安装通道实测通过，两个 claim 分开记（updateplan/startup2.md §19–§23）
+
+**通道不是推出来的，是跑出来的**：用一个**一次性 `DSH_HOME`**（临时目录，用完删除，绝不碰用户的 `data/`）执行
+`dsh plugin --profile hns-verify add @dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1` —— 两条都
+exit 0，并且该 profile 的 `package.json` 里出现的正是这两个**钉住的版本**。顺带确认了这条通道的前提：需要 `pnpm`
+（Harness 的 `plugin` 子命令就是转发给它）。
+
+因此清单把两个 claim 分开记：**`channelVerified: true`**（命令形态、包名、版本都实测过；管理器描述里也带出这个
+字段）与 **`tested: false`**（插件在本产品里的运行时行为还没测）。两者不是一个意思，混在一起会让"命令能跑"被读成
+"插件能用"——而后者才是接入完成。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12 新增断言：两条都 `channelVerified`、都不冒充 `tested`，
+且 `describe().manifest` 如实带出 channel / channelVerified / tested 三个字段。
+
+## bundled plugins — 市场插件其实在 npm 上，与我上一轮的结论相反（updateplan/startup2.md §19–§23）
+
+**上一轮我把 `@dsh-market/plugin` 标成 `unresolved`，那是错的 —— 读的是那个仓库根目录的 `package.json`**
+（`dsh-market` 0.1.0、`private: true`、workspace 根），于是误判"计划书里的包名不存在"。查了 npm registry 与它的
+README 之后：`@dsh-market/plugin` **已发布**（本清单钉 **0.4.7**），其清单声明与壁纸插件相同的
+`dsh.bundle.patch: ./cordis.patch.yml` + `dsh.client.platform: "web"`，README 给出的安装命令正是
+`npx @deepseek-ai/dsh plugin --profile web add @dsh-market/plugin`。
+
+**所以两个插件同属一个通道**：Harness 客户端插件、由 Harness 的 CLI 安装、钉在已发布版本上（壁纸插件钉 tag
+`v0.7.1`，市场插件钉 npm 版本 `0.4.7`，仓库提交号留在清单里作为来源追溯）。`unresolved` 分支保留给将来真的需要
+决定的条目。两条都仍是 `tested: false`：通道与版本都已确定，**唯一缺的是真机测试**，之后翻一个字段即可完成接入。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12（清单钉住的形态允许 tag/版本/提交、两条各自通道与包名、
+市场钉的是发布版本、未测试仍只报告不安装、按通道安装与移除、`@dsh-market/plugin@0.4.7` 的安装规格）。
+
+## bundled plugins — 移除与兼容检查也按通道走（updateplan/startup2.md §19–§23）
+
+**`removeBundled(entry, …)` 与 `installBundled` 对称**：让**我们的商店**去删一个 Harness 客户端插件会"什么都没删
+却报告成功"，而一个静默无效的"修复"比失败的修复更糟。所以移除同样按 `channel` 分派：`harness-profile` 走
+`dsh plugin --profile <p> remove <package>`（真实调用 Harness 自己的 CLI），`dshns-store` 走商店的 `remove`，
+`unresolved` 直接拒绝（从来没有可安装通道，就没有可删的东西）。
+
+**`compatibility(entry, record)` 由持有描述符的一方回答**：`dshns.plugin/v1` 插件查商店自己的记录（native/compat，
+读不到就如实报 unknown 与原因），Harness 客户端插件的兼容性属于 Harness 与它的 profile —— 本产品返回
+`checked: 'harness'` 并说明不重复判断，而不是声称检查过一件自己看不见的事。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12（新增：移除按通道分派、unresolved 拒绝、缺工具是拒绝而非
+静默成功、安装与移除用同一个包名规格、兼容检查由谁回答的静态断言）；`scripts/verify.ps1` 增加对应的通道一致性检查。
+
+## bundled plugins — 安装通道按仓库事实修正（updateplan/startup2.md §19–§23）
+
+**读了两个仓库的 `package.json`，结论与计划书的假设不同，清单按事实修正。**
+
+- `elysia395/dsh-wallpaper-engine` → npm 包 **`dsh-plugin-wallpaper-engine`**（`v0.7.1` tag）。它声明
+  `dsh.bundle.patch: ./cordis.patch.yml`、`dsh.client.platform: "web"`、`inject: ["@deepseek-ai/dsh-client-runtime"]`
+  —— 是一个 **Harness 客户端插件**：补丁打在 Harness **profile** 上、运行在官方 Web GUI 里。它既没有
+  `dshns-plugin.json`（不是 `dshns.plugin/v1`），也不跑在本产品的插件宿主里，**我们自己的商店是错的工具**；
+  Harness 自己提供正确的工具：`dsh plugin --profile <name> add <package>`（在 profile 目录转发给 pnpm）。
+- `2BingLing/dsh-market` → `package.json` 是 `dsh-market` 0.1.0，**没有 `dsh` 段、没有 `main`**，而计划书里的
+  `@dsh-market/plugin` 并不是该仓库发布的包名。清单把它标为 **`channel: 'unresolved'`** 并带上理由：这是需要
+  决定的接入问题，不是一条可执行的安装命令；管理器只**报告**它，绝不安装。
+
+于是新增 `installBundled(entry, { harnessAdd, store, profile })`：按 `channel` 分派 —— `harness-profile` 走
+Harness 自己的 CLI（`runHarnessPluginCli`，真实调用 `dsh plugin --profile web add <pkg>@<ref>`）、
+`dshns-store` 走本产品商店的两步（提交 pin 走先前新增的 revision 路径）、`unresolved` 按清单里的理由拒绝。
+`ensure()` 也把 `unresolved` 当作"报告而非安装"，所以它不会变成一次注定失败的安装尝试。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 10/10（清单里两条各自的通道与包名、market 的 unresolved 理由、
+未测试 pin 只报告不安装、按通道分派、商店两步与 revision 路径仍在）；`scripts/verify.ps1` 的清单/不追 latest/
+未测试不安装检查继续覆盖。
+
+## surface ownership — 三条边界从惯例变成约束（updateplan/startup2.md §48、§55）
+
+**新增 `tests/unit/surface-ownership.test.js`，把三条边界变成会被测住的约束**：
+
+1. **Dock 能调的每个通道都有主人**：preload 是 Dock 全部的可达面，它能 invoke/send 的通道必须由某处声明 ——
+   mega 扩展自己的 `CHANNELS`，或 shell 的四个功能族（computer-use / engineering / plugins / sub-worker）。
+   没有主人的通道意味着清点与功能闸门都不知道它存在，而"被删掉的功能还能用"正是这样发生的；preload 里也不允许
+   动态拼接通道名（那样无法被审计）。
+2. **只有外观词汇能跨边界**：`--dsh-*` 是发布并校验过的一套（§27），只属于 `appearance/` 目录本身、把图片
+   token 写进自己文档的 `wallpaper.cjs`、以及消费它们的图层文档；其它文件出现 `--dsh-` 即越界。
+3. **一份样式表只属于一份文档**：Dock 的样式表不碰图层文档的私有元素与变量（`#wallpaper-scrim`、`#wp-`），
+   图层文档也不碰 Dock 的（`#rail`、`#detail`、`.panel`）。
+
+同日记录的还有 §48 的目录映射（`protection/`、`plugins/`、`appearance/`；`execution/automation/resource-policy/
+diagnostics` 在本仓库是 `control-center.cjs` 的六段数据而不是六个目录，因为它们共享同一份快照）与**一处有意偏差**：
+§6.2 建议删除的"复杂 Video Pipeline"在社区插件被采纳前保留 —— 删掉它会在替代品到位之前先失去一个可用能力，
+文档中写明等到 pin 被标记 `tested: true` 之后才该删。
+
+**验证**：三条约束的测试 3/3；`scripts/verify.ps1` 增加同样的三项静态检查。
+
+## appearance cost acceptance — 量得出来就量，量不出来就说原因（updateplan/startup2.md §56）
+
+**新增 `scripts/appearance-cost-acceptance.cjs`**：§56 要求记录外观在各种状态下的代价（启动耗时、CPU、RAM…）。
+这个脚本用真实模块（`wallpaper.cjs` + `wallpaper-window.cjs`）在自己的临时状态里量**两个能造出来的场景** ——
+无壁纸与静态壁纸 —— 读 Electron 自己的 `app.getAppMetrics()`（每进程 CPU/内存、进程数）与那一层的图片载荷，
+并**把造不出来的场景按名字跳过并给出原因**：1080p/4K 视频与 scene 属于社区插件（§24），market 打开不是这一层的
+成本，MEGA 展开由运行中的产品测量。**不给这些场景编数字**，是这张表诚实的前提。
+
+实测示例（本机，2.8 MB 图片）：无壁纸 `ram≈482MB`、静态壁纸 `ram≈479MB`、picture payload `3752KB` —— 也就是说
+这一层自身的常驻代价在噪声范围内，真正可选的代价是**载荷大小**，而它正是账本会警告的那个数字。
+
+**验证**：脚本本身可运行并输出测量（见上）；`scripts/verify.ps1` 增加脚本存在性与"跳过要给原因"的检查。
+
+## store revisions — 没有 tag 的仓库也能钉着装（updateplan/startup2.md §22–§23）
+
+**商店新增 revision 路径**：`git clone --branch` 只接受分支或 tag，而 `2BingLing/dsh-market` 没有 tag，它的 pin 是
+一个**提交**——于是"钉住一个引用"这条规则对没有 tag 的仓库原本无法成立。现在
+`defaultClone` 支持 `revision`：`git init` + `remote add` + `git fetch --depth 1 origin <sha>` + detached
+`checkout FETCH_HEAD`，装上的就是被点名的那个提交，而不是"默认分支当时的 HEAD"。
+
+`stage({ revision })` 校验它是十六进制对象名、与 `branch` 互斥（两者同时给出会被拒绝）、并把它记进已安装状态
+（`revision` 字段，`branch` 为 null）——"装的是什么"必须能从状态文件回答。`installPinnedPlugin()` 据此选择走分支
+还是走 revision，因此**两个社区插件现在都具备可安装的路径**，剩下的是真机测试后把 pin 标记 `tested: true`。
+
+**验证**：`tests/unit/mega-store-installer.test.js` 16/16，其中新增的一项用**真实 git** 在临时目录里建仓库、
+钉住一个提交、再把分支往前推一格，断言安装到的是被钉的提交（`1.0.0`）而不是分支尖端（`2.0.0`），并断言
+`revision` 被记录、branch+revision 同时给出被拒、非十六进制 revision 被拒；`bundled-plugins.test.js` 的安装调用
+断言同步更新为"提交 pin 走 revision 路径"。
+
+## appearance cost — 一本账，不是限流器（updateplan/startup2.md §55–§57）
+
+**新增 `app/extensions/mega/appearance/cost.cjs`：把外观的代价算清楚并说出来，但不夺走用户的控制。** §55/§56 关心的
+两件事都在本产品手里——**模糊了多少屏幕**（计划书点名的全屏 `backdrop-filter: blur(30px)` 形状）与**壁纸层要扛多少
+字节**（内联 `data:` 图片就是文件大小那么长的字符串，常驻渲染进程）。账本读取两个图层正在用的数字（玻璃通透度与模糊、
+两个底片各自的图片负载、在画的图层数），在超出 §55 建议区（6–14px）或图片过重时**警告**，并给出可 grep 的一行：
+`[PERF] appearance glass=12px/82% pictures=20KB layers=1 warnings=…`。
+
+**它不会夹取用户的数字**：玻璃滑杆是用户的，一个悄悄夹取的产品等于在谎报屏幕上画了什么；能做的是让代价**可见**——
+这就是"很重的外观"与"一个没解释的外观"之间的区别。落地：`wallpaper.cjs` 的 `windowLayer()`/`dockLayer()` 直接报出
+各自载荷字节数（只有那里已经握着 data URL，账本不必再造一个几兆字符串）；每次外观变化打印一行 `[PERF]`；Control
+Center 的资源段多三行（玻璃模糊、图片负载、性能警示）。
+
+**§57 的日志词表也统一了**：保护层改用 `[MEGA]` 前缀 —— `[MEGA] protection-ready`、
+`[MEGA] module healthy|degraded: <id> — <原因>`、`[MEGA] fallback: <id> → <回退>`，一次 grep 就能回答"哪个增强模块
+不健康、现在由谁顶着"。
+
+**验证**：`tests/unit/appearance-cost.test.js` 5/5（数字与一行日志、模糊两档警告且不夹取、超重图片被报告、空外观
+零成本且未知不写成 0、两个图层都报字节数）；`mega-protection.test.js` 新增 `[MEGA]` 词表断言；Control Center 测试
+新增成本三行；`scripts/verify.ps1` 增加账本、字节上报、词表与面板检查。
+
+## bundled plugins — 安装调用接线，采纳只剩一次真机测试（updateplan/startup2.md §22–§23）
+
+**`installPinnedPlugin()` 用商店自己的两步安装清单钉住的引用**：`stage({ source, branch: ref })` 把代码放到磁盘
+并校验清单，`enable({ id })` 记录宿主可以运行它。函数只决定"要哪个引用"，不决定任何安装策略；因此把第一个 pin
+标记 `tested: true` 就是社区插件采纳的全部工作量。
+
+**一个诚实的限制，而不是没写的代码**：商店按分支或 tag 落盘（`git clone --branch`），而 `2BingLing/dsh-market`
+没有 tag，它的 pin 是**提交**。提交 pin 会被**按名字拒绝**（`needs a revision-aware stage first`），而不是悄悄
+装成默认分支当时的 HEAD；修法是商店支持 revision 感知的 stage —— 那是它的安装路径，不能从这里猜。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 10/10（原 9 项 + 安装调用与提交 pin 拒绝的断言）；
+`scripts/verify.ps1` 的既有检查覆盖清单真实性、不追 latest 与未测试不安装。
+
+## appearance tokens — 提供者可以画，不能接管（updateplan/startup2.md §27）
+
+**新增 `app/extensions/mega/appearance/tokens.cjs`：外观提供者允许改什么，是一个封闭清单** ——
+`--dsh-surface-opacity` / `--dsh-surface-blur` / `--dsh-surface-tint` /
+`--dsh-wallpaper-brightness` / `--dsh-wallpaper-contrast` / `--dsh-wallpaper-saturation` / `--dsh-wallpaper-darken`。
+不在清单里的名字按名字拒绝，数值按各自区间夹取，被接受的部分翻译成两个图层已经在用的数字。
+
+**另一半才是重点**：DOM、组件结构、按钮模板、布局网格、窗口控制、任意 JS 钩子**根本没有词汇**。这不是"奇怪的名字
+不太可能出现"，而是让壁纸插件无法演化成前端 fork 的方式；测试逐个断言这些名字被拒绝，并给出可读原因。
+
+**它从第一天起就对我们自己生效**：三套阅读预设的数值现在以 token 形式声明（§5 的 亮度 60% / 对比度 90% /
+饱和度 80% / 暗化 18% 等），`apply()` 先过白名单再落到图层 —— 产品不豁免自己发布的边界，预设里写错的 token 会被
+拒绝并带原因返回，其余部分照常生效；预设测试还断言 token 与图层数字必须一致，防止两套说法漂移。图层侧也具名：
+`wallpaper.cjs` 把图片 filter 作为 `--dsh-wallpaper-*` 写进那一层文档，`wallpaper-window.html` 用它做
+`brightness()/contrast()/saturate()`，`--dsh-wallpaper-darken` 与图层的 `scrim` 是同一个数字的两个名字
+（`patchKey` 明确），避免"有多暗"出现两个答案。
+
+**验证**：`tests/unit/appearance-tokens.test.js` 5/5（词表恰为七项、DOM/结构/布局/窗口/脚本名字被拒、未知名字被拒、
+数值夹取与非法值被拒、接受后的补丁只到玻璃与图片、CSS 片段带单位、空或全拒绝的补丁不产生任何东西）；全量
+1421/1422（唯一失败是负载敏感的 `multi-supervisor` 并行计时断言）；`scripts/verify.ps1` 增加词表、接管拒绝与
+"同一数字两个名字"的检查。
+
+## appearance modes — 官方 / 简单壁纸 / Wallpaper Engine（updateplan/startup2.md §43–§44）
+
+**设置页的外观卡片新增"界面模式"**：**官方 / 简单壁纸 / Wallpaper Engine**。新增
+`app/extensions/mega/appearance/providers.cjs` 划出这条分界线：DS-Hns 保留自己的简单壁纸（每个底片一张图 +
+位置/不透明度/模糊/压暗），高级实现交给社区插件 `dsh-wallpaper-engine`，自己不再重复维护一套高级渲染器。
+
+三个提供者"对图层做什么"就是它的全部实现：**官方** = 我们不在官方界面之上画任何图（只剩玻璃）；**简单** =
+我们自己的图层画；**Wallpaper Engine** = 插件在 Harness 内渲染，因此我们这一层让开（否则会盖住它）。三者都不动
+玻璃——玻璃是 Dock 的材质，不是背景。
+
+**§44 的两条要求落在 `select()` 的形状里**：插件缺失/未测试/被用户关闭时，选择社区模式**不安装任何东西**
+（描述里明确 `installsAutomatically: false`），**不把用户挪离当前模式**（`kept` 字段），并把用户真正拥有的两个
+决定交给界面——保持官方界面、或去看插件。提示里写明"不会自动安装第三方插件"；"查看插件"接到 `mega:open-store`，
+由 Dock 自带的插件管理器打开商店页（这条通路此前只有监听端，现在两端都在）。
+
+选择与阅读预设都持久化到 `data/state/appearance.json`（与 wallpaper.json、ui-glass.json 同一套规则：读不出来
+就是默认值、不认识的取值丢弃并说明、写失败只是日志）。
+
+**验证**：`tests/unit/appearance-providers.test.js` 7/7（三提供者且只有社区需要插件、官方基线永远可用、未测试
+插件的拒绝保留用户并给出回退与两个动作、用户关闭被如实报告、已安装时经自己的钩子生效、钩子抛错按提供者回退、
+状态文件的默认/拒绝/降级/容错，以及设置页与 shell 的接线断言）；`scripts/verify.ps1` 增加提供者存在性、
+不自动安装、拒绝保留用户、选择持久化与设置页入口检查。
+
+## startup cache — 先恢复，后验证（updateplan/startup2.md §52–§54）
+
+**新增 `app/extensions/mega/startup-cache.cjs`：记住上一次运行长什么样，让启动先恢复、后验证**，而不是每次
+全量发现。记录：最近工作区、两个底片的图片与填充方式、外观数值与预设、bundled 插件状态、保护层健康、本次
+启动自己的开销。§54 的边界照做——市场**目录**属于市场，这里只记是否已装、版本与健康。
+
+**它不是第二份设置**：里面每个事实都有主人（壁纸文件、玻璃文件、商店已装集合、保护层），缓存只记录主人们
+上次说了什么，并当作热启动**提示**读回；冲突时主人是对的、缓存是陈旧的。因此它**不写 Harness 的会话 ID**
+——会话由官方 UI 自己恢复，再存一份只会给同一个问题留一个更旧的答案。
+
+三条让它安全的性质（都有测试）：**读不出来就是空缓存**（缺失/截断/改坏都答"什么都没记住"且不抛）、
+**写入经临时文件 + rename，失败只是日志**（能把自己写坏的缓存比没有缓存更糟）、**它会遗忘**（超过
+`maxAgeMs` 仍可读但不再算热启动，并如实报 `stale`）。
+
+落点：Control Center 诊断段多两行（上次启动缓存 warm/stale/cold、上次工作区），扩展在后台记录（绝不在启动
+路径做 IO）。**验证**：`tests/unit/startup-cache.test.js` 5/5（记录与读回、不拥有别的键、读不出来即空、
+过期不再是提示、写不进去不致命）＋ Control Center 的诊断行与接线断言；`scripts/verify.ps1` 增加缓存存在性、
+遗忘、容错与"不保存会话"的检查。
+
+## control center — 增强层的管理面与保护面板（updateplan/startup2.md §45–§47）
+
+**展开态的 Dock 现在是增强层的管理面。** 新增 `app/extensions/mega/control-center.cjs`：它把"Dock 本来就在读
+的那一份快照"加上保护层与 bundled 插件的两份报告，变成六段数据 —— **执行 / 自动化 / 资源 / 扩展 / 保护层 /
+诊断**，以及一份可操作的模块列表。因此面板里的数字不可能与旁边的队列/硬件卡片互相矛盾。
+
+**动作来自状态（§47）**：健康模块给 `check` / `retry` / `reset-fallback`；被用户禁用的插件**只**给 `enable`
+（不提供任何绕过用户决定的入口）；未安装的 bundled 插件只给 `repair`，而 `repair` 在 pin 未被标记 tested 时
+本身就会拒绝。一个对任何状态都提供所有动作的界面，就是在承诺图层不会做的事。**零仍然安静**（§36）：故障数
+为 0 照常显示 `0`，但不带颜色。诊断段显示启动报告（阶段数、状态、本产品开销、超预算阶段），所以"这次启动
+花了多少、卡在哪个阶段"在界面里就能看到。
+
+面板（`ui/control-panel.js`）只渲染、不持有状态；点击是一个委托监听，按钮自己的 `data-control-action` /
+`data-control-id` 决定做什么，走 `mega:control-action`；被拒绝时显示原因而不是让面板坏掉。它在功能注册表里
+也是可关闭的一项（`mega.control-center`）。
+
+**验证**：`tests/unit/control-center.test.js` 7/7（六段数据同源、零不染色、每个状态允许的动作、bundled 插件
+动作、空快照不崩、接线静态断言，以及面板行为：点击到达 shell 并回读、被拒绝显示原因、无桥接时说明原因）；
+`scripts/verify.ps1` 增加六段数据、动作来自状态、面板与修复入口、通道端到端检查。
+
+## appearance — 阅读预设：对两个图层的一个决定（updateplan/startup2.md §26–§28、§5）
+
+**新增 `app/extensions/mega/appearance/index.cjs`：三套阅读预设，数值就是计划书 §5 的那一组。** 两个图层
+早就存在（壁纸：每个底片一张图 + 不透明度/模糊/压暗；磨砂玻璃：Dock 的材质），缺的是对它们的一个决定：
+**工作 · Work**（默认，玻璃 12px/82%，主屏幕 60/12/18）、**沉浸 · Immersive**（玻璃 10px/60%，主屏幕
+78/8/12——展示壁纸用，明确不是默认）、**阅读 · Reading**（玻璃 14px/90%，主屏幕 45/14/22——长文本与代码审阅）。
+
+两条被当作要求而不是偏好的规则：**可读性优先**（每套预设在*没有壁纸*时也完整，阅读档最严）；**失败属于
+单个图层**（玻璃先写、壁纸后写，各自返回各自的答案，一个失败不带走另一个——"玻璃层拒绝了这个预设"和
+"壁纸拒绝了这个预设"是两条独立记录）。
+
+面板只多一个控件（外观卡片里的"阅读预设"）：选项来自控制器的 `describe()`，当前选中项是**从两个图层读数
+反推**的，手工调出的混合值显示为"自定义"而不是硬凑到最近的预设；预设落地后把两层的新状态推给 Dock，避免
+面板显示一个屏幕上不存在的玻璃。IPC 为 `mega:appearance` / `mega:appearance-set`。
+
+**验证**：`tests/unit/appearance-presets.test.js` 7/7（三套预设只有一个是默认、数值在图层会夹取的范围内、
+阅读档最严、应用时两层各收到正确数值、玻璃失败不带走壁纸、未知预设按名拒绝、混合值报混合、接线静态断言）；
+`scripts/verify.ps1` 增加预设存在性、无壁纸可用、逐层失败与接线检查。
+
+## mega rail — 折叠栏去重，且不再是一条状态栏（updateplan/startup2.md §36–§44）
+
+**折叠栏从五个固定方框变成注册表驱动的条目。** 旧形状是"每个数字一个方框、dock 脚本按 id 填数"：新增一个
+数字要动三个文件，删一个也要动三个文件，而且 dock 必须知道 `RUN` 是什么意思——这正是它慢慢长成第二条状态栏
+的原因。现在 `app/extensions/mega/mega-items.cjs` 让模块自己注册条目
+（`registerMegaItem({ id, priority, current })`），`current(snapshot)` 返回 `null` 就是"我没什么要说的"。
+
+于是计划书的两条规则成了机制：**零不是新闻**（§36/§43，空队列/零重试/零错误不出现），**折叠栏有预算**
+（§44，最多 5 项，按 priority 排序，装不下的渲染成 `+N` 指向展开态）。去重落点：`RUN` 明确为 **DS-Hns 自己的
+worker slot 占用数**（官方 UI 不显示这个数）；`HW` 改名为 `WKR`（并发/硬件上限，就是它真正的含义）；
+`SUB` 由 `AUTO` 取代（显示"自动委派"这个用户开关，而不是再抄一遍 agent 状态）；`Q` 与 `ERR` 只在非零时出现；
+**峰谷芯片移出折叠栏**（电费时段属于展开态的账单卡片，不是资源策略）；新增 `EXT` = 保护层中降级的可选模块数。
+
+dock 只渲染、不理解条目含义，`features.cjs` 也去掉了 `railPeak`。四个原先钉住旧方框的测试同步更新为新的
+契约（折叠栏是容器 + 模板、由 `snapshot.megaItems` 驱动、子 worker 的"一眼可见"状态回归面板本身）。
+
+**验证**：`tests/unit/mega-items.test.js` 5/5（排序、零即静默、预算与 overflow、坏条目不影响整条栏、
+id 不可重复、注册表驱动接线）；受影响的 dock/sub-worker/架构测试 69/69；`scripts/check-syntax.cjs` 220/220。
+
+## bundled plugins — 本体自带的社区插件，版本钉死、失败归面板（updateplan/startup2.md §19–§23）
+
+**新增 `app/extensions/mega/plugins/index.cjs`：MEGA 自己管"随本体提供、工程上仍是可选社区插件"的两个插件。**
+它是一个**策略层**——不 clone、不写插件目录、不读 package.json，只对注入进来的安装器与注册表做判断，因此
+§23 那张状态表（缺失 / 未测试 / 已安装 / 版本超前 / 不兼容 / 用户禁用 / 失败）可以完全离线测试。
+
+**清单是真的、版本是钉的**（§21/§22）：`dsh-wallpaper-engine` 钉在真实存在的 `v0.7.1` tag，
+`@dsh-market/plugin` 钉在 `2BingLing/dsh-market` 的 `master` 提交（该仓库没有 tag，提交就是它的版本）。
+没有任何一处会问"最新是什么"——否则昨天测过的产品会和今天没测过的产品长得不一样，而没有人做过这个决定。
+
+**没测过的版本不会被装上**：两个条目都是 `tested: false`，管理器据此报 `untested` 并**拒绝安装**。
+`repair()` 拒绝得更直白：不能凭空把一个未测试的 pin 装上去。**用户说了算**：被禁用的插件不装、不修、
+不复活；清单不认识的版本只被报告（`ahead-of-pin`）而不被替换——用户可能是有意装的。**失败属于面板**：
+两个插件都注册成 protected module，fallback 是 `Simple Wallpaper` 与"商店入口隐藏"。
+
+**接线**：MEGA 在 `start()` 注册受保护模块、在后台跑策略（绝不在启动路径上等网络），读取商店自己的记录
+判断"是否已安装、是否被用户禁用"，并暴露 `mega:bundled-plugins` / `mega:bundled-plugins-repair` 两个通道；
+shell 把保护层交给扩展。**两个诚实缺口**：① 今天不会安装任何插件（没有 pin 被标记 `tested`）；② 安装调用
+本身尚未注入——猜一个安装器参数名等于把未验证代码放进可选插件的安装路径，它随"第一个 pin 被测试并标记"的
+那次提交一起落地。两处都在代码注释、`docs/startup.md` §3.2 中写明。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 9/9；`scripts/verify.ps1` 增加清单真实性、不追 latest、
+未测试不安装、用户禁用与未知版本的处理、受保护注册与"策略不在启动路径上"的检查。
+
+## protection — MEGA 成为增强层的控制平面（updateplan/startup2.md §12–§18）
+
+**新增 `app/extensions/mega/protection/index.cjs`：可选模块的隔离、健康、降级与回退有了一处统一实现。**
+MEGA 从"右侧状态栏"变成增强能力的**控制平面**，规则只有一条：任何可选模块都必须注册后由它启动，不允许
+裸启动。六态为 `DISABLED / STARTING / HEALTHY / DEGRADED / FAILED / RECOVERING`，每个模块记录状态、版本、
+启动耗时、最近错误、重试次数与 fallback 现状——这正是 MEGA 面板要显示、验收要读的东西。
+
+`start()` **只回答、不抛出**：超时、抛错或自己报告不健康都变成 `DEGRADED` 并立刻跑 fallback。计划书点名
+禁止的三件事（插件失败导致白屏、壁纸失败带走输入框、Market 失败让 Harness 起不来）因此是结构上不成立的，
+而不是靠小心。首启预算默认 3s，超时不再阻塞任何 UI；重试阶梯是一次快速、一次延迟、然后停止（无限重试正是
+掩盖真实故障的方式）；回退链写成数组逐级尝试（如 `dsh-wallpaper-engine → Simple Wallpaper → Official
+Background`），最后一级也失败就如实报 `unavailable`。健康检查重新通过时状态回到 `HEALTHY` 并清掉错误，
+否则面板会一直报告模块已经离开的状态。
+
+**接线（本轮补上）**：`desktop-main.cjs` 现在创建 protection 层并注册三个可选模块（`wallpaper-layer`、
+`mega-extension-host`、`mega-dock`），它们的启动仍走启动状态机（`[BOOT]` 阶段不变），状态与失败由保护层
+持有；启动结束多一行 `[protection] {...}` 全量报告。一个模块失败时，boot 只看到「这一项降级了」。
+
+**边界**：社区插件
+`dsh-wallpaper-engine` / `@dsh-market/plugin` 的接入、MEGA Control Center 的 Protection 面板、`MegaItemRegistry`
+前端注册、启动缓存与折叠栏去重都**未做**，条目记在 `docs/startup.md` §3.1，下一轮接线时一并更新文档与
+`verify.ps1`。
+
+**验证**：`tests/unit/mega-protection.test.js` 6/6（健康启动、超时→降级+fallback、重试阶梯恰好三次、
+不健康→降级与恢复、可选与必需的区别及安全停止、`withTimeout` 两个方向）；`scripts/verify.ps1` 增加
+保护层存在性、六态、预算/回退/重试与上报字段检查。
+
+## startup — 先可用，再好看（updateplan/startup.md 的 P0）
+
+**"应用可用"不再绑定在"全部增强渲染完成"上。** 旧流程在窗口显示之前要等完 Harness、扩展宿主、
+再到 dock 渲染器 —— 于是"某个可选模块很慢"和"产品根本没启动"在用户眼里完全一样：一个没有反馈的
+空窗口（实际上是隐藏窗口，连空白都看不到）。现在窗口创建后**立刻**显示我们自己的骨架页
+（`app/splash.html`：顶栏/侧栏/会话区/输入框占位，无脚本、无网络、无控件），官方 UI 就绪后替换它。
+
+**四条状态，INTERACTIVE 就是启动完成**（`app/startup.cjs`）：`BOOTING → CORE_READY → INTERACTIVE
+→ ENHANCED`。`CORE_READY` = 官方页面成为窗口页面；`INTERACTIVE` 紧随其后 —— 我们不去探测官方 DOM
+（产品硬规则），所以"它加载完并在屏幕上"就是诚实的定义。之后的一切都走 `startup.defer()`：壁纸层、
+扩展宿主、Mega dock、重启恢复、子 worker 自启动。它们**不会**拒绝、**不会**延迟用户、**不会**让启动
+失败，每个都有自己的记录，失败只写 `failed: <原因> (the boot carries on)`。全部落定才标记 `enhanced`。
+
+**启动有账可查。** 每个阶段一行 `[BOOT] <阶段> <耗时>`，并标注预算与是否超标；预算只记录、不强制
+（错过预算仍是能用的启动）。最后一行 `boot report` 是机器可读的全量报告，其中 `ownOverhead()`
+是"Harness 给出地址 → 用户可以工作"的时间 —— 这一段才是本产品自己拥有的墙钟，Harness 自身的启动
+不是。
+
+**边界写清楚**：本轮只做 P0 与部分 P1。三套阅读预设、社区壁纸插件 `dsh-wallpaper-engine` 与
+`AppearanceProvider` 抽象、对外 Appearance token 白名单、设置页重组、MEGA 折叠态去重（仍是
+RUN/QUEUE/HW/SUB/PEAK 五个常驻项）都**没有**做，条目与现状记在新增的 `docs/startup.md` 里，避免下
+一轮把它们当成已完成。
+
+**验证**：新增 `tests/unit/startup.test.js`（状态顺序、预算记录、`defer` 的故障隔离、
+`onInteractive`、`ENHANCED` 只在延迟工作落定后出现，以及启动顺序：骨架先于 Harness、所有可选层晚于
+`interactive`）；`scripts/verify.ps1` 增加启动模块与骨架页检查（骨架页必须无脚本、启动顺序必须成立）。
+
 ## wallpaper — 壁纸真的垫在整个界面上，而官方 UI 仍然可点
 
 **修的是一个用户直接感受到的缺陷：设了壁纸之后，官方 UI 点不动了。** 上一轮的壁纸层是一个压在官方

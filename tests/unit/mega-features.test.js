@@ -84,7 +84,10 @@ test('the registry covers the panels the dock actually renders', () => {
 test('the marked elements exist, so disabling a feature hides something real', () => {
   const html = read('app/extensions/mega/ui/dock.html')
   const elements = MEGA_FEATURES.flatMap((feature) => feature.elements)
-  assert.ok(elements.length >= 4, 'the peak/valley controls are the shared-panel case')
+  // Three, not four: the peak/valley window's third control used to be the rail's `PEAK` chip, which
+  // left the rail when it became registry-driven (`updateplan/startup2.md` §41) — a price window is a
+  // billing fact, not a resource policy. The remaining three are still the shared-panel case.
+  assert.ok(elements.length >= 3, 'the peak/valley controls are the shared-panel case')
   for (const id of elements) {
     assert.match(html, new RegExp(`id="${id}"`), `the element ${id} is declared but not rendered`)
   }

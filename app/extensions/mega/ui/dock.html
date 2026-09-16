@@ -29,14 +29,21 @@
     <button id="railToggle" class="rail-toggle" title="展开 / 折叠 Mega">‹</button>
     <div class="mega-mark"><span>M</span><span>E</span><span>G</span><span>A</span></div>
     <!--
-      The collapsed rail's live counters. It used to lead with a dual-UI mode switch; the
-      product has one frontend now, so the rail shows what the runtime is doing instead.
+      The collapsed rail. It used to be five fixed boxes — RUN, QUEUE, HW, SUB and a peak chip — which
+      is exactly how a status rail turns into a second status bar: every new number needed a box, and
+      nothing could be removed without editing three files.
+
+      Now it is a container that renders what MEGA's item registry reports (`mega/mega-items.cjs`,
+      `updateplan/startup2.md` §41-§44): each item decides whether it has anything to say (a zero does
+      not), the registry orders them by priority, and the budget keeps the rail from growing. The
+      factory below is the one shape every item renders as; what it holds comes from the snapshot.
     -->
-    <div class="rail-stat"><small>RUN</small><b id="railRunning">0</b></div>
-    <div class="rail-stat"><small>QUEUE</small><b id="railQueued">0</b></div>
-    <div class="rail-stat"><small>HW</small><b id="railWorkers">—</b></div>
-    <div class="rail-stat"><small>SUB</small><b id="railSubWorker">OFF</b></div>
-    <div id="railPeak" class="rail-mode">OFF</div>
+    <div id="railItems" class="rail-items" role="status" aria-live="polite"></div>
+    <template id="railItemTemplate">
+      <div class="rail-stat">
+        <small></small><b></b>
+      </div>
+    </template>
   </aside>
 
   <main id="detail">
@@ -93,7 +100,32 @@
           <input type="checkbox" id="glassEnabled" checked>
           <span class="bi-title bi-sm"><span class="bi-cn">磨砂玻璃</span><span class="bi-en">Frosted glass</span></span>
         </label>
+        <!--
+          界面模式（updateplan/startup2.md §43）：官方界面 / 简单壁纸 / Wallpaper Engine。
+
+          第三项是社区插件，也是 §44 那条规则的入口：插件缺失时**不自动安装**，只说明缺什么、留在原地，并给出
+          两个真正属于用户的决定——保持官方界面，或去看插件。选择器下面那条提示就是这件事。
+        -->
+        <div class="glass-range">
+          <span>界面模式 · Desktop</span>
+          <select id="appearanceProvider"></select>
+        </div>
+        <p class="glass-note" id="appearanceProviderNote" hidden></p>
+        <div class="glass-actions" id="appearanceProviderActions" hidden>
+          <button id="appearanceKeepOfficial" type="button">保持官方界面 · Keep official</button>
+          <button id="appearanceOpenStore" type="button" class="quiet">查看插件 · Open store</button>
+        </div>
         <p class="glass-note">半透明并模糊背后的内容；底盘不涂任何颜色，因此不会与被覆盖的官方界面抢色。<br><small>Translucent and blurred; the chassis paints no colour of its own, so it never clashes with the official UI it covers.</small></p>
+        <!--
+          The readability presets (`updateplan/startup2.md` §5, §26-§28): one decision over the glass and
+          the picture behind each backdrop, because "how readable is this" is not something a user should
+          have to assemble out of five sliders in two cards. Work is the default, Immersive trades text
+          for picture, Reading does the opposite.
+        -->
+        <div class="glass-range">
+          <span>阅读预设 · Readability</span>
+          <select id="appearancePreset"></select>
+        </div>
         <label class="glass-range" for="glassBlur">
           <span>模糊强度 · Blur <b id="glassBlurValue">18</b>px</span>
           <input type="range" id="glassBlur" min="0" max="40" step="1" value="18">
@@ -712,6 +744,39 @@
     </div>
   </div>
 
+    <!--
+      The MEGA Control Center (`updateplan/startup2.md` §45-§47).
+
+      The expanded dock is where the enhancement layer is managed: execution, automation, resources,
+      extensions, the protection layer and the boot's own diagnostics — and, in the same place, the
+      actions that belong to them (retry, check, repair, disable/enable, fall back). The plan is explicit
+      that these controls must not be scattered through Core settings (§47); this panel is their home.
+
+      It is rendered from what the shell reports (`ui/control-panel.js`), so a section with no data, a
+      module with no fallback and a refused action all end up as text here instead of a broken dock.
+    -->
+    <section class="panel control-panel" id="controlPanel">
+      <div class="panel-head">
+        <div>
+          <div class="balance-title-row">
+            <h2 class="bi-title"><span class="bi-cn">控制中心</span><span class="bi-en">Control Center</span></h2>
+            <span id="controlSummary" class="status-chip neutral">—</span>
+          </div>
+          <p class="panel-note">执行 / 自动化 / 资源 / 扩展 / 保护层 / 诊断，以及它们自己的操作。<br><small>Execution, automation, resources, extensions, protection and diagnostics — with their own actions.</small></p>
+        </div>
+      </div>
+      <div id="controlMessage" class="theme-message" role="status"></div>
+      <div id="controlSections" class="control-sections"></div>
+      <div class="glass" id="controlProtection">
+        <h3 class="cc-heading">保护层 · Protection</h3>
+        <div id="controlModules" class="cc-list"></div>
+      </div>
+      <div class="glass" id="controlPluginsCard">
+        <h3 class="cc-heading">随本体提供的插件 · Bundled plugins</h3>
+        <div id="controlPlugins" class="cc-list"></div>
+      </div>
+    </section>
+
   <script src="balance-module.js"></script>
   <!-- The glass layer carries the user's numbers into the stylesheet; it runs before the panels
        so the first paint is already frosted rather than flashing an opaque panel. -->
@@ -719,6 +784,7 @@
   <!-- The wallpaper is the dock's lowest layer, so it is applied before the panels paint over it. -->
   <script src="wallpaper-layer.js"></script>
   <script src="appearance-panel.js"></script>
+  <script src="control-panel.js"></script>
   <script src="skills-panel.js"></script>
   <script src="computer-use-panel.js"></script>
   <script src="bilingual.js"></script>

@@ -145,6 +145,20 @@ function makeSnapshot(overrides = {}) {
         queueRank: 1
       }
     ],
+    /**
+     * The collapsed rail's items, exactly as the shell sends them.
+     *
+     * The shell composes this from MEGA's item registry (`app/extensions/mega/mega-items.cjs`,
+     * `updateplan/startup2.md` §41-§44) — ordered, budgeted, and with nothing to say about zeros. The
+     * dock's contract is this payload; what the registry decides is tested in `mega-items.test.js`.
+     */
+    megaItems: {
+      budget: 5,
+      items: [{ id: 'queue', label: 'Q', value: '1', tone: 'busy', detail: null, action: 'queue' }],
+      overflow: 0,
+      held: [],
+      registered: ['workers', 'slots', 'automation', 'queue', 'errors', 'protection']
+    },
     history: [{ id: 'old-task', status: 'COMPLETED', savedAt: Date.now() }],
     // Legacy payload from an older build: the dock must ignore it completely.
     sessions: [{ status: 'COMPLETED', model: 'deepseek-v4-flash', usage: { inputTokens: 10 }, cost: { costCny: 4.2 } }],
@@ -315,7 +329,14 @@ test('the dock renders a snapshot (including legacy session data) without throwi
   await settle()
 
   assert.match(h.dom.element('queue').innerHTML, /queued work/)
-  assert.match(h.dom.element('railQueued').textContent, /1/)
+  // The rail renders what MEGA registered for it (`mega-issues` §41-§44): the queued count reaches the
+  // rail as an item, and a zero would not be an item at all. The fixture carries the payload the shell
+  // sends, because that is what the dock is handed.
+  const rail = h.dom.element('railItems')
+  // `some` rather than an index: the stub document does not model `innerHTML = ''` emptying a
+  // container, so a second render leaves the first one's nodes behind there — in a real document the
+  // rail is replaced wholesale.
+  assert.ok(rail.children.some((child) => child.dataset.megaItem === 'queue'), 'the rail did not render the registered items')
   assert.match(h.dom.element('summary').innerHTML, /谷价/)
   assert.equal(h.dom.element('error').textContent, '')
   assert.equal(h.dom.element('settingsOverlay').hidden, true, 'settings start closed')

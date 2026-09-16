@@ -57,9 +57,13 @@ test('dock collapse state is persisted independently of official DSH state', () 
 
 test('collapsed rail remains useful and expanded dock contains queue and hardware controls', () => {
   assert.match(dockHtml, /id="rail"/)
-  assert.match(dockHtml, /id="railRunning"/)
-  assert.match(dockHtml, /id="railQueued"/)
-  assert.match(dockHtml, /id="railWorkers"/)
+  // The rail is a container the dock renders registered items into, not a set of fixed boxes
+  // (updateplan/startup2.md §41-§44): that is what makes "no duplicated Harness state" and the
+  // collapsed budget possible without editing the dock for every number.
+  assert.match(dockHtml, /id="railItems"/)
+  assert.match(dockHtml, /id="railItemTemplate"/)
+  assert.match(dockJs, /function renderRail\(/)
+  assert.match(dockJs, /snapshot\.megaItems/)
   assert.match(dockHtml, /手动队列/)
   assert.match(dockHtml, /硬件自适应并行/)
   assert.match(dockJs, /reorderTask/)

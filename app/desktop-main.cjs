@@ -16,6 +16,8 @@ const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
+const { createStartupManager } = require('./startup.cjs')
+const { createProtectionLayer } = require('./extensions/mega/protection/index.cjs')
 const frontendMode = require('./frontend-mode/index.cjs')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the extension
 // so the integrated view and the legacy window cannot disagree about where the dock starts.
@@ -100,6 +102,22 @@ let megaDockView = null
 let officialSurfaces = null
 /** The wallpaper over the official page: a click-through window, never a view (see its module). */
 let wallpaperLayer = null
+/**
+ * The boot's own state machine (`app/startup.cjs`): BOOTING → CORE_READY → INTERACTIVE → ENHANCED.
+ *
+ * It exists so that "the application is usable" cannot become a function of "every enhancement has
+ * finished". The window is on screen with a skeleton as soon as this process can paint one, the
+ * official UI replaces it when the Harness answers, and everything optional runs behind INTERACTIVE
+ * with its own failure and its own line in the boot log.
+ */
+let startup = null
+/**
+ * The enhancement layer's control plane (`app/extensions/mega/protection/index.cjs`).
+ *
+ * Every optional module below is registered here and started through it, so its failure is a
+ * degradation the MEGA panel can show rather than something the boot has to survive by luck.
+ */
+let protection = null
 /**
  * The official frontend runtime: the backend bridge, the domain adapter and the
  * compatibility probe. It is the only frontend runtime there is — the mode state machine
@@ -1595,6 +1613,35 @@ function configureOfficialWebContents(contents) {
   contents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
 }
 
+/**
+ * The skeleton, on screen, before anything is asked of the Harness.
+ *
+ * `updateplan/startup.md` §13/§14: the first thing the user sees must be a readable shape of the
+ * interface, never an unreported void. The window used to be created hidden and shown at the very end
+ * of the boot — after the Harness, the extension host and the dock's renderer — so any slow optional
+ * module produced a product that looked like it had not started at all.
+ *
+ * The page is ours and it is inert (no script, no network, no controls), and it is only ever loaded
+ * into this window before the official UI owns it. A failure to load it is a log line: the boot
+ * continues to the official page, which is the only thing that actually has to arrive.
+ */
+async function showStartupSkeleton() {
+  if (!mainWindow || mainWindow.isDestroyed()) return false
+  try {
+    await mainWindow.loadFile(path.join(__dirname, 'splash.html'))
+  } catch (error) {
+    logLine(`the startup skeleton could not be loaded (the official UI is unaffected): ${error?.message || error}`)
+    return false
+  }
+  try {
+    if (!mainWindow.isVisible()) mainWindow.show()
+  } catch (error) {
+    logLine(`the window could not be shown with the skeleton: ${error?.message || error}`)
+  }
+  startup?.mark('shell-ready')
+  return true
+}
+
 async function createOfficialHarnessView(readyUrl) {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
   /**
@@ -2095,7 +2142,12 @@ function createOfficialSurfaceAdapter() {
     wallpaper: (css, options = {}) => {
       if (!wallpaperLayer) return { ok: false, reason: 'wallpaper_layer_unavailable' }
       try {
-        return wallpaperLayer.paint(typeof css === 'string' ? css : '', { drawable: options?.drawable !== false })
+        const drawable = options?.drawable !== false
+        const painted = wallpaperLayer.paint(typeof css === 'string' ? css : '', { drawable })
+        // The wallpaper is the last thing anyone should be waiting for, so it is a boot phase of its
+        // own: "nothing to draw" is a finished phase too, and both are background work.
+        startup?.mark('wallpaper-ready', drawable ? null : 'nothing to draw')
+        return painted
       } catch (error) {
         logLine(`the wallpaper could not be painted over the official UI: ${error?.message || error}`)
         return { ok: false, reason: 'wallpaper_failed', error: String(error?.message || error) }
@@ -2217,6 +2269,12 @@ async function startExtensions(nodeExe) {
       // so there is nothing it could inject into it.
       officialSurfaceAdapter,
       officialSurfaces: officialSurfaceAdapter,
+      // The enhancement layer's control plane. The extension registers its bundled community plugins
+      // through it (startup2.md §19), so their failure is a degradation in the MEGA panel rather than
+      // something the boot has to survive.
+      protection,
+      // The boot report, so MEGA's diagnostics can show what the startup actually cost (§45, §57).
+      startup: () => (startup ? startup.summary() : null),
       // Legacy single-value form: the extension's adapter accepts either.
       dockWebContents: dockAdapter.webContents,
       // The official frontend runtime: the backend bridge, the domain adapter the dock
@@ -2259,8 +2317,24 @@ async function startExtensions(nodeExe) {
 app.whenReady().then(async () => {
   if (!hasSingleInstanceLock) return
   registerIntegratedDockIpc()
+  startup = createStartupManager({ log: logLine })
+  protection = createProtectionLayer({ log: logLine })
+  // The optional layers this shell owns, registered before anything starts. Ids are what the MEGA
+  // panel shows; `optional: true` is what makes a failure DEGRADED instead of FAILED — the difference
+  // between "a backdrop is missing" and "the product is broken".
+  protection.register({ id: 'wallpaper-layer', optional: true, start: () => createOfficialSurfaces(), fallback: [{ id: 'official-ui', run: () => 'the official UI is the background' }] })
+  protection.register({ id: 'mega-extension-host', optional: true, start: () => startExtensions(resolveNodeExe()), fallback: [{ id: 'core-ipc-only', run: () => 'the shell IPC surface still answers' }] })
+  protection.register({ id: 'mega-dock', optional: true, start: () => createIntegratedMegaDock(), fallback: [{ id: 'dock-hidden', run: () => 'the strip stays empty' }] })
   createWindow()
+  startup.mark('window-created')
   try {
+    // The skeleton goes up before anything is asked of the Harness.
+    //
+    // This is the plan's §13/§14 in one line: the window used to stay hidden until the Harness, the
+    // extension host and the dock's renderer were all up, so a slow optional module looked exactly
+    // like a product that had not started. The page below is ours — a script-free skeleton of the
+    // shape that is coming — and the official UI replaces it when it answers.
+    await showStartupSkeleton()
     await runtimeProcess.recoverOwnedStale({ root: ROOT, dshEntry: DSH_ENTRY, log: logLine })
     if (await isHarnessPortListening()) {
       throw startupError(`Port ${HARNESS_PORT} is already in use by another process. Close it before starting DS-Harness.`)
@@ -2271,6 +2345,7 @@ app.whenReady().then(async () => {
       new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
     ])
     const readyUrl = await waitForHarness()
+    startup.mark('harness-ready')
     // The Dual-UI backend client talks to the same authenticated Harness the
     // official renderer uses; publishing the origin is what lets the native
     // frontend read `session/list` without ever touching the official renderer.
@@ -2281,10 +2356,23 @@ app.whenReady().then(async () => {
     registerFrontendIpc()
     if (INTEGRATED_MEGA_DOCK) await createOfficialHarnessView(readyUrl)
     else await mainWindow.loadURL(readyUrl)
-    // The two official surfaces are attached after the official renderer exists
-    // (they need its bounds) and before the dock, so the dock is added last and
-    // stays on top of its own strip.
-    await createOfficialSurfaces()
+    // CORE_READY: the official UI is the window's page, so this is the moment the base frame exists.
+    // INTERACTIVE follows immediately: what the user needs to type and work is the official UI, and
+    // nothing of ours may stand between the two. Probing its DOM to be more certain is the one thing
+    // this product never does, so "it finished loading and it is on screen" is the honest definition.
+    startup.mark('core-ready')
+    showOfficialFrontend()
+    layoutIntegratedViews()
+    if (!mainWindow.isVisible()) mainWindow.show()
+    officialFocusArmedAt = Date.now() + 1200
+    startup.mark('interactive')
+
+    // --- everything below here is deferred work (§17, §18, §42, §49) --------------------------
+    //
+    // None of it can delay the user, none of it can fail the boot, and each piece reports its own
+    // failure. The wallpaper and the dock are enhancements: a workstation that cannot show them is
+    // still a workstation.
+    startup.defer('official-surfaces-ready', () => protection.start('wallpaper-layer'))
 
     // The Sub-worker layer is created here, after the official UI is ready and
     // before any extension can ask for it. Creation is inert (no process), so
@@ -2323,33 +2411,39 @@ app.whenReady().then(async () => {
       logLine('plugins: disabled by config/app.json')
     }
 
-    const extensionsReady = await startExtensions(nodeExe)
+    const extensionsReady = await startup.defer('extensions-ready', () => protection.start('mega-extension-host'))
     // The scheduled restart exists from boot, not from the first look at the dock: a plan set
     // yesterday must still fire on a shell whose panels nobody opened, and the ticker is what makes
     // its countdown true. `resumeOnStartup` is the other side of the boundary — if this start is the
     // one that followed a planned restart, the suspended task continues here.
     registerRebootIpc()
     startRebootTicker()
-    ensureReboot().resumeOnStartup()
+    startup.defer('workspace-restored', () => ensureReboot().resumeOnStartup())
       .then((outcome) => {
-        if (outcome.resumed || outcome.reports.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.reports)}`)
+        if (outcome?.value?.resumed || outcome?.value?.reports?.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.value.reports)}`)
       })
-      .catch((error) => logLine(`reboot resume failed: ${error?.stack || error}`))
+      // No `.catch`: `defer` answers, it does not reject — a failed resume is already reported as its
+      // own phase, and a second error path here would be a second story about one event.
     // The official renderer is the product's frontend, so the dock is the only view left
     // to attach: it reserves its strip on the right and the official UI keeps the rest.
-    if (extensionsReady && INTEGRATED_MEGA_DOCK) await createIntegratedMegaDock()
-    showOfficialFrontend()
-    layoutIntegratedViews()
-    mainWindow.show()
-    // Arm the "the user turned to the official UI" watch only once the window is up: the
-    // focus that showing the window produces is not a user action.
-    officialFocusArmedAt = Date.now() + 1200
+    if (extensionsReady.value?.ok && INTEGRATED_MEGA_DOCK) {
+      await startup.defer('dock-ready', () => protection.start('mega-dock'))
+      showOfficialFrontend()
+      layoutIntegratedViews()
+    }
 
     // Only an explicit persisted opt-in starts a worker process at boot.
     if (workerManager?.describe?.().config?.enabledOnStartup) {
-      const started = await workerManager.start({ reason: 'enabledOnStartup' })
-      logLine(`sub-worker auto-start (enabledOnStartup): ${JSON.stringify(started)}`)
+      await startup.defer('sub-worker', async () => {
+        const started = await workerManager.start({ reason: 'enabledOnStartup' })
+        logLine(`sub-worker auto-start (enabledOnStartup): ${JSON.stringify(started)}`)
+      })
     }
+    // ENHANCED: every deferred layer has settled, and the boot report says what each of them cost.
+    await startup.complete()
+    logLine(`[BOOT] boot report ${JSON.stringify(startup.summary())}`)
+    // The enhancement layer's own report: what is healthy, what degraded, and what is carrying it.
+    logLine(`[protection] ${JSON.stringify(protection.describe())}`)
   } catch (error) {
     await dialog.showMessageBox({
       type: 'error',

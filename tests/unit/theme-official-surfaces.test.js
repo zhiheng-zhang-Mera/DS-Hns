@@ -317,7 +317,11 @@ test('the shell wires the surfaces around the official view and hands over an ad
   const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8').replace(/\r\n/g, '\n')
   // The official view is created first (centre), then the surfaces...
   assert.match(main, /await createOfficialHarnessView\(readyUrl\)/)
-  assert.match(main, /await createOfficialSurfaces\(\)/)
+  // ...and the surfaces are a *protected* module of the enhancement layer now: created through MEGA's
+  // control plane (startup2.md §12-§19), so a failure is a degradation the panel can show rather than
+  // something the boot has to survive.
+  assert.match(main, /id: 'wallpaper-layer', optional: true, start: \(\) => createOfficialSurfaces\(\)/)
+  assert.match(main, /startup\.defer\('official-surfaces-ready', \(\) => protection\.start\('wallpaper-layer'\)\)/)
   // ...and the layer above the official page is a **window, not a view**, because that is the one
   // shape this Electron build can make input-transparent. A `WebContentsView` stacked above the page
   // is a real hit target (`View` exposes no input API at all), which is exactly how the official UI
@@ -351,7 +355,11 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // The wallpaper travels through the same adapter, and it is the adapter that decides what the
   // layer is told: the stylesheet, and whether there is anything to draw at all.
   assert.match(adapter, /wallpaper: \(css, options = \{\}\) =>/)
-  assert.match(adapter, /wallpaperLayer\.paint\(typeof css === 'string' \? css : '', \{ drawable: options\?\.drawable !== false \}\)/)
+  // The picture goes to the layer, and the wallpaper's own boot phase is marked from the same answer:
+  // "nothing to draw" is a finished phase too, and it is background work either way.
+  assert.match(adapter, /const drawable = options\?\.drawable !== false/)
+  assert.match(adapter, /wallpaperLayer\.paint\(typeof css === 'string' \? css : '', \{ drawable \}\)/)
+  assert.match(adapter, /startup\?\.mark\('wallpaper-ready', drawable \? null : 'nothing to draw'\)/)
   // The adapter never exposes the official webContents or an injection API.
   for (const forbidden of ['executeJavaScript', 'insertCSS', 'officialView.webContents']) {
     assert.equal(adapter.includes(forbidden), false, `the surface adapter must not expose ${forbidden}`)

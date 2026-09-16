@@ -22,6 +22,14 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
+const { createBundledPlugins, installBundled, removeBundled } = require('./plugins/index.cjs')
+const { createMegaItems } = require('./mega-items.cjs')
+const { createAppearanceController } = require('./appearance/index.cjs')
+const { buildControlCenter } = require('./control-center.cjs')
+const { createStartupCache } = require('./startup-cache.cjs')
+const { createAppearanceProviders } = require('./appearance/providers.cjs')
+const { createAppearanceState } = require('./appearance/state.cjs')
+const { estimateAppearanceCost } = require('./appearance/cost.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -79,8 +87,18 @@ const CHANNELS = [
   // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
   // numbers that describe how strong it is (the official UI has no part in it).
   'mega:ui-glass', 'mega:ui-glass-set',
+  // The appearance presets: one decision over both layers (updateplan/startup2.md section 26-28).
+  'mega:appearance', 'mega:appearance-set',
+  // The appearance providers: official / simple / Wallpaper Engine, and the way to the plugin that backs the
+  // third one (updateplan/startup2.md section 43-44).
+  'mega:appearance-providers', 'mega:appearance-provider-set', 'mega:open-store',
+  // The Control Center: the enhanced layer's execution, resources, extensions, protection and diagnostics,
+  // plus the actions that belong to it (retry / repair / disable / enable / fall back).
+  'mega:control-center', 'mega:control-action',
   // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
   'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
+  // The bundled community plugins: what the release pinned, what is installed, and repair.
+  'mega:bundled-plugins', 'mega:bundled-plugins-repair',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -307,7 +325,7 @@ function saveDockState() {
 
 function snapshot() {
   const recent = taskHistory.loadRecent()
-  return {
+  const payload = {
     extension: {
       id: 'mega',
       mode: 'optional-feature-extension',
@@ -412,6 +430,15 @@ function snapshot() {
       }
     })()
   }
+  /**
+   * The collapsed rail, derived from everything above (`updateplan/startup2.md` §41-§44).
+   *
+   * It is computed here, from the same payload the dock is about to receive, so the rail cannot
+   * disagree with the panels: whatever a module registered is asked for its current answer, the zeros
+   * stay out (§36/§43) and the budget decides what fits (§44).
+   */
+  payload.megaItems = megaItems().render(payload)
+  return payload
 }
 
 /** Sub-worker snapshot for the Mega panel and the tray (plan §11, §12, §16). */
@@ -1450,6 +1477,544 @@ function installer() {
 }
 
 /**
+ * The MEGA Control Center (`updateplan/startup2.md` §45-§47).
+ *
+ * The expanded dock is where the enhancement layer is *managed*: what is running, what it costs, what is
+ * degraded, and what can be done about it. It is built here as data — sections of rows with a value and a
+ * tone, plus the protection modules that carry actions — so the dock renders it generically and a new
+ * section is a change in one place.
+ *
+ * Two rules from the plan are visible in the shape of the data:
+ *
+ *   * **the panel reads the same snapshot the rest of the dock does** — not a second query with its own
+ *     idea of the state, so a number cannot disagree with the panel next to it;
+ *   * **the actions are the ones the layer actually has** (§47): health re-read, retry, repair (bundled
+ *     plugins only, and only against a *tested* pin), disable/enable, and "let the fallback stand". None
+ *     of them is a Core setting scattered somewhere else.
+ */
+function controlCenter() {
+  const data = snapshot()
+  // The three reports the enhancement layer owns. Each is read defensively: a panel that cannot be
+  // drawn because one report threw would be the opposite of a diagnostics surface.
+  const protectionReport = (() => {
+    try {
+      return ctx?.protection?.describe?.() || null
+    } catch {
+      return null
+    }
+  })()
+  const bundledReport = (() => {
+    try {
+      return bundled().describe()
+    } catch (error) {
+      log("the bundled plugin report is unavailable: " + (error?.message || error))
+      return null
+    }
+  })()
+  const boot = (() => {
+    try {
+      return typeof ctx?.startup === 'function' ? ctx.startup() : null
+    } catch {
+      return null
+    }
+  })()
+  return buildControlCenter({
+    snapshot: data,
+    protection: protectionReport,
+    bundled: bundledReport,
+    boot,
+    cache: startupCache().describe(),
+    appearance: (() => {
+      try {
+        return appearanceCost()
+      } catch {
+        return null
+      }
+    })()
+  })
+}
+
+/**
+ * Do one thing the Control Center offers (§47). Every action answers; none of them throws.
+ *
+ * `repair` is the bundled manager's own path — which refuses while the pin is untested — and `disable` /
+ * `enable` go through the store, because the user's decision about a plugin belongs in the store's record
+ * rather than in a second copy here.
+ */
+async function controlAction(payload = {}) {
+  const action = String(payload.action || '')
+  const id = String(payload.id || '')
+  if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
+  try {
+    if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
+    if (action === 'retry') return { ok: true, action, id, result: await ctx.protection?.start?.(id) }
+    if (action === 'reset-fallback') return { ok: true, action, id, result: await ctx.protection?.stop?.(id) }
+    if (action === 'repair') return { ok: true, action, id, result: await bundled().repair(id) }
+    if (action === 'disable' || action === 'enable') {
+      const outcome = action === 'disable' ? await installer().disable({ id }) : await installer().enable({ id })
+      if (outcome?.ok === false) return { ok: false, action, id, reason: outcome.reason || 'the store refused' }
+      // The store's answer is the truth about the plugin set; the panel re-reads it after this.
+      if (typeof reloadInstalledPlugins === 'function') await reloadInstalledPlugins(`control-center ${action}`)
+      return { ok: true, action, id, result: outcome }
+    }
+    return { ok: false, action, id, reason: `"${action}" is not a Control Center action` }
+  } catch (error) {
+    log(`control center action ${action} failed: ${error?.stack || error}`)
+    return { ok: false, action, id, reason: String(error?.message || error) }
+  }
+}
+
+function registerControlCenterIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`control center ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:control-center', guard(() => controlCenter()))
+  ipcMain.handle('mega:control-action', guard((_event, payload = {}) => controlAction(payload || {})))
+}
+
+/**
+ * Install one bundled plugin at the reference the manifest pinned (§22-§23).
+ *
+ * Two store steps, because that is what the store is: `stage` puts the code on disk and verifies its manifest,
+ * `enable` records that the host may run it. Both are the store's own operations — this function decides
+ * nothing about installation, only which reference to ask for.
+ *
+ * A pin that is a **commit** (the market plugin, whose repository publishes no tags) goes through the store's
+ * revision path: `git fetch <sha>` + a detached checkout, so what is installed is the commit the release
+ * manifest named and not whatever the default branch holds today.
+ */
+async function installPinnedPlugin(entry = {}) {
+  // The channel decides the tool (see `mega/plugins/index.cjs`): a Harness *client* plugin belongs to a Harness
+  // profile and only the Harness' own CLI can put it there; a `dshns.plugin/v1` plugin belongs to our store.
+  return installBundled(entry, {
+    profile: harnessProfile(),
+    harnessAdd: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'add', spec]),
+    store: { stage: (input) => installer().stage(input), enable: (input) => installer().enable(input) }
+  })
+}
+
+/** The Harness profile a bundled client plugin is installed into — the one the product boots (`web`). */
+function harnessProfile() {
+  return process.env.DSH_PROFILE || 'web'
+}
+
+/**
+ * What the Harness profile the product boots has installed, as records the bundled manager understands.
+ *
+ * The profile is another application's install (`$DSH_HOME/profiles/<name>/package.json`), so this only ever
+ * *reads* it — the writing is the Harness' own CLI, which is why the channel exists at all.
+ */
+function harnessProfileDependencies() {
+  try {
+    const file = path.join(PATHS.ROOT, 'data', 'profiles', harnessProfile(), 'package.json')
+    if (!fs.existsSync(file)) return []
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return Object.entries(parsed?.dependencies || {}).map(([id, version]) => ({
+      id,
+      version: String(version).replace(/^[\^~]/, ''),
+      dir: null,
+      enabled: true,
+      where: 'harness-profile'
+    }))
+  } catch (error) {
+    log(`the Harness profile's dependencies could not be read: ${error?.message || error}`)
+    return []
+  }
+}
+
+/** One bundled entry by id, from the shipped manifest — what a channel decision is made about. */
+function bundledEntry(id) {
+  try {
+    const { BUNDLED_MANIFEST } = require('./plugins/index.cjs')
+    return (BUNDLED_MANIFEST.plugins || []).find((entry) => entry.id === id) || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Run the Harness' own plugin CLI (`dsh plugin …`, which forwards to pnpm inside the profile directory).
+ *
+ * It is the Harness' tool on purpose: the profile's plugin set is the Harness' business, and a product that
+ * wrote into that directory itself would be editing another application's install.
+ */
+function runHarnessPluginCli(args) {
+  try {
+    const nodeExe = resolveNodeExe()
+    const result = require('node:child_process').spawnSync(nodeExe, [DSH_ENTRY, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024
+    })
+    if (result.error) return { ok: false, reason: `the Harness plugin command could not run: ${result.error.message}` }
+    if (result.status !== 0) {
+      const detail = String(result.stderr || result.stdout || '').trim().split('\n').filter(Boolean).pop() || `dsh plugin exited ${result.status}`
+      return { ok: false, reason: detail }
+    }
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, reason: String(error?.message || error) }
+  }
+}
+
+/**
+ * The bundled community plugins, as a manager over the store (`./plugins/index.cjs`).
+ *
+ * It reads the *store's own* record of what is installed and what the user decided, and it is the only
+ * thing that decides whether a bundled plugin should be installed, left alone, reported or repaired
+ * (§19-§23). Two deliberate gaps, both honest rather than convenient:
+ *
+ *   * **`install` is not wired yet.** The shipped manifest marks both plugins `tested: false`, so the
+ *     manager installs nothing — and a reference nobody has run is exactly what must not be installed. The
+ *     call itself is wired (see `installPinnedPlugin`), so marking the first pin `tested: true` is the whole
+ *     of the adoption.
+ *   * **`userEnabled` reads an explicit disable.** The store records `enabled`/`enabledAt`, where
+ *     "staged but never enabled" is the normal first state rather than a decision; only an entry the
+ *     store marked disabled counts as the user's answer here.
+ */
+let bundledPlugins = null
+
+/**
+ * The collapsed rail, as data (`./mega-items.cjs`, `updateplan/startup2.md` §36-§44).
+ *
+ * The plan's dedup rules, expressed as the items themselves rather than as a list somebody maintains:
+ *
+ *   * **RUN** means *DS-Hns worker slots in use* (§37) — `activeQueue.workerSlotsInUse`, not an agent
+ *     count. The Harness shows agents and tasks; this is the number of our own execution slots, which
+ *     it does not.
+ *   * **WKR** is the same idea as the old `HW` box, renamed to what it actually is (§39): concurrency in
+ *     use against the hardware cap. `HW` as a health light is not resident — a healthy machine is not
+ *     news.
+ *   * **AUTO** replaces `SUB` (§40): the sub-worker's *auto-delegation* switch, which is a control the
+ *     user has, rather than the agent state the Harness already draws.
+ *   * **Q** and **ERR** appear only when they are non-zero (§38, §36, §43) — an empty queue and a fault
+ *     count of zero are the normal state and do not get permanent attention.
+ *   * **PEAK is gone from the rail** (§41): it was the electricity-price window, which is a billing fact
+ *     and not a power policy. It stays in the expanded summary's own cards, where it belongs.
+ */
+let megaItemRegistry = null
+/** The appearance controller: one decision over the glass and the wallpaper (`./appearance/index.cjs`). */
+let appearance = null
+/** The startup cache: what the last run looked like, as a warm-start hint (`./startup-cache.cjs`, §52). */
+let startupCacheState = null
+/** The appearance choices: which provider renders the desktop, and which readability preset is in force. */
+let appearanceStateFile = null
+let appearanceProvidersState = null
+
+function appearancePreference() {
+  if (appearanceStateFile) return appearanceStateFile
+  appearanceStateFile = createAppearanceState({
+    root: PATHS.ROOT,
+    providers: require('./appearance/providers.cjs').APPEARANCE_PROVIDER_IDS,
+    presets: require('./appearance/index.cjs').APPEARANCE_PRESET_IDS,
+    log: (message) => log(`appearance: ${message}`)
+  })
+  return appearanceStateFile
+}
+
+/**
+ * The appearance providers (§43-§44): the official interface, the built-in simple wallpaper, or the community
+ * plugin — and the rule that a missing plugin is never installed to satisfy a menu click.
+ *
+ * What each provider does to *our* layers is the whole of its implementation: the official interface means this
+ * product draws no picture over it, the simple wallpaper means our own layer draws one, and the community one
+ * means the plugin renders it inside the Harness, so our layer steps aside to let it be seen. Every one of them
+ * leaves the glass — which is the dock's material, not the background — alone.
+ */
+function appearanceProviders() {
+  if (appearanceProvidersState) return appearanceProvidersState
+  const setWallpaperEnabled = async (enabled) => {
+    const outcome = wallpaper().set({ main: { enabled }, dock: { enabled } })
+    if (outcome?.ok === false) return { ok: false, reason: outcome.reason }
+    pushWallpaper()
+    return { ok: true, enabled }
+  }
+  appearanceProvidersState = createAppearanceProviders({
+    bundled: () => bundled().describe(),
+    apply: {
+      official: () => setWallpaperEnabled(false),
+      simple: () => setWallpaperEnabled(true),
+      // The plugin draws its own desktop; ours must not sit on top of it.
+      community: () => setWallpaperEnabled(false)
+    },
+    log: (message) => log(message)
+  })
+  return appearanceProvidersState
+}
+function megaItems() {
+  if (megaItemRegistry) return megaItemRegistry
+  megaItemRegistry = createMegaItems()
+  // §44's budget is the registry's, and the ordering below is each item's own claim about how much of
+  // the rail it deserves.
+  registerMegaItems()
+  return megaItemRegistry
+}
+
+/**
+ * The startup cache (`./startup-cache.cjs`, §52-§54).
+ *
+ * It records what the owners last said — the workspace, the two backdrop pictures, the appearance numbers, the
+ * bundled plugin states, the protection layer's health and the boot's own cost — and reads them back as a
+ * warm-start hint for the Control Center's diagnostics. It never becomes a second source of truth: the
+ * wallpaper, glass, store and protection layer stay the owners, and a stale hint is reported as stale.
+ */
+function startupCache() {
+  if (startupCacheState) return startupCacheState
+  startupCacheState = createStartupCache({ root: PATHS.ROOT, log: (message) => log(`startup cache: ${message}`) })
+  return startupCacheState
+}
+
+/** Record this run for the next one. Called in the background: a cache is never worth a delay. */
+function rememberStartup() {
+  try {
+    const wallpaperState = wallpaper().describe()
+    const glassState = glass().describe()
+    const protectionState = (() => {
+      try {
+        return ctx?.protection?.describe?.() || null
+      } catch {
+        return null
+      }
+    })()
+    return startupCache().record({
+      workspace: workspace.getWorkspaceRoot(),
+      wallpaper: {
+        main: wallpaperState.main?.file || null,
+        dock: wallpaperState.dock?.file || null,
+        fit: { main: wallpaperState.main?.fit || null, dock: wallpaperState.dock?.fit || null }
+      },
+      appearance: {
+        glass: { blur: glassState.blur, opacity: glassState.opacity },
+        preset: appearanceController().describe({
+          glass: { blur: glassState.blur, opacity: glassState.opacity },
+          wallpaper: {
+            main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
+            dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
+          }
+        }).active
+      },
+      bundled: (() => {
+        try {
+          return bundled().describe().states
+        } catch {
+          return null
+        }
+      })(),
+      health: { degraded: (protectionState?.degraded || []).length, failed: (protectionState?.failed || []).length },
+      boot: (() => {
+        try {
+          return typeof ctx?.startup === 'function' ? ctx.startup() : null
+        } catch {
+          return null
+        }
+      })()
+      // `session` is deliberately not written: the official UI restores its own sessions, and a session id
+      // copied here would be a second, staler answer to a question the Harness already owns (§52's
+      // "restore first, verify after" applies to what *we* own).
+    })
+  } catch (error) {
+    log(`the startup cache was not updated: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error) }
+  }
+}
+
+/**
+ * What the appearance costs right now, and one line about it (`updateplan/startup2.md` §55-§57).
+ *
+ * The numbers come from the layers themselves — the glass is in force, and the two picture payloads are what
+ * `windowLayer()`/`dockLayer()` are already carrying — so the ledger cannot describe an appearance that is not
+ * on screen. It measures rather than limits: the user's blur is the user's, and a product that quietly clamped
+ * it would be lying about what it drew.
+ */
+function appearanceCost() {
+  const glassState = (() => {
+    try {
+      return glass().describe()
+    } catch {
+      return {}
+    }
+  })()
+  const wallpaperState = (() => {
+    try {
+      return wallpaper().windowLayer()
+    } catch {
+      return { bytes: 0, drawable: false }
+    }
+  })()
+  const dockState = (() => {
+    try {
+      return wallpaper().dockLayer()
+    } catch {
+      return { bytes: 0, active: false }
+    }
+  })()
+  return estimateAppearanceCost({
+    glass: { blur: glassState.blur, opacity: glassState.opacity },
+    windowBytes: wallpaperState.bytes || 0,
+    dockBytes: dockState.bytes || 0,
+    layers: (wallpaperState.drawable ? 1 : 0) + (dockState.active ? 1 : 0)
+  })
+}
+
+/** Build the rail items. Kept apart from the IPC layer so a test can ask what the rail would show. */
+function registerMegaItems() {
+  const registry = megaItemRegistry
+  if (!registry) return []
+  const items = [
+    // §37: our own worker slots in use — a DS-Hns number the official UI does not show.
+    { id: 'workers', priority: 10, hint: 'DS-Hns worker slots in use', section: 'execution', current: (snapshot) => {
+      const inUse = snapshot?.scheduler?.activeQueue?.workerSlotsInUse ?? 0
+      const running = Number(snapshot?.scheduler?.counts?.RUNNING || 0) + Number(snapshot?.scheduler?.counts?.DISPATCHING || 0)
+      return { label: 'RUN', value: Math.max(Number(inUse) || 0, running) }
+    } },
+    // §39: concurrency against the hardware cap, named for what it is.
+    { id: 'slots', priority: 20, hint: 'concurrency in use against the hardware cap', section: 'resources', current: (snapshot) => {
+      const concurrency = snapshot?.scheduler?.concurrency || {}
+      const current = concurrency.current
+      const cap = concurrency.hardwareCap
+      if (current === undefined || current === null) return null
+      return { label: 'WKR', value: `${current}/${cap ?? '—'}`, detail: 'in use / hardware cap' }
+    } },
+    // §40: the control the user has, instead of a second copy of the agent state.
+    { id: 'automation', priority: 30, hint: 'auto delegation', section: 'automation', current: (snapshot) => {
+      const sub = snapshot?.subWorker
+      if (!sub || sub.available === false) return null
+      const auto = Boolean(sub.config?.autoDelegate)
+      return { label: 'AUTO', value: auto ? 'ON' : 'OFF', tone: auto ? 'ok' : 'quiet', action: 'automation' }
+    } },
+    // §38: a queue that is empty is not news.
+    { id: 'queue', priority: 40, hint: 'queued tasks', section: 'execution', current: (snapshot) => {
+      const queued = Number(snapshot?.scheduler?.activeQueue?.queued ?? 0)
+      return queued > 0 ? { label: 'Q', value: queued, tone: 'busy', action: 'queue' } : null
+    } },
+    // §36/§43: neither is a fault count of zero.
+    { id: 'errors', priority: 50, hint: 'blocked, retrying or failed tasks', section: 'health', current: (snapshot) => {
+      const counts = snapshot?.scheduler?.counts || {}
+      const failing = Number(counts.BLOCKED || 0) + Number(counts.RETRYING || 0) + Number(counts.FAILED || 0)
+      return failing > 0 ? { label: 'ERR', value: failing, tone: 'bad', action: 'health' } : null
+    } },
+    // The enhancement layer's own health, from the protection control plane (§42).
+    { id: 'protection', priority: 60, hint: 'degraded enhancement modules', section: 'health', current: () => {
+      const degraded = ctx?.protection?.describe?.()?.degraded || []
+      return degraded.length > 0 ? { label: 'EXT', value: degraded.length, tone: 'warn', action: 'protection', detail: degraded.join(', ') } : null
+    } }
+  ]
+  const registered = []
+  for (const item of items) {
+    const outcome = registry.register(item)
+    if (outcome.ok) registered.push(item.id)
+  }
+  return registered
+}
+function bundled() {
+  if (bundledPlugins) return bundledPlugins
+  const list = () => {
+    try {
+      return typeof installer().list === 'function' ? installer().list() : []
+    } catch (error) {
+      log(`bundled: the store's installed list is unavailable (${error?.message || error})`)
+      return []
+    }
+  }
+  bundledPlugins = createBundledPlugins({
+    /**
+     * What is installed, from **both** places a bundled plugin can live.
+     *
+     * A `dshns.plugin/v1` plugin is recorded by this product's store; a Harness *client* plugin is a dependency
+     * of the Harness profile the product boots (`data/profiles/<profile>/package.json`). Reading only the store
+     * would report an installed-and-activated Harness plugin as "declared but not installed" — the panel would be
+     * describing a machine state that does not exist.
+     */
+    installed: () => [
+      ...list().map((entry) => ({ id: entry.id, version: entry.version || entry.commit || null, dir: entry.dir, enabled: entry.state === 'enabled' })),
+      ...harnessProfileDependencies()
+    ],
+    userEnabled: (id) => {
+      const entry = list().find((candidate) => candidate.id === id)
+      if (!entry) return null
+      return entry.disabled === true || entry.state === 'disabled' ? false : null
+    },
+    protection: ctx?.protection || null,
+    install: (entry) => installPinnedPlugin(entry),
+    /**
+     * Removal follows the same channel as installation.
+     *
+     * A repair that asked *our* store to remove a Harness client plugin would remove nothing and then report
+     * success — and a repair which silently does nothing is worse than one that fails. So the entry's channel
+     * decides the tool here exactly as it does for installation.
+     */
+    uninstall: (id) => {
+      const entry = bundledEntry(id)
+      if (!entry) return Promise.resolve({ ok: false, reason: `${id} is not a bundled plugin` })
+      return removeBundled(entry, {
+        profile: harnessProfile(),
+        harnessRemove: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'remove', spec]),
+        store: { remove: (input) => installer().remove(input) }
+      })
+    },
+    /**
+     * Compatibility, for the channel that can answer it.
+     *
+     * A `dshns.plugin/v1` plugin is checked by the store's own pre-flight (the classifier that decides native
+     * versus compatibility mode). A Harness *client* plugin's compatibility belongs to the Harness and its
+     * profile: DS-Hns does not own that descriptor and a second opinion here would be a second answer to a
+     * question this product cannot see. Both paths say which one they are, rather than both claiming `ok`.
+     */
+    compatibility: (entry, record) => {
+      if (entry?.channel === 'harness-profile') {
+        return { ok: true, checked: 'harness', note: 'the Harness owns its profile plugins; DS-Hns does not second-guess that' }
+      }
+      if (!record || !record.id) return { ok: true, checked: 'none', note: 'nothing installed to check' }
+      try {
+        const verdict = installer().preflight ? installer().entry({ id: record.id }) : null
+        const compatibility = verdict?.compatibility || null
+        if (compatibility === 'native' || compatibility === 'compat') return { ok: true, checked: 'store', compatibility }
+        return { ok: true, checked: 'store', compatibility: compatibility || 'unknown' }
+      } catch (error) {
+        return { ok: true, checked: 'store', note: `the store's own record could not be read: ${error?.message || error}` }
+      }
+    },
+    log: (message) => log(message)
+  })
+  return bundledPlugins
+}
+
+/**
+ * The bundled plugins' own channels.
+ *
+ * The panel shows what the release decided and what the machine has — whether each plugin exists,
+ * whether its version is the bundled one, and whether the user disabled it. `repair` is the one action
+ * that replaces an installed plugin: never automatic, and refused while the pin is untested.
+ */
+function registerBundledPluginIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`bundled plugin ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:bundled-plugins', guard(async () => {
+    const report = bundled().describe()
+    // The policy pass is part of the read on purpose: a release that pins a *tested* version converges
+    // on the next look instead of making a boot wait on the network.
+    const applied = await bundled().ensure()
+    return { ok: true, ...report, applied }
+  }))
+  ipcMain.handle('mega:bundled-plugins-repair', guard(async (_event, payload = {}) => bundled().repair(String(payload?.id || ''))))
+}
+
+/**
  * Tell the plugin host that the installed set changed, and wait for it to finish.
  *
  * The host keeps a built world; this is the shell's chance to drop it so an enable takes effect
@@ -1653,6 +2218,9 @@ function registerIpc() {
   // The store is a channel, not a feature: searching GitHub is part of managing plugins, and
   // a store you can switch off is a store whose results you cannot trust to be complete.
   registerStoreIpc()
+  // The bundled set is MEGA's own responsibility (§19): it is registered here rather than in Core, and
+  // the shell's protection layer — when there is one — is what keeps a failure inside the panel.
+  registerBundledPluginIpc()
   // The feature manager's own channels, registered last and never gated: switching a feature
   // off is how a user fixes one, so the switch itself may not be behind a feature.
   registerFeatureIpc()
@@ -1660,6 +2228,12 @@ function registerIpc() {
   // so it is never gated — a user who switched a feature off must still be able to read the
   // panel that says so.
   registerGlassIpc()
+  // The appearance presets: one decision over the two layers, registered beside the glass they use.
+  registerAppearanceIpc()
+  // The providers the settings page chooses between, and the route to the plugin that backs the third one.
+  registerAppearanceProviderIpc()
+  // The Control Center: what the enhancement layer is doing, and the actions that belong to it (§45-§47).
+  registerControlCenterIpc()
   // The wallpaper is chrome for the same reason, and it is also what the dock's first paint asks
   // for, so it is registered with the glass rather than behind a switch.
   registerWallpaperIpc()
@@ -1673,6 +2247,104 @@ function registerIpc() {
  * force. The state is pushed to the dock on every change, because the Appearance panel and any
  * other surface that shows a switch have to move together.
  */
+/**
+ * The appearance provider channels (§43-§44).
+ *
+ * `describe` answers what the settings page shows — the three providers, whether each is usable and why not —
+ * and `set` answers a *choice*: an unavailable provider is refused with its fallback named and the two actions a
+ * user actually has, and nothing is installed on their behalf.
+ *
+ * `mega:open-store` is the other half of §44: "go look at the plugin" has to lead somewhere, and the dock's
+ * plugin manager already knows how to open its store tab, so this asks it to.
+ */
+function registerAppearanceProviderIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`appearance provider ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:appearance-providers', guard(() => appearanceProviders().describe(appearancePreference().read().provider)))
+  ipcMain.handle('mega:appearance-provider-set', guard(async (_event, payload = {}) => {
+    const current = appearancePreference().read().provider
+    const chosen = String(payload?.provider || '')
+    const result = await appearanceProviders().select(chosen, { current })
+    if (result.ok !== false) appearancePreference().set({ provider: result.provider })
+    return { ...result, active: appearancePreference().read().provider }
+  }))
+  ipcMain.handle('mega:open-store', guard(() => {
+    try {
+      return { ok: dockTarget.send('mega:open-store', { showQueue: false }) }
+    } catch (error) {
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }))
+}
+
+/**
+ * The appearance controller's channels (`./appearance/index.cjs`, §26-§28).
+ *
+ * One decision over both layers: the glass the dock is made of, and the picture behind each backdrop.
+ * The panel reads the presets and which one the numbers in force look like, and writes one preset at a
+ * time; each layer's answer travels back so "the glass took it and the wallpaper refused" is visible
+ * rather than rounded to a success.
+ */
+function appearanceController() {
+  if (appearance) return appearance
+  appearance = createAppearanceController({
+    glass: (patch) => glass().set(patch),
+    wallpaper: (patch) => wallpaper().set(patch),
+    log: (message) => log(message)
+  })
+  return appearance
+}
+
+function registerAppearanceIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`appearance ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:appearance', guard(() => {
+    // The numbers in force are read from the two layers, never remembered here: a hand-tuned mixture
+    // must show as a mixture rather than as whichever preset it is closest to.
+    const glassState = glass().describe()
+    const wallpaperState = wallpaper().describe()
+    const described = appearanceController().describe({
+      glass: { blur: glassState.blur, opacity: glassState.opacity },
+      wallpaper: {
+        main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
+        dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
+      }
+    })
+    // §55-§57: what this appearance costs, beside the numbers it is made of.
+    return { ...described, cost: appearanceCost() }
+  }))
+  ipcMain.handle('mega:appearance-set', guard(async (_event, payload = {}) => {
+    const result = await appearanceController().apply(String(payload?.preset || payload?.id || ''))
+    // The preset is the user's decision, so it is remembered like the provider (§43's "阅读预设").
+    if (result.ok !== false) appearancePreference().set({ preset: result.preset })
+    // The dock draws both layers from pushed state, so a preset that landed has to be pushed like any
+    // other change — otherwise the panel would show a glass that is not on screen.
+    if (result.ok !== false) {
+      pushWallpaper()
+      try {
+        dockTarget.send('mega:ui-glass-changed', glass().describe())
+      } catch (error) {
+        log(`the preset could not be pushed to the dock: ${error?.message || error}`)
+      }
+    }
+    return result
+  }))
+}
+
 function registerGlassIpc() {
   const { ipcMain } = ctx.electron
   const guard = (handler) => async (...args) => {
@@ -1762,6 +2434,12 @@ function pushWallpaper() {
     }
   } catch (error) {
     log(`the wallpaper could not reach the layer over the official UI: ${error?.message || error}`)
+  }
+  // §57: one line per appearance change, in the shape the plan asks for.
+  try {
+    log(appearanceCost().line)
+  } catch (error) {
+    log(`the appearance cost could not be measured: ${error?.message || error}`)
   }
 }
 
@@ -2220,6 +2898,34 @@ async function start(context) {
   // theme system are up, so an unavailable or failing worker can never delay
   // them (plan §22 fault isolation).
   bindSubWorker()
+  /**
+   * The bundled community plugins, last and in the background.
+   *
+   * Registering them as protected modules happens now (it is synchronous bookkeeping); the policy pass
+   * that would install a pinned *tested* version does not, because a boot may never wait on a network.
+   * Today the manifest marks both references untested, so this pass installs nothing and says so.
+   */
+  try {
+    const registered = bundled().registerProtected()
+    if (registered.length) log(`bundled community plugins registered for protection: ${registered.join(', ')}`)
+    Promise.resolve()
+      .then(() => bundled().ensure())
+      .then((applied) => {
+        const report = bundled().describe()
+        log(`bundled plugins: ${JSON.stringify(report.states)}`)
+        for (const entry of applied) {
+          if (entry.action !== 'none') log(`bundled plugin ${entry.id}: ${entry.action} → ${entry.state}${entry.reason ? ` (${entry.reason})` : ''}`)
+        }
+      })
+      .catch((error) => log(`the bundled plugin pass failed without affecting anything else: ${error?.message || error}`))
+    // What this run looked like, for the next one (§52). Background, and a failure is a log line.
+    Promise.resolve()
+      .then(() => rememberStartup())
+      .then((recorded) => log(`startup cache: ${recorded?.ok === false ? `not updated (${recorded.reason})` : `remembered ${(recorded?.keys || []).join(', ')}`}`))
+      .catch((error) => log(`the startup cache pass failed without affecting anything else: ${error?.message || error}`))
+  } catch (error) {
+    log(`bundled plugin registration failed (the rest of Mega is unaffected): ${error?.message || error}`)
+  }
   log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency + unified theme system enabled')
   if (subWorkerAvailable()) log(`optional Sub-worker available (state ${subWorkerSnapshot().state})`)
 }

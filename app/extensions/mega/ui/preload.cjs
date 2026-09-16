@@ -176,6 +176,28 @@ contextBridge.exposeInMainWorld('megaTools', {
     pick: (options) => ipcRenderer.invoke('mega:wallpaper-pick', options),
     onChanged: (callback) => ipcRenderer.on('mega:wallpaper-changed', (_event, payload) => callback(payload))
   },
+  /**
+   * The appearance presets: one decision over the glass and the wallpaper
+   * (`updateplan/startup2.md` §26-§28). The panel writes one preset and renders the answer, which
+   * reports each layer separately.
+   */
+  appearance: {
+    describe: () => ipcRenderer.invoke('mega:appearance'),
+    set: (preset) => ipcRenderer.invoke('mega:appearance-set', { preset }),
+    // The providers behind the desktop mode: official / simple / Wallpaper Engine (startup2.md §43-§44).
+    providers: () => ipcRenderer.invoke('mega:appearance-providers'),
+    setProvider: (provider) => ipcRenderer.invoke('mega:appearance-provider-set', { provider })
+  },
+  /** "Go look at the plugin" has to lead somewhere: this opens the dock's store tab (§44). */
+  openStore: () => ipcRenderer.invoke('mega:open-store'),
+  /**
+   * The Control Center (`updateplan/startup2.md` §45-§47): the enhancement layer's own view, and the
+   * actions that belong to it — retry, check, repair, disable/enable, fall back.
+   */
+  control: {
+    describe: () => ipcRenderer.invoke('mega:control-center'),
+    action: (payload) => ipcRenderer.invoke('mega:control-action', payload)
+  },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
   applyHarnessUpdate: () => ipcRenderer.invoke('mega:update-apply'),

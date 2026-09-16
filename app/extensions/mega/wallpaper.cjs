@@ -83,6 +83,12 @@ const WALLPAPER_SURFACE_DEFAULT = Object.freeze({
   opacity: 55,
   blur: 0,
   scrim: 35,
+  // The picture's own filter (`updateplan/startup2.md` §27's `--dsh-wallpaper-*` tokens, which are the public
+  // names of exactly these numbers). `1` is "as the file is": a wallpaper the user chose is not automatically
+  // dimmed, and the appearance presets are what ask for anything else.
+  brightness: 1,
+  contrast: 1,
+  saturation: 1,
   // Only the dock has an element that can play something, so only the dock has a use for this.
   muted: true
 })
@@ -97,7 +103,11 @@ const WALLPAPER_DEFAULT = Object.freeze({
 const WALLPAPER_LIMITS = Object.freeze({
   opacity: Object.freeze({ min: 0, max: 100 }),
   blur: Object.freeze({ min: 0, max: 40 }),
-  scrim: Object.freeze({ min: 0, max: 100 })
+  scrim: Object.freeze({ min: 0, max: 100 }),
+  // §27's token ranges, for the picture's filter.
+  brightness: Object.freeze({ min: 0.4, max: 1.2 }),
+  contrast: Object.freeze({ min: 0.4, max: 1.2 }),
+  saturation: Object.freeze({ min: 0, max: 1.5 })
 })
 
 const WALLPAPER_FITS = Object.freeze(['cover', 'contain', 'tile'])
@@ -144,12 +154,18 @@ function kindOf(file) {
   return null
 }
 
-/** One number, clamped into its own range; anything unreadable keeps the value it replaces. */
-function clamp(name, value, fallback) {
+/**
+ * One number, clamped into its own range; anything unreadable keeps the value it replaces.
+ *
+ * `integer` is false for the filter numbers, whose ranges are fractional — rounding `0.6` to `1` would make the
+ * vocabulary unable to say what it is for.
+ */
+function clamp(name, value, fallback, integer = true) {
   const range = WALLPAPER_LIMITS[name]
   const number = Number(value)
   if (!range || !Number.isFinite(number)) return fallback
-  return Math.min(range.max, Math.max(range.min, Math.round(number)))
+  const bounded = Math.min(range.max, Math.max(range.min, number))
+  return integer ? Math.round(bounded) : Math.round(bounded * 1000) / 1000
 }
 
 /**
@@ -188,6 +204,9 @@ function createWallpaper(options = {}) {
       opacity: clamp('opacity', source.opacity, inherited.opacity),
       blur: clamp('blur', source.blur, inherited.blur),
       scrim: clamp('scrim', source.scrim, inherited.scrim),
+      brightness: clamp('brightness', source.brightness, inherited.brightness, false),
+      contrast: clamp('contrast', source.contrast, inherited.contrast, false),
+      saturation: clamp('saturation', source.saturation, inherited.saturation, false),
       muted: typeof source.muted === 'boolean' ? source.muted : inherited.muted
     }
   }
@@ -382,6 +401,13 @@ function createWallpaper(options = {}) {
     if (block.opacity !== undefined) next.opacity = clamp('opacity', block.opacity, previous.opacity)
     if (block.blur !== undefined) next.blur = clamp('blur', block.blur, previous.blur)
     if (block.scrim !== undefined) next.scrim = clamp('scrim', block.scrim, previous.scrim)
+    // §27's filter tokens, with the same names a provider would use.
+    if (block.brightness !== undefined) next.brightness = clamp('brightness', block.brightness, previous.brightness, false)
+    if (block.contrast !== undefined) next.contrast = clamp('contrast', block.contrast, previous.contrast, false)
+    if (block.saturation !== undefined) next.saturation = clamp('saturation', block.saturation, previous.saturation, false)
+    // `darken` is the §27 token name for the scrim: one number with two audiences, so a provider that speaks
+    // the token vocabulary and the settings page that speaks the layer's cannot end up storing two of them.
+    if (block.darken !== undefined) next.scrim = clamp('scrim', block.darken, previous.scrim)
     if (block.file !== undefined) {
       // Clearing is a real choice and an empty string is how it is said.
       const chosen = block.file === null || block.file === '' ? null : String(block.file)
@@ -508,7 +534,8 @@ function createWallpaper(options = {}) {
       // string the size of the file, and the dock is a document we own, so it may read a path.
       src: inlined.kind === 'video' ? `file://${surface.file.replace(/\\/g, '/')}` : inlined.dataUrl,
       ...settings,
-      reason: inlined.reason || null
+      reason: inlined.reason || null,
+      bytes: inlined.dataUrl ? inlined.dataUrl.length : 0
     }
   }
 
@@ -562,6 +589,12 @@ function createWallpaper(options = {}) {
       `  --wp-repeat: ${fit === 'tile' ? 'repeat' : 'no-repeat'};`,
       `  --wp-blur: ${layer.blur || 0}px;`,
       `  --wp-scrim: ${(layer.scrim || 0) / 100};`,
+      // §27: the picture's filter, under the names a provider is allowed to use. They are the same numbers as
+      // the layer's own, so an appearance provider and the settings page cannot describe two different pictures.
+      `  --dsh-wallpaper-brightness: ${filterOf('brightness')};`,
+      `  --dsh-wallpaper-contrast: ${filterOf('contrast')};`,
+      `  --dsh-wallpaper-saturation: ${filterOf('saturation')};`,
+      `  --dsh-wallpaper-darken: ${(layer.scrim || 0) / 100};`,
       '}',
       // `!important` because the document's own rule for this element sets the picture from a variable
       // and sits after an inserted sheet in the cascade: this is the same statement as `:root:root`
@@ -580,6 +613,12 @@ function createWallpaper(options = {}) {
     return load()[surfaceId].fit
   }
 
+  /** One of the picture's filter numbers, from the main screen's layer (the window's own picture). */
+  function filterOf(name) {
+    const value = Number(load().main[name])
+    return Number.isFinite(value) ? value : 1
+  }
+
   /**
    * Everything the click-through window over the official page needs: the stylesheet it is handed,
    * and whether there is anything to draw at all. From the **main** surface — that is what the main
@@ -594,7 +633,21 @@ function createWallpaper(options = {}) {
     const surface = state.main
     const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
     const drawable = Boolean(state.enabled && surface.enabled && inlined.dataUrl && inlined.kind !== 'video')
-    return { css: windowCss(), drawable, kind: inlined.kind || null, reason: inlined.reason || null }
+    return {
+      css: windowCss(),
+      drawable,
+      kind: inlined.kind || null,
+      reason: inlined.reason || null,
+      /**
+       * What this layer is carrying, in bytes — the picture's inlined payload.
+       *
+       * It is reported from here because this is the only place that already knows it (`inline()` has the data
+       * URL in hand), and because §55/§56 are about exactly this number: a full-screen picture is a string the
+       * size of the file, held in a renderer, and the appearance ledger should not have to build a second
+       * multi-megabyte string to find out.
+       */
+      bytes: inlined.dataUrl ? inlined.dataUrl.length : 0
+    }
   }
 
   return {

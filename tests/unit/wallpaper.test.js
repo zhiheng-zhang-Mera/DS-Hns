@@ -92,7 +92,10 @@ test('the wallpaper persists, clamps what it cannot honour, and drops what it ca
     // The file carries the master switch and one block per backdrop; the flat keys the test above
     // used are the historical shape and mean both.
     assert.deepEqual(Object.keys(stored).sort(), ['dock', 'enabled', 'main'])
-    assert.deepEqual(Object.keys(stored.main).sort(), ['blur', 'enabled', 'file', 'fit', 'muted', 'opacity', 'scrim'])
+    // `brightness`/`contrast`/`saturation` are the picture's filter, which §27 publishes as the
+    // `--dsh-wallpaper-*` tokens; `1` is "as the file is".
+    assert.deepEqual(Object.keys(stored.main).sort(), ['blur', 'brightness', 'contrast', 'enabled', 'file', 'fit', 'muted', 'opacity', 'saturation', 'scrim'])
+    assert.equal(stored.main.brightness, 1)
     assert.equal(stored.main.fit, 'contain', 'a refused fit was written anyway')
     assert.equal(stored.dock.file, image, 'the flat shape did not reach both backdrops')
     assert.equal(stored.dock.fit, 'contain')
