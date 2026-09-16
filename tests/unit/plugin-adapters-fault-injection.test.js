@@ -9,7 +9,7 @@ const path = require('node:path')
 const { createAdapterFramework } = require('../../app/core/plugin-adapters/index.cjs')
 const { createAdapterRegistry } = require('../../app/core/plugin-adapters/registry.cjs')
 const { createTypeDetector } = require('../../app/core/plugin-adapters/detect.cjs')
-const { createNativeAdapter } = require('../../app/core/plugin-adapters/adapters/native.cjs')
+const { createNativeHnsAdapter } = require('../../app/core/plugin-adapters/adapters/native-hns.cjs')
 const { registerMockFormat, MOCK_FORMAT_FILE } = require('../../app/core/plugin-adapters/adapters/mock.cjs')
 const { ADAPTER_API_VERSION, ADAPTER_FAULT_CODES } = require('../../app/core/plugin-adapters/contract.cjs')
 const { createPluginHost } = require('../../app/plugin-host.cjs')
@@ -42,7 +42,7 @@ function scratch() {
 /** A framework with the platform's own adapter plus the demonstration format. */
 function framework() {
   const built = createAdapterFramework({ log: () => {} })
-  built.register(createNativeAdapter())
+  built.register(createNativeHnsAdapter())
   registerMockFormat(built)
   return built
 }

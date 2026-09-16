@@ -42,7 +42,7 @@ const { describe: describeCapabilities } = require('./core/contracts/capability.
 // an adapter turns them into the platform's model; it does not know which formats exist. Adding
 // one is a registration, not an edit to this file.
 const { createAdapterFramework } = require('./core/plugin-adapters/index.cjs')
-const { createNativeAdapter } = require('./core/plugin-adapters/adapters/native.cjs')
+const { createNativeHnsAdapter } = require('./core/plugin-adapters/adapters/native-hns.cjs')
 const { createCordisAdapter } = require('./core/plugin-adapters/adapters/cordis.cjs')
 const { createCordisDshAdapter } = require('./core/plugin-adapters/adapters/cordis-dsh.cjs')
 const { createProcessPluginAdapter } = require('./core/plugin-adapters/adapters/process.cjs')
@@ -83,7 +83,11 @@ const PLUGIN_GROUPS = Object.freeze({
   'dshns.high-performance': 'Performance',
   'dshns.resource-manager': 'Performance',
   'dshns.telemetry': 'Observability',
-  'dshns.model-runtime': 'Observability'
+  'dshns.model-runtime': 'Observability',
+  // Health sampling and pressure scoring are an observability concern first: the plugin watches the
+  // machine and the runtime and reports. Its maintenance window and its restart *request* are
+  // downstream of that reading, not a separate capability of their own.
+  'dshns.health-scheduler': 'Observability'
 })
 
 const GROUP_ORDER = Object.freeze(['Execution', 'Autonomy', 'Coding', 'Performance', 'Observability'])
@@ -210,7 +214,7 @@ function createPluginHost(options = {}) {
     log: (event) => log(`adapter ${JSON.stringify(event).slice(0, 200)}`),
     policy: options.permissionPolicy && typeof options.permissionPolicy === 'object' ? options.permissionPolicy : {}
   })
-  adapters.register(createNativeAdapter())
+  adapters.register(createNativeHnsAdapter())
   // Managed background processes: a plugin the host *runs* rather than loads. Registered without
   // services because the adapter needs none -- its whole surface is the process contract, which is
   // what makes it able to serve a supervisor, a Python server and a compiled binary alike.
@@ -275,11 +279,6 @@ function createPluginHost(options = {}) {
   function disabled() {
     if (!available()) return { ok: false, error: reason(), code: 'PLUGIN_RUNTIME_DISABLED' }
     return null
-  }
-
-  /** The product's own plugin sets, in install order. */
-  function shippedPlugins() {
-    return [...mountedPlugins(), ...accelerationPlugins()]
   }
 
   /** What went wrong with any store-installed plugin, for the status and the manager. */
@@ -347,7 +346,7 @@ function createPluginHost(options = {}) {
    * this line. A new format is a detector and an adapter registered on the framework, and this
    * function does not change.
    */
-  async function installedPlugins() {
+  async function installedArtifacts() {
     const file = path.join(root, 'data', 'plugins', 'installed.json')
     const out = []
     let raw = null
@@ -389,48 +388,36 @@ function createPluginHost(options = {}) {
     }
 
     /**
-     * Step 2: adapt them all.
+     * Everything this half can contribute is the artifact list.
      *
-     * `adaptMany` reports a failure *per artifact* and never one for the batch, and the framework
-     * itself never throws — so however badly one adapter behaves, the other plugins are still
-     * produced and the shell still starts. That is the isolation requirement, implemented once
-     * here rather than trusted to every adapter.
+     * It deliberately does **not** adapt anything: `buildWorld` runs one adaptation pass over the
+     * shipped artifacts and these together, so both halves go through the same detectors, the same
+     * selection, the same standardisation and the same per-artifact fault isolation.
      */
-    const adapted = await adapters.adaptMany(artifacts)
-    for (const result of adapted.results) {
-      const entry = result.artifact ? result.artifact.entry : null
-      const id = entry ? String(entry.id || entry.dir) : `artifact[${result.index}]`
-      if (result.ok !== true) {
-        const reason = result.reason || 'the plugin could not be adapted'
-        installedFailures.push({
-          id,
-          reason,
-          code: result.code || null,
-          phase: result.phase || null,
-          adapter: result.adapter ? result.adapter.id : null
-        })
-        log(`installed plugin ${id} could not be mounted: ${reason}`)
-        continue
-      }
-      const plugin = result.plugin
-      const adaptation = plugin.adaptation || null
-      out.push(plugin)
-      installedIds.add(String(plugin.manifest.id))
-      // The compat registry is a view of the adopted set, and the panel keys its badge off it.
-      if (plugin.compatibility === 'compat') compatPlugins.set(String(plugin.manifest.id), plugin)
-      log(
-        `installed plugin mounted: ${plugin.manifest.id} v${plugin.manifest.version}`
-        + ` via ${adaptation ? adaptation.adapter.id : 'the native adapter'}`
-        + ` (${adaptation ? adaptation.detected_type : 'unknown'}, ${plugin.standard ? plugin.standard.runtime_kind : 'unknown'} runtime)`
-        + `${entry && entry.repo ? ` from ${entry.repo}` : ''}`
-      )
-    }
-    return out
+    return artifacts
   }
 
-  /** The plugin objects this host runs: the product's own sets plus what the user installed. */
+  /**
+   * The plugin artifacts this host runs: the product's own sets plus what the user installed.
+   *
+   * Both halves are *artifacts*, not plugin objects, and that is the point of this function. The
+   * shipped sets used to be handed to the manager as ready-made plugins while store installs went
+   * through the adapter framework — two loaders for one platform, with the product's own plugins
+   * quietly skipping the standard sections and the per-artifact fault isolation. Now there is one
+   * list and one adaptation pass, and a shipped plugin that cannot be adapted fails alone with a
+   * coded reason exactly like any other.
+   */
   async function pluginSets() {
-    return [...shippedPlugins(), ...(await installedPlugins())]
+    return [...shippedArtifacts(), ...(await installedArtifacts())]
+  }
+
+  /** The product's own plugin sets, as artifacts for the framework to adapt. */
+  function shippedArtifacts() {
+    return [...mountedPlugins(), ...accelerationPlugins()].map((plugin) => ({
+      module: plugin,
+      source: 'the shipped plugin set',
+      shipped: true
+    }))
   }
 
   /** The ids that came from the store, so the lock can tell them from the shipped set. */
@@ -551,7 +538,52 @@ function createPluginHost(options = {}) {
    * happen to be installed in.
    */
   async function buildWorld() {
-    const plugins = await pluginSets()
+    const artifacts = await pluginSets()
+
+    /**
+     * One adaptation pass over everything: the product's own sets and the user's installs.
+     *
+     * `adaptMany` reports a failure *per artifact* and never one for the batch, and the framework
+     * never throws — so however badly one adapter behaves, the other plugins are still produced and
+     * the shell still starts. Running it here, once, over both halves is what removes the second
+     * loader: a shipped plugin and a store plugin now take the identical path, and a shipped plugin
+     * that cannot be adapted is a coded failure rather than a failure of the world build.
+     */
+    const adapted = await adapters.adaptMany(artifacts)
+    const plugins = adapted.plugins
+    for (const result of adapted.results) {
+      const artifact = result.artifact || {}
+      const entry = artifact.entry || null
+      if (result.ok === true) {
+        const plugin = result.plugin
+        const adaptation = plugin.adaptation || null
+        // Only a store install is the user's addition; the shipped set is the product's own
+        // composition and stays out of that bookkeeping.
+        if (!artifact.shipped) installedIds.add(String(plugin.manifest.id))
+        // The compat registry is a view of the adopted set, and the panel keys its badge off it.
+        if (plugin.compatibility === 'compat') compatPlugins.set(String(plugin.manifest.id), plugin)
+        log(
+          `plugin adapted: ${plugin.manifest.id} v${plugin.manifest.version}`
+          + ` via ${adaptation ? adaptation.adapter.id : 'no adapter'}`
+          + ` (${adaptation ? adaptation.detected_type : 'unknown'}, ${plugin.standard ? plugin.standard.runtime_kind : 'unknown'} runtime)`
+          + `${artifact.shipped ? ' [shipped]' : entry && entry.repo ? ` from ${entry.repo}` : ''}`
+        )
+        continue
+      }
+      const shippedId = artifact.module && artifact.module.manifest ? String(artifact.module.manifest.id) : null
+      const id = entry ? String(entry.id || entry.dir) : (shippedId || `artifact[${result.index}]`)
+      const reason = result.reason || 'the plugin could not be adapted'
+      installedFailures.push({
+        id,
+        reason,
+        code: result.code || null,
+        phase: result.phase || null,
+        adapter: result.adapter ? result.adapter.id : null
+      })
+      errors.set(id, { ok: false, code: result.code || null, reason })
+      log(`plugin ${id} could not be adapted: ${reason}`)
+    }
+
     const services = {
       root,
       workspace: root,

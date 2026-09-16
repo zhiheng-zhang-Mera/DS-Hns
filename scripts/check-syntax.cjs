@@ -94,6 +94,9 @@ const SOURCE_DIRS = [
   // The mounted feature set: the plugins that wrap the subsystems which already
   // exist. Listed because the collector is non-recursive.
   'plugins/mounted',
+  // The health scheduler: the first plugin written for this platform under the adapter framework.
+  // A new plugin directory has to be listed here or its files escape the gate silently.
+  'plugins/health-scheduler',
   // The acceleration set (Update-Plan/accleration.md phases 5-13): the plugin entry
   // point plus one directory per accelerator, each listed because the collector is
   // non-recursive.

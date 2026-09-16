@@ -33,7 +33,7 @@ const http = require('node:http')
 
 const ROOT = path.resolve(__dirname, '..')
 const { createAdapterFramework } = require(path.join(ROOT, 'app/core/plugin-adapters/index.cjs'))
-const { createNativeAdapter } = require(path.join(ROOT, 'app/core/plugin-adapters/adapters/native.cjs'))
+const { createNativeHnsAdapter } = require(path.join(ROOT, 'app/core/plugin-adapters/adapters/native-hns.cjs'))
 const { createCordisAdapter } = require(path.join(ROOT, 'app/core/plugin-adapters/adapters/cordis.cjs'))
 const { createCordisDshAdapter } = require(path.join(ROOT, 'app/core/plugin-adapters/adapters/cordis-dsh.cjs'))
 const { createHostWebServer } = require(path.join(ROOT, 'app/core/plugin-adapters/bridge/host.cjs'))
@@ -284,7 +284,7 @@ async function main() {
   })
 
   const framework = createAdapterFramework({ log: () => {} })
-  framework.register(createNativeAdapter())
+  framework.register(createNativeHnsAdapter())
   framework.register(adapter)
   // Registered too, so the acceptance shows which adapter *wins* for a community bundle rather than
   // only that one of them could handle it.

@@ -24,6 +24,7 @@
 const path = require('node:path')
 
 const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('../../core/contracts/plugin.cjs')
+const { healthSchedulerPlugin } = require('../health-scheduler/index.cjs')
 
 const API = PLUGIN_API_VERSION
 
@@ -617,7 +618,12 @@ function mountedPlugins() {
     modelRuntimePlugin(),
     computerUsePlugin(),
     uiStabilityPlugin(),
-    longTermWorkerPlugin()
+    longTermWorkerPlugin(),
+    // The first plugin written *for* this platform under the adapter framework. It is mounted
+    // exactly like the ones above, which is the point: a native plugin is adapted by
+    // `NativeHnsAdapter` rather than installed through a second, privileged path. It ships
+    // disabled -- sampling the machine is a decision a user makes.
+    healthSchedulerPlugin()
   ]
 }
 
@@ -636,5 +642,6 @@ module.exports = {
   modelRuntimePlugin,
   computerUsePlugin,
   uiStabilityPlugin,
-  longTermWorkerPlugin
+  longTermWorkerPlugin,
+  healthSchedulerPlugin
 }

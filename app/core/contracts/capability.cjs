@@ -56,7 +56,27 @@ const CAPABILITIES = Object.freeze({
   'telemetry': { description: 'record the metrics a performance claim needs', providers: ['dshns.telemetry'], fallback: 'no performance claim can be made from this run' },
   'workspace-isolation': { description: 'give a worker its own copy of the workspace', providers: ['dshns.workspace-isolation'], fallback: 'parallel writes are refused' },
   'resource-management': { description: 'derive how much the machine may run', providers: ['dshns.resource-manager'], fallback: 'the runtime runs one thing at a time' },
-  'model-access': { description: 'call a model through the active profile', providers: ['dshns.model-runtime'], fallback: 'no model call can be made' }
+  'model-access': { description: 'call a model through the active profile', providers: ['dshns.model-runtime'], fallback: 'no model call can be made' },
+
+  /**
+   * Long-term hosting.
+   *
+   * A process that is meant to run for days needs to know how the machine and the runtime are
+   * doing, and needs somewhere to say so. These five are that vocabulary. They are split the way
+   * the *decisions* are rather than the way the data arrives: reading the machine, reading the
+   * runtime, turning both into a judgement, deciding when work may be deferred, and asking for a
+   * restart. A single `health` capability would have collapsed four different fallbacks into one.
+   *
+   * The separation that matters most is the last one. `restart-control` is deliberately *not* part
+   * of the health vocabulary: a health monitor may request a restart, but the authority to perform
+   * one is held elsewhere, and a monitor that could execute its own request would be a monitor
+   * whose bug is an outage. See `docs/health-scheduler.md`.
+   */
+  'hardware-health': { description: 'read the machine: CPU load, memory pressure, thermals, disk', providers: ['dshns.health-scheduler'], fallback: 'the affected dimension is reported unknown and its weight is redistributed; unknown is never scored as healthy' },
+  'runtime-health': { description: 'read the runtime: uptime, worker state, event-loop delay, task outcomes', providers: ['dshns.health-scheduler'], fallback: 'the runtime dimensions are reported unknown rather than assumed good' },
+  'health-pressure': { description: 'turn the readings into one pressure score and an action decision', providers: ['dshns.health-scheduler'], fallback: 'no pressure is scored and no mitigation is decided; the runtime keeps running, unmonitored' },
+  'maintenance-scheduling': { description: 'decide whether a maintenance window allows work to be deferred or a restart held', providers: ['dshns.health-scheduler'], fallback: 'maintenance is never scheduled and work is never deferred for it' },
+  'restart-control': { description: 'request that the application be stopped and brought back, executed by whoever holds the restart authority', providers: ['dshns.process'], fallback: 'no restart can be requested; monitoring and mitigation continue and the capability is reported unavailable' }
 })
 
 /**
