@@ -152,6 +152,16 @@ try {
     # name like the rest, because a renamed file here would drop the one suite that checks the installed
     # shape rather than the checkout.
     'mega-core-install-acceptance.test.js',
+    # The optional community plugins at the installation level: the market and the wallpaper engine,
+    # asked about separately, installed through the Harness plugin CLI, verified by the adapter layer,
+    # and never able to fail DS-Hns' own installation. The whole real `scripts/install.ps1` is run from
+    # this suite, which is why it is asserted by name: a renamed file would drop the only coverage of
+    # the installer's own interaction and summary.
+    'installer-optional-plugins.test.js',
+    # The wall-clock budget of the parallelism scenario, as a policy rather than a measurement: timing
+    # warns, correctness gates. Asserted by name for the same reason -- the raw threshold is what used to
+    # fail an installation, so the rule that keeps it out of the exit code needs its own gate.
+    'installer-timing-gate.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

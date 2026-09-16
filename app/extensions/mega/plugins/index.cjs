@@ -136,13 +136,50 @@ function normalizeReference(value) {
   return String(value || '').trim().replace(/^v(?=\d)/i, '')
 }
 
+/**
+ * Whether two references name the same version.
+ *
+ * Both sides are normalised before they are compared, and that is the half that was missing: the rule is
+ * symmetric — `v0.7.1` written for `0.7.1` and `0.7.1` written for `v0.7.1` are one reference, whichever
+ * side the `v` happens to be on. The Harness' own CLI records the *published version* (`0.7.1`) in the
+ * profile's `dependencies` while the release manifest pins the repository's *tag* (`v0.7.1`), so a
+ * one-sided comparison reported a correctly installed plugin as "ahead of pin" whenever the tag carried
+ * the `v` and the recorded version did not.
+ */
+function sameVersionReference(left, right) {
+  const a = normalizeReference(left)
+  const b = normalizeReference(right)
+  return Boolean(a) && a === b
+}
+
 function sameReference(installed, entry) {
   if (!installed) return false
   const version = String(installed.version || installed.commit || '')
   if (!version) return false
   return version === entry.ref
     || version === entry.commit
-    || normalizeReference(version) === normalizeReference(entry.ref)
+    || sameVersionReference(version, entry.ref)
+}
+
+/**
+ * The bundled entry a Harness profile dependency refers to.
+ *
+ * A profile's `dependencies` are npm **package names** while this manifest keys its entries by **plugin
+ * id**, and for the wallpaper engine those are different strings (`dsh-plugin-wallpaper-engine` vs
+ * `dsh-wallpaper-engine`). Every reader joining a profile's install to this manifest has to translate
+ * between them, so the translation is made once, here, rather than once per reader — a reader that
+ * skipped it asked the manager about an id nothing declares and was told, wrongly, that the plugin was
+ * missing.
+ *
+ * @param {string} name the package name recorded in a profile's `dependencies`
+ * @param {object} [manifest] the release manifest, defaulting to the shipped one
+ * @returns {object|null} the bundled entry, or `null` when the dependency is not a bundled plugin
+ */
+function entryForPackage(name, manifest = BUNDLED_MANIFEST) {
+  const wanted = String(name || '')
+  if (!wanted) return null
+  const entries = Array.isArray(manifest && manifest.plugins) ? manifest.plugins : []
+  return entries.find((entry) => String(entry.package || entry.id) === wanted) || null
 }
 
 /**
@@ -394,8 +431,13 @@ function createBundledPlugins({
  * @param {Function} [hooks.harnessAdd] `({ profile, package: spec }) => { ok, reason }`
  * @param {object}   [hooks.store]      `{ stage, enable }`
  * @param {string}   [hooks.profile]    the Harness profile to add into
+ * @param {Function} [hooks.verify]     `(input) => ({ ok, reason, adapter? })` — the compatibility check for
+ *   the channel, run through the adapter layer by the caller. A harness-profile install is a package the
+ *   Harness will compose; whether it really is the community bundle the release pinned is a question about
+ *   the *installed files*, and it is asked after the CLI succeeded rather than assumed from the exit code.
+ *   A refusal is reported as a failure on purpose: an install nobody can recognise is not an install.
  */
-async function installBundled(entry = {}, { harnessAdd = null, store = null, profile = 'web' } = {}) {
+async function installBundled(entry = {}, { harnessAdd = null, store = null, profile = 'web', verify = null } = {}) {
   const channel = String(entry.channel || 'dshns-store')
   const spec = entry.package ? `${entry.package}@${entry.ref}` : null
   if (channel === 'unresolved') {
@@ -406,6 +448,20 @@ async function installBundled(entry = {}, { harnessAdd = null, store = null, pro
     try {
       const outcome = await harnessAdd({ profile, package: spec })
       if (outcome?.ok === false) return { ok: false, channel, reason: outcome.reason || 'the Harness refused the plugin' }
+      // The CLI's exit code is the installer, not the proof: the installed package is read back and
+      // adapted before the install is called a success.
+      if (typeof verify === 'function') {
+        let checked = null
+        try {
+          checked = await verify({ id: entry.id, channel, profile, package: spec, packageName: entry.package, ref: entry.ref })
+        } catch (error) {
+          return { ok: false, channel, reason: `the installed copy could not be verified: ${String(error?.message || error)}` }
+        }
+        if (checked && checked.ok === false) {
+          return { ok: false, channel, reason: checked.reason || 'the installed copy was refused by the adapter layer', verify: checked }
+        }
+        return { ok: true, channel, profile, package: spec, version: entry.ref, verify: checked || null }
+      }
       return { ok: true, channel, profile, package: spec, version: entry.ref }
     } catch (error) {
       return { ok: false, channel, reason: String(error?.message || error) }
@@ -471,5 +527,7 @@ module.exports = {
   installBundled,
   removeBundled,
   sameReference,
+  sameVersionReference,
+  entryForPackage,
   normalizeReference
 }

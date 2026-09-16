@@ -65,9 +65,22 @@ The installer is idempotent and reuse-first:
 10. when package repair/install is needed, uses `npm ci --prefer-offline` and reuses existing npm/Electron caches when available;
 11. generates built-in sounds only when they are missing;
 12. signs the client plugin DS-Hns ships into the Harness profile the product boots, so the orb in the official UI exists on a host that never had it (an already-satisfied profile is left alone, and this step never fails the installation);
-13. runs unit + architecture tests and repository verification;
-14. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
-15. launches DS-Harness when installation succeeds.
+13. **offers the two optional community plugins** — the plugin market (`@dsh-market/plugin`) and the wallpaper engine (`dsh-plugin-wallpaper-engine`) — asking about each one separately, defaulting to skip, and installing neither without an answer; parameters (`-InstallMarket`, `-InstallWallpaper`, `-SkipOptionalPlugins`) answer the questions, an unattended install skips both, and a failure warns rather than failing the installation;
+14. runs unit + architecture tests and repository verification;
+15. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
+16. launches DS-Harness when installation succeeds, and prints a summary of what each part ended up as.
+
+```powershell
+Install-DS-Harness.cmd                          # asks about each optional plugin
+Install-DS-Harness.cmd -InstallWallpaper        # only the desktop plugin, no questions
+Install-DS-Harness.cmd -InstallMarket           # only the store
+Install-DS-Harness.cmd -SkipOptionalPlugins     # neither, and don't ask
+```
+
+The two community plugins are **optional by construction**: Mega Core is DS-Hns' own plugin and is
+signed in before they are ever mentioned, and neither community plugin is a dependency of starting
+the product. `docs/install-flow.md` is the full flow, the parameters, the installation channel and
+the meaning of every summary line.
 
 ## API key flow
 
@@ -522,6 +535,8 @@ scripts/
   ensure-icon.ps1
   install-deps.ps1
   install-profile-plugin.ps1
+  install-community-plugins.ps1     the optional community plugins, on their own
+  installer-community-acceptance.cjs  the two real packages, from the registry (opt-in)
   ensure-node.ps1
   cleanup-runtime.ps1
   shortcuts.ps1

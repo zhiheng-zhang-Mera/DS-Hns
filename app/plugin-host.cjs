@@ -45,6 +45,7 @@ const { createAdapterFramework } = require('./core/plugin-adapters/index.cjs')
 const { createNativeHnsAdapter } = require('./core/plugin-adapters/adapters/native-hns.cjs')
 const { createCordisAdapter } = require('./core/plugin-adapters/adapters/cordis.cjs')
 const { createCordisDshAdapter } = require('./core/plugin-adapters/adapters/cordis-dsh.cjs')
+const { createHarnessProfileAdapter } = require('./core/plugin-adapters/adapters/harness-profile.cjs')
 const { createProcessPluginAdapter } = require('./core/plugin-adapters/adapters/process.cjs')
 const { PARALLEL_MODES, MODE_POLICY } = require('./plugins/acceleration/parallel-executor/index.cjs')
 const { mountedPlugins } = require('./plugins/mounted/index.cjs')
@@ -242,6 +243,25 @@ function createPluginHost(options = {}) {
     nodeExe: options.nodeExe,
     timeoutMs: options.compatTimeoutMs,
     log: (event) => log(`compat ${JSON.stringify(event).slice(0, 200)}`)
+  }))
+  /**
+   * The plugins that belong to a **Harness profile** rather than to this host: the community client
+   * plugins DS-Hns offers at install time (`@dsh-market/plugin`, `dsh-plugin-wallpaper-engine`).
+   *
+   * It is registered above the bridged community adapter on purpose. `dshns.cordis-dsh` *runs* a
+   * community bundle's host half in a mediated child process, which is the right answer for a plugin
+   * this product hosts — and the wrong answer for one the Harness is already composing out of the
+   * profile it boots, because that would be a second instance of it. This adapter only reads the
+   * installed package and reports the format, the peers and the browser half; `load()` starts nothing.
+   *
+   * Same roots as the bridged adapter: a profile plugin's `peerDependencies` are the host's to
+   * provide, and the harness's own install is a root by default.
+   */
+  adapters.register(createHarnessProfileAdapter({
+    roots: Array.isArray(options.peerRoots) && options.peerRoots.length
+      ? options.peerRoots
+      : [path.join(__dirname, 'node_modules')],
+    log: (event) => log(`harness-profile ${JSON.stringify(event).slice(0, 200)}`)
   }))
 
   /**

@@ -2189,19 +2189,37 @@ function harnessProfile() {
  *
  * The profile is another application's install (`$DSH_HOME/profiles/<name>/package.json`), so this only ever
  * *reads* it — the writing is the Harness' own CLI, which is why the channel exists at all.
+ *
+ * **The key is not the package name.** A profile's `dependencies` are npm package names
+ * (`dsh-plugin-wallpaper-engine`, `@dsh-market/plugin`), while the bundled manifest keys its entries by
+ * *plugin id* (`dsh-wallpaper-engine`, `@dsh-market/plugin`). Reporting the package name as the id made the
+ * panel ask the manager about an id nothing declares, so an installed-and-composed wallpaper engine was
+ * shown as `missing` — the one failure mode this function exists to prevent. The mapping therefore goes
+ * through the shipped manifest's own `package` field, and a dependency that is not a bundled plugin is still
+ * reported, under its package name, so nothing the profile carries disappears from the report.
  */
 function harnessProfileDependencies() {
   try {
     const file = path.join(PATHS.ROOT, 'data', 'profiles', harnessProfile(), 'package.json')
     if (!fs.existsSync(file)) return []
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
-    return Object.entries(parsed?.dependencies || {}).map(([id, version]) => ({
-      id,
-      version: String(version).replace(/^[\^~]/, ''),
-      dir: null,
-      enabled: true,
-      where: 'harness-profile'
-    }))
+    const { entryForPackage } = require('./plugins/index.cjs')
+    return Object.entries(parsed?.dependencies || {}).map(([name, version]) => {
+      // The manifest's own translation, not a second one here: a profile records package names and this
+      // manager keys on plugin ids, and that difference is a fact about two schemas rather than about
+      // any one reader.
+      const entry = entryForPackage(name)
+      return {
+        id: entry ? entry.id : name,
+        /** The package the profile actually declares, kept beside the id so a report can show both. */
+        package: name,
+        channel: entry ? entry.channel || 'harness-profile' : null,
+        version: String(version).replace(/^[\^~]/, ''),
+        dir: null,
+        enabled: true,
+        where: 'harness-profile'
+      }
+    })
   } catch (error) {
     log(`the Harness profile's dependencies could not be read: ${error?.message || error}`)
     return []

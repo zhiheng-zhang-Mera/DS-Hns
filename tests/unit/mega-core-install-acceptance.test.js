@@ -28,7 +28,13 @@ const { syncShippedPackage, shadowManifests, shippedFiles } = require('../../app
  *      walk early, and both halves load from it: the host mounts its routes on the Harness web server, the
  *      browser half is accepted by the module loader and asks the platform table for nothing it cannot have;
  *   3. **in Settings** — the browser half claims the official `settings.section` slot and renders the Mega
- *      page there, which is what "Mega appears in the official Settings" means.
+ *      page there, which is what "Mega appears in the official Settings" means;
+ *   4. **in the platform's own plugin set** — the installed directory is handed to the same adapter
+ *      framework the running product builds its plugin set with, and the result is a plugin the manager
+ *      installs and the bundled-plugin manager can find. Step 3 proves the code files work; this step is
+ *      what keeps *"the files exist and load"* from standing in for *"the product's own plugin pipeline
+ *      picks it up"*, which is the difference between a checkout that happens to contain a plugin and an
+ *      installation that has one.
  *
  * The React stand-in is deliberately tiny (element trees, hook slots and effects). It is not a substitute for
  * the manual UI review; it is what makes "the section renders" an assertion rather than a claim.
@@ -343,4 +349,66 @@ test('the installed browser half claims the official Settings section and render
 
   assert.equal(typeof dispose, 'function', 'the installed bundle did not return its disposer')
   assert.doesNotThrow(() => dispose())
+})
+
+// -----------------------------------------------------------------------------------------------------------
+// 4. In the platform's own plugin set
+// -----------------------------------------------------------------------------------------------------------
+
+test('the installed copy is adapted by the platform adapter layer, not merely loadable by hand', async () => {
+  const { createAdapterFramework } = require('../../app/core/plugin-adapters/index.cjs')
+  const { createHarnessProfileAdapter } = require('../../app/core/plugin-adapters/adapters/harness-profile.cjs')
+  const { createCordisDshAdapter } = require('../../app/core/plugin-adapters/adapters/cordis-dsh.cjs')
+  const { createCordisAdapter } = require('../../app/core/plugin-adapters/adapters/cordis.cjs')
+  const { createPluginManager } = require('../../app/core/plugin-manager/index.cjs')
+
+  // The framework the running product builds, with the same registrations in the same order: the
+  // profile channel first, then the bridged community adapter, then the generic adoption path.
+  const framework = createAdapterFramework({ log: () => {} })
+  framework.register(createHarnessProfileAdapter({ roots: [path.join(ROOT, 'app', 'node_modules')], log: () => {} }))
+  framework.register(createCordisDshAdapter({ roots: [path.join(ROOT, 'app', 'node_modules')], log: () => {} }))
+  framework.register(createCordisAdapter({ log: () => {} }))
+
+  const adapted = await framework.adapt({ dir: INSTALLED, channel: 'harness-profile', where: 'profile web' })
+  assert.equal(adapted.ok, true, `the installed Mega Core was not adapted: ${adapted.reason || ''}`)
+  assert.equal(adapted.adapter.id, 'dshns.harness-profile')
+  assert.equal(adapted.detection.type, 'cordis.bundle', 'the installed shape is not the bundle the Harness composes')
+
+  // The plugin object the framework produced is one the manager accepts: the same contract every
+  // plugin faces, checked before anything runs.
+  const manager = createPluginManager({ log: () => {} })
+  const installed = manager.install(adapted.plugin)
+  assert.equal(installed.ok, true, `the manager refused the adapted Mega Core: ${installed.reason || ''}`)
+  const entry = manager.entry(adapted.plugin.manifest.id)
+  assert.ok(entry, 'the manager has no record of the plugin it just installed')
+  assert.equal(entry.installed, true)
+  // It is the Harness that composes it, so this platform must not enable it in its own runtime: a
+  // second instance of a plugin the Harness owns is the failure this adapter exists to prevent.
+  assert.equal(entry.enabled, false, 'a profile-owned client plugin was enabled in this product\'s own runtime')
+  assert.match(String(entry.health_contract && entry.health_contract.contract), /adapter-profile/)
+
+  // And the *bundled* plugin set a profile install is checked against: what the shipped manifest pins,
+  // and whether the profile really carries it. The bundle is read from the profile's own dependencies —
+  // by package name, then translated to the manifest's plugin id, which is the join `bundled()` makes.
+  const { entryForPackage, createBundledPlugins } = require('../../app/extensions/mega/plugins/index.cjs')
+  // The profile's own manifest, written the way the Harness CLI writes it for a `file:` dependency: the
+  // package name as the dependency key and the absolute `file:` spec as its value.
+  const profileFile = path.join(SCRATCH, 'profiles', 'web', 'package.json')
+  const dependencies = { [PACKAGE_NAME]: `file:${SHIPPED.replace(/\\/g, '/')}` }
+  fs.writeFileSync(profileFile, `${JSON.stringify({ name: 'dsh-profile-web', private: true, dependencies }, null, 2)}\n`, 'utf8')
+  const bundles = createBundledPlugins({
+    installed: () => Object.entries(dependencies).map(([name, version]) => {
+      const manifestEntry = entryForPackage(name)
+      return { id: manifestEntry ? manifestEntry.id : name, package: name, version, dir: null, enabled: true, where: 'harness-profile' }
+    }),
+    // The entry the shipped manifest would carry for a first-party `file:` plugin: its own package name
+    // and the same absolute spec the profile declares, so "the profile has the pinned reference" is the
+    // fact under test rather than a version string this test invented.
+    manifest: {
+      version: 'acceptance',
+      plugins: [{ id: 'dsh-plugin-mega-core', package: PACKAGE_NAME, role: 'governance', channel: 'harness-profile', ref: dependencies[PACKAGE_NAME], tested: true, required: true }]
+    }
+  })
+  const state = bundles.describe().states['dsh-plugin-mega-core']
+  assert.equal(state, 'installed', `the bundled set does not see the installed Mega Core: ${state}`)
 })

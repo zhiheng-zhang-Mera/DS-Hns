@@ -145,6 +145,12 @@ const EXTRA_FILES = [
   // The unified install pipeline acceptance: a real GitHub fetch, one plugin of each kind, and the
   // refusal plus lifecycle paths.
   path.join(ROOT, 'scripts', 'install-pipeline-acceptance.cjs'),
+  // The optional community plugin acceptance: the two real published packages, installed into a real
+  // Harness profile from the registry and read back through the adapter layer. It is the one script
+  // that answers "do the pinned packages really install", so it is checked like the others.
+  path.join(ROOT, 'scripts', 'installer-community-acceptance.cjs'),
+  // The stand-in Harness CLI the installer suites drive the real installation channel with.
+  path.join(ROOT, 'tests', 'helpers', 'harness-cli-stub.cjs'),
   // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
   // checked like any other program the repository ships.
   path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')

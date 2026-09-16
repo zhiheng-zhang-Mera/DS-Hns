@@ -1,0 +1,49 @@
+{
+  "version": "optional-plugins/1",
+  "note": "The bilingual user-facing text for the optional community plugin prompts. It lives here, in the Node layer, because the installer's PowerShell files are ASCII-only by contract: Windows PowerShell 5.1 reads a BOM-less .ps1 as ANSI, so a Chinese character written into one of them corrupts the prompt or the parse. The Node command line runs with UTF-8 output, so the user still reads their own language -- which is what the requirement asked for.",
+  "prompt": {
+    "heading": "可选社区插件 / Optional community plugins",
+    "intro": "DS-Hns 可以再装两个社区插件；它们都是可选的，不装也能正常使用。\nDS-Hns can install two more community plugins. Both are optional; the product works without them.",
+    "default": "默认是 2（跳过）。除非你明确选择，否则不会安装任何可选插件。\nThe default is 2 (Skip). Nothing optional is installed unless you choose it.",
+    "choose": "  为 {label} 选择 1 或 2 [2] / Choose 1 or 2 for {label} [2]",
+    "invalid": "  请输入 1 或 2。 / Please answer 1 or 2.",
+    "selected": "已选择 {label}。 / {label} selected.",
+    "declined": "已跳过 {label}。 / {label} skipped."
+  },
+  "labels": {
+    "dsh-wallpaper-engine": {
+      "en": "Wallpaper Engine",
+      "zh": "壁纸引擎",
+      "question": "是否安装 Wallpaper Engine（壁纸引擎）？ / Install Wallpaper Engine?",
+      "options": [
+        "    [1] 安装 Wallpaper Engine / Install Wallpaper Engine",
+        "    [2] 跳过 / Skip"
+      ]
+    },
+    "@dsh-market/plugin": {
+      "en": "Plugin Market",
+      "zh": "插件商店",
+      "question": "是否安装插件商店（Plugin Market）？ / Install Plugin Market?",
+      "options": [
+        "    [1] 安装插件商店 / Install Plugin Market",
+        "    [2] 跳过 / Skip"
+      ]
+    }
+  },
+  "summary": {
+    "Official Harness UI": "官方 Harness UI",
+    "DS-Hns runtime": "DS-Hns 运行时",
+    "Mega Core": "Mega Core",
+    "Plugin Market": "插件商店",
+    "Wallpaper Engine": "壁纸引擎",
+    "Adapter registry": "适配器注册表",
+    "Governance bridge": "治理桥"
+  },
+  "states": {
+    "installed": "已安装",
+    "skipped": "已跳过",
+    "failed": "失败",
+    "already-installed": "已存在",
+    "not-selected": "未选择"
+  }
+}

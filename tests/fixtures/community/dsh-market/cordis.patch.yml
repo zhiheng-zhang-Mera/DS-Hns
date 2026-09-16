@@ -1,0 +1,5 @@
+# @dsh-market/plugin bundle patch (test fixture).
+
+- insert:
+    - id: dsh-market
+      name: '@dsh-market/plugin'

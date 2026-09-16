@@ -113,7 +113,7 @@ test('reinstall cleanup kills only repository-owned Electron and DSH processes',
 test('installer runs stale-runtime cleanup before dependency installation', () => {
   const text = read('scripts/install.ps1')
   const cleanup = text.indexOf("cleanup-runtime.ps1")
-  const deps = text.indexOf("2/8 Resolve/reuse dependencies")
+  const deps = text.indexOf("Resolve/reuse dependencies")
   assert.ok(cleanup >= 0)
   assert.ok(deps > cleanup)
 })
@@ -130,6 +130,7 @@ test('critical installer PowerShell files stay ASCII-only for Windows PowerShell
     'scripts/install.ps1',
     'scripts/install-deps.ps1',
     'scripts/install-profile-plugin.ps1',
+    'scripts/install-community-plugins.ps1',
     'scripts/ensure-node.ps1',
     'scripts/cleanup-runtime.ps1',
     'scripts/stop.ps1',
@@ -148,7 +149,9 @@ test('installer preflights child PowerShell scripts before dependency work', () 
   assert.match(text, /Parser\]::ParseFile/)
   assert.match(text, /PowerShell parser preflight/i)
   assert.match(text, /cleanup-runtime\.ps1/)
-  assert.ok(text.indexOf("0/8 PowerShell parser preflight") < text.indexOf("2/8 Resolve/reuse dependencies"))
+  // The step numbers move when a step is added (the optional community plugins became 5/9), so the
+  // order is asserted against the steps themselves rather than against their numbers.
+  assert.ok(text.indexOf('PowerShell parser preflight') < text.indexOf('Resolve/reuse dependencies'))
 })
 
 test('installer signs the shipped orb plugin into the Harness profile before the tests', () => {
@@ -158,13 +161,38 @@ test('installer signs the shipped orb plugin into the Harness profile before the
   // and the dependency is an absolute `file:` path), so it is a step of the installation: every host
   // installed without it shows no ball at all.
   assert.match(text, /install-profile-plugin\.ps1/)
-  const deps = text.indexOf('2/8 Resolve/reuse dependencies')
-  const step = text.indexOf('4/8 Sign the shipped client plugin into the Harness profile')
-  const tests = text.indexOf('5/8 Unit and architecture tests')
+  const deps = text.indexOf('Resolve/reuse dependencies')
+  const step = text.indexOf('Sign the shipped client plugin into the Harness profile')
+  const tests = text.indexOf('Unit and architecture tests')
   assert.ok(step > deps && step < tests, 'the profile step runs after dependencies and before the tests')
   // An enhancement never fails an installation: the step warns, and the install carries on.
   assert.match(text, /The orb plugin is not in the Harness profile/)
   assert.doesNotMatch(text, /throw 'The orb plugin/)
+})
+
+test('installer asks about the optional community plugins after the shipped plugin and before the tests', () => {
+  const text = read('scripts/install.ps1')
+  // The order is the requirement's: DS-Hns' own plugin is signed in unconditionally first, so nothing
+  // about the optional community plugins can turn it into a choice, and both come before the tests.
+  const profile = text.indexOf('Sign the shipped client plugin into the Harness profile')
+  const optional = text.indexOf('Optional community plugins')
+  const tests = text.indexOf('Unit and architecture tests')
+  assert.ok(profile >= 0 && optional > profile, 'the optional plugins are offered before the shipped plugin is signed in')
+  assert.ok(tests > optional, 'the optional plugins are asked about after the tests')
+
+  // Each plugin is asked about separately, and the parameters answer the question rather than the prompt.
+  assert.match(text, /-InstallMarket/)
+  assert.match(text, /-InstallWallpaper/)
+  assert.match(text, /-SkipOptionalPlugins/)
+  assert.match(text, /-NonInteractive/)
+  // The channel is the product's own, not a clone.
+  assert.match(text, /install-community-plugins\.ps1/)
+  assert.doesNotMatch(text, /git clone/i)
+
+  // The completion summary names every line the requirement asks for.
+  for (const line of ['Official Harness UI', 'DS-Hns runtime', 'Mega Core', 'Plugin Market', 'Wallpaper Engine', 'Adapter registry', 'Governance bridge']) {
+    assert.ok(text.includes(line), `the installation summary does not report ${line}`)
+  }
 })
 
 test('the orb plugin is installed by the Harness own CLI, never by writing the profile', () => {

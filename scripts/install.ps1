@@ -3,7 +3,26 @@ param(
   [switch]$NoShortcuts,
   [switch]$SkipTests,
   [ValidateSet('Prompt', 'Configure', 'Later')]
-  [string]$ApiKeyMode = 'Prompt'
+  [string]$ApiKeyMode = 'Prompt',
+  # The optional community plugins. They are asked about one at a time, and these three parameters
+  # are how a person answers without being asked -- and how an unattended install says what it wants.
+  [switch]$InstallMarket,
+  [switch]$InstallWallpaper,
+  [switch]$SkipOptionalPlugins,
+  # The Harness profile the community plugins are installed into. The product boots `web`.
+  [string]$Profile = '',
+  # Ask nothing: an optional community plugin is then skipped unless -InstallMarket /
+  # -InstallWallpaper named it. Detected automatically when the installer has no console.
+  [switch]$NonInteractive,
+  # Test seam, and only that: a JSON file mapping a community plugin's package name to a local
+  # directory that stands in for it, so the *installation channel* can be exercised without a
+  # registry. It is a parameter rather than an environment variable on purpose -- a variable left set
+  # in a shell could silently redirect a real installation at a local directory, while a flag has to
+  # be typed. Never used by a person installing DS-Harness.
+  [string]$CommunityFixtureMap = '',
+  # Test seam: comma-separated extra arguments for the Harness plugin CLI, so a test can make the
+  # community channel refuse. Never used by a person installing DS-Harness.
+  [string]$CommunityExtraArgs = ''
 )
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
@@ -120,16 +139,70 @@ function Assert-ScriptParses([string]$scriptPath) {
   }
 }
 
+# ---------------------------------------------------------------------------------------------
+# The optional community plugins
+#
+# Two plugins DS-Hns offers but does not depend on: the plugin market (`@dsh-market/plugin`,
+# `2BingLing/dsh-market`) and the wallpaper engine (`dsh-plugin-wallpaper-engine`,
+# `elysia395/dsh-wallpaper-engine`). Both are DeepSeek Harness *client* plugins, so their only
+# installation channel is the Harness' own CLI -- and all of the policy, the pinned reference, the
+# channel dispatch and the adapter-layer compatibility check live in Node, where the product already
+# implements them (`app\extensions\mega\plugins\`). This section is the interaction: it asks, it
+# calls that command line, and it prints what happened. It installs nothing itself.
+#
+# Three rules, from the requirement:
+#   * each plugin is asked about separately, with its own question and its own default;
+#   * without an explicit parameter, an unattended install skips them -- nothing optional is ever
+#     installed by a default nobody chose;
+#   * a failure is a warning with its reason and never a failed installation.
+# ---------------------------------------------------------------------------------------------
+
+function Get-CommunityPlan {
+  param([string]$Root, [string]$ProfileName, [string]$DshHome, [string]$NodeExe, [string]$Cli)
+  # The report is written to a file and read back as UTF-8 rather than parsed from captured stdout:
+  # Windows PowerShell decodes a native command's output through the console code page, which is one
+  # decoding step that can be got wrong, and this file is the answer the summary depends on.
+  $reportFile = Join-Path ([System.IO.Path]::GetTempPath()) "dsh-community-plan-$PID.json"
+  Remove-Item -LiteralPath $reportFile -Force -ErrorAction SilentlyContinue
+  try {
+    & $NodeExe $Cli '--describe' "--profile=$ProfileName" "--dsh-home=$DshHome" "--root=$Root" "--report=$reportFile" 2>$null | Out-Null
+    if (-not (Test-Path -LiteralPath $reportFile)) { return $null }
+    $text = [System.IO.File]::ReadAllText($reportFile, [System.Text.Encoding]::UTF8).Trim()
+    if (-not $text) { return $null }
+    return ($text | ConvertFrom-Json)
+  } catch {
+    return $null
+  } finally {
+    Remove-Item -LiteralPath $reportFile -Force -ErrorAction SilentlyContinue
+  }
+}
+
 Write-Host 'DS-Harness one-click installer' -ForegroundColor Green
 Write-Host "Root: $ROOT"
 
-Write-Step '0/8 PowerShell parser preflight'
+# What the completion summary reports about the plugin DS-Hns signs into the profile (step 4/9). It is
+# a script-scope value rather than a local one so the summary at the end reads the same fact the step
+# established, instead of re-deriving it.
+$script:MegaCoreState = 'NOT INSTALLED'
+
+if (($InstallMarket -or $InstallWallpaper) -and $SkipOptionalPlugins) {
+  # Two different instructions, and a tool that silently picks one has decided something the person
+  # did not say. This is a usage error, so it is raised the way the other bad invocations are. The
+  # message names the parameters that were actually given, because "which two?" is the first question.
+  $named = @()
+  if ($InstallMarket) { $named += '-InstallMarket' }
+  if ($InstallWallpaper) { $named += '-InstallWallpaper' }
+  throw "$($named -join ' and ') cannot be combined with -SkipOptionalPlugins: one says install an optional community plugin and the other says do not."
+}
+
+Write-Step '0/9 PowerShell parser preflight'
 $criticalScripts = @(
   (Join-Path $PSScriptRoot 'cleanup-runtime.ps1'),
   (Join-Path $PSScriptRoot 'ensure-node.ps1'),
   (Join-Path $PSScriptRoot 'ensure-icon.ps1'),
   (Join-Path $PSScriptRoot 'install-deps.ps1'),
   (Join-Path $PSScriptRoot 'install-profile-plugin.ps1'),
+  (Join-Path $PSScriptRoot 'install-community-plugins.ps1'),
   (Join-Path $PSScriptRoot 'test-all.ps1'),
   (Join-Path $PSScriptRoot 'verify.ps1')
 )
@@ -138,7 +211,7 @@ foreach ($scriptPath in $criticalScripts) {
   Write-Host "  OK $([System.IO.Path]::GetFileName($scriptPath))"
 }
 
-Write-Step '1/8 Clean stale runtime and bootstrap directories'
+Write-Step '1/9 Clean stale runtime and bootstrap directories'
 $cleanupScript = Join-Path $PSScriptRoot 'cleanup-runtime.ps1'
 & $cleanupScript
 
@@ -153,11 +226,11 @@ foreach ($d in $dirs) {
 }
 Write-Host 'Directory structure ready.'
 
-Write-Step '2/8 Resolve/reuse dependencies'
+Write-Step '2/9 Resolve/reuse dependencies'
 $dependencyScript = Join-Path $PSScriptRoot 'install-deps.ps1'
 & $dependencyScript -Full
 
-Write-Step '3/8 Resolve DeepSeek API key'
+Write-Step '3/9 Resolve DeepSeek API key'
 $envFile = Join-Path $ROOT 'config\.env'
 Ensure-ProjectEnvFile $envFile
 $systemKey = Get-SystemApiKey
@@ -206,7 +279,7 @@ if ($systemKey) {
 # Restore canonical project runtime variables after install-time cache reuse.
 . (Join-Path $PSScriptRoot 'env.ps1')
 
-Write-Step '4/8 Sign the shipped client plugin into the Harness profile'
+Write-Step '4/9 Sign the shipped client plugin into the Harness profile'
 # The orb in the official UI is drawn by the client plugin DS-Hns ships (`app\plugins\mega-core`,
 # registered into the official `shell.overlay` slot), and the official UI mounts it only when the
 # profile this product boots has it installed. That install is host-local: `data\*` is git-ignored
@@ -214,19 +287,219 @@ Write-Step '4/8 Sign the shipped client plugin into the Harness profile'
 # Harness' own CLI's job (`scripts\install-profile-plugin.ps1`), and it is a step of the
 # installation rather than something a fresh host acquires by itself -- without it the product runs
 # and shows no ball at all.
+#
+# This is the product's **own** plugin, and it is not optional: it is signed in unconditionally,
+# above, before the optional community plugins are ever mentioned. Nothing below this line may turn
+# it into a choice.
 try {
-  & (Join-Path $PSScriptRoot 'install-profile-plugin.ps1')
-  if ($LASTEXITCODE -ne 0) {
+  $profilePluginLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') 2>&1 | ForEach-Object { [string]$_ })
+  $profilePluginExit = $LASTEXITCODE
+  $profilePluginTail = ($profilePluginLines | Select-Object -Last 1)
+  if ($profilePluginExit -ne 0) {
+    $script:MegaCoreState = 'FAILED'
     Write-Warning 'The orb plugin is not in the Harness profile, so the official UI will show no ball.'
     Write-Warning 'DS-Harness is fully usable without it; re-run scripts\install-profile-plugin.ps1 to add it.'
+  } elseif ($profilePluginTail -match 'already-installed') {
+    $script:MegaCoreState = 'ALREADY INSTALLED'
+  } else {
+    $script:MegaCoreState = 'LOADED'
   }
 } catch {
+  $script:MegaCoreState = 'FAILED'
   Write-Warning "Signing the orb plugin into the profile failed, installation continues: $($_.Exception.Message)"
 }
 
-Write-Step '5/8 Unit and architecture tests'
+Write-Step '5/9 Optional community plugins'
+# Both optional plugins are handled here, and neither can fail this installation. See the block of
+# comments above Get-CommunityPlan for the policy this step implements.
+$profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } elseif ($Profile) { $Profile } else { 'web' }
+$dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $ROOT 'data' }
+$communityStateFile = Join-Path $dshHome 'state\optional-plugins.json'
+$communityCli = Join-Path $ROOT 'app\extensions\mega\plugins\community-install-cli.cjs'
+$communitySelections = [ordered]@{
+  '@dsh-market/plugin' = 'NOT SELECTED'
+  'dsh-wallpaper-engine' = 'NOT SELECTED'
+}
+# The community command line's own report, kept for the completion summary. Declared here rather
+# than where it is assigned so the summary can read it even when step 5/9 did nothing.
+$communityReport = $null
+$communityAvailable = $false
+
+# Is there a person to ask? `-NonInteractive` says no explicitly; a redirected stdin or no console
+# says it too. The answer decides whether the prompts below run at all -- an unattended install must
+# never block on a question, and must never answer one itself.
+$interactive = -not $NonInteractive
+if ($interactive) {
+  try {
+    if ($Host.UI -and $Host.UI.RawUI) {
+      if ([Console]::IsInputRedirected) { $interactive = $false }
+    } else {
+      $interactive = $false
+    }
+  } catch {
+    $interactive = $false
+  }
+}
+
+$communityNode = ''
+try {
+  $communityNodeResult = & (Join-Path $PSScriptRoot 'ensure-node.ps1') | Select-Object -Last 1
+  if ($communityNodeResult) {
+    $candidateNode = Join-Path ([string]$communityNodeResult) 'node.exe'
+    if (Test-Path -LiteralPath $candidateNode) { $communityNode = $candidateNode }
+  }
+} catch {
+  $communityNode = ''
+}
+if (-not $communityNode) {
+  $systemNode = Get-Command node -ErrorAction SilentlyContinue
+  if ($systemNode) { $communityNode = $systemNode.Source }
+}
+
+$communityAvailable = (Test-Path -LiteralPath $communityCli) -and (Test-Path -LiteralPath (Join-Path $ROOT 'app\node_modules\@deepseek-ai\dsh\lib\bin.js')) -and ($communityNode -ne '')
+if (-not $communityAvailable) {
+  Write-Host 'The optional community plugins cannot be offered on this machine; the installation continues.'
+  if (-not (Test-Path -LiteralPath $communityCli)) { Write-Warning "the community plugin command line is missing: $communityCli" }
+  if (-not ($communityNode -ne '')) { Write-Warning 'no usable Node.js was found for the community plugin command line.' }
+}
+
+# `dsh plugin` is a thin pnpm forwarder, so the channel needs a pnpm the CLI can spawn. Step 4/9's
+# profile-plugin install does the same thing, but it can be skipped or fail without stopping the
+# installation -- and a community plugin that cannot start its installer because pnpm is missing is a
+# failure with the wrong reason. Doing it here makes this step self-contained: whatever happened above,
+# the channel has what it needs or the reason says so.
+if ($communityAvailable) {
+  $communityShimDir = Join-Path $ROOT 'runtime\bin'
+  $pnpmOnPath = Get-Command pnpm -ErrorAction SilentlyContinue
+  if (-not $pnpmOnPath) {
+    $corepack = Get-Command corepack -ErrorAction SilentlyContinue
+    if (-not $corepack) {
+      Write-Warning 'pnpm is not on PATH and corepack is not available; the optional community plugins cannot be installed.'
+      $communityAvailable = $false
+    } else {
+      try {
+        New-Item -ItemType Directory -Path $communityShimDir -Force | Out-Null
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+          & $corepack.Source enable pnpm --install-directory $communityShimDir > $null 2>&1
+        } finally {
+          $ErrorActionPreference = $previousPreference
+        }
+        if (Test-Path -LiteralPath (Join-Path $communityShimDir 'pnpm.cmd')) {
+          $env:PATH = "$communityShimDir;$env:PATH"
+          Write-Host "  pnpm: provided by corepack in $communityShimDir"
+        } else {
+          Write-Warning "corepack did not produce a pnpm shim in $communityShimDir; the optional community plugins cannot be installed."
+          $communityAvailable = $false
+        }
+      } catch {
+        Write-Warning "a pnpm for the Harness plugin CLI could not be provided: $($_.Exception.Message)"
+        $communityAvailable = $false
+      }
+    }
+  }
+}
+
+$marketRequested = [bool]$InstallMarket
+$wallpaperRequested = [bool]$InstallWallpaper
+$skipOptional = [bool]$SkipOptionalPlugins
+
+if ($communityAvailable) {
+  # The plan is what the summary reads before anything happens: the release pin, the profile's own
+  # manifest, and whether each plugin is already there.
+  $communityPlan = Get-CommunityPlan -Root $ROOT -ProfileName $profileName -DshHome $dshHome -NodeExe $communityNode -Cli $communityCli
+  $plannedPlugins = @()
+  if ($communityPlan -and $communityPlan.plugins) { $plannedPlugins = @($communityPlan.plugins) }
+  if ($plannedPlugins.Count -eq 0) {
+    Write-Warning 'The optional community plugin manifest could not be read; the plugins are skipped rather than guessed at.'
+  }
+  Write-Host "  Harness profile: $profileName at $dshHome\profiles\$profileName"
+  foreach ($entry in $plannedPlugins) {
+    $state = if ($entry.installed) { "installed ($($entry.installedVersion))" } else { 'not installed' }
+    Write-Host "  $($entry.id) : $state"
+  }
+
+  # One plugin, one question, one answer -- and the question is asked by the Node command line, using
+  # the bilingual label file, because the installer's PowerShell files have to stay ASCII-only (see
+  # the note in `scripts\install-community-plugins.ps1`).
+  #
+  # The split of responsibility is exact:
+  #   * a parameter answers the question, so `--ask` is *not* passed and nothing is asked;
+  #   * otherwise, with a console, `--ask` is passed and Node asks about each plugin separately;
+  #   * without a console, neither parameter nor prompt is possible, so the plugins are skipped --
+  #     which is the requirement's default for an unattended install.
+  $cliArgs = @($communityCli)
+  if ($InstallMarket) { $cliArgs += '--install-market' }
+  if ($InstallWallpaper) { $cliArgs += '--install-wallpaper' }
+  if ($SkipOptionalPlugins) { $cliArgs += '--skip' }
+  if ((-not $InstallMarket) -and (-not $InstallWallpaper) -and (-not $SkipOptionalPlugins) -and $interactive) { $cliArgs += '--ask' }
+  if ($CommunityFixtureMap) { $cliArgs += "--fixture=$CommunityFixtureMap" }
+  if ($CommunityExtraArgs) { $cliArgs += "--extra=$CommunityExtraArgs" }
+  $cliArgs += "--profile=$profileName"
+  $cliArgs += "--dsh-home=$dshHome"
+  $cliArgs += "--root=$ROOT"
+  $communityReportFile = Join-Path ([System.IO.Path]::GetTempPath()) "dsh-community-report-$PID.json"
+  $cliArgs += "--report=$communityReportFile"
+  Remove-Item -LiteralPath $communityReportFile -Force -ErrorAction SilentlyContinue
+
+  if ($plannedPlugins.Count -gt 0) {
+    Write-Host ''
+    $previousPreference = $ErrorActionPreference
+    # The CLI writes its progress (and the interactive questions) to stderr, and a non-zero exit is a
+    # *warning* here rather than a terminating error: this whole step is optional by construction.
+    $ErrorActionPreference = 'Continue'
+    try {
+      $communityOutput = @(& $communityNode @cliArgs 2>&1 | ForEach-Object { [string]$_ })
+      $communityExit = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousPreference
+    }
+    # The person's transcript is printed; the machine-readable answer is read from the UTF-8 report
+    # file the CLI wrote, because that is the one decoding step that cannot go wrong.
+    foreach ($line in $communityOutput) {
+      $trimmed = [string]$line
+      if ($trimmed.Trim()) { Write-Host "  $($trimmed.Trim())" }
+    }
+    $communityJson = ''
+    if (Test-Path -LiteralPath $communityReportFile) {
+      try { $communityJson = [System.IO.File]::ReadAllText($communityReportFile, [System.Text.Encoding]::UTF8).Trim() } catch { $communityJson = '' }
+    }
+    Remove-Item -LiteralPath $communityReportFile -Force -ErrorAction SilentlyContinue
+    if (-not $communityJson) {
+      Write-Warning "The community plugin command line produced no report (exit $communityExit); no optional plugin is recorded as installed."
+    } else {
+      try {
+        $communityReport = $communityJson | ConvertFrom-Json
+        foreach ($result in @($communityReport.results)) {
+          $id = [string]$result.id
+          if (-not $id) { continue }
+          switch ([string]$result.state) {
+            'installed' { $communitySelections[$id] = 'INSTALLED' }
+            'already-installed' { $communitySelections[$id] = 'ALREADY INSTALLED' }
+            'skipped' { if ($communitySelections[$id] -eq 'NOT SELECTED') { $communitySelections[$id] = 'SKIPPED' } }
+            'failed' { $communitySelections[$id] = 'FAILED' }
+            default { }
+          }
+          if ($result.state -eq 'failed') {
+            Write-Warning "$id could not be installed: $($result.reason)"
+            Write-Warning 'This plugin is optional; DS-Harness itself is installed and usable without it.'
+          } elseif ($result.verify -and $result.verify.adapter) {
+            Write-Host "  $id verified by the adapter layer: $($result.verify.adapter.id) ($($result.verify.detectedType))."
+          }
+        }
+      } catch {
+        Write-Warning "The community plugin report could not be read: $($_.Exception.Message)"
+      }
+    }
+  }
+}
+
+Write-Step '6/9 Unit and architecture tests'
 if ($SkipTests) {
   Write-Host 'Tests skipped by -SkipTests.'
+} elseif (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'test-all.ps1'))) {
+  Write-Warning 'This installation has no test suite; nothing to run.'
 } else {
   & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-all.ps1')
   if ($LASTEXITCODE -ne 0) {
@@ -234,13 +507,17 @@ if ($SkipTests) {
   }
 }
 
-Write-Step '6/8 Verification'
-& $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
-if ($LASTEXITCODE -ne 0) {
-  throw 'Verification failed.'
+Write-Step '7/9 Verification'
+if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'verify.ps1'))) {
+  Write-Warning 'This installation has no verifier; nothing to verify.'
+} else {
+  & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Verification failed.'
+  }
 }
 
-Write-Step '7/8 Shortcuts'
+Write-Step '8/9 Shortcuts'
 if ($NoShortcuts) {
   Write-Host 'Shortcut creation skipped by -NoShortcuts.'
 } else {
@@ -266,7 +543,7 @@ if ($NoShortcuts) {
   }
 }
 
-Write-Step '8/8 Complete'
+Write-Step '9/9 Complete'
 Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
 if ($systemKey) {
   Write-Host "API: system environment ($($systemKey.Name), $($systemKey.Scope))"
@@ -275,9 +552,92 @@ if ($systemKey) {
 } else {
   Write-Host 'API: not configured yet (configure later with Ctrl+Shift+M).'
 }
+
+# The summary reads the installation back rather than remembering what it intended. Every line below
+# is a file on disk or a state the installer actually produced:
+#
+#   * the official Harness UI is the `@deepseek-ai/dsh` install the launcher boots;
+#   * Mega Core is `app\plugins\mega-core`, a plugin DS-Hns ships and signs in unconditionally -- it
+#     is never a choice, which is why it is a separate line from the two community plugins;
+#   * the two community plugins are optional, and their states are what this installation decided;
+#   * the adapter registry is the adapter framework's own answer about the selected plugins -- the
+#     only thing here that reads the installed packages through the platform's adapter layer;
+#   * the governance bridge is a *runtime* connection (`data\state\governance-bridge.json`), so
+#     before the first launch the honest answer is that it starts with the product.
+$harnessUiState = 'FAILED'
+$harnessEntry = Join-Path $ROOT 'app\node_modules\@deepseek-ai\dsh\lib\bin.js'
+if ((Test-Path -LiteralPath $harnessEntry) -and (Test-Path -LiteralPath (Join-Path $ROOT 'Start-DeepSeek-Harness.cmd'))) {
+  $harnessUiState = 'OK'
+}
+$runtimeState = 'FAILED'
+if ((Test-Path -LiteralPath (Join-Path $ROOT 'app\desktop-main.cjs')) -and (Test-Path -LiteralPath (Join-Path $ROOT 'app\plugin-host.cjs'))) {
+  $runtimeState = 'OK'
+}
+$megaCorePath = Join-Path $ROOT 'app\plugins\mega-core\package.json'
+if ((-not (Test-Path -LiteralPath $megaCorePath)) -and ($script:MegaCoreState -ne 'FAILED')) {
+  $script:MegaCoreState = 'FAILED'
+}
+$marketState = 'NOT SELECTED'
+$wallpaperState = 'NOT SELECTED'
+if ($communitySelections) {
+  $marketState = [string]$communitySelections['@dsh-market/plugin']
+  $wallpaperState = [string]$communitySelections['dsh-wallpaper-engine']
+}
+$adapterState = 'NOT CHECKED'
+$verified = @()
+if ($communityReport -and $communityReport.adapterRegistry -and $communityReport.adapterRegistry.verified) {
+  $verified = @($communityReport.adapterRegistry.verified)
+}
+$installedCount = 0
+foreach ($stateValue in @($marketState, $wallpaperState)) {
+  if (($stateValue -eq 'INSTALLED') -or ($stateValue -eq 'ALREADY INSTALLED')) { $installedCount++ }
+}
+if (-not $communityAvailable) {
+  $adapterState = 'NOT CHECKED'
+} elseif ($installedCount -gt 0 -and $verified.Count -ge $installedCount) {
+  $adapterState = 'OK'
+} elseif ($installedCount -gt 0) {
+  $adapterState = 'FAILED'
+} elseif ($installedCount -eq 0) {
+  # Nothing was installed, so the layer has nothing to verify -- and saying OK here would be a claim
+  # about work that was never done.
+  $adapterState = 'NO OPTIONAL PLUGIN TO CHECK'
+} else {
+  $adapterState = 'FAILED'
+}
+$bridgeState = 'STARTS WITH THE PRODUCT'
+$bridgeFile = Join-Path $dshHome 'state\governance-bridge.json'
+if (Test-Path -LiteralPath $bridgeFile) { $bridgeState = 'CONNECTED (last run)' }
+
+function Write-SummaryLine([string]$label, [string]$state) {
+  $dots = '.'
+  $pad = 30 - $label.Length
+  if ($pad -lt 2) { $pad = 2 }
+  $dots = $dots * $pad
+  $colour = 'Gray'
+  if (($state -match 'FAILED') -or ($state -match 'DEGRADED')) { $colour = 'Yellow' }
+  elseif (($state -match '^OK') -or ($state -match 'LOADED') -or ($state -match 'INSTALLED') -or ($state -match 'CONNECTED')) { $colour = 'Green' }
+  Write-Host ("{0} {1} {2}" -f $label, $dots, $state) -ForegroundColor $colour
+}
+
+Write-Host ''
+Write-Host 'Installation summary'
+Write-SummaryLine 'Official Harness UI' $harnessUiState
+Write-SummaryLine 'DS-Hns runtime' $runtimeState
+Write-SummaryLine 'Mega Core' $script:MegaCoreState
+Write-SummaryLine 'Plugin Market' $marketState
+Write-SummaryLine 'Wallpaper Engine' $wallpaperState
+Write-SummaryLine 'Adapter registry' $adapterState
+Write-SummaryLine 'Governance bridge' $bridgeState
+Write-Host ''
+if (($marketState -eq 'FAILED') -or ($wallpaperState -eq 'FAILED')) {
+  Write-Warning 'An optional community plugin failed. The reason is printed above; DS-Harness itself is installed.'
+}
+Write-Host 'Community plugins are optional: DS-Harness runs and the official UI opens without either of them.'
+Write-Host "Optional plugin decisions are recorded in $communityStateFile."
 Write-Host 'Primary UI: official DeepSeek Harness (Alien-derived shell).'
 Write-Host 'Mega tools: Ctrl+Shift+M.'
-Write-Host 'Orb: the ball in the official UI comes from the Mega Core profile plugin (step 4/8).'
+Write-Host 'Orb: the ball in the official UI comes from the Mega Core profile plugin (step 4/9).'
 Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
 
 if (-not $NoLaunch) {

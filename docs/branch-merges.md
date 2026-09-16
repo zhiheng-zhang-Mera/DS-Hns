@@ -1,6 +1,23 @@
 # 分支合并记录：全部历史收敛到一条 `main`
 
-本轮把仓库里**每一条分支**都并进 `main`，最终远端与本地都只保留 `main`。合并以
+> **后续分支（未合并，仍在开发中）：`better-install`。** 本文记录的是"把所有历史收敛到 `main`"那一轮。
+> 之后从 `main` 开出的 `better-install` 做的是另一件事：安装器的干净安装体验。它的内容见
+> `docs/install-flow.md`，要点是四条 ——
+>
+> 1. `multi-supervisor` 的 8500 ms 墙钟阈值不再当门禁：并行是**结构性断言**（两个节点确实同时在跑、
+>    plan 完成、任务数对得上），墙钟只输出 `[benchmark]`，只有显式设置
+>    `DSH_SUPERVISOR_WALL_CLOCK_GATE=strict` 才会失败。安装器不会再因为"机器慢"退出 1。
+> 2. 安装器新增**两个可选社区插件**（`@dsh-market/plugin`、`dsh-plugin-wallpaper-engine`），分别询问、
+>    默认跳过、参数优先（`-InstallMarket` / `-InstallWallpaper` / `-SkipOptionalPlugins`），冲突时报错而不是
+>    静默覆盖。
+> 3. 安装走的是**已有的**链路：发布清单钉版本 → `installBundled()` → Harness 自己的 CLI
+>    （`dsh plugin --profile <p> add <pkg>@<ref>`）→ 适配器层的新适配器 `dshns.harness-profile` 回读校验。
+>    没有第二条 clone 安装路径。
+> 4. 可选插件失败只警告不致命；Mega Core 仍是主体安装的一部分，没有被变成可选项。
+>
+> 分支清单（尖端、独有提交、合并方式）在它被合并进 `main` 时按本文的格式补一行。
+
+本文记录的是：本轮把仓库里**每一条分支**都并进 `main`，最终远端与本地都只保留 `main`。合并以
 `test-merge-install`（`a05f6b8`）为**最终版**：`main` 的内容就是它的内容；其余分支的提交全部成为 `main` 的
 祖先 —— 分支名消失了，历史一条没删。
 
