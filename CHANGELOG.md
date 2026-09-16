@@ -3,6 +3,408 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 队列任务可以删除（并且先问一句）
+
+**"队列任务需要允许删除，其余修改全部正常。"** 队列的第三个操作补上了：每条排队任务现在有 `✕ 删除`，两个球面板
+一样。
+
+**删除是什么。** 它是调度器自己的 `cancelTask`，不是第二条移除路径：排队的任务被取消并**离开活动队列**，正在跑的
+任务先被中断，两种情况都走**同一条终态管线** —— 所以任务会以 `CANCELED` 落进历史层，"我删掉了它"和"它后来怎么了"
+仍然能从同一份记录回答，而不是凭空消失。一个已经不在队列里的 id 会**明说**"not in the active queue"，而不是假装
+删成功（一个悄悄什么都没做的删除比一个说没找到的更糟）。
+
+**先问一句。** 这是队列行上唯一一个无法从面板撤销的按钮，而 340px 宽的一行小按钮正是误点的地方：第一次点击把这一行
+**变成它自己的确认**（"删除这条？ · delete this one?" + `删除` / `取消`），第二次点击才真的删。确认状态是**面板的
+状态**（界面内那颗球是 `Dashboard` 的 state，系统球是模块级的 `pendingDelete`），因为外壳每 15 秒重绘一次 —— 一个
+存在行里的确认会被那次轮询丢掉，正好丢在用户要回答它的时候。
+
+**能力仍只有一份实现。** 经治理桥（`POST /task-delete`）给官方插件，经 IPC（`mega:orb-task-delete`）给系统悬浮球，
+两边调的是同一个 `deleteScheduledTask` → `scheduler.cancelTask`。队列本身依旧没有第二条读取路径。
+
+**顺手补的一处**：系统球面板原来只在**表单**里画 `taskNotice`，所以队列上的移动/删除被拒绝时面板什么都不说 —— 现在
+队列下方的收据行（`.queue-notice`）会说明结果，面板关闭时清掉。
+
+**验证**：全量 **1532/1532**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 230/230。新增：`scheduled-task`（删除走终态
+管线、重复删除返回空、不误伤其它任务）、`mega-core-client`（两次点击的形状、轮询不丢确认、POST 到 `task-delete`）、
+`orb-ui`（同一套，走 `deleteTask` 通道）、`mega-core-plugin`（第三条路由 + 方法/不在队列两种拒绝）、
+`surface-ownership`（通道清单 11 条）、`mega-lifecycle-wiring`（三个操作，一个实现）。
+
+## 悬浮球的队列：挂起数量会动，任务能改、能调顺序
+
+**"定时任务测试成功"（上一轮的路由修复生效了），但"页面切换后，悬浮球信息页挂起任务数量没有改变，也不能编辑，也不能
+调顺序"。** 三件事，两个根因：
+
+**数量为什么不变。** 面板里只有一个数字，没有任务 —— 数字由快照算出来，任务却压根没进视图模型。现在
+`control-center.cjs` 从 `snapshot.tasks`（调度器自己的 `listTasks`，也就是 Dock 队列面板画的那份）挑出
+PENDING/SUSPENDED，作为 `dashboard.queue` 发布：id、状态、原因、**到点时刻（ISO，不是写下来就已经过期的秒数）**、
+队列名次与提示词。计数与它下面的列表来自同一份数据，不可能各说一套。
+
+**数字还被藏在折页里。** 折起来时标题上留的是该组第一行 —— "运行中的 worker"。现在 `execution:state` 是该组
+**第一行**，内容是"已挂起 N · 等待 M"；两颗球挑折页标题时都优先找 `:state`，于是**动的正是标题上那个数**。
+
+**打开面板不再看旧数。** 两颗球的轮询都是 15 秒。界面内那颗球现在**打开面板就当场重读**（`store.refresh()`）；
+系统那颗球本来就在 `mega:orb-open` 里重读，另外 `notifyChanged()` 现在也推球（250 ms 去抖）—— 调度器每次
+`queue-changed`（新建、挂起、改、调序、到点）都会让系统球重画，而不是等下一次轮询。
+
+**能改、能调顺序。** 新增"队列 · Queue"折页：每行一条任务（名次、状态与原因、到点时刻、提示词），三个按钮
+`↑ ↓ ✎`。`↑↓` 调 `scheduler.reorderTask`；`✎` 打开**同一张表单**（界面内那颗球是 `NewTaskFormPanel`，系统球是
+`drawTaskForm`），预填这条任务的内容与时间，保存走 `scheduler.editTask`。首行没有 ↑、末行没有 ↓ —— 一个点了没用的
+按钮不是按钮。
+
+**能力只有一份实现。** `SchedulerService.editTask(id, changes)` 是新的：只允许 PENDING/SUSPENDED（RUNNING 是"已经
+在进行中的对话"，改它会让队列与旁边的会话记录不是同一件事）；提示词、时刻、峰值、投递方式都走与新建**同一套**规则
+（`futureInstant()` 现在同时供 `addTask` 与 `editTask` 用，过去的时间一律拒绝）；改完**重新过闸**而不是打补丁，
+所以把"1 小时后"改成"3 小时后"会重新挂起。两个操作经治理桥（`POST /task-edit`、`POST /task-move`）给官方插件，经
+IPC（`mega:orb-task-edit`、`mega:orb-task-move`）给系统悬浮球，两边调的是**同两个函数**。
+
+**队列没有第二条读取路径。** 它就在 `/view`（与 `/governance`）的 `dashboard.queue` 里，两个球都画它；因此没有
+`GET /tasks`、也没有 `mega:orb-tasks` —— 一个问题的第二个答案就是两个答案。（本轮确实先写了这两条，随后删掉：
+`surface-ownership` 的通道清单与宿主半边的跨半边路由契约都因此少一条。系统球的表单以前也只在重绘时更新，
+输入提示词后"创建"要等最多 15 秒才亮；现在两处**就地更新**。）
+
+**副本**：`data/profiles/web/...` 不再需要手工同步 —— 上一轮那个"手工把 package.json 也抄进 `lib/`"的教训换来了
+启动时的 `app/harness-profile.cjs`，它按 package.json 的声明刷新 profile 里的那份包。
+
+**验证**：全量 **1529/1529**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 230/230。新增/改写：
+`scheduled-task`（编辑与调序，含"运行中不可编辑"）、`control-center`（队列块与状态标题行）、`mega-core-client`（队列
+折页、移动 POST、编辑表单、打开即重读、数量随快照变）、`orb-ui`（系统球同一套）、`mega-core-plugin`（两条新路由 +
+跨半边 URL 契约）、`mega-lifecycle-wiring`（一个实现，两个窗口）。
+
+## 启动失败：profile 里那份插件副本多带了一个 package.json，官方界面不是"没加载出来"，是根本没起来
+
+**症状**：窗口起来了，官方 DeepSeek Harness 界面永远不来。日志最后一屏是 Harness 自己在启动阶段抛出的
+`client-modules: client bundle not found … path: data\profiles\web\node_modules\dsh-plugin-mega-core\lib\lib\client.js`
+——注意路径里有两个 `lib`，而 `lib/` 下并没有 `lib/`。
+
+**根因不在打包，在"最近的那个 package.json"这条规则里。** Harness 组装一个客户端插件的浏览器包时，从它挂载
+的模块向上找**第一个名字等于该包名的 `package.json`**（`@deepseek-ai/dsh-client-modules` 的 `nearestPackage`），
+再从那个目录取 `exports["./client"]`。上一轮为了让**运行中**的实例吃到重新构建的宿主半边，手工把
+`index.js` / `client.js` 同步进了 profile 的 `lib/`（那条说明就写在上一版 changelog 里）——**同一只手把包的
+`package.json` 也带进了 `lib/`**。于是"最近的清单"成了 `lib/package.json`，包根被认成 `lib/`，浏览器包被找成
+`lib/lib/client.js`：整棵插件树组装失败，Harness 在宣布访问地址之前就 `exit 1`，而 shell 的对话框只说
+`Harness service exited before announcing its access URL (code 1)`——真正的原因只留在日志流水里。
+
+**两处一起修：**
+
+1. **每次启动先把这份副本刷新成"产品真正发布的那个包"**（`app/harness-profile.cjs`，在 `--- DSH launch
+   begin ---` 之前调用）：按包自己声明的 `files` 写入 `package.json` 与 `lib/*.js`，再删掉包里不该有的东西——
+   包括任何一层里**与包重名**的 `package.json`，以及 `lib/` 下不是这次发布的文件（"手工同步 + 顺手多带一个
+   文件"正是这次的成因，而内容相同的文件不重写、不碰时间戳）。包还没装进 profile 时什么都不做；刷新失败只记
+   一行日志，绝不拦启动。profile 是 Harness 自己的安装目录，这是 shell 唯一写它的地方，范围仅限 DS-Hns 自己
+   那一个插件的自有文件——否则就是"发布的是一个包、跑的是另一个"。
+2. **失败时把 Harness 自己的最后几行话带进报错**：`startupError` 现在附上子进程输出的尾部（token 一律打码）。
+   `readLogTail` 走的是流，退出事件可能跑在落盘前面；内存里那份不会漏。启动对话框从此说的是"哪一个包、哪一条
+   路径找不到"，而不是"code 1"。
+
+**验证（真机复现 → 修复 → 再启动）**：把那份 `lib/package.json` 放回 profile，`dsh web` 逐字复现日志里的
+`lib\lib\client.js` 失败；跑一次启动用的那条刷新 → `refreshed: ["lib/package.json (a second manifest for
+this package)"]`；再启动 → `dsh web: http://127.0.0.1:3112/?token=…`，`GET /mega-core/health` 返回 200
+（插件宿主半边已在官方 web server 上）。`tests/unit/harness-profile.test.js` 7 项、`verify.ps1 -SkipTests`
+全通过（含四条新检查：发布的包里没有 `lib/package.json`、启动先刷新副本、已安装副本没有下沉清单、启动失败带上
+Harness 原话）、语法门 **230/230**、全量单元测试 **1522/1523**（唯一未过的是 `multi-supervisor.test.js`
+的墙钟阈值 `parallelMs < 8500`，整机并行跑时实测 8612ms；单跑该文件 13/13 通过——它与本次改动无关）。
+
+## 定时任务挂起失败：两条路由被删了，而调用它们的那半边还在
+
+**根因不在调度器里。** 挂起机制本身是好的——真机链路探针（真 `SchedulerService` + 真治理桥 + 真宿主半边 + 真
+HTTP）把 `addTask` → 立刻 `SUSPENDED / waiting-schedule` → 重启后仍在 → 到点作为官方新会话发出**一次**，整条路
+走通了。坏的是**官方界面那半边从来没有把任务交给调度器**：`9801d7e` 删掉了插件宿主半边的
+`GET /mega-core/timing` 与 `POST /mega-core/task`（理由是"新表单只住在系统悬浮球的窗口里、走它自己的 IPC"，
+而那个窗口**不**走这两条路由），但调用它们的**客户端半边一直在**，这一轮又把表单的第二张脸（球面板里那张）也
+放回了同一个文件。于是 `GET /timing` → **404**、`POST /task` → **405**，两个都是**空 body**，客户端的
+`response.json()` 直接抛 `SyntaxError: Unexpected end of JSON input`：用户看到的是解析器的报错，不是问题的陈述。
+任务从未被创建，所以"挂起"永远没有发生。
+
+**同一个 bug 还有第二处，而且更安静。** `/mega-core/orb`（球的坐标读写）是同一个故事：它在 `56f3e7f`（"只留
+系统球"）随界面内的球一起被删，而 `8781543` 又把界面内的球装了回来。于是球的坐标既读不到也存不下——每次重启
+回到默认角——只是这次失败被 catch 成了"默认角是一个完整的答案"，没有任何提示。
+
+三件事一起修：
+
+1. **三条路由回来了**：`/timing`、`/task`（原样透传请求、保留 DS-Hns 的 400 与原话），以及 `/orb`
+   （存 `$DSH_HOME/state/mega-core-orb.json`；不用 `localStorage` —— 官方界面是 `--port 0`，origin 每次重启都变）。
+2. **不再有解析器报错**：客户端读 body 一律先读文本再解析，没有 JSON 时把**状态码**当作原因
+   （`the timing surface answered 404 without JSON`）。这类"路由不在"的失败从此是一句话，不是一个异常。
+3. **一条会自己发现的测试**：`mega-core-plugin.test.js` 不再断言"这一半有哪几条路由"（那只是快照），而是从
+   **客户端半边的源码里抽出它调用的每个 URL**，断言宿主半边**每一条都注册了**——这正是 `9801d7e` 会当场失败的
+   那条断言。同一个文件里还端到端跑通 `/timing` + `/task`（真治理桥）与 `/orb`（真文件，含坏坐标不覆盖旧值）。
+
+**顺带修掉两处真实存在的"表里不一"：**
+
+* **过去的时间会被立刻执行，而不是挂起。** `decideTask` 把 `now >= startAtMs` 读作 ready（对"到点了"的队列项
+  是对的），而 `datetime-local` 只精确到分钟——用户选"这一分钟"时它其实已经过去了，于是任务**立刻跑**，而用户
+  以为自己排的是定时任务。现在 `SchedulerService.addTask` 拒绝过去的时间（拒绝带 `field: 'startAt'`，经
+  `scheduleTask` 传到表单），两张表单也不为一个层会拒绝的时间点亮提交按钮（禁用时用 hover 文本说明原因）。
+  **没有 `startAt` 仍然是"现在就跑"**：规则针对的是"给了时间而那个时间已经过去"。
+* **球的表单只在重绘时才更新。** 以前输入提示词后"创建"按钮会灰着最多 15 秒（等下一次轮询），改完时间后总结句
+  还说着旧时间。现在这两处**就地更新**（只写两个节点）——不重建表单，因为重建会关掉原生日期选择器、也可能打断
+  输入法组字。
+
+**球里那张表单的"点了就关、没法编辑"也修好了。** 上一版把官方 `Modal`（portal 到 `document.body`）当成球里那张
+表单，而面板自己的规则是"点面板外面就收起"：portal 出去的表单正好在面板"外面"，所以点进输入框那一下就把拥有
+它的面板收掉了——表单不是不能编辑，是被"要编辑它的那一次点击"卸载了。现在球的面板里是**它自己的表单**，与官方
+头部那扇居中浮窗**共用同一份草稿**（同一次 timing 读取、同一个 POST、同一句拒绝）；表单打开期间面板不挂
+"点外面收起"那条规则，出口是 `← 返回`、`×` 和球本身。系统悬浮球那扇窗口同理：**面板打开期间窗口才可获焦**
+（`focusable: false` 的窗口根本收不到按键，这正是"无法编辑"的机制），关闭时先 `blur()` 再收回可获焦；重绘还会
+把光标放回原来那个字段、原来的位置。官方头部入口不变，仍是官方居中子页面；宿主没有官方组件库时它不出现，而球
+自己那张表单照常工作（它只用我们自己的盒子）。
+
+**验证**：`mega-core-plugin.test.js` 6 项（含跨半边 URL 契约）、`scheduled-task.test.js` 4 项、`mega-core-client.test.js`
+19 项、`orb-ui.test.js` 15 项、`system-orb.test.js` 13 项；全量 **1516/1516**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 229/229。运行中的实例需要重启才会加载新的宿主半边（路由表在挂载时解析）：
+`data/profiles/web/node_modules/dsh-plugin-mega-core/lib/` 已同步为新的 `index.js` / `client.js`。
+
+## 新建任务弹窗的宽度：不是我们的布局窄，是官方 Modal 的宽度写死了 380px
+
+**根因在组件里，不在我们这边。** 官方 `Modal` 的对话框盒子是 `width: min(380px, 100%)` —— 那是**单字段表单**的
+宽度。我们的内容是"输入框 + 一排定时设置"，声明了 `minWidth: 560px`，但它被一个**不可能更宽的父亲**压扁：于是
+时间字段、峰值开关挤成一列，看起来就是"弹窗太窄"。修法是在**官方对话框盒子上**覆盖宽度（通过 `Modal` 自己的
+`className` 传入一个我们的类，用**双类选择器**压过组件那条单类规则）：
+
+```css
+.hns-mega-dialog.hns-mega-dialog { width: min(720px, 92vw); min-width: min(320px, 92vw); }
+@media (max-width: 560px) { .hns-mega-dialog.hns-mega-dialog { width: 96vw; } }
+```
+
+720px 是"提示词一行舒服 + 定时设置一行放得下"的宽度；92vw 让它在窄层里自动收；320px 下限保证它仍是对话框而不是
+整屏抽屉。样式表只在首次打开时注入一次（重复注入会是一份没有读者的泄漏），并且**不依赖官方 CSS 变量** —— 那是
+我们的内容，带自己的调色板。
+
+**顺带修掉一处真实的样式串台。** `orb.css` 里有一条全局的 `#panelBody .field / .label / .value`（仪表盘行的
+128px 标签列），而新任务表单也用同样三个类名 —— 于是**系统球里那张 320px 宽的表单**被这条规则压到只剩一百来像素
+给控件。现在把仪表盘/名册的行规则**按容器限定**（`#panelBody .dashboard .field`、`#panelBody .roster .field`），
+表单自己的行规则（74px 标签列）才真正生效。类名是通用的，所以**容器**才是指认身份的东西。
+
+**对齐也顺手改了**：定时设置的四个快捷值现在与"发送时间"输入框**左边缘对齐**（用同一个标签列常量算出来），
+不再各起一行。
+
+**验证**：`mega-core-client.test.js` 17 项（新增 1：宽度覆盖类真的落在对话框盒子上、样式表真的注入且只注入一次、
+规则是双类、宽度值是 `min(720px, 92vw)`）；全量 **1508/1508**（一次并发跑里 `sub-worker-manager` 的 Live View
+用例超时 —— 它在单独运行时 17/17、耗时 63s，是负载敏感的既有 flake，与本轮只动样式/客户端的改动无关）；
+`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
+## 两个入口都在：官方头部恢复，两个悬浮球都有一条显眼的新任务按钮
+
+**上一轮把入口搬错了地方。** 用户要的是"球里也要有"，我做成了"只有球里有" —— 官方对话头部那个入口被删掉了，
+而球的那条又排在面板最底下（四个折页 + 治理行之下，本身就在折页的折叠线以下），所以两头都不好用。现在：
+
+* **官方头部入口恢复**（`conversation.session.header.actions`，`order: 30`，与官方闹钟、任务列表并排）——
+  对话开着的时候，那里就是"起一件事"的地方。对话框（官方组件库的 `Modal`）随之恢复，插件的浏览器半边又重新
+  require `@deepseek-ai/dsh-client-ui-primitives`（platform table 里有它，不是新增依赖）。
+* **两个球都在最上面给了一条**：Electron 那个系统悬浮球的面板里，`＋ 新建定时任务 · New task` 是**面板第一行**
+  （以前在最底下），主色、通栏；官方界面里那颗球（`shell.overlay`）的面板原本**一条都没有**，现在标题行下面就是它。
+
+**一处实现，两个座位。** `NewTaskAction` 一个组件，`compact` 决定形态（球里通栏主按钮 / 头部小按钮），**同一个
+对话框、同一份请求、同一份回执**；系统球是纯 DOM，用它自己的 `drawTaskForm` 与 `mega:orb-timing` /
+`mega:orb-task` 两条通道，调用的仍是治理桥给官方插件的那两个函数。所以"任务可以是什么"与"怎么建一个任务"
+各只有一份实现，界面不会各说一套。
+
+**测试**：`mega-core-client.test.js` 16 项（恢复 4 个对话框用例 + 新增 1 个"球的面板里有这条且排在仪表盘之前、
+点开是同一个对话框"）；`orb-ui.test.js` 12 项（"球自己开表单"的用例现在同时断言它**在面板首行**）。全量
+**1507/1507**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
+## 新建定时任务搬进悬浮球；子窗口按内容自适应（修掉"只显示一半"）
+
+**入口搬家。** 上一版把"新建任务"放在官方对话的头部动作里 —— 但那要求用户先把某个对话打开，而悬浮球是**盖在
+所有应用之上、永远在屏幕上**的那一面：从哪儿都能起一个定时任务，才是球的意义。现在按钮在球的面板里
+（`新建定时任务 · New task`，主色），点击后**同一个窗口**切换成表单；官方对话头部不再有第二个入口，插件那半边
+因此删掉了整套对话框（React 侧 ~430 行与官方组件库依赖），回到"只需要 React"。
+
+**表单仍是"对话优先、定时在输入栏下方"**：提示词输入框（`Enter 发送 / Shift+Enter 换行`，**输入法组字时的 Enter
+只确认候选**）→ 定时设置（发送时间 + 3 分钟/30 分钟/1 小时/明天 9:00 + 允许峰价 + 时区与峰价时段）→ 一句人话总结
+（"将在 … 作为官方新会话发出 · in 4m 33s"）→ 返回 / 创建。创建回执显示真实任务 id 与状态，拒绝显示 DS-Hns 原话。
+表单在 15 秒轮询重绘时**不会被弹回仪表盘**，半句话不会丢。
+
+**"只显示一半"是一个真 bug，修在测量上。** 面板是 flex 纵向布局、`#panelBody` 自己滚动，所以
+`panel.scrollHeight` 读数**不是内容高度，而是面板当前高度** —— 也就是主进程刚给它的那个数。把它当成"内容需要
+多高"再报回去是一个闭环：窗口被调成"刚好装得下现在这么多"，多出来的部分留在 body 里滚动，看上去就是被裁掉
+一半。现在测量的是 **`#panelHead.offsetHeight + #panelBody.scrollHeight`**（body 是滚动元素，它的 `scrollHeight`
+才是内容自身高度）：折页展开、表单出现、报错行增加，窗口都会跟着长高。测试用一个"面板被夹在 300px、内容需要
+900px"的用例把它钉死：请求的必须是 `340x933`，而不是 `340x300`。
+
+**能力仍由 DS-Hns 回答。** 球的新通道 `mega:orb-timing` / `mega:orb-task` 调用的是**治理桥暴露给官方插件的同两个
+函数**（`scheduledTaskSurface` / `scheduleTask`），所以两个能建任务的界面不可能对"任务可以是什么"有不同说法，
+"建一个任务"也只有一份实现。表面因此从六个通道变成八个（`surface-ownership.test.js` 逐个审计）。
+
+**验证**：`orb-ui.test.js` 12 项（新增 5：球自己开表单且顺序是 提示词→时间→峰值、Enter 三种情况 + 提交载荷、
+拒绝原话 + 返回仪表盘、表单扛住轮询 + 无能力面时如实报错、**测量必须是头+body**）；`mega-core-client.test.js` 11 项
+（回到"只 require React"、只注册两个槽、**明确断言头部动作里没有新任务入口**）；`mega-core-plugin.test.js` 5 项
+（路由回到四条）；`surface-ownership.test.js` 八个通道全有主。全量 **1502/1502**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 229/229。**真机验证**（运行中的产品，重启后已载入新构建）：
+`GET /timing` → `kind=scheduled-task`、`defaults={startAt: now+3m, allowPeak:false, deliveryMode:'official-session'}`、
+`timeZone=Asia/Shanghai`、`peakPeriods=09:00-12:00, 14:00-18:00`、`peak now: true`。
+
+## 新建定时任务：官方界面中间的浮窗，对话式输入，定时设置输入栏下方
+
+**入口在官方对话的头部动作里**（和官方的闹钟、任务列表并排，`conversation.session.header.actions`），点一下弹出
+**官方组件库的居中浮窗**（`@deepseek-ai/dsh-client-ui-primitives` 的 `Modal`：它自带 portal 到 body、遮罩、
+`role="dialog"` + `aria-modal`、Esc 关闭与居中，这些是手搓浮层容易做错的细节）。浮窗结构按"对话优先"排：
+
+1. **对话输入区**：一个和平时打字同形的输入框（placeholder 就是"输入要执行的内容，和平时对话一样"），
+   键盘语法与官方输入一致 —— **Enter 发送、Shift+Enter 换行、输入法组字时的 Enter 只确认候选不发任务**。
+   Enter 的三种情况各有断言，因为"输入法按 Enter 把没写完的句子发出去"是这类界面最容易犯的错。
+2. **定时设置就在输入栏下方**（同一个浮窗的底部，不是另一个页面）：发送时间（`datetime-local` + 3 分钟/30 分钟/
+   1 小时/明天 9:00 四个快捷值）、是否允许峰价、时区与峰价时段、以及**一句人话总结**——
+   "将在 2026-09-15 15:30 作为官方新会话发出 · in 2h 12m"，峰价时段且未允许峰值时这句会**多一句**说明任务会挂起
+   到谷价。
+3. 底部两个按钮 + 一句"任务会进入左侧「手动队列」，到点后作为新会话发出"。创建成功显示**真实任务**
+   （id / 状态 / 到点时间），失败显示 **DS-Hns 原话**（不吞、不翻译成"操作失败"）。
+
+**"与正常对话相同"是接出来的，而且是可断言的。** 新任务走的是 `scheduler.addTask` → `launchOfficial` →
+**官方 `session/create` + `session/prompt`**（`deepseek/official-session-client.js`，与真人按发送走的是同一对
+RPC），提示词**原样发送**（`buildPrompt` 只在有附件时追加附件清单）。新增 `scheduled-task.test.js` 用**真实
+`SchedulerService`** + 假的 official client 钉住这两件事：早一小时 tick 一次只把它挂起（`waiting-schedule`，
+**一个字节都不发**）；到点后同一个 tick 让它变成官方会话，`dispatched[0].prompt` 与用户输入**逐字相同**；
+峰价时段且未允许峰值 → 挂起（`peak-window`），允许峰值 → 照发。
+
+**能力由 DS-Hns 回答，不由前端猜。** 新增两个端点（治理桥 `/timing`、`/task`，插件同源路由
+`/mega-core/timing`、`/mega-core/task`）：默认时间（now+3 分钟）、时区、峰价时段、当前是否峰价、可选的执行方式，
+全部来自 `PricingRepository` 与 scheduler 自己的配置 —— 对话框里没有一个是硬编码的。**治理桥的动作闭集没有
+扩大**（调度不是对模块的恢复动作），桥的发现文件 schema 因此升到 2，旧版桥回答 404，对话框如实显示
+"读不到调度能力：… does not answer timing questions"（这条兼容路径已在运行中的旧实例上实测到 404）。
+
+**验证**：`mega-core-client.test.js` 15 项（新增 4：浮窗结构/输入框/定时设置在同一浮窗且顺序正确、
+Enter 三种情况 + 提交载荷与"作为对话投递"、拒绝与原话、宿主没有官方组件库时不画入口）；
+`mega-core-plugin.test.js` 6 项（路由从四条到六条并断言挂载与卸载、`/timing` 与 `/task` 的 404/405/透传、
+**通过真实治理桥**创建任务并保留 DS-Hns 的 400 与原话）；新增 `scheduled-task.test.js` 3 项。全量 1499/1499；
+`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
+## 悬浮球：默认全部收起；点开的这一类变成一张自己的卡片
+
+**默认状态改为"全部收起"。** 上一版默认展开第一类，一打开面板就替用户做了选择，而且四类里只有一类是"活的"，其余
+三类的规则只能自己猜。现在第一帧就是四条标题行，每条右边带自己的头条数字（价格 `PEAK` / 账户 `¥ 114.81` /
+任务 `3` / 并行 `4`），点哪条开哪条。随之删掉了那个"只默认一次"的 `defaultedCategory` 开关——没有默认就不需要
+记住默认。
+
+**展开的那一类是一张卡片，不是"更长的一串行"。** 三件事让它一眼可辨，都是"看得见"而不是口味问题：
+
+* **比面板底更亮**：卡片底 `rgba(255,255,255,.055)`（系统球是 `--orb-card`），面板底是 `rgba(14,16,20,.97)`
+  —— 亮度差让它读起来是"浮起来的一层"；
+* **标题在卡片里面**：这层底色因此有主，不是一片无主的色块；
+* **自己的圆角与间距**（`border-radius: 8px`、上下 `4px` 外边距、`.16` 描边），上下两类与它明显不是一体。
+
+再加一条让视觉聚焦更明确的：**有卡片打开时，旁边的标题行整体后退**（`opacity` 降到 `.55`，悬停回到 1）——
+系统球用 `:has(.category-body)`，React 那半边直接写成行内样式。`:has` 是加分项而不是机制：不支持时卡片依然是
+卡片，caret 依然指着开的那一类。
+
+**验证**：`mega-core-client.test.js` 11 项（改 2：首帧四类全收、无卡片、无明细；点开的那类成为**唯一**卡片，
+断言底色与圆角，切到另一类后旧卡片消失）；`orb-ui.test.js` 7 项（改 2：同样断言 `data-open` 全为 off、
+`data-card` 为空，点开后 `data-card` 恰有一个）。全量 1494/1494；`verify.ps1 -SkipTests` ALL CHECKS PASSED。
+
+## 悬浮球：信息按类别折叠，且同时只展开一个
+
+**折叠，不是删减。** 球的面板原来把价格、账户、任务、并行十几行一次性铺开，六行有用数字埋在中间。现在每一类
+是一个**可点开的折页**（价格 / 账户 / 子工作器 / 任务 / 并行），**同时最多开一个**：点开另一个，前一个自己收起；
+再点当前这个，它就关上（"全关"是允许的状态）。
+
+**折起来不等于看不见。** 每条折页标题右边带**该类的头条数字**——关着也读得到：「价格 · Price ▸ PEAK」、
+「账户 · Account ▸ ¥ 114.81」、「任务 · Tasks ▸ 3」、「并行 · Parallelism ▸ 4」。头条取该组第一行带 `:state`
+的那行（正是"状态"那一行），所以折页藏起来的是**明细**，不是一瞥要看的东西。默认展开第一类（价格），这样面板
+一打开就有内容，"点标题能开合"这件事也第一帧就看得出来。标题是真 `<button>`（`aria-expanded`、`data-open`、
+键盘可达）。
+
+**两个球同一套规则。** 系统悬浮球（`orb.js`）与官方界面里的球（`client.js`）用同一份 view model、同一套类别
+与头条规则、同样的"只开一个"——两个球把同一份信息折得不一样，就是两个产品。
+
+**顺手抓到一个真 bug（就发生在这条规则的实现里）。** 第一版把"默认展开第一类"写成
+`if (openCategory === null) openCategory = groups[0].id`——于是"全关"永远到不了：用户刚关上的折页会在下一次重绘
+（15 秒轮询、任何一次状态推送）里自己弹回来。改成**只做一次**的 `defaultedCategory` 标记。这是测试先发现的
+（"点两次应该全关，实际还开着"），不是看过界面才发现的。
+
+**验证**：`mega-core-client.test.js` 11 项（新增 1：四类齐全、首帧只开价格、点账户后价格关上且明细真的换了、
+点当前项全关、关着仍有头条）；`orb-ui.test.js` 7 项（新增 1：系统球同样四类、同样只开一个、开着的那页是文档里
+唯一带内容的折页、全关后头条仍在）。断言读的是**画面**（`data-open` 与真正画出来的折页体），不是渲染器的内部
+状态。全量 1494/1494；`verify.ps1 -SkipTests` ALL CHECKS PASSED。
+
+## 余额：启动后自己读一次，仪表盘上补回一个真的刷新按钮
+
+**余额显示不出来，不是显示的问题，是没人去读。** 面板上的账户三行一直是 `—`、状态一直是"未刷新"，因为
+`balanceService` 在这套 UI 里**从来没有触发点**：旧 Dock 是"Balance 模块被滚进视野"时才刷新的，而那个模块已经
+不存在了。所以这一轮补的是两个触发点，不是一个样式问题。
+
+**启动后自读一次。** `scheduleStartupBalanceRead()` 在启动序列里排在托盘与悬浮球之后，**3 秒延迟 + `unref()`
+定时器**：慢的或挂住的 provider 永远不能拖住官方 UI、Dock 或球（§29 的故障隔离）。只读一次 —— 重复读就是轮询，
+而账户不值得轮询。`startup` 因此成为 `BalanceService` 的第四个触发名（`startup | module-open | manual | retry`），
+走的还是同一个实现：合并并发、隔离 provider、失败保留上次成功值。
+
+**仪表盘的刷新按钮回来了，而且它真的去读。** 旧 Dock 的"刷新"按钮走 `mega:balance`，而插件的浏览器半边在
+**另一个进程**（Harness），够不到那条 IPC —— 这就是按钮"消失"的原因。现在它走**已有的具名动作**通道：
+`refresh-balance` 作为 Control Center 的动作，经治理桥 → `controlAction()` → 同一个 `refreshBalance()`。
+三点是刻意的：
+
+* **不需要 id。** 别的动作都指向某个模块或插件，重读账户是关于账户的：所以它在 id 检查**之前**被回答，而不是
+  硬塞一个假 id（也**没有**因此扩大治理桥的动作闭集：`check/retry/reset-fallback/repair/disable/enable` 原样）。
+* **不等待。** provider 读有 20 秒超时，调用者是 340px 面板里的一个按钮：它会立刻回"已开始"，读数在后台跑，
+  结果由下一次 `/view` 带回来（服务在此期间自报 `refreshing`，面板就显示"刷新中"）。面板随后补一次确认读，
+  免得一秒就能完成的读要等满 15 秒轮询。
+* **该有时才有。** 按钮由**快照**决定：未读 / 上次成功值 / 读取失败 / 未配置密钥 / 正在刷新 → 有；余额是当前的
+  → **没有**（重读一个已经正确的余额只会花掉额度）。渲染端不自己发明，也不自己隐藏。
+
+**顺带一个新状态：未配置密钥。** 启动自读会让"这台机器根本没有 DeepSeek key"变成可见状态，所以
+`MISSING_CREDENTIAL` 是**自己的状态**——普通颜色、写明原因（"未配置密钥 · no API key"）、刷新按钮仍然给（去配上
+key 再点它，就是修好它的路径），而不是每次开机都亮一条永远为真的警告。
+
+**还顺手把"一条刷新路径"变回字面事实。** `mega-lifecycle-wiring.test.js` 一直断言 index 里只有一个
+`refreshBalances(` 调用点（防止第二套策略悄悄长出来）。我这轮先写成了两个调用点，测试当场挡下 —— 于是收敛成
+`refreshBalance(trigger)`，启动读、Dock 的 `mega:balance`、仪表盘按钮三条触发共用它。
+
+**验证**：`balance-service.test.js` 11 项（新增 2：`startup` 与其它触发同路，且 `describe/describeCached` **不会**
+发起读；无密钥的启动读是数据不是异常）；`control-center.test.js` 11 项（新增 2：按钮在四种状态下出现、余额当前时
+不出现；无密钥是普通状态）；`mega-core-client.test.js` 10 项（新增 1：面板有这个按钮，点了 POST
+`{action:'refresh-balance', id:null}`）；`orb-ui.test.js` 7 项（新增 1：系统球画同一个按钮、快照不给就不画）。
+真机验证（本机 35 位 key，一次一次性 state 目录）：`startup read: ok [{"currency":"CNY","total":114.81,…}]` →
+dashboard `总余额 = ¥ 114.81 (ok)`、`读取状态 = 正常 · ok`、`actions: []`（已是最新，不给按钮）。
+
+## 仪表盘回家：价格 / 谷价倒计时 / 余额 / 调度 / 队列 / 并行度，接回真实数据源
+
+**问题是一句大实话**：球的面板打开后是治理字段（插件健康、版本、重试、回退…），而旧 Dock 顶部那四张卡
+（时段与谷价倒计时、任务运行/等待、并行 current/cap、余额三张卡）**一个都没接进来**。不是画错了，是
+**没有数据**：`buildControlCenter()` 只回 `{ sections, modules, plugins, degraded, failed, failing }`，
+治理桥转发的就是这一份，于是运行中的球拿不到余额、拿不到倒计时。
+
+**数据源是找回的，不是新造的。** 新加的 `dashboard` 块由 `buildControlCenter()` 从**同一份快照**里装配，
+另外两件它自己拿不到的事实由扩展交给它（都是各自的真实 owner）：
+
+| 仪表盘上的东西 | 来源 |
+| --- | --- |
+| 时段 PEAK/OFF-PEAK、下一次切换的时刻 | `scheduler.describe().peak`（`billing/peak-engine.js` 的 `nextChangeInfo`） |
+| 峰价时段表 + 价格来源 | `PricingRepository.getSchedule()` / `.describe()` —— **与计费同源**，不重新加载一份 |
+| 余额（总/充值/赠送 + 读取状态） | `balanceService.describe()` —— 读不到就 `—`，**绝不编一个 ¥0.00** |
+| 运行中 / 等待 / 阻塞 / 重试 / 失败 / 总数 | `scheduler.describe().activeQueue` 与 `.counts`，与执行段同一份数字 |
+| 并行 current/cap、CPU、空闲内存 | `scheduler.describe().concurrency` / `.system`（硬件探针） |
+| 子工作器 / 自动委派 | `snapshot.subWorker` |
+
+**倒计时按"时刻"发布，不按"剩余秒数"。** 快照每 15 秒一份，而倒计时每一秒都在变：所以 dashboard 行里存的是
+`nextChangeIso`（切换的那个瞬间），由 `view.js` 用**自己的时钟**减出来 —— 旧 Dock 每秒 `Date.now()` 重算的
+那行逻辑，在新结构里由"发布时刻 + 视图重算"承担。面板打开着的时候还每秒自减一次（`useCountdown`），
+所以它不是 15 秒跳一格。下一次变化的时间按**计费时区**（Asia/Shanghai）打印：06:00Z 显示成 14:00，与用户
+对照的价格页一致。
+
+**一行标题也据实改了。** 旧 Dock 那张 timer 卡叫"距下一次谷价"，但 `nextChange` 是**下一次价格切换**
+（两个方向都算）：谷价时段里它指的是"下一次峰价"，照旧文案会让人等一个已经在手的东西。现在叫
+"距价格切换 / Until price change"；谷价时段里这一行显示"已是谷价 · off-peak now"。
+
+**两个界面各画自己那一半，同一份 view model。** 球的面板：仪表盘在上，治理的 lines/数字/动作按钮跟在后面
+（能看到、能点，但名册不占地方），再点"治理详情"才展开 §4.4 字段与模块名册。官方 Settings › Mega 整页：
+§4.4 的十一个字段、模块名册、社区插件名册 —— 不重复画仪表盘（那是球的活）。系统球（`orb.js`）用同一份
+`view.dashboard` 画同样的分组。**一个数字只有一个来源**，所以球和整页不可能各说一套。
+
+**顺带补上一个真缺陷**：verify 里那条"球点外面会收起"一直是 **FAIL** —— 检查项找的是
+`node.contains(event.target)`，而浏览器半边实际只有 Esc 与 × 能关面板（"点外面收起"这套逻辑当时只在**系统球
+自己的窗口**里实现了，`orb.js` 的 `onDocumentPointerDown`）。复查结论那轮把 in-UI 球拿掉时，检查项没跟着走。
+现在球真的实现了这件事（`document` 上 `pointerdown` + 球与面板两个 box 的 `contains`，不 `preventDefault`：
+点击照样落到它原本该落的地方），检查项也改成断言真实代码。
+
+**验证**：`control-center.test.js` 9 项（新增 2：仪表盘与 sections 同源、余额没读过不编 ¥0.00 / 失败保留上次成功值）、
+`mega-core-view.test.js` 9 项（新增 3：仪表盘数字 + 十一个字段原样、倒计时按时刻重算三档、无 dashboard 块给理由）、
+`mega-core-client.test.js` 9 项（新增 2：球开在仪表盘且页面不重复画、倒计时每秒自减）、
+新增 `orb-ui.test.js` 5 项（系统球面板画出五组数字与三种色调、仪表盘在治理之前、缺 dashboard 给理由、
+关着不画、球的色调仍来自治理）。真实链路验证：用**真实 SchedulerService + PricingRepository**（一次性
+state 目录）构建 dashboard → view，得到 `OFF-PEAK | 09:00-12:00, 14:00-18:00 · Asia/Shanghai | official ·
+2026-09-07 | 14:00 → 峰价 Peak | 并行 4/4 | 空闲内存 13.4 GB`。全量测试唯一失败仍是既有的
+`mega-extension-integration`（要 `DSH_SYSTEM_ORB=1` 才建球窗口，基线同样失败）；`verify.ps1` 现在
+**ALL CHECKS PASSED**（含上面那条被修好的检查）。
+
 ## 只留系统悬浮球；球能盖住别的应用了；点击不再闪烁
 
 第四轮复查的结论（"Mega侧栏已正确移除"是确认，另外三条都改掉了，其中两条是真缺陷）。

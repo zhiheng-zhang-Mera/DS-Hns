@@ -14,6 +14,26 @@
  *   GET  /mega-core/governance  → the snapshot the Control Center shows
  *   GET  /mega-core/view        → the same snapshot, composed into what the orb and the page draw
  *   POST /mega-core/action      → one of the named actions (check, retry, reset-fallback, repair, disable, enable)
+ *   GET  /mega-core/orb         → where the ball was left; POST stores where a drag ended
+ *   GET  /mega-core/timing      → what a scheduled task may be (defaults, time zone, peak windows, limits)
+ *   POST /mega-core/task        → schedule one, answered with the task DS-Hns actually recorded
+ *   POST /mega-core/task-edit   → change a queued one
+ *   POST /mega-core/task-move   → move a queued one in the queue
+ *   POST /mega-core/task-delete → delete one from the queue
+ *
+ * The last five are the routes the *browser* half reaches for, and they are here because **the surfaces that need
+ * them are here**. The ball's position, the new-task form and the queue panel all belong to plugin-drawn surfaces
+ * — the `shell.overlay` ball and the two seats of the task form — none of which has an IPC of its own, so this
+ * origin is the only way they can reach DS-Hns. `/orb` and the `/timing` + `/task` pair were each removed once on
+ * the theory that their caller had gone (the in-UI ball, then the form); both callers came back, the routes did
+ * not, and the cost was silent: a 404 or 405 with an empty body, and the client's own `response.json()` throwing
+ * `SyntaxError: Unexpected end of JSON input` where a sentence about the problem belonged. That is why
+ * `tests/unit/mega-core-plugin.test.js` asserts the contract instead of a list: every URL the browser half calls
+ * has to be a route this half registers.
+ *
+ * The **queue itself has no route**, and that is deliberate rather than an omission: it travels inside
+ * `/mega-core/view` (`dashboard.queue`, from the scheduler's own `listTasks`), which is what both balls draw — a
+ * separate read would be a second answer to the same question.
  *
  * Three rules the shape of this file is built around:
  *
@@ -28,7 +48,7 @@
  *      `apply`, so a reload never leaves a half-registered surface behind.
  */
 
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { buildMegaView } from './view.js'
@@ -49,6 +69,58 @@ function stateDir(env = process.env) {
 /** The discovery file DS-Hns writes (`$DSH_HOME/state/governance-bridge.json`). */
 function discoveryFile(env = process.env) {
   return path.join(stateDir(env), 'governance-bridge.json')
+}
+
+/** The ball's position file's schema. Version 2 stores `right`/`bottom` from the layer's own corner. */
+const ORB_FILE_VERSION = 2
+
+function orbFile(env = process.env) {
+  return path.join(stateDir(env), 'mega-core-orb.json')
+}
+
+/** One stored position, normalised — or null when there is nothing usable in it. */
+export function normalizeOrbPosition(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const right = Number(raw.right)
+  const bottom = Number(raw.bottom)
+  if (!Number.isFinite(right) || !Number.isFinite(bottom)) return null
+  // An edge is `left`/`right` (the ball asks for that edge, so a resize moves it with it) or absent (free).
+  const edge = raw.edge === 'left' || raw.edge === 'right' ? raw.edge : null
+  return { right: Math.max(0, Math.round(right)), bottom: Math.max(0, Math.round(bottom)), edge }
+}
+
+/**
+ * Where the ball was left, kept where a position can survive the thing that resets the page.
+ *
+ * `localStorage` looks like the obvious home for this and is the wrong one: the official UI is served from a
+ * `--port 0` loopback URL, so its origin — and with it every `localStorage` entry — changes on every restart of
+ * DS-Hns Desktop (the community wallpaper engine documents the same trap). A file under `$DSH_HOME/state` is
+ * origin-independent, which is exactly the property "the ball comes back where I put it" needs.
+ *
+ * The store is deliberately tiny and forgiving: an unreadable file is "no position yet" (the ball falls back to
+ * its default corner), and a position that is not two finite numbers is refused rather than stored.
+ */
+export function readOrbPosition(env = process.env) {
+  try {
+    const parsed = JSON.parse(readFileSync(orbFile(env), 'utf8'))
+    return normalizeOrbPosition(parsed?.position)
+  } catch {
+    return null
+  }
+}
+
+/** Store one position. Answers from `normalizeOrbPosition`, so a caller cannot write something unusable. */
+export function writeOrbPosition(position, env = process.env) {
+  const normalized = normalizeOrbPosition(position)
+  if (!normalized) return { ok: false, reason: 'the orb position needs a finite x and y' }
+  try {
+    const file = orbFile(env)
+    mkdirSync(path.dirname(file), { recursive: true })
+    writeFileSync(file, `${JSON.stringify({ version: ORB_FILE_VERSION, position: normalized }, null, 2)}\n`, 'utf8')
+    return { ok: true, position: normalized, file }
+  } catch (error) {
+    return { ok: false, reason: `the orb position could not be written: ${error?.message || error}` }
+  }
 }
 
 /**
@@ -193,6 +265,9 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
       }
       const result = await callBridge('/action', { method: 'POST', body: { action: body.action, id: body.id }, discovery: readDiscovery(env), fetchImpl })
       // The bridge's own status decides: 409 for a refused action, 503 for an unreachable bridge, 200 otherwise.
+      // `refresh-balance` comes back as soon as governance has *started* the read, which is what the button in
+      // the panel needs: an account read has a 20-second timeout, and holding the panel open for it would freeze
+      // the surface it is meant to update. The answer arrives on the next `/view`.
       const status = result.available === false ? 503 : (result.status || (result.ok === false ? 409 : 200))
       answer(res, status, result)
     }
@@ -226,6 +301,102 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
       answer(res, 200, view)
     }
   }))
+
+  /**
+   * Where the ball is.
+   *
+   * GET is what the ball asks on first paint; POST is where a drag ends. Both answer the *stored* position
+   * (`null` when nothing has been stored yet, which the client reads as "use your default corner"), so the client
+   * never has to keep a second copy of the rule.
+   */
+  disposers.push(webServer.register({
+    kind: 'exact',
+    path: `${BASE}/orb`,
+    handler: async (req, res) => {
+      if (req.method === 'GET') return answer(res, 200, { ok: true, position: readOrbPosition(env) })
+      if (req.method !== 'POST') return answer(res, 405, { ok: false, reason: 'the orb position is read with GET and written with POST' })
+      let body = null
+      try {
+        body = await readBody(req)
+      } catch (error) {
+        return answer(res, 400, { ok: false, reason: String(error?.message || error) })
+      }
+      const stored = writeOrbPosition(body?.position, env)
+      answer(res, stored.ok === false ? 400 : 200, stored)
+    }
+  }))
+
+  /**
+   * What a scheduled task may be, for the new-task form (pluginize Phase 2).
+   *
+   * `503` with `available: false` when DS-Hns is not running, and `404` when the DS-Hns that *is* running predates
+   * this surface — two different answers, because they need two different sentences in the form ("start DS-Hns"
+   * versus "this build cannot schedule").
+   */
+  disposers.push(webServer.register({
+    kind: 'exact',
+    path: `${BASE}/timing`,
+    handler: async (_req, res) => {
+      const result = await callBridge('/timing', { discovery: readDiscovery(env), fetchImpl })
+      answer(res, result.available === false ? 503 : (result.status || 200), result)
+    }
+  }))
+
+  /**
+   * Schedule one task.
+   *
+   * The body is passed through **as it stands** (`prompt`, `startAt`, `allowPeak`, `deliveryMode`) rather than
+   * re-validated here: DS-Hns owns what a task is, and a host half that trimmed or defaulted anything would be a
+   * second opinion about the same request. Its refusal keeps its own status (400) and its own words, which the
+   * form shows verbatim.
+   */
+  disposers.push(webServer.register({
+    kind: 'exact',
+    path: `${BASE}/task`,
+    handler: async (req, res) => {
+      if (req.method !== 'POST') return answer(res, 405, { ok: false, reason: 'a task is POSTed' })
+      let body = null
+      try {
+        body = await readBody(req)
+      } catch (error) {
+        return answer(res, 400, { ok: false, reason: String(error?.message || error) })
+      }
+      const result = await callBridge('/task', { method: 'POST', body, discovery: readDiscovery(env), fetchImpl })
+      answer(res, result.available === false ? 503 : (result.status || 200), result)
+    }
+  }))
+
+  /**
+   * The queue's three operations, for the ball panel's queue fold: change a task, move it, delete it.
+   *
+   * A count is not something a surface can act on: "已挂起 1" says a task is waiting and nothing about which one,
+   * what it says, or when — which is what "挂起任务数量没有改变，也不能编辑，也不能调顺序" was about, and a queue with no
+   * way to remove a task is a queue you can only add mistakes to. The queue itself arrives inside `/view` (see the
+   * note at the top of this file); these three are what a surface can *do* to it, and they are separate routes
+   * because they are separate questions with separate refusals ("only pending/suspended tasks can be edited",
+   * "invalid queue move", "not in the active queue"). Each keeps DS-Hns' own status (400) and its own words.
+   */
+  for (const [route, refusal] of [
+    ['task-edit', 'a task is edited with POST'],
+    ['task-move', 'a task is moved with POST'],
+    ['task-delete', 'a task is deleted with POST']
+  ]) {
+    disposers.push(webServer.register({
+      kind: 'exact',
+      path: `${BASE}/${route}`,
+      handler: async (req, res) => {
+        if (req.method !== 'POST') return answer(res, 405, { ok: false, reason: refusal })
+        let body = null
+        try {
+          body = await readBody(req)
+        } catch (error) {
+          return answer(res, 400, { ok: false, reason: String(error?.message || error) })
+        }
+        const result = await callBridge(`/${route}`, { method: 'POST', body, discovery: readDiscovery(env), fetchImpl })
+        answer(res, result.available === false ? 503 : (result.status || 200), result)
+      }
+    }))
+  }
 
   return () => {
     for (const dispose of disposers.splice(0)) {

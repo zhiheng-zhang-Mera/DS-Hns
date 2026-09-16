@@ -6,7 +6,7 @@ const api = require('../deepseek/api')
  *
  * One refresh implementation serves every trigger:
  *
- *     refreshBalances(trigger)        trigger = module-open | manual | retry
+ *     refreshBalances(trigger)        trigger = startup | module-open | manual | retry
  *
  * - auto and manual refresh share this code path;
  * - concurrent requests are coalesced instead of fanning out a second set of
@@ -17,10 +17,15 @@ const api = require('../deepseek/api')
  *   of being blanked to 0/null/--;
  * - last-updated only moves when a refresh actually returned valid data.
  *
+ * `startup` is the one trigger nothing in a renderer asks for: DS-Hns refreshes
+ * the account once as it comes up, so the balance on the orb is the account's
+ * real state rather than "not read yet" until somebody clicks. It goes through
+ * this same path — coalesced, isolated, and never thrown.
+ *
  * Failures are returned as data and never thrown into the harness.
  */
 
-const TRIGGERS = Object.freeze(['module-open', 'manual', 'retry'])
+const TRIGGERS = Object.freeze(['startup', 'module-open', 'manual', 'retry'])
 const STATUS = Object.freeze({
   IDLE: 'idle',
   OK: 'ok',
@@ -138,8 +143,8 @@ class BalanceService {
   }
 
   /**
-   * The single refresh implementation. Auto (module-open) and manual share it
-   * and behave identically apart from the recorded trigger.
+   * The single refresh implementation. `startup`, auto (module-open) and manual
+   * share it and behave identically apart from the recorded trigger.
    */
   async refreshBalances(trigger = 'manual', { only = null } = {}) {
     const normalized = TRIGGERS.includes(trigger) ? trigger : 'manual'
@@ -219,9 +224,13 @@ class BalanceService {
   /**
    * Public, renderer-safe state. The primary provider result is flattened onto
    * the top level so existing renderer bindings keep working.
+   *
+   * It answers from **memory**: no provider is called, and nothing here can start
+   * one. The two ways to make the answer newer are `refreshBalances(...)` — the
+   * startup pass and the user's own refresh — which keeps "draw the account" and
+   * "read the account" from ever being the same call by accident.
    */
-  describe() {
-    const primary = this.primary()
+  describe() {    const primary = this.primary()
     const providers = this.listProviders().map((p) => ({
       id: p.id,
       label: p.label,
@@ -258,6 +267,22 @@ class BalanceService {
       stale: Boolean(primary?.stale),
       error: primary?.error ? { ...primary.error } : null
     }
+  }
+
+  /**
+   * The same answer `describe()` gives, without asking any provider anything.
+   *
+   * It exists because a *view* is built far more often than an account is read: the governance snapshot is
+   * assembled on every Control Center read (the orb's 15-second poll, every page load), and a plugin route that
+   * triggered a provider fan-out each time would spend the user's rate limit on repainting. So the surfaces
+   * that only want to draw the current state call this, and the two ways to make the state newer are explicit:
+   * `refreshBalances('startup')` once at boot, and the user's own refresh action.
+   *
+   * (`describe()` already answers from memory — it is the *callers* that had to know which one to use, and
+   * naming it separately makes that choice impossible to get wrong by accident.)
+   */
+  describeCached() {
+    return this.describe()
   }
 }
 

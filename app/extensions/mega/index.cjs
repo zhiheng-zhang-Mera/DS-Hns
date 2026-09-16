@@ -68,7 +68,7 @@ function bilingualTitle(cn, en) {
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
-  'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
+  'mega:balance', 'mega:balance-restore', 'mega:pick-workspace', 'mega:pick-sound',
   'mega:update-check', 'mega:update-apply',
   'mega:dock-toggle', 'mega:dock-expand',
   // The compatibility report the dock's status panel shows. It used to be answered
@@ -101,6 +101,10 @@ const CHANNELS = [
   // The system floating orb: its own window, its own document, and only these ways in (see `orb-preload.cjs`
   // — the same "the preload is the whole reachable surface" rule the dock follows).
   'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
+  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made — plus the
+  // three operations on a queued task (change it, move it, delete it), so the panel can act on what it counts. The
+  // queue itself has no channel: it travels inside the view both balls already draw.
+  'mega:orb-timing', 'mega:orb-task', 'mega:orb-task-edit', 'mega:orb-task-move', 'mega:orb-task-delete',
   // The push the ball listens on. It has no handler to remove, and it is declared all the same: a channel a
   // preload can subscribe to is part of the surface that has to be enumerable.
   'mega:orb-state',
@@ -277,6 +281,65 @@ async function observedRegions() {
 }
 
 const balanceService = new BalanceService({ log: (message) => log(message) })
+
+/**
+ * The one balance refresh path (MEGA-04).
+ *
+ * Every trigger — the startup read, the dock's Balance panel, the dashboard's refresh button in the official UI —
+ * comes through here, so "read the account" has a single implementation with a single call site. That is what the
+ * lifecycle test has always asserted (`one balance refresh implementation`), and it is worth keeping literally
+ * true: a second call site is how a second policy (a different timeout, a different trigger name, a retry that
+ * nobody agreed to) gets introduced without anybody deciding to.
+ *
+ * @param {string} trigger `startup` | `module-open` | `manual` | `retry`
+ * @param {{only?: string[]|null}} [options] `only` re-reads just the providers that failed
+ */
+async function refreshBalance(trigger = 'manual', { only = null } = {}) {
+  const result = await balanceService.refreshBalances(trigger, { only })
+  notifyChanged()
+  return result
+}
+
+/**
+ * Whether a balance read is already running because somebody asked for one.
+ *
+ * The service coalesces its own reads (`refreshBalance` reuses the in-flight call), so this flag is not about
+ * protecting the provider — it is about answering the *button* honestly: a second click while the first read is
+ * still out reports "already going" instead of pretending to have started a second one.
+ */
+let balanceRefreshInFlight = false
+
+/**
+ * Read the account once as the product comes up (MEGA-04).
+ *
+ * Until this existed the dashboard said `未刷新 · not read yet` until a human pressed something, which made the
+ * balance look broken rather than unread — the old dock refreshed when its Balance module was scrolled into
+ * view, and there is no such module any more.
+ *
+ * Three properties are the point, and all three are why it lives here rather than on the boot path:
+ *
+ *   * **it is off the boot path** — `setTimeout` with an `unref`'d timer, so a slow or hanging provider can
+ *     never delay the official UI, the dock or the ball;
+ *   * **it happens once** — a startup read that repeated itself would be a poll, and the account does not
+ *     change often enough to be worth one;
+ *   * **a failure is data**, not an error: the service returns the failure as state (and marks a stale answer
+ *     as stale), so a missing credential or an offline machine costs a line in the log and one honest row on
+ *     the dashboard.
+ */
+function scheduleStartupBalanceRead() {
+  const delayMs = Math.max(0, Number(process.env.DSH_MEGA_BALANCE_STARTUP_MS ?? 3000))
+  const timer = setTimeout(() => {
+    Promise.resolve()
+      .then(() => refreshBalance('startup'))
+      .then((result) => {
+        const state = result?.ok ? `${result.balances?.length || 0} row(s)` : (result?.error?.code || 'no result')
+        log(`startup balance read: ${state}`)
+      })
+      .catch((error) => log(`the startup balance read failed without affecting anything else: ${error?.message || error}`))
+  }, delayMs)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
 
 /**
  * Terminal alerts are one pipeline for every task path (official user session,
@@ -486,9 +549,26 @@ function subWorkerAvailable() {
  * Every dock push goes through the adapter. The dock renderer initiates its own
  * IPC calls, but a *push* (a change notification) needs a target, and the
  * integrated dock is the target the product actually ships.
+ *
+ * **The system ball is a target too, and that is a fix rather than a convenience.** It learned about a change only
+ * on its 15-second poll, so a task that had just been suspended showed up in the panel up to fifteen seconds later
+ * — and a user who opened the panel in between opened it on the older view, which is exactly what
+ * "挂起任务数量没有改变" was. The refresh is debounced (250 ms) because the scheduler emits one `queue-changed` per
+ * state transition, and a transparent always-on-top window that rebuilds its view per transition is a window that
+ * flickers.
  */
+let orbPushTimer = null
 function notifyChanged() {
   dockTarget.send('mega:changed')
+  if (!systemOrb || orbPushTimer) return
+  orbPushTimer = setTimeout(() => {
+    orbPushTimer = null
+    Promise.resolve()
+      .then(() => refreshOrbView())
+      .then(() => { if (systemOrb) systemOrb.render(systemOrbView) })
+      .catch(() => {})
+  }, 250)
+  if (typeof orbPushTimer.unref === 'function') orbPushTimer.unref()
 }
 
 /**
@@ -1527,9 +1607,192 @@ function governanceBridge() {
     stateDir: path.join(PATHS.ROOT, 'data', 'state'),
     snapshot: () => controlCenter(),
     act: (payload) => controlAction(payload),
+    // The two halves of the timing surface (pluginize Phase 2): what a scheduled task may be, and one being made.
+    // The queue is not a third half — it travels inside `controlCenter()`'s snapshot, which every surface already
+    // reads. What needed adding was the ability to *act* on a queued task: "也不能编辑，也不能调顺序", and then to
+    // delete one.
+    timing: () => scheduledTaskSurface(),
+    createTask: (input) => scheduleTask(input),
+    editTask: (input) => editScheduledTask(input),
+    moveTask: (input) => moveScheduledTask(input),
+    deleteTask: (input) => deleteScheduledTask(input),
     log: (message) => log(message)
   })
   return governanceBridgeState
+}
+
+/**
+ * What a scheduled task may be — the answer to "which choices does the new-task dialog offer".
+ *
+ * It is deliberately a *report about the scheduler*, not a policy: the peak windows come from the same
+ * `PricingRepository` a task is billed against, the time zone from the same schedule, and the defaults from the
+ * scheduler's own config. A dialog that invented these would promise a task at a time the scheduler would not run
+ * it (a task scheduled into a peak window with peak off is suspended until the window closes, not refused — which
+ * is exactly the kind of thing a UI has to be able to say before the user picks a time).
+ */
+function scheduledTaskSurface() {
+  const described = (() => {
+    try {
+      return scheduler.describe() || {}
+    } catch (error) {
+      log(`the scheduler could not be described for the timing surface: ${error?.message || error}`)
+      return {}
+    }
+  })()
+  const schedule = (() => {
+    try {
+      return scheduler.pricing?.getSchedule?.() || null
+    } catch {
+      return null
+    }
+  })()
+  const config = described.config || {}
+  return {
+    kind: 'scheduled-task',
+    // Free text plus this: a task is a prompt sent at a time, and that is the whole of it.
+    fields: { prompt: { required: true, maxLength: 20000 }, startAt: { required: false, format: 'iso-8601' } },
+    defaults: {
+      // Relative to "now" when the dialog opens, not to when DS-Hns started: three minutes is long enough to
+      // type a sentence and short enough that "I will set the real time" is not a chore.
+      startAt: new Date(Date.now() + 3 * 60_000).toISOString(),
+      allowPeak: Boolean(config.defaultAllowPeak),
+      deliveryMode: 'official-session'
+    },
+    schedule: {
+      timeZone: schedule?.timeZone || 'Asia/Shanghai',
+      weekdays: schedule?.weekdays || [1, 2, 3, 4, 5],
+      peakPeriods: schedule?.peakPeriods || []
+    },
+    peak: described.peak || null,
+    // The two facts that decide whether "run it now" and "run it at peak" are even possible.
+    interruptRunningAtPeak: Boolean(config.interruptRunningAtPeak),
+    // One second rather than none: a *new* task has to be given a time in the future (`SchedulerService.addTask`
+    // refuses a past instant), so "now, exactly" is not on offer — a form that believed offset 0 was legal would
+    // offer a time the scheduler refuses.
+    limits: { minStartOffsetSeconds: 1, maxStartAheadDays: 365 },
+    deliveryModes: [
+      { id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true },
+      { id: 'headless', cn: 'Headless 后台', en: 'Headless background', default: false }
+    ]
+  }
+}
+
+/**
+ * Schedule one task (`POST /task` on the governance bridge).
+ *
+ * It goes through the **same** `scheduler.addTask` the dock's own form uses, so a task made from the official UI
+ * and a task made from the dock are the same kind of thing — and it answers with what the scheduler recorded
+ * rather than with a hopeful `{ ok: true }`, because the dialog shows the user the id and the instant they just
+ * committed to.
+ *
+ * The refusals are the scheduler's own (`prompt is required`, `invalid startAt`), reported as data: a dialog that
+ * cannot say *why* a task was refused is a dialog that makes the user guess.
+ */
+async function scheduleTask(input = {}) {
+  const prompt = String(input.prompt ?? '').trim()
+  if (!prompt) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+  const startAt = input.startAt === undefined || input.startAt === null || input.startAt === '' ? null : String(input.startAt)
+  if (startAt !== null && Number.isNaN(Date.parse(startAt))) {
+    return { ok: false, reason: `"${startAt}" is not a time this scheduler can read`, field: 'startAt' }
+  }
+  try {
+    const task = scheduler.addTask({
+      prompt,
+      startAt,
+      allowPeak: input.allowPeak === undefined ? undefined : input.allowPeak === true,
+      // The one delivery a "scheduled conversation" can have: a new official session, exactly like typing the
+      // same prompt into the composer and pressing send. `headless` stays reachable from the dock's own form,
+      // which is where a background job (no transcript, no session) actually belongs.
+      deliveryMode: input.deliveryMode === 'headless' ? 'headless' : 'official-session',
+      queuePosition: 'bottom',
+      permissionMode: input.permissionMode || undefined
+    })
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`scheduling a task from the official UI failed: ${error?.message || error}`)
+    // The scheduler owns the rules, and it says which field a refusal is about when it knows (`invalid startAt`,
+    // a time in the past); passing that through is what lets a form point at the input rather than at the whole
+    // form.
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * Change a task that has not run yet (`POST /task-edit`).
+ *
+ * The rules are the scheduler's — a queued task only, a prompt that is not empty, an instant that has not already
+ * gone — and its refusals travel as data with the field they are about, so a form can point at the input rather
+ * than at the whole form. Nothing is re-validated here: a second opinion about the same request is exactly how a
+ * UI starts promising things the layer refuses.
+ */
+async function editScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'editing a task needs its id', field: 'taskId' }
+  const changes = {}
+  if (input.prompt !== undefined) changes.prompt = input.prompt
+  if (input.startAt !== undefined) changes.startAt = input.startAt === null || input.startAt === '' ? null : String(input.startAt)
+  if (input.allowPeak !== undefined) changes.allowPeak = input.allowPeak === true
+  if (input.deliveryMode !== undefined) changes.deliveryMode = input.deliveryMode
+  if (!Object.keys(changes).length) return { ok: false, reason: 'nothing was changed', field: null }
+  try {
+    const task = scheduler.editTask(taskId, changes)
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`editing a task failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/** Move a queued task (`POST /task-move`) — the queue's own `reorderTask`, with its own words when it refuses. */
+async function moveScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'moving a task needs its id', field: 'taskId' }
+  const move = String(input.move || '').trim()
+  if (!['top', 'up', 'down', 'bottom'].includes(move)) {
+    return { ok: false, reason: `"${move}" is not a queue move; expected top, up, down or bottom`, field: 'move' }
+  }
+  try {
+    const task = scheduler.reorderTask(taskId, move)
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`moving a task in the queue failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * Delete a task from the queue (`POST /task-delete`).
+ *
+ * It is the scheduler's own `cancelTask`, and that is the honest meaning of "delete" here rather than a second
+ * removal path: a queued task is cancelled and leaves the active queue, a *running* one is interrupted first, and
+ * either way the task lands in the history layer as CANCELED — so "I deleted it" and "what became of it" are
+ * answerable from the same record instead of the task evaporating. An id that is not in the active queue is refused
+ * out loud: a delete that quietly did nothing is worse than one that says it found nothing.
+ */
+async function deleteScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'deleting a task needs its id', field: 'taskId' }
+  const known = (() => {
+    try {
+      return scheduler.listTasks({ limit: 200 }).find((t) => t.id === taskId) || null
+    } catch (error) {
+      log(`the queue could not be read to delete a task: ${error?.message || error}`)
+      return null
+    }
+  })()
+  if (!known) return { ok: false, reason: `"${taskId}" is not in the active queue`, field: 'taskId' }
+  try {
+    const task = scheduler.cancelTask(taskId)
+    if (!task) return { ok: false, reason: `"${taskId}" is not in the active queue`, field: 'taskId' }
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null }, deleted: true }
+  } catch (error) {
+    log(`deleting a task failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
 }
 
 /**
@@ -1593,6 +1856,39 @@ function controlCenter() {
       } catch {
         return null
       }
+    })(),
+    /**
+     * The two billing sources the expanded dock used to read on its own.
+     *
+     * They are handed to the Control Center rather than to each surface, because "what does an hour of this
+     * cost, and what is left to spend" is one fact with several readers: the dashboard in the system orb, the
+     * governance snapshot the Mega plugin fetches, and the old dock's own summary. The balance is the
+     * *service's* answer — which keeps the last successful read and marks it stale rather than blanking it —
+     * and the price list is the repository's, so the schedule shown is the schedule the cost is billed
+     * against (`billing/pricing-repository.js`).
+     */
+    balance: (() => {
+      try {
+        // The **cached** answer, deliberately: this runs on every Control Center read (the orb's 15-second poll,
+        // every plugin request), and a provider call per repaint would spend the user's rate limit on drawing.
+        // Nothing here may start a read: the two places one starts are the startup pass and the refresh action.
+        return balanceService.describeCached()
+      } catch (error) {
+        log(`the balance could not be read for the Control Center: ${error?.message || error}`)
+        return null
+      }
+    })(),
+    pricing: (() => {
+      try {
+        // The scheduler owns the loaded price list (`billing/pricing-repository.js`); a second load here
+        // could disagree with the rates a task is actually billed at.
+        const described = scheduler.pricing?.describe?.() || null
+        const schedule = scheduler.pricing?.getSchedule?.() || null
+        return described ? { ...described, schedule } : null
+      } catch (error) {
+        log(`the price list could not be read for the Control Center: ${error?.message || error}`)
+        return null
+      }
     })()
   })
 }
@@ -1603,10 +1899,29 @@ function controlCenter() {
  * `repair` is the bundled manager's own path — which refuses while the pin is untested — and `disable` /
  * `enable` go through the store, because the user's decision about a plugin belongs in the store's record
  * rather than in a second copy here.
+ *
+ * `refresh-balance` is the odd one out in two ways, and both are deliberate:
+ *
+ *   * **it needs no id.** Every other action names the module or plugin it acts on; reading the account again
+ *     is about the account. So it is answered before the id check rather than being given a fake one.
+ *   * **it does not wait.** A provider read has a 20-second timeout, and the caller is a button in a 340px
+ *     panel: holding the answer back for the whole read would freeze the panel it is meant to update. It
+ *     returns immediately, the read runs in the background, and the next view read carries the result — the
+ *     service marks itself `refreshing` in the meantime, which the dashboard draws as 刷新中.
  */
 async function controlAction(payload = {}) {
   const action = String(payload.action || '')
   const id = String(payload.id || '')
+  if (action === 'refresh-balance') {
+    if (balanceRefreshInFlight) return { ok: true, action, id: null, coalesced: true, started: false }
+    balanceRefreshInFlight = true
+    Promise.resolve()
+      .then(() => refreshBalance('manual'))
+      .then((result) => log(`balance refreshed by request: ${result?.ok ? `${result.balances?.length || 0} row(s)` : (result?.error?.code || 'no result')}`))
+      .catch((error) => log(`balance refresh failed: ${error?.message || error}`))
+      .finally(() => { balanceRefreshInFlight = false })
+    return { ok: true, action, id: null, started: true }
+  }
   if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
   try {
     if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
@@ -1676,6 +1991,59 @@ function registerControlCenterIpc() {
   }))
   ipcMain.handle('mega:orb-action', guard(async (_event, payload = {}) => {
     const result = await controlAction(payload || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  /**
+   * The timing pair, for the ball's own new-task form (`ui/orb.js`).
+   *
+   * They answer with the **same two functions the governance bridge exposes** to the official plugin
+   * (`scheduledTaskSurface` / `scheduleTask`), so the two surfaces that can schedule a task cannot disagree about
+   * what a task may be — and there is exactly one implementation of "make a task", not one per window.
+   */
+  ipcMain.handle('mega:orb-timing', guard(() => {
+    try {
+      return scheduledTaskSurface()
+    } catch (error) {
+      log(`the timing surface could not be read for the orb: ${error?.message || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }))
+  ipcMain.handle('mega:orb-task', guard(async (_event, input = {}) => {
+    const result = await scheduleTask(input || {})
+    // A new task changes the queue the dashboard shows, so the ball is redrawn from the truth rather than from
+    // the form's own optimism.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  /**
+   * The three ways to change a task that has not run yet: change it, move it, delete it.
+   *
+   * The *queue itself* is not a channel: it travels inside the view the panel already draws (`dashboard.queue`, built
+   * by `control-center.cjs` from the scheduler's own `listTasks`), so a second way to read it would be a second
+   * answer to the same question. What the panel could not do — and what made it "不能编辑，也不能调顺序" — is act on
+   * it. These three are the scheduler's own methods, the same ones the governance bridge gives the official plugin,
+   * so the ball's window and the official UI cannot disagree about what may be done to a task.
+   */
+  ipcMain.handle('mega:orb-task-edit', guard(async (_event, input = {}) => {
+    const result = await editScheduledTask(input || {})
+    // The edit may have changed a task's instant, its state, or its place in the queue, so the panel is redrawn
+    // from the scheduler's answer rather than from the form's.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  ipcMain.handle('mega:orb-task-move', guard(async (_event, input = {}) => {
+    const result = await moveScheduledTask(input || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  ipcMain.handle('mega:orb-task-delete', guard(async (_event, input = {}) => {
+    const result = await deleteScheduledTask(input || {})
+    // A deleted task leaves the queue the panel is drawing, so the panel is redrawn from the queue it left.
     await refreshOrbView()
     if (systemOrb) systemOrb.render(systemOrbView)
     return result
@@ -2373,9 +2741,7 @@ function registerIpc() {
   ipcMain.handle('mega:balance', async (_event, trigger = 'manual', options = {}) => {
     try {
       const only = Array.isArray(options?.only) && options.only.length ? options.only : null
-      const result = await balanceService.refreshBalances(typeof trigger === 'string' ? trigger : 'manual', { only })
-      notifyChanged()
-      return result
+      return await refreshBalance(typeof trigger === 'string' ? trigger : 'manual', { only })
     } catch (error) {
       // A balance failure is an outer-service failure: report, never throw.
       log(`balance refresh failed: ${error?.stack || error}`)
@@ -2383,6 +2749,13 @@ function registerIpc() {
       return { ...balanceService.describe(), error: { code: 'REFRESH_FAILED', message: String(error?.message || error) } }
     }
   })
+  /**
+   * The account as it stands, without reading it again.
+   *
+   * A renderer that is about to draw (the dock's Balance panel) asks this instead of `mega:balance`: the
+   * refresh is what costs a provider call, and drawing must not be able to trigger one by accident.
+   */
+  ipcMain.handle('mega:balance-restore', () => balanceService.describeCached())
   ipcMain.handle('mega:pick-workspace', () => pickWorkspaceDirectory(dialog))
   ipcMain.handle('mega:pick-sound', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
@@ -3094,7 +3467,15 @@ async function start(context) {
   createTray()
   // The system floating orb: another window of ours, after the tray and off the boot path. It is the one
   // surface that is visible without the official UI (and without the dock) having to be looked at.
-  createSystemOrbWindow()
+  // The ball lives in the official page now (the plugin's browser half registers it into the
+  // `shell.overlay` slot), which is where the user asked for it: one ball, drawn by the surface
+  // the user is already looking at. The system orb — our own always-on-top window over every
+  // application — is kept in the tree and turned off by default, because it flickered whenever its
+  // panel opened and a second ball showing the same snapshot was the thing being removed.
+  if (process.env.DSH_SYSTEM_ORB === '1') createSystemOrbWindow()
+  // The account is read once, in the background, so the dashboard's balance is the account's real state instead
+  // of "not read yet" until somebody clicks something (see `scheduleStartupBalanceRead`).
+  scheduleStartupBalanceRead()
   // Theme system starts last: it must never be able to delay the official UI,
   // the scheduler or the dock. A failure here is logged and the product runs on
   // the Dark recovery theme. It paints the official shell and overlay only — the dock is

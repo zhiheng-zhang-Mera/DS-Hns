@@ -91,6 +91,48 @@ test('one refresh implementation serves module-open, manual and retry', async ()
   assert.equal(unknown.trigger, 'manual', 'unknown triggers fall back to the manual path')
 })
 
+test('startup is a trigger like any other, and drawing never starts a read', async () => {
+  /**
+   * DS-Hns reads the account once as it comes up (`scheduleStartupBalanceRead`), because the dashboard would
+   * otherwise say 未刷新 until somebody clicked something. Two properties make that safe and both are asserted
+   * here: the read goes through the same coalescing path as every other trigger, and every *other* way of asking
+   * for the state — `describe`, `describeCached` — answers from memory without calling a provider.
+   */
+  const provider = okProvider('A', 'Provider A')
+  const service = new BalanceService({ providers: [provider] })
+
+  // Before the startup read, the state is honest about having nothing: no data, no timestamp.
+  assert.equal(service.describeCached().hasData, false)
+  assert.equal(service.describeCached().lastUpdatedAt, null)
+  assert.equal(provider.state.calls, 0, 'describing the account called a provider')
+
+  const startup = await service.refreshBalances('startup')
+  assert.equal(startup.trigger, 'startup')
+  assert.equal(provider.state.calls, 1)
+  assert.equal(startup.balances[0].total, 12.5)
+  assert.equal(service.describe().stats.lastTrigger, 'startup')
+
+  // Drawing the account afterwards is still free, and it is the *same* answer.
+  const drawn = service.describeCached()
+  assert.equal(provider.state.calls, 1, 'drawing the account called a provider')
+  assert.equal(drawn.hasData, true)
+  assert.equal(drawn.balances[0].total, 12.5)
+  assert.deepEqual(drawn, service.describe())
+})
+
+test('a startup read with no credential is data, not a thrown error', async () => {
+  // A machine with no DeepSeek key at all still starts: the read fails as data, the service keeps saying so, and
+  // nothing about it is fatal. (The Control Center turns this state into an ordinary 未配置密钥 row rather than a
+  // warning, which is why the code has to arrive intact.)
+  const provider = failingProvider('A', 'Provider A', { code: 'MISSING_CREDENTIAL', message: 'DEEPSEEK_API_KEY is not set' })
+  const service = new BalanceService({ providers: [provider] })
+  const result = await service.refreshBalances('startup')
+  assert.equal(result.ok, false)
+  assert.equal(result.error.code, 'MISSING_CREDENTIAL')
+  assert.equal(result.hasData, false)
+  assert.equal(service.describeCached().error.code, 'MISSING_CREDENTIAL')
+})
+
 test('concurrent refresh requests are coalesced instead of fanning out', async () => {
   const provider = okProvider('A', 'Provider A', { delayMs: 30 })
   const service = new BalanceService({ providers: [provider] })

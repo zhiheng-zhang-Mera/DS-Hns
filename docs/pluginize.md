@@ -373,3 +373,185 @@ Dock 文档里没有 `<video>`、层脚本里没有 `wallpaperVideo` / `isVideo`
 schedule UI`、`重复普通 permission classifier` 要等对应的社区插件（notify-sound / dsh-automation /
 dsh-auto-mode）接入并验收。§5.2 已定的方向不变：DS-Hns 自己的 Store 不删除，收敛为 **Plugin Governance**
 （manifest 校验、exact pin、兼容性、回滚、安全禁用），发现与搜索交给市场插件。
+
+---
+
+## 仪表盘接回真实数据源（DashboardView）
+
+**这一轮解决的问题不是画得不好，是没有数据。** 球的面板打开后画的是 §4.4 的治理字段（插件健康/依赖/版本/
+能力/重试/回退/最近错误/待人工/恢复动作/兼容性/版本钉），而旧 Dock 顶部那四张卡 —— 时段与谷价倒计时、任务
+运行/等待、并行 current/cap、余额三张卡 —— **在治理快照里根本不存在**：`buildControlCenter()` 只回答
+`{ sections, modules, plugins, degraded, failed, failing }`，治理桥转发的就是这一份，所以运行中的球拿不到余额，
+也拿不到倒计时。
+
+### 数据源是找回的，不是新造的
+
+新增的 `dashboard` 块由 `buildControlCenter()` 装配，**与 sections/modules/plugins 同一份快照**，另外两件它
+自己拿不到的事实由扩展交给它（各自真实 owner，绝不重新加载第二份）：
+
+| 仪表盘 | 来源 |
+| --- | --- |
+| 时段 PEAK/OFF-PEAK、下一次切换时刻 | `scheduler.describe().peak`（`billing/peak-engine.js`） |
+| 峰价时段表、价格来源 | `PricingRepository.getSchedule()/describe()` —— 与计费同源 |
+| 余额（总/充值/赠送/读取状态） | `balanceService.describe()` |
+| 运行/等待/挂起/阻塞/重试/失败/总数 | `scheduler.describe().activeQueue` / `.counts` |
+| 并行 current/cap、CPU、空闲内存 | `scheduler.describe().concurrency` / `.system` |
+| 子工作器、自动委派 | `snapshot.subWorker` |
+
+三条不撒谎的规则写在代码里并被断言：**没读过的余额是 `—` 而不是 `¥ 0.00`**；读取失败保留上次成功值并标
+`stale`；`controlCenter()` 与 `view.js` 都拿不到某个事实时给**理由**，不给一排零。
+
+### 倒计时按"时刻"发布，不按"剩余秒数"
+
+快照 15 秒一份，倒计时每秒都在变。所以 dashboard 行里存的是 `nextChangeIso`（价格切换的那个瞬间），由
+`view.js` 用它**自己的时钟**减出来 —— 旧 Dock 每秒重算那行逻辑，在新结构里由"发布时刻 + 视图重算"承担。
+再加一条：面板打开时 `useCountdown` 每秒自减一次，所以它不是 15 秒跳一格。下一次变化的钟点按**计费时区**
+（`schedule.timeZone`，Asia/Shanghai）格式化：06:00Z 显示成 14:00，与用户对照的价格页一致。
+
+标题也据实改了：旧 timer 卡叫"距下一次谷价"，但 `nextChange` 是**下一次价格切换**（两个方向都算）——谷价
+时段里它指向的是"下一次峰价"，照旧文案会让人等一个已经在手的东西。现在叫"距价格切换 / Until price change"。
+
+### 一条真相，两个界面各画一半
+
+* **球的面板**（`client.js` 的 `MegaOrb`，以及系统球 `orb.js`）：**仪表盘在上** —— 价格/账户/子工作器三组，
+  加任务与并行两组 —— 然后是治理的 lines、数字与动作按钮（`check`/`retry`/… 就在手边）；再点
+  "治理详情 · Governance" 才展开 §4.4 字段与模块名册。
+* **官方 Settings › Mega 整页**（`MegaPage`）：§4.4 十一个字段、模块名册、社区插件名册与它们的动作。
+  **不重复画仪表盘**（那是球的活）。
+* 两半来自**同一个** `buildMegaView()` 的返回对象（`fields` 与 `dashboard`），所以一个数字只有一个来源。
+
+### 顺带修掉一个真缺陷
+
+`verify.ps1` 里那条"球点外面会收起"**一直是 FAIL**：检查项找 `node.contains(event.target)`，而浏览器半边
+实际只有 Esc 与 × 能关面板 —— 那套"点外面收起"的逻辑当时只实现在**系统球自己的窗口**里（`orb.js` 的
+`documentPointerDown`）。复查结论那轮把 in-UI 球拿掉时，检查项没跟着走，于是它一直在报一个不存在的东西。
+现在球真的实现了这件事（`document` 上 `pointerdown` + 球与面板两个 box 的 `contains`，**不**
+`preventDefault`：点击照样落到它原本该落的地方），检查项也改成断言真实代码。
+
+### 验证
+
+`tests/unit/control-center.test.js` 9 项（新增 2：仪表盘与 sections 同源、余额没读过不编 `¥0.00` 且失败保留
+上次成功值）；`tests/unit/mega-core-view.test.js` 9 项（新增 3：仪表盘数字 + 十一个字段原样不动、倒计时按
+时刻重算三档、无 dashboard 块给理由）；`tests/unit/mega-core-client.test.js` 9 项（新增 2：球开在仪表盘而
+页面不重复画、倒计时每秒自减）；新增 `tests/unit/orb-ui.test.js` 5 项（系统球面板画出五组数字与三种色调、
+仪表盘在治理之前、缺 dashboard 给理由、关着不画、球的色调仍来自治理）。
+
+真实链路验证（`buildControlCenter` + **真实 `SchedulerService`/`PricingRepository`** + 一次性 state 目录）：
+
+```text
+电费时段=OFF-PEAK | 峰价时段表=09:00-12:00, 14:00-18:00 · Asia/Shanghai | 价格来源=official · 2026-09-07
+距价格切换=已是谷价 · off-peak now | 下一次变化=14:00 → 峰价 Peak
+账户=未刷新（未读，不编 0）| 并行 current=4 / cap=4 | 空闲内存=13.4 GB
+view.dashboard: price:until-off-peak=3m 59s（由 nextChangeIso 与视图时钟算出）
+```
+
+全量测试唯一失败是既有的 `mega-extension-integration`（orb 窗口要 `DSH_SYSTEM_ORB=1` 才创建，基线同样
+失败）；`verify.ps1`（`-SkipTests`）**ALL CHECKS PASSED**。
+
+---
+
+## Phase 2 — 定时任务：官方界面里的新建浮窗（对话式输入 + 定时设置）
+
+**要解决的问题**：创建定时任务的界面原来只长在旧 Dock 的"手动队列"面板里 —— 而那个 Dock 默认不出现，所以
+"新建一个定时任务"在产品里其实没有入口；即便打开 Dock，它也是一个表单（textarea + 三个 select +
+`datetime-local`），和"对话"没有任何共同点。
+
+### 入口与浮窗
+
+入口注册进 **`conversation.session.header.actions`**（官方闹钟与任务列表所在的槽，`order: 30` 排在它们之后；
+list 型槽是加成，不会顶掉官方条目）。点开的是**官方组件库的居中浮窗**：
+`@deepseek-ai/dsh-client-ui-primitives` 的 `Modal`（该模块名确实在官方前端构建的 platform table 里：
+`{react, "react/jsx-runtime", "react-dom", …, "@deepseek-ai/dsh-client-ui-slots", "@deepseek-ai/dsh-client-ui-primitives",
+"@deepseek-ai/dsh-client-ui-dockkit"}` —— 这是这一轮读出来的事实，也是插件可以 require 它的依据）。
+它自带 portal 到 `document.body`、遮罩、`role="dialog"` + `aria-modal`、Esc 关闭与居中；`headless: true` 让我们
+自己排布内部，于是输入框与定时设置是**一个整体**而不是官方 chrome 切成的两半。宿主没有这个模块时入口不出现
+（`try/catch` 包住 require）：一个会开出坏盒子的按钮比没有按钮更糟。
+
+### 结构与语义
+
+弹窗内自上而下：**对话输入区**（同形输入框 + "Enter 发送 / Shift+Enter 换行"提示 + 字数），**定时设置**
+（发送时间 + 四个快捷值 + 允许峰价 + 时区/峰价时段），**一句人话总结**（"将在 … 作为官方新会话发出 · in 2h 12m"，
+峰价且未允许峰值时多一句"会挂起到谷价"），**两个按钮**。创建回执显示真实任务（id/状态/到点），拒绝显示
+DS-Hns 原话。Enter 的三种情况（发送 / Shift 换行 / 输入法组字）都有独立断言。
+
+### "与正常对话相同"是可断言的性质
+
+新任务走 `scheduler.addTask` → `launchOfficial` → **官方 `session/create` + `session/prompt`**（与真人按发送
+同一对 RPC），提示词原样发送。`tests/unit/scheduled-task.test.js` 用真实 `SchedulerService` + 假 official client
+钉住：早一小时 tick 只挂起（`waiting-schedule`，零发送）；到点后同一 tick 变成官方会话且 `prompt` 逐字相同；
+峰价未允许 → `peak-window` 挂起，允许 → 照发。
+
+### 能力由 DS-Hns 回答
+
+桥新增 `/timing`（能力面：默认时间 now+3m、时区、峰价时段、当前是否峰价、执行方式、限制）与 `/task`
+（创建，原样透传请求，保留 DS-Hns 的 400 与原话）；插件同源暴露 `/mega-core/timing`、`/mega-core/task`。
+**动作闭集没有扩大** —— 调度不是对模块的恢复动作 —— 桥的发现文件 schema 因此升到 **2**；旧版桥对 `/timing`
+回答 404，对话框显示"读不到调度能力：… does not answer timing questions"（**已在运行中的旧实例上实测到 404**，
+即这条兼容路径不是推测）。
+
+### 验证
+
+`mega-core-client.test.js` 15 项（新增 4）、`mega-core-plugin.test.js` 6 项（路由六条 + 经真实治理桥创建并保留
+拒绝原话）、新增 `scheduled-task.test.js` 3 项；全量 **1499/1499**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；
+语法门 229/229。真实链路探针（真实 `SchedulerService` + `PricingRepository`）：`surface.defaults =
+{startAt: now+3m, allowPeak: false, deliveryMode: 'official-session'}`、`timeZone: Asia/Shanghai`、
+`peakNow: true`；空提示词 → `{ok:false, reason:'a task needs a prompt', field:'prompt'}`，坏时间 →
+`not a time this scheduler can read`，正常创建 → `status: PENDING` → 随即 `SUSPENDED`（未到点）。
+
+## 定时任务挂起失败：路由被删了，调用它的那半边还在（人工复查 6）
+
+**用户报的现象**："定时任务挂起失败"。**根因不在调度器里**：真机探针把 `addTask` → 立刻 `SUSPENDED /
+waiting-schedule` → 重启后仍在 → 到点作为官方会话发出一次，整条链路走通了。坏的是**官方界面那半边从来没有把
+任务交给调度器** —— `9801d7e` 删掉了插件宿主半边的 `GET /mega-core/timing` 与 `POST /mega-core/task`（当时的
+理由是"新表单只住在系统悬浮球的窗口里、走它自己的 IPC"，而那个窗口 **不** 走这两条路由），但调用它们的**客户端
+半边一直在**。于是 `GET /timing` → **404**、`POST /task` → **405**，两个都是**空 body**，客户端的
+`response.json()` 直接抛 `SyntaxError: Unexpected end of JSON input`：用户看到的是解析器的报错，而不是问题的
+陈述。任务从未被创建，所以"挂起"永远没有发生。
+
+**同一个 bug 还有第二处**：`/mega-core/orb`（球的坐标读写）是**同一个故事** —— 它在 `56f3e7f`（"只留系统球"）
+随界面内的球一起被删，而 `8781543` 又把界面内的球装了回来。于是球的坐标既读不到也存不下（每次重启回到默认
+角），只是这次失败得**完全静默**（catch 里写着"默认角是一个完整的答案"）。它现在也回来了。
+
+三件事一起修：
+
+1. **路由回来了**：`/timing`、`/task`（原样透传请求、保留 DS-Hns 的 400 与原话）、`/orb`
+   （存 `$DSH_HOME/state/mega-core-orb.json`；不用 `localStorage`，因为官方界面是 `--port 0`，origin 每次重启都变）。
+2. **不再有解析器报错**：客户端读 body 一律先读文本再解析，没有 JSON 时把**状态码**当作原因
+   （`the timing surface answered 404 without JSON`）。"路由不在"这种失败从此是一句话，不是一个异常。
+3. **一条会自己发现的测试**：`mega-core-plugin.test.js` 不再断言"这一半有哪几条路由"（那只是快照），而是从
+   **客户端半边的源码里抽出它调用的每个 URL**，断言宿主半边**每一条都注册了** —— 这正是 `9801d7e` 会当场
+   失败的那条断言。同一个文件里还端到端跑通 `/timing` + `/task`（真治理桥）与 `/orb`（真文件）。
+
+### 顺带修掉两处"表里不一"
+
+* **过去的时间会被立刻执行，而不是挂起。** `decideTask` 把 `now >= startAtMs` 读作 ready（对"到点了"的队列项
+  是对的），而 `datetime-local` 只精确到分钟——用户选"这一分钟"时它其实已经过去了，于是任务**立刻跑**，而
+  用户以为自己排的是一个定时任务。现在 `SchedulerService.addTask` 拒绝过去的时间（拒绝带 `field: 'startAt'`，
+  经 `scheduleTask` 一路传到表单），两张表单因此也不为一个层会拒绝的时间点亮提交按钮（禁用时用 hover 文本
+  说明原因）。**没有 `startAt` 仍然是"现在就跑"** —— 规则针对的是"给了时间而那个时间已经过去"。
+* **球的表单只在重绘时才更新。** 以前输入提示词后"创建"按钮会灰着最多 15 秒（等下一次轮询），改时间后总结句
+  还说着旧时间。现在这两处**就地更新**（`syncFormState`，只写两个节点）——不重建表单，因为重建会关掉原生
+  日期选择器、也可能打断输入法组字。
+
+### 球里那张表单："点了就关、没法编辑"
+
+上一版把官方 `Modal`（portal 到 `document.body`）当成球里那张表单，而**面板自己的规则是"点面板外面就收起"**：
+portal 出去的表单正好在面板"外面"，所以点进输入框那一下就把拥有它的面板收掉了 —— 表单不是不能编辑，是被
+"要编辑它的那一次点击"卸载了。现在：
+
+* 界面内球的面板里是**它自己的表单**（`NewTaskFormPanel`），与官方头部那扇居中浮窗**共用同一份草稿**
+  （`useNewTaskDraft`：同一次 timing 读取、同一个 POST、同一句拒绝）。表单打开期间面板不挂"点外面收起"那条
+  规则（半句话不该被一次误点丢掉），它的出口是 `← 返回`、`×` 和球本身。
+* 系统悬浮球那扇窗口同理：**面板打开期间窗口才可获焦**（`syncFocusable` —— `focusable: false` 的窗口根本收不到
+  按键，这正是"无法编辑"的机制），关闭时先 `blur()` 再收回可获焦（Windows 不会因为加了 no-activate 样式就把
+  已经激活的窗口停用，否则用户接下来几下按键会掉进那扇窗口里）；表单也不会被外面的点击关掉，重绘还会把
+  光标放回原来那个字段、原来的位置。
+* 官方头部入口不变，仍然是官方居中子页面；宿主没有官方组件库时它不出现，而球自己那张表单照常工作（它只用
+  我们自己的盒子）。
+
+**验证**：真机链路探针（真 `SchedulerService` + 真治理桥 + 真宿主半边 + 真 HTTP）：`GET /mega-core/timing` →
+200（真实 surface）、`POST /mega-core/task` → 200 → `SUSPENDED / waiting-schedule` 且已持久化、派发 **0**；
+`GET /mega-core/orb` → 200 `{ok:true, position:null}`，POST 后读回同一组数字，坏坐标 400 且不覆盖旧值。
+
+**运行中的实例仍需重启**：宿主半边的路由表是挂载时解析的，所以线上那个进程里 `/timing` 现在仍然是 404 ——
+`data/profiles/web/node_modules/dsh-plugin-mega-core/lib/` 已经同步成新的 `index.js` / `client.js`，重启即生效。

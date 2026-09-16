@@ -35,8 +35,16 @@ const LOOPBACK = '127.0.0.1'
 /** The actions a client may ask for, and nothing else (`updateplan/pluginize.md` §22's governance boundary). */
 const BRIDGE_ACTIONS = Object.freeze(['check', 'retry', 'reset-fallback', 'repair', 'disable', 'enable'])
 
-/** The bridge's own state schema, so a later version can migrate rather than guess. */
-const BRIDGE_FILE_VERSION = 1
+/**
+ * The bridge's own state schema, so a later version can migrate rather than guess.
+ *
+ * 2 adds the two opt-in halves of the timing surface (`updateplan/pluginize.md` Phase 2): `timing()` answers how a
+ * scheduled task may be timed, and `createTask()` asks for one. **`BRIDGE_ACTIONS` is unchanged**: scheduling is
+ * not a recovery action on a module, so it does not widen what a plugin may ask governance to *do* to the layer.
+ * The queue read and the two operations on a queued task (`tasks()` / `editTask()` / `moveTask()`) are opt-in the
+ * same way and leave both the file's shape and the action set alone.
+ */
+const BRIDGE_FILE_VERSION = 2
 
 function json(response, status, body) {
   const text = JSON.stringify(body)
@@ -49,11 +57,16 @@ function json(response, status, body) {
  * @param {string}   options.stateDir   where the discovery file goes (the Harness' `$DSH_HOME/state`)
  * @param {Function} options.snapshot   () => the governance snapshot (plugin registry + protection + boot)
  * @param {Function} options.act        async ({ action, id }) => { ok, ... }
+ * @param {Function} [options.timing]   () => what a scheduled task may be (windows, peak/valley, defaults)
+ * @param {Function} [options.createTask] async ({ prompt, startAt, allowPeak }) => { ok, task }
+ * @param {Function} [options.editTask] async ({ taskId, prompt?, startAt?, allowPeak? }) => { ok, task }
+ * @param {Function} [options.moveTask] async ({ taskId, move }) => { ok, task }
+ * @param {Function} [options.deleteTask] async ({ taskId }) => { ok, task }
  * @param {Function} [options.log]
  * @param {string}   [options.host]     test seam; only loopback is accepted
  * @param {number}   [options.port]     0 for an ephemeral port
  */
-function createGovernanceBridge({ stateDir, snapshot, act, log = () => {}, host = LOOPBACK, port = 0 } = {}) {
+function createGovernanceBridge({ stateDir, snapshot, act, timing = null, createTask = null, editTask = null, moveTask = null, deleteTask = null, log = () => {}, host = LOOPBACK, port = 0 } = {}) {
   if (!stateDir) throw new Error('the governance bridge needs a state directory')
   if (typeof snapshot !== 'function') throw new Error('the governance bridge needs a snapshot()')
   if (host !== LOOPBACK) throw new Error(`the governance bridge is loopback-only; "${host}" is not ${LOOPBACK}`)
@@ -139,6 +152,76 @@ function createGovernanceBridge({ stateDir, snapshot, act, log = () => {}, host 
         return json(response, 500, { ok: false, action, id, reason: lastError })
       }
     }
+    /**
+     * What a scheduled task may be: the timing surface, for a UI that has to offer the choices without guessing.
+     *
+     * It is a **separate endpoint from `/governance`** on purpose. The snapshot is the Control Center's answer and
+     * is assembled on every poll; this is a question about a capability, it is asked once when a dialog opens, and
+     * mixing the two would make "governance is slow" and "the timing surface is missing" the same symptom.
+     */
+    if (url.pathname === '/timing' && request.method === 'GET') {
+      if (typeof timing !== 'function') return json(response, 404, { ok: false, reason: 'this DS-Hns does not answer timing questions' })
+      try {
+        return json(response, 200, { ok: true, ...timing() })
+      } catch (error) {
+        lastError = String(error?.message || error)
+        return json(response, 500, { ok: false, reason: lastError })
+      }
+    }
+    /**
+     * Schedule a task. `POST /task` with `{ prompt, startAt?, allowPeak? }`, answered with the task the scheduler
+     * actually recorded — its id, its status and the instant it will run — never with a hopeful `{ ok: true }`.
+     */
+    if (url.pathname === '/task' && request.method === 'POST') {
+      if (typeof createTask !== 'function') return json(response, 404, { ok: false, reason: 'this DS-Hns cannot schedule tasks' })
+      let body = null
+      try {
+        body = await readBody(request)
+      } catch (error) {
+        return json(response, 400, { ok: false, reason: String(error?.message || error) })
+      }
+      try {
+        const result = await createTask(body || {})
+        // 400 for a request the scheduler refused on its merits (no prompt, a time in the past); 200 only for a
+        // task that now exists.
+        return json(response, result?.ok === false ? 400 : 200, result || { ok: false, reason: 'no answer' })
+      } catch (error) {
+        lastError = String(error?.message || error)
+        log(`scheduling a task failed: ${lastError}`)
+        return json(response, 500, { ok: false, reason: lastError })
+      }
+    }
+    /**
+     * Change a queued task, move one, delete one. `POST /task-edit` with `{ taskId, prompt?, startAt?, allowPeak? }`,
+     * `POST /task-move` with `{ taskId, move }`, `POST /task-delete` with `{ taskId }`.
+     *
+     * Separate routes rather than one with an `op` field, because they are different questions with different
+     * refusals ("only pending/suspended tasks can be edited", "invalid queue move", "not in the active queue"), and a
+     * surface that had to build an envelope would have to know which fields each op takes. A refusal keeps the
+     * scheduler's own status (400) and its own words, exactly as `POST /task` does.
+     *
+     * There is deliberately **no `GET /tasks`**: the queue travels inside the governance snapshot
+     * (`control-center.cjs`'s `dashboard.queue`, from the scheduler's own `listTasks`), which every surface already
+     * reads — a second route answering the same question would be a second answer to it.
+     */
+    if ((url.pathname === '/task-edit' || url.pathname === '/task-move' || url.pathname === '/task-delete') && request.method === 'POST') {
+      const manage = url.pathname === '/task-edit' ? editTask : url.pathname === '/task-move' ? moveTask : deleteTask
+      if (typeof manage !== 'function') return json(response, 404, { ok: false, reason: `this DS-Hns cannot answer ${url.pathname}` })
+      let body = null
+      try {
+        body = await readBody(request)
+      } catch (error) {
+        return json(response, 400, { ok: false, reason: String(error?.message || error) })
+      }
+      try {
+        const result = await manage(body || {})
+        return json(response, result?.ok === false ? 400 : 200, result || { ok: false, reason: 'no answer' })
+      } catch (error) {
+        lastError = String(error?.message || error)
+        log(`${url.pathname} failed: ${lastError}`)
+        return json(response, 500, { ok: false, reason: lastError })
+      }
+    }
     return json(response, 404, { ok: false, reason: `"${url.pathname}" is not part of the governance bridge` })
   }
 
@@ -220,7 +303,21 @@ function createGovernanceBridge({ stateDir, snapshot, act, log = () => {}, host 
       requests,
       refused,
       lastError,
-      actions: [...BRIDGE_ACTIONS]
+      actions: [...BRIDGE_ACTIONS],
+      /**
+       * Which of the optional halves are wired, so a surface can say which bridge it is talking to rather than
+       * guessing (a surface asking for one this host does not have gets a 404, not a lie).
+       *
+       * `tasks` has meant "this bridge can create a task" since version 2, and it still does; `taskEdit`,
+       * `taskMove` and `taskDelete` are the three operations on a queued one. The file's schema version stays 2: the
+       * discovery file's own shape did not change, and a caller tells these apart by asking, which is what these
+       * booleans are for.
+       */
+      timing: typeof timing === 'function',
+      tasks: typeof createTask === 'function',
+      taskEdit: typeof editTask === 'function',
+      taskMove: typeof moveTask === 'function',
+      taskDelete: typeof deleteTask === 'function'
     })
   }
 }

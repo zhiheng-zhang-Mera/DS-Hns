@@ -87,19 +87,51 @@ test('the package declares the bundle patch, the client half and the web platfor
   assert.equal(/- remove:|replace:/.test(patch), false, 'the patch must be additive only')
 })
 
-test('the host half mounts its four routes and unwinds them on unload', async () => {
+/** Every `/mega-core/...` URL the browser half calls, read out of its own source. */
+function clientRouteUrls() {
+  const source = read('app/plugins/mega-core/lib/client.js')
+  const urls = new Set()
+  for (const match of source.matchAll(/['"](\/mega-core\/[a-z-]+)['"]/g)) urls.add(match[1])
+  return [...urls].sort()
+}
+
+test('the host half mounts every route the browser half calls, and unwinds them on unload', async () => {
   const host = await loadHost()
   const server = stubWebServer()
   const dispose = host.apply({ webServer: server })
-  // No `/orb`: the only ball is the system one (`app/extensions/mega/system-orb.cjs`), which keeps its own
-  // position in its own file. A route here for a surface that no longer exists would be a surface to keep in
-  // step for nothing.
-  assert.deepEqual([...server.routes.keys()].sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/view'])
+  const routes = [...server.routes.keys()].sort()
+  assert.deepEqual(routes, [
+    '/mega-core/action',
+    '/mega-core/governance',
+    '/mega-core/health',
+    '/mega-core/orb',
+    '/mega-core/task',
+    '/mega-core/task-delete',
+    '/mega-core/task-edit',
+    '/mega-core/task-move',
+    '/mega-core/timing',
+    '/mega-core/view'
+  ])
   for (const route of server.routes.values()) assert.equal(route.kind, 'exact')
+
+  /**
+   * The contract, asserted **between the two halves** rather than as a list of names on this side.
+   *
+   * The list above is a snapshot; this is the rule. Twice now a route was deleted here on the theory that its
+   * caller had moved — `/orb` when the in-UI ball was removed, then `/timing` + `/task` when the new-task form was
+   * thought to live only in the system ball's window — and both times the caller came back first and the route did
+   * not. The failure was silent by construction: a 404 with an empty body, and the client's own `response.json()`
+   * throwing `SyntaxError: Unexpected end of JSON input` where a sentence about the problem belonged. A test that
+   * reads the URLs out of the client half cannot be fooled by that reasoning again.
+   */
+  const called = clientRouteUrls()
+  assert.ok(called.length >= 5, `no route constants found in the browser half: ${called.join(', ')}`)
+  assert.deepEqual(called.filter((url) => !routes.includes(url)), [], `the browser half calls a route this half does not serve: ${called.join(', ')}`)
+
   assert.equal(typeof dispose, 'function')
   dispose()
   assert.equal(server.routes.size, 0, 'the routes outlived the plugin')
-  assert.deepEqual(server.disposed.sort(), ['/mega-core/action', '/mega-core/governance', '/mega-core/health', '/mega-core/view'])
+  assert.deepEqual(server.disposed.sort(), routes)
   // `inject` is what makes the loader wait for the web server, so it must be declared.
   assert.deepEqual(host.inject, ['webServer'])
   assert.equal(host.name, 'dsh-plugin-mega-core')
@@ -143,7 +175,8 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     // §4.4 asks the page to report a version; it is read from the package manifest, never typed twice.
     assert.equal(healthBody.plugin.id, 'dsh-plugin-mega-core')
     assert.match(healthBody.plugin.version, /^\d+\.\d+\.\d+$/)
-    assert.equal(healthBody.governance.schema, 1)
+    // The discovery file's own schema: 2 carries the two opt-in timing halves (/timing, /task).
+    assert.equal(healthBody.governance.schema, 2)
 
     // The composed view: the same snapshot, in the shape the orb and the page draw. One route rather than
     // two fetches composed in the browser, because the tones and the field names are rules worth testing.
@@ -156,7 +189,7 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     assert.equal(viewBody.status.tone, 'ok', 'a healthy bridge file and a healthy module is not a fault')
     assert.deepEqual(viewBody.status, { tone: 'ok', label: 'Healthy', attention: 0, active: 2, total: 2, pending: 0, failing: 0 })
     assert.equal(viewBody.version.plugin, healthBody.plugin.version)
-    assert.equal(viewBody.version.schema, 1)
+    assert.equal(viewBody.version.schema, 2)
     assert.deepEqual(viewBody.hover, ['DS-Hns', 'Healthy', '2 of 2 plugin(s) active', '0 pending'])
     assert.equal(viewBody.fields.length, 11, '§4.4 names eleven fields')
 
@@ -180,6 +213,173 @@ test('the host half mirrors DS-Hns\' governance bridge, token and all', async ()
     const wrongMethod = fakeExchange({ method: 'GET' })
     await server.routes.get('/mega-core/action').handler(wrongMethod.request, wrongMethod.response)
     assert.equal(wrongMethod.response.statusCode, 405)
+  } finally {
+    await bridge.stop()
+    fs.rmSync(dshHome, { recursive: true, force: true })
+  }
+})
+
+test('the new-task pair proxies DS-Hns, its refusals included, and the ball position is a file', async () => {
+  /**
+   * The two routes the task form calls, plus the two the ball's position uses — driven end to end through a real
+   * governance bridge, because "the plugin mirrors DS-Hns" is a claim about the pair, not about either half.
+   *
+   * Both were deleted once and both are back (see the host half's own note): what a caller does is not evidence
+   * about a route's life, and this is where that lesson is a test rather than a paragraph.
+   */
+  const host = await loadHost()
+  const dshHome = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-mega-core-task-'))
+  const created = []
+  const moved = []
+  const startAt = new Date(Date.now() + 3 * 60_000).toISOString()
+  const bridge = createGovernanceBridge({
+    stateDir: path.join(dshHome, 'state'),
+    snapshot: () => ({ modules: [], plugins: [], degraded: 0, failed: 0, failing: 0 }),
+    act: async () => ({ ok: true }),
+    timing: () => ({
+      ok: true,
+      kind: 'scheduled-task',
+      defaults: { startAt, allowPeak: false, deliveryMode: 'official-session' },
+      schedule: { timeZone: 'Asia/Shanghai', peakPeriods: [] },
+      // The surface says what the scheduler will accept, and the scheduler refuses a past instant (`addTask`).
+      limits: { minStartOffsetSeconds: 1, maxStartAheadDays: 365 }
+    }),
+    createTask: async (input) => {
+      created.push(input)
+      if (!String(input.prompt || '').trim()) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+      return { ok: true, task: { id: 'task-1', status: 'SUSPENDED', reason: 'waiting-schedule', startAtMs: Date.parse(input.startAt) } }
+    },
+    /** The queue's two operations, as the extension wires them (`editScheduledTask` / `moveScheduledTask`). */
+    editTask: async (input) => {
+      if (!input.taskId) return { ok: false, reason: 'editing a task needs its id', field: 'taskId' }
+      if (!String(input.prompt || '').trim()) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+      return { ok: true, task: { id: input.taskId, status: 'SUSPENDED', reason: 'waiting-schedule' } }
+    },
+    moveTask: async (input) => {
+      moved.push(input)
+      if (!['top', 'up', 'down', 'bottom'].includes(String(input.move || ''))) {
+        return { ok: false, reason: `"${input.move}" is not a queue move; expected top, up, down or bottom`, field: 'move' }
+      }
+      return { ok: true, task: { id: input.taskId, queueRank: 1 } }
+    },
+    deleteTask: async (input) => {
+      if (!input.taskId) return { ok: false, reason: 'deleting a task needs its id', field: 'taskId' }
+      if (input.taskId === 'task-gone') return { ok: false, reason: `"${input.taskId}" is not in the active queue`, field: 'taskId' }
+      return { ok: true, task: { id: input.taskId, status: 'CANCELED', reason: 'user-cancel' }, deleted: true }
+    },
+    log: () => {}
+  })
+  await bridge.start()
+  try {
+    const server = stubWebServer()
+    host.apply({ webServer: server }, { env: { DSH_HOME: dshHome } })
+
+    const timing = fakeExchange()
+    await server.routes.get('/mega-core/timing').handler(timing.request, timing.response)
+    assert.equal(timing.response.statusCode, 200)
+    const surface = JSON.parse(timing.response.body)
+    assert.equal(surface.kind, 'scheduled-task')
+    assert.equal(surface.defaults.startAt, startAt)
+    assert.equal(surface.limits.minStartOffsetSeconds, 1, 'the form must not offer a time the scheduler refuses')
+
+    const made = fakeExchange({ method: 'POST', body: JSON.stringify({ prompt: '总结今天的构建日志', startAt, allowPeak: false, deliveryMode: 'official-session' }) })
+    await server.routes.get('/mega-core/task').handler(made.request, made.response)
+    assert.equal(made.response.statusCode, 200)
+    const task = JSON.parse(made.response.body).task
+    assert.equal(task.id, 'task-1')
+    // A task that is waiting for its instant is what the form reports back to the user, reason and all.
+    assert.equal(task.status, 'SUSPENDED')
+    assert.equal(task.reason, 'waiting-schedule')
+    assert.equal(created[0].prompt, '总结今天的构建日志')
+
+    // A refusal keeps the bridge's own status (400) and its own words: the plugin does not turn one into a success.
+    const refused = fakeExchange({ method: 'POST', body: JSON.stringify({ prompt: '   ' }) })
+    await server.routes.get('/mega-core/task').handler(refused.request, refused.response)
+    assert.equal(refused.response.statusCode, 400)
+    assert.match(JSON.parse(refused.response.body).reason, /a task needs a prompt/)
+
+    const wrongMethod = fakeExchange({ method: 'GET' })
+    await server.routes.get('/mega-core/task').handler(wrongMethod.request, wrongMethod.response)
+    assert.equal(wrongMethod.response.statusCode, 405)
+
+    /**
+     * The queue's two operations — what "不能编辑，也不能调顺序" needed and did not have.
+     *
+     * /view carries the queue itself (`dashboard.queue`), so these are the *actions*: each is proxied to the
+     * scheduler's own method, each keeps the bridge's status and words on a refusal, and each is refused by method
+     * rather than treated as a read.
+     */
+    const edited = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', prompt: '改过的内容', allowPeak: true }) })
+    await server.routes.get('/mega-core/task-edit').handler(edited.request, edited.response)
+    assert.equal(edited.response.statusCode, 200)
+    assert.equal(JSON.parse(edited.response.body).task.id, 'task-1')
+
+    const refusedEdit = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', prompt: '   ' }) })
+    await server.routes.get('/mega-core/task-edit').handler(refusedEdit.request, refusedEdit.response)
+    assert.equal(refusedEdit.response.statusCode, 400)
+    assert.equal(JSON.parse(refusedEdit.response.body).field, 'prompt', 'the field a refusal is about did not survive')
+
+    const movedRequest = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', move: 'top' }) })
+    await server.routes.get('/mega-core/task-move').handler(movedRequest.request, movedRequest.response)
+    assert.equal(movedRequest.response.statusCode, 200)
+    assert.deepEqual(moved[0], { taskId: 'task-1', move: 'top' })
+
+    const badMove = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1', move: 'sideways' }) })
+    await server.routes.get('/mega-core/task-move').handler(badMove.request, badMove.response)
+    assert.equal(badMove.response.statusCode, 400)
+    assert.match(JSON.parse(badMove.response.body).reason, /not a queue move/)
+
+    const wrongMethodMove = fakeExchange({ method: 'GET' })
+    await server.routes.get('/mega-core/task-move').handler(wrongMethodMove.request, wrongMethodMove.response)
+    assert.equal(wrongMethodMove.response.statusCode, 405)
+    assert.match(JSON.parse(wrongMethodMove.response.body).reason, /moved with POST/)
+
+    /**
+     * Deleting one — the third of the queue's operations, and the one the user asked for by name
+     * ("队列任务需要允许删除"). It keeps the bridge's status and words, and a task that is not in the queue is refused
+     * rather than reported as deleted.
+     */
+    const deleted = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-1' }) })
+    await server.routes.get('/mega-core/task-delete').handler(deleted.request, deleted.response)
+    assert.equal(deleted.response.statusCode, 200)
+    const deletion = JSON.parse(deleted.response.body)
+    assert.equal(deletion.deleted, true)
+    assert.equal(deletion.task.status, 'CANCELED', 'a deleted task is cancelled, which is what keeps it in history')
+
+    const gone = fakeExchange({ method: 'POST', body: JSON.stringify({ taskId: 'task-gone' }) })
+    await server.routes.get('/mega-core/task-delete').handler(gone.request, gone.response)
+    assert.equal(gone.response.statusCode, 400)
+    assert.match(JSON.parse(gone.response.body).reason, /not in the active queue/)
+
+    const wrongMethodDelete = fakeExchange({ method: 'GET' })
+    await server.routes.get('/mega-core/task-delete').handler(wrongMethodDelete.request, wrongMethodDelete.response)
+    assert.equal(wrongMethodDelete.response.statusCode, 405)
+    assert.match(JSON.parse(wrongMethodDelete.response.body).reason, /deleted with POST/)
+
+    /**
+     * The ball's position: a file under `$DSH_HOME/state`, not `localStorage`.
+     *
+     * The official UI is served from a `--port 0` loopback URL, so its origin — and every `localStorage` entry with
+     * it — changes on every restart. A file is origin-independent, which is the property "the ball comes back where
+     * I put it" needs.
+     */
+    const empty = fakeExchange()
+    await server.routes.get('/mega-core/orb').handler(empty.request, empty.response)
+    assert.equal(empty.response.statusCode, 200)
+    assert.deepEqual(JSON.parse(empty.response.body), { ok: true, position: null })
+
+    const stored = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { right: 14, bottom: 220, edge: 'right' } }) })
+    await server.routes.get('/mega-core/orb').handler(stored.request, stored.response)
+    assert.equal(stored.response.statusCode, 200)
+    assert.deepEqual(JSON.parse(stored.response.body).position, { right: 14, bottom: 220, edge: 'right' })
+    assert.equal(host.readOrbPosition({ DSH_HOME: dshHome }).bottom, 220, 'the position did not survive the answer')
+
+    // Something that is not two finite numbers is refused rather than written: the file is the ball's memory.
+    const nonsense = fakeExchange({ method: 'POST', body: JSON.stringify({ position: { right: 'left', bottom: null } }) })
+    await server.routes.get('/mega-core/orb').handler(nonsense.request, nonsense.response)
+    assert.equal(nonsense.response.statusCode, 400)
+    assert.match(JSON.parse(nonsense.response.body).reason, /finite x and y/)
+    assert.equal(host.readOrbPosition({ DSH_HOME: dshHome }).bottom, 220, 'a refused write changed the stored position')
   } finally {
     await bridge.stop()
     fs.rmSync(dshHome, { recursive: true, force: true })
@@ -223,6 +423,26 @@ test('when DS-Hns is not running the plugin says so instead of inventing an answ
     assert.equal(viewBody.status.tone, 'unknown')
     assert.equal(viewBody.status.label, 'Unavailable')
     assert.match(viewBody.reason, /not running|no governance bridge file/)
+
+    /**
+     * The timing surface is a 503 with a reason, and it is a *different* answer from the view's: a caller that
+     * asked what a task may be must see that it was not told, so the form can say "start DS-Hns" rather than
+     * drawing an empty time field that looks like a choice.
+     */
+    const timing = fakeExchange()
+    await server.routes.get('/mega-core/timing').handler(timing.request, timing.response)
+    assert.equal(timing.response.statusCode, 503)
+    const timingBody = JSON.parse(timing.response.body)
+    assert.equal(timingBody.ok, false)
+    assert.equal(timingBody.available, false)
+    assert.match(timingBody.reason, /not running|no governance bridge file/)
+
+    // The ball's position needs no bridge at all: it is this half's own file, and "nothing stored yet" is a
+    // complete answer to it.
+    const orb = fakeExchange()
+    await server.routes.get('/mega-core/orb').handler(orb.request, orb.response)
+    assert.equal(orb.response.statusCode, 200)
+    assert.deepEqual(JSON.parse(orb.response.body), { ok: true, position: null })
   } finally {
     fs.rmSync(stateDir, { recursive: true, force: true })
   }

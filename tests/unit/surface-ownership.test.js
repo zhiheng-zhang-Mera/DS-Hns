@@ -60,10 +60,20 @@ test('every channel the dock can call is owned by a module that declares it', ()
 test('the system orb\'s window has the same rule, and a much smaller surface', () => {
   const { channels, dynamic } = preloadChannels('app/extensions/mega/ui/orb-preload.cjs')
   const declared = declaredChannels()
-  // Six: one per thing that window can do. Anything more than that is a surface nobody asked for.
+  /**
+   * Eleven: one per thing that window can do, and no more.
+   *
+   * The timing pair is what the ball's own new-task form uses (`mega:orb-timing`, `mega:orb-task`); the three after it
+   * are the queue's own operations (`mega:orb-task-edit`, `mega:orb-task-move`, `mega:orb-task-delete`). All five are
+   * named channels rather than one that takes an arbitrary request, for the same reason the governance actions are a
+   * closed set: a window that can ask for "anything" has to be trusted with everything. There is no channel that
+   * *reads* the queue — it arrives inside the view the shell pushes — so the surface stays as small as the operations
+   * it needs.
+   */
   assert.deepEqual(channels, [
     'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
-    // Plus the one push the ball listens on: six ways in, one way out.
+    'mega:orb-timing', 'mega:orb-task', 'mega:orb-task-edit', 'mega:orb-task-move', 'mega:orb-task-delete',
+    // Plus the one push the ball listens on: eleven ways in, one way out.
     'mega:orb-state'
   ])
   const unowned = channels.filter((channel) => !declared.has(channel))

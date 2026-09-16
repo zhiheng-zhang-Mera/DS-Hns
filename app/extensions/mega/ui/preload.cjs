@@ -97,6 +97,10 @@ contextBridge.exposeInMainWorld('megaTools', {
   refreshHardware: gated('mega.hardware', () => ipcRenderer.invoke('mega:refresh-hardware')),
   updateSettings: (patch) => ipcRenderer.invoke('mega:update-settings', patch),
   fetchBalance: gated('mega.balance', (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options)),
+  // The account as it stands, **without** reading it again: what a surface that is about to draw asks for.
+  // Refreshing is `fetchBalance` — and, from the official UI, the dashboard's own refresh button, which goes
+  // through the same service by way of the governance bridge.
+  balanceState: () => ipcRenderer.invoke('mega:balance-restore'),
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
   /**

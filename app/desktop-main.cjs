@@ -19,6 +19,7 @@ const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-s
 const { createStartupManager } = require('./startup.cjs')
 const { createProtectionLayer } = require('./extensions/mega/protection/index.cjs')
 const frontendMode = require('./frontend-mode/index.cjs')
+const { syncShippedPackage } = require('./harness-profile.cjs')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the extension
 // so the integrated view and the legacy window cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./extensions/mega/dock/geometry.cjs')
@@ -399,9 +400,31 @@ function readLogTail(maxLines = 50) {
 }
 
 function startupError(message) {
+  const harness = harnessOutputTail()
   const tail = readLogTail()
-  const suffix = tail ? `\n\n--- desktop-runtime.log (tail) ---\n${tail}` : ''
+  const suffix = [
+    harness ? `\n\n--- Harness output (tail) ---\n${harness}` : '',
+    tail ? `\n\n--- desktop-runtime.log (tail) ---\n${tail}` : ''
+  ].join('')
   return new Error(`${message}${suffix}`)
+}
+
+/**
+ * The managed Harness' own last words, redacted.
+ *
+ * When the child dies before it announces its access URL, its output is the only place the reason
+ * exists — a plugin tree that failed to compose, a directory it could not read — and the log tail
+ * below cannot be trusted to hold it yet: `observeStartupOutput` writes to the log through a stream,
+ * and the exit event can beat that write to the disk. The buffer in memory never misses it.
+ */
+function harnessOutputTail(maxLines = 24) {
+  const text = redact(startupOutput).trim()
+  if (!text) return ''
+  return text
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+    .slice(-maxLines)
+    .join('\n')
 }
 
 function resolveNodeExe() {
@@ -498,12 +521,38 @@ async function waitForHarness() {
   throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds`)
 }
 
+/**
+ * Refresh the profile's copy of the plugin DS-Hns ships, before the Harness is asked to boot it.
+ *
+ * `app/harness-profile.cjs` holds the whole reason: the copy is a plain copy that only a hand has
+ * kept in step, and one leftover file in it — the package manifest carried into `lib/` together with
+ * the two halves — is enough to stop the Harness from composing the plugin's browser bundle at all,
+ * which ends the launch before the official UI exists. The profile is the Harness' own install and
+ * the shell does not otherwise write into it; this is DS-Hns' own plugin's own files, brought back to
+ * what the product ships. A failure here is reported and the launch goes ahead, because the Harness'
+ * own account of a stale copy is worth more than refusing to start over one.
+ */
+function syncHarnessProfilePlugin() {
+  const profile = process.env.DSH_PROFILE || 'web'
+  try {
+    const changed = syncShippedPackage({
+      sourceDir: path.join(__dirname, 'plugins', 'mega-core'),
+      modulesDir: path.join(ROOT, 'data', 'profiles', profile, 'node_modules'),
+      log: logLine
+    })
+    if (changed.length) logLine(`[profile] the profile's copy of the shipped plugin was refreshed: ${changed.join(', ')}`)
+  } catch (error) {
+    logLine(`[profile] the profile's copy of the shipped plugin could not be refreshed: ${error?.message || error}`)
+  }
+}
+
 function startHarness(nodeExe) {
   const urlPromise = new Promise((resolve, reject) => {
     resolveHarnessUrl = resolve
     rejectHarnessUrl = reject
   })
   ensureRuntimeDirs()
+  syncHarnessProfilePlugin()
   startupOutput = ''
   harnessUrl = null
 

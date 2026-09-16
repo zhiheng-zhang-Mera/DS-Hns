@@ -112,6 +112,18 @@ Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'fun
 Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
 Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
 Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
+# ---- The Harness profile's copy of the plugin DS-Hns ships (app\harness-profile.cjs) ----
+# The profile holds a plain *copy* of `app\plugins\mega-core` (pnpm materialises a `file:` dependency),
+# and the round that synced it by hand carried the package manifest into `lib/` along with the two halves.
+# The Harness resolves a client plugin's bundle through the nearest manifest that names the package, so
+# that file made it look for `lib\lib\client.js`: the plugin tree failed to compose and the launch ended
+# before the official UI existed. The launch now refreshes the copy from the shipped package first.
+Check 'The shipped plugin keeps its manifest at the root' (-not (Test-Path "$ROOT\app\plugins\mega-core\lib\package.json"))
+Check 'The launch refreshes the profile copy of the shipped plugin' ((Test-Path "$ROOT\app\harness-profile.cjs") -and ($desktopMain -match 'syncShippedPackage') -and ($desktopMain.IndexOf('syncHarnessProfilePlugin()') -lt $desktopMain.IndexOf("logLine('--- DSH launch begin ---')")))
+$profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } else { 'web' }
+$profilePlugin = "$ROOT\data\profiles\$profileName\node_modules\dsh-plugin-mega-core"
+Check 'The installed profile copy carries no manifest below its root' ((-not (Test-Path $profilePlugin)) -or (-not (Test-Path "$profilePlugin\lib\package.json")))
+Check 'Startup failures carry the Harness own last words' (($desktopMain -match 'function harnessOutputTail') -and ($desktopMain -match 'Harness output \(tail\)'))
 # ---- MEGA Protection Layer: the enhancement layer fails safely (startup2.md section 12-section 18) ----
 $protection = Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw -ErrorAction SilentlyContinue
 Check 'MEGA Protection Layer exists with the six module states' (($protection -match 'DISABLED') -and ($protection -match 'STARTING') -and ($protection -match 'HEALTHY') -and ($protection -match 'DEGRADED') -and ($protection -match 'FAILED') -and ($protection -match 'RECOVERING'))
@@ -229,10 +241,17 @@ Check 'The ball grows its panel toward the middle of the screen' (($systemOrb -m
 Check 'The ball remembers where it was left, in a file rather than in a page' (($systemOrb -match 'function createOrbState') -and ($mega -match "data', 'state', 'system-orb\.json'"))
 Check 'The orb window has a document, a stylesheet and an enumerable surface' ((Test-Path "$ROOT\app\extensions\mega\ui\orb.html") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.css") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.js") -and ($orbPreload -match 'mega:orb-snapshot') -and ($orbPreload -match 'mega:orb-action'))
 Check 'The ball draws the same view model as the official page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
-# There is one ball, and it is the system one: the plugin's browser half registers the settings section only.
+# There IS a ball again, in the official overlay slot, and the plugin's browser half also draws the settings
+# section: one view model, two surfaces, and the system ball is the same module's (`system-orb.cjs`).
 $orbClient = Get-Content "$ROOT\app\plugins\mega-core\lib\client.js" -Raw -ErrorAction SilentlyContinue
-Check 'The plugin draws one surface, and the ball is not it' ((-not ($orbClient -match "inject\(\s*'shell\.overlay'")) -and ($orbClient -match "inject\('settings\.section'"))
-Check 'The ball is created with the other windows and torn down with them' (($mega -match 'createSystemOrbWindow\(\)') -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
+# The ball is the plugin's, drawn into the official overlay slot: on the surface the user is looking at.
+Check 'The plugin draws the ball, into the official overlay slot' (($orbClient -match "inject\('shell\.overlay'") -and ($orbClient -match 'function MegaOrb'))
+Check 'The plugin still draws the settings section' ($orbClient -match "inject\('settings\.section'")
+Check 'The ball closes when the user clicks outside it' (($orbClient -match "addEventListener\('pointerdown'") -and ($orbClient -match 'node\.contains\(target\)') -and ($orbClient -match 'setOpen\(false\)'))
+# The two surfaces draw the two halves of the view model: the ball the live dashboard, the page the governance
+# fields. Both come from `view.js`, so a number on one cannot disagree with the other.
+Check 'The ball draws the dashboard and the page draws governance' (($orbClient -match 'dashboard: view\.dashboard') -and ($orbClient -match 'view\.fields \|\| \[\]\)\.map\(FieldRow\)') -and ($orbClient -match 'COUNTDOWN_ROW'))
+Check 'The system orb is opt-in, and torn down with the other windows' (($mega -match "if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)") -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
 # ---- The old Mega dock is retired: off by default, back on request ----
 Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))
 Check 'A hidden dock reserves no strip and no wallpaper notch' (($main -match 'megaDockShown\s*\r?\n?\s*\?\s*Math\.max\(MEGA_DOCK_COLLAPSED_WIDTH') -and ($main -match 'if \(!megaDockShown \|\| !megaDockView'))
