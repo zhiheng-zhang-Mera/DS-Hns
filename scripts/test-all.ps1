@@ -5,6 +5,7 @@ $node = (Get-Command node).Source
 $syntaxFiles = @(
   "$ROOT\app\desktop-main.cjs",
   "$ROOT\app\runtime-process.cjs",
+  "$ROOT\app\harness-profile.cjs",
   "$ROOT\app\extensions\manager.cjs",
   "$ROOT\app\sub-worker\manager.cjs",
   "$ROOT\app\sub-worker\runtime.cjs",
@@ -120,6 +121,37 @@ try {
     'mega-store-installer.test.js',
     'plugin-store-mount.test.js',
     'plugin-compat.test.js',
+    # The plugin adapter framework: the layer that turns an external plugin format into the
+    # platform's own model. Asserted by name for the same reason as the rest: a renamed file must
+    # fail the gate rather than silently drop the coverage of the isolation requirement.
+    'plugin-adapters-contract.test.js',
+    'plugin-adapters-detection.test.js',
+    'plugin-adapters-lifecycle.test.js',
+    'plugin-adapters-framework.test.js',
+    'plugin-adapters-fault-injection.test.js',
+    'plugin-adapters-compatibility.test.js',
+    # The Cordis/DSH community adapter and its controlled bridge. The bridge suite is the one that
+    # asserts a community plugin is handed no HNS Core object, so a renamed file here would drop
+    # the coverage of a security-shaped claim rather than a feature.
+    'plugin-cordis-structure.test.js',
+    'plugin-cordis-bridge.test.js',
+    'plugin-cordis-dsh.test.js',
+    # The managed-process adapter: the contract, both transports, the bounded restart and the
+    # business-free claim. Asserted by name like the rest, because a renamed file here would drop
+    # the coverage of the "never an infinite restart loop" requirement.
+    'plugin-process-adapter.test.js',
+    # The native path, the long-term-hosting capability vocabulary, and the first complete native
+    # plugin. Asserted by name like the rest: a renamed file here would drop the coverage of the
+    # "one load path" and "the monitor cannot restart anything" claims.
+    'plugin-hns-native.test.js',
+    # The unified install pipeline: the pre-install plan, the refusal of unknown formats, and the
+    # pin/update/rollback/quarantine/uninstall lifecycle. Asserted by name like the rest.
+    'plugin-install-pipeline.test.js',
+    # The installation-level acceptance: the bundle the installer actually puts on disk is discovered,
+    # is loadable from the profile's own `node_modules`, and reaches the official Settings. Asserted by
+    # name like the rest, because a renamed file here would drop the one suite that checks the installed
+    # shape rather than the checkout.
+    'mega-core-install-acceptance.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

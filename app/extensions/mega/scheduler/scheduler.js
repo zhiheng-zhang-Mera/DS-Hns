@@ -66,6 +66,32 @@ function deliveryMode(value) {
   return value === 'headless' ? 'headless' : 'official-session'
 }
 
+/**
+ * A `startAt` as an instant — refused when it is unreadable, or when it names a time that has already gone.
+ *
+ * One function because it is one rule, and it is a rule about *new and edited* tasks rather than about the gate:
+ * `decideTask` reads `now >= startAtMs` as ready, which is right for a queue entry whose moment has come, so an
+ * instant a few seconds in the past would run at once instead of being suspended — and a `datetime-local` field
+ * truncates to the minute, so picking "this minute" is already behind us. That is the "定时任务挂起失败" report: the
+ * task was created, and it ran immediately instead of waiting.
+ *
+ * A refusal carries `field` so a form can point at the input it is about.
+ */
+function futureInstant(value) {
+  const at = new Date(value).getTime()
+  if (Number.isNaN(at)) {
+    const invalid = new Error('invalid startAt')
+    invalid.field = 'startAt'
+    throw invalid
+  }
+  if (at <= Date.now()) {
+    const past = new Error('that time has already passed — a scheduled task needs a time in the future')
+    past.field = 'startAt'
+    throw past
+  }
+  return at
+}
+
 class SchedulerService extends EventEmitter {
   /**
    * @param {object} [options]
@@ -292,7 +318,9 @@ class SchedulerService extends EventEmitter {
       prompt: String(prompt).trim(),
       deliveryMode: deliveryMode(requestedDeliveryMode),
       allowPeak: allowPeak == null ? Boolean(this.config.defaultAllowPeak) : Boolean(allowPeak),
-      startAtMs: startAt ? new Date(startAt).getTime() : null,
+      // `futureInstant` owns both refusals (unreadable, and already gone); the `NaN` branch of it is what the
+      // old `invalid startAt` check was, and the past branch is why a scheduled task cannot run on arrival.
+      startAtMs: startAt ? futureInstant(startAt) : null,
       createdAt: Date.now(),
       queueOrder: this.nextQueueOrder(),
       status: 'PENDING',
@@ -318,7 +346,11 @@ class SchedulerService extends EventEmitter {
       officialLastSeenAt: null,
       error: null
     }
-    if (Number.isNaN(task.startAtMs)) throw new Error('invalid startAt')
+    if (Number.isNaN(task.startAtMs)) {
+      const invalid = new Error('invalid startAt')
+      invalid.field = 'startAt'
+      throw invalid
+    }
     this.tasks.push(task)
     if (queuePosition === 'top') this.reorderTask(id, 'top', { save: false, emit: false })
     else this.ensureQueueOrders()
@@ -326,6 +358,47 @@ class SchedulerService extends EventEmitter {
     this.emitSafe('queue-changed')
     this.requestTick()
     return this.publicTask(task)
+  }
+
+  /**
+   * Change a task that has not run yet — the prompt, the instant, the peak decision, the delivery.
+   *
+   * Only a **queued** task (PENDING or SUSPENDED) may be edited, and that is the honest boundary rather than a
+   * convenience: a RUNNING task is a conversation that has already started, and rewriting what it was asked to do
+   * would make the queue a different thing from the transcript beside it.
+   *
+   * Everything goes through the same rules a new task does — the prompt is trimmed and required, the instant comes
+   * from `futureInstant` (unreadable or already gone is refused, with `field`), the delivery mode is normalised —
+   * because an edited task is not a special kind of task. And the queue is then **re-decided** rather than patched:
+   * moving an instant from +3 minutes to +3 hours has to put the task back to sleep, and moving it to the past is
+   * refused rather than run.
+   *
+   * @returns {object} the public task, as every other entry point answers.
+   */
+  editTask(id, { prompt, startAt, allowPeak, deliveryMode: requestedDeliveryMode } = {}) {
+    const t = this.tasks.find((x) => x.id === id)
+    if (!t) throw new Error(`task not found: ${id}`)
+    if (!isQueued(t)) throw new Error('only pending/suspended tasks can be edited')
+    if (prompt !== undefined) {
+      const text = String(prompt ?? '').trim()
+      if (!text) {
+        const missing = new Error('a task needs a prompt')
+        missing.field = 'prompt'
+        throw missing
+      }
+      t.prompt = text
+    }
+    if (startAt !== undefined) {
+      // `null`/`''` is "no time", i.e. "run it as soon as the queue reaches it" — the same reading `addTask` gives it.
+      t.startAtMs = startAt === null || startAt === '' ? null : futureInstant(startAt)
+    }
+    if (allowPeak !== undefined) t.allowPeak = Boolean(allowPeak)
+    if (requestedDeliveryMode !== undefined) t.deliveryMode = deliveryMode(requestedDeliveryMode)
+    t.editedAt = Date.now()
+    this.saveQueue()
+    this.emitSafe('queue-changed')
+    this.requestTick()
+    return this.publicTask(t)
   }
 
   reorderTask(id, move, options = {}) {

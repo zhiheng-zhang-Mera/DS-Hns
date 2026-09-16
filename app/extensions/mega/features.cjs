@@ -40,6 +40,16 @@ const FEATURE_GROUPS = Object.freeze(['Coding', 'Autonomy', 'Execution', 'Observ
  */
 const MEGA_FEATURES = Object.freeze([
   {
+    id: 'mega.control-center',
+    cn: '控制中心',
+    en: 'Control Center',
+    group: 'Interface',
+    purpose: { cn: '查看并管理增强层的执行、资源、扩展与保护状态', en: 'See and manage the enhancement layer: execution, resources, extensions, protection' },
+    panels: ['controlPanel'],
+    elements: [],
+    channels: ['mega:control-*']
+  },
+  {
     id: 'mega.engineering',
     cn: '工程运行时',
     en: 'Engineering runtime',
@@ -76,7 +86,9 @@ const MEGA_FEATURES = Object.freeze([
     group: 'Observability',
     purpose: { cn: '按 DeepSeek 峰谷时段决定任务何时执行', en: 'Decide when a task may run from the peak/off-peak window' },
     panels: [],
-    elements: ['allowPeak', 'defaultAllowPeak', 'interruptRunningAtPeak', 'railPeak'],
+    // `railPeak` is gone: the rail is composed from registered items now (`mega/mega-items.cjs`), and
+    // a peak/valley window is a billing fact that belongs in the expanded summary, not on the rail.
+    elements: ['allowPeak', 'defaultAllowPeak', 'interruptRunningAtPeak'],
     channels: []
   },
   {

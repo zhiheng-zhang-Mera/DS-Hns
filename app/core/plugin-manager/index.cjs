@@ -145,6 +145,14 @@ function createPluginManager(options = {}) {
       optional: manifest.optional_capabilities.slice(),
       model_specific: manifest.model_specific,
       fault_level: manifest.fault_level,
+      // The standard sections an adapter filled in. The manager reports them and never
+      // interprets them: which adapter produced a plugin, what it asked for and what it
+      // was granted are facts about the plugin, and the manager is the surface that
+      // publishes facts about plugins.
+      permissions: manifest.permissions,
+      runtime: manifest.runtime,
+      adapter: manifest.adapter,
+      health_contract: manifest.health,
       plugin,
       installedAt: now(),
       loadedAt: null,
@@ -345,6 +353,7 @@ function createPluginManager(options = {}) {
         id: record.id,
         name: record.name,
         version: record.version,
+        apiVersion: record.api_version,
         installed: record.installed,
         enabled: record.enabled,
         loaded: record.loaded,
@@ -354,7 +363,15 @@ function createPluginManager(options = {}) {
         faultLevel: record.fault_level,
         provides: record.capabilities,
         requires: record.requires,
-        modelSpecific: record.model_specific
+        modelSpecific: record.model_specific,
+        // The standard sections. One line each, and the same on every plugin whatever format
+        // it arrived in — that uniformity is what the adapter framework exists to produce.
+        permissions: record.permissions,
+        runtime: record.runtime,
+        adapter: record.adapter,
+        adaptation: record.plugin.adaptation || null,
+        lifecycle: typeof record.plugin.lifecycleState === 'function' ? record.plugin.lifecycleState() : null,
+        errorCount: record.plugin.errorReport ? record.plugin.errorReport().total : 0
       }))
       .sort((a, b) => a.id.localeCompare(b.id))
   }
@@ -390,8 +407,42 @@ function createPluginManager(options = {}) {
       capabilities: record.capabilities.map((capability) => ({ capability, providers: registry.describe(capability) })),
       subscriptions: bus.subscriptionCount(record.id),
       loadedAt: record.loadedAt,
-      faults: record.faults.slice(-10)
+      faults: record.faults.slice(-10),
+      // The diagnostic half of the standard sections: where it runs, what boundary that gives,
+      // what it asked for, and what has gone wrong. All of it comes from the adapter framework's
+      // unified interfaces, so a plugin adopted from a foreign format answers exactly like one
+      // that declared the contract by hand.
+      permissions: record.permissions,
+      runtime: record.runtime,
+      adapter: record.adapter,
+      healthContract: record.health_contract,
+      adaptation: record.plugin.adaptation || null,
+      lifecycle: typeof record.plugin.lifecycleState === 'function' ? record.plugin.lifecycleState() : null,
+      runtimeInfo: typeof record.plugin.runtimeInfo === 'function' ? record.plugin.runtimeInfo() : null,
+      errorReport: typeof record.plugin.errorReport === 'function' ? record.plugin.errorReport() : null
     }
+  }
+
+  /**
+   * Uninstall one plugin: unload it, then forget it.
+   *
+   * Unloading and uninstalling are different requests, and the platform only had the first. A
+   * plugin that is unloaded is still installed — it is listed, it is disabled, and enabling it
+   * again brings it back. A plugin that is removed is gone: it leaves the list, its record is
+   * dropped, and a later `install` of the same id is a fresh install rather than a duplicate.
+   *
+   * The unload is awaited first, because removing a record while its capabilities are still
+   * registered would leave the registry holding an owner nothing can name again.
+   */
+  async function removeOne(id) {
+    const record = entry(id)
+    if (!record) return { ok: false, code: LOAD_REASONS.NOT_FOUND, reason: `no plugin ${id}` }
+    await unloadOne(record.id)
+    records.delete(record.id)
+    contexts.delete(record.id)
+    bus.emit('plugin.removed', { plugin: record.id, version: record.version })
+    log({ kind: 'plugin-removed', plugin: record.id })
+    return { ok: true, plugin: record.id, removed: true }
   }
 
   return {
@@ -404,6 +455,7 @@ function createPluginManager(options = {}) {
     install,
     load: loadOne,
     unload: unloadOne,
+    remove: removeOne,
     loadAll,
     unloadAll,
     enable: (id) => setEnabled(id, true),

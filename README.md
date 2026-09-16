@@ -64,9 +64,10 @@ The installer is idempotent and reuse-first:
 9. repairs only the Electron binary when the npm package is correct but `dist\electron.exe` is missing;
 10. when package repair/install is needed, uses `npm ci --prefer-offline` and reuses existing npm/Electron caches when available;
 11. generates built-in sounds only when they are missing;
-12. runs unit + architecture tests and repository verification;
-13. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
-14. launches DS-Harness when installation succeeds.
+12. signs the client plugin DS-Hns ships into the Harness profile the product boots, so the orb in the official UI exists on a host that never had it (an already-satisfied profile is left alone, and this step never fails the installation);
+13. runs unit + architecture tests and repository verification;
+14. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
+15. launches DS-Harness when installation succeeds.
 
 ## API key flow
 
@@ -520,6 +521,7 @@ scripts/
   install.ps1
   ensure-icon.ps1
   install-deps.ps1
+  install-profile-plugin.ps1
   ensure-node.ps1
   cleanup-runtime.ps1
   shortcuts.ps1

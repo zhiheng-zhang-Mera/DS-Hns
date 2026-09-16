@@ -103,6 +103,108 @@ Check 'Wallpaper window document exists and carries no script' ((Test-Path "$ROO
 Check 'The shell never stacks a view over the official page for the wallpaper' (((Get-Content "$ROOT\app\desktop-main.cjs" -Raw) -match 'return createWallpaperLayer\(\)') -and (-not ((Get-Content "$ROOT\app\desktop-main.cjs" -Raw) -match 'wallpaperOnly|paintWallpaper')))
 Check 'Wallpaper hit-test acceptance exists and drives the OS hit test' ((Test-Path "$ROOT\scripts\wallpaper-hit-test.cjs") -and (Test-Path "$ROOT\scripts\hit-test-window.ps1") -and ((Get-Content "$ROOT\scripts\wallpaper-hit-test.cjs" -Raw) -match 'WindowFromPoint'))
 Check 'Wallpaper render acceptance exists and reads back the computed cut' ((Test-Path "$ROOT\scripts\wallpaper-render-acceptance.cjs") -and ((Get-Content "$ROOT\scripts\wallpaper-render-acceptance.cjs" -Raw) -match 'capturePage'))
+# ---- startup: usable first, enhanced behind it (updateplan/startup.md) ----
+$startupModule = Get-Content "$ROOT\app\startup.cjs" -Raw -ErrorAction SilentlyContinue
+$desktopMain = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
+Check 'Startup state machine exists with the four states' (($startupModule -match 'BOOTING') -and ($startupModule -match 'CORE_READY') -and ($startupModule -match 'INTERACTIVE') -and ($startupModule -match 'ENHANCED'))
+Check 'Startup reports every phase in one log shape' (($startupModule -match "\[BOOT\]") -and ($startupModule -match 'overBudget'))
+Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'function defer') -and ($startupModule -match 'the boot carries on'))
+Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
+Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
+Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
+# ---- The Harness profile's copy of the plugin DS-Hns ships (app\harness-profile.cjs) ----
+# The profile holds a plain *copy* of `app\plugins\mega-core` (pnpm materialises a `file:` dependency),
+# and the round that synced it by hand carried the package manifest into `lib/` along with the two halves.
+# The Harness resolves a client plugin's bundle through the nearest manifest that names the package, so
+# that file made it look for `lib\lib\client.js`: the plugin tree failed to compose and the launch ended
+# before the official UI existed. The launch now refreshes the copy from the shipped package first.
+Check 'The shipped plugin keeps its manifest at the root' (-not (Test-Path "$ROOT\app\plugins\mega-core\lib\package.json"))
+Check 'The launch refreshes the profile copy of the shipped plugin' ((Test-Path "$ROOT\app\harness-profile.cjs") -and ($desktopMain -match 'syncShippedPackage') -and ($desktopMain.IndexOf('syncHarnessProfilePlugin()') -lt $desktopMain.IndexOf("logLine('--- DSH launch begin ---')")))
+$profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } else { 'web' }
+$profilePlugin = "$ROOT\data\profiles\$profileName\node_modules\dsh-plugin-mega-core"
+Check 'The installed profile copy carries no manifest below its root' ((-not (Test-Path $profilePlugin)) -or (-not (Test-Path "$profilePlugin\lib\package.json")))
+Check 'Startup failures carry the Harness own last words' (($desktopMain -match 'function harnessOutputTail') -and ($desktopMain -match 'Harness output \(tail\)'))
+# ---- MEGA Protection Layer: the enhancement layer fails safely (startup2.md section 12-section 18) ----
+$protection = Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'MEGA Protection Layer exists with the six module states' (($protection -match 'DISABLED') -and ($protection -match 'STARTING') -and ($protection -match 'HEALTHY') -and ($protection -match 'DEGRADED') -and ($protection -match 'FAILED') -and ($protection -match 'RECOVERING'))
+Check 'Protected modules are started with a budget, a fallback ladder and a bounded retry' (($protection -match 'function register') -and ($protection -match 'function withTimeout') -and ($protection -match 'runFallback') -and ($protection -match 'for \(const delay of \[0, retryDelayMs\]\)'))
+Check 'The protection layer reports what the MEGA panel shows' (($protection -match 'lastError') -and ($protection -match 'startMs') -and ($protection -match 'fallbackState') -and ($protection -match 'retries'))
+# ---- Bundled community plugins (startup2.md section 19-section 23) ----
+$bundled = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Bundled Plugin Manager exists with both bundled plugins' (($bundled -match 'dsh-wallpaper-engine') -and ($bundled -match '@dsh-market/plugin'))
+Check 'Bundled references are pinned, and nothing chases latest' (($bundled -match "ref: '") -and (-not ($bundled -match "ref:\s*'latest'")))
+# The rule is asserted against the *code*, not against the shipped flag: the two bundled pins were flipped to
+# `tested: true` when the manual UI review passed them (pluginize Phase 7), and the next plugin anyone adds
+# arrives untested. `entry.tested !== true` is what still refuses it.
+Check 'An untested pin is never installed' (($bundled -match 'UNTESTED') -and ($bundled -match 'entry\.tested !== true'))
+Check 'Both bundled pins are marked tested, and the review that earned it is recorded' ((([regex]::Matches($bundled, 'tested: true')).Count -ge 2) -and ($bundled -match 'manual UI review'))
+Check 'The user''s decision and unknown versions are respected, not overwritten' (($bundled -match 'USER_DISABLED') -and ($bundled -match 'AHEAD_OF_PIN'))
+Check 'Bundled plugins are registered as protected modules' (($bundled -match 'registerProtected') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'bundled\(\)\.registerProtected\(\)'))
+Check 'The bundled set belongs to MEGA, and its policy pass is not on the boot path' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:bundled-plugins'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match '\.then\(\(\) => bundled\(\)\.ensure\(\)\)'))
+# ---- MEGA rail: registry-driven, deduplicated, budgeted (startup2.md section 36-44) ----
+$megaItems = Get-Content "$ROOT\app\extensions\mega\mega-items.cjs" -Raw -ErrorAction SilentlyContinue
+$dockHtml = Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw
+$dockJs = Get-Content "$ROOT\app\extensions\mega\ui\dock.js" -Raw
+Check 'MegaItemRegistry exists with a budget' (($megaItems -match 'function createMegaItems') -and ($megaItems -match 'MEGA_ITEM_BUDGET = 5') -and ($megaItems -match 'overflow'))
+Check 'Zero is not news: a quiet item is not rendered' (($megaItems -match 'if \(item\.quiet\) continue') -and ($megaItems -match 'quiet'))
+Check 'The rail is a container fed by the registry, not fixed boxes' ((($dockHtml -match 'id="railItems"') -and ($dockHtml -match 'id="railItemTemplate"')) -and (-not ($dockHtml -match 'id="railRunning"')))
+Check 'The dock renders the rail and knows nothing about what the items mean' (($dockJs -match 'function renderRail') -and ($dockJs -match 'snapshot\.megaItems'))
+Check 'The rail no longer duplicates the sub-worker state or the price window' ((-not ($dockHtml -match 'railSubWorker')) -and (-not ($dockHtml -match 'railPeak')))
+# ---- Appearance controller and readability presets (startup2.md section 26-28) ----
+$appearance = Get-Content "$ROOT\app\extensions\mega\appearance\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Appearance controller ships the three readability presets' (($appearance -match "'work'") -and ($appearance -match "'immersive'") -and ($appearance -match "'reading'"))
+Check 'Readability comes first: every preset is complete without a wallpaper' (($appearance -match 'works with \*no\*') -and ($appearance -match 'scrim'))
+Check 'One layer failing does not take the other with it' (($appearance -match 'the glass layer refused') -and ($appearance -match 'the wallpaper refused'))
+Check 'The presets are wired to both layers and to the panel' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:appearance'") -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearancePreset"'))
+# ---- MEGA Control Center and Protection panel (startup2.md section 45-47) ----
+$control = Get-Content "$ROOT\app\extensions\mega\control-center.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Control Center builds the six sections from the dock snapshot' ((($control -match "'execution'") -and ($control -match "'automation'") -and ($control -match "'resources'") -and ($control -match "'extensions'") -and ($control -match "'protection'") -and ($control -match "'diagnostics'")))
+Check 'Control Center actions come from the module state' (($control -match 'function moduleActions') -and ($control -match 'function pluginActions'))
+Check 'The protection panel and the repair entry points exist in the dock' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="controlModules"') -and ((Get-Content "$ROOT\app\extensions\mega\ui\control-panel.js" -Raw) -match 'data-control-action'))
+Check 'Control Center channels are wired end to end' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "ipcMain\.handle\('mega:control-action'") -and ((Get-Content "$ROOT\app\extensions\mega\ui\preload.cjs" -Raw) -match 'control: \{'))
+# ---- Startup cache (startup2.md section 52-54) ----
+$cache = Get-Content "$ROOT\app\extensions\mega\startup-cache.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Startup cache exists and forgets' (($cache -match 'function createStartupCache') -and ($cache -match 'maxAgeMs') -and ($cache -match 'function warm'))
+Check 'An unreadable cache is an empty cache, and a write is never fatal' (($cache -match 'this is a cold start') -and ($cache -match 'the run continues'))
+Check 'The cache records what the owners said, and does not keep the Harness sessions' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'function rememberStartup') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'is deliberately not written'))
+# ---- Appearance providers and the missing-plugin path (startup2.md section 43-44) ----
+$providers = Get-Content "$ROOT\app\extensions\mega\appearance\providers.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The three appearance providers exist' ((($providers -match "'official'") -and ($providers -match "'simple'") -and ($providers -match "'community'")))
+Check 'The community provider is never installed automatically' (($providers -match 'installsAutomatically') -and ($providers -match 'dsh-wallpaper-engine'))
+Check 'A refusal keeps the user and names the fallback' (($providers -match 'kept: current') -and ($providers -match 'fallback: provider.fallback'))
+Check 'The provider choice is persisted like every other preference' (((Get-Content "$ROOT\app\extensions\mega\appearance\state.cjs" -Raw) -match 'APPEARANCE_STATE_DEFAULT') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'appearancePreference\(\)\.set'))
+Check 'The settings page offers the mode and the way to the plugin' (((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearanceProvider"') -and ((Get-Content "$ROOT\app\extensions\mega\ui\dock.html" -Raw) -match 'id="appearanceOpenStore"'))
+# ---- Appearance token boundary (startup2.md section 27) ----
+$tokens = Get-Content "$ROOT\app\extensions\mega\appearance\tokens.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The appearance vocabulary is the seven tokens the plan names' (($tokens -match '--dsh-surface-opacity') -and ($tokens -match '--dsh-surface-blur') -and ($tokens -match '--dsh-surface-tint') -and ($tokens -match '--dsh-wallpaper-brightness') -and ($tokens -match '--dsh-wallpaper-contrast') -and ($tokens -match '--dsh-wallpaper-saturation') -and ($tokens -match '--dsh-wallpaper-darken'))
+Check 'A provider may paint, not take over' (($tokens -match 'FORBIDDEN_SURFACES') -and ($tokens -match 'may paint, not take over'))
+Check 'The picture filter is the same numbers under both names' (((Get-Content "$ROOT\app\extensions\mega\wallpaper.cjs" -Raw) -match '--dsh-wallpaper-brightness') -and ((Get-Content "$ROOT\app\extensions\mega\ui\wallpaper-window.html" -Raw) -match 'brightness\(var\(--dsh-wallpaper-brightness'))
+# ---- Appearance cost and the MEGA log vocabulary (startup2.md section 55-57) ----
+$cost = Get-Content "$ROOT\app\extensions\mega\appearance\cost.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The appearance cost ledger measures without limiting' (($cost -match 'function estimateAppearanceCost') -and ($cost -match 'never clamped|does \*\*not\*\* take the user') -and ($cost -match '\[PERF\]'))
+Check 'The layers report the bytes they carry' ((((Get-Content "$ROOT\app\extensions\mega\wallpaper.cjs" -Raw).Split('bytes: inlined.dataUrl')).Length - 1) -ge 2)
+Check 'The log vocabulary is the one the plan greps for' (((Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw) -match '\[MEGA\] protection-ready') -and ((Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw) -match '\[MEGA\] fallback:') -and ((Get-Content "$ROOT\app\extensions\mega\protection\index.cjs" -Raw) -match '\[MEGA\] module '))
+Check 'The Control Center shows the appearance cost' ((Get-Content "$ROOT\app\extensions\mega\control-center.cjs" -Raw) -match 'Cost warnings')
+# ---- Store revisions: a pin that is a commit (startup2.md section 22-23) ----
+$store = Get-Content "$ROOT\app\extensions\mega\store\installer.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The store can stage a pinned revision' (($store -match 'options\.revision') -and ($store -match "fetch', '--depth', '1'") -and ($store -match 'FETCH_HEAD'))
+Check 'A revision is validated, recorded and never combined with a branch' (($store -match 'is not a commit revision') -and ($store -match 'not both') -and ($store -match 'revision: revision \|\| null'))
+Check 'The bundled manager uses the revision path for a commit pin' ((Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw) -match 'store\.stage\(\{ source: entry\.repo, revision: entry\.ref \}\)')
+# ---- Appearance cost acceptance (startup2.md section 56) ----
+$costAcceptance = Get-Content "$ROOT\scripts\appearance-cost-acceptance.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'Appearance cost acceptance exists and measures the real layers' (($costAcceptance -match 'getAppMetrics') -and ($costAcceptance -match 'createWallpaperWindow'))
+Check 'A case that cannot be measured is skipped with a reason, never guessed' (($costAcceptance -match 'skipped:') -and ($costAcceptance -match 'the community plugin renders'))
+# ---- Surface ownership (startup2.md section 48, section 55's CSS ownership) ----
+Check 'Every dock channel has an owner that declares it' (Test-Path "$ROOT\tests\unit\surface-ownership.test.js")
+Check 'The token vocabulary stays inside the appearance boundary' (-not ((Get-Content "$ROOT\app\extensions\mega\ui\dock.css" -Raw) -match '--dsh-'))
+Check 'One stylesheet, one document' ((-not ((Get-Content "$ROOT\app\extensions\mega\ui\dock.css" -Raw) -match '#wallpaper-scrim')) -and (-not ((Get-Content "$ROOT\app\extensions\mega\ui\wallpaper-window.html" -Raw) -match '#rail|#detail')))
+# ---- Bundled channels: each entry names the channel it can be installed through (startup2.md section 19-23) ----
+$bundledPlugins = Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The bundled manifest names a channel per entry' (($bundledPlugins -match "channel: 'harness-profile'") -and ($bundledPlugins -match 'BUNDLED_CHANNELS'))
+Check 'A Harness client plugin is installed by the Harness own CLI' (((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "plugin', '--profile', profile, 'add'") -and ($bundledPlugins -match 'dsh-plugin-wallpaper-engine'))
+Check 'An entry without a channel is reported, never installed' (($bundledPlugins -match 'BUNDLED_STATE.UNRESOLVED') -and ($bundledPlugins -match "action: 'report'"))
+Check 'Removal and compatibility follow the same channel as installation' (($bundledPlugins -match 'async function removeBundled') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "checked: 'harness'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "harnessRemove:"))
+Check 'The channel is recorded as verified, and the runtime only after it was run' (($bundledPlugins -match 'channelVerified: true') -and ($bundledPlugins -match 'tested: true') -and ($bundledPlugins -match 'channelVerified: entry.channelVerified === true') -and ($bundledPlugins -match 'tested: entry\.tested === true'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")
@@ -128,6 +230,33 @@ Check 'Theme and dock pushes never read dockWindow directly' ($megaDockReads -eq
 Check 'Dock state reports its generation' ($mega -match 'dockTarget\.getState\(')
 Check 'Shell hands the extension a dock adapter' (($main -match 'dockAdapter') -and ($main -match 'function createDockAdapter'))
 Check 'Shell notifies the extension when the dock renderer is ready' (($main -match 'notifyDockReady') -and ($mega -match 'registerDockReadyHook'))
+# ---- The system floating orb: a window of ours over every application (system-orb.cjs) ----
+$systemOrb = Get-Content "$ROOT\app\extensions\mega\system-orb.cjs" -Raw -ErrorAction SilentlyContinue
+$orbPreload = Get-Content "$ROOT\app\extensions\mega\ui\orb-preload.cjs" -Raw -ErrorAction SilentlyContinue
+Check 'The system orb is a window that floats over other applications' (($systemOrb -match 'alwaysOnTop: true') -and ($systemOrb -match 'skipTaskbar: true') -and ($systemOrb -match 'focusable: false'))
+Check 'It takes no click it was not offered' (($systemOrb -match 'setIgnoreMouseEvents\(!next, \{ forward: true \}\)') -and ($systemOrb -match 'let interactive = null') -and ($systemOrb -match 'hovering = false'))
+Check 'An open panel or a drag keeps the window interactive, so the pointer cannot chase itself' (($systemOrb -match 'hovering \|\| dragging \|\| open') -and ($systemOrb -match 'function sameBounds'))
+Check 'The ball is a top-level window, so it can cover other applications' (-not ($systemOrb -match 'getParentWindow'))
+Check 'The ball grows its panel toward the middle of the screen' (($systemOrb -match 'function layoutOrbWindow') -and ($systemOrb -match 'const above = ballCentre\.y > areaCentre\.y') -and ($systemOrb -match 'const toTheRight = ballCentre\.x < areaCentre\.x'))
+Check 'The ball remembers where it was left, in a file rather than in a page' (($systemOrb -match 'function createOrbState') -and ($mega -match "data', 'state', 'system-orb\.json'"))
+Check 'The orb window has a document, a stylesheet and an enumerable surface' ((Test-Path "$ROOT\app\extensions\mega\ui\orb.html") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.css") -and (Test-Path "$ROOT\app\extensions\mega\ui\orb.js") -and ($orbPreload -match 'mega:orb-snapshot') -and ($orbPreload -match 'mega:orb-action'))
+Check 'The ball draws the same view model as the official page' (($mega -match "mega-core', 'lib', 'view\.js'") -and ($mega -match 'buildMegaView\(\{'))
+# There IS a ball again, in the official overlay slot, and the plugin's browser half also draws the settings
+# section: one view model, two surfaces, and the system ball is the same module's (`system-orb.cjs`).
+$orbClient = Get-Content "$ROOT\app\plugins\mega-core\lib\client.js" -Raw -ErrorAction SilentlyContinue
+# The ball is the plugin's, drawn into the official overlay slot: on the surface the user is looking at.
+Check 'The plugin draws the ball, into the official overlay slot' (($orbClient -match "inject\('shell\.overlay'") -and ($orbClient -match 'function MegaOrb'))
+Check 'The plugin still draws the settings section' ($orbClient -match "inject\('settings\.section'")
+Check 'The ball closes when the user clicks outside it' (($orbClient -match "addEventListener\('pointerdown'") -and ($orbClient -match 'node\.contains\(target\)') -and ($orbClient -match 'setOpen\(false\)'))
+# The two surfaces draw the two halves of the view model: the ball the live dashboard, the page the governance
+# fields. Both come from `view.js`, so a number on one cannot disagree with the other.
+Check 'The ball draws the dashboard and the page draws governance' (($orbClient -match 'dashboard: view\.dashboard') -and ($orbClient -match 'view\.fields \|\| \[\]\)\.map\(FieldRow\)') -and ($orbClient -match 'COUNTDOWN_ROW'))
+Check 'The system orb is opt-in, and torn down with the other windows' (($mega -match "if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)") -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
+# ---- The old Mega dock is retired: off by default, back on request ----
+Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))
+Check 'A hidden dock reserves no strip and no wallpaper notch' (($main -match 'megaDockShown\s*\r?\n?\s*\?\s*Math\.max\(MEGA_DOCK_COLLAPSED_WIDTH') -and ($main -match 'if \(!megaDockShown \|\| !megaDockView'))
+Check 'It comes back when it is asked for, creating the view if needed' (($main -match 'async function showIntegratedMegaDock') -and ($main -match 'if \(!megaDockView\) await createIntegratedMegaDock\(\)') -and ($mega -match 'if \(dockExpanded && !dockWindow && dockEnabled\(\)\) createDock\(\)'))
+Check 'The extension does not build its own dock at boot either' (($mega -match 'function dockAutoStart') -and ($mega -match 'if \(dockAutoStart\(\)\) createDock\(\)'))
 # ---- updater rollback transaction ----
 $runner = Get-Content "$ROOT\app\extensions\mega\updater\update-runner.js" -Raw
 $rollbackBody = ($runner -split 'function restorePreviousInstallation')[1]
@@ -337,6 +466,17 @@ $engCheck = Get-Content "$ROOT\scripts\check-syntax.cjs" -Raw
 Check 'The syntax gate covers the engineering runtime' (($engCheck -match "'engineering'") -and ($engCheck -match "'engineering/adapters'"))
 Check 'The reference doc records the long-running guarantees (24h plan 1-20)' ((Get-Content "$ROOT\docs\computer-use.md" -Raw) -match 'Long-running execution')
 Check 'The acceptance record targets the soak and the failure matrix (24h plan 23-25)' (((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'soak') -and ((Get-Content "$ROOT\docs\computer-use-acceptance.md" -Raw) -match 'failure-injection'))
+
+# ---- The installed shape of the shipped plugin (the one acceptance that leaves the checkout) ----
+# Every other check above reads the source tree. This one is about what the installer puts on disk: the
+# bundle is discovered, is loadable from the profile's own node_modules, and reaches the official Settings.
+Check 'The installation-level Mega Core acceptance ships' (Test-Path "$ROOT\tests\unit\mega-core-install-acceptance.test.js")
+Check 'The install acceptance is asserted by name in the test gate' ((Get-Content "$ROOT\scripts\test-all.ps1" -Raw) -match 'mega-core-install-acceptance\.test\.js')
+Check 'The install acceptance is asserted by name in the CI gate' ((Get-Content "$ROOT\.github\workflows\verify.yml" -Raw) -match 'mega-core-install-acceptance\.test\.js')
+$installAcceptance = Get-Content "$ROOT\tests\unit\mega-core-install-acceptance.test.js" -Raw -ErrorAction SilentlyContinue
+# The three facts, each named in the suite itself: a suite that quietly stopped asserting one of them would
+# still be green, so the words it has to contain are asserted here.
+Check 'The install acceptance checks discovery, loading and the official Settings' (($installAcceptance -match 'shipped') -and ($installAcceptance -match 'settings\.section') -and ($installAcceptance -match 'shadowManifests'))
 
 if (-not $SkipTests) {
   Write-Output ''

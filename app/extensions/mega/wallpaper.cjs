@@ -12,12 +12,11 @@
  *
  * What it can have is every surface DS-Hns owns, which is where a background actually belongs:
  *
- *   * **the dock** — a scripted document of ours, so it takes an image *or* a video, behind the
- *     frosted glass, at full fidelity;
+ *   * **the dock** — a scripted document of ours, so it carries the picture behind the frosted
+ *     glass at full fidelity;
  *   * **the window** — a script-free document of ours in a click-through window over the official
  *     page (`app/wallpaper-window.cjs`), which is what "the picture backs the whole interface"
- *     means. Its CSP allows exactly one kind of asset, an inline `data:` image, and that is the
- *     whole reason a video cannot go there: a limit of the safe path rather than of this module.
+ *     means. Its CSP allows exactly one kind of asset, an inline `data:` image.
  *
  * Three rules keep it from being a way to break the product:
  *
@@ -42,18 +41,39 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-/** What a wallpaper may be. An extension is not a guarantee, but it is the check that costs nothing. */
+/**
+ * What this layer may be: **pictures**.
+ *
+ * Videos, scenes and web wallpapers are the community `dsh-plugin-wallpaper-engine`'s job — it is installed in
+ * the profile, it is the one that renders inside the official UI, and the plan's Phase 7 removes this product's
+ * duplicate of it (`updateplan/pluginize.md`: "重复 wallpaper backend" / "冻结或移除复杂 Video Pipeline").
+ * Keeping a second, weaker video pipeline here would be two implementations of one feature, on a surface — the
+ * dock — that is itself being retired once the Mega plugin's orb is accepted. The condition the previous round
+ * recorded for that removal (the pin marked `tested: true`) is met, so the pipeline is gone rather than
+ * switched off (see `docs/startup.md` §3.10 and `docs/pluginize.md`).
+ *
+ * So a video is refused *by name*, with the reason, rather than silently accepted and then drawn nowhere.
+ */
 const WALLPAPER_KINDS = Object.freeze({
-  // Stills, animations and vectors: everything a CSS background can draw. An SVG is safe *here*
-  // precisely because of where it is drawn — a background image is loaded as an image document, so
-  // its scripts never run and it can never become a page — and an animated GIF or WebP animates
-  // without any of that changing.
+  // Stills, animations and vectors: everything a CSS background can draw. An SVG is safe *here* precisely
+  // because of where it is drawn — a background image is loaded as an image document, so its scripts never run
+  // and it can never become a page — and an animated GIF or WebP animates without any of that changing.
   image: Object.freeze([
     '.png', '.apng', '.jpg', '.jpeg', '.jfif', '.pjpeg', '.webp', '.gif',
     '.avif', '.svg', '.svgz', '.bmp', '.ico'
-  ]),
-  video: Object.freeze(['.mp4', '.webm', '.m4v'])
+  ])
 })
+
+/**
+ * The extensions that belong to the wallpaper plugin, kept so a refusal can name them.
+ *
+ * They are *not* accepted here and there is no second list to keep in step with a renderer: a file with one of
+ * these extensions is refused with `ADVANCED_REASON` below, which is the same sentence the panel shows.
+ */
+const ADVANCED_EXTENSIONS = Object.freeze(['.mp4', '.webm', '.m4v', '.html', '.htm'])
+
+/** Why this layer does not draw them. One sentence, used wherever the user meets the boundary. */
+const ADVANCED_REASON = 'videos and web wallpapers are the dsh-plugin-wallpaper-engine plugin\'s job now; this layer carries pictures'
 
 /**
  * The two backdrops, and they are **set separately**:
@@ -61,7 +81,7 @@ const WALLPAPER_KINDS = Object.freeze({
  *   * `main` — the main screen, drawn by the click-through window over the official page
  *     (`app/wallpaper-window.cjs`), handed a stylesheet;
  *   * `dock` — the Mega interface, drawn by the dock's own document
- *     (`app/extensions/mega/ui/dock.html`), which can also carry a video.
+ *     (`app/extensions/mega/ui/dock.html`).
  *
  * They used to share one picture and one set of numbers. Wanting a different picture behind the
  * dock than behind the app is not a strange want — the dock is a narrow strip of frosted glass and
@@ -72,9 +92,6 @@ const WALLPAPER_KINDS = Object.freeze({
  */
 const WALLPAPER_SURFACES = Object.freeze(['main', 'dock'])
 
-/** Which of those can carry a video: only the scripted document, and that is not a preference. */
-const VIDEO_TARGETS = Object.freeze(['dock'])
-
 /** One surface's own picture and its own numbers. */
 const WALLPAPER_SURFACE_DEFAULT = Object.freeze({
   enabled: true,
@@ -83,8 +100,12 @@ const WALLPAPER_SURFACE_DEFAULT = Object.freeze({
   opacity: 55,
   blur: 0,
   scrim: 35,
-  // Only the dock has an element that can play something, so only the dock has a use for this.
-  muted: true
+  // The picture's own filter (`updateplan/startup2.md` §27's `--dsh-wallpaper-*` tokens, which are the public
+  // names of exactly these numbers). `1` is "as the file is": a wallpaper the user chose is not automatically
+  // dimmed, and the appearance presets are what ask for anything else.
+  brightness: 1,
+  contrast: 1,
+  saturation: 1
 })
 
 const WALLPAPER_DEFAULT = Object.freeze({
@@ -97,7 +118,11 @@ const WALLPAPER_DEFAULT = Object.freeze({
 const WALLPAPER_LIMITS = Object.freeze({
   opacity: Object.freeze({ min: 0, max: 100 }),
   blur: Object.freeze({ min: 0, max: 40 }),
-  scrim: Object.freeze({ min: 0, max: 100 })
+  scrim: Object.freeze({ min: 0, max: 100 }),
+  // §27's token ranges, for the picture's filter.
+  brightness: Object.freeze({ min: 0.4, max: 1.2 }),
+  contrast: Object.freeze({ min: 0.4, max: 1.2 }),
+  saturation: Object.freeze({ min: 0, max: 1.5 })
 })
 
 const WALLPAPER_FITS = Object.freeze(['cover', 'contain', 'tile'])
@@ -130,26 +155,36 @@ const MIME_BY_EXTENSION = Object.freeze({
   '.svg': 'image/svg+xml',
   '.svgz': 'image/svg+xml',
   '.bmp': 'image/bmp',
-  '.ico': 'image/x-icon',
-  '.mp4': 'video/mp4',
-  '.webm': 'video/webm',
-  '.m4v': 'video/x-m4v'
+  '.ico': 'image/x-icon'
 })
 
-/** Which kind a file is, or null when it is not a wallpaper at all. */
+/** Which kind a file is, or null when it is not a picture this layer draws. */
 function kindOf(file) {
   const extension = path.extname(String(file || '')).toLowerCase()
   if (WALLPAPER_KINDS.image.includes(extension)) return 'image'
-  if (WALLPAPER_KINDS.video.includes(extension)) return 'video'
   return null
 }
 
-/** One number, clamped into its own range; anything unreadable keeps the value it replaces. */
-function clamp(name, value, fallback) {
+/**
+ * Whether a file is one the *wallpaper plugin* carries, so a refusal can say "use the plugin" instead of
+ * reading out a list of extensions at someone who just chose a video.
+ */
+function isAdvanced(file) {
+  return ADVANCED_EXTENSIONS.includes(path.extname(String(file || '')).toLowerCase())
+}
+
+/**
+ * One number, clamped into its own range; anything unreadable keeps the value it replaces.
+ *
+ * `integer` is false for the filter numbers, whose ranges are fractional — rounding `0.6` to `1` would make the
+ * vocabulary unable to say what it is for.
+ */
+function clamp(name, value, fallback, integer = true) {
   const range = WALLPAPER_LIMITS[name]
   const number = Number(value)
   if (!range || !Number.isFinite(number)) return fallback
-  return Math.min(range.max, Math.max(range.min, Math.round(number)))
+  const bounded = Math.min(range.max, Math.max(range.min, number))
+  return integer ? Math.round(bounded) : Math.round(bounded * 1000) / 1000
 }
 
 /**
@@ -180,7 +215,11 @@ function createWallpaper(options = {}) {
     // A file that is no longer a wallpaper (renamed, or a type this build does not draw) is dropped
     // rather than kept as a path nothing can use.
     const usable = chosen && kindOf(chosen) ? chosen : null
-    if (chosen && !usable) log(`the saved wallpaper "${chosen}" is not an image or a video this build can draw; it was dropped`)
+    if (chosen && !usable) {
+      log(isAdvanced(chosen)
+        ? `the saved wallpaper "${chosen}" is a video or a web wallpaper, which the wallpaper plugin carries now; it was dropped`
+        : `the saved wallpaper "${chosen}" is not a picture this build draws; it was dropped`)
+    }
     return {
       enabled: typeof source.enabled === 'boolean' ? source.enabled : inherited.enabled,
       file: usable,
@@ -188,7 +227,9 @@ function createWallpaper(options = {}) {
       opacity: clamp('opacity', source.opacity, inherited.opacity),
       blur: clamp('blur', source.blur, inherited.blur),
       scrim: clamp('scrim', source.scrim, inherited.scrim),
-      muted: typeof source.muted === 'boolean' ? source.muted : inherited.muted
+      brightness: clamp('brightness', source.brightness, inherited.brightness, false),
+      contrast: clamp('contrast', source.contrast, inherited.contrast, false),
+      saturation: clamp('saturation', source.saturation, inherited.saturation, false)
     }
   }
 
@@ -226,8 +267,7 @@ function createWallpaper(options = {}) {
       fit: WALLPAPER_FITS.includes(raw.fit) ? raw.fit : WALLPAPER_DEFAULT.main.fit,
       opacity: clamp('opacity', raw.opacity, WALLPAPER_DEFAULT.main.opacity),
       blur: clamp('blur', raw.blur, WALLPAPER_DEFAULT.main.blur),
-      scrim: clamp('scrim', raw.scrim, WALLPAPER_DEFAULT.main.scrim),
-      muted: typeof raw.muted === 'boolean' ? raw.muted : WALLPAPER_DEFAULT.main.muted
+      scrim: clamp('scrim', raw.scrim, WALLPAPER_DEFAULT.main.scrim)
     }
     cache = {
       enabled: typeof raw.enabled === 'boolean' ? raw.enabled : WALLPAPER_DEFAULT.enabled,
@@ -262,9 +302,9 @@ function createWallpaper(options = {}) {
    *
    * The layer over the official page is a script-free document whose policy allows an inline image,
    * so this is not an optimisation — it is the only shape that surface can be handed. It is also why
-   * the dock gets the same URL rather than a `file://` path for an image: one asset, one rule, no
-   * second policy to keep right. (A video is the exception, and only because the dock is a document
-   * we own with a real element to hand a source to.)
+   * the dock gets the same URL rather than a raw path for an image: one asset, one rule, no
+   * second policy to keep right. Since the video pipeline was removed there is no exception left in
+   * it, which is the point of the removal: one path, and nothing that can drift from it.
    *
    * @param {string|null} chosen the file to read
    */
@@ -317,13 +357,11 @@ function createWallpaper(options = {}) {
       opacity: surface.opacity,
       blur: surface.blur,
       scrim: surface.scrim,
-      muted: surface.muted,
       /**
        * Whether this surface draws anything, master switch included: `false` is a complete answer and
        * the caller acts on it (the window layer comes off the screen, the dock layer is emptied).
-       * A video counts as drawable only where something can play it.
        */
-      drawable: Boolean(state.enabled && surface.enabled && inlined.dataUrl && (surfaceId === 'dock' || inlined.kind !== 'video')),
+      drawable: Boolean(state.enabled && surface.enabled && inlined.dataUrl),
       reason: inlined.reason || null
     }
   }
@@ -354,13 +392,7 @@ function createWallpaper(options = {}) {
         scrim: { ...WALLPAPER_LIMITS.scrim }
       },
       fits: [...WALLPAPER_FITS],
-      surfaces: [...WALLPAPER_SURFACES],
-      videoTargets: [...VIDEO_TARGETS],
-      // What the panel says about a video on a surface that cannot carry one, so the rule is
-      // visible where the choice is made instead of being discovered as a blank area.
-      note: main.kind === 'video'
-        ? 'a video draws in Mega only: the main screen\'s layer is a script-free document whose policy allows an inline image and nothing else'
-        : null
+      surfaces: [...WALLPAPER_SURFACES]
     }
   }
 
@@ -374,7 +406,6 @@ function createWallpaper(options = {}) {
   function applySurface(target, surfaceId, block, previous) {
     const next = { ...previous }
     if (typeof block.enabled === 'boolean') next.enabled = block.enabled
-    if (typeof block.muted === 'boolean') next.muted = block.muted
     if (block.fit !== undefined) {
       if (!WALLPAPER_FITS.includes(block.fit)) return { ok: false, reason: `"${block.fit}" is not a fit; expected one of ${WALLPAPER_FITS.join(', ')}` }
       next.fit = block.fit
@@ -382,11 +413,25 @@ function createWallpaper(options = {}) {
     if (block.opacity !== undefined) next.opacity = clamp('opacity', block.opacity, previous.opacity)
     if (block.blur !== undefined) next.blur = clamp('blur', block.blur, previous.blur)
     if (block.scrim !== undefined) next.scrim = clamp('scrim', block.scrim, previous.scrim)
+    // §27's filter tokens, with the same names a provider would use.
+    if (block.brightness !== undefined) next.brightness = clamp('brightness', block.brightness, previous.brightness, false)
+    if (block.contrast !== undefined) next.contrast = clamp('contrast', block.contrast, previous.contrast, false)
+    if (block.saturation !== undefined) next.saturation = clamp('saturation', block.saturation, previous.saturation, false)
+    // `darken` is the §27 token name for the scrim: one number with two audiences, so a provider that speaks
+    // the token vocabulary and the settings page that speaks the layer's cannot end up storing two of them.
+    if (block.darken !== undefined) next.scrim = clamp('scrim', block.darken, previous.scrim)
     if (block.file !== undefined) {
       // Clearing is a real choice and an empty string is how it is said.
       const chosen = block.file === null || block.file === '' ? null : String(block.file)
       if (chosen && !kindOf(chosen)) {
-        return { ok: false, reason: `"${path.basename(chosen)}" is not a wallpaper: expected ${[...WALLPAPER_KINDS.image, ...WALLPAPER_KINDS.video].join(', ')}` }
+        // A file that belongs to the wallpaper plugin is refused *by name*, with the reason: someone who
+        // just chose a video is owed "use the plugin", not a list of extensions they did not ask about.
+        return {
+          ok: false,
+          reason: isAdvanced(chosen)
+            ? `"${path.basename(chosen)}" is not drawn here: ${ADVANCED_REASON}`
+            : `"${path.basename(chosen)}" is not a wallpaper: expected ${WALLPAPER_KINDS.image.join(', ')}`
+        }
       }
       if (chosen && !present(chosen)) return { ok: false, reason: `"${chosen}" is not a file this process can read` }
       next.file = chosen
@@ -402,7 +447,7 @@ function createWallpaper(options = {}) {
    *
    *   * `{ main: {…}, dock: {…} }` — the same keys, for one surface each. This is what the panel
    *     sends, and it is how the main screen and Mega are set separately;
-   *   * the historical flat shape (`{ file, fit, opacity, blur, scrim, muted }`) — **both** surfaces,
+   *   * the historical flat shape (`{ file, fit, opacity, blur, scrim }`) — **both** surfaces,
    *     because that is what one picture with one set of numbers used to mean. `enabled` stays the
    *     master switch either way.
    */
@@ -415,7 +460,7 @@ function createWallpaper(options = {}) {
       source: 'user'
     }
     const flat = {}
-    for (const key of ['file', 'fit', 'opacity', 'blur', 'scrim', 'muted']) {
+    for (const key of ['file', 'fit', 'opacity', 'blur', 'scrim']) {
       if (patch[key] !== undefined) flat[key] = patch[key]
     }
     for (const surfaceId of WALLPAPER_SURFACES) {
@@ -459,12 +504,12 @@ function createWallpaper(options = {}) {
     const state = load()
     const surface = state[target]
     const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
-    // The dock is not a CSS layer: it is a real element behind the glass, because that is where a
-    // video can live. Answering `none` here keeps one contract for both callers.
+    // The dock is not a stylesheet layer: it is a real element behind the glass and it is told through
+    // `dockLayer()`. Answering `none` here keeps one contract for both callers.
     if (target === 'dock') return 'none'
     // The opacity is the user's, on every surface. A ceiling would be this module deciding how much
     // of their own screen they may cover; the scrim is the readability dial, and it is theirs.
-    if (!state.enabled || !surface.enabled || !inlined.dataUrl || inlined.kind === 'video') {
+    if (!state.enabled || !surface.enabled || !inlined.dataUrl) {
       return { image: 'none', opacity: 0, scrim: 0, blur: 0, fit: surface.fit, kind: inlined.kind || null }
     }
     return {
@@ -473,8 +518,8 @@ function createWallpaper(options = {}) {
       scrim: surface.scrim,
       blur: surface.blur,
       fit: surface.fit,
-      // A video is a real element with real attributes; the stylesheet cannot describe one, which
-      // is why the dock is told separately.
+      // Carried so the caller can tell "nothing chosen" from "chosen and painted": both end up as
+      // `` image: 'none' ``, and only one of them is a fault.
       kind: inlined.kind
     }
   }
@@ -495,8 +540,7 @@ function createWallpaper(options = {}) {
       fit: surface.fit,
       opacity: surface.opacity,
       blur: surface.blur,
-      scrim: surface.scrim,
-      muted: surface.muted
+      scrim: surface.scrim
     }
     if (!state.enabled || !surface.enabled || !surface.file) {
       return { active: false, kind: null, src: null, ...settings, reason: null }
@@ -504,11 +548,12 @@ function createWallpaper(options = {}) {
     return {
       active: Boolean(inlined.dataUrl),
       kind: inlined.kind,
-      // A video is fetched by the element itself rather than inlined: a base64 video would be a
-      // string the size of the file, and the dock is a document we own, so it may read a path.
-      src: inlined.kind === 'video' ? `file://${surface.file.replace(/\\/g, '/')}` : inlined.dataUrl,
+      // The same inline asset the official surfaces are handed: one asset, one rule. (This used to be a
+      // `file:` URL for a video; the video pipeline is the plugin's now, so there is nothing to fetch.)
+      src: inlined.dataUrl,
       ...settings,
-      reason: inlined.reason || null
+      reason: inlined.reason || null,
+      bytes: inlined.dataUrl ? inlined.dataUrl.length : 0
     }
   }
 
@@ -562,6 +607,12 @@ function createWallpaper(options = {}) {
       `  --wp-repeat: ${fit === 'tile' ? 'repeat' : 'no-repeat'};`,
       `  --wp-blur: ${layer.blur || 0}px;`,
       `  --wp-scrim: ${(layer.scrim || 0) / 100};`,
+      // §27: the picture's filter, under the names a provider is allowed to use. They are the same numbers as
+      // the layer's own, so an appearance provider and the settings page cannot describe two different pictures.
+      `  --dsh-wallpaper-brightness: ${filterOf('brightness')};`,
+      `  --dsh-wallpaper-contrast: ${filterOf('contrast')};`,
+      `  --dsh-wallpaper-saturation: ${filterOf('saturation')};`,
+      `  --dsh-wallpaper-darken: ${(layer.scrim || 0) / 100};`,
       '}',
       // `!important` because the document's own rule for this element sets the picture from a variable
       // and sits after an inserted sheet in the cascade: this is the same statement as `:root:root`
@@ -580,6 +631,12 @@ function createWallpaper(options = {}) {
     return load()[surfaceId].fit
   }
 
+  /** One of the picture's filter numbers, from the main screen's layer (the window's own picture). */
+  function filterOf(name) {
+    const value = Number(load().main[name])
+    return Number.isFinite(value) ? value : 1
+  }
+
   /**
    * Everything the click-through window over the official page needs: the stylesheet it is handed,
    * and whether there is anything to draw at all. From the **main** surface — that is what the main
@@ -593,8 +650,22 @@ function createWallpaper(options = {}) {
     const state = load()
     const surface = state.main
     const inlined = surface.file ? inline(surface.file) : { kind: null, dataUrl: null }
-    const drawable = Boolean(state.enabled && surface.enabled && inlined.dataUrl && inlined.kind !== 'video')
-    return { css: windowCss(), drawable, kind: inlined.kind || null, reason: inlined.reason || null }
+    const drawable = Boolean(state.enabled && surface.enabled && inlined.dataUrl)
+    return {
+      css: windowCss(),
+      drawable,
+      kind: inlined.kind || null,
+      reason: inlined.reason || null,
+      /**
+       * What this layer is carrying, in bytes — the picture's inlined payload.
+       *
+       * It is reported from here because this is the only place that already knows it (`inline()` has the data
+       * URL in hand), and because §55/§56 are about exactly this number: a full-screen picture is a string the
+       * size of the file, held in a renderer, and the appearance ledger should not have to build a second
+       * multi-megabyte string to find out.
+       */
+      bytes: inlined.dataUrl ? inlined.dataUrl.length : 0
+    }
   }
 
   return {
@@ -602,9 +673,12 @@ function createWallpaper(options = {}) {
     WALLPAPER_LIMITS,
     WALLPAPER_FITS,
     WALLPAPER_KINDS,
+    ADVANCED_EXTENSIONS,
+    ADVANCED_REASON,
     OFFICIAL_OPACITY_CEILING,
     MAX_ASSET_BYTES,
     kindOf,
+    isAdvanced,
     describe,
     set,
     read: load,
@@ -622,13 +696,15 @@ function createWallpaper(options = {}) {
 module.exports = {
   createWallpaper,
   kindOf,
+  isAdvanced,
   WALLPAPER_DEFAULT,
   WALLPAPER_SURFACE_DEFAULT,
   WALLPAPER_LIMITS,
   WALLPAPER_FITS,
   WALLPAPER_KINDS,
   WALLPAPER_SURFACES,
-  VIDEO_TARGETS,
+  ADVANCED_EXTENSIONS,
+  ADVANCED_REASON,
   OFFICIAL_OPACITY_CEILING,
   MAX_ASSET_BYTES
 }

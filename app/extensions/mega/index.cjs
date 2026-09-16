@@ -22,6 +22,17 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
+const { createBundledPlugins, installBundled, removeBundled } = require('./plugins/index.cjs')
+const { createMegaItems } = require('./mega-items.cjs')
+const { createAppearanceController } = require('./appearance/index.cjs')
+const { buildControlCenter } = require('./control-center.cjs')
+const { createGovernanceBridge } = require('../../core/governance-bridge.cjs')
+const { createStartupCache } = require('./startup-cache.cjs')
+// The system floating orb (a window of ours that floats over every application, not only over this one).
+const { createSystemOrb, createOrbState } = require('./system-orb.cjs')
+const { createAppearanceProviders } = require('./appearance/providers.cjs')
+const { createAppearanceState } = require('./appearance/state.cjs')
+const { estimateAppearanceCost } = require('./appearance/cost.cjs')
 // The two backdrop surfaces a wallpaper can be set for (`main` = the main screen, `dock` = Mega).
 // The module itself is built lazily; this list is needed by the file chooser's scope.
 const { WALLPAPER_SURFACES } = require('./wallpaper.cjs')
@@ -57,7 +68,7 @@ function bilingualTitle(cn, en) {
 const CHANNELS = [
   'mega:snapshot', 'mega:add-task', 'mega:reorder-task', 'mega:cancel-task', 'mega:clear-pending',
   'mega:remove-tasks', 'mega:update-scheduler', 'mega:refresh-hardware', 'mega:update-settings',
-  'mega:balance', 'mega:pick-workspace', 'mega:pick-sound',
+  'mega:balance', 'mega:balance-restore', 'mega:pick-workspace', 'mega:pick-sound',
   'mega:update-check', 'mega:update-apply',
   'mega:dock-toggle', 'mega:dock-expand',
   // The compatibility report the dock's status panel shows. It used to be answered
@@ -79,8 +90,28 @@ const CHANNELS = [
   // The frosted-glass layer: the switch that makes every DS-Hns surface translucent, and the
   // numbers that describe how strong it is (the official UI has no part in it).
   'mega:ui-glass', 'mega:ui-glass-set',
+  // The appearance presets: one decision over both layers (updateplan/startup2.md section 26-28).
+  'mega:appearance', 'mega:appearance-set',
+  // The appearance providers: official / simple / Wallpaper Engine, and the way to the plugin that backs the
+  // third one (updateplan/startup2.md section 43-44).
+  'mega:appearance-providers', 'mega:appearance-provider-set', 'mega:open-store',
+  // The Control Center: the enhanced layer's execution, resources, extensions, protection and diagnostics,
+  // plus the actions that belong to it (retry / repair / disable / enable / fall back).
+  'mega:control-center', 'mega:control-action',
+  // The system floating orb: its own window, its own document, and only these ways in (see `orb-preload.cjs`
+  // — the same "the preload is the whole reachable surface" rule the dock follows).
+  'mega:orb-snapshot', 'mega:orb-open', 'mega:orb-measure', 'mega:orb-drag', 'mega:orb-hover', 'mega:orb-action',
+  // The timing pair the ball's own new-task form asks through: what a task may be, and one being made — plus the
+  // three operations on a queued task (change it, move it, delete it), so the panel can act on what it counts. The
+  // queue itself has no channel: it travels inside the view both balls already draw.
+  'mega:orb-timing', 'mega:orb-task', 'mega:orb-task-edit', 'mega:orb-task-move', 'mega:orb-task-delete',
+  // The push the ball listens on. It has no handler to remove, and it is declared all the same: a channel a
+  // preload can subscribe to is part of the surface that has to be enumerable.
+  'mega:orb-state',
   // The wallpaper layer: what the dock and (later) the official surfaces draw behind everything.
   'mega:wallpaper', 'mega:wallpaper-set', 'mega:wallpaper-pick', 'mega:wallpaper-layer',
+  // The bundled community plugins: what the release pinned, what is installed, and repair.
+  'mega:bundled-plugins', 'mega:bundled-plugins-repair',
   // ---- HNS unified theme system ----
   'mega:theme-snapshot', 'mega:theme-capabilities', 'mega:theme-create', 'mega:theme-revise',
   'mega:theme-validate', 'mega:theme-approve', 'mega:theme-discard', 'mega:theme-apply',
@@ -252,6 +283,65 @@ async function observedRegions() {
 const balanceService = new BalanceService({ log: (message) => log(message) })
 
 /**
+ * The one balance refresh path (MEGA-04).
+ *
+ * Every trigger — the startup read, the dock's Balance panel, the dashboard's refresh button in the official UI —
+ * comes through here, so "read the account" has a single implementation with a single call site. That is what the
+ * lifecycle test has always asserted (`one balance refresh implementation`), and it is worth keeping literally
+ * true: a second call site is how a second policy (a different timeout, a different trigger name, a retry that
+ * nobody agreed to) gets introduced without anybody deciding to.
+ *
+ * @param {string} trigger `startup` | `module-open` | `manual` | `retry`
+ * @param {{only?: string[]|null}} [options] `only` re-reads just the providers that failed
+ */
+async function refreshBalance(trigger = 'manual', { only = null } = {}) {
+  const result = await balanceService.refreshBalances(trigger, { only })
+  notifyChanged()
+  return result
+}
+
+/**
+ * Whether a balance read is already running because somebody asked for one.
+ *
+ * The service coalesces its own reads (`refreshBalance` reuses the in-flight call), so this flag is not about
+ * protecting the provider — it is about answering the *button* honestly: a second click while the first read is
+ * still out reports "already going" instead of pretending to have started a second one.
+ */
+let balanceRefreshInFlight = false
+
+/**
+ * Read the account once as the product comes up (MEGA-04).
+ *
+ * Until this existed the dashboard said `未刷新 · not read yet` until a human pressed something, which made the
+ * balance look broken rather than unread — the old dock refreshed when its Balance module was scrolled into
+ * view, and there is no such module any more.
+ *
+ * Three properties are the point, and all three are why it lives here rather than on the boot path:
+ *
+ *   * **it is off the boot path** — `setTimeout` with an `unref`'d timer, so a slow or hanging provider can
+ *     never delay the official UI, the dock or the ball;
+ *   * **it happens once** — a startup read that repeated itself would be a poll, and the account does not
+ *     change often enough to be worth one;
+ *   * **a failure is data**, not an error: the service returns the failure as state (and marks a stale answer
+ *     as stale), so a missing credential or an offline machine costs a line in the log and one honest row on
+ *     the dashboard.
+ */
+function scheduleStartupBalanceRead() {
+  const delayMs = Math.max(0, Number(process.env.DSH_MEGA_BALANCE_STARTUP_MS ?? 3000))
+  const timer = setTimeout(() => {
+    Promise.resolve()
+      .then(() => refreshBalance('startup'))
+      .then((result) => {
+        const state = result?.ok ? `${result.balances?.length || 0} row(s)` : (result?.error?.code || 'no result')
+        log(`startup balance read: ${state}`)
+      })
+      .catch((error) => log(`the startup balance read failed without affecting anything else: ${error?.message || error}`))
+  }, delayMs)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
+
+/**
  * Terminal alerts are one pipeline for every task path (official user session,
  * scheduler official session, headless task): whichever observer reports the
  * terminal state first, the dispatcher guarantees a single ringtone and a single
@@ -307,7 +397,7 @@ function saveDockState() {
 
 function snapshot() {
   const recent = taskHistory.loadRecent()
-  return {
+  const payload = {
     extension: {
       id: 'mega',
       mode: 'optional-feature-extension',
@@ -412,6 +502,15 @@ function snapshot() {
       }
     })()
   }
+  /**
+   * The collapsed rail, derived from everything above (`updateplan/startup2.md` §41-§44).
+   *
+   * It is computed here, from the same payload the dock is about to receive, so the rail cannot
+   * disagree with the panels: whatever a module registered is asked for its current answer, the zeros
+   * stay out (§36/§43) and the budget decides what fits (§44).
+   */
+  payload.megaItems = megaItems().render(payload)
+  return payload
 }
 
 /** Sub-worker snapshot for the Mega panel and the tray (plan §11, §12, §16). */
@@ -450,9 +549,26 @@ function subWorkerAvailable() {
  * Every dock push goes through the adapter. The dock renderer initiates its own
  * IPC calls, but a *push* (a change notification) needs a target, and the
  * integrated dock is the target the product actually ships.
+ *
+ * **The system ball is a target too, and that is a fix rather than a convenience.** It learned about a change only
+ * on its 15-second poll, so a task that had just been suspended showed up in the panel up to fifteen seconds later
+ * — and a user who opened the panel in between opened it on the older view, which is exactly what
+ * "挂起任务数量没有改变" was. The refresh is debounced (250 ms) because the scheduler emits one `queue-changed` per
+ * state transition, and a transparent always-on-top window that rebuilds its view per transition is a window that
+ * flickers.
  */
+let orbPushTimer = null
 function notifyChanged() {
   dockTarget.send('mega:changed')
+  if (!systemOrb || orbPushTimer) return
+  orbPushTimer = setTimeout(() => {
+    orbPushTimer = null
+    Promise.resolve()
+      .then(() => refreshOrbView())
+      .then(() => { if (systemOrb) systemOrb.render(systemOrbView) })
+      .catch(() => {})
+  }, 250)
+  if (typeof orbPushTimer.unref === 'function') orbPushTimer.unref()
 }
 
 /**
@@ -618,8 +734,25 @@ function ring(eventName) {
   }
 }
 
+/**
+ * Whether the dock is allowed at all, and whether it comes up with the app.
+ *
+ * The dock is the surface this product is retiring (§30): the orb in the official UI and the system ball are
+ * what Mega shows now, and the sidebar is the thing the user asked to have removed. So the default is **off**
+ * — not created at startup, not on screen — while every existing way of asking for it still works:
+ *
+ *   * `DSH_MEGA_DOCK=0` / `DSH_MEGA_WIDGET=0` — a hard off switch: the dock is never created.
+ *   * `DSH_MEGA_DOCK=1` / `DSH_MEGA_WIDGET=1` — bring it up with the app (the pre-retirement behaviour).
+ *   * neither — the tray's "Mega 控制台", the plugin-manager entry and `Ctrl+Shift+M` create and show it on
+ *     demand. Hidden by default and unreachable are not the same thing, and the difference matters on the day
+ *     the ball is what broke.
+ */
 function dockEnabled() {
   return process.env.DSH_MEGA_DOCK !== '0' && process.env.DSH_MEGA_WIDGET !== '0'
+}
+
+function dockAutoStart() {
+  return process.env.DSH_MEGA_DOCK === '1' || process.env.DSH_MEGA_WIDGET === '1'
 }
 
 function dockCanShow() {
@@ -694,6 +827,10 @@ function notifyShellDockState() {
 function setDockExpanded(expanded, { focus = false, persist = true } = {}) {
   dockExpanded = Boolean(expanded)
   dockUserHidden = false
+  // The dock does not exist until somebody asks for it (`dockAutoStart`), so the first request is also what
+  // creates the companion window — in the integrated mode the shell owns that strip instead, and this is a
+  // no-op there because the extension's own dock is switched off.
+  if (dockExpanded && !dockWindow && dockEnabled()) createDock()
   // `persist: false` is the shell's mode policy (Work Mode collapses the dock so
   // the official UI keeps its width). It must not overwrite the user's own
   // preference, which is what a later Daily switch restores.
@@ -1450,6 +1587,1014 @@ function installer() {
 }
 
 /**
+ * The governance bridge (`app/core/governance-bridge.cjs`, `updateplan/pluginize.md` Phase 1).
+ *
+ * The plan moves Mega into the official Harness UI as a plugin, and that plugin runs in the Harness process —
+ * a different process from this one. So it needs a channel to ask what governance knows and to ask for the
+ * actions governance allows, and this is that channel.
+ *
+ * It answers with **exactly what the Control Center shows** (`controlCenter()`) and performs **exactly the
+ * actions the Control Center offers** (`controlAction()`). One truth, two surfaces: a second assembly of the
+ * same facts would be a second answer, and the plugin and the dock would eventually disagree about whether a
+ * module is healthy.
+ */
+let governanceBridgeState = null
+function governanceBridge() {
+  if (governanceBridgeState) return governanceBridgeState
+  governanceBridgeState = createGovernanceBridge({
+    // The Harness child is spawned with `DSH_HOME=<root>/data`, so its plugin finds the discovery file from its
+    // own environment instead of a hard-coded path.
+    stateDir: path.join(PATHS.ROOT, 'data', 'state'),
+    snapshot: () => controlCenter(),
+    act: (payload) => controlAction(payload),
+    // The two halves of the timing surface (pluginize Phase 2): what a scheduled task may be, and one being made.
+    // The queue is not a third half — it travels inside `controlCenter()`'s snapshot, which every surface already
+    // reads. What needed adding was the ability to *act* on a queued task: "也不能编辑，也不能调顺序", and then to
+    // delete one.
+    timing: () => scheduledTaskSurface(),
+    createTask: (input) => scheduleTask(input),
+    editTask: (input) => editScheduledTask(input),
+    moveTask: (input) => moveScheduledTask(input),
+    deleteTask: (input) => deleteScheduledTask(input),
+    log: (message) => log(message)
+  })
+  return governanceBridgeState
+}
+
+/**
+ * What a scheduled task may be — the answer to "which choices does the new-task dialog offer".
+ *
+ * It is deliberately a *report about the scheduler*, not a policy: the peak windows come from the same
+ * `PricingRepository` a task is billed against, the time zone from the same schedule, and the defaults from the
+ * scheduler's own config. A dialog that invented these would promise a task at a time the scheduler would not run
+ * it (a task scheduled into a peak window with peak off is suspended until the window closes, not refused — which
+ * is exactly the kind of thing a UI has to be able to say before the user picks a time).
+ */
+function scheduledTaskSurface() {
+  const described = (() => {
+    try {
+      return scheduler.describe() || {}
+    } catch (error) {
+      log(`the scheduler could not be described for the timing surface: ${error?.message || error}`)
+      return {}
+    }
+  })()
+  const schedule = (() => {
+    try {
+      return scheduler.pricing?.getSchedule?.() || null
+    } catch {
+      return null
+    }
+  })()
+  const config = described.config || {}
+  return {
+    kind: 'scheduled-task',
+    // Free text plus this: a task is a prompt sent at a time, and that is the whole of it.
+    fields: { prompt: { required: true, maxLength: 20000 }, startAt: { required: false, format: 'iso-8601' } },
+    defaults: {
+      // Relative to "now" when the dialog opens, not to when DS-Hns started: three minutes is long enough to
+      // type a sentence and short enough that "I will set the real time" is not a chore.
+      startAt: new Date(Date.now() + 3 * 60_000).toISOString(),
+      allowPeak: Boolean(config.defaultAllowPeak),
+      deliveryMode: 'official-session'
+    },
+    schedule: {
+      timeZone: schedule?.timeZone || 'Asia/Shanghai',
+      weekdays: schedule?.weekdays || [1, 2, 3, 4, 5],
+      peakPeriods: schedule?.peakPeriods || []
+    },
+    peak: described.peak || null,
+    // The two facts that decide whether "run it now" and "run it at peak" are even possible.
+    interruptRunningAtPeak: Boolean(config.interruptRunningAtPeak),
+    // One second rather than none: a *new* task has to be given a time in the future (`SchedulerService.addTask`
+    // refuses a past instant), so "now, exactly" is not on offer — a form that believed offset 0 was legal would
+    // offer a time the scheduler refuses.
+    limits: { minStartOffsetSeconds: 1, maxStartAheadDays: 365 },
+    deliveryModes: [
+      { id: 'official-session', cn: '官方对话', en: 'Official conversation', default: true },
+      { id: 'headless', cn: 'Headless 后台', en: 'Headless background', default: false }
+    ]
+  }
+}
+
+/**
+ * Schedule one task (`POST /task` on the governance bridge).
+ *
+ * It goes through the **same** `scheduler.addTask` the dock's own form uses, so a task made from the official UI
+ * and a task made from the dock are the same kind of thing — and it answers with what the scheduler recorded
+ * rather than with a hopeful `{ ok: true }`, because the dialog shows the user the id and the instant they just
+ * committed to.
+ *
+ * The refusals are the scheduler's own (`prompt is required`, `invalid startAt`), reported as data: a dialog that
+ * cannot say *why* a task was refused is a dialog that makes the user guess.
+ */
+async function scheduleTask(input = {}) {
+  const prompt = String(input.prompt ?? '').trim()
+  if (!prompt) return { ok: false, reason: 'a task needs a prompt', field: 'prompt' }
+  const startAt = input.startAt === undefined || input.startAt === null || input.startAt === '' ? null : String(input.startAt)
+  if (startAt !== null && Number.isNaN(Date.parse(startAt))) {
+    return { ok: false, reason: `"${startAt}" is not a time this scheduler can read`, field: 'startAt' }
+  }
+  try {
+    const task = scheduler.addTask({
+      prompt,
+      startAt,
+      allowPeak: input.allowPeak === undefined ? undefined : input.allowPeak === true,
+      // The one delivery a "scheduled conversation" can have: a new official session, exactly like typing the
+      // same prompt into the composer and pressing send. `headless` stays reachable from the dock's own form,
+      // which is where a background job (no transcript, no session) actually belongs.
+      deliveryMode: input.deliveryMode === 'headless' ? 'headless' : 'official-session',
+      queuePosition: 'bottom',
+      permissionMode: input.permissionMode || undefined
+    })
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`scheduling a task from the official UI failed: ${error?.message || error}`)
+    // The scheduler owns the rules, and it says which field a refusal is about when it knows (`invalid startAt`,
+    // a time in the past); passing that through is what lets a form point at the input rather than at the whole
+    // form.
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * Change a task that has not run yet (`POST /task-edit`).
+ *
+ * The rules are the scheduler's — a queued task only, a prompt that is not empty, an instant that has not already
+ * gone — and its refusals travel as data with the field they are about, so a form can point at the input rather
+ * than at the whole form. Nothing is re-validated here: a second opinion about the same request is exactly how a
+ * UI starts promising things the layer refuses.
+ */
+async function editScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'editing a task needs its id', field: 'taskId' }
+  const changes = {}
+  if (input.prompt !== undefined) changes.prompt = input.prompt
+  if (input.startAt !== undefined) changes.startAt = input.startAt === null || input.startAt === '' ? null : String(input.startAt)
+  if (input.allowPeak !== undefined) changes.allowPeak = input.allowPeak === true
+  if (input.deliveryMode !== undefined) changes.deliveryMode = input.deliveryMode
+  if (!Object.keys(changes).length) return { ok: false, reason: 'nothing was changed', field: null }
+  try {
+    const task = scheduler.editTask(taskId, changes)
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`editing a task failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/** Move a queued task (`POST /task-move`) — the queue's own `reorderTask`, with its own words when it refuses. */
+async function moveScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'moving a task needs its id', field: 'taskId' }
+  const move = String(input.move || '').trim()
+  if (!['top', 'up', 'down', 'bottom'].includes(move)) {
+    return { ok: false, reason: `"${move}" is not a queue move; expected top, up, down or bottom`, field: 'move' }
+  }
+  try {
+    const task = scheduler.reorderTask(taskId, move)
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null } }
+  } catch (error) {
+    log(`moving a task in the queue failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * Delete a task from the queue (`POST /task-delete`).
+ *
+ * It is the scheduler's own `cancelTask`, and that is the honest meaning of "delete" here rather than a second
+ * removal path: a queued task is cancelled and leaves the active queue, a *running* one is interrupted first, and
+ * either way the task lands in the history layer as CANCELED — so "I deleted it" and "what became of it" are
+ * answerable from the same record instead of the task evaporating. An id that is not in the active queue is refused
+ * out loud: a delete that quietly did nothing is worse than one that says it found nothing.
+ */
+async function deleteScheduledTask(input = {}) {
+  const taskId = String(input.taskId || input.id || '').trim()
+  if (!taskId) return { ok: false, reason: 'deleting a task needs its id', field: 'taskId' }
+  const known = (() => {
+    try {
+      return scheduler.listTasks({ limit: 200 }).find((t) => t.id === taskId) || null
+    } catch (error) {
+      log(`the queue could not be read to delete a task: ${error?.message || error}`)
+      return null
+    }
+  })()
+  if (!known) return { ok: false, reason: `"${taskId}" is not in the active queue`, field: 'taskId' }
+  try {
+    const task = scheduler.cancelTask(taskId)
+    if (!task) return { ok: false, reason: `"${taskId}" is not in the active queue`, field: 'taskId' }
+    notifyChanged()
+    return { ok: true, task: { ...task, startAtMs: task.startAtMs ?? null }, deleted: true }
+  } catch (error) {
+    log(`deleting a task failed: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error), ...(error?.field ? { field: error.field } : {}) }
+  }
+}
+
+/**
+ * The MEGA Control Center (`updateplan/startup2.md` §45-§47).
+ *
+ * The expanded dock is where the enhancement layer is *managed*: what is running, what it costs, what is
+ * degraded, and what can be done about it. It is built here as data — sections of rows with a value and a
+ * tone, plus the protection modules that carry actions — so the dock renders it generically and a new
+ * section is a change in one place.
+ *
+ * Two rules from the plan are visible in the shape of the data:
+ *
+ *   * **the panel reads the same snapshot the rest of the dock does** — not a second query with its own
+ *     idea of the state, so a number cannot disagree with the panel next to it;
+ *   * **the actions are the ones the layer actually has** (§47): health re-read, retry, repair (bundled
+ *     plugins only, and only against a *tested* pin), disable/enable, and "let the fallback stand". None
+ *     of them is a Core setting scattered somewhere else.
+ */
+function controlCenter() {
+  const data = snapshot()
+  // The three reports the enhancement layer owns. Each is read defensively: a panel that cannot be
+  // drawn because one report threw would be the opposite of a diagnostics surface.
+  const protectionReport = (() => {
+    try {
+      return ctx?.protection?.describe?.() || null
+    } catch {
+      return null
+    }
+  })()
+  const bundledReport = (() => {
+    try {
+      return bundled().describe()
+    } catch (error) {
+      log("the bundled plugin report is unavailable: " + (error?.message || error))
+      return null
+    }
+  })()
+  const boot = (() => {
+    try {
+      return typeof ctx?.startup === 'function' ? ctx.startup() : null
+    } catch {
+      return null
+    }
+  })()
+  return buildControlCenter({
+    snapshot: data,
+    protection: protectionReport,
+    bundled: bundledReport,
+    boot,
+    cache: startupCache().describe(),
+    appearance: (() => {
+      try {
+        return appearanceCost()
+      } catch {
+        return null
+      }
+    })(),
+    bridge: (() => {
+      try {
+        return governanceBridgeState ? governanceBridgeState.describe() : { ok: false, host: '127.0.0.1', port: null, requests: 0, refused: 0 }
+      } catch {
+        return null
+      }
+    })(),
+    /**
+     * The two billing sources the expanded dock used to read on its own.
+     *
+     * They are handed to the Control Center rather than to each surface, because "what does an hour of this
+     * cost, and what is left to spend" is one fact with several readers: the dashboard in the system orb, the
+     * governance snapshot the Mega plugin fetches, and the old dock's own summary. The balance is the
+     * *service's* answer — which keeps the last successful read and marks it stale rather than blanking it —
+     * and the price list is the repository's, so the schedule shown is the schedule the cost is billed
+     * against (`billing/pricing-repository.js`).
+     */
+    balance: (() => {
+      try {
+        // The **cached** answer, deliberately: this runs on every Control Center read (the orb's 15-second poll,
+        // every plugin request), and a provider call per repaint would spend the user's rate limit on drawing.
+        // Nothing here may start a read: the two places one starts are the startup pass and the refresh action.
+        return balanceService.describeCached()
+      } catch (error) {
+        log(`the balance could not be read for the Control Center: ${error?.message || error}`)
+        return null
+      }
+    })(),
+    pricing: (() => {
+      try {
+        // The scheduler owns the loaded price list (`billing/pricing-repository.js`); a second load here
+        // could disagree with the rates a task is actually billed at.
+        const described = scheduler.pricing?.describe?.() || null
+        const schedule = scheduler.pricing?.getSchedule?.() || null
+        return described ? { ...described, schedule } : null
+      } catch (error) {
+        log(`the price list could not be read for the Control Center: ${error?.message || error}`)
+        return null
+      }
+    })()
+  })
+}
+
+/**
+ * Do one thing the Control Center offers (§47). Every action answers; none of them throws.
+ *
+ * `repair` is the bundled manager's own path — which refuses while the pin is untested — and `disable` /
+ * `enable` go through the store, because the user's decision about a plugin belongs in the store's record
+ * rather than in a second copy here.
+ *
+ * `refresh-balance` is the odd one out in two ways, and both are deliberate:
+ *
+ *   * **it needs no id.** Every other action names the module or plugin it acts on; reading the account again
+ *     is about the account. So it is answered before the id check rather than being given a fake one.
+ *   * **it does not wait.** A provider read has a 20-second timeout, and the caller is a button in a 340px
+ *     panel: holding the answer back for the whole read would freeze the panel it is meant to update. It
+ *     returns immediately, the read runs in the background, and the next view read carries the result — the
+ *     service marks itself `refreshing` in the meantime, which the dashboard draws as 刷新中.
+ */
+async function controlAction(payload = {}) {
+  const action = String(payload.action || '')
+  const id = String(payload.id || '')
+  if (action === 'refresh-balance') {
+    if (balanceRefreshInFlight) return { ok: true, action, id: null, coalesced: true, started: false }
+    balanceRefreshInFlight = true
+    Promise.resolve()
+      .then(() => refreshBalance('manual'))
+      .then((result) => log(`balance refreshed by request: ${result?.ok ? `${result.balances?.length || 0} row(s)` : (result?.error?.code || 'no result')}`))
+      .catch((error) => log(`balance refresh failed: ${error?.message || error}`))
+      .finally(() => { balanceRefreshInFlight = false })
+    return { ok: true, action, id: null, started: true }
+  }
+  if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
+  try {
+    if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
+    if (action === 'retry') return { ok: true, action, id, result: await ctx.protection?.start?.(id) }
+    if (action === 'reset-fallback') return { ok: true, action, id, result: await ctx.protection?.stop?.(id) }
+    if (action === 'repair') return { ok: true, action, id, result: await bundled().repair(id) }
+    if (action === 'disable' || action === 'enable') {
+      const outcome = action === 'disable' ? await installer().disable({ id }) : await installer().enable({ id })
+      if (outcome?.ok === false) return { ok: false, action, id, reason: outcome.reason || 'the store refused' }
+      // The store's answer is the truth about the plugin set; the panel re-reads it after this.
+      if (typeof reloadInstalledPlugins === 'function') await reloadInstalledPlugins(`control-center ${action}`)
+      return { ok: true, action, id, result: outcome }
+    }
+    return { ok: false, action, id, reason: `"${action}" is not a Control Center action` }
+  } catch (error) {
+    log(`control center action ${action} failed: ${error?.stack || error}`)
+    return { ok: false, action, id, reason: String(error?.message || error) }
+  }
+}
+
+function registerControlCenterIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`control center ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:control-center', guard(() => controlCenter()))
+  ipcMain.handle('mega:control-action', guard((_event, payload = {}) => controlAction(payload || {})))
+
+  /**
+   * The system orb's six channels — one per thing its preload can do, and nothing else (`orb-preload.cjs`).
+   *
+   * The action channel goes through `controlAction`, the same one the Control Center's buttons use, so "what
+   * governance will accept" has one implementation rather than one per surface.
+   */
+  ipcMain.handle('mega:orb-snapshot', guard(async () => {
+    await refreshOrbView()
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running', open: false, ball: { x: 8, y: 8 }, ballSize: 44, panel: null, view: null }
+    return systemOrb.snapshot(systemOrbView)
+  }))
+  ipcMain.handle('mega:orb-open', guard(async (_event, value = false) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    await refreshOrbView()
+    return systemOrb.setOpen(value === true, { view: systemOrbView })
+  }))
+  ipcMain.handle('mega:orb-measure', guard((_event, size = null) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    // The view is deliberately *not* re-read here: this is a layout question, and a fetch per measurement
+    // would make resizing the window wait on the governance bridge.
+    return systemOrb.setPanelSize(size, { view: systemOrbView })
+  }))
+  ipcMain.handle('mega:orb-drag', guard((_event, payload = {}) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    const phase = String(payload.phase || '')
+    if (phase === 'start') return systemOrb.dragStart(payload.point)
+    if (phase === 'move') return systemOrb.dragTo(payload.point)
+    if (phase === 'end') return systemOrb.dragEnd()
+    return { ok: false, reason: `"${phase}" is not a drag phase` }
+  }))
+  ipcMain.handle('mega:orb-hover', guard((_event, over = false) => {
+    if (!systemOrb) return { ok: false, reason: 'the system orb is not running' }
+    return { ok: systemOrb.setInteractive(over === true) }
+  }))
+  ipcMain.handle('mega:orb-action', guard(async (_event, payload = {}) => {
+    const result = await controlAction(payload || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  /**
+   * The timing pair, for the ball's own new-task form (`ui/orb.js`).
+   *
+   * They answer with the **same two functions the governance bridge exposes** to the official plugin
+   * (`scheduledTaskSurface` / `scheduleTask`), so the two surfaces that can schedule a task cannot disagree about
+   * what a task may be — and there is exactly one implementation of "make a task", not one per window.
+   */
+  ipcMain.handle('mega:orb-timing', guard(() => {
+    try {
+      return scheduledTaskSurface()
+    } catch (error) {
+      log(`the timing surface could not be read for the orb: ${error?.message || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }))
+  ipcMain.handle('mega:orb-task', guard(async (_event, input = {}) => {
+    const result = await scheduleTask(input || {})
+    // A new task changes the queue the dashboard shows, so the ball is redrawn from the truth rather than from
+    // the form's own optimism.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  /**
+   * The three ways to change a task that has not run yet: change it, move it, delete it.
+   *
+   * The *queue itself* is not a channel: it travels inside the view the panel already draws (`dashboard.queue`, built
+   * by `control-center.cjs` from the scheduler's own `listTasks`), so a second way to read it would be a second
+   * answer to the same question. What the panel could not do — and what made it "不能编辑，也不能调顺序" — is act on
+   * it. These three are the scheduler's own methods, the same ones the governance bridge gives the official plugin,
+   * so the ball's window and the official UI cannot disagree about what may be done to a task.
+   */
+  ipcMain.handle('mega:orb-task-edit', guard(async (_event, input = {}) => {
+    const result = await editScheduledTask(input || {})
+    // The edit may have changed a task's instant, its state, or its place in the queue, so the panel is redrawn
+    // from the scheduler's answer rather than from the form's.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  ipcMain.handle('mega:orb-task-move', guard(async (_event, input = {}) => {
+    const result = await moveScheduledTask(input || {})
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+  ipcMain.handle('mega:orb-task-delete', guard(async (_event, input = {}) => {
+    const result = await deleteScheduledTask(input || {})
+    // A deleted task leaves the queue the panel is drawing, so the panel is redrawn from the queue it left.
+    await refreshOrbView()
+    if (systemOrb) systemOrb.render(systemOrbView)
+    return result
+  }))
+}
+
+/**
+ * Install one bundled plugin at the reference the manifest pinned (§22-§23).
+ *
+ * Two store steps, because that is what the store is: `stage` puts the code on disk and verifies its manifest,
+ * `enable` records that the host may run it. Both are the store's own operations — this function decides
+ * nothing about installation, only which reference to ask for.
+ *
+ * A pin that is a **commit** (the market plugin, whose repository publishes no tags) goes through the store's
+ * revision path: `git fetch <sha>` + a detached checkout, so what is installed is the commit the release
+ * manifest named and not whatever the default branch holds today.
+ */
+async function installPinnedPlugin(entry = {}) {
+  // The channel decides the tool (see `mega/plugins/index.cjs`): a Harness *client* plugin belongs to a Harness
+  // profile and only the Harness' own CLI can put it there; a `dshns.plugin/v1` plugin belongs to our store.
+  return installBundled(entry, {
+    profile: harnessProfile(),
+    harnessAdd: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'add', spec]),
+    store: { stage: (input) => installer().stage(input), enable: (input) => installer().enable(input) }
+  })
+}
+
+/**
+ * The system floating orb (`./system-orb.cjs`).
+ *
+ * A window of ours that floats over every application, which is what the user asked for after seeing the
+ * in-UI orb ("可以做成系统悬浮球吗？"). The geometry rules live in that module; this is the wiring: who owns the
+ * window, where its position is kept, what the document is allowed to ask for, and what it draws.
+ */
+let systemOrb = null
+let systemOrbPoll = null
+let systemOrbView = null
+let orbViewModule = null
+let orbPluginVersion = null
+
+function orbEnabled() {
+  return process.env.DSH_MEGA_ORB !== '0'
+}
+
+/** The plugin package's own version, so §4.4's version field is the same number the official page shows. */
+function orbVersion() {
+  if (orbPluginVersion !== null) return orbPluginVersion
+  try {
+    const file = path.join(PATHS.ROOT, 'app', 'plugins', 'mega-core', 'package.json')
+    orbPluginVersion = JSON.parse(fs.readFileSync(file, 'utf8'))?.version || null
+  } catch {
+    orbPluginVersion = null
+  }
+  return orbPluginVersion
+}
+
+/**
+ * The view model the ball draws.
+ *
+ * It is **the same module** the official UI's orb and page render (`app/plugins/mega-core/lib/view.js`), fed
+ * from the same `controlCenter()` the Control Center panel is built from. A second implementation of "which
+ * tone is this" is exactly how two surfaces end up disagreeing about one product.
+ */
+async function refreshOrbView() {
+  try {
+    if (!orbViewModule) {
+      orbViewModule = import(pathToFileURL(path.join(PATHS.ROOT, 'app', 'plugins', 'mega-core', 'lib', 'view.js')).href)
+    }
+    const { buildMegaView } = await orbViewModule
+    const bridge = (() => {
+      try {
+        return governanceBridgeState ? governanceBridgeState.describe() : null
+      } catch {
+        return null
+      }
+    })()
+    systemOrbView = buildMegaView({
+      plugin: { id: 'dsh-plugin-mega-core', version: orbVersion() },
+      bridge: bridge
+        ? { available: bridge.ok === true, host: bridge.host ?? null, port: bridge.port ?? null }
+        : { available: false, reason: 'the governance bridge is not up yet' },
+      governance: (() => {
+        try {
+          return controlCenter()
+        } catch (error) {
+          log(`the Control Center could not be read for the system orb: ${error?.message || error}`)
+          return null
+        }
+      })()
+    })
+  } catch (error) {
+    log(`the Mega view could not be built for the system orb: ${error?.message || error}`)
+    systemOrbView = null
+  }
+  return systemOrbView
+}
+
+/** One poller for the ball, the same 15 s as the in-UI orb's, and never on the boot path. */
+function startOrbPolling() {
+  if (systemOrbPoll) return
+  const tick = async () => {
+    if (!systemOrb) return
+    await refreshOrbView()
+    systemOrb.render(systemOrbView)
+  }
+  systemOrbPoll = setInterval(() => { tick().catch(() => {}) }, 15000)
+  if (typeof systemOrbPoll.unref === 'function') systemOrbPoll.unref()
+  tick().catch(() => {})
+}
+
+function createSystemOrbWindow() {
+  if (systemOrb) return systemOrb
+  if (!orbEnabled()) {
+    log('Mega system orb disabled by DSH_MEGA_ORB=0')
+    return null
+  }
+  try {
+    systemOrb = createSystemOrb({
+      electron: ctx.electron,
+      log: (message) => log(`system orb: ${message}`),
+      state: createOrbState(path.join(PATHS.ROOT, 'data', 'state', 'system-orb.json')),
+      enabled: true
+    })
+  } catch (error) {
+    log(`the system orb could not be wired: ${error?.message || error}`)
+    systemOrb = null
+    return null
+  }
+  const started = systemOrb.create()
+  if (started?.ok === false) log(`the system orb is not on screen: ${started.reason}`)
+  else log(`the system orb is up at ${JSON.stringify(systemOrb.describe().position)}`)
+  startOrbPolling()
+  return systemOrb
+}
+
+/** The Harness profile a bundled client plugin is installed into — the one the product boots (`web`). */
+function harnessProfile() {
+  return process.env.DSH_PROFILE || 'web'
+}
+
+/**
+ * What the Harness profile the product boots has installed, as records the bundled manager understands.
+ *
+ * The profile is another application's install (`$DSH_HOME/profiles/<name>/package.json`), so this only ever
+ * *reads* it — the writing is the Harness' own CLI, which is why the channel exists at all.
+ */
+function harnessProfileDependencies() {
+  try {
+    const file = path.join(PATHS.ROOT, 'data', 'profiles', harnessProfile(), 'package.json')
+    if (!fs.existsSync(file)) return []
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return Object.entries(parsed?.dependencies || {}).map(([id, version]) => ({
+      id,
+      version: String(version).replace(/^[\^~]/, ''),
+      dir: null,
+      enabled: true,
+      where: 'harness-profile'
+    }))
+  } catch (error) {
+    log(`the Harness profile's dependencies could not be read: ${error?.message || error}`)
+    return []
+  }
+}
+
+/** One bundled entry by id, from the shipped manifest — what a channel decision is made about. */
+function bundledEntry(id) {
+  try {
+    const { BUNDLED_MANIFEST } = require('./plugins/index.cjs')
+    return (BUNDLED_MANIFEST.plugins || []).find((entry) => entry.id === id) || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Run the Harness' own plugin CLI (`dsh plugin …`, which forwards to pnpm inside the profile directory).
+ *
+ * It is the Harness' tool on purpose: the profile's plugin set is the Harness' business, and a product that
+ * wrote into that directory itself would be editing another application's install.
+ */
+function runHarnessPluginCli(args) {
+  try {
+    const nodeExe = resolveNodeExe()
+    const result = require('node:child_process').spawnSync(nodeExe, [DSH_ENTRY, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      timeout: 120_000,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024
+    })
+    if (result.error) return { ok: false, reason: `the Harness plugin command could not run: ${result.error.message}` }
+    if (result.status !== 0) {
+      const detail = String(result.stderr || result.stdout || '').trim().split('\n').filter(Boolean).pop() || `dsh plugin exited ${result.status}`
+      return { ok: false, reason: detail }
+    }
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, reason: String(error?.message || error) }
+  }
+}
+
+/**
+ * The bundled community plugins, as a manager over the store (`./plugins/index.cjs`).
+ *
+ * It reads the *store's own* record of what is installed and what the user decided, and it is the only
+ * thing that decides whether a bundled plugin should be installed, left alone, reported or repaired
+ * (§19-§23). Two deliberate gaps, both honest rather than convenient:
+ *
+ *   * **`install` is not wired yet.** The shipped manifest marks both plugins `tested: false`, so the
+ *     manager installs nothing — and a reference nobody has run is exactly what must not be installed. The
+ *     call itself is wired (see `installPinnedPlugin`), so marking the first pin `tested: true` is the whole
+ *     of the adoption.
+ *   * **`userEnabled` reads an explicit disable.** The store records `enabled`/`enabledAt`, where
+ *     "staged but never enabled" is the normal first state rather than a decision; only an entry the
+ *     store marked disabled counts as the user's answer here.
+ */
+let bundledPlugins = null
+
+/**
+ * The collapsed rail, as data (`./mega-items.cjs`, `updateplan/startup2.md` §36-§44).
+ *
+ * The plan's dedup rules, expressed as the items themselves rather than as a list somebody maintains:
+ *
+ *   * **RUN** means *DS-Hns worker slots in use* (§37) — `activeQueue.workerSlotsInUse`, not an agent
+ *     count. The Harness shows agents and tasks; this is the number of our own execution slots, which
+ *     it does not.
+ *   * **WKR** is the same idea as the old `HW` box, renamed to what it actually is (§39): concurrency in
+ *     use against the hardware cap. `HW` as a health light is not resident — a healthy machine is not
+ *     news.
+ *   * **AUTO** replaces `SUB` (§40): the sub-worker's *auto-delegation* switch, which is a control the
+ *     user has, rather than the agent state the Harness already draws.
+ *   * **Q** and **ERR** appear only when they are non-zero (§38, §36, §43) — an empty queue and a fault
+ *     count of zero are the normal state and do not get permanent attention.
+ *   * **PEAK is gone from the rail** (§41): it was the electricity-price window, which is a billing fact
+ *     and not a power policy. It stays in the expanded summary's own cards, where it belongs.
+ */
+let megaItemRegistry = null
+/** The appearance controller: one decision over the glass and the wallpaper (`./appearance/index.cjs`). */
+let appearance = null
+/** The startup cache: what the last run looked like, as a warm-start hint (`./startup-cache.cjs`, §52). */
+let startupCacheState = null
+/** The appearance choices: which provider renders the desktop, and which readability preset is in force. */
+let appearanceStateFile = null
+let appearanceProvidersState = null
+
+function appearancePreference() {
+  if (appearanceStateFile) return appearanceStateFile
+  appearanceStateFile = createAppearanceState({
+    root: PATHS.ROOT,
+    providers: require('./appearance/providers.cjs').APPEARANCE_PROVIDER_IDS,
+    presets: require('./appearance/index.cjs').APPEARANCE_PRESET_IDS,
+    log: (message) => log(`appearance: ${message}`)
+  })
+  return appearanceStateFile
+}
+
+/**
+ * The appearance providers (§43-§44): the official interface, the built-in simple wallpaper, or the community
+ * plugin — and the rule that a missing plugin is never installed to satisfy a menu click.
+ *
+ * What each provider does to *our* layers is the whole of its implementation: the official interface means this
+ * product draws no picture over it, the simple wallpaper means our own layer draws one, and the community one
+ * means the plugin renders it inside the Harness, so our layer steps aside to let it be seen. Every one of them
+ * leaves the glass — which is the dock's material, not the background — alone.
+ */
+function appearanceProviders() {
+  if (appearanceProvidersState) return appearanceProvidersState
+  const setWallpaperEnabled = async (enabled) => {
+    const outcome = wallpaper().set({ main: { enabled }, dock: { enabled } })
+    if (outcome?.ok === false) return { ok: false, reason: outcome.reason }
+    pushWallpaper()
+    return { ok: true, enabled }
+  }
+  appearanceProvidersState = createAppearanceProviders({
+    bundled: () => bundled().describe(),
+    apply: {
+      official: () => setWallpaperEnabled(false),
+      simple: () => setWallpaperEnabled(true),
+      // The plugin draws its own desktop; ours must not sit on top of it.
+      community: () => setWallpaperEnabled(false)
+    },
+    log: (message) => log(message)
+  })
+  return appearanceProvidersState
+}
+function megaItems() {
+  if (megaItemRegistry) return megaItemRegistry
+  megaItemRegistry = createMegaItems()
+  // §44's budget is the registry's, and the ordering below is each item's own claim about how much of
+  // the rail it deserves.
+  registerMegaItems()
+  return megaItemRegistry
+}
+
+/**
+ * The startup cache (`./startup-cache.cjs`, §52-§54).
+ *
+ * It records what the owners last said — the workspace, the two backdrop pictures, the appearance numbers, the
+ * bundled plugin states, the protection layer's health and the boot's own cost — and reads them back as a
+ * warm-start hint for the Control Center's diagnostics. It never becomes a second source of truth: the
+ * wallpaper, glass, store and protection layer stay the owners, and a stale hint is reported as stale.
+ */
+function startupCache() {
+  if (startupCacheState) return startupCacheState
+  startupCacheState = createStartupCache({ root: PATHS.ROOT, log: (message) => log(`startup cache: ${message}`) })
+  return startupCacheState
+}
+
+/** Record this run for the next one. Called in the background: a cache is never worth a delay. */
+function rememberStartup() {
+  try {
+    const wallpaperState = wallpaper().describe()
+    const glassState = glass().describe()
+    const protectionState = (() => {
+      try {
+        return ctx?.protection?.describe?.() || null
+      } catch {
+        return null
+      }
+    })()
+    return startupCache().record({
+      workspace: workspace.getWorkspaceRoot(),
+      wallpaper: {
+        main: wallpaperState.main?.file || null,
+        dock: wallpaperState.dock?.file || null,
+        fit: { main: wallpaperState.main?.fit || null, dock: wallpaperState.dock?.fit || null }
+      },
+      appearance: {
+        glass: { blur: glassState.blur, opacity: glassState.opacity },
+        preset: appearanceController().describe({
+          glass: { blur: glassState.blur, opacity: glassState.opacity },
+          wallpaper: {
+            main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
+            dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
+          }
+        }).active
+      },
+      bundled: (() => {
+        try {
+          return bundled().describe().states
+        } catch {
+          return null
+        }
+      })(),
+      health: { degraded: (protectionState?.degraded || []).length, failed: (protectionState?.failed || []).length },
+      boot: (() => {
+        try {
+          return typeof ctx?.startup === 'function' ? ctx.startup() : null
+        } catch {
+          return null
+        }
+      })()
+      // `session` is deliberately not written: the official UI restores its own sessions, and a session id
+      // copied here would be a second, staler answer to a question the Harness already owns (§52's
+      // "restore first, verify after" applies to what *we* own).
+    })
+  } catch (error) {
+    log(`the startup cache was not updated: ${error?.message || error}`)
+    return { ok: false, reason: String(error?.message || error) }
+  }
+}
+
+/**
+ * What the appearance costs right now, and one line about it (`updateplan/startup2.md` §55-§57).
+ *
+ * The numbers come from the layers themselves — the glass is in force, and the two picture payloads are what
+ * `windowLayer()`/`dockLayer()` are already carrying — so the ledger cannot describe an appearance that is not
+ * on screen. It measures rather than limits: the user's blur is the user's, and a product that quietly clamped
+ * it would be lying about what it drew.
+ */
+function appearanceCost() {
+  const glassState = (() => {
+    try {
+      return glass().describe()
+    } catch {
+      return {}
+    }
+  })()
+  const wallpaperState = (() => {
+    try {
+      return wallpaper().windowLayer()
+    } catch {
+      return { bytes: 0, drawable: false }
+    }
+  })()
+  const dockState = (() => {
+    try {
+      return wallpaper().dockLayer()
+    } catch {
+      return { bytes: 0, active: false }
+    }
+  })()
+  return estimateAppearanceCost({
+    glass: { blur: glassState.blur, opacity: glassState.opacity },
+    windowBytes: wallpaperState.bytes || 0,
+    dockBytes: dockState.bytes || 0,
+    layers: (wallpaperState.drawable ? 1 : 0) + (dockState.active ? 1 : 0)
+  })
+}
+
+/** Build the rail items. Kept apart from the IPC layer so a test can ask what the rail would show. */
+function registerMegaItems() {
+  const registry = megaItemRegistry
+  if (!registry) return []
+  const items = [
+    // §37: our own worker slots in use — a DS-Hns number the official UI does not show.
+    { id: 'workers', priority: 10, hint: 'DS-Hns worker slots in use', section: 'execution', current: (snapshot) => {
+      const inUse = snapshot?.scheduler?.activeQueue?.workerSlotsInUse ?? 0
+      const running = Number(snapshot?.scheduler?.counts?.RUNNING || 0) + Number(snapshot?.scheduler?.counts?.DISPATCHING || 0)
+      return { label: 'RUN', value: Math.max(Number(inUse) || 0, running) }
+    } },
+    // §39: concurrency against the hardware cap, named for what it is.
+    { id: 'slots', priority: 20, hint: 'concurrency in use against the hardware cap', section: 'resources', current: (snapshot) => {
+      const concurrency = snapshot?.scheduler?.concurrency || {}
+      const current = concurrency.current
+      const cap = concurrency.hardwareCap
+      if (current === undefined || current === null) return null
+      return { label: 'WKR', value: `${current}/${cap ?? '—'}`, detail: 'in use / hardware cap' }
+    } },
+    // §40: the control the user has, instead of a second copy of the agent state.
+    { id: 'automation', priority: 30, hint: 'auto delegation', section: 'automation', current: (snapshot) => {
+      const sub = snapshot?.subWorker
+      if (!sub || sub.available === false) return null
+      const auto = Boolean(sub.config?.autoDelegate)
+      return { label: 'AUTO', value: auto ? 'ON' : 'OFF', tone: auto ? 'ok' : 'quiet', action: 'automation' }
+    } },
+    // §38: a queue that is empty is not news.
+    { id: 'queue', priority: 40, hint: 'queued tasks', section: 'execution', current: (snapshot) => {
+      const queued = Number(snapshot?.scheduler?.activeQueue?.queued ?? 0)
+      return queued > 0 ? { label: 'Q', value: queued, tone: 'busy', action: 'queue' } : null
+    } },
+    // §36/§43: neither is a fault count of zero.
+    { id: 'errors', priority: 50, hint: 'blocked, retrying or failed tasks', section: 'health', current: (snapshot) => {
+      const counts = snapshot?.scheduler?.counts || {}
+      const failing = Number(counts.BLOCKED || 0) + Number(counts.RETRYING || 0) + Number(counts.FAILED || 0)
+      return failing > 0 ? { label: 'ERR', value: failing, tone: 'bad', action: 'health' } : null
+    } },
+    // The enhancement layer's own health, from the protection control plane (§42).
+    { id: 'protection', priority: 60, hint: 'degraded enhancement modules', section: 'health', current: () => {
+      const degraded = ctx?.protection?.describe?.()?.degraded || []
+      return degraded.length > 0 ? { label: 'EXT', value: degraded.length, tone: 'warn', action: 'protection', detail: degraded.join(', ') } : null
+    } }
+  ]
+  const registered = []
+  for (const item of items) {
+    const outcome = registry.register(item)
+    if (outcome.ok) registered.push(item.id)
+  }
+  return registered
+}
+function bundled() {
+  if (bundledPlugins) return bundledPlugins
+  const list = () => {
+    try {
+      return typeof installer().list === 'function' ? installer().list() : []
+    } catch (error) {
+      log(`bundled: the store's installed list is unavailable (${error?.message || error})`)
+      return []
+    }
+  }
+  bundledPlugins = createBundledPlugins({
+    /**
+     * What is installed, from **both** places a bundled plugin can live.
+     *
+     * A `dshns.plugin/v1` plugin is recorded by this product's store; a Harness *client* plugin is a dependency
+     * of the Harness profile the product boots (`data/profiles/<profile>/package.json`). Reading only the store
+     * would report an installed-and-activated Harness plugin as "declared but not installed" — the panel would be
+     * describing a machine state that does not exist.
+     */
+    installed: () => [
+      ...list().map((entry) => ({ id: entry.id, version: entry.version || entry.commit || null, dir: entry.dir, enabled: entry.state === 'enabled' })),
+      ...harnessProfileDependencies()
+    ],
+    userEnabled: (id) => {
+      const entry = list().find((candidate) => candidate.id === id)
+      if (!entry) return null
+      return entry.disabled === true || entry.state === 'disabled' ? false : null
+    },
+    protection: ctx?.protection || null,
+    install: (entry) => installPinnedPlugin(entry),
+    /**
+     * Removal follows the same channel as installation.
+     *
+     * A repair that asked *our* store to remove a Harness client plugin would remove nothing and then report
+     * success — and a repair which silently does nothing is worse than one that fails. So the entry's channel
+     * decides the tool here exactly as it does for installation.
+     */
+    uninstall: (id) => {
+      const entry = bundledEntry(id)
+      if (!entry) return Promise.resolve({ ok: false, reason: `${id} is not a bundled plugin` })
+      return removeBundled(entry, {
+        profile: harnessProfile(),
+        harnessRemove: ({ profile, package: spec }) => runHarnessPluginCli(['plugin', '--profile', profile, 'remove', spec]),
+        store: { remove: (input) => installer().remove(input) }
+      })
+    },
+    /**
+     * Compatibility, for the channel that can answer it.
+     *
+     * A `dshns.plugin/v1` plugin is checked by the store's own pre-flight (the classifier that decides native
+     * versus compatibility mode). A Harness *client* plugin's compatibility belongs to the Harness and its
+     * profile: DS-Hns does not own that descriptor and a second opinion here would be a second answer to a
+     * question this product cannot see. Both paths say which one they are, rather than both claiming `ok`.
+     */
+    compatibility: (entry, record) => {
+      if (entry?.channel === 'harness-profile') {
+        return { ok: true, checked: 'harness', note: 'the Harness owns its profile plugins; DS-Hns does not second-guess that' }
+      }
+      if (!record || !record.id) return { ok: true, checked: 'none', note: 'nothing installed to check' }
+      try {
+        const verdict = installer().preflight ? installer().entry({ id: record.id }) : null
+        const compatibility = verdict?.compatibility || null
+        if (compatibility === 'native' || compatibility === 'compat') return { ok: true, checked: 'store', compatibility }
+        return { ok: true, checked: 'store', compatibility: compatibility || 'unknown' }
+      } catch (error) {
+        return { ok: true, checked: 'store', note: `the store's own record could not be read: ${error?.message || error}` }
+      }
+    },
+    log: (message) => log(message)
+  })
+  return bundledPlugins
+}
+
+/**
+ * The bundled plugins' own channels.
+ *
+ * The panel shows what the release decided and what the machine has — whether each plugin exists,
+ * whether its version is the bundled one, and whether the user disabled it. `repair` is the one action
+ * that replaces an installed plugin: never automatic, and refused while the pin is untested.
+ */
+function registerBundledPluginIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`bundled plugin ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:bundled-plugins', guard(async () => {
+    const report = bundled().describe()
+    // The policy pass is part of the read on purpose: a release that pins a *tested* version converges
+    // on the next look instead of making a boot wait on the network.
+    const applied = await bundled().ensure()
+    return { ok: true, ...report, applied }
+  }))
+  ipcMain.handle('mega:bundled-plugins-repair', guard(async (_event, payload = {}) => bundled().repair(String(payload?.id || ''))))
+}
+
+/**
  * Tell the plugin host that the installed set changed, and wait for it to finish.
  *
  * The host keeps a built world; this is the shell's chance to drop it so an enable takes effect
@@ -1596,9 +2741,7 @@ function registerIpc() {
   ipcMain.handle('mega:balance', async (_event, trigger = 'manual', options = {}) => {
     try {
       const only = Array.isArray(options?.only) && options.only.length ? options.only : null
-      const result = await balanceService.refreshBalances(typeof trigger === 'string' ? trigger : 'manual', { only })
-      notifyChanged()
-      return result
+      return await refreshBalance(typeof trigger === 'string' ? trigger : 'manual', { only })
     } catch (error) {
       // A balance failure is an outer-service failure: report, never throw.
       log(`balance refresh failed: ${error?.stack || error}`)
@@ -1606,6 +2749,13 @@ function registerIpc() {
       return { ...balanceService.describe(), error: { code: 'REFRESH_FAILED', message: String(error?.message || error) } }
     }
   })
+  /**
+   * The account as it stands, without reading it again.
+   *
+   * A renderer that is about to draw (the dock's Balance panel) asks this instead of `mega:balance`: the
+   * refresh is what costs a provider call, and drawing must not be able to trigger one by accident.
+   */
+  ipcMain.handle('mega:balance-restore', () => balanceService.describeCached())
   ipcMain.handle('mega:pick-workspace', () => pickWorkspaceDirectory(dialog))
   ipcMain.handle('mega:pick-sound', async () => {
     const result = await dialog.showOpenDialog(ctx.mainWindow, {
@@ -1653,6 +2803,9 @@ function registerIpc() {
   // The store is a channel, not a feature: searching GitHub is part of managing plugins, and
   // a store you can switch off is a store whose results you cannot trust to be complete.
   registerStoreIpc()
+  // The bundled set is MEGA's own responsibility (§19): it is registered here rather than in Core, and
+  // the shell's protection layer — when there is one — is what keeps a failure inside the panel.
+  registerBundledPluginIpc()
   // The feature manager's own channels, registered last and never gated: switching a feature
   // off is how a user fixes one, so the switch itself may not be behind a feature.
   registerFeatureIpc()
@@ -1660,6 +2813,12 @@ function registerIpc() {
   // so it is never gated — a user who switched a feature off must still be able to read the
   // panel that says so.
   registerGlassIpc()
+  // The appearance presets: one decision over the two layers, registered beside the glass they use.
+  registerAppearanceIpc()
+  // The providers the settings page chooses between, and the route to the plugin that backs the third one.
+  registerAppearanceProviderIpc()
+  // The Control Center: what the enhancement layer is doing, and the actions that belong to it (§45-§47).
+  registerControlCenterIpc()
   // The wallpaper is chrome for the same reason, and it is also what the dock's first paint asks
   // for, so it is registered with the glass rather than behind a switch.
   registerWallpaperIpc()
@@ -1673,6 +2832,104 @@ function registerIpc() {
  * force. The state is pushed to the dock on every change, because the Appearance panel and any
  * other surface that shows a switch have to move together.
  */
+/**
+ * The appearance provider channels (§43-§44).
+ *
+ * `describe` answers what the settings page shows — the three providers, whether each is usable and why not —
+ * and `set` answers a *choice*: an unavailable provider is refused with its fallback named and the two actions a
+ * user actually has, and nothing is installed on their behalf.
+ *
+ * `mega:open-store` is the other half of §44: "go look at the plugin" has to lead somewhere, and the dock's
+ * plugin manager already knows how to open its store tab, so this asks it to.
+ */
+function registerAppearanceProviderIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`appearance provider ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:appearance-providers', guard(() => appearanceProviders().describe(appearancePreference().read().provider)))
+  ipcMain.handle('mega:appearance-provider-set', guard(async (_event, payload = {}) => {
+    const current = appearancePreference().read().provider
+    const chosen = String(payload?.provider || '')
+    const result = await appearanceProviders().select(chosen, { current })
+    if (result.ok !== false) appearancePreference().set({ provider: result.provider })
+    return { ...result, active: appearancePreference().read().provider }
+  }))
+  ipcMain.handle('mega:open-store', guard(() => {
+    try {
+      return { ok: dockTarget.send('mega:open-store', { showQueue: false }) }
+    } catch (error) {
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }))
+}
+
+/**
+ * The appearance controller's channels (`./appearance/index.cjs`, §26-§28).
+ *
+ * One decision over both layers: the glass the dock is made of, and the picture behind each backdrop.
+ * The panel reads the presets and which one the numbers in force look like, and writes one preset at a
+ * time; each layer's answer travels back so "the glass took it and the wallpaper refused" is visible
+ * rather than rounded to a success.
+ */
+function appearanceController() {
+  if (appearance) return appearance
+  appearance = createAppearanceController({
+    glass: (patch) => glass().set(patch),
+    wallpaper: (patch) => wallpaper().set(patch),
+    log: (message) => log(message)
+  })
+  return appearance
+}
+
+function registerAppearanceIpc() {
+  const { ipcMain } = ctx.electron
+  const guard = (handler) => async (...args) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      log(`appearance ipc failure: ${error?.stack || error}`)
+      return { ok: false, reason: String(error?.message || error) }
+    }
+  }
+  ipcMain.handle('mega:appearance', guard(() => {
+    // The numbers in force are read from the two layers, never remembered here: a hand-tuned mixture
+    // must show as a mixture rather than as whichever preset it is closest to.
+    const glassState = glass().describe()
+    const wallpaperState = wallpaper().describe()
+    const described = appearanceController().describe({
+      glass: { blur: glassState.blur, opacity: glassState.opacity },
+      wallpaper: {
+        main: wallpaperState.main && { opacity: wallpaperState.main.opacity, blur: wallpaperState.main.blur, scrim: wallpaperState.main.scrim },
+        dock: wallpaperState.dock && { opacity: wallpaperState.dock.opacity, blur: wallpaperState.dock.blur, scrim: wallpaperState.dock.scrim }
+      }
+    })
+    // §55-§57: what this appearance costs, beside the numbers it is made of.
+    return { ...described, cost: appearanceCost() }
+  }))
+  ipcMain.handle('mega:appearance-set', guard(async (_event, payload = {}) => {
+    const result = await appearanceController().apply(String(payload?.preset || payload?.id || ''))
+    // The preset is the user's decision, so it is remembered like the provider (§43's "阅读预设").
+    if (result.ok !== false) appearancePreference().set({ preset: result.preset })
+    // The dock draws both layers from pushed state, so a preset that landed has to be pushed like any
+    // other change — otherwise the panel would show a glass that is not on screen.
+    if (result.ok !== false) {
+      pushWallpaper()
+      try {
+        dockTarget.send('mega:ui-glass-changed', glass().describe())
+      } catch (error) {
+        log(`the preset could not be pushed to the dock: ${error?.message || error}`)
+      }
+    }
+    return result
+  }))
+}
+
 function registerGlassIpc() {
   const { ipcMain } = ctx.electron
   const guard = (handler) => async (...args) => {
@@ -1752,9 +3009,9 @@ function pushWallpaper() {
   }
   // The layer over the official page takes the image and nothing else — a script-free document
   // whose policy allows an inline image — so what it is handed is the stylesheet the module builds
-  // for it, and a video (or no wallpaper at all) is answered with the same "draw nothing". That
-  // answer travels with the stylesheet, because the layer is a window: an empty one has to be
-  // taken off the screen rather than left there.
+  // for it, and "no wallpaper at all" is answered with the same "draw nothing". That answer travels
+  // with the stylesheet, because the layer is a window: an empty one has to be taken off the screen
+  // rather than left there.
   try {
     if (typeof officialSurfaceTarget.wallpaper === 'function') {
       const layer = wallpaper().windowLayer()
@@ -1762,6 +3019,12 @@ function pushWallpaper() {
     }
   } catch (error) {
     log(`the wallpaper could not reach the layer over the official UI: ${error?.message || error}`)
+  }
+  // §57: one line per appearance change, in the shape the plan asks for.
+  try {
+    log(appearanceCost().line)
+  } catch (error) {
+    log(`the appearance cost could not be measured: ${error?.message || error}`)
   }
 }
 
@@ -1776,9 +3039,9 @@ function registerWallpaperIpc() {
     }
   }
   ipcMain.handle('mega:wallpaper', guard(() => wallpaper().describe()))
-  // What the dock itself draws: a `data:` URL for an image, a `file:` URL for a video, and the
-  // attributes a real element needs. It is a separate answer from `describe()` because the panel's
-  // view carries limits and vocabulary the document has no use for.
+  // What the dock itself draws: the picture as a `data:` URL, plus the numbers the element and the
+  // stylesheet need. It is a separate answer from `describe()` because the panel's view carries
+  // limits and vocabulary the document has no use for.
   ipcMain.handle('mega:wallpaper-layer', guard(() => wallpaperLayerPayload()))
   ipcMain.handle('mega:wallpaper-set', guard((_event, payload = {}) => {
     const result = wallpaper().set(payload || {})
@@ -1798,12 +3061,15 @@ function registerWallpaperIpc() {
     const scope = payload && typeof payload === 'object' && payload.scope ? String(payload.scope) : 'both'
     const target = scope === 'both' || WALLPAPER_SURFACES.includes(scope) ? scope : 'both'
     const picked = await dialog.showOpenDialog(ctx.mainWindow, {
-      title: bilingualTitle('选择壁纸（图片或视频）', 'Choose a wallpaper (image or video)'),
+      title: bilingualTitle('选择壁纸（图片）', 'Choose a wallpaper (picture)'),
       properties: ['openFile'],
+      // Two filters, and the second one is deliberate: it makes the boundary *reachable* — someone who
+      // wants a video finds it, is told in their own language that the wallpaper plugin carries it, and
+      // gets the module's refusal sentence below when they pick one. Hiding the extension would leave
+      // them to discover the rule by finding nothing.
       filters: [
-        { name: bilingualTitle('图片与视频', 'Images and videos'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'mp4', 'webm', 'm4v'] },
-        { name: bilingualTitle('图片', 'Images'), extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] },
-        { name: bilingualTitle('视频', 'Videos'), extensions: ['mp4', 'webm', 'm4v'] }
+        { name: bilingualTitle('图片', 'Pictures'), extensions: ['png', 'apng', 'jpg', 'jpeg', 'jfif', 'webp', 'gif', 'avif', 'bmp', 'ico', 'svg'] },
+        { name: bilingualTitle('视频与网页壁纸（由壁纸插件负责）', 'Videos and web wallpapers (the plugin\'s job)'), extensions: ['mp4', 'webm', 'm4v', 'html', 'htm'] }
       ]
     })
     if (picked.canceled || !picked.filePaths.length) return { ok: false, canceled: true }
@@ -2196,8 +3462,20 @@ async function start(context) {
   }
   ctx.mainWindow.webContents.on('before-input-event', shortcutHandler)
   bindMainWindow()
-  createDock()
+  // The dock is off by default (see `dockAutoStart`): it is created when it is asked for, not at boot.
+  if (dockAutoStart()) createDock()
   createTray()
+  // The system floating orb: another window of ours, after the tray and off the boot path. It is the one
+  // surface that is visible without the official UI (and without the dock) having to be looked at.
+  // The ball lives in the official page now (the plugin's browser half registers it into the
+  // `shell.overlay` slot), which is where the user asked for it: one ball, drawn by the surface
+  // the user is already looking at. The system orb — our own always-on-top window over every
+  // application — is kept in the tree and turned off by default, because it flickered whenever its
+  // panel opened and a second ball showing the same snapshot was the thing being removed.
+  if (process.env.DSH_SYSTEM_ORB === '1') createSystemOrbWindow()
+  // The account is read once, in the background, so the dashboard's balance is the account's real state instead
+  // of "not read yet" until somebody clicks something (see `scheduleStartupBalanceRead`).
+  scheduleStartupBalanceRead()
   // Theme system starts last: it must never be able to delay the official UI,
   // the scheduler or the dock. A failure here is logged and the product runs on
   // the Dark recovery theme. It paints the official shell and overlay only — the dock is
@@ -2220,6 +3498,47 @@ async function start(context) {
   // theme system are up, so an unavailable or failing worker can never delay
   // them (plan §22 fault isolation).
   bindSubWorker()
+  /**
+   * The bundled community plugins, last and in the background.
+   *
+   * Registering them as protected modules happens now (it is synchronous bookkeeping); the policy pass
+   * that would install a pinned *tested* version does not, because a boot may never wait on a network.
+   * Today the manifest marks both references untested, so this pass installs nothing and says so.
+   */
+  try {
+    const registered = bundled().registerProtected()
+    if (registered.length) log(`bundled community plugins registered for protection: ${registered.join(', ')}`)
+    Promise.resolve()
+      .then(() => bundled().ensure())
+      .then((applied) => {
+        const report = bundled().describe()
+        log(`bundled plugins: ${JSON.stringify(report.states)}`)
+        for (const entry of applied) {
+          if (entry.action !== 'none') log(`bundled plugin ${entry.id}: ${entry.action} → ${entry.state}${entry.reason ? ` (${entry.reason})` : ''}`)
+        }
+      })
+      .catch((error) => log(`the bundled plugin pass failed without affecting anything else: ${error?.message || error}`))
+    // What this run looked like, for the next one (§52). Background, and a failure is a log line.
+    Promise.resolve()
+      .then(() => rememberStartup())
+      .then((recorded) => log(`startup cache: ${recorded?.ok === false ? `not updated (${recorded.reason})` : `remembered ${(recorded?.keys || []).join(', ')}`}`))
+      .catch((error) => log(`the startup cache pass failed without affecting anything else: ${error?.message || error}`))
+    /**
+     * The governance bridge, last and in the background (pluginize Phase 1).
+     *
+     * It is what the Mega Core Plugin talks to once Mega lives in the official UI: the same data the Control
+     * Center shows, on loopback with a per-run token. A bridge that cannot bind is a line in the log and a
+     * plugin that reports "governance unavailable" — never a start that fails.
+     */
+    Promise.resolve()
+      .then(() => governanceBridge().start())
+      .then((outcome) => {
+        if (outcome?.ok === false) log(`the governance bridge did not start (${outcome.reason}); the plugin will report it unavailable`)
+      })
+      .catch((error) => log(`the governance bridge failed without affecting anything else: ${error?.message || error}`))
+  } catch (error) {
+    log(`bundled plugin registration failed (the rest of Mega is unaffected): ${error?.message || error}`)
+  }
   log('ready; single-window Mega dock + ordered queue + hardware-adaptive concurrency + unified theme system enabled')
   if (subWorkerAvailable()) log(`optional Sub-worker available (state ${subWorkerSnapshot().state})`)
 }
@@ -2300,6 +3619,9 @@ function stop() {
   // must not repaint a renderer that is about to be destroyed.
   try { themeEngine?.stop?.() } catch {}
   themeEngine = null
+  // The governance bridge holds a listening socket and a token on disk; both go with the process.
+  try { governanceBridgeState?.stop?.() } catch {}
+  governanceBridgeState = null
   skillService = null
   try { terminalObserver.stop() } catch {}
   try { scheduler.stop() } catch {}
@@ -2325,9 +3647,14 @@ function stop() {
   dockReadyHandler = null
   if (dockWindow && !dockWindow.isDestroyed()) dockWindow.destroy()
   if (playerWindow && !playerWindow.isDestroyed()) playerWindow.destroy()
+  if (systemOrbPoll) clearInterval(systemOrbPoll)
+  if (systemOrb) systemOrb.stop()
   tray = null
   dockWindow = null
   playerWindow = null
+  systemOrb = null
+  systemOrbPoll = null
+  systemOrbView = null
   shortcutHandler = null
   ctx = null
 }

@@ -19,6 +19,8 @@ plugins:
     version: 1.0.0
   dshns.git-operator:
     version: 1.0.0
+  dshns.health-scheduler:
+    version: 1.0.0
   dshns.high-performance:
     version: 1.0.0
   dshns.incremental-validation:

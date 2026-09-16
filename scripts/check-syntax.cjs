@@ -78,12 +78,28 @@ const SOURCE_DIRS = [
   'core/lockfile',
   'core/resource-manager',
   'core/health-supervisor',
+  // The plugin adapter framework and the Cordis/DSH community adapter. Phase 1 added the framework
+  // and this phase added the bridge, and both escaped this gate until they were listed: the
+  // collector is non-recursive, so a whole new subtree is silent by default. Named here for the
+  // same reason as every other entry.
+  'core/plugin-adapters',
+  'core/plugin-adapters/adapters',
+  'core/plugin-adapters/bridge',
+  // The managed-process half: the process contract, the two transports and the supervisor that
+  // starts, watches, bounds and stops a background plugin.
+  'core/plugin-adapters/process',
+  // The unified install pipeline: fetch, detect, plan, install, and the lifecycle operations over
+  // the install records.
+  'core/plugin-install',
   // The provider that carries the DeepSeek-specific knowledge, so no generic
   // plugin has to.
   'plugins/providers/deepseek',
   // The mounted feature set: the plugins that wrap the subsystems which already
   // exist. Listed because the collector is non-recursive.
   'plugins/mounted',
+  // The health scheduler: the first plugin written for this platform under the adapter framework.
+  // A new plugin directory has to be listed here or its files escape the gate silently.
+  'plugins/health-scheduler',
   // The acceleration set (Update-Plan/accleration.md phases 5-13): the plugin entry
   // point plus one directory per accelerator, each listed because the collector is
   // non-recursive.
@@ -98,7 +114,11 @@ const SOURCE_DIRS = [
   'plugins/acceleration/reasoning-governor',
   'plugins/acceleration/repo-map',
   'plugins/acceleration/tool-batcher',
-  'plugins/acceleration/workspace-isolation'
+  'plugins/acceleration/workspace-isolation',
+  // The Mega Core plugin (updateplan/pluginize.md Phase 1): its host half and view model are ESM modules next
+  // to a package.json that says so, and its client half is the hand-written browser bundle the loader
+  // materialises. All three are product code and all three belong in the gate.
+  'plugins/mega-core/lib'
 ]
 
 /** Files outside the app directory that still ship as product code. */
@@ -115,7 +135,19 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'dshns-baseline.cjs'),
   // The combined acceptance run: plugin acceptance A-D plus the engineering
   // completion checklist, with the evidence named for every check.
-  path.join(ROOT, 'scripts', 'combined-acceptance.cjs')
+  path.join(ROOT, 'scripts', 'combined-acceptance.cjs'),
+  // The Cordis/DSH community adapter acceptance: the two real community plugins plus a plugin the
+  // script writes itself, through the whole install/enable/disable/reload/health/uninstall flow.
+  path.join(ROOT, 'scripts', 'cordis-adapter-acceptance.cjs'),
+  // The managed-process acceptance: the real dsh-restart-supervisor behind an external companion,
+  // with DS-Hns holding nothing but a restart-control capability bridge.
+  path.join(ROOT, 'scripts', 'process-adapter-acceptance.cjs'),
+  // The unified install pipeline acceptance: a real GitHub fetch, one plugin of each kind, and the
+  // refusal plus lifecycle paths.
+  path.join(ROOT, 'scripts', 'install-pipeline-acceptance.cjs'),
+  // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
+  // checked like any other program the repository ships.
+  path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

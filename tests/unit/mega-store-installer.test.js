@@ -10,7 +10,8 @@ const {
   createStoreInstaller,
   normalizeRepo,
   directoryNameFor,
-  INSTALL_REASONS
+  INSTALL_REASONS,
+  defaultClone
 } = require('../../app/extensions/mega/store/installer.cjs')
 
 /**
@@ -321,6 +322,62 @@ test('a repository with no manifest is refused before anything is downloaded', a
     assert.deepEqual(probed, [{ repo: 'zhu1090093659/dsh-web', branch: 'dev', path: null, compat: false }])
   } finally {
     harnessed.dispose()
+  }
+})
+
+/**
+ * A pinned **revision** — the market plugin's case, since its repository publishes no tags.
+ *
+ * The fake clone above cannot answer the question this test is about, because "did the pin actually pin?" is a
+ * property of the real git call. So this one builds a real repository in a temporary directory, pins a commit,
+ * then moves the branch on: a store that cloned the branch would install the newer tree, and one that fetched
+ * the revision installs the commit that was named.
+ */
+test('a revision pin installs that commit, not whatever the default branch holds now', async () => {
+  const { spawnSync } = require('node:child_process')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-store-revision-'))
+  const origin = path.join(dir, 'origin')
+  const git = (cwd, args) => {
+    const result = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true })
+    if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr || result.stdout}`)
+    return result.stdout.trim()
+  }
+  try {
+    fs.mkdirSync(origin, { recursive: true })
+    git(origin, ['init', '--quiet', '--initial-branch=main'])
+    git(origin, ['config', 'user.email', 'test@example.invalid'])
+    git(origin, ['config', 'user.name', 'test'])
+    fs.writeFileSync(path.join(origin, 'dshns-plugin.json'), JSON.stringify({ ...MANIFEST, version: '1.0.0' }, null, 2), 'utf8')
+    fs.writeFileSync(path.join(origin, 'index.cjs'), "'use strict'\nmodule.exports = {}\n", 'utf8')
+    git(origin, ['add', '-A'])
+    git(origin, ['commit', '--quiet', '-m', 'v1'])
+    const pinned = git(origin, ['rev-parse', 'HEAD'])
+    // The branch moves on after the pin was recorded.
+    fs.writeFileSync(path.join(origin, 'dshns-plugin.json'), JSON.stringify({ ...MANIFEST, version: '2.0.0' }, null, 2), 'utf8')
+    git(origin, ['add', '-A'])
+    git(origin, ['commit', '--quiet', '-m', 'v2'])
+
+    const storeDir = path.join(dir, 'store')
+    const installer = createStoreInstaller({
+      root: dir,
+      // The real clone, so the revision path is exercised end to end; only the URL is redirected to the local
+      // origin, which keeps the test off the network without replacing the code under test.
+      clone: (url, target, options) => defaultClone(`file://${origin.replace(/\\/g, '/')}`, target, options),
+      log: () => {},
+      storeDir,
+      stateFile: path.join(dir, 'installed.json'),
+      historyFile: path.join(dir, 'history.json')
+    })
+    const staged = await installer.stage({ source: 'acme/dshns-example', revision: pinned })
+    assert.equal(staged.ok, true, staged.reason)
+    assert.equal(staged.entry.version, '1.0.0', 'the branch tip was installed instead of the pinned commit')
+    assert.equal(staged.entry.revision, pinned, 'the state file does not record which revision was installed')
+    assert.equal(staged.entry.branch, null)
+    // A revision and a branch together are a question with two answers, so they are refused.
+    assert.equal((await installer.stage({ source: 'acme/dshns-example', branch: 'main', revision: pinned })).ok, false)
+    assert.equal((await installer.stage({ source: 'acme/dshns-example', revision: 'not-a-commit' })).ok, false)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 

@@ -1,0 +1,396 @@
+/*
+  The system orb's window.
+
+  Two things are worth saying about this stylesheet, because both are what make a floating ball usable rather
+  than annoying:
+
+    * **The page itself is transparent and takes no input.** The window is transparent, and `html`/`body` are
+      the same, so everything that is not the ball or the panel is literally nothing — no pane of glass over
+      whatever the user is working in. The body is `pointer-events: none` on top of the shell's
+      ignore-mouse-events state: two independent reasons why a stray click cannot land here.
+    * **The ball and the panel are the only hit targets**, and both opt back in explicitly (`pointer-events:
+      auto`), so the question "is the cursor over something clickable" has one answer the renderer can compute
+      from the DOM (`orb.js` asks exactly that before telling the shell to become interactive).
+
+  Geometry (where the ball is, where the panel is, how tall it may get) is written by the renderer through the
+  CSSOM from the shell's answer. Nothing here guesses at it.
+*/
+
+:root {
+  --orb-tone: #8b949e;
+  --orb-face: rgba(14, 16, 20, .96);
+  --orb-text: #ededed;
+  --orb-muted: rgba(255, 255, 255, .62);
+  --orb-faint: rgba(255, 255, 255, .5);
+  --orb-line: rgba(255, 255, 255, .16);
+  --ok: #2ea043;
+  --warn: #d29922;
+  --bad: #f85149;
+  --unknown: #8b949e;
+  /* Not a severity: "something is happening right now" (a worker slot in use, a refresh in flight). */
+  --busy: #58a6ff;
+  color-scheme: dark;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  font: 600 12px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif;
+  color: var(--orb-text);
+  user-select: none;
+  cursor: default;
+}
+
+#ball {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--orb-tone);
+  background: var(--orb-face);
+  color: var(--orb-tone);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 12px/1 -apple-system, "Segoe UI", system-ui, sans-serif;
+  pointer-events: auto;
+  cursor: grab;
+  -webkit-app-region: no-drag;
+}
+
+#ball:active { cursor: grabbing; }
+#ball[data-dragging="on"] { cursor: grabbing; }
+#ball[data-tone="ok"] { color: var(--ok); border-color: var(--ok); }
+#ball[data-tone="warn"] { color: var(--warn); border-color: var(--warn); }
+#ball[data-tone="bad"] { color: var(--bad); border-color: var(--bad); }
+#ball[data-tone="unknown"] { color: var(--unknown); border-color: var(--unknown); }
+
+/* The number of things wanting attention, when there are any. */
+#ballGlyph { white-space: nowrap; }
+
+#panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid var(--orb-line);
+  background: rgba(14, 16, 20, .97);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .5);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+#panel[hidden] { display: none; }
+
+#panelHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--orb-line);
+  flex: none;
+}
+
+#panelTitle { font-size: 13px; color: #fff; }
+#panelState { flex: 1 1 auto; text-align: right; color: var(--orb-muted); font-weight: 400; }
+
+#panelBody {
+  padding: 8px 10px 10px;
+  overflow-y: auto;
+  min-height: 0;
+  font-weight: 400;
+}
+
+#panelBody .line { display: flex; gap: 6px; padding: 3px 0; }
+#panelBody .line .dot { flex: none; }
+#panelBody .line .text { flex: 1 1 auto; word-break: break-word; }
+#panelBody .tone-ok { color: var(--ok); }
+#panelBody .tone-warn { color: var(--warn); }
+#panelBody .tone-bad { color: var(--bad); }
+#panelBody .tone-unknown { color: var(--unknown); }
+#panelBody .tone-busy { color: var(--busy); }
+#panelBody .plain { color: var(--orb-text); }
+#panelBody .muted { color: var(--orb-muted); }
+#panelBody .faint { color: var(--orb-faint); }
+
+/*
+  The dashboard: the live numbers first, because the ball is a glance.
+
+  It is the same `.field` row the governance fields use — two labels, a value — so the panel has one row shape
+  rather than two that drift apart. The categories are folds, **all shut at first and one open at a time**, and the
+  heading is what makes that readable: a caret for the state (colour is already spoken for by faults), the two
+  labels, and the group's headline pushed to the right so a shut fold still says the one number it exists to say.
+
+  The open fold is a **card**: `--orb-card` is lighter than the panel (`--orb-face`), which is enough to read as a
+  raised surface, and the heading lives *inside* it so the tint has an owner. `--orb-dim` is what the headings do
+  while one of them is open — the siblings step back so the card is the thing the eye lands on.
+*/
+:root {
+  --orb-card: rgba(255, 255, 255, .055);
+  --orb-card-line: rgba(255, 255, 255, .16);
+  --orb-dim: .55;
+}
+
+#panelBody .dashboard .field { padding: 3px 0; }
+
+#panelBody .category {
+  all: initial;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  font: 600 11px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  text-align: left;
+  color: var(--orb-muted);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity .12s ease, color .12s ease;
+}
+
+#panelBody .category:hover .label { color: var(--orb-text); }
+#panelBody .category .caret { flex: none; color: var(--orb-faint); }
+#panelBody .category .label {
+  flex: 1 1 auto;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#panelBody .category .value {
+  flex: 0 1 auto;
+  color: var(--orb-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+#panelBody .category[data-open="on"] .label { color: #fff; }
+#panelBody .category[data-open="on"] .value { color: #fff; }
+
+/* The open fold, as a card of its own: raised, rounded, and plainly not part of the headings around it. */
+#panelBody .category-body {
+  background: var(--orb-card);
+  border: 1px solid var(--orb-card-line);
+  border-radius: 8px;
+  margin: 4px 0;
+  padding: 0 2px 4px;
+  overflow: hidden;
+}
+#panelBody .category-body .category { padding: 6px 8px; }
+#panelBody .category-body .field { padding: 3px 9px 3px 20px; }
+/* The rows sit on the card, so their divider is the card's rather than the panel's. */
+#panelBody .category-body .field { border-bottom: 1px solid rgba(255, 255, 255, .06); }
+#panelBody .category-body .field:last-child { border-bottom: none; }
+
+/*
+  While a card is open, the headings beside it step back.
+  `:has()` is a nicety, not the mechanism: without it the card is still a card, and the caret still says which one
+  is open. (Electron ships a Chromium that has it; the fallback is the un-dimmed heading.)
+*/
+#panelBody .dashboard:has(.category-body) > .category { opacity: var(--orb-dim); }
+#panelBody .dashboard:has(.category-body) > .category:hover { opacity: 1; }
+
+#panelBody .category + .category { border-top: 1px solid var(--orb-line); }
+
+/*
+  The queue's own rows.
+
+  They are not `.field`s: a queued task has a prompt that wraps over lines and two buttons beside it, and the shared
+  dashboard row (a 128px label column and one value) is the wrong shape for either. Giving them their own class is
+  what keeps the fix from reaching into the rows that *are* measurements.
+*/
+#panelBody .queue-task { padding: 5px 9px 5px 20px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+#panelBody .queue-task:last-child { border-bottom: none; }
+#panelBody .queue-head { display: flex; align-items: baseline; gap: 6px; font-size: 10px; }
+#panelBody .queue-head .at { margin-left: auto; }
+#panelBody .queue-head .state { color: var(--orb-muted); }
+#panelBody .queue-task .prompt { margin: 3px 0 4px; font-size: 11px; font-weight: 400; line-height: 1.45; word-break: break-word; }
+#panelBody .queue-actions { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+#panelBody .queue-actions button.act { font-size: 10px; padding: 2px 7px; }
+#panelBody .queue-actions button.act[disabled] { cursor: default; }
+#panelBody .queue-actions .ask { color: var(--warn); }
+/* The one irreversible button in the panel is the only red one that is not a fault row. */
+#panelBody .queue-actions button.act.danger { border-color: var(--bad); color: var(--bad); background: rgba(248, 81, 73, .12); }
+#panelBody .queue-task[data-confirming='on'] { background: rgba(210, 153, 34, .06); }
+/* What the last queue operation answered — a refusal in the scheduler's own words, next to the queue it was about. */
+#panelBody .queue-notice { margin-top: 6px; font-size: 11px; font-weight: 400; line-height: 1.45; word-break: break-word; }
+#panelBody .queue-notice.ok { color: var(--ok); }
+#panelBody .queue-notice.bad { color: var(--bad); }
+
+#panelBody .dashboard + .line { margin-top: 6px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
+
+#panelBody .numbers {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--orb-line);
+  color: var(--orb-muted);
+}
+#panelBody .numbers b { color: var(--orb-text); font-weight: 600; }
+
+#panelBody .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#panelBody .fields { margin-top: 8px; border-top: 1px solid var(--orb-line); padding-top: 6px; }
+/**
+  A dashboard/roster row: the labels, the value, and the tone.
+  
+  Scoped to the two containers that draw one of these, not to `#panelBody` at large: the new-task form draws rows
+  with the same three class names, and a rule that reached them through a bare `.field` was fighting the form's own
+  label width — the 128px column this stylesheet wanted for a dashboard row was crushing a control in a 320px panel.
+  Every class here is a generic name, so the *container* is what says which of the two it is.
+*/
+#panelBody .dashboard .field,
+#panelBody .roster .field { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+#panelBody .dashboard .field .label,
+#panelBody .roster .field .label { flex: 0 0 128px; }
+#panelBody .dashboard .field .label small,
+#panelBody .roster .field .label small { display: block; color: var(--orb-faint); font-size: 10px; }
+#panelBody .dashboard .field .value,
+#panelBody .roster .field .value { flex: 1 1 auto; word-break: break-word; }
+#panelBody .roster { margin-top: 6px; }
+#panelBody .roster h4 { margin: 6px 0 2px; font-size: 11px; color: var(--orb-muted); text-transform: uppercase; letter-spacing: .04em; }
+#panelBody .roster .row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 0; }
+#panelBody .note { margin-top: 8px; color: var(--orb-faint); font-size: 10px; }
+
+/*
+  The new-task form, in this window rather than in the official UI.
+
+  It is the same conversation-first shape the official dialog has — a prompt box, then the schedule under it — laid
+  out for a panel that is a third of the width: one column, the schedule as a block, and the one sentence that says
+  what will happen above the two buttons.
+*/
+#panelBody .task-form .form-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 2px 0 4px;
+  color: var(--orb-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#panelBody .task-form .form-label small { color: var(--orb-faint); font-size: 10px; text-transform: none; letter-spacing: 0; }
+
+/** The prompt box: a real textarea, so Enter/Shift+Enter behave the way they do in a chat. */
+#panelBody .task-form .prompt {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 76px;
+  resize: vertical;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .04);
+  color: var(--orb-text);
+  font: 400 12px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+  pointer-events: auto;
+}
+#panelBody .task-form .prompt::placeholder { color: var(--orb-faint); }
+#panelBody .task-form .prompt:focus { outline: none; border-color: var(--busy); }
+
+/** The schedule: under the input, one row per choice. */
+#panelBody .task-form .schedule {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--orb-line);
+}
+#panelBody .task-form .schedule .field { border-bottom: none; padding: 3px 0; }
+#panelBody .task-form .schedule .field .label { flex: 0 0 74px; }
+#panelBody .task-form .field .hint { margin-top: 3px; color: var(--orb-faint); font-size: 10px; }
+#panelBody .task-form input[type="datetime-local"] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .04);
+  color: var(--orb-text);
+  font: 400 12px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+  pointer-events: auto;
+}
+#panelBody .task-form input[type="checkbox"] {
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, .35);
+  border-radius: 4px;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+}
+#panelBody .task-form input[type="checkbox"]:checked { background: var(--busy); }
+#panelBody .task-form .presets { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px 82px; }
+#panelBody .task-form .presets button.act { font-size: 10px; padding: 2px 6px; }
+
+/** What will happen, in one sentence — the thing the user is agreeing to. */
+#panelBody .task-form .summary { margin-top: 8px; color: var(--orb-muted); font-size: 11px; font-weight: 400; line-height: 1.45; }
+#panelBody .task-form .summary.warn { color: var(--warn); }
+#panelBody .task-form .summary.ok { color: var(--ok); }
+#panelBody .task-form .summary.bad { color: var(--bad); }
+#panelBody .task-form .actions { margin-top: 8px; }
+
+button.act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  background: rgba(255, 255, 255, .04);
+  color: var(--orb-text);
+  font: 600 11px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+button.act:hover { background: rgba(255, 255, 255, .1); }
+
+/**
+  The ball's own new-task entry: the panel's primary action, and it spans the panel.
+
+  It has to read as *the* thing to do here, because everything else on this panel is a reading — and a control
+  that starts work should not look like one of the buttons that reports it.
+*/
+button.act.primary {
+  border-color: color-mix(in srgb, var(--busy) 60%, transparent);
+  background: rgba(88, 166, 255, .12);
+  color: #fff;
+}
+button.act.primary:hover { background: rgba(88, 166, 255, .2); }
+button.act.wide {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 7px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+button.act[disabled] { opacity: .45; cursor: default; }
+
+button.ghost {
+  border: none;
+  background: transparent;
+  color: var(--orb-muted);
+  font-size: 13px;
+  padding: 0 4px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

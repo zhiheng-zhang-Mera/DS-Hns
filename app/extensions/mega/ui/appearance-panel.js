@@ -146,9 +146,11 @@
         && (state.main.file !== state.dock.file)
         ? '两处当前不是同一张图 · the two backdrops differ right now'
         : null
+      // The shell used to publish a `note` here — the sentence about a video drawing in Mega only. With
+      // the video pipeline gone (`updateplan/pluginize.md` Phase 7) the sentence is the boundary itself,
+      // so it is stated once, here, where the file is chosen.
       small.textContent = differ
-        || state.note
-        || `${scopeLabel}：图片或视频，铺在界面之下，不拦截任何操作。`
+        || `${scopeLabel}：图片铺在界面之下，不拦截任何操作；视频与网页壁纸由壁纸插件负责 · a picture backs the interface and takes no clicks; videos are the wallpaper plugin's job.`
       name.appendChild(document.createElement('br'))
       name.appendChild(small)
     }
@@ -248,6 +250,148 @@
     return true
   }
 
+  /**
+   * The readability presets (`updateplan/startup2.md` §26-§28).
+   *
+   * One control over two layers, and the panel renders what the *shell* reports: the preset list comes
+   * from the controller (so a new preset needs no change here), and the selected entry is what the
+   * numbers in force look like — a hand-tuned mixture leaves the select on "custom" rather than
+   * pretending to be the nearest preset.
+   */
+  function appearanceApi() {
+    return window.megaTools && window.megaTools.appearance ? window.megaTools.appearance : null
+  }
+
+  async function loadAppearancePresets() {
+    const api = appearanceApi()
+    const select = $('appearancePreset')
+    if (!select || !api || typeof api.describe !== 'function') return null
+    try {
+      const described = await api.describe()
+      if (!described || described.ok === false) return null
+      const options = []
+      for (const preset of described.presets || []) {
+        const option = document.createElement('option')
+        option.value = preset.id
+        option.textContent = preset.label
+        if (preset.note) option.title = preset.note
+        options.push(option)
+      }
+      const custom = document.createElement('option')
+      custom.value = ''
+      custom.textContent = '自定义 · custom'
+      options.push(custom)
+      select.innerHTML = ''
+      for (const option of options) select.appendChild(option)
+      select.value = described.active || ''
+      return described
+    } catch {
+      return null
+    }
+  }
+
+  function bindAppearancePresets() {
+    const api = appearanceApi()
+    const select = $('appearancePreset')
+    if (!select || !api || typeof api.set !== 'function') return false
+    select.addEventListener('change', () => {
+      const preset = String(select.value || '')
+      if (!preset) return
+      Promise.resolve(api.set(preset)).then((result) => {
+        if (result && result.ok === false) {
+          setMessage(result.reason || '该预设未被接受 · the preset was refused', 'error')
+          return
+        }
+        setMessage('')
+        // The layers changed underneath the sliders, so the card re-reads them rather than guessing.
+        loadWallpaper()
+        return loadAppearancePresets()
+      })
+    })
+    return loadAppearancePresets().then(() => true)
+  }
+
+  /**
+   * The desktop mode: which provider renders the desktop (`updateplan/startup2.md` §43-§44).
+   *
+   * The select is filled from the shell's answer, and choosing a provider whose plugin is missing is answered by
+   * the shell, not by this panel: the refusal names what is missing, the layers are not touched, and the two
+   * choices below the select appear — keep the official interface, or go and look at the plugin. **Nothing is
+   * installed on the user's behalf**, and saying so out loud is the point of the notice.
+   */
+  let providerState = null
+
+  function renderProviders(next) {
+    if (next) providerState = next
+    const state = providerState
+    const select = $('appearanceProvider')
+    if (!select || !state) return null
+    const options = (state.providers || []).map((provider) => {
+      const option = document.createElement('option')
+      option.value = provider.id
+      option.textContent = provider.available ? provider.label : `${provider.label}（不可用 · unavailable）`
+      option.title = provider.note || ''
+      return option
+    })
+    select.innerHTML = ''
+    for (const option of options) select.appendChild(option)
+    select.value = state.active || 'simple'
+    const chosen = (state.providers || []).find((provider) => provider.id === select.value) || null
+    const note = $('appearanceProviderNote')
+    const actions = $('appearanceProviderActions')
+    const unavailable = chosen && chosen.available === false
+    if (note) {
+      note.hidden = !unavailable
+      note.textContent = unavailable
+        ? `未检测到 ${chosen.requires || '插件'}：${chosen.reason || ''} —— 不会自动安装第三方插件。`
+        : ''
+    }
+    if (actions) actions.hidden = !unavailable
+    return state
+  }
+
+  async function loadProviders() {
+    const api = appearanceApi()
+    if (!api || typeof api.providers !== 'function') return null
+    try {
+      const described = await api.providers()
+      return described && described.ok !== false ? renderProviders(described) : null
+    } catch {
+      return null
+    }
+  }
+
+  function bindProviderControls() {
+    const api = appearanceApi()
+    const select = $('appearanceProvider')
+    if (!select || !api || typeof api.setProvider !== 'function') return false
+    select.addEventListener('change', () => {
+      Promise.resolve(api.setProvider(select.value)).then((result) => {
+        if (result && result.ok === false) {
+          setMessage(result.reason || '该模式不可用 · this mode is unavailable', 'error')
+        } else {
+          setMessage('')
+          // The layers may have changed (the simple provider switches the picture back on), so the card re-reads.
+          loadWallpaper()
+        }
+        return loadProviders()
+      })
+    })
+    const keep = $('appearanceKeepOfficial')
+    if (keep) keep.addEventListener('click', () => Promise.resolve(api.setProvider('official')).then(() => { setMessage(''); return loadProviders() }))
+    const store = $('appearanceOpenStore')
+    if (store) {
+      store.addEventListener('click', () => {
+        const bridge = window.megaTools && window.megaTools.openStore ? window.megaTools.openStore : null
+        if (!bridge) return
+        Promise.resolve(bridge()).then((result) => {
+          if (result && result.ok === false) setMessage(result.reason || '插件商店打不开 · the store did not open', 'error')
+        })
+      })
+    }
+    return loadProviders().then(() => true)
+  }
+
   function attach() {
     const panel = $('appearancePanel')
     if (!panel) return null
@@ -258,7 +402,9 @@
       return null
     }
     bindControls()
+    bindAppearancePresets()
     bindWallpaperControls()
+    bindProviderControls()
     // Follow the layer, so a change made anywhere else lands on these controls too.
     api.onChange(render)
     render()

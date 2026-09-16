@@ -339,6 +339,11 @@ jobs:
             'app/plugin-host.cjs',
             'app/core/lockfile/index.cjs',
             'app/extensions/mega/ui/plugin-panel.js',
+            # The installation-level acceptance: the bundle the installer puts on disk is discovered, is
+            # loadable from the profile's own node_modules, and reaches the official Settings. Asserted by
+            # name here for the same reason as the rest: a renamed file must fail the gate rather than
+            # silently drop the one check that leaves the checkout.
+            'tests/unit/mega-core-install-acceptance.test.js',
             'dshns-lock.yaml'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
@@ -351,7 +356,10 @@ jobs:
             if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
           }
           $tests = Get-Content scripts/test-all.ps1 -Raw
-          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-compat\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-github\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js')) {
+          # The adapter framework and the install pipeline arrived with their own suite matrix, and the
+          # suite list is only worth asserting if the names in it are asserted too: a suite that left
+          # `test-all.ps1` while staying in this list would be a green gate over unchecked code.
+          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-compat\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-github\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js', 'plugin-adapters-contract\.test\.js', 'plugin-adapters-detection\.test\.js', 'plugin-adapters-lifecycle\.test\.js', 'plugin-adapters-framework\.test\.js', 'plugin-adapters-fault-injection\.test\.js', 'plugin-adapters-compatibility\.test\.js', 'plugin-cordis-structure\.test\.js', 'plugin-cordis-bridge\.test\.js', 'plugin-cordis-dsh\.test\.js', 'plugin-process-adapter\.test\.js', 'plugin-hns-native\.test\.js', 'plugin-install-pipeline\.test\.js', 'mega-core-install-acceptance\.test\.js')) {
             if ($tests -notmatch $suite) { Write-Error "test-all.ps1 does not assert $suite"; exit 1 }
           }
           # The plugin panel is a control surface: it must reach the platform only through

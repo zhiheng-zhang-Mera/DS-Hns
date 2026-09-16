@@ -3,6 +3,990 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 新主机装完就有悬浮球：那一步进了安装器
+
+**"为什么新主机上安装的版本没有悬浮球？"** 因为球从来不在仓库里，而在 profile 里。官方界面里那颗球是
+`app/plugins/mega-core` 这个**客户端插件**画的（浏览器半边注册官方 `shell.overlay` 槽，见
+`app/plugins/mega-core/lib/client.js`），而 Harness 只挂载**已经装进它自己 profile**
+（`$DSH_HOME\profiles\web`）的插件。那个安装是单机状态：`data\*` 在 `.gitignore` 里，依赖又写成绝对路径
+`file:D:/…/app/plugins/mega-core` —— clone 与 ZIP 都带不过去；`app/harness-profile.cjs` 只刷新**已经存在**的
+副本（"installing is the Harness' own CLI's job"），产品自己的 `BUNDLED_MANIFEST` 也不管它（它是我们的插件，
+不是社区引用）。上一轮是**手工**装的（`docs/pluginize.md` 那条 `dsh plugin --profile web add …`），于是开发机
+有球、每台新主机都没有，而且不报错：产品照常启动，只是没有球。默认值也在同一侧：系统球那扇窗口要
+`DSH_SYSTEM_ORB=1` 才创建（`app/extensions/mega/index.cjs`），没有任何启动脚本设置它 —— 所以新主机上
+"一颗球都没有"完全说得通。（另一颗独立的地雷：云端默认分支 `main` 落后 `mech-adapter-merge` 53 个提交，
+球的代码一个都不在它上面；用默认分支装出来的主机连这一步都没东西可装，脚本会直说。）
+
+**这一步现在属于安装。** 新增 `scripts\install-profile-plugin.ps1`，安装器把它作为**第 4/8 步**（依赖之后、
+测试之前）：读随产品发布的 `app\plugins\mega-core`，用 **Harness 自己的 CLI**（`dsh plugin --profile web add
+file:…`）把它签进 profile。profile 依旧不由我们手写 —— 脚本对 profile 只有 `Get-Content`，没有
+`ConvertTo-Json` / `Set-Content`，契约测试盯着这一条。本机没有 pnpm 时用 Node 自带的 corepack 在
+`runtime\bin`（git-ignore）生成 pnpm 垫片：`dsh plugin` 只是 pnpm 的转发器，spawn 的是 PATH 上的裸 `pnpm`。
+
+**它永远不会让安装失败。** 球是增强层，不是产品：失败只发 `Write-Warning`（并给出要重跑的那一条命令），
+安装继续。三种真实情形各自实测过：已经装好 → 原样放过并报 `already-installed`（不碰 profile 文件）；全新
+`DSH_HOME` → 3.3 秒装好，`dependencies` 与 `dsh.profile.bundles` 都到位、
+`node_modules\dsh-plugin-mega-core\lib\client.js` 就位；profile 是从别的机器拷来的（依赖指向那台的路径）→
+改成这台 checkout 的路径并报成功。
+
+**验证**：全量 **1670 项：1668 通过、2 跳过（computer-use 驱动按环境跳过）、0 失败**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 256/256。新增：`installer-contract` 两项（第 4/8 步排在依赖之后、测试之前，失败
+只警告不抛错；插件只经 Harness CLI 安装、profile 只读），新脚本进 ASCII 与 parser preflight 名单。已安装的
+形状本来就由 `mega-core-install-acceptance` 断言（安装后的客户端半边占用 `shell.overlay` 与
+`settings.section`），这一轮补的是"那一步真的会被执行"。
+
+## 队列任务可以删除（并且先问一句）
+
+**"队列任务需要允许删除，其余修改全部正常。"** 队列的第三个操作补上了：每条排队任务现在有 `✕ 删除`，两个球面板
+一样。
+
+**删除是什么。** 它是调度器自己的 `cancelTask`，不是第二条移除路径：排队的任务被取消并**离开活动队列**，正在跑的
+任务先被中断，两种情况都走**同一条终态管线** —— 所以任务会以 `CANCELED` 落进历史层，"我删掉了它"和"它后来怎么了"
+仍然能从同一份记录回答，而不是凭空消失。一个已经不在队列里的 id 会**明说**"not in the active queue"，而不是假装
+删成功（一个悄悄什么都没做的删除比一个说没找到的更糟）。
+
+**先问一句。** 这是队列行上唯一一个无法从面板撤销的按钮，而 340px 宽的一行小按钮正是误点的地方：第一次点击把这一行
+**变成它自己的确认**（"删除这条？ · delete this one?" + `删除` / `取消`），第二次点击才真的删。确认状态是**面板的
+状态**（界面内那颗球是 `Dashboard` 的 state，系统球是模块级的 `pendingDelete`），因为外壳每 15 秒重绘一次 —— 一个
+存在行里的确认会被那次轮询丢掉，正好丢在用户要回答它的时候。
+
+**能力仍只有一份实现。** 经治理桥（`POST /task-delete`）给官方插件，经 IPC（`mega:orb-task-delete`）给系统悬浮球，
+两边调的是同一个 `deleteScheduledTask` → `scheduler.cancelTask`。队列本身依旧没有第二条读取路径。
+
+**顺手补的一处**：系统球面板原来只在**表单**里画 `taskNotice`，所以队列上的移动/删除被拒绝时面板什么都不说 —— 现在
+队列下方的收据行（`.queue-notice`）会说明结果，面板关闭时清掉。
+
+**验证**：全量 **1532/1532**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 230/230。新增：`scheduled-task`（删除走终态
+管线、重复删除返回空、不误伤其它任务）、`mega-core-client`（两次点击的形状、轮询不丢确认、POST 到 `task-delete`）、
+`orb-ui`（同一套，走 `deleteTask` 通道）、`mega-core-plugin`（第三条路由 + 方法/不在队列两种拒绝）、
+`surface-ownership`（通道清单 11 条）、`mega-lifecycle-wiring`（三个操作，一个实现）。
+
+## 悬浮球的队列：挂起数量会动，任务能改、能调顺序
+
+**"定时任务测试成功"（上一轮的路由修复生效了），但"页面切换后，悬浮球信息页挂起任务数量没有改变，也不能编辑，也不能
+调顺序"。** 三件事，两个根因：
+
+**数量为什么不变。** 面板里只有一个数字，没有任务 —— 数字由快照算出来，任务却压根没进视图模型。现在
+`control-center.cjs` 从 `snapshot.tasks`（调度器自己的 `listTasks`，也就是 Dock 队列面板画的那份）挑出
+PENDING/SUSPENDED，作为 `dashboard.queue` 发布：id、状态、原因、**到点时刻（ISO，不是写下来就已经过期的秒数）**、
+队列名次与提示词。计数与它下面的列表来自同一份数据，不可能各说一套。
+
+**数字还被藏在折页里。** 折起来时标题上留的是该组第一行 —— "运行中的 worker"。现在 `execution:state` 是该组
+**第一行**，内容是"已挂起 N · 等待 M"；两颗球挑折页标题时都优先找 `:state`，于是**动的正是标题上那个数**。
+
+**打开面板不再看旧数。** 两颗球的轮询都是 15 秒。界面内那颗球现在**打开面板就当场重读**（`store.refresh()`）；
+系统那颗球本来就在 `mega:orb-open` 里重读，另外 `notifyChanged()` 现在也推球（250 ms 去抖）—— 调度器每次
+`queue-changed`（新建、挂起、改、调序、到点）都会让系统球重画，而不是等下一次轮询。
+
+**能改、能调顺序。** 新增"队列 · Queue"折页：每行一条任务（名次、状态与原因、到点时刻、提示词），三个按钮
+`↑ ↓ ✎`。`↑↓` 调 `scheduler.reorderTask`；`✎` 打开**同一张表单**（界面内那颗球是 `NewTaskFormPanel`，系统球是
+`drawTaskForm`），预填这条任务的内容与时间，保存走 `scheduler.editTask`。首行没有 ↑、末行没有 ↓ —— 一个点了没用的
+按钮不是按钮。
+
+**能力只有一份实现。** `SchedulerService.editTask(id, changes)` 是新的：只允许 PENDING/SUSPENDED（RUNNING 是"已经
+在进行中的对话"，改它会让队列与旁边的会话记录不是同一件事）；提示词、时刻、峰值、投递方式都走与新建**同一套**规则
+（`futureInstant()` 现在同时供 `addTask` 与 `editTask` 用，过去的时间一律拒绝）；改完**重新过闸**而不是打补丁，
+所以把"1 小时后"改成"3 小时后"会重新挂起。两个操作经治理桥（`POST /task-edit`、`POST /task-move`）给官方插件，经
+IPC（`mega:orb-task-edit`、`mega:orb-task-move`）给系统悬浮球，两边调的是**同两个函数**。
+
+**队列没有第二条读取路径。** 它就在 `/view`（与 `/governance`）的 `dashboard.queue` 里，两个球都画它；因此没有
+`GET /tasks`、也没有 `mega:orb-tasks` —— 一个问题的第二个答案就是两个答案。（本轮确实先写了这两条，随后删掉：
+`surface-ownership` 的通道清单与宿主半边的跨半边路由契约都因此少一条。系统球的表单以前也只在重绘时更新，
+输入提示词后"创建"要等最多 15 秒才亮；现在两处**就地更新**。）
+
+**副本**：`data/profiles/web/...` 不再需要手工同步 —— 上一轮那个"手工把 package.json 也抄进 `lib/`"的教训换来了
+启动时的 `app/harness-profile.cjs`，它按 package.json 的声明刷新 profile 里的那份包。
+
+**验证**：全量 **1529/1529**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 230/230。新增/改写：
+`scheduled-task`（编辑与调序，含"运行中不可编辑"）、`control-center`（队列块与状态标题行）、`mega-core-client`（队列
+折页、移动 POST、编辑表单、打开即重读、数量随快照变）、`orb-ui`（系统球同一套）、`mega-core-plugin`（两条新路由 +
+跨半边 URL 契约）、`mega-lifecycle-wiring`（一个实现，两个窗口）。
+
+## 启动失败：profile 里那份插件副本多带了一个 package.json，官方界面不是"没加载出来"，是根本没起来
+
+**症状**：窗口起来了，官方 DeepSeek Harness 界面永远不来。日志最后一屏是 Harness 自己在启动阶段抛出的
+`client-modules: client bundle not found … path: data\profiles\web\node_modules\dsh-plugin-mega-core\lib\lib\client.js`
+——注意路径里有两个 `lib`，而 `lib/` 下并没有 `lib/`。
+
+**根因不在打包，在"最近的那个 package.json"这条规则里。** Harness 组装一个客户端插件的浏览器包时，从它挂载
+的模块向上找**第一个名字等于该包名的 `package.json`**（`@deepseek-ai/dsh-client-modules` 的 `nearestPackage`），
+再从那个目录取 `exports["./client"]`。上一轮为了让**运行中**的实例吃到重新构建的宿主半边，手工把
+`index.js` / `client.js` 同步进了 profile 的 `lib/`（那条说明就写在上一版 changelog 里）——**同一只手把包的
+`package.json` 也带进了 `lib/`**。于是"最近的清单"成了 `lib/package.json`，包根被认成 `lib/`，浏览器包被找成
+`lib/lib/client.js`：整棵插件树组装失败，Harness 在宣布访问地址之前就 `exit 1`，而 shell 的对话框只说
+`Harness service exited before announcing its access URL (code 1)`——真正的原因只留在日志流水里。
+
+**两处一起修：**
+
+1. **每次启动先把这份副本刷新成"产品真正发布的那个包"**（`app/harness-profile.cjs`，在 `--- DSH launch
+   begin ---` 之前调用）：按包自己声明的 `files` 写入 `package.json` 与 `lib/*.js`，再删掉包里不该有的东西——
+   包括任何一层里**与包重名**的 `package.json`，以及 `lib/` 下不是这次发布的文件（"手工同步 + 顺手多带一个
+   文件"正是这次的成因，而内容相同的文件不重写、不碰时间戳）。包还没装进 profile 时什么都不做；刷新失败只记
+   一行日志，绝不拦启动。profile 是 Harness 自己的安装目录，这是 shell 唯一写它的地方，范围仅限 DS-Hns 自己
+   那一个插件的自有文件——否则就是"发布的是一个包、跑的是另一个"。
+2. **失败时把 Harness 自己的最后几行话带进报错**：`startupError` 现在附上子进程输出的尾部（token 一律打码）。
+   `readLogTail` 走的是流，退出事件可能跑在落盘前面；内存里那份不会漏。启动对话框从此说的是"哪一个包、哪一条
+   路径找不到"，而不是"code 1"。
+
+**验证（真机复现 → 修复 → 再启动）**：把那份 `lib/package.json` 放回 profile，`dsh web` 逐字复现日志里的
+`lib\lib\client.js` 失败；跑一次启动用的那条刷新 → `refreshed: ["lib/package.json (a second manifest for
+this package)"]`；再启动 → `dsh web: http://127.0.0.1:3112/?token=…`，`GET /mega-core/health` 返回 200
+（插件宿主半边已在官方 web server 上）。`tests/unit/harness-profile.test.js` 7 项、`verify.ps1 -SkipTests`
+全通过（含四条新检查：发布的包里没有 `lib/package.json`、启动先刷新副本、已安装副本没有下沉清单、启动失败带上
+Harness 原话）、语法门 **230/230**、全量单元测试 **1522/1523**（唯一未过的是 `multi-supervisor.test.js`
+的墙钟阈值 `parallelMs < 8500`，整机并行跑时实测 8612ms；单跑该文件 13/13 通过——它与本次改动无关）。
+
+## 定时任务挂起失败：两条路由被删了，而调用它们的那半边还在
+
+**根因不在调度器里。** 挂起机制本身是好的——真机链路探针（真 `SchedulerService` + 真治理桥 + 真宿主半边 + 真
+HTTP）把 `addTask` → 立刻 `SUSPENDED / waiting-schedule` → 重启后仍在 → 到点作为官方新会话发出**一次**，整条路
+走通了。坏的是**官方界面那半边从来没有把任务交给调度器**：`9801d7e` 删掉了插件宿主半边的
+`GET /mega-core/timing` 与 `POST /mega-core/task`（理由是"新表单只住在系统悬浮球的窗口里、走它自己的 IPC"，
+而那个窗口**不**走这两条路由），但调用它们的**客户端半边一直在**，这一轮又把表单的第二张脸（球面板里那张）也
+放回了同一个文件。于是 `GET /timing` → **404**、`POST /task` → **405**，两个都是**空 body**，客户端的
+`response.json()` 直接抛 `SyntaxError: Unexpected end of JSON input`：用户看到的是解析器的报错，不是问题的陈述。
+任务从未被创建，所以"挂起"永远没有发生。
+
+**同一个 bug 还有第二处，而且更安静。** `/mega-core/orb`（球的坐标读写）是同一个故事：它在 `56f3e7f`（"只留
+系统球"）随界面内的球一起被删，而 `8781543` 又把界面内的球装了回来。于是球的坐标既读不到也存不下——每次重启
+回到默认角——只是这次失败被 catch 成了"默认角是一个完整的答案"，没有任何提示。
+
+三件事一起修：
+
+1. **三条路由回来了**：`/timing`、`/task`（原样透传请求、保留 DS-Hns 的 400 与原话），以及 `/orb`
+   （存 `$DSH_HOME/state/mega-core-orb.json`；不用 `localStorage` —— 官方界面是 `--port 0`，origin 每次重启都变）。
+2. **不再有解析器报错**：客户端读 body 一律先读文本再解析，没有 JSON 时把**状态码**当作原因
+   （`the timing surface answered 404 without JSON`）。这类"路由不在"的失败从此是一句话，不是一个异常。
+3. **一条会自己发现的测试**：`mega-core-plugin.test.js` 不再断言"这一半有哪几条路由"（那只是快照），而是从
+   **客户端半边的源码里抽出它调用的每个 URL**，断言宿主半边**每一条都注册了**——这正是 `9801d7e` 会当场失败的
+   那条断言。同一个文件里还端到端跑通 `/timing` + `/task`（真治理桥）与 `/orb`（真文件，含坏坐标不覆盖旧值）。
+
+**顺带修掉两处真实存在的"表里不一"：**
+
+* **过去的时间会被立刻执行，而不是挂起。** `decideTask` 把 `now >= startAtMs` 读作 ready（对"到点了"的队列项
+  是对的），而 `datetime-local` 只精确到分钟——用户选"这一分钟"时它其实已经过去了，于是任务**立刻跑**，而用户
+  以为自己排的是定时任务。现在 `SchedulerService.addTask` 拒绝过去的时间（拒绝带 `field: 'startAt'`，经
+  `scheduleTask` 传到表单），两张表单也不为一个层会拒绝的时间点亮提交按钮（禁用时用 hover 文本说明原因）。
+  **没有 `startAt` 仍然是"现在就跑"**：规则针对的是"给了时间而那个时间已经过去"。
+* **球的表单只在重绘时才更新。** 以前输入提示词后"创建"按钮会灰着最多 15 秒（等下一次轮询），改完时间后总结句
+  还说着旧时间。现在这两处**就地更新**（只写两个节点）——不重建表单，因为重建会关掉原生日期选择器、也可能打断
+  输入法组字。
+
+**球里那张表单的"点了就关、没法编辑"也修好了。** 上一版把官方 `Modal`（portal 到 `document.body`）当成球里那张
+表单，而面板自己的规则是"点面板外面就收起"：portal 出去的表单正好在面板"外面"，所以点进输入框那一下就把拥有
+它的面板收掉了——表单不是不能编辑，是被"要编辑它的那一次点击"卸载了。现在球的面板里是**它自己的表单**，与官方
+头部那扇居中浮窗**共用同一份草稿**（同一次 timing 读取、同一个 POST、同一句拒绝）；表单打开期间面板不挂
+"点外面收起"那条规则，出口是 `← 返回`、`×` 和球本身。系统悬浮球那扇窗口同理：**面板打开期间窗口才可获焦**
+（`focusable: false` 的窗口根本收不到按键，这正是"无法编辑"的机制），关闭时先 `blur()` 再收回可获焦；重绘还会
+把光标放回原来那个字段、原来的位置。官方头部入口不变，仍是官方居中子页面；宿主没有官方组件库时它不出现，而球
+自己那张表单照常工作（它只用我们自己的盒子）。
+
+**验证**：`mega-core-plugin.test.js` 6 项（含跨半边 URL 契约）、`scheduled-task.test.js` 4 项、`mega-core-client.test.js`
+19 项、`orb-ui.test.js` 15 项、`system-orb.test.js` 13 项；全量 **1516/1516**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 229/229。运行中的实例需要重启才会加载新的宿主半边（路由表在挂载时解析）：
+`data/profiles/web/node_modules/dsh-plugin-mega-core/lib/` 已同步为新的 `index.js` / `client.js`。
+
+## 新建任务弹窗的宽度：不是我们的布局窄，是官方 Modal 的宽度写死了 380px
+
+**根因在组件里，不在我们这边。** 官方 `Modal` 的对话框盒子是 `width: min(380px, 100%)` —— 那是**单字段表单**的
+宽度。我们的内容是"输入框 + 一排定时设置"，声明了 `minWidth: 560px`，但它被一个**不可能更宽的父亲**压扁：于是
+时间字段、峰值开关挤成一列，看起来就是"弹窗太窄"。修法是在**官方对话框盒子上**覆盖宽度（通过 `Modal` 自己的
+`className` 传入一个我们的类，用**双类选择器**压过组件那条单类规则）：
+
+```css
+.hns-mega-dialog.hns-mega-dialog { width: min(720px, 92vw); min-width: min(320px, 92vw); }
+@media (max-width: 560px) { .hns-mega-dialog.hns-mega-dialog { width: 96vw; } }
+```
+
+720px 是"提示词一行舒服 + 定时设置一行放得下"的宽度；92vw 让它在窄层里自动收；320px 下限保证它仍是对话框而不是
+整屏抽屉。样式表只在首次打开时注入一次（重复注入会是一份没有读者的泄漏），并且**不依赖官方 CSS 变量** —— 那是
+我们的内容，带自己的调色板。
+
+**顺带修掉一处真实的样式串台。** `orb.css` 里有一条全局的 `#panelBody .field / .label / .value`（仪表盘行的
+128px 标签列），而新任务表单也用同样三个类名 —— 于是**系统球里那张 320px 宽的表单**被这条规则压到只剩一百来像素
+给控件。现在把仪表盘/名册的行规则**按容器限定**（`#panelBody .dashboard .field`、`#panelBody .roster .field`），
+表单自己的行规则（74px 标签列）才真正生效。类名是通用的，所以**容器**才是指认身份的东西。
+
+**对齐也顺手改了**：定时设置的四个快捷值现在与"发送时间"输入框**左边缘对齐**（用同一个标签列常量算出来），
+不再各起一行。
+
+**验证**：`mega-core-client.test.js` 17 项（新增 1：宽度覆盖类真的落在对话框盒子上、样式表真的注入且只注入一次、
+规则是双类、宽度值是 `min(720px, 92vw)`）；全量 **1508/1508**（一次并发跑里 `sub-worker-manager` 的 Live View
+用例超时 —— 它在单独运行时 17/17、耗时 63s，是负载敏感的既有 flake，与本轮只动样式/客户端的改动无关）；
+`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
+## 两个入口都在：官方头部恢复，两个悬浮球都有一条显眼的新任务按钮
+
+**上一轮把入口搬错了地方。** 用户要的是"球里也要有"，我做成了"只有球里有" —— 官方对话头部那个入口被删掉了，
+而球的那条又排在面板最底下（四个折页 + 治理行之下，本身就在折页的折叠线以下），所以两头都不好用。现在：
+
+* **官方头部入口恢复**（`conversation.session.header.actions`，`order: 30`，与官方闹钟、任务列表并排）——
+  对话开着的时候，那里就是"起一件事"的地方。对话框（官方组件库的 `Modal`）随之恢复，插件的浏览器半边又重新
+  require `@deepseek-ai/dsh-client-ui-primitives`（platform table 里有它，不是新增依赖）。
+* **两个球都在最上面给了一条**：Electron 那个系统悬浮球的面板里，`＋ 新建定时任务 · New task` 是**面板第一行**
+  （以前在最底下），主色、通栏；官方界面里那颗球（`shell.overlay`）的面板原本**一条都没有**，现在标题行下面就是它。
+
+**一处实现，两个座位。** `NewTaskAction` 一个组件，`compact` 决定形态（球里通栏主按钮 / 头部小按钮），**同一个
+对话框、同一份请求、同一份回执**；系统球是纯 DOM，用它自己的 `drawTaskForm` 与 `mega:orb-timing` /
+`mega:orb-task` 两条通道，调用的仍是治理桥给官方插件的那两个函数。所以"任务可以是什么"与"怎么建一个任务"
+各只有一份实现，界面不会各说一套。
+
+**测试**：`mega-core-client.test.js` 16 项（恢复 4 个对话框用例 + 新增 1 个"球的面板里有这条且排在仪表盘之前、
+点开是同一个对话框"）；`orb-ui.test.js` 12 项（"球自己开表单"的用例现在同时断言它**在面板首行**）。全量
+**1507/1507**；`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
+## 新建定时任务搬进悬浮球；子窗口按内容自适应（修掉"只显示一半"）
+
+**入口搬家。** 上一版把"新建任务"放在官方对话的头部动作里 —— 但那要求用户先把某个对话打开，而悬浮球是**盖在
+所有应用之上、永远在屏幕上**的那一面：从哪儿都能起一个定时任务，才是球的意义。现在按钮在球的面板里
+（`新建定时任务 · New task`，主色），点击后**同一个窗口**切换成表单；官方对话头部不再有第二个入口，插件那半边
+因此删掉了整套对话框（React 侧 ~430 行与官方组件库依赖），回到"只需要 React"。
+
+**表单仍是"对话优先、定时在输入栏下方"**：提示词输入框（`Enter 发送 / Shift+Enter 换行`，**输入法组字时的 Enter
+只确认候选**）→ 定时设置（发送时间 + 3 分钟/30 分钟/1 小时/明天 9:00 + 允许峰价 + 时区与峰价时段）→ 一句人话总结
+（"将在 … 作为官方新会话发出 · in 4m 33s"）→ 返回 / 创建。创建回执显示真实任务 id 与状态，拒绝显示 DS-Hns 原话。
+表单在 15 秒轮询重绘时**不会被弹回仪表盘**，半句话不会丢。
+
+**"只显示一半"是一个真 bug，修在测量上。** 面板是 flex 纵向布局、`#panelBody` 自己滚动，所以
+`panel.scrollHeight` 读数**不是内容高度，而是面板当前高度** —— 也就是主进程刚给它的那个数。把它当成"内容需要
+多高"再报回去是一个闭环：窗口被调成"刚好装得下现在这么多"，多出来的部分留在 body 里滚动，看上去就是被裁掉
+一半。现在测量的是 **`#panelHead.offsetHeight + #panelBody.scrollHeight`**（body 是滚动元素，它的 `scrollHeight`
+才是内容自身高度）：折页展开、表单出现、报错行增加，窗口都会跟着长高。测试用一个"面板被夹在 300px、内容需要
+900px"的用例把它钉死：请求的必须是 `340x933`，而不是 `340x300`。
+
+**能力仍由 DS-Hns 回答。** 球的新通道 `mega:orb-timing` / `mega:orb-task` 调用的是**治理桥暴露给官方插件的同两个
+函数**（`scheduledTaskSurface` / `scheduleTask`），所以两个能建任务的界面不可能对"任务可以是什么"有不同说法，
+"建一个任务"也只有一份实现。表面因此从六个通道变成八个（`surface-ownership.test.js` 逐个审计）。
+
+**验证**：`orb-ui.test.js` 12 项（新增 5：球自己开表单且顺序是 提示词→时间→峰值、Enter 三种情况 + 提交载荷、
+拒绝原话 + 返回仪表盘、表单扛住轮询 + 无能力面时如实报错、**测量必须是头+body**）；`mega-core-client.test.js` 11 项
+（回到"只 require React"、只注册两个槽、**明确断言头部动作里没有新任务入口**）；`mega-core-plugin.test.js` 5 项
+（路由回到四条）；`surface-ownership.test.js` 八个通道全有主。全量 **1502/1502**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 229/229。**真机验证**（运行中的产品，重启后已载入新构建）：
+`GET /timing` → `kind=scheduled-task`、`defaults={startAt: now+3m, allowPeak:false, deliveryMode:'official-session'}`、
+`timeZone=Asia/Shanghai`、`peakPeriods=09:00-12:00, 14:00-18:00`、`peak now: true`。
+
+## 新建定时任务：官方界面中间的浮窗，对话式输入，定时设置输入栏下方
+
+**入口在官方对话的头部动作里**（和官方的闹钟、任务列表并排，`conversation.session.header.actions`），点一下弹出
+**官方组件库的居中浮窗**（`@deepseek-ai/dsh-client-ui-primitives` 的 `Modal`：它自带 portal 到 body、遮罩、
+`role="dialog"` + `aria-modal`、Esc 关闭与居中，这些是手搓浮层容易做错的细节）。浮窗结构按"对话优先"排：
+
+1. **对话输入区**：一个和平时打字同形的输入框（placeholder 就是"输入要执行的内容，和平时对话一样"），
+   键盘语法与官方输入一致 —— **Enter 发送、Shift+Enter 换行、输入法组字时的 Enter 只确认候选不发任务**。
+   Enter 的三种情况各有断言，因为"输入法按 Enter 把没写完的句子发出去"是这类界面最容易犯的错。
+2. **定时设置就在输入栏下方**（同一个浮窗的底部，不是另一个页面）：发送时间（`datetime-local` + 3 分钟/30 分钟/
+   1 小时/明天 9:00 四个快捷值）、是否允许峰价、时区与峰价时段、以及**一句人话总结**——
+   "将在 2026-09-15 15:30 作为官方新会话发出 · in 2h 12m"，峰价时段且未允许峰值时这句会**多一句**说明任务会挂起
+   到谷价。
+3. 底部两个按钮 + 一句"任务会进入左侧「手动队列」，到点后作为新会话发出"。创建成功显示**真实任务**
+   （id / 状态 / 到点时间），失败显示 **DS-Hns 原话**（不吞、不翻译成"操作失败"）。
+
+**"与正常对话相同"是接出来的，而且是可断言的。** 新任务走的是 `scheduler.addTask` → `launchOfficial` →
+**官方 `session/create` + `session/prompt`**（`deepseek/official-session-client.js`，与真人按发送走的是同一对
+RPC），提示词**原样发送**（`buildPrompt` 只在有附件时追加附件清单）。新增 `scheduled-task.test.js` 用**真实
+`SchedulerService`** + 假的 official client 钉住这两件事：早一小时 tick 一次只把它挂起（`waiting-schedule`，
+**一个字节都不发**）；到点后同一个 tick 让它变成官方会话，`dispatched[0].prompt` 与用户输入**逐字相同**；
+峰价时段且未允许峰值 → 挂起（`peak-window`），允许峰值 → 照发。
+
+**能力由 DS-Hns 回答，不由前端猜。** 新增两个端点（治理桥 `/timing`、`/task`，插件同源路由
+`/mega-core/timing`、`/mega-core/task`）：默认时间（now+3 分钟）、时区、峰价时段、当前是否峰价、可选的执行方式，
+全部来自 `PricingRepository` 与 scheduler 自己的配置 —— 对话框里没有一个是硬编码的。**治理桥的动作闭集没有
+扩大**（调度不是对模块的恢复动作），桥的发现文件 schema 因此升到 2，旧版桥回答 404，对话框如实显示
+"读不到调度能力：… does not answer timing questions"（这条兼容路径已在运行中的旧实例上实测到 404）。
+
+**验证**：`mega-core-client.test.js` 15 项（新增 4：浮窗结构/输入框/定时设置在同一浮窗且顺序正确、
+Enter 三种情况 + 提交载荷与"作为对话投递"、拒绝与原话、宿主没有官方组件库时不画入口）；
+`mega-core-plugin.test.js` 6 项（路由从四条到六条并断言挂载与卸载、`/timing` 与 `/task` 的 404/405/透传、
+**通过真实治理桥**创建任务并保留 DS-Hns 的 400 与原话）；新增 `scheduled-task.test.js` 3 项。全量 1499/1499；
+`verify.ps1 -SkipTests` ALL CHECKS PASSED；语法门 229/229。
+
+## 悬浮球：默认全部收起；点开的这一类变成一张自己的卡片
+
+**默认状态改为"全部收起"。** 上一版默认展开第一类，一打开面板就替用户做了选择，而且四类里只有一类是"活的"，其余
+三类的规则只能自己猜。现在第一帧就是四条标题行，每条右边带自己的头条数字（价格 `PEAK` / 账户 `¥ 114.81` /
+任务 `3` / 并行 `4`），点哪条开哪条。随之删掉了那个"只默认一次"的 `defaultedCategory` 开关——没有默认就不需要
+记住默认。
+
+**展开的那一类是一张卡片，不是"更长的一串行"。** 三件事让它一眼可辨，都是"看得见"而不是口味问题：
+
+* **比面板底更亮**：卡片底 `rgba(255,255,255,.055)`（系统球是 `--orb-card`），面板底是 `rgba(14,16,20,.97)`
+  —— 亮度差让它读起来是"浮起来的一层"；
+* **标题在卡片里面**：这层底色因此有主，不是一片无主的色块；
+* **自己的圆角与间距**（`border-radius: 8px`、上下 `4px` 外边距、`.16` 描边），上下两类与它明显不是一体。
+
+再加一条让视觉聚焦更明确的：**有卡片打开时，旁边的标题行整体后退**（`opacity` 降到 `.55`，悬停回到 1）——
+系统球用 `:has(.category-body)`，React 那半边直接写成行内样式。`:has` 是加分项而不是机制：不支持时卡片依然是
+卡片，caret 依然指着开的那一类。
+
+**验证**：`mega-core-client.test.js` 11 项（改 2：首帧四类全收、无卡片、无明细；点开的那类成为**唯一**卡片，
+断言底色与圆角，切到另一类后旧卡片消失）；`orb-ui.test.js` 7 项（改 2：同样断言 `data-open` 全为 off、
+`data-card` 为空，点开后 `data-card` 恰有一个）。全量 1494/1494；`verify.ps1 -SkipTests` ALL CHECKS PASSED。
+
+## 悬浮球：信息按类别折叠，且同时只展开一个
+
+**折叠，不是删减。** 球的面板原来把价格、账户、任务、并行十几行一次性铺开，六行有用数字埋在中间。现在每一类
+是一个**可点开的折页**（价格 / 账户 / 子工作器 / 任务 / 并行），**同时最多开一个**：点开另一个，前一个自己收起；
+再点当前这个，它就关上（"全关"是允许的状态）。
+
+**折起来不等于看不见。** 每条折页标题右边带**该类的头条数字**——关着也读得到：「价格 · Price ▸ PEAK」、
+「账户 · Account ▸ ¥ 114.81」、「任务 · Tasks ▸ 3」、「并行 · Parallelism ▸ 4」。头条取该组第一行带 `:state`
+的那行（正是"状态"那一行），所以折页藏起来的是**明细**，不是一瞥要看的东西。默认展开第一类（价格），这样面板
+一打开就有内容，"点标题能开合"这件事也第一帧就看得出来。标题是真 `<button>`（`aria-expanded`、`data-open`、
+键盘可达）。
+
+**两个球同一套规则。** 系统悬浮球（`orb.js`）与官方界面里的球（`client.js`）用同一份 view model、同一套类别
+与头条规则、同样的"只开一个"——两个球把同一份信息折得不一样，就是两个产品。
+
+**顺手抓到一个真 bug（就发生在这条规则的实现里）。** 第一版把"默认展开第一类"写成
+`if (openCategory === null) openCategory = groups[0].id`——于是"全关"永远到不了：用户刚关上的折页会在下一次重绘
+（15 秒轮询、任何一次状态推送）里自己弹回来。改成**只做一次**的 `defaultedCategory` 标记。这是测试先发现的
+（"点两次应该全关，实际还开着"），不是看过界面才发现的。
+
+**验证**：`mega-core-client.test.js` 11 项（新增 1：四类齐全、首帧只开价格、点账户后价格关上且明细真的换了、
+点当前项全关、关着仍有头条）；`orb-ui.test.js` 7 项（新增 1：系统球同样四类、同样只开一个、开着的那页是文档里
+唯一带内容的折页、全关后头条仍在）。断言读的是**画面**（`data-open` 与真正画出来的折页体），不是渲染器的内部
+状态。全量 1494/1494；`verify.ps1 -SkipTests` ALL CHECKS PASSED。
+
+## 余额：启动后自己读一次，仪表盘上补回一个真的刷新按钮
+
+**余额显示不出来，不是显示的问题，是没人去读。** 面板上的账户三行一直是 `—`、状态一直是"未刷新"，因为
+`balanceService` 在这套 UI 里**从来没有触发点**：旧 Dock 是"Balance 模块被滚进视野"时才刷新的，而那个模块已经
+不存在了。所以这一轮补的是两个触发点，不是一个样式问题。
+
+**启动后自读一次。** `scheduleStartupBalanceRead()` 在启动序列里排在托盘与悬浮球之后，**3 秒延迟 + `unref()`
+定时器**：慢的或挂住的 provider 永远不能拖住官方 UI、Dock 或球（§29 的故障隔离）。只读一次 —— 重复读就是轮询，
+而账户不值得轮询。`startup` 因此成为 `BalanceService` 的第四个触发名（`startup | module-open | manual | retry`），
+走的还是同一个实现：合并并发、隔离 provider、失败保留上次成功值。
+
+**仪表盘的刷新按钮回来了，而且它真的去读。** 旧 Dock 的"刷新"按钮走 `mega:balance`，而插件的浏览器半边在
+**另一个进程**（Harness），够不到那条 IPC —— 这就是按钮"消失"的原因。现在它走**已有的具名动作**通道：
+`refresh-balance` 作为 Control Center 的动作，经治理桥 → `controlAction()` → 同一个 `refreshBalance()`。
+三点是刻意的：
+
+* **不需要 id。** 别的动作都指向某个模块或插件，重读账户是关于账户的：所以它在 id 检查**之前**被回答，而不是
+  硬塞一个假 id（也**没有**因此扩大治理桥的动作闭集：`check/retry/reset-fallback/repair/disable/enable` 原样）。
+* **不等待。** provider 读有 20 秒超时，调用者是 340px 面板里的一个按钮：它会立刻回"已开始"，读数在后台跑，
+  结果由下一次 `/view` 带回来（服务在此期间自报 `refreshing`，面板就显示"刷新中"）。面板随后补一次确认读，
+  免得一秒就能完成的读要等满 15 秒轮询。
+* **该有时才有。** 按钮由**快照**决定：未读 / 上次成功值 / 读取失败 / 未配置密钥 / 正在刷新 → 有；余额是当前的
+  → **没有**（重读一个已经正确的余额只会花掉额度）。渲染端不自己发明，也不自己隐藏。
+
+**顺带一个新状态：未配置密钥。** 启动自读会让"这台机器根本没有 DeepSeek key"变成可见状态，所以
+`MISSING_CREDENTIAL` 是**自己的状态**——普通颜色、写明原因（"未配置密钥 · no API key"）、刷新按钮仍然给（去配上
+key 再点它，就是修好它的路径），而不是每次开机都亮一条永远为真的警告。
+
+**还顺手把"一条刷新路径"变回字面事实。** `mega-lifecycle-wiring.test.js` 一直断言 index 里只有一个
+`refreshBalances(` 调用点（防止第二套策略悄悄长出来）。我这轮先写成了两个调用点，测试当场挡下 —— 于是收敛成
+`refreshBalance(trigger)`，启动读、Dock 的 `mega:balance`、仪表盘按钮三条触发共用它。
+
+**验证**：`balance-service.test.js` 11 项（新增 2：`startup` 与其它触发同路，且 `describe/describeCached` **不会**
+发起读；无密钥的启动读是数据不是异常）；`control-center.test.js` 11 项（新增 2：按钮在四种状态下出现、余额当前时
+不出现；无密钥是普通状态）；`mega-core-client.test.js` 10 项（新增 1：面板有这个按钮，点了 POST
+`{action:'refresh-balance', id:null}`）；`orb-ui.test.js` 7 项（新增 1：系统球画同一个按钮、快照不给就不画）。
+真机验证（本机 35 位 key，一次一次性 state 目录）：`startup read: ok [{"currency":"CNY","total":114.81,…}]` →
+dashboard `总余额 = ¥ 114.81 (ok)`、`读取状态 = 正常 · ok`、`actions: []`（已是最新，不给按钮）。
+
+## 仪表盘回家：价格 / 谷价倒计时 / 余额 / 调度 / 队列 / 并行度，接回真实数据源
+
+**问题是一句大实话**：球的面板打开后是治理字段（插件健康、版本、重试、回退…），而旧 Dock 顶部那四张卡
+（时段与谷价倒计时、任务运行/等待、并行 current/cap、余额三张卡）**一个都没接进来**。不是画错了，是
+**没有数据**：`buildControlCenter()` 只回 `{ sections, modules, plugins, degraded, failed, failing }`，
+治理桥转发的就是这一份，于是运行中的球拿不到余额、拿不到倒计时。
+
+**数据源是找回的，不是新造的。** 新加的 `dashboard` 块由 `buildControlCenter()` 从**同一份快照**里装配，
+另外两件它自己拿不到的事实由扩展交给它（都是各自的真实 owner）：
+
+| 仪表盘上的东西 | 来源 |
+| --- | --- |
+| 时段 PEAK/OFF-PEAK、下一次切换的时刻 | `scheduler.describe().peak`（`billing/peak-engine.js` 的 `nextChangeInfo`） |
+| 峰价时段表 + 价格来源 | `PricingRepository.getSchedule()` / `.describe()` —— **与计费同源**，不重新加载一份 |
+| 余额（总/充值/赠送 + 读取状态） | `balanceService.describe()` —— 读不到就 `—`，**绝不编一个 ¥0.00** |
+| 运行中 / 等待 / 阻塞 / 重试 / 失败 / 总数 | `scheduler.describe().activeQueue` 与 `.counts`，与执行段同一份数字 |
+| 并行 current/cap、CPU、空闲内存 | `scheduler.describe().concurrency` / `.system`（硬件探针） |
+| 子工作器 / 自动委派 | `snapshot.subWorker` |
+
+**倒计时按"时刻"发布，不按"剩余秒数"。** 快照每 15 秒一份，而倒计时每一秒都在变：所以 dashboard 行里存的是
+`nextChangeIso`（切换的那个瞬间），由 `view.js` 用**自己的时钟**减出来 —— 旧 Dock 每秒 `Date.now()` 重算的
+那行逻辑，在新结构里由"发布时刻 + 视图重算"承担。面板打开着的时候还每秒自减一次（`useCountdown`），
+所以它不是 15 秒跳一格。下一次变化的时间按**计费时区**（Asia/Shanghai）打印：06:00Z 显示成 14:00，与用户
+对照的价格页一致。
+
+**一行标题也据实改了。** 旧 Dock 那张 timer 卡叫"距下一次谷价"，但 `nextChange` 是**下一次价格切换**
+（两个方向都算）：谷价时段里它指的是"下一次峰价"，照旧文案会让人等一个已经在手的东西。现在叫
+"距价格切换 / Until price change"；谷价时段里这一行显示"已是谷价 · off-peak now"。
+
+**两个界面各画自己那一半，同一份 view model。** 球的面板：仪表盘在上，治理的 lines/数字/动作按钮跟在后面
+（能看到、能点，但名册不占地方），再点"治理详情"才展开 §4.4 字段与模块名册。官方 Settings › Mega 整页：
+§4.4 的十一个字段、模块名册、社区插件名册 —— 不重复画仪表盘（那是球的活）。系统球（`orb.js`）用同一份
+`view.dashboard` 画同样的分组。**一个数字只有一个来源**，所以球和整页不可能各说一套。
+
+**顺带补上一个真缺陷**：verify 里那条"球点外面会收起"一直是 **FAIL** —— 检查项找的是
+`node.contains(event.target)`，而浏览器半边实际只有 Esc 与 × 能关面板（"点外面收起"这套逻辑当时只在**系统球
+自己的窗口**里实现了，`orb.js` 的 `onDocumentPointerDown`）。复查结论那轮把 in-UI 球拿掉时，检查项没跟着走。
+现在球真的实现了这件事（`document` 上 `pointerdown` + 球与面板两个 box 的 `contains`，不 `preventDefault`：
+点击照样落到它原本该落的地方），检查项也改成断言真实代码。
+
+**验证**：`control-center.test.js` 9 项（新增 2：仪表盘与 sections 同源、余额没读过不编 ¥0.00 / 失败保留上次成功值）、
+`mega-core-view.test.js` 9 项（新增 3：仪表盘数字 + 十一个字段原样、倒计时按时刻重算三档、无 dashboard 块给理由）、
+`mega-core-client.test.js` 9 项（新增 2：球开在仪表盘且页面不重复画、倒计时每秒自减）、
+新增 `orb-ui.test.js` 5 项（系统球面板画出五组数字与三种色调、仪表盘在治理之前、缺 dashboard 给理由、
+关着不画、球的色调仍来自治理）。真实链路验证：用**真实 SchedulerService + PricingRepository**（一次性
+state 目录）构建 dashboard → view，得到 `OFF-PEAK | 09:00-12:00, 14:00-18:00 · Asia/Shanghai | official ·
+2026-09-07 | 14:00 → 峰价 Peak | 并行 4/4 | 空闲内存 13.4 GB`。全量测试唯一失败仍是既有的
+`mega-extension-integration`（要 `DSH_SYSTEM_ORB=1` 才建球窗口，基线同样失败）；`verify.ps1` 现在
+**ALL CHECKS PASSED**（含上面那条被修好的检查）。
+
+## 只留系统悬浮球；球能盖住别的应用了；点击不再闪烁
+
+第四轮复查的结论（"Mega侧栏已正确移除"是确认，另外三条都改掉了，其中两条是真缺陷）。
+
+**两个球变成一个。** 官方界面里那颗球（注册在 `shell.overlay` 槽）已经移除，浏览器半边只注册
+`settings.section`（Mega 整页）。用户要的是"系统最外层那个"：能看见它的前提不是产品窗口在最前面，而正是
+这一点让它在日常使用里有用。两个界面本来就用同一个视图模型与同一个 `controlAction`，所以留下的那个不会
+少任何信息。
+
+**球现在真的盖在其它应用之上 —— 之前是 `parent` 的错。** 球原本设了 `parent: mainWindow`（理由是"关掉产品
+窗口时一起走"）。在 Windows 上，**被拥有窗口的 z 序跟随 owner，`alwaysOnTop` 不被遵守**，于是球只能待在
+产品窗口之上、其它应用之下。现在它是**顶层窗口**（无 parent），创建时再确认一次 `setAlwaysOnTop(true,
+'screen-saver')`；它仍随扩展一起销毁，也就是 parent 唯一买到的东西。
+
+**点击闪烁是自己在跟自己打架，两个原因都修了。**
+
+* **交互状态原先只看"悬停"**：打开面板会重排窗口，那一两帧光标落在透明边距而不是球上 → 悬停变 false →
+  窗口切成穿透 → 转发的指针事件又把光标判成"在球上" → 再切回来。现在由**三件事**决定：光标在不在我们身上、
+  是否正在拖动、面板是否开着（后两件是"用户正在用"的明确信号，不依赖会在脚下变的命中测试）。原生
+  `setIgnoreMouseEvents` 只在答案变化时才写；`interactive` 的初值改为 `null`（新窗口默认"可交互"，
+  "答案恰好是 false"与"窗口已经穿透"不是一回事 —— 第一版就在这里漏了首次写入）。
+* **原生 reshape 太频繁**：`setBounds` 只在矩形真的变了时才调用（15 秒一次的状态推送不再无意义地重塑一扇
+  透明置顶窗口）；面板测量从"去掉 `max-height` 再量"改成读 `scrollHeight`，省掉每次推送两次强制重排。
+
+另外补了一条交互：面板打开时，点在面板与球之外会收起面板（那时窗口本来就是可交互的）。
+
+**验证**：`system-orb.test.js` 13 项（`parent` 必须不存在；开着面板或正在拖动时悬停变 false 也不会切成
+穿透；重复答案不产生原生写入；相同状态不重塑窗口、打开面板必须重塑），`mega-core-client.test.js` 7 项
+（单界面：只注册 `settings.section`、源码无 `shell.overlay` 注册、整页 §4.4 与自带深色卡片、动作路由、
+隐藏不轮询、无应答画原因、无 React 只画空气），`mega-core-plugin.test.js` 5 项（路由回到四条）。全套
+1473/1474（唯一失败仍是既有的 multi-supervisor 墙钟断言）；`verify.ps1 -SkipTests` ALL PASSED；语法门
+229/229。这一轮标记 `manual-ui-review-5`。
+
+## 系统悬浮球、向中心展开的详情窗、以及旧 Mega 侧栏退场
+
+第三轮人工 UI 复查的三条，逐条落地。
+
+**详情窗现在按位置向屏幕中心展开。** 上一版只要上方有空间就向上，于是球停在屏幕上半部时窗口照样往顶边去。
+现在的规则看的是**球在哪一半**：下半 → 面板在球上方、向上长；上半 → 在下方、向下长；左半 → 在球右侧、向右长；
+右半 → 在左侧、向左长。面板占的永远是"球与屏幕中心之间"那块地方，增长的是它的远边。这条规则不需要"哪边空间
+大"来兜底：朝中心的那一侧按定义就是更宽的一侧。
+
+**新增系统悬浮球**（用户要求："可以做成系统悬浮球吗？"）。这是**我们自己的一扇窗口** —— 透明、无边框、
+常驻最上层、不进任务栏、`focusable: false` —— 画我们自己的文档，浮在**所有应用**之上；官方渲染器里没有注入
+任何东西，也没有被套上任何样式，和壁纸层同一条规矩。三条性质让它成为球而不是打扰：默认**无视鼠标**（点击
+落到下面那扇窗口，只有光标在球或面板上时才切成可交互）；窗口**永远不比它画的东西更大**（球 + 面板 + 几像素
+透明边距），所以它透明又常驻最上层却挡不住任何东西；面板**向屏幕中心长**，而且打开面板时**球在屏幕上不动**。
+它读的是与官方界面里的球、整页**同一个视图模型**，动作走 **同一个** `controlAction`；位置存在
+`data/state/system-orb.json`，重启后回到原处，多显示器按所在显示器的可用区夹取，被拖出屏幕会被拉回。
+
+**旧 Mega 侧栏默认不再出现，但没有变得不可达。** 壳体不再为它保留右侧那条，壁纸不再需要给它切口，扩展自己
+那扇 legacy 窗口也不在启动时创建；托盘「Mega 控制台」、插件管理入口与 `Ctrl+Shift+M` 都会在需要时**当场创建
+并显示**它。`DSH_MEGA_DOCK=1` 恢复旧行为，`=0` 是彻底关掉。代码删除（§30 的最后一步，牵动 dock 的
+html/css/js、dock target、geometry 与几十个测试）单独走下一轮 —— 把它和"球第一次上屏"塞进同一次改动，等于在
+没有退路的情况下换界面。
+
+**验证**：新增 `tests/unit/system-orb.test.js` 11 项；`mega-core-client.test.js` 11 项（含向中心展开的四个
+方向）；`surface-ownership.test.js` 把球的 preload 也纳入审计（六个入口 + 一个推送，全部有主）；
+`mega-extension-integration.test.js`、`startup.test.js` 按新语义更新（启动时唯一的窗口是球，托盘 Mega 入口
+当场创建侧栏）。全套 1475/1476（唯一失败仍是既有的 multi-supervisor 墙钟断言）；`verify.ps1 -SkipTests`
+ALL PASSED（新增 12 项系统悬浮球与侧栏退场的检查）；语法门 229/229。这一轮标记 `manual-ui-review-4`。
+
+## 悬浮球与 Mega 页面：复查后的三处修正（定位、可读性、信息窗展开方向）
+
+第二轮人工 UI 复查确认"其余项目通过"，同时指出三点。前两点是表面，第三点顺带查出了一个真实缺陷。
+
+**信息窗不再"定死区域然后下滑"**：原来用 `top/left` + 固定 `70vh` + 滚动条，点开详情时内容变长，等于一开始
+就框错了盒子。现在面板**锚在球的角上**——竖直方向能向上就用 `bottom`（球的上沿 + 间隔），水平方向靠右就用
+`right` 对齐球的右沿，于是打开就**向上、向左长**；球在左半边或上方空间不够时自动换到有空间的一侧；只有
+内容真的比整个层还高时才滚动。
+
+**两个界面都有自己的不透明底板**：复查看到的"白字磨砂底"是结构性的——我们的文字有自己的调色板，而
+`all: initial` 让我们的盒子完全没有背景，官方那层磨砂玻璃就透上来了。现在面板与整页各带一张不透明卡片
+（`rgba(14,16,20,.97)` + 边框 + 阴影），文字一定落在自己的底上，与官方主题明暗无关；次级文字的不透明度
+从 `.5` 提到 `.62`。
+
+**悬浮球改成相对自己所在的层定位（这同时修掉一个真 bug）**：原实现用 `window.innerWidth/Height` 算
+`left/top`，但球不住在窗口里——它住在官方 `shell.overlay` 槽渲染的那个盒子里，那个盒子可以比视口小，也可能
+在带 `transform` 的祖先里（此时 `position: fixed` 相对的是**祖先**而不是窗口）。坐标因此可能算错，球就会
+落在视野外或错误的位置。现在球外面多一层 wrapper（`fixed; inset: 0` = 槽给的那个盒子），球与面板都是它里面
+的 `absolute`；存的位置也从窗口坐标改成**相对层右/下角的距离 + 吸附边**，于是缩放窗口时吸在边上的球跟着边
+走。宿主端 schema 升到 **version 2**，version 1 的位置文件读作"还没有位置"（没有当时的窗口尺寸无法换算），
+球回到默认角一次。
+
+写这一轮的测试时还暴露并修掉了拖拽的一个真 bug：每次 `pointermove` 都把**整段位移**重复加在"当前偏移量"上
+（而不是按下时的偏移量），球会加速飞走；用例现在断言两次连续移动的绝对位置。
+
+**验证**：`tests/unit/mega-core-client.test.js` 11 项（含面板向上/左展开、换侧、左边吸附后的跟随、拖拽两次
+移动的绝对值、卡片不透明度与文字色）、`mega-core-view.test.js` 6 项、`mega-core-plugin.test.js` 5 项
+（含 version 1 位置文件读作"没有位置"、非法值 400、错误方法 405）。插件已装进产品 profile，重启后即可复查；
+这一轮标记 `manual-ui-review-3`。
+
+## Mega Core 插件 — 悬浮球、迷你面板与整页（pluginize Phase 1 客户端半边）
+
+**Mega 现在真的在官方界面里了**：`app/plugins/mega-core/lib/client.js`，按官方模块加载器的形状
+（`window.__ModuleLoader__.load({ id, factory })` + `apply`/`inject`，与已安装的壁纸插件同一份契约）登记两个
+**官方槽位**——槽名不是猜的，是从官方客户端 runner 自带的槽位目录里读出来的：
+
+| 槽 | 内容 | 为什么 |
+| --- | --- | --- |
+| `shell.overlay` | 悬浮球（含面板） | 官方对"整框浮动层"的定义：list 型（加成，不顶掉官方条目），且这一层 click-through，占位者自己 opt-in 指针事件 |
+| `settings.section` | Mega 整页（§4.4 十一个字段） | §28：其余入口统一进官方 Settings 体系 |
+
+**§4.3 的三条是可被测试的性质**，不是配置：不抢焦点（无 autofocus，且 `pointerdown` 上
+`preventDefault()`——点球不会把焦点从输入框拽走，同时它仍是真按钮、键盘可达）；不空转（两个界面共用一个
+15s 轮询器，文档隐藏时不问、重新可见立刻问）；位置存在**产品侧文件**（`GET/POST /mega-core/orb`，落在
+`$DSH_HOME/state`）而不是 `localStorage`——官方 UI 由 `--port 0` 回环地址提供，用 `localStorage` 等于每次
+重启都丢位置。球可拖动、拖到边缘吸附并跟随窗口缩放、方向键微调、Enter/空格开关面板、Esc 收起。
+
+**视图模型在宿主半边**（`lib/view.js` + `GET /mega-core/view`）：色调、§4.4 的字段名、"不可用"的含义都是
+规则，放在能被 Node 测的地方，所以球与整页不可能各说一套。**"DS-Hns 没在跑"是自己的状态**（灰色
+`Unavailable` + 原因），不是一条静默的空列表；§7 Human Gate 尚未落地时 `pending` 读快照里的同名键（现在
+不存在→报 0，而 0 是真的）。
+
+**真机证据（一次性 `DSH_HOME`，已清理）**：Harness 起来后 `GET /mega-core/health` = 200（带插件版本），
+`GET /mega-core/view` = 200 且内容是**正在运行的 DS-Hns 的真实治理快照**（`4 of 7 plugin(s) active`），
+官方前端把客户端半边当应用组合的一部分发出（`/plugins/??…dsh-plugin-mega-core/client.js…` = 200，含
+`__ModuleLoader__.load`）。插件已装进产品 profile（`dsh plugin --profile web add file:…/app/plugins/mega-core`，
+回滚一条命令 `… remove dsh-plugin-mega-core`），**重启后**即可人工复查；这一轮标记 `manual-ui-review-2`。
+
+**验证**：`tests/unit/mega-core-view.test.js` 6 项、`tests/unit/mega-core-client.test.js` 10 项（按 shell 的
+方式加载再驱动：两个槽的登记、§4.2 的 hover/徽标/色调、点击开面板且不抢焦点、拖动吸附且只写一次位置、
+位置从主机读回、隐藏不轮询/可见即轮询、整页动作走 `/mega-core/action`、经典脚本可解析、没有 React 时只画
+空气）、`mega-core-plugin.test.js` 5 项（含组合视图与 orb 位置的路径）。语法门新增 `plugins/mega-core/lib`
+（226/226）。
+
+## 旧 Mega 去重 — 视频壁纸管线删除，社区插件的 pin 翻成 `tested: true`
+
+**两件事一起做，因为第二件是第一件的前提。** `dsh-plugin-wallpaper-engine` 的 pin 一直是 `tested: false`，
+理由很具体："没人在这台机器的产品里跑过它"；而 `docs/startup.md` 记过一条**条件**——等这个 pin 被标成
+`tested: true`，自有图层里那段"复杂 Video Pipeline"才该删。人工 UI 复查把这个条件结清了（官方 UI 正常、
+壁纸由插件渲染、市场入口在、治理桥可达），所以两件事在同一轮里落地：
+
+- **两个 bundled 插件的 pin 翻成 `tested: true`**。`tested` 的含义照旧是"在产品里真机跑过"，不是"命令能跑"；
+  §23 列的那些故障行（禁用、崩溃、坏配置、断网、版本不符、回滚）**不在**这次复查的范围内，它们由保护层与
+  管理器的策略路径承担，断言在 `mega-protection.test.js` / `bundled-plugins.test.js` / `appearance-providers.test.js` 里。
+- **视频壁纸不再是自有图层的事**：`.mp4/.webm/.m4v` 与网页壁纸（`.html/.htm`）在选择时被**按名字拒绝**，
+  理由就是那句"这是壁纸插件的活，本层只画图片"。Dock 文档里的 `<video>` 元素、`play()/pause()` 的可见性联动、
+  以及 `dockLayer().src` 的 `file:` 分支一起删除。
+- **选择框现在有两个过滤器**：图片，以及"视频与网页壁纸（由壁纸插件负责）"。挑到后者会看到那句拒绝理由——
+  把扩展名藏起来只会让人以为产品坏了，而一个装作接受、然后什么都不画的控件更糟。
+- **净效果是一个功能一份实现**：Dock 与官方两面拿的是同一个 inline `data:` 资源，取源只有一条路径，
+  没有第二个策略需要跟着改。删除是**被断言的**（元素、播放状态、`file:` 源路径三者都不在），因为"只是没用到"
+  的重复实现会在下一次需要视频时回来。
+
+**验证**：`tests/unit/wallpaper.test.js` 5/5（拒绝按名字并给出原因、被拒时旧壁纸原地不动、删除的三个断言）；
+`tests/unit/bundled-plugins.test.js` 13/13（清单是 `tested: true`，"未测试的 pin 永不安装"改用一份 untested
+清单继续断言**规则本身**，而不是把规则一起删掉）。
+
+## bundled plugins — 两个插件已装进产品的 profile，管理器也认这两处"已安装"
+
+**用户批准后执行**（Harness 自己的 CLI，`DSH_HOME=D:\DS-Hns\data`）：
+`dsh plugin --profile web add dsh-plugin-wallpaper-engine@0.7.1` 与 `… add @dsh-market/plugin@0.4.7`。产品的
+`data/profiles/web/package.json` 现在带**精确版本**依赖，且 CLI 把两者同时写进 `dsh.profile.bundles`，
+所以下次启动时它们随 profile 一起加载。回滚是同样的命令加 `remove`；Control Center 里也有 Repair/禁用入口。
+
+**管理器现在认这两处"已安装"**：`installed()` 同时读本产品商店的记录与 `data/profiles/<profile>/package.json`
+的依赖（只读——写入永远归 Harness 的 CLI）。顺带修掉一个真实缺陷：清单钉的是壁纸引擎的 **tag**（`v0.7.1`）
+而 npm 记的是**版本**（`0.7.1`），旧比较会把正确安装的插件报成 `ahead-of-pin`；现在两者等价（去前导 `v`）。
+面板因此显示 `installed` + `harness-profile · verified · untested`。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 13/13（新增：两处安装来源的接线、tag 与版本等价、
+两条已安装后状态为 `installed`）。`tested: false` 保留到重启后的真机确认。
+
+## bundled plugins — 用产品自己的 profile 配置验证激活（updateplan/startup2.md §19–§23）
+
+**最接近真机的一步**：把产品的 `data/profiles/web/package.json`（真实 bundle 栈
+`["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`）**拷贝**进一次性 `DSH_HOME`，按 `plugin add` 的方式加上
+两个钉住的插件并安装，启动 web 应用 —— `plugin install: exit 0`，
+**`both plugins activated with the product's own profile configuration: true`**，服务器正常应答。用户的 profile
+只被读取，一次性目录已删除。
+
+于是接入的证据链是完整的四步：**安装命令 → 插件树注册 → 随 web 应用激活 → 用产品自己的 profile 配置激活**。
+唯一剩下的仍是在产品的 `data/profiles/web` 里真正装上并重启应用，看它们在 DS-Hns 窗口里的表现——那是对正在运行的
+官方界面的真实改动，属于用户的决定（装与回滚各一条命令）。因此 `channelVerified: true` 保持，`tested: false` 也保持：
+这两件事从来不是一个意思。
+
+## bundled plugins — 两个插件在带 web 应用的 profile 里真的激活了（updateplan/startup2.md §19–§23）
+
+**装上 web 应用 bundle 的 profile 里，两个插件都激活**：一次性 `DSH_HOME` 中建了与产品 `data/profiles/web` 同构的
+profile（同样的 `dsh.profile.bundles: ["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]`），用 Harness 自己的
+`plugin` 命令装上 `@dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1`，启动 web 应用：日志里**没有**
+`did not activate`、**没有** `pending (waiting for service)`，服务器正常应答（未授权根路径 401，是产品的正常回答）。
+
+于是接入的三步都有实测证据：**安装命令 → 插件树注册 → 随 web 应用激活**。唯一还没测的是它们在 DS-Hns 窗口里的实际
+表现（视觉），那需要在产品的 `data/profiles/web` 里装上并重启应用——属于用户环境的一步，因此两条 pin 仍是
+`tested: false`（`channelVerified: true` 保持为真）。临时 `DSH_HOME` 已删除，未触碰用户数据。
+
+## bundled plugins — 插件树实测：两个插件都被 Harness 加载并注册（updateplan/startup2.md §19–§23）
+
+**在一次性 `DSH_HOME` 里启动那个 profile，Harness 的 profile 启动如实报了**：
+`2 entries did not activate` + `@dsh-market/plugin: pending (waiting for service: webServer)` +
+`dsh-plugin-wallpaper-engine: pending (waiting for service: webServer)`。这既是"两个插件都被装进 profile 的插件树、
+完成注册"的证据，也解释了它们为何停在那里：那个一次性 profile 没有 web 应用的 bundle，而产品自带的
+`data/profiles/web` 才有 `dsh.profile.bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]`。
+
+**因此接入的确切形式是**：把两个插件作为依赖装进 `data/profiles/web`，由**产品自己启动的 Harness** 加载它们；
+剩下的一步是真机验证（装进去、重启应用、看它工作），那是用户环境里才能完成的事。临时目录已删除、未触碰用户数据。
+
+**验证**：本条不改变代码；证据记在 `docs/startup.md` §3.2，与既有的 `channelVerified` 字段配套（命令实测 vs
+插件树实测 vs 产品内运行时，三件事分得很清楚）。
+
+## bundled plugins — 安装通道实测通过，两个 claim 分开记（updateplan/startup2.md §19–§23）
+
+**通道不是推出来的，是跑出来的**：用一个**一次性 `DSH_HOME`**（临时目录，用完删除，绝不碰用户的 `data/`）执行
+`dsh plugin --profile hns-verify add @dsh-market/plugin@0.4.7` 与 `dsh-plugin-wallpaper-engine@0.7.1` —— 两条都
+exit 0，并且该 profile 的 `package.json` 里出现的正是这两个**钉住的版本**。顺带确认了这条通道的前提：需要 `pnpm`
+（Harness 的 `plugin` 子命令就是转发给它）。
+
+因此清单把两个 claim 分开记：**`channelVerified: true`**（命令形态、包名、版本都实测过；管理器描述里也带出这个
+字段）与 **`tested: false`**（插件在本产品里的运行时行为还没测）。两者不是一个意思，混在一起会让"命令能跑"被读成
+"插件能用"——而后者才是接入完成。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12 新增断言：两条都 `channelVerified`、都不冒充 `tested`，
+且 `describe().manifest` 如实带出 channel / channelVerified / tested 三个字段。
+
+## bundled plugins — 市场插件其实在 npm 上，与我上一轮的结论相反（updateplan/startup2.md §19–§23）
+
+**上一轮我把 `@dsh-market/plugin` 标成 `unresolved`，那是错的 —— 读的是那个仓库根目录的 `package.json`**
+（`dsh-market` 0.1.0、`private: true`、workspace 根），于是误判"计划书里的包名不存在"。查了 npm registry 与它的
+README 之后：`@dsh-market/plugin` **已发布**（本清单钉 **0.4.7**），其清单声明与壁纸插件相同的
+`dsh.bundle.patch: ./cordis.patch.yml` + `dsh.client.platform: "web"`，README 给出的安装命令正是
+`npx @deepseek-ai/dsh plugin --profile web add @dsh-market/plugin`。
+
+**所以两个插件同属一个通道**：Harness 客户端插件、由 Harness 的 CLI 安装、钉在已发布版本上（壁纸插件钉 tag
+`v0.7.1`，市场插件钉 npm 版本 `0.4.7`，仓库提交号留在清单里作为来源追溯）。`unresolved` 分支保留给将来真的需要
+决定的条目。两条都仍是 `tested: false`：通道与版本都已确定，**唯一缺的是真机测试**，之后翻一个字段即可完成接入。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12（清单钉住的形态允许 tag/版本/提交、两条各自通道与包名、
+市场钉的是发布版本、未测试仍只报告不安装、按通道安装与移除、`@dsh-market/plugin@0.4.7` 的安装规格）。
+
+## bundled plugins — 移除与兼容检查也按通道走（updateplan/startup2.md §19–§23）
+
+**`removeBundled(entry, …)` 与 `installBundled` 对称**：让**我们的商店**去删一个 Harness 客户端插件会"什么都没删
+却报告成功"，而一个静默无效的"修复"比失败的修复更糟。所以移除同样按 `channel` 分派：`harness-profile` 走
+`dsh plugin --profile <p> remove <package>`（真实调用 Harness 自己的 CLI），`dshns-store` 走商店的 `remove`，
+`unresolved` 直接拒绝（从来没有可安装通道，就没有可删的东西）。
+
+**`compatibility(entry, record)` 由持有描述符的一方回答**：`dshns.plugin/v1` 插件查商店自己的记录（native/compat，
+读不到就如实报 unknown 与原因），Harness 客户端插件的兼容性属于 Harness 与它的 profile —— 本产品返回
+`checked: 'harness'` 并说明不重复判断，而不是声称检查过一件自己看不见的事。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 12/12（新增：移除按通道分派、unresolved 拒绝、缺工具是拒绝而非
+静默成功、安装与移除用同一个包名规格、兼容检查由谁回答的静态断言）；`scripts/verify.ps1` 增加对应的通道一致性检查。
+
+## bundled plugins — 安装通道按仓库事实修正（updateplan/startup2.md §19–§23）
+
+**读了两个仓库的 `package.json`，结论与计划书的假设不同，清单按事实修正。**
+
+- `elysia395/dsh-wallpaper-engine` → npm 包 **`dsh-plugin-wallpaper-engine`**（`v0.7.1` tag）。它声明
+  `dsh.bundle.patch: ./cordis.patch.yml`、`dsh.client.platform: "web"`、`inject: ["@deepseek-ai/dsh-client-runtime"]`
+  —— 是一个 **Harness 客户端插件**：补丁打在 Harness **profile** 上、运行在官方 Web GUI 里。它既没有
+  `dshns-plugin.json`（不是 `dshns.plugin/v1`），也不跑在本产品的插件宿主里，**我们自己的商店是错的工具**；
+  Harness 自己提供正确的工具：`dsh plugin --profile <name> add <package>`（在 profile 目录转发给 pnpm）。
+- `2BingLing/dsh-market` → `package.json` 是 `dsh-market` 0.1.0，**没有 `dsh` 段、没有 `main`**，而计划书里的
+  `@dsh-market/plugin` 并不是该仓库发布的包名。清单把它标为 **`channel: 'unresolved'`** 并带上理由：这是需要
+  决定的接入问题，不是一条可执行的安装命令；管理器只**报告**它，绝不安装。
+
+于是新增 `installBundled(entry, { harnessAdd, store, profile })`：按 `channel` 分派 —— `harness-profile` 走
+Harness 自己的 CLI（`runHarnessPluginCli`，真实调用 `dsh plugin --profile web add <pkg>@<ref>`）、
+`dshns-store` 走本产品商店的两步（提交 pin 走先前新增的 revision 路径）、`unresolved` 按清单里的理由拒绝。
+`ensure()` 也把 `unresolved` 当作"报告而非安装"，所以它不会变成一次注定失败的安装尝试。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 10/10（清单里两条各自的通道与包名、market 的 unresolved 理由、
+未测试 pin 只报告不安装、按通道分派、商店两步与 revision 路径仍在）；`scripts/verify.ps1` 的清单/不追 latest/
+未测试不安装检查继续覆盖。
+
+## surface ownership — 三条边界从惯例变成约束（updateplan/startup2.md §48、§55）
+
+**新增 `tests/unit/surface-ownership.test.js`，把三条边界变成会被测住的约束**：
+
+1. **Dock 能调的每个通道都有主人**：preload 是 Dock 全部的可达面，它能 invoke/send 的通道必须由某处声明 ——
+   mega 扩展自己的 `CHANNELS`，或 shell 的四个功能族（computer-use / engineering / plugins / sub-worker）。
+   没有主人的通道意味着清点与功能闸门都不知道它存在，而"被删掉的功能还能用"正是这样发生的；preload 里也不允许
+   动态拼接通道名（那样无法被审计）。
+2. **只有外观词汇能跨边界**：`--dsh-*` 是发布并校验过的一套（§27），只属于 `appearance/` 目录本身、把图片
+   token 写进自己文档的 `wallpaper.cjs`、以及消费它们的图层文档；其它文件出现 `--dsh-` 即越界。
+3. **一份样式表只属于一份文档**：Dock 的样式表不碰图层文档的私有元素与变量（`#wallpaper-scrim`、`#wp-`），
+   图层文档也不碰 Dock 的（`#rail`、`#detail`、`.panel`）。
+
+同日记录的还有 §48 的目录映射（`protection/`、`plugins/`、`appearance/`；`execution/automation/resource-policy/
+diagnostics` 在本仓库是 `control-center.cjs` 的六段数据而不是六个目录，因为它们共享同一份快照）与**一处有意偏差**：
+§6.2 建议删除的"复杂 Video Pipeline"在社区插件被采纳前保留 —— 删掉它会在替代品到位之前先失去一个可用能力，
+文档中写明等到 pin 被标记 `tested: true` 之后才该删。
+
+**验证**：三条约束的测试 3/3；`scripts/verify.ps1` 增加同样的三项静态检查。
+
+## appearance cost acceptance — 量得出来就量，量不出来就说原因（updateplan/startup2.md §56）
+
+**新增 `scripts/appearance-cost-acceptance.cjs`**：§56 要求记录外观在各种状态下的代价（启动耗时、CPU、RAM…）。
+这个脚本用真实模块（`wallpaper.cjs` + `wallpaper-window.cjs`）在自己的临时状态里量**两个能造出来的场景** ——
+无壁纸与静态壁纸 —— 读 Electron 自己的 `app.getAppMetrics()`（每进程 CPU/内存、进程数）与那一层的图片载荷，
+并**把造不出来的场景按名字跳过并给出原因**：1080p/4K 视频与 scene 属于社区插件（§24），market 打开不是这一层的
+成本，MEGA 展开由运行中的产品测量。**不给这些场景编数字**，是这张表诚实的前提。
+
+实测示例（本机，2.8 MB 图片）：无壁纸 `ram≈482MB`、静态壁纸 `ram≈479MB`、picture payload `3752KB` —— 也就是说
+这一层自身的常驻代价在噪声范围内，真正可选的代价是**载荷大小**，而它正是账本会警告的那个数字。
+
+**验证**：脚本本身可运行并输出测量（见上）；`scripts/verify.ps1` 增加脚本存在性与"跳过要给原因"的检查。
+
+## store revisions — 没有 tag 的仓库也能钉着装（updateplan/startup2.md §22–§23）
+
+**商店新增 revision 路径**：`git clone --branch` 只接受分支或 tag，而 `2BingLing/dsh-market` 没有 tag，它的 pin 是
+一个**提交**——于是"钉住一个引用"这条规则对没有 tag 的仓库原本无法成立。现在
+`defaultClone` 支持 `revision`：`git init` + `remote add` + `git fetch --depth 1 origin <sha>` + detached
+`checkout FETCH_HEAD`，装上的就是被点名的那个提交，而不是"默认分支当时的 HEAD"。
+
+`stage({ revision })` 校验它是十六进制对象名、与 `branch` 互斥（两者同时给出会被拒绝）、并把它记进已安装状态
+（`revision` 字段，`branch` 为 null）——"装的是什么"必须能从状态文件回答。`installPinnedPlugin()` 据此选择走分支
+还是走 revision，因此**两个社区插件现在都具备可安装的路径**，剩下的是真机测试后把 pin 标记 `tested: true`。
+
+**验证**：`tests/unit/mega-store-installer.test.js` 16/16，其中新增的一项用**真实 git** 在临时目录里建仓库、
+钉住一个提交、再把分支往前推一格，断言安装到的是被钉的提交（`1.0.0`）而不是分支尖端（`2.0.0`），并断言
+`revision` 被记录、branch+revision 同时给出被拒、非十六进制 revision 被拒；`bundled-plugins.test.js` 的安装调用
+断言同步更新为"提交 pin 走 revision 路径"。
+
+## appearance cost — 一本账，不是限流器（updateplan/startup2.md §55–§57）
+
+**新增 `app/extensions/mega/appearance/cost.cjs`：把外观的代价算清楚并说出来，但不夺走用户的控制。** §55/§56 关心的
+两件事都在本产品手里——**模糊了多少屏幕**（计划书点名的全屏 `backdrop-filter: blur(30px)` 形状）与**壁纸层要扛多少
+字节**（内联 `data:` 图片就是文件大小那么长的字符串，常驻渲染进程）。账本读取两个图层正在用的数字（玻璃通透度与模糊、
+两个底片各自的图片负载、在画的图层数），在超出 §55 建议区（6–14px）或图片过重时**警告**，并给出可 grep 的一行：
+`[PERF] appearance glass=12px/82% pictures=20KB layers=1 warnings=…`。
+
+**它不会夹取用户的数字**：玻璃滑杆是用户的，一个悄悄夹取的产品等于在谎报屏幕上画了什么；能做的是让代价**可见**——
+这就是"很重的外观"与"一个没解释的外观"之间的区别。落地：`wallpaper.cjs` 的 `windowLayer()`/`dockLayer()` 直接报出
+各自载荷字节数（只有那里已经握着 data URL，账本不必再造一个几兆字符串）；每次外观变化打印一行 `[PERF]`；Control
+Center 的资源段多三行（玻璃模糊、图片负载、性能警示）。
+
+**§57 的日志词表也统一了**：保护层改用 `[MEGA]` 前缀 —— `[MEGA] protection-ready`、
+`[MEGA] module healthy|degraded: <id> — <原因>`、`[MEGA] fallback: <id> → <回退>`，一次 grep 就能回答"哪个增强模块
+不健康、现在由谁顶着"。
+
+**验证**：`tests/unit/appearance-cost.test.js` 5/5（数字与一行日志、模糊两档警告且不夹取、超重图片被报告、空外观
+零成本且未知不写成 0、两个图层都报字节数）；`mega-protection.test.js` 新增 `[MEGA]` 词表断言；Control Center 测试
+新增成本三行；`scripts/verify.ps1` 增加账本、字节上报、词表与面板检查。
+
+## bundled plugins — 安装调用接线，采纳只剩一次真机测试（updateplan/startup2.md §22–§23）
+
+**`installPinnedPlugin()` 用商店自己的两步安装清单钉住的引用**：`stage({ source, branch: ref })` 把代码放到磁盘
+并校验清单，`enable({ id })` 记录宿主可以运行它。函数只决定"要哪个引用"，不决定任何安装策略；因此把第一个 pin
+标记 `tested: true` 就是社区插件采纳的全部工作量。
+
+**一个诚实的限制，而不是没写的代码**：商店按分支或 tag 落盘（`git clone --branch`），而 `2BingLing/dsh-market`
+没有 tag，它的 pin 是**提交**。提交 pin 会被**按名字拒绝**（`needs a revision-aware stage first`），而不是悄悄
+装成默认分支当时的 HEAD；修法是商店支持 revision 感知的 stage —— 那是它的安装路径，不能从这里猜。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 10/10（原 9 项 + 安装调用与提交 pin 拒绝的断言）；
+`scripts/verify.ps1` 的既有检查覆盖清单真实性、不追 latest 与未测试不安装。
+
+## appearance tokens — 提供者可以画，不能接管（updateplan/startup2.md §27）
+
+**新增 `app/extensions/mega/appearance/tokens.cjs`：外观提供者允许改什么，是一个封闭清单** ——
+`--dsh-surface-opacity` / `--dsh-surface-blur` / `--dsh-surface-tint` /
+`--dsh-wallpaper-brightness` / `--dsh-wallpaper-contrast` / `--dsh-wallpaper-saturation` / `--dsh-wallpaper-darken`。
+不在清单里的名字按名字拒绝，数值按各自区间夹取，被接受的部分翻译成两个图层已经在用的数字。
+
+**另一半才是重点**：DOM、组件结构、按钮模板、布局网格、窗口控制、任意 JS 钩子**根本没有词汇**。这不是"奇怪的名字
+不太可能出现"，而是让壁纸插件无法演化成前端 fork 的方式；测试逐个断言这些名字被拒绝，并给出可读原因。
+
+**它从第一天起就对我们自己生效**：三套阅读预设的数值现在以 token 形式声明（§5 的 亮度 60% / 对比度 90% /
+饱和度 80% / 暗化 18% 等），`apply()` 先过白名单再落到图层 —— 产品不豁免自己发布的边界，预设里写错的 token 会被
+拒绝并带原因返回，其余部分照常生效；预设测试还断言 token 与图层数字必须一致，防止两套说法漂移。图层侧也具名：
+`wallpaper.cjs` 把图片 filter 作为 `--dsh-wallpaper-*` 写进那一层文档，`wallpaper-window.html` 用它做
+`brightness()/contrast()/saturate()`，`--dsh-wallpaper-darken` 与图层的 `scrim` 是同一个数字的两个名字
+（`patchKey` 明确），避免"有多暗"出现两个答案。
+
+**验证**：`tests/unit/appearance-tokens.test.js` 5/5（词表恰为七项、DOM/结构/布局/窗口/脚本名字被拒、未知名字被拒、
+数值夹取与非法值被拒、接受后的补丁只到玻璃与图片、CSS 片段带单位、空或全拒绝的补丁不产生任何东西）；全量
+1421/1422（唯一失败是负载敏感的 `multi-supervisor` 并行计时断言）；`scripts/verify.ps1` 增加词表、接管拒绝与
+"同一数字两个名字"的检查。
+
+## appearance modes — 官方 / 简单壁纸 / Wallpaper Engine（updateplan/startup2.md §43–§44）
+
+**设置页的外观卡片新增"界面模式"**：**官方 / 简单壁纸 / Wallpaper Engine**。新增
+`app/extensions/mega/appearance/providers.cjs` 划出这条分界线：DS-Hns 保留自己的简单壁纸（每个底片一张图 +
+位置/不透明度/模糊/压暗），高级实现交给社区插件 `dsh-wallpaper-engine`，自己不再重复维护一套高级渲染器。
+
+三个提供者"对图层做什么"就是它的全部实现：**官方** = 我们不在官方界面之上画任何图（只剩玻璃）；**简单** =
+我们自己的图层画；**Wallpaper Engine** = 插件在 Harness 内渲染，因此我们这一层让开（否则会盖住它）。三者都不动
+玻璃——玻璃是 Dock 的材质，不是背景。
+
+**§44 的两条要求落在 `select()` 的形状里**：插件缺失/未测试/被用户关闭时，选择社区模式**不安装任何东西**
+（描述里明确 `installsAutomatically: false`），**不把用户挪离当前模式**（`kept` 字段），并把用户真正拥有的两个
+决定交给界面——保持官方界面、或去看插件。提示里写明"不会自动安装第三方插件"；"查看插件"接到 `mega:open-store`，
+由 Dock 自带的插件管理器打开商店页（这条通路此前只有监听端，现在两端都在）。
+
+选择与阅读预设都持久化到 `data/state/appearance.json`（与 wallpaper.json、ui-glass.json 同一套规则：读不出来
+就是默认值、不认识的取值丢弃并说明、写失败只是日志）。
+
+**验证**：`tests/unit/appearance-providers.test.js` 7/7（三提供者且只有社区需要插件、官方基线永远可用、未测试
+插件的拒绝保留用户并给出回退与两个动作、用户关闭被如实报告、已安装时经自己的钩子生效、钩子抛错按提供者回退、
+状态文件的默认/拒绝/降级/容错，以及设置页与 shell 的接线断言）；`scripts/verify.ps1` 增加提供者存在性、
+不自动安装、拒绝保留用户、选择持久化与设置页入口检查。
+
+## startup cache — 先恢复，后验证（updateplan/startup2.md §52–§54）
+
+**新增 `app/extensions/mega/startup-cache.cjs`：记住上一次运行长什么样，让启动先恢复、后验证**，而不是每次
+全量发现。记录：最近工作区、两个底片的图片与填充方式、外观数值与预设、bundled 插件状态、保护层健康、本次
+启动自己的开销。§54 的边界照做——市场**目录**属于市场，这里只记是否已装、版本与健康。
+
+**它不是第二份设置**：里面每个事实都有主人（壁纸文件、玻璃文件、商店已装集合、保护层），缓存只记录主人们
+上次说了什么，并当作热启动**提示**读回；冲突时主人是对的、缓存是陈旧的。因此它**不写 Harness 的会话 ID**
+——会话由官方 UI 自己恢复，再存一份只会给同一个问题留一个更旧的答案。
+
+三条让它安全的性质（都有测试）：**读不出来就是空缓存**（缺失/截断/改坏都答"什么都没记住"且不抛）、
+**写入经临时文件 + rename，失败只是日志**（能把自己写坏的缓存比没有缓存更糟）、**它会遗忘**（超过
+`maxAgeMs` 仍可读但不再算热启动，并如实报 `stale`）。
+
+落点：Control Center 诊断段多两行（上次启动缓存 warm/stale/cold、上次工作区），扩展在后台记录（绝不在启动
+路径做 IO）。**验证**：`tests/unit/startup-cache.test.js` 5/5（记录与读回、不拥有别的键、读不出来即空、
+过期不再是提示、写不进去不致命）＋ Control Center 的诊断行与接线断言；`scripts/verify.ps1` 增加缓存存在性、
+遗忘、容错与"不保存会话"的检查。
+
+## control center — 增强层的管理面与保护面板（updateplan/startup2.md §45–§47）
+
+**展开态的 Dock 现在是增强层的管理面。** 新增 `app/extensions/mega/control-center.cjs`：它把"Dock 本来就在读
+的那一份快照"加上保护层与 bundled 插件的两份报告，变成六段数据 —— **执行 / 自动化 / 资源 / 扩展 / 保护层 /
+诊断**，以及一份可操作的模块列表。因此面板里的数字不可能与旁边的队列/硬件卡片互相矛盾。
+
+**动作来自状态（§47）**：健康模块给 `check` / `retry` / `reset-fallback`；被用户禁用的插件**只**给 `enable`
+（不提供任何绕过用户决定的入口）；未安装的 bundled 插件只给 `repair`，而 `repair` 在 pin 未被标记 tested 时
+本身就会拒绝。一个对任何状态都提供所有动作的界面，就是在承诺图层不会做的事。**零仍然安静**（§36）：故障数
+为 0 照常显示 `0`，但不带颜色。诊断段显示启动报告（阶段数、状态、本产品开销、超预算阶段），所以"这次启动
+花了多少、卡在哪个阶段"在界面里就能看到。
+
+面板（`ui/control-panel.js`）只渲染、不持有状态；点击是一个委托监听，按钮自己的 `data-control-action` /
+`data-control-id` 决定做什么，走 `mega:control-action`；被拒绝时显示原因而不是让面板坏掉。它在功能注册表里
+也是可关闭的一项（`mega.control-center`）。
+
+**验证**：`tests/unit/control-center.test.js` 7/7（六段数据同源、零不染色、每个状态允许的动作、bundled 插件
+动作、空快照不崩、接线静态断言，以及面板行为：点击到达 shell 并回读、被拒绝显示原因、无桥接时说明原因）；
+`scripts/verify.ps1` 增加六段数据、动作来自状态、面板与修复入口、通道端到端检查。
+
+## appearance — 阅读预设：对两个图层的一个决定（updateplan/startup2.md §26–§28、§5）
+
+**新增 `app/extensions/mega/appearance/index.cjs`：三套阅读预设，数值就是计划书 §5 的那一组。** 两个图层
+早就存在（壁纸：每个底片一张图 + 不透明度/模糊/压暗；磨砂玻璃：Dock 的材质），缺的是对它们的一个决定：
+**工作 · Work**（默认，玻璃 12px/82%，主屏幕 60/12/18）、**沉浸 · Immersive**（玻璃 10px/60%，主屏幕
+78/8/12——展示壁纸用，明确不是默认）、**阅读 · Reading**（玻璃 14px/90%，主屏幕 45/14/22——长文本与代码审阅）。
+
+两条被当作要求而不是偏好的规则：**可读性优先**（每套预设在*没有壁纸*时也完整，阅读档最严）；**失败属于
+单个图层**（玻璃先写、壁纸后写，各自返回各自的答案，一个失败不带走另一个——"玻璃层拒绝了这个预设"和
+"壁纸拒绝了这个预设"是两条独立记录）。
+
+面板只多一个控件（外观卡片里的"阅读预设"）：选项来自控制器的 `describe()`，当前选中项是**从两个图层读数
+反推**的，手工调出的混合值显示为"自定义"而不是硬凑到最近的预设；预设落地后把两层的新状态推给 Dock，避免
+面板显示一个屏幕上不存在的玻璃。IPC 为 `mega:appearance` / `mega:appearance-set`。
+
+**验证**：`tests/unit/appearance-presets.test.js` 7/7（三套预设只有一个是默认、数值在图层会夹取的范围内、
+阅读档最严、应用时两层各收到正确数值、玻璃失败不带走壁纸、未知预设按名拒绝、混合值报混合、接线静态断言）；
+`scripts/verify.ps1` 增加预设存在性、无壁纸可用、逐层失败与接线检查。
+
+## mega rail — 折叠栏去重，且不再是一条状态栏（updateplan/startup2.md §36–§44）
+
+**折叠栏从五个固定方框变成注册表驱动的条目。** 旧形状是"每个数字一个方框、dock 脚本按 id 填数"：新增一个
+数字要动三个文件，删一个也要动三个文件，而且 dock 必须知道 `RUN` 是什么意思——这正是它慢慢长成第二条状态栏
+的原因。现在 `app/extensions/mega/mega-items.cjs` 让模块自己注册条目
+（`registerMegaItem({ id, priority, current })`），`current(snapshot)` 返回 `null` 就是"我没什么要说的"。
+
+于是计划书的两条规则成了机制：**零不是新闻**（§36/§43，空队列/零重试/零错误不出现），**折叠栏有预算**
+（§44，最多 5 项，按 priority 排序，装不下的渲染成 `+N` 指向展开态）。去重落点：`RUN` 明确为 **DS-Hns 自己的
+worker slot 占用数**（官方 UI 不显示这个数）；`HW` 改名为 `WKR`（并发/硬件上限，就是它真正的含义）；
+`SUB` 由 `AUTO` 取代（显示"自动委派"这个用户开关，而不是再抄一遍 agent 状态）；`Q` 与 `ERR` 只在非零时出现；
+**峰谷芯片移出折叠栏**（电费时段属于展开态的账单卡片，不是资源策略）；新增 `EXT` = 保护层中降级的可选模块数。
+
+dock 只渲染、不理解条目含义，`features.cjs` 也去掉了 `railPeak`。四个原先钉住旧方框的测试同步更新为新的
+契约（折叠栏是容器 + 模板、由 `snapshot.megaItems` 驱动、子 worker 的"一眼可见"状态回归面板本身）。
+
+**验证**：`tests/unit/mega-items.test.js` 5/5（排序、零即静默、预算与 overflow、坏条目不影响整条栏、
+id 不可重复、注册表驱动接线）；受影响的 dock/sub-worker/架构测试 69/69；`scripts/check-syntax.cjs` 220/220。
+
+## bundled plugins — 本体自带的社区插件，版本钉死、失败归面板（updateplan/startup2.md §19–§23）
+
+**新增 `app/extensions/mega/plugins/index.cjs`：MEGA 自己管"随本体提供、工程上仍是可选社区插件"的两个插件。**
+它是一个**策略层**——不 clone、不写插件目录、不读 package.json，只对注入进来的安装器与注册表做判断，因此
+§23 那张状态表（缺失 / 未测试 / 已安装 / 版本超前 / 不兼容 / 用户禁用 / 失败）可以完全离线测试。
+
+**清单是真的、版本是钉的**（§21/§22）：`dsh-wallpaper-engine` 钉在真实存在的 `v0.7.1` tag，
+`@dsh-market/plugin` 钉在 `2BingLing/dsh-market` 的 `master` 提交（该仓库没有 tag，提交就是它的版本）。
+没有任何一处会问"最新是什么"——否则昨天测过的产品会和今天没测过的产品长得不一样，而没有人做过这个决定。
+
+**没测过的版本不会被装上**：两个条目都是 `tested: false`，管理器据此报 `untested` 并**拒绝安装**。
+`repair()` 拒绝得更直白：不能凭空把一个未测试的 pin 装上去。**用户说了算**：被禁用的插件不装、不修、
+不复活；清单不认识的版本只被报告（`ahead-of-pin`）而不被替换——用户可能是有意装的。**失败属于面板**：
+两个插件都注册成 protected module，fallback 是 `Simple Wallpaper` 与"商店入口隐藏"。
+
+**接线**：MEGA 在 `start()` 注册受保护模块、在后台跑策略（绝不在启动路径上等网络），读取商店自己的记录
+判断"是否已安装、是否被用户禁用"，并暴露 `mega:bundled-plugins` / `mega:bundled-plugins-repair` 两个通道；
+shell 把保护层交给扩展。**两个诚实缺口**：① 今天不会安装任何插件（没有 pin 被标记 `tested`）；② 安装调用
+本身尚未注入——猜一个安装器参数名等于把未验证代码放进可选插件的安装路径，它随"第一个 pin 被测试并标记"的
+那次提交一起落地。两处都在代码注释、`docs/startup.md` §3.2 中写明。
+
+**验证**：`tests/unit/bundled-plugins.test.js` 9/9；`scripts/verify.ps1` 增加清单真实性、不追 latest、
+未测试不安装、用户禁用与未知版本的处理、受保护注册与"策略不在启动路径上"的检查。
+
+## protection — MEGA 成为增强层的控制平面（updateplan/startup2.md §12–§18）
+
+**新增 `app/extensions/mega/protection/index.cjs`：可选模块的隔离、健康、降级与回退有了一处统一实现。**
+MEGA 从"右侧状态栏"变成增强能力的**控制平面**，规则只有一条：任何可选模块都必须注册后由它启动，不允许
+裸启动。六态为 `DISABLED / STARTING / HEALTHY / DEGRADED / FAILED / RECOVERING`，每个模块记录状态、版本、
+启动耗时、最近错误、重试次数与 fallback 现状——这正是 MEGA 面板要显示、验收要读的东西。
+
+`start()` **只回答、不抛出**：超时、抛错或自己报告不健康都变成 `DEGRADED` 并立刻跑 fallback。计划书点名
+禁止的三件事（插件失败导致白屏、壁纸失败带走输入框、Market 失败让 Harness 起不来）因此是结构上不成立的，
+而不是靠小心。首启预算默认 3s，超时不再阻塞任何 UI；重试阶梯是一次快速、一次延迟、然后停止（无限重试正是
+掩盖真实故障的方式）；回退链写成数组逐级尝试（如 `dsh-wallpaper-engine → Simple Wallpaper → Official
+Background`），最后一级也失败就如实报 `unavailable`。健康检查重新通过时状态回到 `HEALTHY` 并清掉错误，
+否则面板会一直报告模块已经离开的状态。
+
+**接线（本轮补上）**：`desktop-main.cjs` 现在创建 protection 层并注册三个可选模块（`wallpaper-layer`、
+`mega-extension-host`、`mega-dock`），它们的启动仍走启动状态机（`[BOOT]` 阶段不变），状态与失败由保护层
+持有；启动结束多一行 `[protection] {...}` 全量报告。一个模块失败时，boot 只看到「这一项降级了」。
+
+**边界**：社区插件
+`dsh-wallpaper-engine` / `@dsh-market/plugin` 的接入、MEGA Control Center 的 Protection 面板、`MegaItemRegistry`
+前端注册、启动缓存与折叠栏去重都**未做**，条目记在 `docs/startup.md` §3.1，下一轮接线时一并更新文档与
+`verify.ps1`。
+
+**验证**：`tests/unit/mega-protection.test.js` 6/6（健康启动、超时→降级+fallback、重试阶梯恰好三次、
+不健康→降级与恢复、可选与必需的区别及安全停止、`withTimeout` 两个方向）；`scripts/verify.ps1` 增加
+保护层存在性、六态、预算/回退/重试与上报字段检查。
+
+## startup — 先可用，再好看（updateplan/startup.md 的 P0）
+
+**"应用可用"不再绑定在"全部增强渲染完成"上。** 旧流程在窗口显示之前要等完 Harness、扩展宿主、
+再到 dock 渲染器 —— 于是"某个可选模块很慢"和"产品根本没启动"在用户眼里完全一样：一个没有反馈的
+空窗口（实际上是隐藏窗口，连空白都看不到）。现在窗口创建后**立刻**显示我们自己的骨架页
+（`app/splash.html`：顶栏/侧栏/会话区/输入框占位，无脚本、无网络、无控件），官方 UI 就绪后替换它。
+
+**四条状态，INTERACTIVE 就是启动完成**（`app/startup.cjs`）：`BOOTING → CORE_READY → INTERACTIVE
+→ ENHANCED`。`CORE_READY` = 官方页面成为窗口页面；`INTERACTIVE` 紧随其后 —— 我们不去探测官方 DOM
+（产品硬规则），所以"它加载完并在屏幕上"就是诚实的定义。之后的一切都走 `startup.defer()`：壁纸层、
+扩展宿主、Mega dock、重启恢复、子 worker 自启动。它们**不会**拒绝、**不会**延迟用户、**不会**让启动
+失败，每个都有自己的记录，失败只写 `failed: <原因> (the boot carries on)`。全部落定才标记 `enhanced`。
+
+**启动有账可查。** 每个阶段一行 `[BOOT] <阶段> <耗时>`，并标注预算与是否超标；预算只记录、不强制
+（错过预算仍是能用的启动）。最后一行 `boot report` 是机器可读的全量报告，其中 `ownOverhead()`
+是"Harness 给出地址 → 用户可以工作"的时间 —— 这一段才是本产品自己拥有的墙钟，Harness 自身的启动
+不是。
+
+**边界写清楚**：本轮只做 P0 与部分 P1。三套阅读预设、社区壁纸插件 `dsh-wallpaper-engine` 与
+`AppearanceProvider` 抽象、对外 Appearance token 白名单、设置页重组、MEGA 折叠态去重（仍是
+RUN/QUEUE/HW/SUB/PEAK 五个常驻项）都**没有**做，条目与现状记在新增的 `docs/startup.md` 里，避免下
+一轮把它们当成已完成。
+
+**验证**：新增 `tests/unit/startup.test.js`（状态顺序、预算记录、`defer` 的故障隔离、
+`onInteractive`、`ENHANCED` 只在延迟工作落定后出现，以及启动顺序：骨架先于 Harness、所有可选层晚于
+`interactive`）；`scripts/verify.ps1` 增加启动模块与骨架页检查（骨架页必须无脚本、启动顺序必须成立）。
+
 ## wallpaper — 壁纸真的垫在整个界面上，而官方 UI 仍然可点
 
 **修的是一个用户直接感受到的缺陷：设了壁纸之后，官方 UI 点不动了。** 上一轮的壁纸层是一个压在官方

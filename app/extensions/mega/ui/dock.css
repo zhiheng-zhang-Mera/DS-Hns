@@ -119,6 +119,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--hns-color-accent-prim
 .rail-stat{width:38px;padding:6px 2px;text-align:center;border:1px solid var(--hns-color-border-l1);border-radius:9px;background:var(--hns-color-bg-layer2)}
 .rail-stat small{display:block;font-size:10px;color:var(--hns-color-label-secondary);letter-spacing:.04em}
 .rail-stat b{display:block;margin-top:2px;font-size:14px}
+/* The rail's items, as the registry defines them (updateplan/startup2.md §41-§44). The tone is the
+   item's own claim about whether it is normal, busy or wrong, so the colour is data rather than a
+   per-item rule. */
+.rail-items{display:flex;flex-direction:column;align-items:center;gap:8px}
+.rail-stat[data-tone="ok"] b{color:var(--hns-state-success,var(--hns-color-label-primary))}
+.rail-stat[data-tone="busy"] b{color:var(--hns-color-accent-primary)}
+.rail-stat[data-tone="warn"] b{color:var(--hns-state-warning,var(--hns-color-accent-primary))}
+.rail-stat[data-tone="bad"] b{color:var(--hns-state-error,var(--hns-color-accent-primary))}
+.rail-stat[data-tone="quiet"] b{color:var(--hns-color-label-secondary)}
+/* The budget's own answer: what did not fit is counted, never silently dropped. */
+.rail-more{padding:3px 6px;border-radius:8px;border:1px dashed var(--hns-color-border-l1);color:var(--hns-color-label-secondary);font-size:11px}
 .rail-mode{margin-top:auto;width:36px;padding:7px 1px;text-align:center;border-radius:8px;font-size:10px;font-weight:800;border:1px solid transparent}
 .rail-mode.peak{background:var(--hns-color-bg-layer2);color:var(--hns-state-failed);border-color:color-mix(in srgb,var(--hns-state-failed) 28%,transparent)}
 .rail-mode.offpeak{background:var(--hns-color-bg-layer2);color:var(--hns-state-completed);border-color:color-mix(in srgb,var(--hns-state-completed) 24%,transparent)}
@@ -520,6 +531,31 @@ button:hover{background:var(--hns-color-bg-layer2)}
 .settings-overlay{background:color-mix(in srgb,var(--hns-color-bg-overlay) 62%,transparent)}
 
 /* =====================================================================================
+   The MEGA Control Center (updateplan/startup2.md section 45-47)
+   =====================================================================================
+   Sections of rows plus two actionable lists. The tone is the data's own claim about urgency, so a fault
+   count of zero carries no colour at all — the same "zero is not news" rule the rail follows. */
+.control-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:8px 0}
+.cc-section{background:var(--hns-color-bg-layer2);border:1px solid var(--hns-color-border-l1);border-radius:10px;padding:8px 10px}
+.cc-section h3,.cc-heading{margin:0 0 6px;font-size:12px;font-weight:600;color:var(--hns-color-label-secondary);display:flex;justify-content:space-between;gap:6px}
+.cc-section h3 small{font-weight:400;opacity:.8}
+.cc-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0}
+.cc-label{color:var(--hns-color-label-secondary)}
+.cc-label small{display:block;font-size:10px;opacity:.75}
+.cc-value{font-variant-numeric:tabular-nums}
+.cc-value.tone-ok{color:var(--hns-state-success,var(--hns-color-label-primary))}
+.cc-value.tone-busy{color:var(--hns-color-accent-primary)}
+.cc-value.tone-warn{color:var(--hns-state-warning,var(--hns-color-accent-primary))}
+.cc-value.tone-bad{color:var(--hns-state-error,var(--hns-color-accent-primary))}
+.cc-list{display:flex;flex-direction:column;gap:6px}
+.cc-module{border:1px solid var(--hns-color-border-l1);border-radius:9px;padding:7px 9px;background:var(--hns-color-bg-layer1)}
+.cc-module-head{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.cc-detail{margin:4px 0 0;font-size:11px;color:var(--hns-color-label-secondary)}
+.cc-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.cc-actions button{padding:3px 8px;font-size:11px}
+.cc-empty{margin:0;font-size:12px;color:var(--hns-color-label-secondary)}
+
+/* =====================================================================================
    The wallpaper layer (壁纸)
    =====================================================================================
 
@@ -547,18 +583,15 @@ button:hover{background:var(--hns-color-bg-layer2)}
    cost the user a click however it was set. The scrim is a separate number from the opacity: the
    wallpaper decides how much picture there is, the scrim decides how much contrast survives it.
    ===================================================================================== */
-body>#wallpaper,
-body>#wallpaperVideo{
+body>#wallpaper{
   position:fixed;
   left:calc(-1 * var(--hns-wallpaper-origin-x,0px));
   top:calc(-1 * var(--hns-wallpaper-origin-y,0px));
   width:calc(100% + var(--hns-wallpaper-origin-x,0px));
   height:calc(100% + var(--hns-wallpaper-origin-y,0px));
   pointer-events:none;user-select:none;z-index:0;
-  opacity:var(--hns-wallpaper-opacity,.55);
-  object-fit:cover
+  opacity:var(--hns-wallpaper-opacity,.55)
 }
-body>#wallpaperVideo[hidden]{display:none}
 body>#wallpaper[data-hidden="1"]{display:none}
 /* The scrim sits between the wallpaper and the content: one flat wash of the dock's own base, at
    the user's strength, so no wallpaper can make a label unreadable. */

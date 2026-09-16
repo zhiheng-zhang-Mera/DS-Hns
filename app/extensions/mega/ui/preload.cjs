@@ -97,6 +97,10 @@ contextBridge.exposeInMainWorld('megaTools', {
   refreshHardware: gated('mega.hardware', () => ipcRenderer.invoke('mega:refresh-hardware')),
   updateSettings: (patch) => ipcRenderer.invoke('mega:update-settings', patch),
   fetchBalance: gated('mega.balance', (trigger = 'manual', options = {}) => ipcRenderer.invoke('mega:balance', trigger, options)),
+  // The account as it stands, **without** reading it again: what a surface that is about to draw asks for.
+  // Refreshing is `fetchBalance` — and, from the official UI, the dashboard's own refresh button, which goes
+  // through the same service by way of the governance bridge.
+  balanceState: () => ipcRenderer.invoke('mega:balance-restore'),
   pickWorkspace: () => ipcRenderer.invoke('mega:pick-workspace'),
   pickSound: () => ipcRenderer.invoke('mega:pick-sound'),
   /**
@@ -164,9 +168,10 @@ contextBridge.exposeInMainWorld('megaTools', {
    * The wallpaper layer.
    *
    * The renderer never receives a path it could act on: `pick` opens the shell's own file chooser
-   * and `set` takes a patch the shell validates. What comes back is what to draw — a `data:` URL
-   * for an image, or a `file:` URL for a video, which is the one asset the dock fetches itself
-   * because a base64 video would be a string the size of the film.
+   * and `set` takes a patch the shell validates. What comes back is what to draw, and it is always
+   * the same thing: an inline `data:` URL, the asset the official surfaces are handed as well. (A
+   * `file:` URL used to come back for a video, because a base64 video would be a string the size of
+   * the film — the video pipeline is the wallpaper plugin's now, so nothing is fetched by path.)
    */
   wallpaper: {
     describe: () => ipcRenderer.invoke('mega:wallpaper'),
@@ -175,6 +180,28 @@ contextBridge.exposeInMainWorld('megaTools', {
     // The scope says which backdrop the chosen file is for: `main`, `dock`, or both.
     pick: (options) => ipcRenderer.invoke('mega:wallpaper-pick', options),
     onChanged: (callback) => ipcRenderer.on('mega:wallpaper-changed', (_event, payload) => callback(payload))
+  },
+  /**
+   * The appearance presets: one decision over the glass and the wallpaper
+   * (`updateplan/startup2.md` §26-§28). The panel writes one preset and renders the answer, which
+   * reports each layer separately.
+   */
+  appearance: {
+    describe: () => ipcRenderer.invoke('mega:appearance'),
+    set: (preset) => ipcRenderer.invoke('mega:appearance-set', { preset }),
+    // The providers behind the desktop mode: official / simple / Wallpaper Engine (startup2.md §43-§44).
+    providers: () => ipcRenderer.invoke('mega:appearance-providers'),
+    setProvider: (provider) => ipcRenderer.invoke('mega:appearance-provider-set', { provider })
+  },
+  /** "Go look at the plugin" has to lead somewhere: this opens the dock's store tab (§44). */
+  openStore: () => ipcRenderer.invoke('mega:open-store'),
+  /**
+   * The Control Center (`updateplan/startup2.md` §45-§47): the enhancement layer's own view, and the
+   * actions that belong to it — retry, check, repair, disable/enable, fall back.
+   */
+  control: {
+    describe: () => ipcRenderer.invoke('mega:control-center'),
+    action: (payload) => ipcRenderer.invoke('mega:control-action', payload)
   },
   // 拓展状态 module: align the main harness with the official latest version.
   checkHarnessUpdate: () => ipcRenderer.invoke('mega:update-check'),
