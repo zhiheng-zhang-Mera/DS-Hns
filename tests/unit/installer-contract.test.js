@@ -113,7 +113,7 @@ test('reinstall cleanup kills only repository-owned Electron and DSH processes',
 test('installer runs stale-runtime cleanup before dependency installation', () => {
   const text = read('scripts/install.ps1')
   const cleanup = text.indexOf("cleanup-runtime.ps1")
-  const deps = text.indexOf("2/7 Resolve/reuse dependencies")
+  const deps = text.indexOf("2/8 Resolve/reuse dependencies")
   assert.ok(cleanup >= 0)
   assert.ok(deps > cleanup)
 })
@@ -129,6 +129,7 @@ test('critical installer PowerShell files stay ASCII-only for Windows PowerShell
   const files = [
     'scripts/install.ps1',
     'scripts/install-deps.ps1',
+    'scripts/install-profile-plugin.ps1',
     'scripts/ensure-node.ps1',
     'scripts/cleanup-runtime.ps1',
     'scripts/stop.ps1',
@@ -147,5 +148,35 @@ test('installer preflights child PowerShell scripts before dependency work', () 
   assert.match(text, /Parser\]::ParseFile/)
   assert.match(text, /PowerShell parser preflight/i)
   assert.match(text, /cleanup-runtime\.ps1/)
-  assert.ok(text.indexOf("0/7 PowerShell parser preflight") < text.indexOf("2/7 Resolve/reuse dependencies"))
+  assert.ok(text.indexOf("0/8 PowerShell parser preflight") < text.indexOf("2/8 Resolve/reuse dependencies"))
+})
+
+test('installer signs the shipped orb plugin into the Harness profile before the tests', () => {
+  const text = read('scripts/install.ps1')
+  // The ball in the official UI is drawn by the client plugin DS-Hns ships, and only a profile that
+  // has it installed mounts it. That install lives outside the repository (`data\*` is git-ignored
+  // and the dependency is an absolute `file:` path), so it is a step of the installation: every host
+  // installed without it shows no ball at all.
+  assert.match(text, /install-profile-plugin\.ps1/)
+  const deps = text.indexOf('2/8 Resolve/reuse dependencies')
+  const step = text.indexOf('4/8 Sign the shipped client plugin into the Harness profile')
+  const tests = text.indexOf('5/8 Unit and architecture tests')
+  assert.ok(step > deps && step < tests, 'the profile step runs after dependencies and before the tests')
+  // An enhancement never fails an installation: the step warns, and the install carries on.
+  assert.match(text, /The orb plugin is not in the Harness profile/)
+  assert.doesNotMatch(text, /throw 'The orb plugin/)
+})
+
+test('the orb plugin is installed by the Harness own CLI, never by writing the profile', () => {
+  const text = read('scripts/install-profile-plugin.ps1')
+  // Installing into the profile is the Harness' own CLI's business (`dsh plugin ... add`), which is
+  // also what the manual install used: this script resolves Node and pnpm and calls it.
+  assert.match(text, /@deepseek-ai\\dsh\\lib\\bin\.js/)
+  assert.match(text, /'plugin' '--profile' \$profileName 'add' \$spec/)
+  assert.match(text, /corepack/)
+  // Reuse-first: a satisfied profile is reported and left alone.
+  assert.match(text, /already-installed/)
+  // The profile manifest is read, never written.
+  assert.doesNotMatch(text, /ConvertTo-Json/)
+  assert.doesNotMatch(text, /Set-Content/)
 })

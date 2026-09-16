@@ -3,6 +3,38 @@
 All notable changes to DS-Hns. Newest first. Each entry names the user-visible
 behaviour that changed, not the files that were touched.
 
+## 新主机装完就有悬浮球：那一步进了安装器
+
+**"为什么新主机上安装的版本没有悬浮球？"** 因为球从来不在仓库里，而在 profile 里。官方界面里那颗球是
+`app/plugins/mega-core` 这个**客户端插件**画的（浏览器半边注册官方 `shell.overlay` 槽，见
+`app/plugins/mega-core/lib/client.js`），而 Harness 只挂载**已经装进它自己 profile**
+（`$DSH_HOME\profiles\web`）的插件。那个安装是单机状态：`data\*` 在 `.gitignore` 里，依赖又写成绝对路径
+`file:D:/…/app/plugins/mega-core` —— clone 与 ZIP 都带不过去；`app/harness-profile.cjs` 只刷新**已经存在**的
+副本（"installing is the Harness' own CLI's job"），产品自己的 `BUNDLED_MANIFEST` 也不管它（它是我们的插件，
+不是社区引用）。上一轮是**手工**装的（`docs/pluginize.md` 那条 `dsh plugin --profile web add …`），于是开发机
+有球、每台新主机都没有，而且不报错：产品照常启动，只是没有球。默认值也在同一侧：系统球那扇窗口要
+`DSH_SYSTEM_ORB=1` 才创建（`app/extensions/mega/index.cjs`），没有任何启动脚本设置它 —— 所以新主机上
+"一颗球都没有"完全说得通。（另一颗独立的地雷：云端默认分支 `main` 落后 `mech-adapter-merge` 53 个提交，
+球的代码一个都不在它上面；用默认分支装出来的主机连这一步都没东西可装，脚本会直说。）
+
+**这一步现在属于安装。** 新增 `scripts\install-profile-plugin.ps1`，安装器把它作为**第 4/8 步**（依赖之后、
+测试之前）：读随产品发布的 `app\plugins\mega-core`，用 **Harness 自己的 CLI**（`dsh plugin --profile web add
+file:…`）把它签进 profile。profile 依旧不由我们手写 —— 脚本对 profile 只有 `Get-Content`，没有
+`ConvertTo-Json` / `Set-Content`，契约测试盯着这一条。本机没有 pnpm 时用 Node 自带的 corepack 在
+`runtime\bin`（git-ignore）生成 pnpm 垫片：`dsh plugin` 只是 pnpm 的转发器，spawn 的是 PATH 上的裸 `pnpm`。
+
+**它永远不会让安装失败。** 球是增强层，不是产品：失败只发 `Write-Warning`（并给出要重跑的那一条命令），
+安装继续。三种真实情形各自实测过：已经装好 → 原样放过并报 `already-installed`（不碰 profile 文件）；全新
+`DSH_HOME` → 3.3 秒装好，`dependencies` 与 `dsh.profile.bundles` 都到位、
+`node_modules\dsh-plugin-mega-core\lib\client.js` 就位；profile 是从别的机器拷来的（依赖指向那台的路径）→
+改成这台 checkout 的路径并报成功。
+
+**验证**：全量 **1670 项：1668 通过、2 跳过（computer-use 驱动按环境跳过）、0 失败**；`verify.ps1 -SkipTests`
+ALL CHECKS PASSED；语法门 256/256。新增：`installer-contract` 两项（第 4/8 步排在依赖之后、测试之前，失败
+只警告不抛错；插件只经 Harness CLI 安装、profile 只读），新脚本进 ASCII 与 parser preflight 名单。已安装的
+形状本来就由 `mega-core-install-acceptance` 断言（安装后的客户端半边占用 `shell.overlay` 与
+`settings.section`），这一轮补的是"那一步真的会被执行"。
+
 ## 队列任务可以删除（并且先问一句）
 
 **"队列任务需要允许删除，其余修改全部正常。"** 队列的第三个操作补上了：每条排队任务现在有 `✕ 删除`，两个球面板

@@ -123,12 +123,13 @@ function Assert-ScriptParses([string]$scriptPath) {
 Write-Host 'DS-Harness one-click installer' -ForegroundColor Green
 Write-Host "Root: $ROOT"
 
-Write-Step '0/7 PowerShell parser preflight'
+Write-Step '0/8 PowerShell parser preflight'
 $criticalScripts = @(
   (Join-Path $PSScriptRoot 'cleanup-runtime.ps1'),
   (Join-Path $PSScriptRoot 'ensure-node.ps1'),
   (Join-Path $PSScriptRoot 'ensure-icon.ps1'),
   (Join-Path $PSScriptRoot 'install-deps.ps1'),
+  (Join-Path $PSScriptRoot 'install-profile-plugin.ps1'),
   (Join-Path $PSScriptRoot 'test-all.ps1'),
   (Join-Path $PSScriptRoot 'verify.ps1')
 )
@@ -137,7 +138,7 @@ foreach ($scriptPath in $criticalScripts) {
   Write-Host "  OK $([System.IO.Path]::GetFileName($scriptPath))"
 }
 
-Write-Step '1/7 Clean stale runtime and bootstrap directories'
+Write-Step '1/8 Clean stale runtime and bootstrap directories'
 $cleanupScript = Join-Path $PSScriptRoot 'cleanup-runtime.ps1'
 & $cleanupScript
 
@@ -152,11 +153,11 @@ foreach ($d in $dirs) {
 }
 Write-Host 'Directory structure ready.'
 
-Write-Step '2/7 Resolve/reuse dependencies'
+Write-Step '2/8 Resolve/reuse dependencies'
 $dependencyScript = Join-Path $PSScriptRoot 'install-deps.ps1'
 & $dependencyScript -Full
 
-Write-Step '3/7 Resolve DeepSeek API key'
+Write-Step '3/8 Resolve DeepSeek API key'
 $envFile = Join-Path $ROOT 'config\.env'
 Ensure-ProjectEnvFile $envFile
 $systemKey = Get-SystemApiKey
@@ -205,7 +206,25 @@ if ($systemKey) {
 # Restore canonical project runtime variables after install-time cache reuse.
 . (Join-Path $PSScriptRoot 'env.ps1')
 
-Write-Step '4/7 Unit and architecture tests'
+Write-Step '4/8 Sign the shipped client plugin into the Harness profile'
+# The orb in the official UI is drawn by the client plugin DS-Hns ships (`app\plugins\mega-core`,
+# registered into the official `shell.overlay` slot), and the official UI mounts it only when the
+# profile this product boots has it installed. That install is host-local: `data\*` is git-ignored
+# and the dependency is an absolute `file:` path, so no checkout can carry it. Installing it is the
+# Harness' own CLI's job (`scripts\install-profile-plugin.ps1`), and it is a step of the
+# installation rather than something a fresh host acquires by itself -- without it the product runs
+# and shows no ball at all.
+try {
+  & (Join-Path $PSScriptRoot 'install-profile-plugin.ps1')
+  if ($LASTEXITCODE -ne 0) {
+    Write-Warning 'The orb plugin is not in the Harness profile, so the official UI will show no ball.'
+    Write-Warning 'DS-Harness is fully usable without it; re-run scripts\install-profile-plugin.ps1 to add it.'
+  }
+} catch {
+  Write-Warning "Signing the orb plugin into the profile failed, installation continues: $($_.Exception.Message)"
+}
+
+Write-Step '5/8 Unit and architecture tests'
 if ($SkipTests) {
   Write-Host 'Tests skipped by -SkipTests.'
 } else {
@@ -215,13 +234,13 @@ if ($SkipTests) {
   }
 }
 
-Write-Step '5/7 Verification'
+Write-Step '6/8 Verification'
 & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
 if ($LASTEXITCODE -ne 0) {
   throw 'Verification failed.'
 }
 
-Write-Step '6/7 Shortcuts'
+Write-Step '7/8 Shortcuts'
 if ($NoShortcuts) {
   Write-Host 'Shortcut creation skipped by -NoShortcuts.'
 } else {
@@ -247,7 +266,7 @@ if ($NoShortcuts) {
   }
 }
 
-Write-Step '7/7 Complete'
+Write-Step '8/8 Complete'
 Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
 if ($systemKey) {
   Write-Host "API: system environment ($($systemKey.Name), $($systemKey.Scope))"
@@ -258,6 +277,7 @@ if ($systemKey) {
 }
 Write-Host 'Primary UI: official DeepSeek Harness (Alien-derived shell).'
 Write-Host 'Mega tools: Ctrl+Shift+M.'
+Write-Host 'Orb: the ball in the official UI comes from the Mega Core profile plugin (step 4/8).'
 Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
 
 if (-not $NoLaunch) {
