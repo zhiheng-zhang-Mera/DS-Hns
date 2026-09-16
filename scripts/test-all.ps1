@@ -144,6 +144,9 @@ try {
     # plugin. Asserted by name like the rest: a renamed file here would drop the coverage of the
     # "one load path" and "the monitor cannot restart anything" claims.
     'plugin-hns-native.test.js',
+    # The unified install pipeline: the pre-install plan, the refusal of unknown formats, and the
+    # pin/update/rollback/quarantine/uninstall lifecycle. Asserted by name like the rest.
+    'plugin-install-pipeline.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

@@ -88,6 +88,9 @@ const SOURCE_DIRS = [
   // The managed-process half: the process contract, the two transports and the supervisor that
   // starts, watches, bounds and stops a background plugin.
   'core/plugin-adapters/process',
+  // The unified install pipeline: fetch, detect, plan, install, and the lifecycle operations over
+  // the install records.
+  'core/plugin-install',
   // The provider that carries the DeepSeek-specific knowledge, so no generic
   // plugin has to.
   'plugins/providers/deepseek',
@@ -139,6 +142,9 @@ const EXTRA_FILES = [
   // The managed-process acceptance: the real dsh-restart-supervisor behind an external companion,
   // with DS-Hns holding nothing but a restart-control capability bridge.
   path.join(ROOT, 'scripts', 'process-adapter-acceptance.cjs'),
+  // The unified install pipeline acceptance: a real GitHub fetch, one plugin of each kind, and the
+  // refusal plus lifecycle paths.
+  path.join(ROOT, 'scripts', 'install-pipeline-acceptance.cjs'),
   // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
   // checked like any other program the repository ships.
   path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')

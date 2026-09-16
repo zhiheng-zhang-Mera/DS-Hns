@@ -1,0 +1,13 @@
+{
+  "api_version": "dshns.plugin/v1",
+  "id": "dshns.health-scheduler",
+  "name": "Health Scheduler",
+  "version": "1.0.0",
+  "description": "device and runtime health sampling, restart-pressure scoring, maintenance windows, and an action decision that requests a restart rather than performing one",
+  "main": "index.cjs",
+  "license": "MIT",
+  "keywords": ["dshns-plugin", "health", "monitoring", "scheduler"],
+  "permissions": {
+    "declares": ["fs.read", "bus.emit"]
+  }
+}

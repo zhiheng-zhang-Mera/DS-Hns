@@ -51,6 +51,34 @@ function manifestFromDeclaration(declaration, dir) {
 }
 
 /**
+ * Load a declared plugin's entry module.
+ *
+ * A `dshns-plugin.json` names a `main`, and until this existed the adapter ignored it: a declared
+ * plugin became *declarative* — a manifest and no code — even when it shipped an entry beside it.
+ * That made the format distributable but not runnable, which is not a plugin format, it is a
+ * descriptor format. Loading the entry is what turns a repository of files into something the
+ * store can install.
+ *
+ * CommonJS first, then ESM: `require` cannot read an ES module, and the reverse guess would break
+ * every `.cjs` plugin. The resolved path is checked against the plugin directory by the caller.
+ */
+async function importDeclaredEntry(file) {
+  const { createRequire } = require('node:module')
+  const { pathToFileURL } = require('node:url')
+  const requireFrom = createRequire(file)
+  try {
+    const loaded = requireFrom(file)
+    return typeof loaded === 'function' ? loaded() : loaded
+  } catch (error) {
+    const esmOnly = error && (error.code === 'ERR_REQUIRE_ESM' || /Cannot use import statement|Unexpected token 'export'/.test(String(error.message || '')))
+    if (!esmOnly) throw error
+    const namespace = await import(pathToFileURL(file).href)
+    const loaded = namespace && namespace.default !== undefined ? namespace.default : namespace
+    return typeof loaded === 'function' ? loaded() : loaded
+  }
+}
+
+/**
  * @param {object} [options]
  * @param {object} [options.policy] unused here — the framework owns the policy — but accepted so
  *   every adapter is constructed the same way.
@@ -111,20 +139,56 @@ function createNativeHnsAdapter(options = {}) {
       // A declaration with no entry contributes no code. Saying so here rather than inventing a
       // runtime is what keeps `declarative` an honest description instead of a silent failure.
       const hasEntry = Boolean(manifest.entry)
+      const entryPath = hasEntry ? path.resolve(artifact.dir || '.', manifest.entry) : null
+      if (entryPath) {
+        // The entry must stay inside the plugin directory: a declaration that could import an
+        // arbitrary file on the machine is a declaration that makes the directory meaningless.
+        const inside = path.relative(artifact.dir || '.', entryPath)
+        if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) {
+          return adapterFault(ADAPTER_FAULT_CODES.REFUSED, `the declared entry ${manifest.entry} escapes the plugin directory`)
+        }
+      }
+
+      let loaded = null
+      if (entryPath) {
+        try {
+          loaded = await importDeclaredEntry(entryPath)
+        } catch (error) {
+          return adapterFault(
+            ADAPTER_FAULT_CODES.REFUSED,
+            `the declared entry ${manifest.entry} could not be imported: ${error && error.message ? error.message : error}`
+          )
+        }
+        if (!loaded || typeof loaded !== 'object') {
+          return adapterFault(ADAPTER_FAULT_CODES.REFUSED, `the declared entry ${manifest.entry} does not export a plugin object`)
+        }
+      }
+
+      // The module's own manifest wins where it speaks: it is the plugin's declaration about
+      // itself, and the JSON file is the distribution wrapper around it.
+      const merged = loaded && loaded.manifest && typeof loaded.manifest === 'object'
+        ? { ...manifest, ...loaded.manifest, entry: manifest.entry }
+        : manifest
+
       return {
-        manifest,
-        permissions: manifest.permissions && Array.isArray(manifest.permissions.declares)
-          ? manifest.permissions.declares
+        manifest: merged,
+        install: loaded && typeof loaded.install === 'function' ? loaded.install : undefined,
+        load: loaded && typeof loaded.load === 'function' ? loaded.load : undefined,
+        unload: loaded && typeof loaded.unload === 'function' ? loaded.unload : undefined,
+        healthCheck: loaded && typeof loaded.healthCheck === 'function' ? loaded.healthCheck : undefined,
+        runtimeInfo: loaded && typeof loaded.runtimeInfo === 'function' ? loaded.runtimeInfo : undefined,
+        permissions: merged.permissions && Array.isArray(merged.permissions.declares)
+          ? merged.permissions.declares
           : undefined,
         runtime: {
           kind: hasEntry ? RUNTIME_KINDS.IN_PROCESS.id : RUNTIME_KINDS.DECLARATIVE.id,
-          entry: hasEntry ? path.join(artifact.dir || '', manifest.entry) : null,
+          entry: entryPath,
           source: artifact.source || artifact.dir || null
         },
         health: {
           contract: hasEntry ? 'full' : 'none',
           detail: hasEntry
-            ? 'the plugin implements no healthCheck'
+            ? (loaded && typeof loaded.healthCheck === 'function' ? 'the plugin implements healthCheck' : 'the plugin implements no healthCheck')
             : 'a declarative plugin contributes no code, so there is nothing to ask'
         },
         sourceFormat: PLUGIN_TYPES.DECLARED
