@@ -140,6 +140,11 @@ test('a time that has already passed is refused — because a past instant runs 
    */
   const { service, client, dir } = makeScheduler()
   try {
+    // Force the off-peak reading rather than the machine's clock, exactly as the peak test above forces the peak
+    // one. A task created without `allowPeak` is suspended `peak-window` before the schedule is ever considered, so
+    // reading the real calendar here would assert `waiting-schedule` only outside 09:00-12:00 and 14:00-18:00
+    // Beijing time on a weekday: the suite would pass in the morning and fail in the afternoon.
+    service.nowPeak = () => false
     const past = new Date(Date.now() - 1000).toISOString()
     assert.throws(() => service.addTask({ prompt: '晚了', startAt: past }), /already passed/)
     assert.equal(service.tasks.length, 0, 'a refused task was queued anyway')
