@@ -423,6 +423,28 @@ function createPluginManager(options = {}) {
     }
   }
 
+  /**
+   * Uninstall one plugin: unload it, then forget it.
+   *
+   * Unloading and uninstalling are different requests, and the platform only had the first. A
+   * plugin that is unloaded is still installed — it is listed, it is disabled, and enabling it
+   * again brings it back. A plugin that is removed is gone: it leaves the list, its record is
+   * dropped, and a later `install` of the same id is a fresh install rather than a duplicate.
+   *
+   * The unload is awaited first, because removing a record while its capabilities are still
+   * registered would leave the registry holding an owner nothing can name again.
+   */
+  async function removeOne(id) {
+    const record = entry(id)
+    if (!record) return { ok: false, code: LOAD_REASONS.NOT_FOUND, reason: `no plugin ${id}` }
+    await unloadOne(record.id)
+    records.delete(record.id)
+    contexts.delete(record.id)
+    bus.emit('plugin.removed', { plugin: record.id, version: record.version })
+    log({ kind: 'plugin-removed', plugin: record.id })
+    return { ok: true, plugin: record.id, removed: true }
+  }
+
   return {
     PLUGIN_STATES,
     FAULT_LEVELS,
@@ -433,6 +455,7 @@ function createPluginManager(options = {}) {
     install,
     load: loadOne,
     unload: unloadOne,
+    remove: removeOne,
     loadAll,
     unloadAll,
     enable: (id) => setEnabled(id, true),

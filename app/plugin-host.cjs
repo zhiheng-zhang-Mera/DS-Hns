@@ -44,6 +44,7 @@ const { describe: describeCapabilities } = require('./core/contracts/capability.
 const { createAdapterFramework } = require('./core/plugin-adapters/index.cjs')
 const { createNativeAdapter } = require('./core/plugin-adapters/adapters/native.cjs')
 const { createCordisAdapter } = require('./core/plugin-adapters/adapters/cordis.cjs')
+const { createCordisDshAdapter } = require('./core/plugin-adapters/adapters/cordis-dsh.cjs')
 const { PARALLEL_MODES, MODE_POLICY } = require('./plugins/acceleration/parallel-executor/index.cjs')
 const { mountedPlugins } = require('./plugins/mounted/index.cjs')
 const { accelerationPlugins } = require('./plugins/acceleration/index.cjs')
@@ -161,6 +162,12 @@ function executionDefaults(block = {}) {
  * @param {number} [options.compatTimeoutMs] the activation budget for an isolated plugin
  * @param {object} [options.permissionPolicy] `{ allow?: string[], deny?: string[] }`, applied by
  *   the adapter framework when it decides what a plugin holds. It can only narrow.
+ * @param {object} [options.hostServices] the real services a community plugin's host half may be
+ *   mediated onto, currently `{ webServer, settings }`. Absent is a normal deployment: the shell is
+ *   a different process from the harness, and the bridge reports the absence instead of faking it.
+ * @param {string[]} [options.peerRoots] directories that provide a community plugin's
+ *   peerDependencies. Defaults to this application's own `node_modules`, because a peer dependency
+ *   is by definition the host's to provide.
  * @param {Function} [options.available] `() => boolean`
  * @param {Function} [options.reason] `() => string`
  * @param {Function} [options.now]
@@ -203,6 +210,22 @@ function createPluginHost(options = {}) {
     policy: options.permissionPolicy && typeof options.permissionPolicy === 'object' ? options.permissionPolicy : {}
   })
   adapters.register(createNativeAdapter())
+  adapters.register(createCordisDshAdapter({
+    // The real services a community plugin's host half is allowed to reach, if this deployment has
+    // any. The shell is a different process from the harness, so it usually has no `webServer` —
+    // and that is *reported* rather than papered over: the bridge refuses a route registration with
+    // `BRIDGE_SERVICE_UNAVAILABLE`, the plugin is degraded with that reason on its health surface,
+    // and nothing pretends a route exists. A deployment that wants community plugins to serve
+    // traffic passes the service in here.
+    services: options.hostServices && typeof options.hostServices === 'object' ? options.hostServices : {},
+    // peerDependencies are the host's to provide, so the harness's own install is a root by
+    // default: a community plugin's `@deepseek-ai/dsh-host-webserver` resolves from it.
+    roots: Array.isArray(options.peerRoots) && options.peerRoots.length
+      ? options.peerRoots
+      : [path.join(__dirname, 'node_modules')],
+    nodeExe: options.nodeExe,
+    log: (event) => log(`cordis-dsh ${JSON.stringify(event).slice(0, 200)}`)
+  }))
   adapters.register(createCordisAdapter({
     nodeExe: options.nodeExe,
     timeoutMs: options.compatTimeoutMs,

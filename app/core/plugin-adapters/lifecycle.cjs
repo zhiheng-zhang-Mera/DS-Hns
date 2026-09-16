@@ -169,6 +169,27 @@ function unifyLifecycle(input = {}) {
     }
   }
 
+  /**
+   * What the adapter itself has to report about failures.
+   *
+   * An adapter often knows about a class of failure the platform's lifecycle never sees -- for a
+   * bridged plugin, every capability call the host refused is the most actionable error
+   * information that plugin has. It is merged into the standard report under `adapter` rather than
+   * left for a caller to dig out of `runtimeInfo`, and it is kept separate from the platform's own
+   * counters: "this plugin threw" and "this plugin asked for something the host would not give it"
+   * are different problems with different fixes.
+   */
+  function adapterErrors() {
+    if (typeof descriptor.errorReport !== 'function') return null
+    try {
+      const report = descriptor.errorReport()
+      return report && typeof report === 'object' ? report : null
+    } catch (error) {
+      const entry = errors.report(error, 'error-report', ADAPTER_FAULT_CODES.THREW, { hook: 'errorReport' })
+      return { error: entry.reason }
+    }
+  }
+
   async function install(context) {
     if (typeof descriptor.install !== 'function') return { ok: true, skipped: true }
     try {
@@ -289,7 +310,9 @@ function unifyLifecycle(input = {}) {
       plugin: id,
       adapter: adapter ? adapter.id : null,
       ...errors.summary(),
-      errors: errors.list()
+      errors: errors.list(),
+      /** The adapter's own view, which the platform lifecycle cannot see. */
+      adapterReport: adapterErrors()
     }
   }
 
