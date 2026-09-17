@@ -27,9 +27,9 @@
  * the **companion** (`companion/main.cjs`) executes it out of process when the application is hung or
  * gone, because a frozen process cannot run the code that recovers it. Two executors for one authority
  * is only safe because of the lock in `companion.cjs`: whichever claims it first runs the restart,
- * and the other defers and says so. There is no third path — the legacy reboot coordinator and the
- * watchdog were folded into this one, which is why `app/reboot/*` is now *called* by this plugin
- * rather than by the shell.
+ * and the other defers and says so. There is no third path — the legacy restart helpers were folded
+ * into this one, and the machine-level tier (`app/reboot/*`, a scheduled operating-system shutdown)
+ * remains the shell's, because shutting a *machine* down is not restarting an *application*.
  *
  * ## Failing closed, but only for itself
  *
@@ -59,6 +59,7 @@ const {
 } = require('./policy.cjs')
 const { createRestartBudget, mergeConfig } = require('./budget.cjs')
 const { createHeartbeatMonitor } = require('./heartbeat.cjs')
+const { createRestartStatus, STATUS_PHASES, RECOVERY_RESULTS } = require('./status.cjs')
 const { createRestartLifecycle } = require('./lifecycle.cjs')
 const { companionPaths, readJson, writeJson, claimRestartLock, releaseRestartLock } = require('./companion.cjs')
 
@@ -95,6 +96,14 @@ function createRestartSupervisorPlugin(options = {}) {
 
   const budget = createRestartBudget({ config, now })
   const heartbeat = createHeartbeatMonitor({ config: config.heartbeat, now })
+  /**
+   * The formal `restart_status`.
+   *
+   * Shared with the companion through the state directory: the file is the one thing that outlives the
+   * process, and it is why "did the work continue after the restart?" has an answer at all. This half
+   * records the *request*; the companion — which survives the application — records the execution.
+   */
+  const status = createRestartStatus({ stateDir, now, log, config: { historyLimit: config.history && config.history.maxEntries }, writer: `plugin:${process.pid}` })
 
   let context = null
   let timer = null
@@ -203,7 +212,15 @@ function createRestartSupervisorPlugin(options = {}) {
     log: (message) => log(message),
     executor,
     continuity,
-    readiness
+    readiness,
+    /**
+     * Every stage of an in-process restart is written down as it happens.
+     *
+     * The process running this code is the one that stops the application, so the record has to leave
+     * the process before that happens — a status that only exists in memory describes the restart it
+     * was interrupted by as "nothing happened".
+     */
+    onPhase: (phase, detail) => status.phase(phase, detail)
   })
 
   /**
@@ -226,6 +243,9 @@ function createRestartSupervisorPlugin(options = {}) {
     if (decision.ok !== true) {
       cooldownUntil = decision.code === REFUSAL_CODES.COOLDOWN ? now() + (decision.retryAfterMs || 0) : cooldownUntil
       note('request-refused', { code: decision.code, reason: decision.reason, request: wanted })
+      // A refusal is part of `restart_status`: "three requests were refused inside the cooldown" is
+      // the answer to "why is this machine not restarting", and a history of only successes loses it.
+      status.refuse({ request: wanted, code: decision.code, reason: decision.reason })
       return { ...decision, accepted: false, refused: true }
     }
 
@@ -233,6 +253,7 @@ function createRestartSupervisorPlugin(options = {}) {
     const lock = claimRestartLock(stateDir, { owner: 'plugin', ttlMs: Math.max(60_000, lifecycle.config.gracefulTimeoutMs + lifecycle.config.readinessTimeoutMs), now })
     if (lock.ok !== true) {
       note('request-deferred', { code: lock.code, reason: lock.reason, request: wanted })
+      status.refuse({ request: wanted, code: lock.code, reason: lock.reason })
       return { ok: false, accepted: false, deferred: true, code: lock.code, reason: lock.reason }
     }
 
@@ -258,6 +279,15 @@ function createRestartSupervisorPlugin(options = {}) {
         ? await host.delegateRestart({ request: wanted, stateDir, paths })
         : await delegateToCompanion({ request: wanted })
       if (delegate && delegate.ok === true) {
+        /**
+         * The request is recorded, and the *execution* is left to the companion.
+         *
+         * `begin` writes `requestedAt` and the reason now, while this process is still alive to write
+         * it; the companion adopts that same record and appends the stages it runs. If the application
+         * dies before the companion reaches it, the file says exactly that — requested, not executed —
+         * instead of leaving no trace at all.
+         */
+        status.begin({ request: wanted, executor: delegate.executor || 'companion', by: wanted.requestedBy })
         const outcome = {
           ok: true,
           accepted: true,
@@ -273,7 +303,30 @@ function createRestartSupervisorPlugin(options = {}) {
         return outcome
       }
 
+      /**
+       * The in-process path: this process is the executor, so it also writes the status.
+       *
+       * It is the shape a deployment without a companion uses (and the one a test uses). The stages
+       * come from the lifecycle's own observer, and the finish carries the three recovery answers:
+       * the readiness verdict for the *process*, and continuity's report for the *task* and for
+       * whether the work continues from what was actually done.
+       */
+      status.begin({ request: wanted, executor: 'in-process', by: wanted.requestedBy })
       const outcome = await lifecycle.run(wanted)
+      if (outcome.counted === false) {
+        status.refuse({ request: wanted, code: outcome.code, reason: outcome.reason })
+      } else {
+        status.complete({
+          ok: outcome.ok === true,
+          code: outcome.code || null,
+          detail: (outcome.record && outcome.record.detail) || outcome.reason || null,
+          process: outcome.readiness || null,
+          task: outcome.resume || null,
+          semantic: outcome.resume && outcome.resume.semantic ? outcome.resume.semantic : null,
+          counted: true,
+          ms: outcome.ms
+        })
+      }
       lastOutcome = {
         ok: outcome.ok === true,
         at: now(),
@@ -532,9 +585,21 @@ function createRestartSupervisorPlugin(options = {}) {
       config: { maxEntries: config.history.maxEntries }
     }),
     getRestartBudget: () => budget.report(),
+    /**
+     * The formal `restart_status`, from the file that outlives this process.
+     *
+     * It is a capability method rather than a log line because "what happened to the restart" is a
+     * question asked *after* the restart, by a person, from a process that did not run it: the record
+     * carries the reason, the three times, the recovery verdict for the process, the task and the
+     * semantics of the resumed work, and why recovery fell short when it did.
+     */
+    getRestartStatus: () => status.describe(now()),
     cancelPendingRestart: (reason) => {
       const cancelled = lifecycle.cancel(reason)
       note('cancel', { ok: cancelled.ok === true, phase: cancelled.phase || null, reason: cancelled.reason || null })
+      // A cancellation is a terminal phase for the record: a status stuck in STOPPING would read as a
+      // restart that is still happening when nothing is.
+      if (status.interrupted()) status.complete({ ok: false, code: 'CANCELLED', detail: cancelled.reason || 'cancelled by the user', counted: false })
       return cancelled
     },
     /** The two operations safe mode leaves a person: restart by hand, and reset the budget. */
@@ -698,6 +763,14 @@ function createRestartSupervisorPlugin(options = {}) {
         ...getRestartState(),
         companion,
         safeMode: health.safeMode === true,
+        /**
+         * The formal restart record, on the plugin's own diagnostics as well as on the capability.
+         *
+         * The official page and the Mega panel read the plugin, not the registry — a panel that
+         * resolved `restart-control` to describe the plugin providing it would be asking the thing it
+         * is describing — so the status travels here too.
+         */
+        restartStatus: status.describe(now()),
         paths,
         heartbeatSignals: heartbeat.signals(),
         requests: requests.slice(-20),
@@ -712,6 +785,7 @@ function createRestartSupervisorPlugin(options = {}) {
     getRestartState,
     getRestartHistory: surface.getRestartHistory,
     getRestartBudget: surface.getRestartBudget,
+    getRestartStatus: surface.getRestartStatus,
     cancelPendingRestart: surface.cancelPendingRestart,
     resetRestartBudget: surface.resetRestartBudget,
     manualRestart: surface.manualRestart,
@@ -736,9 +810,17 @@ function createRestartSupervisorPlugin(options = {}) {
   }
 }
 
-/** The plugin object the platform loads. */
-function restartSupervisorPlugin() {
-  return createRestartSupervisorPlugin()
+/**
+ * The plugin object the platform loads.
+ *
+ * `options.host` is the shell's **continuity layer** (`app/core/task-continuity.cjs`), passed through
+ * the mounted set: it answers what is running, parks it before a restart and continues it afterwards,
+ * which is the half of recovery this plugin deliberately does not own. With no host the supervisor
+ * still executes restarts and reports `PROCESS_ONLY` recovery — the honest answer for a build with no
+ * task layer, rather than a claim that work continued.
+ */
+function restartSupervisorPlugin(options = {}) {
+  return createRestartSupervisorPlugin(options)
 }
 
 module.exports = {
@@ -755,5 +837,7 @@ module.exports = {
   REFUSAL_CODES,
   RESTART_REASONS,
   SHUTDOWN_KINDS,
+  STATUS_PHASES,
+  RECOVERY_RESULTS,
   DEFAULT_RESTART_CONFIG
 }

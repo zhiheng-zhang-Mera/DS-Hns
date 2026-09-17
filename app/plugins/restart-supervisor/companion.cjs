@@ -41,6 +41,7 @@ const path = require('node:path')
 const { createRestartBudget } = require('./budget.cjs')
 const { createRestartLifecycle } = require('./lifecycle.cjs')
 const { createHeartbeatMonitor } = require('./heartbeat.cjs')
+const { createRestartStatus } = require('./status.cjs')
 const { RESTART_REASONS, SUPERVISOR_STATES, SUPERVISOR_HEALTH, REFUSAL_CODES } = require('./policy.cjs')
 
 /** Where the companion keeps its own state: the pid file, the stop file and the journal. */
@@ -191,6 +192,14 @@ function createRestartCompanion(input = {}) {
   const budget = createRestartBudget({ config: input.config, now })
   const config = budget.config
   const heartbeat = createHeartbeatMonitor({ config: config.heartbeat, now })
+  /**
+   * The formal, persisted record of the restarts this companion performs.
+   *
+   * Injected (`input.status`) so the caller owns where it lives — the plugin and the companion share
+   * one state directory and therefore one `restart_status.json` — and created here when it was not,
+   * so a companion started by hand still leaves an answer behind.
+   */
+  const status = input.status || createRestartStatus({ stateDir, now, log, config: { historyLimit: config.history && config.history.maxEntries }, writer: `companion:${process.pid}` })
 
   /** The child the companion owns, and the facts about it that only the OS knows. */
   let child = null
@@ -395,7 +404,15 @@ function createRestartCompanion(input = {}) {
     log,
     executor,
     continuity,
-    readiness
+    readiness,
+    /**
+     * The companion is usually the executor in the deployed shape, so it is usually the half that
+     * writes `restart_status.json`. Every stage is reported as it happens: the process that runs the
+     * shutdown is the one that will not be there to describe it afterwards.
+     */
+    onPhase: (phase, detail) => {
+      if (status && typeof status.phase === 'function') status.phase(phase, detail)
+    }
   })
 
   /**
@@ -413,20 +430,45 @@ function createRestartCompanion(input = {}) {
     const held = restartLockHeldByOther(paths.dir, { now })
     if (held.held) {
       record({ kind: 'restart-deferred', reasonCode, detail: `pid ${held.holder.pid} is already executing a restart` })
+      status.refuse({ request: { mode: input.mode || 'application', reasonCode, reasonSummary, requestedBy: input.requestedBy || 'companion' }, code: 'RESTART_LOCK_HELD', reason: `pid ${held.holder.pid} is already executing a restart` })
       return { ok: false, code: 'RESTART_LOCK_HELD', reason: `pid ${held.holder.pid} is already executing a restart`, deferred: true }
     }
     const claimed = claimRestartLock(paths.dir, { owner: 'companion', now })
     if (claimed.ok !== true) {
       record({ kind: 'restart-deferred', reasonCode, code: claimed.code, detail: claimed.reason })
+      status.refuse({ request: { mode: input.mode || 'application', reasonCode, reasonSummary, requestedBy: input.requestedBy || 'companion' }, code: claimed.code, reason: claimed.reason })
       return { ok: false, code: claimed.code, reason: claimed.reason, deferred: true }
     }
     try {
+      /**
+       * The formal status starts before the restart does, and it is written *by this process*.
+       *
+       * The companion owns the child, so it also owns the only account of what happened to it: the
+       * plugin's status file would be written by a process that is about to be stopped.
+       */
+      status.begin({ request: { mode: input.mode || 'application', reasonCode, reasonSummary, requestedBy: input.requestedBy || 'companion', checkpointRequired: true }, executor: attached ? 'companion-attached' : 'companion' })
       const outcome = await lifecycle.run({
         mode: input.mode || 'application',
         reasonCode,
         reasonSummary,
         checkpointRequired: true
       })
+      if (outcome.counted === false) {
+        // A refusal spends nothing and stops nothing: it is recorded as a refusal rather than as a
+        // restart that failed, because those are different events to a person reading the history.
+        status.refuse({ request: { mode: input.mode || 'application', reasonCode, reasonSummary, requestedBy: input.requestedBy || 'companion' }, code: outcome.code, reason: outcome.reason })
+      } else {
+        status.complete({
+          ok: outcome.ok === true,
+          code: outcome.code || null,
+          detail: (outcome.record && outcome.record.detail) || outcome.reason || null,
+          process: outcome.readiness || null,
+          task: outcome.resume || null,
+          semantic: outcome.resume && outcome.resume.semantic ? outcome.resume.semantic : null,
+          counted: true,
+          ms: outcome.ms
+        })
+      }
       if (outcome.ok === true) {
         state = SUPERVISOR_STATES.MONITORING
         record({ kind: 'restart-complete', reasonCode, detail: outcome.record ? outcome.record.detail : null, ms: outcome.ms })
@@ -612,6 +654,8 @@ function createRestartCompanion(input = {}) {
       restartsAttempted,
       lastError,
       paths,
+      /** The formal record of the restarts this companion performed, from the file a person reads. */
+      restartStatus: status.describe(atMs),
       config: {
         heartbeat: config.heartbeat,
         budget: config.budget,
@@ -645,6 +689,8 @@ function createRestartCompanion(input = {}) {
     budget,
     heartbeat,
     lifecycle,
+    /** The formal status the companion writes: a person, the installer and the panel all read this. */
+    status,
     get state() { return state },
     setState: (next) => { state = next; return state },
     journal: () => journal.slice(),

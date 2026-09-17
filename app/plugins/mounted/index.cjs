@@ -603,8 +603,17 @@ function modelRuntimePlugin() {
   }
 }
 
-/** Every mounted plugin, in the order the plan lists them. */
-function mountedPlugins() {
+/**
+ * Every mounted plugin, in the order the plan lists them.
+ *
+ * `options.host` is the shell's continuity layer, and it is passed to the **restart supervisor only**:
+ * that plugin asks what is running, parks it before a restart and continues it afterwards, and the
+ * answer has to be Core's rather than a plugin's. Every other mounted plugin gets exactly what it got
+ * before, because a hook handed to a plugin that does not need it is a hook that will eventually be
+ * used for something else.
+ */
+function mountedPlugins(options = {}) {
+  const host = options && typeof options.host === 'object' ? options.host : null
   return [
     shellRuntimePlugin(),
     gitOperatorPlugin(),
@@ -630,7 +639,7 @@ function mountedPlugins() {
     // out-of-process companion is started through the shell hooks `desktop-main.cjs` passes in.
     // Unlike the monitor it ships *enabled*, because without it no restart can be requested at all
     // -- and its budget, not a disabled plugin, is what keeps that from being dangerous.
-    restartSupervisorPlugin()
+    restartSupervisorPlugin(host ? { host } : {})
   ]
 }
 

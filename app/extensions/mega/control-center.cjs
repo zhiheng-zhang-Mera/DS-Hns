@@ -32,6 +32,15 @@ function row(cn, en, value, tone = null, extra = null) {
   return { cn, en, value: value === undefined || value === null ? '—' : String(value), tone, ...(extra || {}) }
 }
 
+/**
+ * The **closed action vocabulary**, from the one module that owns it.
+ *
+ * It is republished in the snapshot so the official page draws the buttons the host will actually
+ * execute: the view model used to carry its own list, and four of its buttons named actions the
+ * governance bridge refused. Both halves now read `app/core/contracts/service-actions.cjs`.
+ */
+const serviceActions = require('../../core/contracts/service-actions.cjs')
+
 /** A row of the view model's dashboard: the same two labels, a value, a tone — and an id, so a surface can find it. */
 function field(id, cn, en, value, tone = null) {
   return { id, cn, en, value: value === undefined || value === null || value === '' ? '—' : String(value), tone }
@@ -40,6 +49,17 @@ function field(id, cn, en, value, tone = null) {
 /** A titled group of rows. Same shape as the Control Center's own sections, one level down. */
 function group(id, cn, en, rows) {
   return { id, cn, en, rows }
+}
+
+/** An epoch millisecond as an ISO instant, or `—`: a control centre that invented a time would be worse than one that admitted it has none. */
+function isoTime(value) {
+  const ms = Number(value)
+  if (!Number.isFinite(ms) || ms <= 0) return '—'
+  try {
+    return new Date(ms).toISOString()
+  } catch {
+    return '—'
+  }
 }
 
 /** `172` → `2m 52s`; anything that is not a finite count of seconds answers `—` rather than inventing a zero. */
@@ -142,7 +162,7 @@ function pluginActions(state) {
  * @param {object} [input.balance]    `balanceService.describe()` — the account the runs are billed to (MEGA-04)
  * @param {object} [input.pricing]    `PricingRepository.describe()` — which price list the cost is billed against
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null, services = null, advanced = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null, services = null, restartStatus = null, advanced = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -152,6 +172,16 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
   const degraded = (protection?.degraded || []).length
   const failed = (protection?.failed || []).length
   const failing = Number(counts.BLOCKED || 0) + Number(counts.RETRYING || 0) + Number(counts.FAILED || 0)
+  /**
+   * Work held for a person, and work the policy is holding.
+   *
+   * The scheduler publishes both (`activeQueue.waitingHuman` / `activeQueue.deferred`); the older
+   * `counts.BLOCKED` is still read as a fallback for a build whose queue carries it. This is the number
+   * the official page and both balls show as 待人工 — it had no producer at all before, so a user saw a
+   * permanent `0` that no code could ever raise.
+   */
+  const waitingHuman = Math.max(0, Number(active.waitingHuman ?? counts.BLOCKED ?? 0) || 0)
+  const deferred = Math.max(0, Number(active.deferred ?? counts.SUSPENDED ?? 0) || 0)
   /**
    * The tasks that have not run yet — the half of the queue a person can still change.
    *
@@ -205,6 +235,30 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
           return rows
         })
         : [row('内置服务', 'Built-in services', 'report unavailable', 'warn')]
+    },
+    {
+      /**
+       * The formal `restart_status`, as its own section.
+       *
+       * It is not duplicated from the supervisor's row above: that row says whether the *plugin* is
+       * running, this says what the last restart *did* — the reason, the three times, whether the
+       * interrupted work continued, and how many attempts the ring holds. A person asking "did my work
+       * come back" is asking this, and the answer is read from the file the supervisor persists, so it
+       * survives the restart it describes.
+       */
+      id: 'restart',
+      cn: '重启状态',
+      en: 'Restart status',
+      rows: restartStatus && restartStatus.available !== false
+        ? [
+          row('状态', 'Status', restartStatus.phase || 'UNKNOWN', restartStatus.inFlight ? 'warn' : restartStatus.phase === 'FAILED' ? 'bad' : null),
+          row('原因', 'Reason', restartStatus.reason ? `${restartStatus.reason.code || 'UNKNOWN'}${restartStatus.reason.summary ? ` — ${restartStatus.reason.summary}` : ''}` : '—'),
+          row('请求时间', 'Requested at', isoTime(restartStatus.requestedAt)),
+          row('完成时间', 'Completed at', isoTime(restartStatus.completedAt)),
+          row('恢复结果', 'Recovery result', `${restartStatus.recoveryResult || 'NONE'}${restartStatus.failedRecoveryReason ? ` — ${restartStatus.failedRecoveryReason}` : ''}`, restartStatus.recoveryResult === 'FULL' ? 'ok' : restartStatus.recoveryResult === 'FAILED' ? 'bad' : restartStatus.recoveryResult === 'NONE' ? null : 'warn'),
+          row('历史条数', 'History', `${restartStatus.historyCount || 0} recorded`, Number(restartStatus.historyCount || 0) > 2 ? 'warn' : null)
+        ]
+        : [row('重启状态', 'Restart status', 'report unavailable', 'warn')]
     },    {
       id: 'execution',
       cn: '执行',
@@ -212,6 +266,13 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
       rows: [
         row('运行中的 worker', 'Running workers', active.workerSlotsInUse ?? 0, 'busy'),
         row('排队任务', 'Queued tasks', active.queued ?? 0),
+        /**
+         * Held work, split by *why*: the policy is holding `deferred`, and a person is holding
+         * `waitingHuman`. Both are visible in the official UI's own rows rather than only in the
+         * enhanced panel, because "nothing is running" needs a reason next to it.
+         */
+        row('策略延迟', 'Deferred by policy', deferred, deferred ? 'busy' : null),
+        row('等待人工', 'Waiting for a person', waitingHuman, waitingHuman ? 'warn' : null),
         row('阻塞', 'Blocked', counts.BLOCKED || 0, counts.BLOCKED ? 'warn' : null),
         row('重试中', 'Retrying', counts.RETRYING || 0, counts.RETRYING ? 'warn' : null),
         row('失败', 'Failed', counts.FAILED || 0, counts.FAILED ? 'bad' : null)
@@ -469,7 +530,7 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
     }))
   }
 
-  return { ok: true, sections, dashboard, modules, plugins, services: Array.isArray(services) ? services : [], advanced: advanced || null, degraded, failed, failing }
+  return { ok: true, sections, dashboard, modules, plugins, services: Array.isArray(services) ? services : [], restartStatus: restartStatus && restartStatus.available !== false ? restartStatus : null, advanced: advanced || null, degraded, failed, failing, pending: waitingHuman, deferred, serviceActions: serviceActions.SERVICE_ACTIONS, productActions: serviceActions.PRODUCT_ACTIONS }
 }
 
 module.exports = { buildControlCenter, moduleActions, pluginActions, moduleTone, pluginTone }

@@ -1068,6 +1068,14 @@ function ensurePluginHost() {
     reason: () => 'the plugin runtime is disabled by config/app.json (plugins.enabled = false)',
     defaults: block,
     enforceLock: block.enforceLock === true,
+    /**
+     * Core's task-continuity hooks, handed to the shipped plugins that declare a need for them.
+     *
+     * The supervisor asks them what is running, parks it before a restart and continues it afterwards;
+     * this is the layer that can answer, because the tasks are the shell's and the extension's, not a
+     * plugin's.
+     */
+    continuity: taskContinuity().hooks,
     // A compatibility-mode plugin is activated in a separate process. It has to be *this*
     // deployment's node: a packaged application has no other one on the machine.
     nodeExe: safeNodeExe()
@@ -1393,63 +1401,15 @@ function ensureReboot() {
     store: rebootStoreRef,
     platform,
     log: (line) => logLine(line),
-    targets: {
-      subWorker: {
-        status: () => {
-          if (!workerManager) return null
-          const state = workerManager.state || {}
-          return { running: Boolean(workerManager.isRunning), state: state.state || null, stage: state.stage || null, task_id: state.task_id || null }
-        },
-        suspend: async ({ plan }) => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = workerManager.pause(`scheduled restart ${plan.id}`)
-          if (!result || result.ok === false) return result || { ok: false, reason: 'the worker refused to pause' }
-          const delivered = Array.isArray(result.workers) ? result.workers.length : 0
-          return {
-            ok: true,
-            // A running worker answers `pause` and suspends at its own next checkpoint: that is a request
-            // in flight, and the coordinator waits for it rather than restarting over it.
-            pending: result.state === 'PAUSING' || delivered > 0,
-            state: result.state || null,
-            detail: delivered || result.state === 'PAUSING'
-              ? 'the worker was asked to stop at its next checkpoint'
-              : 'the worker is suspended'
-          }
-        },
-        resume: async () => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = typeof workerManager.resumeLastTask === 'function'
-            ? await workerManager.resumeLastTask()
-            : workerManager.resume('continuing after a scheduled restart')
-          return { ok: Boolean(result && result.ok !== false), detail: (result && (result.reason || result.detail)) || 'the sub-worker was resumed' }
-        }
-      },
-      engineering: {
-        parkPolicy: 'boundary-first',
-        status: () => {
-          if (!engineeringHost) return null
-          const state = engineeringHost.status()
-          if (!state || state.ok === false) return null
-          return { running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
-        },
-        suspend: async () => {
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          const cancelled = engineeringHost.cancel({ reason: 'a scheduled restart is waiting for a parkable phase' })
-          if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
-          return { ok: true, detail: 'the episode stopped at a step boundary and checkpointed' }
-        },
-        resume: async (intent) => {
-          const request = intent && intent.targetState && intent.targetState.request
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          if (!request || !request.workspace || !request.goal) {
-            return { ok: false, reason: 'the episode was not recorded with a repository and a goal, so it cannot be resumed automatically' }
-          }
-          const started = engineeringHost.run({ workspace: request.workspace, goal: request.goal, reason: 'continuing after a scheduled restart' })
-          if (started && started.ok === false) return { ok: false, reason: started.error || 'the episode could not be restarted' }
-          return { ok: true, detail: 'the episode resumed from its last checkpoint' }
-        }
-      }
-    }
+    /**
+     * The task targets, from the one module that owns them.
+     *
+     * They used to be written out here, which meant the only path that knew how to park the sub-worker
+     * and the engineering runtime was the *scheduled machine restart*. The restart supervisor needs the
+     * same two things — what is running, and how to stop and continue it — so they live in
+     * `app/reboot/targets.cjs` and both paths drive them (see `taskContinuity()` below).
+     */
+    targets: taskTargets()
   })
   logLine(`reboot scheduler ready (${platform.supported ? 'restart supported' : `restart not supported on ${platform.platform}`})`)
   return rebootCoordinator
@@ -1459,6 +1419,85 @@ function ensureReboot() {
 function rebootStore() {
   ensureReboot()
   return rebootStoreRef
+}
+
+/**
+ * The task targets both restart paths drive.
+ *
+ * The shell owns the sub-worker and the engineering runtime, so it is the layer that can hand out an
+ * adapter for each; *how* to park and continue them is not written here any more (`app/reboot/targets.cjs`),
+ * because the scheduled machine restart and the supervisor's application restart must not drift apart.
+ */
+let rebootTargetsRef = null
+function taskTargets() {
+  if (rebootTargetsRef) return rebootTargetsRef
+  const { createRebootTargets } = require('./reboot/targets.cjs')
+  rebootTargetsRef = createRebootTargets({ workerManager, engineeringHost, log: (line) => logLine(line) })
+  return rebootTargetsRef
+}
+
+/**
+ * Core's **task continuity**, as the restart supervisor consumes it.
+ *
+ * This is the answer to the half of a restart that is not about processes: what is running, park it at
+ * its own boundary, write down what will have to be continued, and afterwards continue it — reporting
+ * the three different things "recovery" can mean (process, task, semantic) instead of one `ok: true`.
+ *
+ * It is created once and shared: the plugin host hands it to the shipped plugins that declare a need
+ * for it, and the shell's own diagnostics read the same object, so the recorded intent and the resumed
+ * work cannot disagree.
+ */
+let taskContinuityRef = null
+function taskContinuity() {
+  if (taskContinuityRef) return taskContinuityRef
+  const { createTaskContinuity } = require('./core/task-continuity.cjs')
+  taskContinuityRef = createTaskContinuity({
+    targets: taskTargets(),
+    stateDir: path.join(ROOT, 'data', 'state'),
+    log: (line) => logLine(line)
+  })
+  return taskContinuityRef
+}
+
+/**
+ * The health decision, as a plain snapshot the queue can act on.
+ *
+ * It reads the `health-pressure` capability from the plugin registry — read-only, once per question,
+ * and `null` when no monitor is providing one. Nothing here samples the machine: a second sampler
+ * would be a second opinion about pressure, which is the duplication this whole split exists to
+ * avoid.
+ */
+function healthDecisionSnapshot() {
+  try {
+    const registry = pluginHost && pluginHost.manager ? pluginHost.manager.registry : null
+    if (!registry || typeof registry.resolve !== 'function') return null
+    const surface = registry.resolve('health-pressure', { optional: true })
+    if (!surface || typeof surface.decide !== 'function') return null
+    const decision = surface.decide() || {}
+    const latest = typeof surface.pressure === 'function' ? surface.pressure() : null
+    const pressure = Number.isFinite(Number(decision.pressure)) ? Number(decision.pressure) : (latest && Number.isFinite(Number(latest.pressure)) ? Number(latest.pressure) : null)
+    const reasons = Array.isArray(decision.reasons) ? decision.reasons.filter(Boolean) : []
+    return {
+      action: decision.action || 'NO_ACTION',
+      state: decision.state || null,
+      pressure,
+      trend: decision.trend && decision.trend.trend ? decision.trend.trend : null,
+      reason: reasons.length ? reasons.join('; ') : (decision.held ? String(decision.held) : null),
+      explicit: true
+    }
+  } catch (error) {
+    logLine(`the health decision could not be read: ${error?.message || error}`)
+    return null
+  }
+}
+
+/** The one work-admission gate, built once. */
+let workAdmissionRef = null
+function workAdmission() {
+  if (workAdmissionRef) return workAdmissionRef
+  const { createWorkAdmission } = require('./core/work-admission.cjs')
+  workAdmissionRef = createWorkAdmission({ provider: healthDecisionSnapshot, log: (line) => logLine(line) })
+  return workAdmissionRef
 }
 
 /** A due plan fires within a few seconds, and the countdown the panel draws stays true. */
@@ -2511,6 +2550,16 @@ async function startExtensions(nodeExe) {
       // and the dock must degrade gracefully.
       subWorker: workerManager,
       onSubWorkerChange: subscribeSubWorker,
+      /**
+       * **Work admission**: the health decision, asked by the queue before it starts anything new.
+       *
+       * `app/core/work-admission.cjs` turns the monitor's decision into "may new work start, and with
+       * how many slots". The seam is here because the shell is the only layer that can see both halves:
+       * the queue belongs to the Mega extension, the decision to a plugin, and neither may reach into
+       * the other. A monitor that is absent, disabled or answering UNKNOWN admits — no evidence, no
+       * restriction — and one that throws is a log line rather than a stopped queue.
+       */
+      workAdmission: () => workAdmission().admit(),
       // The store changes the installed set while the plugin host's world is already built.
       // This hook lets the store *await* the rebuild, so the panel's next read cannot show
       // "enabled" for a plugin the runtime has not mounted yet.
@@ -2528,6 +2577,14 @@ async function startExtensions(nodeExe) {
       pluginServices: {
         report: (id) => host().serviceReport(id),
         reportAll: (ids) => host().serviceReports(ids),
+        /**
+         * The formal `restart_status`, for the panels.
+         *
+         * It is its own hook rather than a field a panel digs out of the supervisor's record: the
+         * official UI must be able to show "when did this machine last restart and what came back"
+         * even while the plugin that owns the answer is the thing that just failed.
+         */
+        restartStatus: () => host().restartStatus(),
         setEnabled: (id, enabled) => host().setEnabled(id, enabled),
         checkHealth: (id) => host().health(id),
         reload: (id, options) => host().reload(id, options),

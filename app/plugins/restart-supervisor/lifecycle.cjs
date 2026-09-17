@@ -67,6 +67,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * @param {Function} [input.continuity.pendingWork] `() => { active, nearCheckpoint, uninterruptible, queued }`
  * @param {object} [input.readiness] the readiness probes, `{ process, runtime, network, plugins, continuity }`
  * @param {Function} [input.sleep] injectable, so a test does not wait out a real backoff
+ * @param {Function} [input.onPhase] `(phase, detail) => void` — called at each stage of the sequence
  */
 function createRestartLifecycle(input = {}) {
   const budget = input.budget
@@ -77,6 +78,23 @@ function createRestartLifecycle(input = {}) {
   const executor = input.executor && typeof input.executor === 'object' ? input.executor : {}
   const continuity = input.continuity && typeof input.continuity === 'object' ? input.continuity : {}
   const probes = input.readiness && typeof input.readiness === 'object' ? input.readiness : {}
+  /**
+   * The stage observer.
+   *
+   * A restart destroys the memory it runs in, so the *progress* of one has to leave the process as it
+   * happens — that is what `restart_status` is for, and this is where the lifecycle reports it. The
+   * callback is deliberately fire-and-forget: an observer that throws must not fail a restart, and one
+   * that is absent must not change the sequence.
+   */
+  const onPhase = typeof input.onPhase === 'function' ? input.onPhase : null
+  function notePhase(phase, detail = null) {
+    if (!onPhase) return
+    try {
+      onPhase(String(phase), detail === null || detail === undefined ? null : String(detail))
+    } catch (error) {
+      log(`the restart stage observer threw at ${phase}: ${error && error.message ? error.message : error}`)
+    }
+  }
   const lifecycleConfig = (config.lifecycle && typeof config.lifecycle === 'object') ? config.lifecycle : {}
   const readinessConfig = (config.readiness && typeof config.readiness === 'object') ? config.readiness : {}
   const gracefulTimeoutMs = Number.isFinite(lifecycleConfig.gracefulTimeoutMs) ? lifecycleConfig.gracefulTimeoutMs : 45_000
@@ -265,6 +283,7 @@ function createRestartLifecycle(input = {}) {
       // 1. Tell Core continuity what is about to happen, before anything stops accepting work: the
       //    layer that owns the tasks has to know first, or it will be asked to park something it has
       //    already lost.
+      notePhase('CONTINUITY', `${at.plan.reasonCode}: ${request.reasonSummary || 'no summary'}`)
       const notified = await call(continuity.beforeRestart, [{ plan: at.plan, request, at: at.startedAt }], 'continuity.beforeRestart')
       if (notified.ok !== true && notified.threw !== true) {
         // A continuity layer that answers "no" is refusing: the request is cancelled and the budget
@@ -275,6 +294,7 @@ function createRestartLifecycle(input = {}) {
       }
 
       // 2. Wait for a boundary the task layer calls safe, inside a bounded window.
+      notePhase('BOUNDARY', 'waiting for a safe boundary')
       const boundary = await waitForBoundary(at.startedAt + boundaryTimeoutMs)
       if (boundary.ok !== true) {
         budget.cancelPending('no safe boundary')
@@ -285,13 +305,16 @@ function createRestartLifecycle(input = {}) {
 
       // 3. Stop the application. Everything after this point is post-mortem for this process.
       at.stoppingAt = now()
+      notePhase('STOPPING', `graceful, then forced after ${gracefulTimeoutMs}ms`)
       const stopped = await stopApplication(at)
       if (stopped.ok !== true) {
         const record = budget.record({ at: now(), ok: false, reasonCode: at.plan.reasonCode, code: stopped.code, detail: stopped.reason, durationMs: now() - at.startedAt })
         return { ok: false, code: stopped.code, reason: stopped.reason, record, counted: true, ms: now() - at.startedAt }
       }
+      notePhase('STOPPED', `${stopped.kind}${stopped.forced ? ' (forced)' : ''}`)
 
       // 4. The executor relaunches. From here the supervisor is waiting for evidence, not commanding.
+      notePhase('RELAUNCHING', 'the executor is starting the application again')
       const launched = await call(executor.launch, [{ plan: at.plan, kind: stopped.kind }], 'executor.launch')
       if (launched.ok !== true) {
         const record = budget.record({ at: now(), ok: false, reasonCode: at.plan.reasonCode, code: SUPERVISOR_FAULT_CODES.EXECUTION_FAILED, detail: launched.reason || 'the application could not be relaunched', durationMs: now() - at.startedAt })
@@ -301,6 +324,7 @@ function createRestartLifecycle(input = {}) {
       const waited = await call(executor.waitForExit, [{ timeoutMs: gracefulTimeoutMs }], 'executor.waitForExit')
 
       // 5. Readiness: five gates, bounded retries, one shared deadline.
+      notePhase('READINESS', 'waiting for the readiness gates')
       const readiness = await waitForReadiness(at.relaunchedAt)
       if (readiness.ok !== true) {
         const record = budget.record({ at: now(), ok: false, reasonCode: at.plan.reasonCode, code: readiness.code, detail: readiness.reason, readiness, durationMs: now() - at.startedAt })
@@ -308,6 +332,7 @@ function createRestartLifecycle(input = {}) {
       }
 
       // 6. Tell continuity it may resume. It does the resuming.
+      notePhase('RECOVERY', 'asking Core continuity to resume the interrupted work')
       const resume = await call(continuity.afterRestart, [{ plan: at.plan, readiness }], 'continuity.afterRestart')
       const record = budget.record({
         at: now(),

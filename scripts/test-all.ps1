@@ -67,7 +67,16 @@ $syntaxFiles = @(
   "$ROOT\app\extensions\mega\theme\assets\validator.js",
   "$ROOT\app\extensions\mega\theme\assets\fallback.js",
   "$ROOT\app\extensions\mega\theme\official\overlay-layout.js",
-  "$ROOT\app\extensions\mega\theme\official\overlay-safety.js"
+  "$ROOT\app\extensions\mega\theme\official\overlay-safety.js",
+  # The two Core seams: task continuity across a restart, and the health decision at the queue's door.
+  "$ROOT\app\core\task-continuity.cjs",
+  "$ROOT\app\core\work-admission.cjs",
+  # The shared action vocabulary the panels draw and the governance bridge accepts.
+  "$ROOT\app\core\contracts\service-actions.cjs",
+  # The restart record that outlives the process that wrote it.
+  "$ROOT\app\plugins\restart-supervisor\status.cjs",
+  # The task targets the scheduled restart and the supervisor both drive.
+  "$ROOT\app\reboot\targets.cjs"
 )
 foreach ($file in $syntaxFiles) {
   & $node --check $file
@@ -195,6 +204,9 @@ try {
     # entry point the requirement keeps. Asserted by name so a renamed harness fails the gate rather
     # than silently dropping the long-running coverage.
     'longhost-soak.test.js',
+    # The other half of long-hosting: the formal restart record, the tasks that have to survive a
+    # restart, and the health decision at the queue's door. Asserted by name for the same reason.
+    'longhost-continuity.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

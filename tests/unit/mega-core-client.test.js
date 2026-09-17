@@ -887,7 +887,8 @@ test('the page renders §4.4 governance on its own card, and its actions go thro
   assert.equal(rendered.tree.props.style.background, 'rgba(14,16,20,.97)')
   assert.equal(rendered.tree.props.style.color, '#ededed')
 
-  // Every action the page offers is one governance accepts, and asking is a POST of `{ action, id }`.
+  // Every action the page offers is one governance accepts, and asking is a POST of the action, its id —
+  // `null` for a product-level action, which is what made these buttons real — and the confirmation flag.
   const buttons = find(rendered.tree, (element) => element.type === 'button')
   const labels = buttons.map((element) => strings(element).join(''))
   assert.ok(labels.includes('retry'), `no action button reached the page: ${labels.join(', ')}`)
@@ -895,7 +896,7 @@ test('the page renders §4.4 governance on its own card, and its actions go thro
   await tick()
   const action = mounted.fetchImpl.calls.find((call) => call.url === '/mega-core/action')
   assert.ok(action, 'the action never left the page')
-  assert.deepEqual(JSON.parse(action.init.body), { action: 'retry', id: null })
+  assert.deepEqual(JSON.parse(action.init.body), { action: 'retry', id: null, confirm: false })
 })
 
 test('a hidden document is not polled, and becoming visible again polls immediately', async () => {
@@ -1256,9 +1257,16 @@ test('the official page lists the two built-in services, from the plugin host\'s
     assert.equal(enabled.ok, true, JSON.stringify(enabled))
 
     const records = host.serviceReports()
-    assert.equal(records.length, 2)
+    /**
+     * The roster is the **whole runtime**, not the two built-ins.
+     *
+     * A default that answered for two plugins made the other two dozen invisible on the one surface every
+     * user has; the two the requirement names are simply the ones this test then goes on to check.
+     */
+    assert.ok(records.length >= 2, `the service roster must cover the runtime, got ${records.length}`)
     const ids = records.map((record) => record.id).sort()
-    assert.deepEqual(ids, ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    assert.ok(ids.includes('dshns.health-scheduler'), `the monitor is missing from the roster: ${ids.join(', ')}`)
+    assert.ok(ids.includes('dshns.restart-supervisor'))
     for (const record of records) {
       assert.equal(record.ok, true, `${record.id} has no service record`)
       // The four states are separate facts, and a panel that collapsed them would be the defect this
@@ -1275,7 +1283,7 @@ test('the official page lists the two built-in services, from the plugin host\'s
 
     // The view model, from those records and nothing else.
     const view = buildMegaView({ governance: { ok: true, services: records } })
-    assert.equal(view.services.length, 2)
+    assert.equal(view.services.length, records.length, 'the view must carry the whole roster the host published')
     const supervisorView = view.services.find((service) => service.id === 'dshns.restart-supervisor')
     assert.equal(supervisorView.state, 'DEGRADED', `the supervisor with no companion must be DEGRADED, got ${supervisorView.state}`)
     assert.ok(supervisorView.restart && supervisorView.restart.budget, 'the supervisor\'s restart block is missing from the view')
@@ -1289,7 +1297,9 @@ test('the official page lists the two built-in services, from the plugin host\'s
     const mounted = await mount({ fetchImpl: fakeFetch({ view }) })
     const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
     const rows = find(rendered.tree, (element) => element.props['data-hns-service'])
-    assert.deepEqual(rows.map((row) => row.props['data-hns-service']).sort(), ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    const rowIds = rows.map((row) => row.props['data-hns-service'])
+    assert.equal(rowIds.length, records.length, 'every plugin in the roster must have a row')
+    assert.ok(rowIds.includes('dshns.restart-supervisor') && rowIds.includes('dshns.health-scheduler'), `the two built-ins are missing: ${rowIds.join(', ')}`)
     const said = strings(rendered.tree).join(' | ')
     assert.match(said, /Built-in services/)
     assert.match(said, /installed yes/)

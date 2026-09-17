@@ -426,11 +426,21 @@ test('a service record is plain, serialisable data built from the layer that own
     await host.setEnabled({ id: 'dshns.health-scheduler', enabled: true })
 
     const records = host.serviceReports()
-    assert.deepEqual(records.map((record) => record.id).sort(), ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    /**
+     * The default roster is the **whole runtime**.
+     *
+     * It used to answer for the two built-ins only, which made every other shipped plugin invisible on the
+     * official page — the one surface every user has. The two the requirement names are checked below;
+     * the rest are the reason the default changed.
+     */
+    const ids = records.map((record) => record.id).sort()
+    assert.ok(ids.length >= 2, `the roster must cover the runtime, got ${ids.length}`)
+    assert.ok(ids.includes('dshns.health-scheduler') && ids.includes('dshns.restart-supervisor'), `the two built-ins are missing: ${ids.join(', ')}`)
     for (const record of records) {
       assert.equal(record.ok, true, `${record.id} has no service record`)
-      // Plain data: no promise, and a round trip through JSON is the same object.
-      assert.equal(typeof (record.diagnostics && record.diagnostics.then), 'undefined', `${record.id}'s diagnostics is a promise`)
+      // Plain data: no promise (a record with no domain report is `null`, which is not a thenable), and a
+      // round trip through JSON is the same object.
+      assert.equal(record.diagnostics === null || typeof record.diagnostics.then === 'undefined', true, `${record.id}'s diagnostics is a promise`)
       assert.deepEqual(JSON.parse(JSON.stringify(record)).id, record.id)
       assert.equal(Object.prototype.hasOwnProperty.call(record, 'health'), true)
       assert.equal(Object.prototype.hasOwnProperty.call(record, 'healthy'), true)

@@ -117,7 +117,19 @@ test('there is exactly one restart executor: the supervisor, in process or as it
   const mounted = read('app/plugins/mounted/index.cjs')
   const providers = (mounted.match(/provides:.*restart-control/g) || []).length
   assert.equal(providers <= 1, true, 'more than one shipped plugin claims restart-control')
-  assert.match(mounted, /restartSupervisorPlugin\(\)/)
+  assert.match(mounted, /restartSupervisorPlugin\(host \? \{ host \} : \{\}\)/)
+  /**
+   * ...and the shell's continuity layer reaches that plugin, and only it.
+   *
+   * Parking and resuming the product's tasks is Core's (`app/core/task-continuity.cjs`), handed to the
+   * supervisor through `createPluginHost({ continuity })` and the mounted set. A plugin that received
+   * it by accident would be a plugin that can stop a user's work.
+   */
+  assert.equal((mounted.match(/\(host \? \{ host \} : \{\}\)/g) || []).length, 1, 'the continuity host must be passed to exactly one plugin')
+  const shell = read('app/desktop-main.cjs')
+  assert.match(shell, /continuity: taskContinuity\(\)\.hooks/)
+  assert.match(shell, /function taskContinuity\(\)/)
+  assert.match(shell, /require\('\.\/core\/task-continuity\.cjs'\)/)
 
   // The capability's declared provider is the supervisor, not the process adapter.
   const capability = require('../../app/core/contracts/capability.cjs')

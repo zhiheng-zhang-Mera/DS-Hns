@@ -27,6 +27,7 @@ const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
 const { createGovernanceBridge } = require('../../core/governance-bridge.cjs')
+const serviceActions = require('../../core/contracts/service-actions.cjs')
 const { createStartupCache } = require('./startup-cache.cjs')
 // The system floating orb (a window of ours that floats over every application, not only over this one).
 const { createSystemOrb, createOrbState } = require('./system-orb.cjs')
@@ -1856,6 +1857,33 @@ function controlCenter() {
       }
     })(),
     /**
+     * The formal `restart_status`, read from the host's own hook.
+     *
+     * It is a separate read rather than a field lifted out of the service record above, because it has
+     * to stay visible when the plugin that owns it is the thing that just failed: the official page
+     * shows "when did this machine last restart, why, and what came back" from this, and a failed
+     * supervisor still left a status file behind.
+     */
+    restartStatus: (() => {
+      try {
+        if (typeof ctx?.pluginServices !== 'function' || typeof ctx.pluginServices.restartStatus !== 'function') return null
+        return ctx.pluginServices.restartStatus()
+      } catch (error) {
+        log(`the restart status is unavailable: ${error?.message || error}`)
+        return null
+      }
+    })(),
+    /**
+     * Which floating ball is the one running.
+     *
+     * There are two implementations and exactly one may draw: this extension's own system-wide window
+     * (`system-orb.cjs`, opt-in through `DSH_SYSTEM_ORB=1`) and the official UI's `shell.overlay` ball
+     * drawn by the Mega Core client plugin. The host is the only layer that knows whether the window is
+     * up, so it says so here and the plugin stands its own ball down — a page cannot fix two balls with
+     * one state from inside itself.
+     */
+    orb: { mode: systemOrb ? 'system' : 'in-ui', system: Boolean(systemOrb) },
+    /**
      * The advanced settings Mega owns: the two plugins' own policy, with the schema's label, type and
      * range beside the value in force.
      *
@@ -1955,8 +1983,12 @@ function controlCenter() {
  *
  * A `restart-control` that is absent is reported as unavailable, never guessed at: the monitor's own
  * rule — "restart unavailable, and here is why" — applies to this surface too.
+ *
+ * The set is the **shared vocabulary** (`app/core/contracts/service-actions.cjs`), not a copy: the same
+ * list the host publishes to the page and the governance bridge accepts. Three copies of one vocabulary
+ * is how the page came to draw four buttons nothing would execute.
  */
-const SERVICE_ACTIONS = new Set(['check', 'diagnostics', 'enable', 'disable', 'restart-plugin', 'manual-restart', 'reset-budget'])
+const SERVICE_ACTIONS = new Set(serviceActions.SERVICE_ACTIONS.map((entry) => entry.id))
 
 async function serviceAction(action, id) {
   const host = typeof ctx?.pluginServices === 'function' ? ctx.pluginServices : null
@@ -2007,9 +2039,82 @@ async function serviceAction(action, id) {
   }
 }
 
+/**
+ * A **product-level** action: about the runtime, not one plugin.
+ *
+ * These are the recovery actions the page has always offered, and they name no id because the question
+ * they answer is "make everything healthy again". Each one is applied to every module the protection
+ * layer reports, and the answer says what was actually touched — a button that reported `ok: true`
+ * without naming what it did would be the dead button it replaced, only quieter.
+ *
+ * `check` re-reads health for every module; `retry` starts every module that is degraded or failed;
+ * `reset-fallback` lets the modules that fell back try their real implementation again.
+ */
+async function productAction(action, id = null) {
+  const protection = ctx.protection
+  if (!protection) return { ok: false, action, reason: 'the protection layer is not available in this build' }
+  try {
+    const described = typeof protection.describe === 'function' ? protection.describe() : {}
+    const modules = Array.isArray(described.modules) ? described.modules : []
+    const degraded = modules.filter((module) => module.state && module.state !== 'HEALTHY' && module.state !== 'DISABLED')
+    const targets = action === 'check' ? modules.map((module) => module.id) : degraded.map((module) => module.id)
+    if (action === 'refresh-balance') return { ok: true, action, id: null, result: { note: 'handled before this point' } }
+    const touched = []
+    const refused = []
+    for (const moduleId of targets) {
+      try {
+        const outcome = action === 'check'
+          ? await protection.check?.(moduleId)
+          : action === 'retry'
+            ? await protection.start?.(moduleId)
+            : await protection.stop?.(moduleId)
+        if (outcome && outcome.ok === false) refused.push({ id: moduleId, reason: outcome.reason || 'refused' })
+        else touched.push(moduleId)
+      } catch (error) {
+        refused.push({ id: moduleId, reason: String(error && error.message ? error.message : error) })
+      }
+    }
+    return {
+      ok: refused.length === 0,
+      action,
+      id,
+      result: { touched, refused, considered: targets.length },
+      reason: refused.length ? `${refused.length} module(s) refused: ${refused.map((entry) => entry.id).join(', ')}` : null
+    }
+  } catch (error) {
+    return { ok: false, action, reason: String(error && error.message ? error.message : error) }
+  }
+}
+
+/**
+ * Write one **advanced** policy key.
+ *
+ * The 38 dotted keys the two plugins read (thresholds, budgets, windows, timeouts) were described by the
+ * host and rendered by nothing, and the setter had no caller: an advanced surface that cannot be reached
+ * is not an advanced surface. This is the one write path, and it goes through the host's own validator, so
+ * a value the panel offers is a value the plugin accepts — a refusal carries its reason rather than being
+ * clamped into something that looks applied.
+ */
+async function advancedAction(payload = {}) {
+  const key = String(payload.key || '')
+  if (!key) return { ok: false, action: 'set-advanced', reason: 'an advanced write needs a key' }
+  if (typeof ctx?.pluginServices !== 'function' || typeof ctx.pluginServices.setAdvanced !== 'function') {
+    return { ok: false, action: 'set-advanced', key, reason: 'the plugin host is not available in this build' }
+  }
+  try {
+    const outcome = await ctx.pluginServices.setAdvanced(key, payload.value)
+    if (outcome && outcome.ok === false) return { ok: false, action: 'set-advanced', key, reason: outcome.reason || 'the host refused the value' }
+    // The panels read the config through the same hook, so what they show next is what was written.
+    return { ok: true, action: 'set-advanced', key, result: outcome || { key, value: payload.value } }
+  } catch (error) {
+    return { ok: false, action: 'set-advanced', key, reason: String(error && error.message ? error.message : error) }
+  }
+}
+
 async function controlAction(payload = {}) {
   const action = String(payload.action || '')
   const id = String(payload.id || '')
+  const confirm = payload.confirm === true
   if (action === 'refresh-balance') {
     if (balanceRefreshInFlight) return { ok: true, action, id: null, coalesced: true, started: false }
     balanceRefreshInFlight = true
@@ -2020,22 +2125,38 @@ async function controlAction(payload = {}) {
       .finally(() => { balanceRefreshInFlight = false })
     return { ok: true, action, id: null, started: true }
   }
-  if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
   try {
     /**
-     * The two built-in services answer through the **plugin host**, not through the protection layer or
-     * the store: a plugin is enabled, disabled, health-checked and diagnosed by the runtime that owns
-     * it, and a second path here would be a second answer about whether a plugin is running.
+     * **The confirmation is enforced here, not in a label.**
      *
-     * The two operations that only the restart supervisor has — a manual application restart and a
-     * budget reset — go through `restart-control`, which is the capability that exists for exactly
-     * this. Neither is performed silently: the control centre's own action vocabulary carries them,
-     * the official page flags them for confirmation, and a refusal is returned with the supervisor's
-     * reason (safe mode, a cooldown, an exhausted budget) rather than retried.
+     * The official page used to render `" (confirm)"` into the button's text and send the action straight
+     * away, so a manual application restart happened on the first click of a button that merely *said*
+     * "confirm". A dangerous action now has to arrive with `confirm: true`, which the page sends only
+     * after a person has agreed to it — and this refusal is what makes that true even for a caller that
+     * forgets. The two surfaces (the page and the governance bridge) both check it, because either can be
+     * reached first.
      */
-    if (SERVICE_ACTIONS.has(action)) {
+    if (serviceActions.isDangerous(action) && !confirm) {
+      return { ok: false, action, id: id || null, needsConfirmation: true, reason: `"${action}" changes the running product; it needs a confirmation first` }
+    }
+    /**
+     * **Product-level actions name no id.**
+     *
+     * `check` / `retry` / `reset-fallback` are about the runtime, not one plugin: they act on every module
+     * that needs them. They used to require an id the page never sent, which is why every recovery button
+     * on the official page was dead. With no id they now fan out over the modules that answer.
+     */
+    if (serviceActions.PRODUCT_ACTIONS.some((entry) => entry.id === action)) {
+      return productAction(action, id || null)
+    }
+    if (action === 'set-advanced') {
+      return advancedAction(payload)
+    }
+    if (serviceActions.SERVICE_ACTIONS.some((entry) => entry.id === action)) {
+      if (!id) return { ok: false, action, reason: `"${action}" acts on one plugin, so it needs an id` }
       return serviceAction(action, id)
     }
+    if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
     if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
     if (action === 'retry') return { ok: true, action, id, result: await ctx.protection?.start?.(id) }
     if (action === 'reset-fallback') return { ok: true, action, id, result: await ctx.protection?.stop?.(id) }
@@ -3576,6 +3697,20 @@ async function start(context) {
     log(`startup recovery moved ${migrated}/${total} terminal task(s) out of the active queue into history`)
   })
   scheduler.on('error', (error) => log(`scheduler error: ${error?.stack || error}`))
+  /**
+   * The health gate, installed before the first tick.
+   *
+   * The shell supplies it (`ctx.workAdmission`, built from the `health-pressure` capability the
+   * monitor provides); with no gate the queue admits everything, which is what a build with the
+   * monitor switched off must do. This is the *only* place the queue learns about pressure — the
+   * monitor itself cannot stop anything, and the queue does not probe the machine.
+   */
+  try {
+    const installed = scheduler.setWorkAdmission(typeof ctx?.workAdmission === 'function' ? ctx.workAdmission : null)
+    log(`scheduler: work admission ${installed.installed ? 'installed (the health decision gates new work)' : 'not installed (new work is admitted)'}`)
+  } catch (error) {
+    log(`scheduler: work admission could not be installed: ${error?.message || error}`)
+  }
   scheduler.start()
   // Ordinary official Harness sessions are announced by the session observer;
   // scheduler-dispatched and headless tasks are already covered by the

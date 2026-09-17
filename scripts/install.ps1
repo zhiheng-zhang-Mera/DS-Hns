@@ -317,6 +317,13 @@ $script:BuiltInPluginStates = [ordered]@{
   'dshns.health-scheduler' = 'NOT INSTALLED'
   'dshns.restart-supervisor' = 'NOT INSTALLED'
 }
+# What the *runtime* says about them, which is a different question from what the profile holds: the
+# registration check fills this in (registered, mounted, or listed in the official UI), and the
+# completion summary reports it rather than only the file-level state.
+$script:BuiltInRegistration = [ordered]@{
+  'dshns.health-scheduler' = 'NOT VERIFIED'
+  'dshns.restart-supervisor' = 'NOT VERIFIED'
+}
 try {
   # The orb first, and separately, because its outcome is what the summary's Mega Core line reports.
   $orbLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') -Plugin 'mega-core' 2>&1 | ForEach-Object { [string]$_ })
@@ -354,6 +361,53 @@ try {
   } elseif ($bundledExit -ne 0) {
     Write-Warning 'The built-in plugin installer produced no report; the plugins may not be in the profile.'
     foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  }
+
+  # The proof that matters: the runtime registers what the profile now carries.
+  #
+  # "The file is installed" and "the plugin is registered, mounted and listed by the official UI" are
+  # different claims, and the requirement names the gap between them: a plugin whose files are installed
+  # while the system has never registered it. This builds the real plugin host - the same one the product
+  # boots, through the same adapter framework - and reports per plugin whether the runtime knows it,
+  # whether it mounted, and whether the service row the official Settings page draws exists. A required
+  # plugin that is not registered fails the line.
+  Write-Host ''
+  Write-Host 'Built-in plugin registration'
+  $registrationScript = Join-Path $PSScriptRoot 'plugin-registration-check.cjs'
+  if (Test-Path -LiteralPath $registrationScript) {
+    $previousRegistration = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+      $registrationLines = @(& $node.Source $registrationScript --root $ROOT --json 2>&1 | ForEach-Object { [string]$_ })
+      $registrationExit = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousRegistration
+    }
+    $registrationJson = ($registrationLines | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+    if ($registrationJson) {
+      try {
+        $registration = $registrationJson | ConvertFrom-Json
+        foreach ($entry in @($registration.plugins)) {
+          $id = [string]$entry.id
+          if (-not $id) { continue }
+          $state = if ($entry.registered -ne $true) { 'NOT REGISTERED' } elseif ($entry.enabled -eq $true -and $entry.loaded -ne $true) { 'NOT MOUNTED' } elseif ($entry.loaded -eq $true) { 'REGISTERED + MOUNTED' } else { 'REGISTERED (DISABLED BY DEFAULT)' }
+          $script:BuiltInRegistration[$id] = $state
+          $uiNote = if ($entry.officialUi -eq $true) { 'listed in the official UI' } else { 'NOT in the official UI' }
+          Write-Host "  $id : $state; $uiNote"
+          if ($entry.registered -ne $true) { Write-Warning "$id is installed but the runtime has no record of it: $($entry.reason)" }
+        }
+        if (@($registration.duplicateRegistrations).Count) {
+          Write-Warning "the runtime registered a plugin more than once: $(@($registration.duplicateRegistrations) -join ', ')"
+          $script:BuiltInRegistration['duplicates'] = "DUPLICATE: $(@($registration.duplicateRegistrations) -join ', ')"
+        }
+      } catch {
+        Write-Warning "The plugin registration report could not be read: $($_.Exception.Message)"
+      }
+    } elseif ($registrationExit -ne 0) {
+      Write-Warning 'The plugin registration check produced no report; registration was not verified.'
+    }
+  } else {
+    Write-Warning 'scripts\plugin-registration-check.cjs is missing; registration was not verified.'
   }
 } catch {
   $script:MegaCoreState = 'FAILED'
@@ -676,6 +730,9 @@ Write-SummaryLine 'DS-Hns runtime' $runtimeState
 Write-SummaryLine 'Mega Core' $script:MegaCoreState
 Write-SummaryLine 'Health Scheduler' ([string]$script:BuiltInPluginStates['dshns.health-scheduler'])
 Write-SummaryLine 'Restart Supervisor' ([string]$script:BuiltInPluginStates['dshns.restart-supervisor'])
+# The runtime's answer, next to the profile's: what the official UI will actually list.
+Write-SummaryLine 'Health Scheduler (runtime)' ([string]$script:BuiltInRegistration['dshns.health-scheduler'])
+Write-SummaryLine 'Restart Supervisor (runtime)' ([string]$script:BuiltInRegistration['dshns.restart-supervisor'])
 Write-SummaryLine 'Plugin Market' $marketState
 Write-SummaryLine 'Wallpaper Engine' $wallpaperState
 Write-SummaryLine 'Adapter registry' $adapterState

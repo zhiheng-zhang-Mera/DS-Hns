@@ -242,8 +242,12 @@ function serviceTone(service) {
  * `restart` for the supervisor) are carried through verbatim: the page renders them, it does not
  * interpret them. That is what keeps this file from knowing what a "pressure" or a "restart budget"
  * is — a page that computed either would be a second answer to a question two plugins already own.
+ *
+ * `permissions` and the health plugin's `held`/`maintenance` half are carried too: they are computed by
+ * the host and the monitor, and a surface that dropped them left a user unable to see why work was being
+ * held, or what a plugin is allowed to do.
  */
-function serviceView(service) {
+function serviceView(service, vocabulary = SERVICE_ACTIONS) {
   const diagnostics = service.diagnostics || {}
   return {
     id: service.id,
@@ -259,6 +263,8 @@ function serviceView(service) {
     heartbeat: service.heartbeat || null,
     lastError: service.lastError || null,
     capabilities: service.capabilities || { provides: [], requires: [] },
+    /** What the plugin is allowed to do, as the host's own record states it (`null` when it declared none). */
+    permissions: service.permissions || null,
     fallback: service.fallback || null,
     adapter: service.adapter || null,
     /** The monitor's own report, when this is the monitor. */
@@ -267,6 +273,9 @@ function serviceView(service) {
     state5: diagnostics.state || null,
     explanation: diagnostics.explanation || null,
     providers: diagnostics.providers || null,
+    /** Why work is being held, when the monitor is holding any: the reason a user needs to read. */
+    held: diagnostics.explanation && diagnostics.explanation.held ? diagnostics.explanation.held : (diagnostics.lastOutcome && diagnostics.lastOutcome.held ? diagnostics.lastOutcome.held : null),
+    maintenance: diagnostics.maintenance || null,
     restart: diagnostics.report === undefined && diagnostics.budget ? {
       supervisorState: diagnostics.state || null,
       heartbeat: diagnostics.heartbeat ? diagnostics.heartbeat.verdict : null,
@@ -277,17 +286,18 @@ function serviceView(service) {
       lastRestartReason: (diagnostics.requests || []).slice().reverse().find((entry) => entry.type === 'restart-requested' || entry.type === 'restart-delegated') || null
     } : null,
     /** The actions the official page may offer, from the closed action vocabulary. */
-    actions: serviceActions(service)
+    actions: serviceActions(service, vocabulary)
   }
 }
 
 /**
  * What the official page may ask of one service.
  *
- * The low-level operations the requirement names, and the same closed set the governance bridge
- * accepts: enable, disable, re-read health, restart the plugin's host half, and — only when the
- * supervisor exists — reset its restart budget. A dangerous one (`restart`, `reset-budget`) is
- * offered but flagged, so the page can confirm it rather than perform it silently.
+ * The vocabulary comes from the **host** (`governance.serviceActions`, published from
+ * `app/core/contracts/service-actions.cjs`), so the page draws the buttons the host will execute. The
+ * built-in list below is the fallback for a bridge old enough not to publish one, and it is deliberately
+ * the same closed set — a page that offered an action the bridge refuses is a page whose buttons only
+ * print refusals.
  */
 const SERVICE_ACTIONS = Object.freeze([
   { id: 'check', label: '刷新健康 · Refresh health', dangerous: false },
@@ -299,7 +309,18 @@ const SERVICE_ACTIONS = Object.freeze([
   { id: 'diagnostics', label: '查看诊断 · View diagnostics', dangerous: false }
 ])
 
-function serviceActions(service) {
+/** The host's own list, when it published one. */
+function actionVocabulary(governance) {
+  const published = Array.isArray(governance && governance.serviceActions) ? governance.serviceActions : null
+  if (!published || !published.length) return SERVICE_ACTIONS
+  return published.map((entry) => ({
+    id: String(entry.id),
+    label: entry.cn && entry.en ? `${entry.cn} · ${entry.en}` : String(entry.id),
+    dangerous: entry.dangerous === true
+  }))
+}
+
+function serviceActions(service, vocabulary = SERVICE_ACTIONS) {
   if (service.ok !== true) return []
   const offered = ['check', 'diagnostics']
   if (service.enabled === true) offered.push('disable', 'restart-plugin')
@@ -307,7 +328,7 @@ function serviceActions(service) {
   // The two supervisor-only operations are offered only where the capability exists, because the
   // page must not show a control that the plugin would refuse.
   if (service.id === 'dshns.restart-supervisor') offered.push('manual-restart', 'reset-budget')
-  return SERVICE_ACTIONS.filter((action) => offered.includes(action.id)).map((action) => `${action.id}${action.dangerous ? ' (confirm)' : ''}`)
+  return vocabulary.filter((action) => offered.includes(action.id)).map((action) => `${action.id}${action.dangerous ? ' (confirm)' : ''}`)
 }
 
 /** `check` is the cheapest useful action, and it is what is offered when nothing is wrong. */
@@ -335,6 +356,58 @@ function recoveryActions(modules, plugins, { healthy }) {
  * @param {object} [input.governance] the Control Center snapshot, or null when the bridge did not answer
  * @param {Function} [input.now]      the clock, injected so a test can pin `at`
  */
+/**
+ * The formal **restart status**, as the official page draws it.
+ *
+ * It arrives from the plugin host's own read (the supervisor's `restart_status`, which is persisted
+ * outside the process), and it is carried into the view as its own object rather than as prose inside
+ * a line: "when did this machine last restart, why, did the work continue, and how many attempts have
+ * there been" is the question a person asks after an interruption, and the official UI is the surface
+ * every user has. An absent report is `null` and the rows say so — never a fabricated "no restarts".
+ */
+function restartStatusView(status) {
+  if (!status || typeof status !== 'object') {
+    return {
+      available: false,
+      phase: 'UNKNOWN',
+      inFlight: false,
+      reason: null,
+      recoveryResult: 'NONE',
+      failedRecoveryReason: null,
+      historyCount: 0,
+      summary: 'no restart status is available',
+      rows: []
+    }
+  }
+  const iso = (value) => (Number.isFinite(Number(value)) ? new Date(Number(value)).toISOString() : null)
+  const rows = [
+    { id: 'restart:phase', cn: '重启状态', en: 'Restart status', value: String(status.phase || 'UNKNOWN'), tone: status.inFlight ? 'warn' : status.phase === 'FAILED' ? 'bad' : null },
+    { id: 'restart:reason', cn: '重启原因', en: 'Restart reason', value: status.reason ? `${status.reason.code || 'UNKNOWN'}${status.reason.summary ? ` — ${status.reason.summary}` : ''}${status.reason.requestedBy ? ` (by ${status.reason.requestedBy})` : ''}` : '—' },
+    { id: 'restart:requested', cn: '请求时间', en: 'Requested at', value: iso(status.requestedAt) || '—' },
+    { id: 'restart:completed', cn: '完成时间', en: 'Completed at', value: iso(status.completedAt) || '—' },
+    {
+      id: 'restart:recovery',
+      cn: '恢复结果',
+      en: 'Recovery result',
+      value: `${status.recoveryResult || 'NONE'}${status.failedRecoveryReason ? ` — ${status.failedRecoveryReason}` : ''}`,
+      tone: status.recoveryResult === 'FULL' ? 'ok' : status.recoveryResult === 'FAILED' ? 'bad' : status.recoveryResult === 'NONE' ? null : 'warn'
+    },
+    { id: 'restart:history', cn: '重启历史', en: 'Restart history', value: `${status.historyCount || 0} recorded${status.historyLimit ? ` (ring of ${status.historyLimit})` : ''}`, tone: Number(status.historyCount || 0) > 2 ? 'warn' : null }
+  ]
+  return {
+    available: true,
+    phase: String(status.phase || 'UNKNOWN'),
+    inFlight: status.inFlight === true,
+    reason: status.reason || null,
+    recoveryResult: status.recoveryResult || 'NONE',
+    failedRecoveryReason: status.failedRecoveryReason || null,
+    historyCount: Number(status.historyCount || 0),
+    history: Array.isArray(status.history) ? status.history.slice(-10) : [],
+    summary: status.summary || null,
+    rows
+  }
+}
+
 export function buildMegaView({ plugin = {}, bridge = null, governance = null, now = () => new Date().toISOString() } = {}) {
   const pluginId = plugin.id || 'dsh-plugin-mega-core'
   const version = plugin.version || null
@@ -384,6 +457,25 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
    * report is an empty list, and the page says so rather than drawing two rows of dashes.
    */
   const services = Array.isArray(governance.services) ? governance.services : []
+  /** The action vocabulary the host published, so the page draws buttons the host will execute. */
+  const vocabulary = actionVocabulary(governance)
+  /** The formal restart record, from the host's own read: the official page renders this, Mega may too. */
+  const restartStatus = restartStatusView(governance.restartStatus)
+  /**
+   * Which floating ball is the one running.
+   *
+   * There are two implementations — the official `shell.overlay` slot (this plugin's) and DS-Hns's own
+   * system-wide window (`app/extensions/mega/system-orb.cjs`, opt-in) — and exactly one of them may
+   * draw, or a user gets two balls holding one state. The host says which: `governance.orb.mode` is
+   * `system` when the window is up, and this plugin then draws nothing.
+   */
+  const orbMode = governance.orb && governance.orb.mode ? String(governance.orb.mode) : 'in-ui'
+  const orb = {
+    mode: orbMode,
+    /** The ball drawn by *this* plugin is suppressed while the host's own window owns it. */
+    hideInUi: orbMode === 'system',
+    reason: orbMode === 'system' ? 'the system-wide ball is running; the in-UI ball would be a second one' : null
+  }
   const degraded = Number(governance.degraded || 0)
   const failed = Number(governance.failed || 0)
   const failing = Number(governance.failing || 0)
@@ -413,6 +505,14 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
     lines.push(line(pluginTone(entry.state), `${entry.state === 'failed' || entry.state === 'incompatible' ? '✖' : '⚠'} ${entry.id} ${entry.state || 'unknown'}${entry.reason ? ` — ${entry.reason}` : ''}`))
   }
   if (pending > 0) lines.push(line('warn', `⏸ ${pending} task(s) waiting for human`))
+  /**
+   * A restart the product is *in the middle of*, and a restart whose recovery fell short, are lines on
+   * the same list as everything else: both are things a person has to see without opening anything.
+   */
+  if (restartStatus.available && restartStatus.inFlight) lines.push(line('warn', `⟳ restart in progress (${restartStatus.phase})${restartStatus.reason ? ` — ${restartStatus.reason.code}` : ''}`))
+  if (restartStatus.available && !restartStatus.inFlight && restartStatus.recoveryResult && restartStatus.recoveryResult !== 'FULL' && restartStatus.recoveryResult !== 'NONE') {
+    lines.push(line(restartStatus.recoveryResult === 'FAILED' ? 'bad' : 'warn', `${restartStatus.recoveryResult === 'FAILED' ? '✖' : '⚠'} last restart recovery ${restartStatus.recoveryResult.toLowerCase()}${restartStatus.failedRecoveryReason ? ` — ${restartStatus.failedRecoveryReason}` : ''}`))
+  }
   // The built-in services state their own line whether they are well or not: a scheduler that is
   // disabled and a supervisor that cannot restart are the two facts a person most needs, and both
   // are invisible in a list that only reports faults.
@@ -477,7 +577,28 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
      * panel because the official page renders this object: a component whose failure the product is
      * meant to survive has to be visible in the one surface every user has.
      */
-    services: services.map(serviceView),
+    services: services.map((service) => serviceView(service, vocabulary)),
+    /**
+     * The advanced policy, as the host describes it (key, label, type, range, value in force).
+     *
+     * It used to reach the snapshot and no surface: 38 dotted keys an operator could not see, let alone
+     * change, from the one UI every user has. It is carried here so the official page can draw it, and
+     * written back through the host's own validator.
+     */
+    advanced: Array.isArray(governance.advanced) ? governance.advanced : [],
+    /**
+     * The formal restart record, in the view rather than only in the panel: the official Settings page
+     * is the surface every user has, and "what happened to the restart" must not be reachable only
+     * through the enhanced panel.
+     */
+    restartStatus,
+    /**
+     * Which ball is the one running, and why this plugin is not drawing one when it is not.
+     *
+     * The component reads this at render time rather than at mount: a host that switches to the
+     * system-wide ball must not require the page to be reloaded before the duplicate disappears.
+     */
+    orb,
     capabilities,
     /**
      * The live summary, next to — never instead of — the governance fields above. The ball draws this, the

@@ -163,7 +163,14 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'longhost-soak.cjs'),
   // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
   // checked like any other program the repository ships.
-  path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')
+  path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs'),
+  /**
+   * The two Core seams that live directly in `app/core/` — which is not one of `SOURCE_DIRS`, because the
+   * collector is deliberately non-recursive: task continuity (park/resume/verify across a restart) and
+   * work admission (the health decision at the queue's door). Both are product code, so both are checked.
+   */
+  path.join(ROOT, 'app', 'core', 'task-continuity.cjs'),
+  path.join(ROOT, 'app', 'core', 'work-admission.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

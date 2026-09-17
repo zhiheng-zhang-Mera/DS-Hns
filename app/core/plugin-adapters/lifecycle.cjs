@@ -345,6 +345,15 @@ function unifyLifecycle(input = {}) {
     if (typeof descriptor.diagnostics !== 'function') return null
     try {
       const answer = descriptor.diagnostics()
+      /**
+       * A promise is not a domain report.
+       *
+       * Some plugins implement `diagnostics()` asynchronously (they await a probe). A service record is
+       * serialised by an IPC reply and by the governance bridge, and a promise inside it arrives on the
+       * other side as `{}` — so an async answer is reported as *no synchronous domain report*, which is
+       * true, rather than as an empty one, which is a lie the panels would then draw.
+       */
+      if (answer && typeof answer.then === 'function') return null
       return answer && typeof answer === 'object' ? answer : null
     } catch (error) {
       const entry = errors.report(error, 'diagnostics', ADAPTER_FAULT_CODES.THREW, { hook: 'diagnostics' })

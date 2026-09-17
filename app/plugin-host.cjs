@@ -280,6 +280,14 @@ function createPluginHost(options = {}) {
   const reason = typeof options.reason === 'function' ? options.reason : () => 'the plugin runtime is disabled'
   const defaults = options.defaults && typeof options.defaults === 'object' ? options.defaults : {}
   const profile = options.profile && typeof options.profile === 'object' ? options.profile : {}
+  /**
+   * Core's task-continuity hooks, when the shell supplied them.
+   *
+   * They travel to the shipped plugins that declare a need for them (the restart supervisor) and to
+   * nothing else. The host does not implement them: parking and resuming a task is Core's, and a
+   * second implementation here would be a second answer to "what was interrupted".
+   */
+  const continuity = options.continuity && typeof options.continuity === 'object' ? options.continuity : null
 
   const bus = createEventBus({ now })
   const registry = createCapabilityRegistry({ now, bus })
@@ -524,9 +532,18 @@ function createPluginHost(options = {}) {
     return [...shippedArtifacts(), ...(await installedArtifacts())]
   }
 
-  /** The product's own plugin sets, as artifacts for the framework to adapt. */
+  /**
+   * The product's own plugin sets, as artifacts for the framework to adapt.
+   *
+   * The shell's **continuity layer** is handed to the mounted set here, and only to it: the restart
+   * supervisor is the plugin that asks "what is running, park it, continue it", and the answer is
+   * Core's own (`app/core/task-continuity.cjs`), not something a plugin may implement for itself. A
+   * store-installed plugin is never given it — a third-party plugin that could park the product's
+   * tasks would be a plugin that can stop a user's work.
+   */
   function shippedArtifacts() {
-    return [...mountedPlugins(), ...accelerationPlugins()].map((plugin) => ({
+    const host = continuity && typeof continuity === 'object' ? { ...continuity } : null
+    return [...mountedPlugins({ host }), ...accelerationPlugins()].map((plugin) => ({
       module: plugin,
       source: 'the shipped plugin set',
       shipped: true
@@ -1334,9 +1351,20 @@ function createPluginHost(options = {}) {
         return { ok: false, id: String(id), reason: String(error && error.message ? error.message : error) }
       }
     },
-    /** The two built-in services the requirement names, in one call, with their state kept apart. */
+    /**
+     * The plugin world as **service records**, in one call.
+     *
+     * With no ids it answers for **every** plugin in the runtime, not for the two built-ins: the official
+     * page is the surface every user has, and a roster that showed two of twenty-five plugins would make
+     * the rest invisible exactly where they matter most. The two the requirement names are simply the
+     * first two, and `serviceRecordOf` keeps their state apart like any other plugin's.
+     */
     serviceReports: (ids) => {
-      const wanted = Array.isArray(ids) && ids.length ? ids.map(String) : ['dshns.health-scheduler', 'dshns.restart-supervisor']
+      const all = list()
+      const plugins = Array.isArray(all) ? all : (all && Array.isArray(all.plugins) ? all.plugins : [])
+      const wanted = Array.isArray(ids) && ids.length
+        ? ids.map(String)
+        : (plugins.length ? plugins.map((entry) => entry.id) : ['dshns.health-scheduler', 'dshns.restart-supervisor'])
       return wanted.map((id) => {
         try {
           return serviceRecordOf(id)
@@ -1344,6 +1372,33 @@ function createPluginHost(options = {}) {
           return { ok: false, id, reason: String(error && error.message ? error.message : error) }
         }
       })
+    },
+    /**
+     * The formal `restart_status`, as its own read.
+     *
+     * It is deliberately not only a field inside the supervisor's service record: "when did this
+     * machine last restart, why, and what came back?" is the question a person asks a *product*, and a
+     * surface that had to know which plugin owns it would be a surface that cannot show it when that
+     * plugin is the thing that failed. The answer is read from the same record the official page draws,
+     * and from the file that survives the process.
+     */
+    restartStatus: () => {
+      try {
+        const record = serviceRecordOf('dshns.restart-supervisor')
+        const status = record && record.diagnostics ? record.diagnostics.restartStatus : null
+        if (status) return status
+        return {
+          status: 'restart_status',
+          phase: 'UNKNOWN',
+          inFlight: false,
+          reason: record && record.reason ? record.reason : 'the restart supervisor is not in this runtime',
+          summary: 'no restart status is available',
+          history: [],
+          historyCount: 0
+        }
+      } catch (error) {
+        return { status: 'restart_status', phase: 'UNKNOWN', inFlight: false, reason: String(error && error.message ? error.message : error), history: [], historyCount: 0 }
+      }
     },
     /**
      * Start the out-of-process halves a plugin asks for **at boot**, and only at boot.
