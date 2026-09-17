@@ -378,8 +378,30 @@ try {
     $previousRegistration = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-      $registrationLines = @(& $node.Source $registrationScript --root $ROOT --json 2>&1 | ForEach-Object { [string]$_ })
-      $registrationExit = $LASTEXITCODE
+      # Node is resolved the way the community step below resolves it: the repository's own bundled
+      # runtime first (an install may have no system Node at all), then whatever `node` the machine has.
+      $registrationExe = ''
+      try {
+        $registrationNodeDir = & (Join-Path $PSScriptRoot 'ensure-node.ps1') | Select-Object -Last 1
+        if ($registrationNodeDir) {
+          $candidateRegistrationNode = Join-Path ([string]$registrationNodeDir) 'node.exe'
+          if (Test-Path -LiteralPath $candidateRegistrationNode) { $registrationExe = $candidateRegistrationNode }
+        }
+      } catch {
+        $registrationExe = ''
+      }
+      if (-not $registrationExe) {
+        $registrationNodeCommand = Get-Command node -ErrorAction SilentlyContinue
+        if ($registrationNodeCommand) { $registrationExe = $registrationNodeCommand.Source }
+      }
+      if (-not $registrationExe) {
+        Write-Warning 'no usable Node.js was found; plugin registration was not verified.'
+        $registrationLines = @()
+        $registrationExit = 1
+      } else {
+        $registrationLines = @(& $registrationExe $registrationScript --root $ROOT --json 2>&1 | ForEach-Object { [string]$_ })
+        $registrationExit = $LASTEXITCODE
+      }
     } finally {
       $ErrorActionPreference = $previousRegistration
     }

@@ -76,7 +76,13 @@ $syntaxFiles = @(
   # The restart record that outlives the process that wrote it.
   "$ROOT\app\plugins\restart-supervisor\status.cjs",
   # The task targets the scheduled restart and the supervisor both drive.
-  "$ROOT\app\reboot\targets.cjs"
+  "$ROOT\app\reboot\targets.cjs",
+  # The chaos harness and the installer's registration probe: both are programs the acceptance run and
+  # the installer execute.
+  "$ROOT\scripts\longhost-chaos.cjs",
+  "$ROOT\scripts\plugin-registration-check.cjs",
+  # The generator of the long-hosting acceptance record.
+  "$ROOT\scripts\longhost-acceptance.cjs"
 )
 foreach ($file in $syntaxFiles) {
   & $node --check $file
@@ -207,6 +213,10 @@ try {
     # The other half of long-hosting: the formal restart record, the tasks that have to survive a
     # restart, and the health decision at the queue's door. Asserted by name for the same reason.
     'longhost-continuity.test.js',
+    # ...and the fault injection: a killed process, a dead plugin, a hung hook, a lost network, an
+    # interrupted repository, and a claimed success. Asserted by name so a renamed harness cannot drop
+    # the coverage silently.
+    'longhost-chaos.test.js',
     'ui-bilingual.test.js',
     'ui-layout-contract.test.js',
     'ui-panel-load.test.js',

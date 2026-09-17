@@ -1,0 +1,80 @@
+{
+  "label": "after",
+  "at": "2026-09-17T07:27:55.994Z",
+  "commit": "f00961957fe887ae4cfee871cb0fe71800575a94",
+  "branch": "try-auto",
+  "runtime": {
+    "shell": "app/desktop-main.cjs (Electron)",
+    "officialUi": "the @deepseek-ai/dsh Web UI in the shell window, plus the Mega Core client plugin",
+    "pluginHost": "app/plugin-host.cjs",
+    "adapters": "app/core/plugin-adapters/* (native-hns, process, cordis-dsh, harness-profile)",
+    "manager": "app/core/plugin-manager/index.cjs"
+  },
+  "plugins": {
+    "mounted": [
+      "shellRuntimePlugin",
+      "gitOperatorPlugin",
+      "taskSupervisorPlugin",
+      "telemetryPlugin",
+      "watchdogPlugin",
+      "failureRecoveryPlugin",
+      "checkpointPlugin",
+      "acceptanceGatePlugin",
+      "sessionKeeperPlugin",
+      "resourceManagerPlugin",
+      "modelRuntimePlugin",
+      "computerUsePlugin",
+      "uiStabilityPlugin",
+      "longTermWorkerPlugin",
+      "healthSchedulerPlugin",
+      "restartSupervisorPlugin"
+    ],
+    "mountedCount": 16,
+    "builtIn": [
+      {
+        "id": "dshns.health-scheduler",
+        "path": "app/plugins/health-scheduler/",
+        "provides": [
+          "runtime-health",
+          "hardware-health",
+          "health-pressure",
+          "maintenance-scheduling"
+        ],
+        "requires": [],
+        "optional": [
+          "restart-control",
+          "runtime-health"
+        ],
+        "defaultEnabled": true,
+        "acts": "observe -> evaluate -> decision (NO_ACTION / THROTTLE / PAUSE_NEW_WORK / REQUEST_RESTART); it cannot stop, spawn or restart anything"
+      },
+      {
+        "id": "dshns.restart-supervisor",
+        "path": "app/plugins/restart-supervisor/",
+        "provides": [
+          "restart-control"
+        ],
+        "requires": [],
+        "optional": [],
+        "defaultEnabled": true,
+        "acts": "the one application restart executor: budget, cooldown, backoff, crash-loop ladder, safe mode, lifecycle, readiness, and an out-of-process companion"
+      }
+    ]
+  },
+  "seams": {
+    "continuity": "app/core/task-continuity.cjs, handed to the supervisor at boot",
+    "admission": "app/core/work-admission.cjs, read by the scheduler before it starts work",
+    "actionVocabulary": "app/core/contracts/service-actions.cjs, shared by the page, the panel and the bridge",
+    "restartStatus": "not formalised",
+    "taskTargets": "app/reboot/targets.cjs, driven by both restart paths"
+  },
+  "ui": {
+    "slots": [
+      "shell.overlay (the ball)",
+      "settings.section (the Mega page)",
+      "conversation.session.header.actions (new task)"
+    ],
+    "floatingBall": "the official shell.overlay ball by default; the system-wide window (app/extensions/mega/system-orb.cjs) is opt-in and the host stands the in-UI ball down when it is running",
+    "officialUiFallback": "the settings section draws the service roster, the restart record, the advanced policy and the product actions"
+  }
+}

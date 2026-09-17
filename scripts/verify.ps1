@@ -244,9 +244,11 @@ $bundledInstaller = Get-Content "$ROOT\scripts\install-bundled-plugins.ps1" -Raw
 $uninstaller = Get-Content "$ROOT\scripts\uninstall-ds-harness.ps1" -Raw -ErrorAction SilentlyContinue
 $hostSource = Get-Content "$ROOT\app\plugin-host.cjs" -Raw -ErrorAction SilentlyContinue
 $soakHarness = Get-Content "$ROOT\scripts\longhost-soak.cjs" -Raw -ErrorAction SilentlyContinue
+$chaosHarness = Get-Content "$ROOT\scripts\longhost-chaos.cjs" -Raw -ErrorAction SilentlyContinue
+$registrationProbe = Get-Content "$ROOT\scripts\plugin-registration-check.cjs" -Raw -ErrorAction SilentlyContinue
 $supervisorDocs = Get-Content "$ROOT\docs\restart-supervisor.md" -Raw -ErrorAction SilentlyContinue
 
-Check 'Both built-in plugins are part of the shipped set, mounted through the one adapter' (($mountedIndex -match 'healthSchedulerPlugin\(\)') -and ($mountedIndex -match 'restartSupervisorPlugin\(\)'))
+Check 'Both built-in plugins are part of the shipped set, mounted through the one adapter' (($mountedIndex -match 'healthSchedulerPlugin\(\)') -and ($mountedIndex -match 'restartSupervisorPlugin\('))
 Check 'The health scheduler cannot stop anything, and the supervisor has no health policy' (
   (-not ($healthIndex -match 'taskkill|process\.kill|node:child_process|SIGTERM|SIGKILL|shutdown|reboot')) -and
   (-not ($healthEngine -match 'taskkill|process\.kill|node:child_process|SIGKILL')) -and
@@ -271,6 +273,21 @@ Check 'The uninstaller removes the companion and scans for orphans' (($uninstall
 Check 'The plugin host reports both services, and the panel has an action for each' (($hostSource -match 'function serviceRecordOf') -and ($hostSource -match 'serviceReports') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'SERVICE_ACTIONS'))
 Check 'Mega owns the advanced configuration, validated by the host that writes it' (($hostSource -match 'ADVANCED_SCHEMA') -and ($hostSource -match 'function setPath') -and ((Get-Content "$ROOT\app\extensions\mega\control-center.cjs" -Raw) -match 'advanced'))
 Check 'The synthetic 6/12/24-hour soak harness exists with a real-machine entry point' (($soakHarness -match 'soak-6h') -and ($soakHarness -match 'soak-12h') -and ($soakHarness -match 'soak-24h') -and ($soakHarness -match '--realtime'))
+Check 'The long-hosting chaos harness injects the failures the requirement names' (($chaosHarness -match 'kill-core') -and ($chaosHarness -match 'controlled-restart') -and ($chaosHarness -match 'plugin-crash') -and ($chaosHarness -match 'plugin-timeout') -and ($chaosHarness -match 'network-failure') -and ($chaosHarness -match 'host-restart') -and ($chaosHarness -match 'git-interruption') -and ($chaosHarness -match 'false-success'))
+Check 'The chaos harness drives the real companion and records the reboot it did not run' (($chaosHarness -match "companion', 'main\.cjs'") -and ($chaosHarness -match 'NOT exercised'))
+Check 'The installer verifies registration, not only the files it wrote' (($registrationProbe -match 'plugin-registration-check') -and ($registrationProbe -match 'duplicateRegistrations') -and ((Get-Content "$ROOT\scripts\install.ps1" -Raw) -match 'plugin-registration-check\.cjs'))
+$acceptanceDir = Join-Path $ROOT 'docs\acceptance'
+$acceptanceFiles = @('architecture-before.json', 'architecture-after.json', 'cleanup-candidates.json', 'cleanup-review-needed.json', 'dead-code-report.json', 'ui-surface-report.json', 'restart-recovery-report.json', 'longhost-chaos-report.json', 'longhost-soak-report.json', 'installer-registration-report.json', 'LONGHOST-ACCEPTANCE.json', 'LONGHOST-ACCEPTANCE.md')
+$missingAcceptance = @($acceptanceFiles | Where-Object { -not (Test-Path (Join-Path $acceptanceDir $_)) })
+Check 'The long-hosting acceptance record ships, every document the requirement names' ($missingAcceptance.Count -eq 0)
+$acceptanceJson = Get-Content (Join-Path $acceptanceDir 'LONGHOST-ACCEPTANCE.json') -Raw -ErrorAction SilentlyContinue
+Check 'The acceptance record states the metrics the requirement asks for' (($acceptanceJson -match 'lostTasks') -and ($acceptanceJson -match 'falseSuccess') -and ($acceptanceJson -match 'infiniteRestartLoops') -and ($acceptanceJson -match 'duplicatePluginRegistrations') -and ($acceptanceJson -match 'unexpectedDeletedFeatures'))
+Check 'The acceptance record names what was not exercised rather than claiming it' (($acceptanceJson -match 'notExercised') -and ($acceptanceJson -match 'real Windows reboot'))
+Check 'The acceptance record is generated from the harness reports, not written by hand' ((Get-Content "$ROOT\scripts\longhost-acceptance.cjs" -Raw) -match 'longhost-chaos-report\.json')
+Check 'The restart status is a formal, persisted record with the three recovery claims' (((Get-Content "$ROOT\app\plugins\restart-supervisor\status.cjs" -Raw) -match 'restart_status\.json') -and ((Get-Content "$ROOT\app\plugins\restart-supervisor\status.cjs" -Raw) -match 'PROCESS_ONLY') -and ((Get-Content "$ROOT\app\plugins\restart-supervisor\status.cjs" -Raw) -match 'failedReason'))
+Check 'Task continuity parks, remembers and resumes through Core, not through the supervisor' (((Get-Content "$ROOT\app\core\task-continuity.cjs" -Raw) -match 'resume-intent\.json') -and ((Get-Content "$ROOT\app\core\task-continuity.cjs" -Raw) -match 'semantic'))
+Check 'The health decision gates new work through one seam' (((Get-Content "$ROOT\app\core\work-admission.cjs" -Raw) -match 'PAUSE_NEW_WORK') -and ((Get-Content "$ROOT\app\extensions\mega\scheduler\scheduler.js" -Raw) -match 'setWorkAdmission'))
+Check 'One action vocabulary is shared by the page, the panel and the bridge' (((Get-Content "$ROOT\app\core\contracts\service-actions.cjs" -Raw) -match 'DANGEROUS_ACTIONS') -and ((Get-Content "$ROOT\app\core\governance-bridge.cjs" -Raw) -match "contracts/service-actions\.cjs") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "contracts/service-actions\.cjs"))
 Check 'The restart supervisor is documented, with the authority line stated' (($supervisorDocs -match 'application restart\*\* authority') -and ($supervisorDocs -match 'resume tasks'))Check 'A profile dependency is joined to the manifest by package name, not confused with the plugin id' (((Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw) -match 'function entryForPackage') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'entryForPackage'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")

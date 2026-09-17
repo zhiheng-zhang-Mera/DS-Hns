@@ -170,7 +170,15 @@ const EXTRA_FILES = [
    * work admission (the health decision at the queue's door). Both are product code, so both are checked.
    */
   path.join(ROOT, 'app', 'core', 'task-continuity.cjs'),
-  path.join(ROOT, 'app', 'core', 'work-admission.cjs')
+  path.join(ROOT, 'app', 'core', 'work-admission.cjs'),
+  /**
+   * The chaos harness (fault injection against the real restart authority) and the installer's
+   * registration probe. Both are programs the installer and the acceptance run execute.
+   */
+  path.join(ROOT, 'scripts', 'longhost-chaos.cjs'),
+  path.join(ROOT, 'scripts', 'plugin-registration-check.cjs'),
+  /** The generator of the long-hosting acceptance record. */
+  path.join(ROOT, 'scripts', 'longhost-acceptance.cjs')
 ]
 
 const CHECKED_EXTENSIONS = new Set(['.js', '.cjs', '.mjs'])

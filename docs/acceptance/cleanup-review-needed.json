@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-09-17T07:27:56.282Z",
+  "commit": "f00961957fe887ae4cfee871cb0fe71800575a94",
+  "keepers": [
+    {
+      "path": "app/plugins/acceleration/*",
+      "reason": "shipped and mounted, but its callers are the shell hooks; a removal decision needs a product review rather than a reference count",
+      "category": "F_uncertain"
+    },
+    {
+      "path": "app/frontend-mode/*",
+      "reason": "the native frontend adapter; reachable only on a non-default launch mode",
+      "category": "F_uncertain"
+    }
+  ]
+}

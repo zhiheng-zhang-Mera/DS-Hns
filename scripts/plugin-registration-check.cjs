@@ -25,7 +25,6 @@
  * Exit code: 0 when every expected plugin is registered and loaded; 1 otherwise (with the reasons).
  */
 
-const fs = require('node:fs')
 const path = require('node:path')
 
 const DEFAULT_EXPECTED = ['dshns.health-scheduler', 'dshns.restart-supervisor']
@@ -158,4 +157,3 @@ if (require.main === module) {
 }
 
 module.exports = { main, rosterOf, DEFAULT_EXPECTED, parseArgs }
-void fs

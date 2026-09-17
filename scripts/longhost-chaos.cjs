@@ -45,7 +45,6 @@ const ROOT = path.resolve(__dirname, '..')
 
 const { createRestartCompanion, companionPaths } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'companion.cjs'))
 const { createRestartBudget } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'budget.cjs'))
-const { createHeartbeatMonitor } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'heartbeat.cjs'))
 const { createRestartStatus } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'status.cjs'))
 const { createRestartLifecycle } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'lifecycle.cjs'))
 const { createTaskContinuity } = require(path.join(ROOT, 'app', 'core', 'task-continuity.cjs'))
@@ -608,4 +607,3 @@ if (require.main === module) {
 }
 
 module.exports = { main, SCENARIOS, createCase, chaosKillCore, chaosControlledRestart, chaosPluginCrash, chaosPluginTimeout, chaosNetworkFailure, chaosHostRestart, chaosGitInterruption, chaosFalseSuccess }
-void createHeartbeatMonitor

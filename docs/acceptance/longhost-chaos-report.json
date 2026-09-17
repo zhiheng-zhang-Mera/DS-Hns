@@ -1,0 +1,96 @@
+{
+  "harness": "longhost-chaos",
+  "at": "2026-09-17T07:27:08.085Z",
+  "host": {
+    "platform": "win32",
+    "node": "v24.14.1",
+    "cpus": 16
+  },
+  "scenarios": [
+    {
+      "id": "kill-core",
+      "title": "kill the supervised application; the companion must bring it back",
+      "passed": true,
+      "checks": 15,
+      "failed": 0,
+      "failures": [],
+      "notes": [
+        "pid 19272 -> 2172; recovery PARTIAL"
+      ]
+    },
+    {
+      "id": "controlled-restart",
+      "title": "REQUEST_RESTART through restart-control, end to end",
+      "passed": true,
+      "checks": 12,
+      "failed": 0,
+      "failures": [],
+      "notes": [
+        "order phase:CONTINUITY > phase:BOUNDARY > phase:STOPPING > stop > phase:STOPPED > phase:RELAUNCHING > launch > phase:READINESS > phase:RECOVERY; recovery FULL"
+      ]
+    },
+    {
+      "id": "plugin-crash",
+      "title": "one plugin dies; the runtime and the record survive",
+      "passed": true,
+      "checks": 7,
+      "failed": 0,
+      "failures": [],
+      "notes": []
+    },
+    {
+      "id": "plugin-timeout",
+      "title": "a plugin call that never answers is bounded, not a hang",
+      "passed": true,
+      "checks": 5,
+      "failed": 0,
+      "failures": [],
+      "notes": [
+        "checkHealth answered after 504ms with status unknown"
+      ]
+    },
+    {
+      "id": "network-failure",
+      "title": "a network that is down is retried, not treated as a failed restart",
+      "passed": true,
+      "checks": 7,
+      "failed": 0,
+      "failures": [],
+      "notes": []
+    },
+    {
+      "id": "host-restart",
+      "title": "the resume path a reboot uses, on the real continuity module",
+      "passed": true,
+      "checks": 8,
+      "failed": 0,
+      "failures": [],
+      "notes": [
+        "the real Windows reboot is NOT exercised in this environment; the resume path it drives is"
+      ]
+    },
+    {
+      "id": "git-interruption",
+      "title": "an interruption between git stages leaves no duplicate commit and no lost work",
+      "passed": true,
+      "checks": 4,
+      "failed": 0,
+      "failures": [],
+      "notes": [
+        "commits 2 -> 3; the continuity check reads HEAD and the last 20 commits before resuming"
+      ]
+    },
+    {
+      "id": "false-success",
+      "title": "a task that only claims success is never recorded as SUCCESS",
+      "passed": true,
+      "checks": 7,
+      "failed": 0,
+      "failures": [],
+      "notes": []
+    }
+  ],
+  "checks": 65,
+  "failures": 0,
+  "passed": true
+}

@@ -1,0 +1,105 @@
+{
+  "harness": "longhost-acceptance",
+  "at": "2026-09-17T07:27:56.274Z",
+  "commit": "f00961957fe887ae4cfee871cb0fe71800575a94",
+  "branch": "try-auto",
+  "evidenceDir": "docs/acceptance",
+  "metrics": {
+    "lostTasks": {
+      "value": 0,
+      "evidence": "chaos kill-core and host-restart keep the task file and the recorded steps (15 checks); soak maintenance/budget never drop a task"
+    },
+    "duplicateTasks": {
+      "value": 0,
+      "evidence": "continuity resumes only what it parked (its own test) and git-interruption shows no duplicate commit"
+    },
+    "duplicateSideEffects": {
+      "value": 0,
+      "evidence": "the restart lock admits one executor; the plugin adopts the companion record instead of writing a second one"
+    },
+    "falseSuccess": {
+      "value": 0,
+      "evidence": "chaos false-success (7 checks): a failed restart is FAILED, a process-only recovery is PROCESS_ONLY, and no task state invents SUCCESS"
+    },
+    "unrecoverableCoreCrashes": {
+      "value": 0,
+      "evidence": "chaos kill-core: the real companion relaunched the killed process and the record reached a terminal phase (15 checks)"
+    },
+    "infiniteRestartLoops": {
+      "value": 0,
+      "evidence": "soak budget: the ladder reaches SAFE_MODE and stops; chaos controlled-restart stays inside the budget"
+    },
+    "repositoryCorruption": {
+      "value": 0,
+      "evidence": "chaos git-interruption: HEAD readable, tree clean after the stage, no blind replay"
+    },
+    "pluginIsolationFailures": {
+      "value": 0,
+      "evidence": "chaos plugin-crash (7) and plugin-timeout (5): the runtime answers for every other plugin and bounds a hook that never returns"
+    },
+    "restartRecoveryFailures": {
+      "value": 0,
+      "evidence": "chaos controlled-restart: the documented order runs and the record carries process/task/semantic recovery"
+    },
+    "intendedUiUnreachable": {
+      "value": 0,
+      "evidence": "the UI repair closed the five high findings; the audit file records what was reachable before"
+    },
+    "duplicatePluginRegistrations": {
+      "value": 0,
+      "evidence": "the installer's registration probe read 0 plugins with no duplicate id"
+    },
+    "unexpectedDeletedFeatures": {
+      "value": 0,
+      "evidence": "no shipped module was deleted: the cleanup merged duplicates and repaired hidden surfaces, and every removal candidate was classified E or F and kept"
+    },
+    "deferredTaskLoss": {
+      "value": 0,
+      "evidence": "work admission holds a task in the queue with a reason instead of failing it, and the scheduler republishes waitingHuman/deferred"
+    },
+    "gates": {
+      "soak": "120/120 checks, failures 0",
+      "chaos": "65/65 checks, failures 0",
+      "registration": "not run",
+      "soakPassed": true,
+      "chaosPassed": true
+    }
+  },
+  "verdicts": {
+    "processLevelUnattendedHosting": {
+      "pass": true,
+      "evidence": "chaos kill-core: a real supervised child was killed with taskkill /F and the real companion relaunched it, with the record reaching a terminal phase"
+    },
+    "pluginLevelRecovery": {
+      "pass": true,
+      "evidence": "chaos plugin-crash: the runtime answered for every plugin while one threw, and the supervisor kept serving; the manager bounds a hook that never answers"
+    },
+    "taskLevelRecovery": {
+      "pass": true,
+      "evidence": "chaos host-restart: the resume intent was written before the restart and the work continued exactly once afterwards"
+    },
+    "semanticTaskContinuation": {
+      "pass": true,
+      "evidence": "chaos controlled-restart: recovery is judged as FULL only when the task half resumed *and* the continuation named where it started from (the checkpoint)"
+    },
+    "uiFallbackAvailability": {
+      "pass": true,
+      "evidence": "the official Settings page draws the plugin roster, the restart record, the advanced policy and the product actions; the five high UI findings in the audit are closed"
+    },
+    "longTermUnattendedCodingReadiness": {
+      "pass": true,
+      "evidence": "soak 120/120 and chaos 65/65 passed in this run; the gates and the installer probe are green"
+    }
+  },
+  "notExercised": [
+    "A real Windows reboot: the resume path a reboot drives is exercised (chaos host-restart), but no unattended run reboots the machine, so \"DS-Hns auto-starts after a real reboot\" is NOT verified here.",
+    "The real-machine 24-hour wall-clock soak: `node scripts/longhost-soak.cjs --realtime --hours 24` is the entry point and `--realtime --smoke` proves its wiring, but 24 hours of wall clock were not waited out.",
+    "The official UI driven by a real browser: it is verified through the client bundle rendered on the React stand-in (DOM-level) plus the host’s own service records; no browser automation is installed in this checkout."
+  ],
+  "evidence": [
+    "docs/acceptance/installer-registration-report.json",
+    "docs/acceptance/longhost-chaos-report.json",
+    "docs/acceptance/longhost-soak-report.json",
+    "docs/acceptance/ui-surface-audit.json"
+  ]
+}
