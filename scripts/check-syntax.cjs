@@ -118,7 +118,13 @@ const SOURCE_DIRS = [
   // The Mega Core plugin (updateplan/pluginize.md Phase 1): its host half and view model are ESM modules next
   // to a package.json that says so, and its client half is the hand-written browser bundle the loader
   // materialises. All three are product code and all three belong in the gate.
-  'plugins/mega-core/lib'
+  'plugins/mega-core/lib',
+  // The two built-in long-hosting plugins of this release. Both are executed by the repository itself
+  // — the health scheduler and the restart supervisor are the product's own components, not samples —
+  // so they are named here rather than relying on a glob somewhere else to notice them.
+  'plugins/health-scheduler',
+  'plugins/restart-supervisor',
+  'plugins/restart-supervisor/companion'
 ]
 
 /** Files outside the app directory that still ship as product code. */
@@ -151,6 +157,10 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'installer-community-acceptance.cjs'),
   // The stand-in Harness CLI the installer suites drive the real installation channel with.
   path.join(ROOT, 'tests', 'helpers', 'harness-cli-stub.cjs'),
+  // The virtual clock the 6/12/24-hour synthetic soaks run on, and the soak harness itself. Both are
+  // programs the CI step executes, so both are checked like any other program the repository ships.
+  path.join(ROOT, 'tests', 'helpers', 'longhost-clock.cjs'),
+  path.join(ROOT, 'scripts', 'longhost-soak.cjs'),
   // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
   // checked like any other program the repository ships.
   path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')

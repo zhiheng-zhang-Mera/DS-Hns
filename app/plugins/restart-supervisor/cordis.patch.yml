@@ -1,0 +1,16 @@
+# dsh-restart-supervisor bundle patch.
+#
+# Applied over the dsh-web-app layer. This bundle contributes ONE host row: the restart authority,
+# which provides `restart-control` to the plugin registry and owns the out-of-process companion.
+#
+# It contributes no browser half on purpose. A restart is executed from outside the application — the
+# companion survives the process it supervises — and putting any of that machinery in the official
+# page would be a second executor with a different lifetime, which is the thing this component exists
+# to prevent.
+#
+# Only additive `insert` rows appear here: a patch replaces the targeted row's whole `config`, so this
+# file never overrides a shipped row.
+
+- insert:
+    - id: dsh-restart-supervisor
+      name: 'dsh-restart-supervisor'

@@ -25,6 +25,7 @@ const path = require('node:path')
 
 const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('../../core/contracts/plugin.cjs')
 const { healthSchedulerPlugin } = require('../health-scheduler/index.cjs')
+const { restartSupervisorPlugin } = require('../restart-supervisor/index.cjs')
 
 const API = PLUGIN_API_VERSION
 
@@ -623,7 +624,13 @@ function mountedPlugins() {
     // exactly like the ones above, which is the point: a native plugin is adapted by
     // `NativeHnsAdapter` rather than installed through a second, privileged path. It ships
     // disabled -- sampling the machine is a decision a user makes.
-    healthSchedulerPlugin()
+    healthSchedulerPlugin(),
+    // The **one** restart authority. It is mounted here, not privileged: it provides
+    // `restart-control`, which is what the monitor above asks when it wants a restart, and the
+    // out-of-process companion is started through the shell hooks `desktop-main.cjs` passes in.
+    // Unlike the monitor it ships *enabled*, because without it no restart can be requested at all
+    // -- and its budget, not a disabled plugin, is what keeps that from being dangerous.
+    restartSupervisorPlugin()
   ]
 }
 
@@ -635,6 +642,8 @@ module.exports = {
   telemetryPlugin,
   watchdogPlugin,
   failureRecoveryPlugin,
+  healthSchedulerPlugin,
+  restartSupervisorPlugin,
   checkpointPlugin,
   acceptanceGatePlugin,
   sessionKeeperPlugin,

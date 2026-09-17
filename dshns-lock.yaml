@@ -20,7 +20,7 @@ plugins:
   dshns.git-operator:
     version: 1.0.0
   dshns.health-scheduler:
-    version: 1.0.0
+    version: 2.0.0
   dshns.high-performance:
     version: 1.0.0
   dshns.incremental-validation:
@@ -40,6 +40,8 @@ plugins:
   dshns.repo-map:
     version: 1.0.0
   dshns.resource-manager:
+    version: 1.0.0
+  dshns.restart-supervisor:
     version: 1.0.0
   dshns.session-keeper:
     version: 1.0.0

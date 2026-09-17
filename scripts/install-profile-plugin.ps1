@@ -1,4 +1,4 @@
-# DS-Harness: sign the shipped client plugin into the Harness profile the product boots.
+# DS-Harness: sign a shipped plugin into the Harness profile the product boots.
 #
 # The orb (the floating ball in the official UI) is not drawn by our shell. It is drawn by
 # `app\plugins\mega-core`, a Harness *client* plugin whose browser half registers itself into the
@@ -16,25 +16,35 @@
 # never a hand-written profile: installing is another application's business. This script only
 # resolves Node, makes a pnpm reachable for that CLI, and calls it.
 #
+# **This script is generic over the plugin.** `-Plugin` names a directory under `app\plugins\` or an
+# absolute package directory, and what counts as "installed" is derived from *that package's own
+# manifest* -- its `main`/`exports['.']` entry, its `dsh.bundle.patch` file and its `exports['./client']`
+# when it declares one, read from the profile's own copy. A hard-coded `lib\client.js` check is what
+# this replaced: it only ever described one plugin, and the second one to need installing would have
+# had to either fake a browser half or be checked for something it does not ship.
+#
 # Reuse-first and idempotent: a profile that already declares this plugin at this checkout's own
 # `file:` spec, with the installed copy present, is reported and left untouched. A profile that
 # declares a *different* spec (a profile carried from another machine, where the checkout lived
 # somewhere else) is repaired rather than trusted.
 #
 # Printed output: one line per decision, then `already-installed` or `installed` on stdout.
-# Exit code: 0 when the profile has the shipped plugin (installed now or already), 1 when it does
-# not. A caller must degrade to "no orb" and carry on, never to a failed installation.
-param([switch]$Force)
+# Exit code: 0 when the profile has the plugin (installed now or already), 1 when it does not. A
+# caller must degrade to "this plugin is absent" and carry on, never to a failed installation.
+param(
+  [switch]$Force,
+  [string]$Plugin = 'mega-core'
+)
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 
 Write-Output '[profile-plugin 1/4] Resolving the shipped plugin'
-$packageDir = Join-Path $ROOT 'app\plugins\mega-core'
+$packageDir = if ([System.IO.Path]::IsPathRooted($Plugin)) { $Plugin } else { Join-Path $ROOT (Join-Path 'app\plugins' $Plugin) }
 $manifestPath = Join-Path $packageDir 'package.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) {
-  # Also the honest answer for a checkout that never had the orb (the default branch before the
-  # plugin landed): say so rather than pretending an install failed.
-  Write-Warning "this checkout does not ship $packageDir, so there is no orb to install."
+  # Also the honest answer for a checkout that never had the plugin (the default branch before it
+  # landed): say so rather than pretending an install failed.
+  Write-Warning "this checkout does not ship $packageDir, so there is no plugin to install."
   exit 1
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -48,6 +58,42 @@ if (-not $pluginName) {
 $spec = 'file:' + ($packageDir -replace '\\', '/')
 Write-Host "  $pluginName $($manifest.version) from $spec"
 
+# The files this package's own manifest promises, as package-relative paths.
+#
+# Derived rather than assumed: `main` and `exports['.']` name the entry, `dsh.bundle.patch` names the
+# patch the Harness composes, and `exports['./client']` names a browser half *when the package
+# declares one*. A plugin without a client half (the health scheduler and the restart supervisor are
+# both in that group) is complete without one, and demanding `lib\client.js` from it would be this
+# script inventing a requirement.
+function Get-DeclaredFiles {
+  $declared = @()
+  if ($manifest.main) { $declared += [string]$manifest.main }
+  $exports = $manifest.exports
+  if ($exports) {
+    foreach ($key in @('.', './client')) {
+      if (-not ($exports.PSObject.Properties.Name -contains $key)) { continue }
+      $value = $exports.$key
+      if ($value -is [string]) { $declared += [string]$value }
+      elseif ($value) {
+        foreach ($condition in @('default', 'import', 'require', 'node')) {
+          if ($value.PSObject.Properties.Name -contains $condition) { $declared += [string]$value.$condition; break }
+        }
+      }
+    }
+  }
+  $dsh = $manifest.dsh
+  if ($dsh -and $dsh.bundle -and $dsh.bundle.patch) { $declared += [string]$dsh.bundle.patch }
+  return ($declared | Where-Object { $_ } | ForEach-Object { $_.TrimStart('./').Replace('/', '\') } | Sort-Object -Unique)
+}
+
+$declaredFiles = Get-DeclaredFiles
+if ($declaredFiles.Count -eq 0) {
+  # A manifest that names nothing is a package nothing can verify, and installing it would be a
+  # promise this script cannot keep.
+  Write-Warning "$manifestPath declares no entry (main, exports or dsh.bundle.patch), so the installed copy cannot be verified."
+  exit 1
+}
+
 $profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } else { 'web' }
 $dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $ROOT 'data' }
 $env:DSH_HOME = $dshHome
@@ -59,7 +105,6 @@ if (-not $env:npm_config_cache) { $env:npm_config_cache = Join-Path $ROOT 'cache
 
 $profileDir = Join-Path $dshHome "profiles\$profileName"
 $installedDir = Join-Path $profileDir "node_modules\$pluginName"
-$clientHalf = Join-Path $installedDir 'lib\client.js'
 
 function Get-DeclaredSpec {
   $file = Join-Path $profileDir 'package.json'
@@ -76,7 +121,10 @@ function Get-DeclaredSpec {
 }
 
 function Test-InstalledCopy {
-  return ((Test-Path -LiteralPath $clientHalf) -and (Test-Path -LiteralPath (Join-Path $installedDir 'lib\index.js')))
+  foreach ($relative in $declaredFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $installedDir $relative))) { return $false }
+  }
+  return $true
 }
 
 function Test-SameSpec([string]$declared) {
@@ -192,6 +240,11 @@ if ((-not (Test-SameSpec $declared)) -or (-not $installed)) {
   Write-Warning "the profile still does not carry $pluginName (declared: '$declared', copy: $installed)."
   exit 1
 }
-Write-Host "  the profile now has $pluginName; the next launch mounts it and draws the orb."
+$hasClientHalf = ($declaredFiles | Where-Object { $_ -match 'client\.js$' }).Count -gt 0
+if ($hasClientHalf) {
+  Write-Host "  the profile now has $pluginName; the next launch mounts it and draws the orb."
+} else {
+  Write-Host "  the profile now has $pluginName; the next launch composes its row and lists it in the official plugin inventory."
+}
 Write-Output 'installed'
 exit 0

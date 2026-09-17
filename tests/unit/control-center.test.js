@@ -66,7 +66,10 @@ function fixture(overrides = {}) {
 
 test('the sections are built from the dock\'s own snapshot, not from a second query', () => {
   const built = buildControlCenter(fixture())
-  assert.deepEqual(built.sections.map((section) => section.id), ['execution', 'automation', 'resources', 'extensions', 'protection', 'diagnostics'])
+  // `services` comes first because it is the section about *this product's own* two built-in
+  // components — the health scheduler and the restart supervisor — and their state is the thing a
+  // person opens a control centre to check.
+  assert.deepEqual(built.sections.map((section) => section.id), ['services', 'execution', 'automation', 'resources', 'extensions', 'protection', 'diagnostics'])
   const execution = built.sections.find((section) => section.id === 'execution')
   assert.deepEqual(execution.rows.map((row) => row.value), ['2', '3', '0', '0', '0'])
   // Zero is quiet: a fault count of zero is reported as `0` and never carries a tone (§36).
@@ -109,7 +112,12 @@ test('a snapshot with nothing in it is a panel of zeros, not a crash', () => {
   assert.equal(built.ok, true)
   assert.deepEqual(built.modules, [])
   assert.deepEqual(built.plugins, [])
-  assert.equal(built.sections.length, 6)
+  // Six reporting sections plus the built-in-service section, which reports "unavailable" rather
+  // than an empty box: a control centre that silently omitted the two components whose failure the
+  // product is meant to survive would be hiding the one thing it exists to show.
+  assert.equal(built.sections.length, 7)
+  assert.deepEqual(built.services, [])
+  assert.equal(built.sections.find((section) => section.id === 'services').rows[0].value, 'report unavailable')
   assert.equal(built.sections.find((section) => section.id === 'diagnostics').rows[0].value, '—')
 })
 

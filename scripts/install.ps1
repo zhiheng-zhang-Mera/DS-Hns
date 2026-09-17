@@ -213,6 +213,7 @@ $criticalScripts = @(
   (Join-Path $PSScriptRoot 'ensure-icon.ps1'),
   (Join-Path $PSScriptRoot 'install-deps.ps1'),
   (Join-Path $PSScriptRoot 'install-profile-plugin.ps1'),
+  (Join-Path $PSScriptRoot 'install-bundled-plugins.ps1'),
   (Join-Path $PSScriptRoot 'install-community-plugins.ps1'),
   (Join-Path $PSScriptRoot 'test-all.ps1'),
   (Join-Path $PSScriptRoot 'verify.ps1')
@@ -294,34 +295,70 @@ if ($systemKey) {
 # Restore canonical project runtime variables after install-time cache reuse.
 . (Join-Path $PSScriptRoot 'env.ps1')
 
-Write-Step '4/9 Sign the shipped client plugin into the Harness profile'
-# The orb in the official UI is drawn by the client plugin DS-Hns ships (`app\plugins\mega-core`,
-# registered into the official `shell.overlay` slot), and the official UI mounts it only when the
-# profile this product boots has it installed. That install is host-local: `data\*` is git-ignored
-# and the dependency is an absolute `file:` path, so no checkout can carry it. Installing it is the
-# Harness' own CLI's job (`scripts\install-profile-plugin.ps1`), and it is a step of the
-# installation rather than something a fresh host acquires by itself -- without it the product runs
-# and shows no ball at all.
+Write-Step '4/9 Sign the shipped plugins into the Harness profile'
+# Four plugins DS-Hns ships are installed here, and none of them is optional.
 #
-# This is the product's **own** plugin, and it is not optional: it is signed in unconditionally,
-# above, before the optional community plugins are ever mentioned. Nothing below this line may turn
-# it into a choice.
+#   * `app\plugins\mega-core` draws the orb and the Mega settings page in the official UI, and the
+#     official UI mounts it only when the profile this product boots has it installed;
+#   * `app\plugins\health-scheduler` and `app\plugins\restart-supervisor` are the two built-in
+#     plugins of this release. They run in our own plugin host either way, but the official UI lists
+#     a plugin because the *profile* declares it -- so without this step they would be invisible in
+#     the one place the requirement says they must be visible.
+#
+# That install is host-local: `data\*` is git-ignored and the dependency is an absolute `file:` path,
+# so no checkout can carry it. Installing it is the Harness' own CLI's job
+# (`scripts\install-profile-plugin.ps1`, driven for the whole set by
+# `scripts\install-bundled-plugins.ps1`), and it is a step of the installation rather than something
+# a fresh host acquires by itself.
+#
+# This step is **not** a choice: it runs unconditionally, before the optional community plugins are
+# ever mentioned, and nothing below may turn any of these three into something a user can skip.
+$script:BuiltInPluginStates = [ordered]@{
+  'dshns.health-scheduler' = 'NOT INSTALLED'
+  'dshns.restart-supervisor' = 'NOT INSTALLED'
+}
 try {
-  $profilePluginLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') 2>&1 | ForEach-Object { [string]$_ })
-  $profilePluginExit = $LASTEXITCODE
-  $profilePluginTail = ($profilePluginLines | Select-Object -Last 1)
-  if ($profilePluginExit -ne 0) {
+  # The orb first, and separately, because its outcome is what the summary's Mega Core line reports.
+  $orbLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') -Plugin 'mega-core' 2>&1 | ForEach-Object { [string]$_ })
+  $orbExit = $LASTEXITCODE
+  $orbTail = ($orbLines | Select-Object -Last 1)
+  if ($orbExit -ne 0) {
     $script:MegaCoreState = 'FAILED'
     Write-Warning 'The orb plugin is not in the Harness profile, so the official UI will show no ball.'
     Write-Warning 'DS-Harness is fully usable without it; re-run scripts\install-profile-plugin.ps1 to add it.'
-  } elseif ($profilePluginTail -match 'already-installed') {
+  } elseif ($orbTail -match 'already-installed') {
     $script:MegaCoreState = 'ALREADY INSTALLED'
   } else {
     $script:MegaCoreState = 'LOADED'
   }
+
+  # Then the two built-in plugins, through the one installer that owns the list.
+  $bundledReportFile = Join-Path ([System.IO.Path]::GetTempPath()) "dsh-bundled-plugins-$PID.json"
+  Remove-Item -LiteralPath $bundledReportFile -Force -ErrorAction SilentlyContinue
+  $bundledLines = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'install-bundled-plugins.ps1') -Json 2>&1 | ForEach-Object { [string]$_ })
+  $bundledExit = $LASTEXITCODE
+  foreach ($line in $bundledLines) { if ($line.Trim() -and -not $line.Trim().StartsWith('{')) { Write-Host "  $($line.Trim())" } }
+  $bundledJson = ($bundledLines | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+  if ($bundledJson) {
+    try {
+      $bundledReport = $bundledJson | ConvertFrom-Json
+      foreach ($result in @($bundledReport.results)) {
+        $id = [string]$result.id
+        if (-not $id) { continue }
+        $script:BuiltInPluginStates[$id] = if ($result.state -eq 'installed') { 'INSTALLED' } elseif ($result.state -eq 'already-installed') { 'ALREADY INSTALLED' } else { 'FAILED' }
+        if ($result.state -eq 'failed' -or $result.state -eq 'missing') { Write-Warning "$id is not in the Harness profile: $($result.reason)" }
+      }
+    } catch {
+      Write-Warning "The built-in plugin report could not be read: $($_.Exception.Message)"
+    }
+  } elseif ($bundledExit -ne 0) {
+    Write-Warning 'The built-in plugin installer produced no report; the plugins may not be in the profile.'
+    foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  }
 } catch {
   $script:MegaCoreState = 'FAILED'
-  Write-Warning "Signing the orb plugin into the profile failed, installation continues: $($_.Exception.Message)"
+  foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  Write-Warning "Signing the shipped plugins into the profile failed, installation continues: $($_.Exception.Message)"
 }
 
 Write-Step '5/9 Optional community plugins'
@@ -637,6 +674,8 @@ Write-Host 'Installation summary'
 Write-SummaryLine 'Official Harness UI' $harnessUiState
 Write-SummaryLine 'DS-Hns runtime' $runtimeState
 Write-SummaryLine 'Mega Core' $script:MegaCoreState
+Write-SummaryLine 'Health Scheduler' ([string]$script:BuiltInPluginStates['dshns.health-scheduler'])
+Write-SummaryLine 'Restart Supervisor' ([string]$script:BuiltInPluginStates['dshns.restart-supervisor'])
 Write-SummaryLine 'Plugin Market' $marketState
 Write-SummaryLine 'Wallpaper Engine' $wallpaperState
 Write-SummaryLine 'Adapter registry' $adapterState
@@ -645,6 +684,11 @@ Write-Host ''
 if (($marketState -eq 'FAILED') -or ($wallpaperState -eq 'FAILED')) {
   Write-Warning 'An optional community plugin failed. The reason is printed above; DS-Harness itself is installed.'
 }
+if (([string]$script:BuiltInPluginStates['dshns.health-scheduler']) -eq 'FAILED' -or ([string]$script:BuiltInPluginStates['dshns.restart-supervisor']) -eq 'FAILED') {
+  Write-Warning 'A built-in plugin is not in the Harness profile, so the official UI will not list it. The reason is printed above.'
+  Write-Warning 'The product runs either way; re-run scripts\install-bundled-plugins.ps1 -Repair to put it back.'
+}
+Write-Host 'Built-in plugins (Health Scheduler, Restart Supervisor) are part of the installation, never a choice.'
 Write-Host 'Community plugins are optional: DS-Harness runs and the official UI opens without either of them.'
 Write-Host "Optional plugin decisions are recorded in $communityStateFile."
 Write-Host 'Primary UI: official DeepSeek Harness (Alien-derived shell).'

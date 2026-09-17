@@ -130,6 +130,8 @@ test('critical installer PowerShell files stay ASCII-only for Windows PowerShell
     'scripts/install.ps1',
     'scripts/install-deps.ps1',
     'scripts/install-profile-plugin.ps1',
+    'scripts/install-bundled-plugins.ps1',
+    'scripts/uninstall-ds-harness.ps1',
     'scripts/install-community-plugins.ps1',
     'scripts/ensure-node.ps1',
     'scripts/cleanup-runtime.ps1',
@@ -162,7 +164,9 @@ test('installer signs the shipped orb plugin into the Harness profile before the
   // installed without it shows no ball at all.
   assert.match(text, /install-profile-plugin\.ps1/)
   const deps = text.indexOf('Resolve/reuse dependencies')
-  const step = text.indexOf('Sign the shipped client plugin into the Harness profile')
+  // The step is named "plugins" now, because it signs the orb *and* the two built-in long-hosting
+  // plugins in; the orb remains a distinct, unconditional part of it.
+  const step = text.indexOf('Sign the shipped plugins into the Harness profile')
   const tests = text.indexOf('Unit and architecture tests')
   assert.ok(step > deps && step < tests, 'the profile step runs after dependencies and before the tests')
   // An enhancement never fails an installation: the step warns, and the install carries on.
@@ -170,14 +174,37 @@ test('installer signs the shipped orb plugin into the Harness profile before the
   assert.doesNotMatch(text, /throw 'The orb plugin/)
 })
 
-test('installer asks about the optional community plugins after the shipped plugin and before the tests', () => {
+test('installer installs the two built-in plugins from this repository, in their own step', () => {
   const text = read('scripts/install.ps1')
-  // The order is the requirement's: DS-Hns' own plugin is signed in unconditionally first, so nothing
-  // about the optional community plugins can turn it into a choice, and both come before the tests.
-  const profile = text.indexOf('Sign the shipped client plugin into the Harness profile')
+  // The two built-in long-hosting plugins are part of the installation, never a choice, and they are
+  // installed by the one script that owns the list rather than by an inline call per plugin.
+  assert.match(text, /install-bundled-plugins\.ps1/)
+  assert.match(text, /Health Scheduler/)
+  assert.match(text, /Restart Supervisor/)
+  // The list is data, and it names both plugins as required.
+  const list = JSON.parse(read('scripts/bundled-plugins.json'))
+  const ids = list.plugins.map((entry) => entry.id).sort()
+  assert.deepEqual(ids, ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+  for (const entry of list.plugins) {
+    assert.equal(entry.required, true, `${entry.id} must be required: it is part of the installation`)
+    assert.equal(entry.channel, 'harness-profile')
+  }
+  // The uninstall path exists, and it scans rather than claims.
+  const uninstaller = read('scripts/uninstall-ds-harness.ps1')
+  assert.match(uninstaller, /-Uninstall/)
+  assert.match(uninstaller, /no orphan companion process/)
+  assert.match(uninstaller, /no supervisor startup entry/)
+})
+
+test('installer asks about the optional community plugins after the built-in ones and before the tests', () => {
+  const text = read('scripts/install.ps1')
+  // The order is the requirement's: DS-Hns' own plugins are signed in unconditionally first, so
+  // nothing about the optional community plugins can turn any of them into a choice, and both steps
+  // come before the tests.
+  const profile = text.indexOf('Sign the shipped plugins into the Harness profile')
   const optional = text.indexOf('Optional community plugins')
   const tests = text.indexOf('Unit and architecture tests')
-  assert.ok(profile >= 0 && optional > profile, 'the optional plugins are offered before the shipped plugin is signed in')
+  assert.ok(profile >= 0 && optional > profile, 'the optional plugins are offered before the built-in plugins are signed in')
   assert.ok(tests > optional, 'the optional plugins are asked about after the tests')
 
   // Each plugin is asked about separately, and the parameters answer the question rather than the prompt.
@@ -190,7 +217,7 @@ test('installer asks about the optional community plugins after the shipped plug
   assert.doesNotMatch(text, /git clone/i)
 
   // The completion summary names every line the requirement asks for.
-  for (const line of ['Official Harness UI', 'DS-Hns runtime', 'Mega Core', 'Plugin Market', 'Wallpaper Engine', 'Adapter registry', 'Governance bridge']) {
+  for (const line of ['Official Harness UI', 'DS-Hns runtime', 'Mega Core', 'Health Scheduler', 'Restart Supervisor', 'Plugin Market', 'Wallpaper Engine', 'Adapter registry', 'Governance bridge']) {
     assert.ok(text.includes(line), `the installation summary does not report ${line}`)
   }
 })

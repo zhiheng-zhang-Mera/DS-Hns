@@ -70,13 +70,15 @@ const CAPABILITIES = Object.freeze({
    * The separation that matters most is the last one. `restart-control` is deliberately *not* part
    * of the health vocabulary: a health monitor may request a restart, but the authority to perform
    * one is held elsewhere, and a monitor that could execute its own request would be a monitor
-   * whose bug is an outage. See `docs/health-scheduler.md`.
+   * whose bug is an outage. Its provider is `dshns.restart-supervisor` — the one restart executor
+   * this product allows, in process or as its out-of-process companion. See
+   * `docs/health-scheduler.md` and `docs/restart-supervisor.md`.
    */
   'hardware-health': { description: 'read the machine: CPU load, memory pressure, thermals, disk', providers: ['dshns.health-scheduler'], fallback: 'the affected dimension is reported unknown and its weight is redistributed; unknown is never scored as healthy' },
   'runtime-health': { description: 'read the runtime: uptime, worker state, event-loop delay, task outcomes', providers: ['dshns.health-scheduler'], fallback: 'the runtime dimensions are reported unknown rather than assumed good' },
   'health-pressure': { description: 'turn the readings into one pressure score and an action decision', providers: ['dshns.health-scheduler'], fallback: 'no pressure is scored and no mitigation is decided; the runtime keeps running, unmonitored' },
   'maintenance-scheduling': { description: 'decide whether a maintenance window allows work to be deferred or a restart held', providers: ['dshns.health-scheduler'], fallback: 'maintenance is never scheduled and work is never deferred for it' },
-  'restart-control': { description: 'request that the application be stopped and brought back, executed by whoever holds the restart authority', providers: ['dshns.process'], fallback: 'no restart can be requested; monitoring and mitigation continue and the capability is reported unavailable' }
+  'restart-control': { description: 'request that the application be stopped and brought back, executed by whoever holds the restart authority', providers: ['dshns.restart-supervisor'], fallback: 'no restart can be requested; monitoring and mitigation continue and the capability is reported unavailable' }
 })
 
 /**

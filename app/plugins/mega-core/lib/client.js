@@ -1009,7 +1009,32 @@ window.__ModuleLoader__.load({
 			const detail = expanded ? box('div', { key: 'detail', style: { marginTop: '8px' } }, [
 				box('div', { key: 'fields', style: { marginTop: '4px' } }, (view.fields || []).map(FieldRow)),
 				box('div', { key: 'rosters', style: { marginTop: '8px' } }, [
-					text('模块 · Modules', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+					/**
+					 * The two built-in services first, because they are the components whose failure the product is
+					 * meant to survive — the health scheduler and the restart supervisor — and because every field
+					 * below is the plugin host's own service record rather than a re-derivation.
+					 *
+					 * Each service shows the four states separately (never one on/off flag), its own health answer,
+					 * its heartbeat, the capabilities it provides, and — when there is one — the last error. The
+					 * actions come from the record, so a control the plugin would refuse is never drawn.
+					 */
+					text('内置服务 · Built-in services', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+					...((view.services || []).length
+						? view.services.map((entry) => box('div', { key: `s:${entry.id}`, 'data-hns-service': entry.id, style: { padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,.06)' } }, [
+							text(`${entry.tone === 'ok' ? '✓' : entry.tone === 'bad' ? '✖' : '⚠'} ${entry.name || entry.id} — ${entry.state}${entry.version ? ` v${entry.version}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
+							text([
+								`installed ${entry.installed ? 'yes' : 'no'} · enabled ${entry.enabled ? 'yes' : 'no'} · loaded ${entry.loaded ? 'yes' : 'no'} · healthy ${entry.healthy === null || entry.healthy === undefined ? '—' : entry.healthy ? 'yes' : 'no'}`,
+								entry.health?.reason ? `health: ${entry.health.reason}` : null,
+								entry.heartbeat ? `heartbeat: ${entry.heartbeat.verdict || entry.heartbeat}` : null,
+								(entry.capabilities?.provides || []).length ? `provides: ${entry.capabilities.provides.join(', ')}` : null,
+								entry.pressure !== null && entry.pressure !== undefined ? `pressure ${entry.pressure}${entry.trend ? ` · trend ${entry.trend}` : ''}${entry.state5 ? ` · state ${entry.state5}` : ''}` : null,
+								entry.restart ? `supervisor ${entry.restart.supervisorState || '—'}${entry.restart.budget ? ` · restarts ${entry.restart.budget.used}/${entry.restart.budget.config?.maxRestarts ?? '—'}` : ''}${entry.restart.safeMode ? ' · SAFE MODE' : ''}${entry.restart.companion ? ` · companion ${entry.restart.companion.running ? 'running' : 'stopped'}` : ''}` : null,
+								entry.lastError ? `last error: ${entry.lastError.reason}` : null
+							].filter(Boolean).join(' · '), { display: 'block', color: MUTED, font: font(10, 400) }),
+							...(entry.actions || []).map((action) => React.createElement(ActionButton, { key: `s:${entry.id}:${action}`, label: action, onClick: () => onAction(String(action).replace(' (confirm)', ''), entry.id) }))
+						]))
+						: [text('—', { color: MUTED })]),
+					text('模块 · Modules', { display: 'block', marginTop: '6px', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
 					...((view.modules || []).length
 						? view.modules.map((entry) => box('div', { key: `m:${entry.id}`, style: { padding: '3px 0' } }, [
 							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),

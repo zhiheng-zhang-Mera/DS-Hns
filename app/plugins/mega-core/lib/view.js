@@ -206,6 +206,110 @@ function pluginTone(state) {
   return 'warn'
 }
 
+/**
+ * The state one of the two built-in services is in, as a word a person reads.
+ *
+ * Derived from the four separate facts rather than from one flag, and in the order that matters:
+ * *not in the runtime* is worse than *disabled*, which is worse than *enabled but not loaded*, which
+ * is worse than a loaded plugin whose own health is unhappy. A plugin that is merely switched off is
+ * reported as off and not as broken — the requirement's whole point is that a user may turn the
+ * monitor off without the product being unwell.
+ */
+function serviceState(service) {
+  if (service.ok !== true) return 'NOT IN THE RUNTIME'
+  if (service.enabled !== true) return 'DISABLED'
+  if (service.loaded !== true) return 'ENABLED'
+  const status = service.health && service.health.status
+  if (status === 'degraded') return 'DEGRADED'
+  if (status === 'unknown') return 'UNKNOWN'
+  if (service.healthy === false) return 'UNHEALTHY'
+  return 'LOADED'
+}
+
+/** A service's tone. `null` is quiet: switched off is a decision, not a fault. */
+function serviceTone(service) {
+  if (service.ok !== true) return 'bad'
+  if (service.enabled !== true) return null
+  const status = service.health && service.health.status
+  if (status === 'degraded' || status === 'unknown' || service.healthy === false) return 'warn'
+  return 'ok'
+}
+
+/**
+ * One service, as the page draws it.
+ *
+ * Every field is the service record's own, and the plugin-specific halves (`health` for the monitor,
+ * `restart` for the supervisor) are carried through verbatim: the page renders them, it does not
+ * interpret them. That is what keeps this file from knowing what a "pressure" or a "restart budget"
+ * is — a page that computed either would be a second answer to a question two plugins already own.
+ */
+function serviceView(service) {
+  const diagnostics = service.diagnostics || {}
+  return {
+    id: service.id,
+    name: service.name,
+    version: service.version,
+    state: serviceState(service),
+    tone: serviceTone(service),
+    installed: service.installed === true,
+    enabled: service.enabled === true,
+    loaded: service.loaded === true,
+    healthy: service.healthy,
+    health: service.health || null,
+    heartbeat: service.heartbeat || null,
+    lastError: service.lastError || null,
+    capabilities: service.capabilities || { provides: [], requires: [] },
+    fallback: service.fallback || null,
+    adapter: service.adapter || null,
+    /** The monitor's own report, when this is the monitor. */
+    pressure: diagnostics.report && diagnostics.report.latest ? diagnostics.report.latest.pressure : null,
+    trend: diagnostics.trend || null,
+    state5: diagnostics.state || null,
+    explanation: diagnostics.explanation || null,
+    providers: diagnostics.providers || null,
+    restart: diagnostics.report === undefined && diagnostics.budget ? {
+      supervisorState: diagnostics.state || null,
+      heartbeat: diagnostics.heartbeat ? diagnostics.heartbeat.verdict : null,
+      budget: diagnostics.budget || null,
+      lastError: diagnostics.lastError || null,
+      companion: diagnostics.companion || null,
+      safeMode: diagnostics.health ? diagnostics.health.safeMode === true : false,
+      lastRestartReason: (diagnostics.requests || []).slice().reverse().find((entry) => entry.type === 'restart-requested' || entry.type === 'restart-delegated') || null
+    } : null,
+    /** The actions the official page may offer, from the closed action vocabulary. */
+    actions: serviceActions(service)
+  }
+}
+
+/**
+ * What the official page may ask of one service.
+ *
+ * The low-level operations the requirement names, and the same closed set the governance bridge
+ * accepts: enable, disable, re-read health, restart the plugin's host half, and — only when the
+ * supervisor exists — reset its restart budget. A dangerous one (`restart`, `reset-budget`) is
+ * offered but flagged, so the page can confirm it rather than perform it silently.
+ */
+const SERVICE_ACTIONS = Object.freeze([
+  { id: 'check', label: '刷新健康 · Refresh health', dangerous: false },
+  { id: 'enable', label: '启用 · Enable', dangerous: false },
+  { id: 'disable', label: '停用 · Disable', dangerous: false },
+  { id: 'restart-plugin', label: '重启插件 · Restart plugin', dangerous: true },
+  { id: 'manual-restart', label: '手动重启应用 · Manual app restart', dangerous: true },
+  { id: 'reset-budget', label: '重置重启预算 · Reset restart budget', dangerous: true },
+  { id: 'diagnostics', label: '查看诊断 · View diagnostics', dangerous: false }
+])
+
+function serviceActions(service) {
+  if (service.ok !== true) return []
+  const offered = ['check', 'diagnostics']
+  if (service.enabled === true) offered.push('disable', 'restart-plugin')
+  else offered.push('enable')
+  // The two supervisor-only operations are offered only where the capability exists, because the
+  // page must not show a control that the plugin would refuse.
+  if (service.id === 'dshns.restart-supervisor') offered.push('manual-restart', 'reset-budget')
+  return SERVICE_ACTIONS.filter((action) => offered.includes(action.id)).map((action) => `${action.id}${action.dangerous ? ' (confirm)' : ''}`)
+}
+
 /** `check` is the cheapest useful action, and it is what is offered when nothing is wrong. */
 function recoveryActions(modules, plugins, { healthy }) {
   const offered = new Set()
@@ -258,6 +362,8 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
       ],
       modules: [],
       plugins: [],
+      /** No snapshot means no service report: an empty list, and the page says so. */
+      services: [],
       capabilities: [],
       // No snapshot means no numbers: the dashboard says why rather than drawing a queue of zero (§4.2's rule,
       // applied to the live summary: an empty dashboard and an unreachable one are different pictures).
@@ -269,6 +375,15 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
 
   const modules = Array.isArray(governance.modules) ? governance.modules : []
   const plugins = Array.isArray(governance.plugins) ? governance.plugins : []
+  /**
+   * The two built-in services, as their own list.
+   *
+   * They arrive from the plugin host's own service record — four separate states, the plugin's health
+   * answer, the heartbeat the restart supervisor writes, the capabilities it provides, and its last
+   * error — so the official page shows what the panel shows without re-deriving any of it. An absent
+   * report is an empty list, and the page says so rather than drawing two rows of dashes.
+   */
+  const services = Array.isArray(governance.services) ? governance.services : []
   const degraded = Number(governance.degraded || 0)
   const failed = Number(governance.failed || 0)
   const failing = Number(governance.failing || 0)
@@ -298,6 +413,17 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
     lines.push(line(pluginTone(entry.state), `${entry.state === 'failed' || entry.state === 'incompatible' ? '✖' : '⚠'} ${entry.id} ${entry.state || 'unknown'}${entry.reason ? ` — ${entry.reason}` : ''}`))
   }
   if (pending > 0) lines.push(line('warn', `⏸ ${pending} task(s) waiting for human`))
+  // The built-in services state their own line whether they are well or not: a scheduler that is
+  // disabled and a supervisor that cannot restart are the two facts a person most needs, and both
+  // are invisible in a list that only reports faults.
+  const offNominalServices = services.filter((service) => {
+    const tone = serviceTone(service)
+    return tone === 'bad' || tone === 'warn'
+  })
+  for (const service of offNominalServices) {
+    const tone = serviceTone(service)
+    lines.push(line(tone, `${tone === 'bad' ? '✖' : '⚠'} ${service.name || service.id} ${String(serviceState(service)).toLowerCase()}${service.lastError ? ` — ${service.lastError.reason}` : ''}`))
+  }
   if (!lines.length) lines.push(line('ok', `✓ ${modules.length} plugin module(s) healthy`))
   // The two positive lines are stated whatever the faults are: they are facts about *other* things, and a list
   // that dropped them whenever a module degraded would read as if nothing had been checked at all.
@@ -346,6 +472,12 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
     fields,
     modules,
     plugins,
+    /**
+     * The two built-in services, as their own list. They are in the view model rather than only in the
+     * panel because the official page renders this object: a component whose failure the product is
+     * meant to survive has to be visible in the one surface every user has.
+     */
+    services: services.map(serviceView),
     capabilities,
     /**
      * The live summary, next to — never instead of — the governance fields above. The ball draws this, the

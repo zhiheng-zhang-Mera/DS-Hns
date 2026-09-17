@@ -142,7 +142,7 @@ function pluginActions(state) {
  * @param {object} [input.balance]    `balanceService.describe()` — the account the runs are billed to (MEGA-04)
  * @param {object} [input.pricing]    `PricingRepository.describe()` — which price list the cost is billed against
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null, services = null, advanced = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -170,6 +170,42 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
 
   const sections = [
     {
+      /**
+       * The two built-in services, as their own section.
+       *
+       * They are the components whose failure the product is supposed to survive, so they are the two
+       * a person most needs to see — and every line is the *service record's* own field, not a
+       * re-derivation: the plugin manager's four states, the plugin's own health answer, and the
+       * heartbeat the restart supervisor writes. A service that is declared but not enabled reads
+       * `disabled`, which is a different thing from `missing` and from `faulted`.
+       */
+      id: 'services',
+      cn: '内置服务',
+      en: 'Built-in services',
+      rows: Array.isArray(services) && services.length
+        ? services.flatMap((service) => {
+          const tone = service.ok !== true ? 'bad'
+            : service.health && service.health.status === 'degraded' ? 'warn'
+              : service.health && service.health.status === 'unknown' ? 'warn'
+                : service.enabled !== true ? null
+                  : service.healthy === false ? 'warn' : 'ok'
+          const state = service.ok !== true ? 'NOT IN THE RUNTIME'
+            : service.enabled !== true ? 'DISABLED'
+              : service.loaded !== true ? 'ENABLED'
+                : `${String(service.health && service.health.status || 'LOADED').toUpperCase()}`
+          const rows = [
+            row(service.name || service.id, service.name || service.id, state, tone),
+            row(`${service.name || service.id} · 版本`, `${service.name || service.id} · version`, service.version || '—'),
+            row(`${service.name || service.id} · 心跳`, `${service.name || service.id} · heartbeat`, service.heartbeat ? `${service.heartbeat.verdict || service.heartbeat}` : '—', service.heartbeat && (service.heartbeat.verdict === 'hung' || service.heartbeat.verdict === 'gone') ? 'bad' : null),
+            row(`${service.name || service.id} · 能力`, `${service.name || service.id} · capabilities`, (service.capabilities && service.capabilities.provides || []).join(', ') || '—')
+          ]
+          if (service.lastError) {
+            rows.push(row(`${service.name || service.id} · 最后错误`, `${service.name || service.id} · last error`, service.lastError.reason, 'bad'))
+          }
+          return rows
+        })
+        : [row('内置服务', 'Built-in services', 'report unavailable', 'warn')]
+    },    {
       id: 'execution',
       cn: '执行',
       en: 'Execution',
@@ -433,7 +469,7 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
     }))
   }
 
-  return { ok: true, sections, dashboard, modules, plugins, degraded, failed, failing }
+  return { ok: true, sections, dashboard, modules, plugins, services: Array.isArray(services) ? services : [], advanced: advanced || null, degraded, failed, failing }
 }
 
 module.exports = { buildControlCenter, moduleActions, pluginActions, moduleTone, pluginTone }

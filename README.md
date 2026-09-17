@@ -65,10 +65,11 @@ The installer is idempotent and reuse-first:
 10. when package repair/install is needed, uses `npm ci --prefer-offline` and reuses existing npm/Electron caches when available;
 11. generates built-in sounds only when they are missing;
 12. signs the client plugin DS-Hns ships into the Harness profile the product boots, so the orb in the official UI exists on a host that never had it (an already-satisfied profile is left alone, and this step never fails the installation);
-13. **offers the two optional community plugins** — the plugin market (`@dsh-market/plugin`) and the wallpaper engine (`dsh-plugin-wallpaper-engine`) — asking about each one separately, defaulting to skip, and installing neither without an answer; parameters (`-InstallMarket`, `-InstallWallpaper`, `-SkipOptionalPlugins`) answer the questions, an unattended install skips both, and a failure warns rather than failing the installation;
-14. runs unit + architecture tests and repository verification;
-15. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
-16. launches DS-Harness when installation succeeds, and prints a summary of what each part ended up as.
+13. **signs the two built-in long-hosting plugins into the same profile** — the Health Scheduler (`dsh-health-scheduler`) and the Restart Supervisor (`dsh-restart-supervisor`) — from `scripts\bundled-plugins.json` through the Harness' own CLI. They are part of the installation, never a choice, and the step warns and carries on if one of them cannot be placed;
+14. **offers the two optional community plugins** — the plugin market (`@dsh-market/plugin`) and the wallpaper engine (`dsh-plugin-wallpaper-engine`) — asking about each one separately, defaulting to skip, and installing neither without an answer; parameters (`-InstallMarket`, `-InstallWallpaper`, `-SkipOptionalPlugins`) answer the questions, an unattended install skips both, and a failure warns rather than failing the installation;
+15. runs unit + architecture tests and repository verification;
+16. creates Desktop and Start Menu shortcuts (Windows logon autostart is **not** enabled automatically);
+17. launches DS-Harness when installation succeeds, and prints a summary of what each part ended up as.
 
 ```powershell
 Install-DS-Harness.cmd                          # asks about each optional plugin
@@ -77,10 +78,32 @@ Install-DS-Harness.cmd -InstallMarket           # only the store
 Install-DS-Harness.cmd -SkipOptionalPlugins     # neither, and don't ask
 ```
 
-The two community plugins are **optional by construction**: Mega Core is DS-Hns' own plugin and is
-signed in before they are ever mentioned, and neither community plugin is a dependency of starting
-the product. `docs/install-flow.md` is the full flow, the parameters, the installation channel and
-the meaning of every summary line.
+### The built-in plugins
+
+Two components DS-Hns ships and depends on, both `dshns.plugin/v1` plugins mounted by
+`app/plugin-host.cjs` through the one adapter framework:
+
+| Plugin | What it is | Its own document |
+| --- | --- | --- |
+| **Health Scheduler** (`dshns.health-scheduler`) | samples the machine, the runtime, the workers and the task queue through isolated telemetry providers; scores a five-state pressure with trend and debounce; holds a maintenance window with a bounded defer; **requests** a restart and never performs one | `docs/health-scheduler.md` |
+| **Restart Supervisor** (`dshns.restart-supervisor`) | the **one** restart authority: validates and prices a request against a budget, waits for a safe boundary, stops, relaunches, waits for readiness, and tells Core continuity it may resume — in process, or out of process through its companion when the application is hung | `docs/restart-supervisor.md` |
+
+```text
+  perception + judgement        execution + supervision        task continuity
+  dshns.health-scheduler   ──►  dshns.restart-supervisor  ──►  Core (checkpoint / resume)
+        (restart-control)              (the only executor)
+```
+
+Three properties are asserted rather than promised: the monitor holds nothing that can stop a process,
+the supervisor has no health policy, and neither is a dependency of the other. See
+`tests/unit/restart-supervisor-authority.test.js` for the source scans and
+`scripts/longhost-soak.cjs` for the synthetic 6/12/24-hour soaks (`--realtime --hours 24` for a real
+machine).
+
+The two community plugins are **optional by construction**: Mega Core and the two built-in plugins are
+signed in before they are ever mentioned, and neither community plugin is a dependency of starting the
+product. `docs/install-flow.md` is the full flow, the parameters, the installation channel and the
+meaning of every summary line.
 
 ## API key flow
 

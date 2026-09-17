@@ -1,0 +1,17 @@
+# dsh-health-scheduler bundle patch.
+#
+# Applied over the dsh-web-app layer. This bundle contributes ONE host row: the scheduler itself,
+# which samples the machine and this process and publishes the four long-term-hosting capabilities
+# (`hardware-health`, `runtime-health`, `health-pressure`, `maintenance-scheduling`).
+#
+# It deliberately contributes no browser half. The monitor has nothing to draw, and a client half
+# would mean a second copy of the sampling code running in the official page — which is exactly the
+# "two answers to one question" this product's plugin documentation argues against. What the official
+# UI shows about this plugin comes from the inventory it already has and from Mega's panels.
+#
+# Only additive `insert` rows appear here: a patch replaces the targeted row's whole `config`, so this
+# file never overrides a shipped row.
+
+- insert:
+    - id: dsh-health-scheduler
+      name: 'dsh-health-scheduler'

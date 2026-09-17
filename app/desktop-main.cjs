@@ -324,6 +324,15 @@ normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
+/**
+ * Where the restart supervisor's out-of-process companion keeps its files.
+ *
+ * One variable, both sides: the companion is handed this directory as `--state-dir`, the plugin writes
+ * its heartbeat and reads its requests there, and the shell watches the companion's graceful-stop
+ * request in the same place. Deriving it in three places from `process.cwd()` would be three answers to
+ * one question, and the failure mode is a supervisor watching a directory nobody writes to.
+ */
+process.env.DSHNS_SUPERVISOR_STATE_DIR = process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
@@ -1087,6 +1096,87 @@ function pluginsEnabled() {
     return config?.plugins?.enabled !== false
   } catch {
     return true
+  }
+}
+
+/**
+ * The companion's graceful-stop request, as this process sees it.
+ *
+ * The companion cannot send a signal that Windows will honour as "please leave" — `child.kill()` there
+ * terminates whether the child wanted to or not — so the graceful half of a restart is a *file*: the
+ * companion writes `app.stop-request.json`, and the application leaves on its own terms, which is what
+ * lets a restart pass through the shell's own exit path (checkpoints, managed resources, the harness).
+ * The companion only escalates to `taskkill` if this does not happen inside the timeout.
+ *
+ * A missing or unreadable file is not an error — it is the normal case for every second of the day
+ * that nobody is restarting anything — so this stays silent until there is something to act on, and it
+ * acts **once** per request.
+ */
+function watchSupervisorStopRequest() {
+  const file = path.join(process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor'), 'app.stop-request.json')
+  let handledAt = 0
+  const timer = setInterval(() => {
+    let request = null
+    try {
+      request = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch {
+      return
+    }
+    const at = Number(request && request.at)
+    if (!Number.isFinite(at) || at <= handledAt) return
+    handledAt = at
+    logLine(`the restart supervisor asked this instance to leave gracefully (${request.kind || 'graceful'}): ${request.reason || 'no reason given'}`)
+    gracefulExit('restart-supervisor')
+  }, 1_000)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
+
+/**
+ * Start the out-of-process half of the restart authority, behind the boot.
+ *
+ * The restart supervisor can only supervise if part of it is *outside* the process it watches: a hung
+ * or dead main process cannot reliably restart itself, and nothing inside it can notice that the event
+ * loop stopped answering. That outside half is the companion — a separate Node program in
+ * `app/plugins/restart-supervisor/companion/` — and this is what starts it.
+ *
+ * Two properties decide the shape of this call:
+ *
+ *   * **through the plugin runtime**, not around it: the companion's state directory, its policy and
+ *     its pid file belong to the plugin, so the shell asks the plugin to start its own companion
+ *     (`startCompanions`) instead of spawning a path it would have to keep in step by hand;
+ *   * **behind the boot**: it is a `startup.defer` step, so a companion that will not start is a line
+ *     in the boot report and a `degraded` health row — never a shell that refuses to open.
+ */
+async function startRestartSupervisor() {
+  if (!pluginsEnabled()) return { ok: false, skipped: true, reason: 'the plugin runtime is disabled by config/app.json' }
+  const host = ensurePluginHost()
+  const built = await host.ensure()
+  if (built.ok === false) return { ok: false, skipped: true, reason: built.error || 'the plugin world could not be built' }
+  const outcome = host.startCompanions()
+  for (const entry of outcome.started || []) {
+    if (entry.ok === true) logLine(`restart supervisor companion: ${entry.already === true ? `already running (pid ${entry.pid})` : `started (pid ${entry.pid || 'unknown'})`}`)
+    else if (entry.skipped === true) logLine(`restart supervisor companion not started: ${entry.reason}`)
+    else logLine(`restart supervisor companion failed to start: ${entry.reason}`)
+  }
+  return outcome
+}
+
+/**
+ * Tell the companion this exit is intentional, before the process is gone.
+ *
+ * The companion watches a pid and a heartbeat, and neither can distinguish "the user closed the
+ * window" from "the application died" — so the difference is written down here, while there is still a
+ * process to write it. Without it, every normal quit would be crash-recovered.
+ */
+function standDownRestartSupervisor() {
+  try {
+    const outcome = pluginHost && typeof pluginHost.stopCompanions === 'function' ? pluginHost.stopCompanions('the shell is quitting') : null
+    if (outcome && outcome.built) logLine(`restart supervisor companion: ${JSON.stringify(outcome.stopped)}`)
+    return outcome
+  } catch (error) {
+    logLine(`could not stand the restart supervisor down: ${error?.message || error}`)
+    return null
   }
 }
 
@@ -2425,6 +2515,80 @@ async function startExtensions(nodeExe) {
       // This hook lets the store *await* the rebuild, so the panel's next read cannot show
       // "enabled" for a plugin the runtime has not mounted yet.
       reloadInstalledPlugins,
+      /**
+       * The plugin host, as the surface Mega and the official page read the two **built-in services**
+       * through: the health scheduler and the restart supervisor.
+       *
+       * Every call is synchronous and side-effect free except the four that act (`setEnabled`,
+       * `checkHealth`, `reload`, `restartControl`), because this is handed to a *panel*: it describes
+       * plugins, and the operations it can perform are the ones the Control Center's own action
+       * vocabulary names. The shell owns the host, so this is a hook rather than an import — the
+       * extension never reaches into the runtime's internals.
+       */
+      pluginServices: {
+        report: (id) => host().serviceReport(id),
+        reportAll: (ids) => host().serviceReports(ids),
+        setEnabled: (id, enabled) => host().setEnabled(id, enabled),
+        checkHealth: (id) => host().health(id),
+        reload: (id, options) => host().reload(id, options),
+        /**
+         * The **advanced** settings the panel may change: the two plugins' own policy, as dotted paths
+         * into the configuration they read.
+         *
+         * `advanced()` describes (the schema's label, type and range beside the value in force);
+         * `setAdvanced()` writes. Both go through the host's one validator, so a value the panel offers
+         * is a value the host accepts, and a refusal carries its reason rather than being clamped.
+         */
+        advanced: () => {
+          try {
+            const runtime = host()
+            const schema = runtime.ADVANCED_SCHEMA || {}
+            const owners = ['dshns.health-scheduler', 'dshns.restart-supervisor']
+            const resolved = {}
+            for (const owner of owners) {
+              try {
+                resolved[owner] = runtime.config ? runtime.config.forPlugin(owner).resolved : null
+              } catch {
+                resolved[owner] = null
+              }
+            }
+            const read = (object, key) => key.split('.').reduce((cursor, part) => (cursor && typeof cursor === 'object' ? cursor[part] : undefined), object)
+            return Object.entries(schema).map(([key, rule]) => ({
+              key,
+              owner: rule.owner,
+              label: rule.label || key,
+              type: rule.type || 'string',
+              min: Number.isFinite(rule.min) ? rule.min : null,
+              max: Number.isFinite(rule.max) ? rule.max : null,
+              enum: Array.isArray(rule.enum) ? rule.enum.slice() : null,
+              value: resolved[rule.owner] ? read(resolved[rule.owner], key) : undefined
+            }))
+          } catch (error) {
+            logLine(`the advanced plugin settings could not be described: ${error?.message || error}`)
+            return null
+          }
+        },
+        setAdvanced: (settings) => host().configure({ settings }),
+        /**
+         * `restart-control`, if anything provides it.
+         *
+         * Resolved through the capability registry rather than by importing the supervisor: the
+         * monitor's own rule applies to every consumer, and the answer carries the reason when nothing
+         * provides it, so a surface can say "unavailable, because" rather than showing a dead button.
+         */
+        restartControl: () => {
+          try {
+            const runtime = host()
+            const resolved = runtime.registry && typeof runtime.registry.resolve === 'function'
+              ? runtime.registry.resolve('restart-control')
+              : null
+            if (!resolved) return { ok: false, reason: 'no plugin provides restart-control' }
+            return { ok: true, value: resolved }
+          } catch (error) {
+            return { ok: false, reason: `resolving restart-control threw: ${error?.message || error}` }
+          }
+        }
+      },
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
@@ -2536,6 +2700,15 @@ app.whenReady().then(async () => {
     if (pluginsEnabled()) {
       registerPluginIpc()
       logLine('plugins: runtime available on demand (plugins:* IPC)')
+      // The companion's graceful request is watched from boot, so a restart the supervisor starts is a
+      // graceful one rather than a `taskkill` — even when nobody ever opens a plugin panel.
+      watchSupervisorStopRequest()
+      // ...and the one process that has to be up *before* anything can go wrong: the restart
+      // supervisor's companion. Deferred, so it is a boot-report phase rather than a boot dependency.
+      startup.defer('restart-supervisor', () => startRestartSupervisor())
+        .then((outcome) => {
+          if (outcome?.value?.ok === false) logLine(`restart supervisor: ${outcome.value.reason}`)
+        })
     } else {
       logLine('plugins: disabled by config/app.json')
     }
@@ -2601,6 +2774,9 @@ app.on('before-quit', () => {
   if (shuttingDown) return
   shuttingDown = true
   logLine('before-quit: reconciling managed resources')
+  // Before anything is torn down, and while this process can still write: an intentional exit and a
+  // crash look identical from outside, so the companion is told which one this is.
+  standDownRestartSupervisor()
   teardownManagedResources()
 })
 process.on('exit', stopHarness)

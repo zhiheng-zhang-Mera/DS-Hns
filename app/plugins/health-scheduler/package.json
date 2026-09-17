@@ -1,0 +1,32 @@
+{
+  "name": "dsh-health-scheduler",
+  "version": "2.0.0",
+  "private": true,
+  "description": "DS-Hns Health Scheduler: samples the machine, the runtime, the workers and the task queue through isolated telemetry providers, scores a five-state pressure with trend and debounce, holds a maintenance window with a bounded defer, and requests a restart through restart-control rather than performing one.",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs",
+    "./health": "./health.cjs",
+    "./providers": "./providers.cjs",
+    "./severity": "./severity.cjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.cjs",
+    "health.cjs",
+    "providers.cjs",
+    "severity.cjs",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "license": "MIT"
+}

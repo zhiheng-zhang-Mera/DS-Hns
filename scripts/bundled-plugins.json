@@ -1,0 +1,31 @@
+{
+  "version": "target-standby",
+  "note": "The built-in plugins this product ships in its own repository, as the *installer* reads them. scripts/install-bundled-plugins.ps1 is a PowerShell program and cannot read a frozen object out of app/extensions/mega/plugins/index.cjs, so the list is written down here as data. The two are kept in step by tests/unit/restart-supervisor-authority.test.js, which fails if a built-in entry in the manifest is missing here or disagrees about its id, directory or reference.",
+  "plugins": [
+    {
+      "id": "dshns.health-scheduler",
+      "role": "health",
+      "directory": "health-scheduler",
+      "package": "dsh-health-scheduler",
+      "ref": "2.0.0",
+      "channel": "harness-profile",
+      "required": true,
+      "summary": "samples the machine, the runtime, the workers and the task queue; scores a five-state pressure; holds a maintenance window; requests a restart through restart-control"
+    },
+    {
+      "id": "dshns.restart-supervisor",
+      "role": "restart",
+      "directory": "restart-supervisor",
+      "package": "dsh-restart-supervisor",
+      "ref": "1.0.0",
+      "channel": "harness-profile",
+      "required": true,
+      "companion": {
+        "entry": "companion/main.cjs",
+        "summary": "the out-of-process half: it owns the application process, reads the heartbeat file and restarts within a budget when the application is gone or hung",
+        "startupRegistration": "none",
+        "reason": "the companion is started by the plugin through the shell hooks the plugin host passes in, and it exits when it is asked to and the application has been relaunched. Registering it as a Windows startup entry was deliberately rejected: it would leave an entry behind on uninstall and it would start the product twice, once from the entry and once from the companion's own child."
+      }
+    }
+  ]
+}

@@ -1841,6 +1841,37 @@ function controlCenter() {
     snapshot: data,
     protection: protectionReport,
     bundled: bundledReport,
+    /**
+     * The two built-in services, read from the plugin host through the shell hook `desktop-main.cjs`
+     * passes in. Read defensively like every other report here: a control centre that could not be
+     * drawn because the service report threw would be the opposite of a diagnostics surface, and the
+     * absence is reported as an empty list which the panel draws as "report unavailable".
+     */
+    services: (() => {
+      try {
+        return typeof ctx?.pluginServices === 'function' ? ctx.pluginServices.reportAll() : null
+      } catch (error) {
+        log(`the built-in service report is unavailable: ${error?.message || error}`)
+        return null
+      }
+    })(),
+    /**
+     * The advanced settings Mega owns: the two plugins' own policy, with the schema's label, type and
+     * range beside the value in force.
+     *
+     * It is a *description*, not a second configuration store: the values come from the shell's
+     * resolved plugin config (the same layer the panel writes to), and the schema comes from the host
+     * that validates a write. A page that drew its own ranges would offer values the host refuses.
+     */
+    advanced: (() => {
+      try {
+        if (typeof ctx?.pluginServices !== 'function' || typeof ctx.pluginServices.advanced !== 'function') return null
+        return ctx.pluginServices.advanced()
+      } catch (error) {
+        log(`the advanced plugin settings are unavailable: ${error?.message || error}`)
+        return null
+      }
+    })(),
     boot,
     cache: startupCache().describe(),
     appearance: (() => {
@@ -1909,6 +1940,73 @@ function controlCenter() {
  *     returns immediately, the read runs in the background, and the next view read carries the result — the
  *     service marks itself `refreshing` in the meantime, which the dashboard draws as 刷新中.
  */
+/**
+ * The actions the Control Center and the official page may ask of a **built-in service**.
+ *
+ * They are the low-level operations the requirement names, in one closed set, and they are answered by
+ * the runtime that owns the plugin rather than by this extension:
+ *
+ * | action | who answers it |
+ * | --- | --- |
+ * | `check`, `diagnostics` | the plugin host (`serviceReport`) |
+ * | `enable`, `disable` | the plugin host's `setEnabled` |
+ * | `restart-plugin` | disable then enable, which is a real restart of the plugin's host half |
+ * | `manual-restart`, `reset-budget` | `restart-control`, which only the supervisor provides |
+ *
+ * A `restart-control` that is absent is reported as unavailable, never guessed at: the monitor's own
+ * rule — "restart unavailable, and here is why" — applies to this surface too.
+ */
+const SERVICE_ACTIONS = new Set(['check', 'diagnostics', 'enable', 'disable', 'restart-plugin', 'manual-restart', 'reset-budget'])
+
+async function serviceAction(action, id) {
+  const host = typeof ctx?.pluginServices === 'function' ? ctx.pluginServices : null
+  if (!host) return { ok: false, action, id, reason: 'the plugin host is not available in this build' }
+  try {
+    if (action === 'check' || action === 'diagnostics') {
+      const report = await host.report(id)
+      if (!report || report.ok !== true) return { ok: false, action, id, reason: (report && report.reason) || `no report for ${id}` }
+      // `check` re-reads the health through the manager, so the answer is the platform's own rather
+      // than whatever the last read happened to cache.
+      if (action === 'check') {
+        const health = await host.checkHealth(id)
+        return { ok: true, action, id, result: { health, service: report } }
+      }
+      return { ok: true, action, id, result: report }
+    }
+    if (action === 'enable' || action === 'disable') {
+      const outcome = await host.setEnabled(id, action === 'enable')
+      return { ok: outcome?.ok !== false, action, id, result: outcome, reason: outcome?.ok === false ? outcome.reason : null }
+    }
+    if (action === 'restart-plugin') {
+      // A restart of a plugin's host half is an unload and a load. Doing it through the host's own
+      // `reload` keeps the four states and the capability registry consistent, which a hand-written
+      // disable/enable pair would not.
+      const outcome = await host.reload(id, { reason: 'a person asked for a plugin restart' })
+      return { ok: outcome?.ok !== false, action, id, result: outcome, reason: outcome?.ok === false ? outcome.reason : null }
+    }
+    // The two supervisor operations go through the capability, and only it.
+    const control = await host.restartControl()
+    if (!control || control.ok !== true) {
+      return { ok: false, action, id, reason: (control && control.reason) || 'restart-control is not available' }
+    }
+    if (action === 'reset-budget') {
+      const outcome = await control.value.resetRestartBudget('official-ui')
+      return { ok: outcome?.ok !== false, action, id, result: outcome }
+    }
+    const outcome = await control.value.manualRestart({ reasonSummary: 'a person asked for a manual restart' })
+    return {
+      ok: outcome?.ok === true,
+      action,
+      id,
+      result: outcome,
+      reason: outcome?.ok === true ? null : outcome?.reason || 'the restart supervisor refused the request'
+    }
+  } catch (error) {
+    log(`service action ${action} on ${id} failed: ${error?.stack || error}`)
+    return { ok: false, action, id, reason: String(error?.message || error) }
+  }
+}
+
 async function controlAction(payload = {}) {
   const action = String(payload.action || '')
   const id = String(payload.id || '')
@@ -1924,6 +2022,20 @@ async function controlAction(payload = {}) {
   }
   if (!action || !id) return { ok: false, reason: 'an action and an id are required' }
   try {
+    /**
+     * The two built-in services answer through the **plugin host**, not through the protection layer or
+     * the store: a plugin is enabled, disabled, health-checked and diagnosed by the runtime that owns
+     * it, and a second path here would be a second answer about whether a plugin is running.
+     *
+     * The two operations that only the restart supervisor has — a manual application restart and a
+     * budget reset — go through `restart-control`, which is the capability that exists for exactly
+     * this. Neither is performed silently: the control centre's own action vocabulary carries them,
+     * the official page flags them for confirmation, and a refusal is returned with the supervisor's
+     * reason (safe mode, a cooldown, an exhausted budget) rather than retried.
+     */
+    if (SERVICE_ACTIONS.has(action)) {
+      return serviceAction(action, id)
+    }
     if (action === 'check') return { ok: true, action, id, result: await ctx.protection?.check?.(id) }
     if (action === 'retry') return { ok: true, action, id, result: await ctx.protection?.start?.(id) }
     if (action === 'reset-fallback') return { ok: true, action, id, result: await ctx.protection?.stop?.(id) }

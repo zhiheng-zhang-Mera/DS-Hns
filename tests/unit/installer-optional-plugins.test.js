@@ -550,6 +550,17 @@ function installerFixture(label) {
   // repository. The installer's *own* behaviour around them is what these tests are about.
   fs.writeFileSync(path.join(scripts, 'test-all.ps1'), "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'tests'\nexit 0\n", 'utf8')
   fs.writeFileSync(path.join(scripts, 'verify.ps1'), "param([switch]$SkipTests)\nAdd-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'verify'\nexit 0\n", 'utf8')
+  // The built-in plugins have their own installer, and the real one would sign two plugins into a
+  // profile this fixture does not have. It is recorded here, and it answers with the report the real
+  // one answers with, because the installer's own behaviour around that report is what is asserted.
+  fs.writeFileSync(
+    path.join(scripts, 'install-bundled-plugins.ps1'),
+    "param([switch]$Repair, [switch]$Uninstall, [switch]$List, [switch]$Json)\n" +
+      "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'bundled'\n" +
+      "if ($Json) { Write-Output '{\"ok\":true,\"results\":[{\"id\":\"dshns.health-scheduler\",\"state\":\"already-installed\"},{\"id\":\"dshns.restart-supervisor\",\"state\":\"already-installed\"}]}' }\n" +
+      "exit 0\n",
+    'utf8'
+  )
 
   // The community plugin command line, the release manifest, the plugins and the adapter layer: the
   // real files, because the installer's behaviour depends on what they say. The whole `mega` extension

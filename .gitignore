@@ -35,3 +35,8 @@ Desktop.ini
 
 # ===== Test scratch =====
 tests/out/
+# The restart supervisor derives its state directory from the working directory when nobody names one,
+# so a suite run straight from `tests\` (or from `app\`) would otherwise leave a heartbeat behind in the
+# checkout. `scripts\test-all.ps1` points the variable at a scratch directory; these two are the net.
+tests/data/
+app/data/
