@@ -680,10 +680,24 @@ function createRestartSupervisorPlugin(options = {}) {
       return { status: HEALTH_STATUS.HEALTHY, reason: `state ${detail.state}; ${health.tier}`, detail }
     },
 
+    /**
+     * What a diagnostic surface reads.
+     *
+     * Two shapes in one answer, and both are needed: `getRestartState()` is the *capability's* shape
+     * (the supervisor's own state, with the companion nested under `support`, because that is where a
+     * caller of `restart-control` looks for it), and the flat fields beside it are the ones the
+     * official page's supervisor block reads directly — the budget it draws as `used/max`, the
+     * heartbeat verdict, the companion, and safe mode. Publishing only the nested form would leave the
+     * one row that says whether a restart could happen at all empty, and publishing only the flat form
+     * would change what `restart-control` answers.
+     */
     diagnostics() {
+      const health = budget.health(now())
+      const companion = companionStatus()
       return {
         ...getRestartState(),
-        companion: companionStatus(),
+        companion,
+        safeMode: health.safeMode === true,
         paths,
         heartbeatSignals: heartbeat.signals(),
         requests: requests.slice(-20),

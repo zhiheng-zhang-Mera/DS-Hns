@@ -1182,14 +1182,21 @@ function createPluginHost(options = {}) {
    * own each fact.
    *
    * The plugin manager knows the four states, the capabilities and the fault; the adapter record
-   * knows which format it arrived in; the plugin's own `diagnostics()` knows what it is doing right
-   * now. This merges them once so three surfaces (the official UI's settings section, the Mega panel
-   * and the governance bridge) do not each invent their own join — and so a fact that is missing is
-   * reported as missing rather than as healthy.
+   * knows which format it arrived in; the plugin's own `domainDiagnostics()` knows what it is doing
+   * right now. This merges them once so three surfaces (the official UI's settings section, the Mega
+   * panel and the governance bridge) do not each invent their own join — and so a fact that is
+   * missing is reported as missing rather than as healthy.
    *
-   * `diagnostics()` is called defensively: it is plugin code, and a plugin whose diagnostics throw
-   * must still appear in the list with the fault named. That is the same per-plugin fault isolation
-   * the adapter framework applies at load time, applied to the read path.
+   * `domainDiagnostics()` is read rather than the platform's standardised `diagnostics()`, and the
+   * difference matters: the standard one is **async** (it runs a health check) and describes the
+   * plugin's *lifecycle*, while the domain one is synchronous and describes the plugin's *subject* —
+   * the monitor's pressure and trend, the supervisor's budget and companion. A service record has to
+   * be a plain object: a panel, an IPC reply and the governance bridge all serialise it, and a
+   * Promise in it would arrive as `{}`.
+   *
+   * It is called defensively: it is plugin code, and a plugin whose diagnostics throw must still
+   * appear in the list with the fault named. That is the same per-plugin fault isolation the adapter
+   * framework applies at load time, applied to the read path.
    */
   function serviceRecordOf(id) {
     const wanted = String(id)
@@ -1204,11 +1211,31 @@ function createPluginHost(options = {}) {
     let diagnosticsError = null
     try {
       const candidate = managed && managed.plugin ? managed.plugin : null
-      if (candidate && typeof candidate.diagnostics === 'function') diagnostics = candidate.diagnostics()
+      if (candidate && typeof candidate.domainDiagnostics === 'function') {
+        diagnostics = candidate.domainDiagnostics()
+      } else if (candidate && typeof candidate.diagnostics === 'function') {
+        // A plugin that only has the standard hook is still read — but only when it answers with a
+        // value: a promise here would be serialised as an empty object, which is worse than `null`.
+        const answer = candidate.diagnostics()
+        diagnostics = answer && typeof answer.then === 'function' ? null : answer
+      }
     } catch (error) {
       diagnosticsError = String(error && error.message ? error.message : error)
     }
-    const health = record.health || null
+    /**
+     * The health answer, from the layer that owns it.
+     *
+     * `list()` publishes only the status *word* (`entry.health` is a string there, or null), while the
+     * manager's own record holds the whole answer — status, reason, latency and the detail block a
+     * panel reads (`heartbeat`, `fallback`). Reading the word and calling it the record produced a
+     * health object with `status: undefined`, which every tone function then treated as "not
+     * degraded", and a supervisor with no companion drew as merely unhealthy instead of degraded with
+     * its reason. So the object is taken from the manager, and the word is the fallback for a plugin
+     * whose record the manager no longer keeps (one unloaded between the two reads).
+     */
+    const managedHealth = managed && managed.health && typeof managed.health === 'object' ? managed.health : null
+    const listedHealth = record.health
+    const health = managedHealth || (typeof listedHealth === 'string' ? { status: listedHealth } : (listedHealth && typeof listedHealth === 'object' ? listedHealth : null))
     const detail = health && health.detail ? health.detail : {}
     return {
       ok: true,
@@ -1291,14 +1318,14 @@ function createPluginHost(options = {}) {
      * that own each fact.
      *
      * The plugin manager knows the four states, the capabilities and the fault; the adapter record
-     * knows which format it arrived in; and the plugin's own `diagnostics()` knows what it is doing
-     * right now. This merges them once so three surfaces (the official UI's settings section, the
-     * Mega panel and the governance bridge) do not each invent their own join — and so a fact that is
-     * missing is reported as missing rather than as healthy.
+     * knows which format it arrived in; and the plugin's own `domainDiagnostics()` knows what it is
+     * doing right now. This merges them once so three surfaces (the official UI's settings section,
+     * the Mega panel and the governance bridge) do not each invent their own join — and so a fact
+     * that is missing is reported as missing rather than as healthy.
      *
-     * `diagnostics()` is called defensively: it is plugin code, and a plugin whose diagnostics throw
-     * must still appear in the list with the fault named. That is the same per-plugin fault isolation
-     * the adapter framework applies at load time, applied to the read path.
+     * `domainDiagnostics()` is read rather than the platform's async, standardised `diagnostics()`:
+     * a service record is serialised by all three surfaces, so it has to be a plain object rather
+     * than a Promise, and the fields a panel draws are the plugin's own (see `serviceRecordOf`).
      */
     serviceReport: (id) => {
       try {

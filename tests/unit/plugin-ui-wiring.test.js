@@ -403,6 +403,60 @@ test('the syntax gate and the CI gate both cover the plugin surface', () => {
   assert.ok(testAll.includes('plugin-ui-wiring.test.js'), 'test-all.ps1 does not list the plugin UI suite')
 })
 
+/**
+ * The service record is what the official page, the Mega panel and the governance bridge all read, so
+ * its shape is a contract in three directions at once:
+ *
+ *   * **it is plain data.** Every one of those three serialises it — an IPC reply, a JSON body over
+ *     loopback — and a Promise in it arrives on the other side as `{}`. That was a real defect: the
+ *     host called the adapter's *async* standardised `diagnostics()` and stored the promise;
+ *   * **the health block is the manager's answer, not the status word.** `list()` publishes only
+ *     `entry.health.status`; reading *that* as if it were the record produced `{ status: undefined }`,
+ *     which every tone function then read as "not degraded" — a supervisor with no companion drew as
+ *     merely unhealthy, with its reason lost;
+ *   * **the plugin's own diagnostics travel too.** The domain report (the monitor's pressure and
+ *     trend, the supervisor's budget and companion) is what the page's rows draw, and the native
+ *     adapter's field list is a whitelist, so it has to be carried through deliberately.
+ */
+test('a service record is plain, serialisable data built from the layer that owns each fact', async () => {
+  const { host, dispose } = tempHost()
+  try {
+    const built = await host.ensure()
+    assert.notEqual(built.ok, false, `the plugin runtime did not build: ${built.error || ''}`)
+    await host.setEnabled({ id: 'dshns.health-scheduler', enabled: true })
+
+    const records = host.serviceReports()
+    assert.deepEqual(records.map((record) => record.id).sort(), ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    for (const record of records) {
+      assert.equal(record.ok, true, `${record.id} has no service record`)
+      // Plain data: no promise, and a round trip through JSON is the same object.
+      assert.equal(typeof (record.diagnostics && record.diagnostics.then), 'undefined', `${record.id}'s diagnostics is a promise`)
+      assert.deepEqual(JSON.parse(JSON.stringify(record)).id, record.id)
+      assert.equal(Object.prototype.hasOwnProperty.call(record, 'health'), true)
+      assert.equal(Object.prototype.hasOwnProperty.call(record, 'healthy'), true)
+      for (const field of ['installed', 'enabled', 'loaded']) {
+        assert.equal(typeof record[field], 'boolean', `${record.id}.${field} is not one of the four separate facts`)
+      }
+      assert.ok(Array.isArray(record.capabilities.provides), `${record.id} publishes no capability list`)
+      assert.deepEqual(record.recentFaults, [])
+    }
+
+    const supervisor = records.find((record) => record.id === 'dshns.restart-supervisor')
+    assert.equal(supervisor.health.status, 'degraded', `the supervisor without a companion is not degraded: ${JSON.stringify(supervisor.health)}`)
+    assert.match(supervisor.health.reason, /companion/, 'the supervisor\'s degradation has no reason')
+    assert.ok(supervisor.diagnostics && supervisor.diagnostics.budget, 'the supervisor\'s budget does not reach the record')
+    assert.ok(supervisor.diagnostics.companion && typeof supervisor.diagnostics.companion.running === 'boolean', 'the companion\'s state does not reach the record')
+    assert.equal(typeof supervisor.diagnostics.safeMode, 'boolean')
+
+    const monitor = records.find((record) => record.id === 'dshns.health-scheduler')
+    assert.ok(monitor.diagnostics && monitor.diagnostics.providers, 'the monitor\'s provider report does not reach the record')
+    assert.ok(monitor.diagnostics.report, 'the monitor\'s sampling report does not reach the record')
+    assert.equal(JSON.stringify(records).includes('"then"'), false, 'a promise is being serialised into the service records')
+  } finally {
+    await dispose()
+  }
+})
+
 test('no file in the plugin platform or its panel needs a plan document', () => {
   const files = []
   const walk = (dir, prefix = '') => {

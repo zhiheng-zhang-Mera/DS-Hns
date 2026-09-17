@@ -1224,3 +1224,80 @@ test('a plugin without React draws nothing instead of breaking the page it was i
   assert.deepEqual(injected, [], 'a plugin with no renderer registered a section anyway')
   assert.deepEqual(effects, [], 'a plugin with no renderer started polling')
 })
+
+/**
+ * The whole path the requirement is about, end to end and with nothing hand-made in the middle.
+ *
+ * The official page's built-in-service block is the only place the two plugins are *managed* from, so it
+ * is not enough that each link can be described: a **real** plugin host is built here, its own service
+ * records are handed to the **real** view model, and the **real** page is rendered from that view. If
+ * the record's two halves ever stop agreeing — the four states, the diagnostics block, the capability
+ * list, the actions — this is the test that says so, and it is the only one that would.
+ */
+test('the official page lists the two built-in services, from the plugin host\'s own records', async () => {
+  const os = require('node:os')
+  const { pathToFileURL } = require('node:url')
+  const { createPluginHost } = require('../../app/plugin-host.cjs')
+  const { buildMegaView } = await import(pathToFileURL(path.join(ROOT, 'app', 'plugins', 'mega-core', 'lib', 'view.js')).href)
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-service-page-'))
+  const host = createPluginHost({
+    root: ROOT,
+    configDir: path.join(dir, 'plugins'),
+    lockFile: path.join(dir, 'dshns-lock.yaml'),
+    log: () => {}
+  })
+  try {
+    const built = await host.ensure()
+    assert.notEqual(built.ok, false, `the plugin runtime did not build: ${built.error || ''}`)
+    // The monitor ships disabled (sampling is a decision a user makes), and this test is about what the
+    // page draws once it is enabled — the way a person enables it from that page.
+    const enabled = await host.setEnabled({ id: 'dshns.health-scheduler', enabled: true })
+    assert.equal(enabled.ok, true, JSON.stringify(enabled))
+
+    const records = host.serviceReports()
+    assert.equal(records.length, 2)
+    const ids = records.map((record) => record.id).sort()
+    assert.deepEqual(ids, ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    for (const record of records) {
+      assert.equal(record.ok, true, `${record.id} has no service record`)
+      // The four states are separate facts, and a panel that collapsed them would be the defect this
+      // assertion exists for.
+      for (const field of ['installed', 'enabled', 'loaded']) {
+        assert.equal(typeof record[field], 'boolean', `${record.id}.${field} is not a separate fact`)
+      }
+      assert.ok(Object.prototype.hasOwnProperty.call(record, 'healthy'))
+      assert.ok(Array.isArray(record.capabilities.provides))
+    }
+    const supervisor = records.find((record) => record.id === 'dshns.restart-supervisor')
+    assert.deepEqual(supervisor.capabilities.provides, ['restart-control'])
+    assert.ok(supervisor.diagnostics && supervisor.diagnostics.budget, 'the supervisor publishes no diagnostics for the page')
+
+    // The view model, from those records and nothing else.
+    const view = buildMegaView({ governance: { ok: true, services: records } })
+    assert.equal(view.services.length, 2)
+    const supervisorView = view.services.find((service) => service.id === 'dshns.restart-supervisor')
+    assert.equal(supervisorView.state, 'DEGRADED', `the supervisor with no companion must be DEGRADED, got ${supervisorView.state}`)
+    assert.ok(supervisorView.restart && supervisorView.restart.budget, 'the supervisor\'s restart block is missing from the view')
+    // The supervisor-only operations are offered there, and nowhere else.
+    assert.ok(supervisorView.actions.includes('manual-restart (confirm)'), supervisorView.actions.join(', '))
+    assert.ok(supervisorView.actions.includes('reset-budget (confirm)'), supervisorView.actions.join(', '))
+    const monitorView = view.services.find((service) => service.id === 'dshns.health-scheduler')
+    assert.equal(monitorView.actions.some((action) => action.startsWith('manual-restart')), false, 'the monitor was offered an application restart')
+
+    // ...and the page, rendered from that view.
+    const mounted = await mount({ fetchImpl: fakeFetch({ view }) })
+    const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+    const rows = find(rendered.tree, (element) => element.props['data-hns-service'])
+    assert.deepEqual(rows.map((row) => row.props['data-hns-service']).sort(), ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    const said = strings(rendered.tree).join(' | ')
+    assert.match(said, /Built-in services/)
+    assert.match(said, /installed yes/)
+    assert.match(said, /provides: restart-control/)
+    assert.match(said, /restarts \d+\/3/, 'the supervisor\'s budget is not on the page')
+    assert.match(said, /manual-restart/, 'the supervisor\'s own operation is not offered')
+  } finally {
+    await host.dispose('test teardown')
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

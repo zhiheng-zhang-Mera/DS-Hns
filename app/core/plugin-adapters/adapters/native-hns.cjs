@@ -118,6 +118,20 @@ function createNativeHnsAdapter(options = {}) {
           unload: typeof module_.unload === 'function' ? module_.unload : undefined,
           healthCheck: typeof module_.healthCheck === 'function' ? module_.healthCheck : undefined,
           runtimeInfo: typeof module_.runtimeInfo === 'function' ? module_.runtimeInfo : undefined,
+          /**
+           * Two optional interfaces carried through, because the platform's read path asks for them.
+           *
+           * The list above is a whitelist on purpose — a plugin must not be able to smuggle arbitrary
+           * methods into the manager's record — but these two are part of a plugin's contract with the
+           * management surfaces rather than an extra: `diagnostics` is the plugin's own report about
+           * its subject (the monitor's pressure, the supervisor's budget), which the service record and
+           * the official page draw, and `errorReport` is the structured failure list the same surfaces
+           * read. The lifecycle keeps the first beside the platform's standardised diagnostics as
+           * `domainDiagnostics`; dropping either here is how a panel's row for a healthy plugin comes
+           * out empty.
+           */
+          diagnostics: typeof module_.diagnostics === 'function' ? module_.diagnostics : undefined,
+          errorReport: typeof module_.errorReport === 'function' ? module_.errorReport : undefined,
           permissions: Array.isArray(module_.permissions) ? module_.permissions : undefined,
           runtime: {
             kind: RUNTIME_KINDS.IN_PROCESS.id,
