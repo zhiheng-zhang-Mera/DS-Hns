@@ -1,6 +1,6 @@
 {
   "name": "dsh-restart-supervisor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "DS-Hns Restart Supervisor: the only restart authority. Validates and prices a restart request against a budget, waits for a safe boundary, stops the application, relaunches it, waits for readiness and then tells Core continuity it may resume — in process through restart-control, or out of process through its companion when the application is hung.",
   "main": "index.cjs",

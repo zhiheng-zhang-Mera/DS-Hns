@@ -259,7 +259,7 @@ function createHealthSchedulerPlugin(options = {}) {
       api_version: API,
       id: 'dshns.health-scheduler',
       name: 'Health Scheduler',
-      version: '2.0.0',
+      version: '2.0.1',
       description: 'device and runtime health sampling through isolated telemetry providers, a five-state pressure model with trend and debounce, maintenance windows with a bounded defer, and an action decision that requests a restart rather than performing one',
       provides: [...PROVIDES],
       requires_capabilities: [],
@@ -433,6 +433,32 @@ function healthSchedulerPlugin() {
   return createHealthSchedulerPlugin()
 }
 
+/** The id this plugin is known by, in both mounts. */
+const HEALTH_SCHEDULER_PLUGIN_ID = 'dshns.health-scheduler'
+
+/**
+ * The package entry, in both shapes the two mounts ask for.
+ *
+ * DS-Hns' own plugin host mounts this file through `NativeHnsAdapter` and calls `healthSchedulerPlugin()`.
+ * The **Harness** composes it as a profile bundle instead, and its loader requires a cordis plugin: a
+ * function, or an object with an `apply` method. An object of helpers is neither, and the loader refuses
+ * it -- the plugin installs and the product does not boot.
+ *
+ * `apply` is the **harness half**, and it is deliberately small: the sampler lives in the DS-Hns shell
+ * (it reads the machine the product runs on, and the panel reads it through the governance bridge). What
+ * this half does is register that presence, so the composition is honest rather than broken.
+ */
+function apply(context) {
+  const note = `the health sampler runs in the DS-Hns shell; this profile entry composes ${HEALTH_SCHEDULER_PLUGIN_ID} into the Harness`
+  try {
+    if (context && typeof context.logger === 'function') context.logger('debug', note)
+    else if (context && context.logger && typeof context.logger.debug === 'function') context.logger.debug(note)
+  } catch {
+    // A logging surface that throws is not a reason for the composition to fail.
+  }
+  return { ok: true, registered: HEALTH_SCHEDULER_PLUGIN_ID, sampler: 'the DS-Hns shell' }
+}
+
 module.exports = {
   healthSchedulerPlugin,
   createHealthSchedulerPlugin,
@@ -440,5 +466,9 @@ module.exports = {
   OPTIONAL_CAPABILITIES,
   createProviderRegistry,
   defaultProviders,
-  HEALTH_STATES
+  HEALTH_STATES,
+  HEALTH_SCHEDULER_PLUGIN_ID,
+  /** The cordis half: see the note above. */
+  apply,
+  name: HEALTH_SCHEDULER_PLUGIN_ID
 }

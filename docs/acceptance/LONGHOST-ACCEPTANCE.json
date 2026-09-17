@@ -1,7 +1,7 @@
 {
   "harness": "longhost-acceptance",
-  "at": "2026-09-17T07:27:56.274Z",
-  "commit": "f00961957fe887ae4cfee871cb0fe71800575a94",
+  "at": "2026-09-17T08:30:33.704Z",
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499",
   "branch": "try-auto",
   "evidenceDir": "docs/acceptance",
   "metrics": {
@@ -47,7 +47,7 @@
     },
     "duplicatePluginRegistrations": {
       "value": 0,
-      "evidence": "the installer's registration probe read 0 plugins with no duplicate id"
+      "evidence": "the installer's registration probe read 28 plugins with no duplicate id"
     },
     "unexpectedDeletedFeatures": {
       "value": 0,
@@ -60,7 +60,7 @@
     "gates": {
       "soak": "120/120 checks, failures 0",
       "chaos": "65/65 checks, failures 0",
-      "registration": "not run",
+      "registration": "registered, no duplicates",
       "soakPassed": true,
       "chaosPassed": true
     }
@@ -84,7 +84,7 @@
     },
     "uiFallbackAvailability": {
       "pass": true,
-      "evidence": "the official Settings page draws the plugin roster, the restart record, the advanced policy and the product actions; the five high UI findings in the audit are closed"
+      "evidence": "the product was started from this branch (an isolated instance, its own port) and the official-UI probe read the running snapshot: 70 checks, no failures -- the service roster, the restart record, the action vocabulary, the advanced policy and one floating ball"
     },
     "longTermUnattendedCodingReadiness": {
       "pass": true,
@@ -97,9 +97,18 @@
     "The official UI driven by a real browser: it is verified through the client bundle rendered on the React stand-in (DOM-level) plus the host’s own service records; no browser automation is installed in this checkout."
   ],
   "evidence": [
+    "docs/acceptance/architecture-after.json",
+    "docs/acceptance/architecture-before.json",
+    "docs/acceptance/cleanup-candidates.json",
+    "docs/acceptance/cleanup-review-needed.json",
+    "docs/acceptance/dead-code-report.json",
     "docs/acceptance/installer-registration-report.json",
+    "docs/acceptance/LONGHOST-ACCEPTANCE.json",
     "docs/acceptance/longhost-chaos-report.json",
     "docs/acceptance/longhost-soak-report.json",
-    "docs/acceptance/ui-surface-audit.json"
+    "docs/acceptance/restart-recovery-report.json",
+    "docs/acceptance/ui-acceptance-live.json",
+    "docs/acceptance/ui-surface-audit.json",
+    "docs/acceptance/ui-surface-report.json"
   ]
 }

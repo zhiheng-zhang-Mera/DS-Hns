@@ -1,6 +1,6 @@
 {
   "name": "dsh-health-scheduler",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "DS-Hns Health Scheduler: samples the machine, the runtime, the workers and the task queue through isolated telemetry providers, scores a five-state pressure with trend and debounce, holds a maintenance window with a bounded defer, and requests a restart through restart-control rather than performing one.",
   "main": "index.cjs",

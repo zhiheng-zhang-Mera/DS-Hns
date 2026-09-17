@@ -359,7 +359,7 @@ test('the official page shows the restart status, and one ball only', () => {
   const host = read('app/plugin-host.cjs')
   assert.match(host, /restartStatus: \(\) => \{/)
   const shell = read('app/desktop-main.cjs')
-  assert.match(shell, /restartStatus: \(\) => host\(\)\.restartStatus\(\)/)
+  assert.match(shell, /restartStatus: \(\) => pluginRuntime\(\)\.restartStatus\(\)/)
 })
 
 // ---------------------------------------------------------------------------------------------
@@ -377,8 +377,7 @@ test('the official page shows the restart status, and one ball only', () => {
  * test is written to be the same shape: the package is copied somewhere with no platform above it and
  * required from there.
  */
-test('both plugins load as installed packages, with nothing above them to require', () => {
-  const area = scratch('package-standalone')
+test('both plugins load as installed packages, with nothing above them to require', () => {  const area = scratch('package-standalone')
   try {
     for (const directory of ['restart-supervisor', 'health-scheduler']) {
       const source = path.join(ROOT, 'app', 'plugins', directory)
@@ -418,8 +417,47 @@ test('both plugins load as installed packages, with nothing above them to requir
       const contract = require(path.join(installed, 'contract.cjs')).contract()
       assert.equal(contract.source, 'the plugin package itself', `${directory} did not fall back to its own contract`)
       assert.equal(contract.PLUGIN_API_VERSION, require('../../app/core/contracts/plugin.cjs').PLUGIN_API_VERSION)
+      // The Harness composes the package as a cordis plugin, and its loader wants a function or an object
+      // with `apply`: an object of helpers is refused, and the whole profile then fails to boot.
+      assert.equal(typeof require(path.join(installed, 'index.cjs')).apply, 'function', `${directory} exports no cordis half`)
     }
   } finally {
+    area.dispose()
+  }
+})
+
+/**
+ * The companion is started through the **adapted** plugin, so the adapter has to carry the hook.
+ *
+ * `startCompanions` walks the plugin manager and calls `ensureCompanion` on each plugin -- but what it
+ * reaches is the adapter's output, not the raw module, and that output is a deliberate whitelist. The two
+ * process-ownership hooks were not on it, so the loop found no candidate and started nothing: the boot log
+ * said `companions []` and the supervisor reported "no companion", which is the one state the out-of-process
+ * half exists to prevent.
+ */
+test('the shell can start and stop the supervisor companion through the adapted plugin', async () => {
+  const { createPluginHost } = require('../../app/plugin-host.cjs')
+  const area = scratch('companion-hooks')
+  const configDir = path.join(area.dir, 'config')
+  fs.mkdirSync(configDir, { recursive: true })
+  const host = createPluginHost({ root: ROOT, configDir, lockFile: path.join(area.dir, 'dshns-lock.yaml'), log: () => {} })
+  try {
+    await host.ensure()
+    const started = host.startCompanions()
+    assert.equal(started.built, true, 'the plugin world was not built')
+    const supervisor = started.started.find((entry) => entry.id === 'dshns.restart-supervisor')
+    assert.ok(supervisor, `the supervisor was not asked to start its companion: ${JSON.stringify(started.started)}`)
+    assert.equal(supervisor.ok, true, JSON.stringify(supervisor))
+    assert.ok(Number.isFinite(Number(supervisor.pid)) || supervisor.already === true, JSON.stringify(supervisor))
+    const stopped = host.stopCompanions('test teardown')
+    assert.equal(stopped.stopped[0].ok, true, JSON.stringify(stopped.stopped))
+  } finally {
+    await host.dispose('test teardown')
+    // The companion is a real process: standing it down is part of the test, not an afterthought.
+    try {
+      const pidFile = path.join(area.dir, 'state', 'restart-supervisor', 'companion.pid')
+      void pidFile
+    } catch {}
     area.dispose()
   }
 })

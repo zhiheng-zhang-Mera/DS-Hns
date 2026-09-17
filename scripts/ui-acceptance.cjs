@@ -31,10 +31,12 @@ const path = require('node:path')
 const ROOT = path.resolve(__dirname, '..')
 
 function parseArgs(argv) {
-  const args = { state: path.join(ROOT, 'data', 'state'), json: false }
-  for (const raw of argv) {
-    const arg = String(raw)
+  const args = { state: path.join(ROOT, 'data', 'state'), json: false, out: '' }
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = String(argv[index])
     if (arg.startsWith('--state=')) args.state = path.resolve(arg.slice('--state='.length))
+    else if (arg === '--state') args.state = path.resolve(String(argv[index + 1] || '.')), (index += 1)
+    else if (arg.startsWith('--out=')) args.out = path.resolve(arg.slice('--out='.length))
     else if (arg === '--json') args.json = true
   }
   return args
@@ -98,6 +100,17 @@ async function main(argv) {
   }
 
   report.passed = report.failures === 0
+  /**
+   * `--out` writes the report as **UTF-8 without a BOM**, from here.
+   *
+   * A shell redirect on Windows writes UTF-16LE: the file then looks like a binary blob to every reader
+   * that expects UTF-8, and the repository's own encoding gate fails on it -- which is how this option
+   * came to exist.
+   */
+  if (args.out) {
+    fs.mkdirSync(path.dirname(args.out), { recursive: true })
+    fs.writeFileSync(args.out, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
+  }
   if (args.json) process.stdout.write(`${JSON.stringify(report)}\n`)
   else {
     process.stdout.write(`ui-acceptance (state ${report.state})\n`)

@@ -1850,7 +1850,7 @@ function controlCenter() {
      */
     services: (() => {
       try {
-        return typeof ctx?.pluginServices === 'function' ? ctx.pluginServices.reportAll() : null
+        return ctx?.pluginServices && typeof ctx.pluginServices.reportAll === 'function' ? ctx.pluginServices.reportAll() : null
       } catch (error) {
         log(`the built-in service report is unavailable: ${error?.message || error}`)
         return null
@@ -1866,7 +1866,7 @@ function controlCenter() {
      */
     restartStatus: (() => {
       try {
-        if (typeof ctx?.pluginServices !== 'function' || typeof ctx.pluginServices.restartStatus !== 'function') return null
+        if (!ctx?.pluginServices || typeof ctx.pluginServices.restartStatus !== 'function') return null
         return ctx.pluginServices.restartStatus()
       } catch (error) {
         log(`the restart status is unavailable: ${error?.message || error}`)
@@ -1893,7 +1893,7 @@ function controlCenter() {
      */
     advanced: (() => {
       try {
-        if (typeof ctx?.pluginServices !== 'function' || typeof ctx.pluginServices.advanced !== 'function') return null
+        if (!ctx?.pluginServices || typeof ctx.pluginServices.advanced !== 'function') return null
         return ctx.pluginServices.advanced()
       } catch (error) {
         log(`the advanced plugin settings are unavailable: ${error?.message || error}`)
@@ -1991,7 +1991,7 @@ function controlCenter() {
 const SERVICE_ACTIONS = new Set(serviceActions.SERVICE_ACTIONS.map((entry) => entry.id))
 
 async function serviceAction(action, id) {
-  const host = typeof ctx?.pluginServices === 'function' ? ctx.pluginServices : null
+  const host = ctx?.pluginServices && typeof ctx.pluginServices.report === 'function' ? ctx.pluginServices : null
   if (!host) return { ok: false, action, id, reason: 'the plugin host is not available in this build' }
   try {
     if (action === 'check' || action === 'diagnostics') {
@@ -2098,7 +2098,7 @@ async function productAction(action, id = null) {
 async function advancedAction(payload = {}) {
   const key = String(payload.key || '')
   if (!key) return { ok: false, action: 'set-advanced', reason: 'an advanced write needs a key' }
-  if (typeof ctx?.pluginServices !== 'function' || typeof ctx.pluginServices.setAdvanced !== 'function') {
+  if (!ctx?.pluginServices || typeof ctx.pluginServices.setAdvanced !== 'function') {
     return { ok: false, action: 'set-advanced', key, reason: 'the plugin host is not available in this build' }
   }
   try {

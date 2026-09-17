@@ -7,7 +7,7 @@
       "role": "health",
       "directory": "health-scheduler",
       "package": "dsh-health-scheduler",
-      "ref": "2.0.0",
+      "ref": "2.0.1",
       "channel": "harness-profile",
       "required": true,
       "summary": "samples the machine, the runtime, the workers and the task queue; scores a five-state pressure; holds a maintenance window; requests a restart through restart-control"
@@ -17,7 +17,7 @@
       "role": "restart",
       "directory": "restart-supervisor",
       "package": "dsh-restart-supervisor",
-      "ref": "1.0.0",
+      "ref": "1.0.1",
       "channel": "harness-profile",
       "required": true,
       "companion": {

@@ -160,6 +160,40 @@ $report = @{
   results = $results
 }
 
+# Point the profile at this checkout, once the package manager has stopped rewriting node_modules.
+#
+# The Harness' CLI (pnpm) imports a `file:` dependency into its own store and materialises it under
+# `node_modules/<name>`, keyed by the package's name and version -- so a file added to a shipped plugin
+# without a version bump is never copied, and the profile then fails to boot with a `Cannot find module`
+# for a file that is right there in the repository. Linking the entry to the source makes the copy current
+# by construction, and it has to happen *after* the last pnpm run: pnpm reconciles node_modules on every
+# install and would replace an earlier link with its own copy.
+if (-not $Uninstall) {
+  Write-Host ''
+  Write-Host 'Profile links'
+  foreach ($entry in $entries) {
+    $directory = [string]$entry.directory
+    $packageDir = Join-Path $ROOT (Join-Path 'app\plugins' $directory)
+    $packageName = ''
+    try {
+      $packageName = [string](Get-Content -LiteralPath (Join-Path $packageDir 'package.json') -Raw | ConvertFrom-Json).name
+    } catch {
+      $packageName = ''
+    }
+    if (-not $packageName) { continue }
+    $link = Join-Path (Join-Path (Join-Path $dshHomePath "profiles\$profileName") 'node_modules') $packageName
+    try {
+      if (Test-Path -LiteralPath $link) { Remove-Item -LiteralPath $link -Recurse -Force -ErrorAction Stop }
+      New-Item -ItemType Junction -Path $link -Target $packageDir -ErrorAction Stop | Out-Null
+      Write-Host "  $packageName -> $packageDir"
+    } catch {
+      # A machine that cannot create a junction (a locked directory, a policy) keeps the copy the CLI
+      # materialised; the staleness check in install-profile-plugin.ps1 is what catches a stale one.
+      Write-Warning "  $packageName could not be linked to this checkout; the installed copy stands: $($_.Exception.Message)"
+    }
+  }
+}
+
 if ($Json) {
   Write-Output ($report | ConvertTo-Json -Depth 6 -Compress)
 } else {

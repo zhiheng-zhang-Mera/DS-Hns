@@ -132,6 +132,18 @@ function createNativeHnsAdapter(options = {}) {
            */
           diagnostics: typeof module_.diagnostics === 'function' ? module_.diagnostics : undefined,
           errorReport: typeof module_.errorReport === 'function' ? module_.errorReport : undefined,
+          /**
+           * The two **process-ownership hooks** the shell calls by name.
+           *
+           * The plugin host starts the out-of-process halves a plugin asks for at boot
+           * (`startCompanions`) and stands them down on a normal exit (`stopCompanions`), by calling
+           * `ensureCompanion` / `stopCompanion` on the adapted plugin. The whitelist dropped them, so the
+           * loop found no candidate and started nothing: the supervisor reported "no companion", and a
+           * hung application could not have been recovered by it. A hook the shell calls by name is part of
+           * the plugin's contract, not an extra.
+           */
+          ensureCompanion: typeof module_.ensureCompanion === 'function' ? module_.ensureCompanion : undefined,
+          stopCompanion: typeof module_.stopCompanion === 'function' ? module_.stopCompanion : undefined,
           permissions: Array.isArray(module_.permissions) ? module_.permissions : undefined,
           runtime: {
             kind: RUNTIME_KINDS.IN_PROCESS.id,

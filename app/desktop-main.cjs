@@ -1056,6 +1056,19 @@ function safeNodeExe() {
   return process.execPath
 }
 
+/**
+ * The plugin runtime, as any scope in this file reaches it.
+ *
+ * `registerPluginIpc` has its own local `host()`; the hooks handed to the extension (`pluginServices`) are
+ * built in a **different function**, so they need a name that exists there too. That is what this is — and
+ * its absence is why the whole built-in-service surface was once dead in the product: the hooks called
+ * `host()`, the identifier did not exist in their scope, every call threw `host is not defined`, and the
+ * panel drew "report unavailable" while the runtime was perfectly healthy.
+ */
+function pluginRuntime() {
+  return ensurePluginHost()
+}
+
 function ensurePluginHost() {
   if (pluginHost) return pluginHost
   const { createPluginHost } = require('./plugin-host.cjs')
@@ -1160,8 +1173,22 @@ async function startRestartSupervisor() {
   if (!pluginsEnabled()) return { ok: false, skipped: true, reason: 'the plugin runtime is disabled by config/app.json' }
   const host = ensurePluginHost()
   const built = await host.ensure()
-  if (built.ok === false) return { ok: false, skipped: true, reason: built.error || 'the plugin world could not be built' }
+  if (built.ok === false) {
+    logLine(`restart supervisor: the plugin world could not be built (${built.error || built.code || 'no reason given'})`)
+    return { ok: false, skipped: true, reason: built.error || 'the plugin world could not be built' }
+  }
+  const listed = host.list()
+  const plugins = Array.isArray(listed) ? listed : (listed && Array.isArray(listed.plugins) ? listed.plugins : [])
   const outcome = host.startCompanions()
+  /**
+   * Say what this step did, always.
+   *
+   * It is the one boot phase whose whole purpose is to have something *running* before anything can go
+   * wrong, so "it ran and started nothing" has to be visible in the boot report rather than inferred from
+   * the absence of a line -- the first version of this logged only the success and the failure cases, so a
+   * runtime whose world did not mount looked exactly like a healthy one.
+   */
+  logLine(`restart supervisor: plugin world ${plugins.length} plugin(s); companions ${JSON.stringify((outcome && outcome.started) || [])}`)
   for (const entry of outcome.started || []) {
     if (entry.ok === true) logLine(`restart supervisor companion: ${entry.already === true ? `already running (pid ${entry.pid})` : `started (pid ${entry.pid || 'unknown'})`}`)
     else if (entry.skipped === true) logLine(`restart supervisor companion not started: ${entry.reason}`)
@@ -2575,8 +2602,8 @@ async function startExtensions(nodeExe) {
        * extension never reaches into the runtime's internals.
        */
       pluginServices: {
-        report: (id) => host().serviceReport(id),
-        reportAll: (ids) => host().serviceReports(ids),
+        report: (id) => pluginRuntime().serviceReport(id),
+        reportAll: (ids) => pluginRuntime().serviceReports(ids),
         /**
          * The formal `restart_status`, for the panels.
          *
@@ -2584,10 +2611,10 @@ async function startExtensions(nodeExe) {
          * official UI must be able to show "when did this machine last restart and what came back"
          * even while the plugin that owns the answer is the thing that just failed.
          */
-        restartStatus: () => host().restartStatus(),
-        setEnabled: (id, enabled) => host().setEnabled(id, enabled),
-        checkHealth: (id) => host().health(id),
-        reload: (id, options) => host().reload(id, options),
+        restartStatus: () => pluginRuntime().restartStatus(),
+        setEnabled: (id, enabled) => pluginRuntime().setEnabled(id, enabled),
+        checkHealth: (id) => pluginRuntime().health(id),
+        reload: (id, options) => pluginRuntime().reload(id, options),
         /**
          * The **advanced** settings the panel may change: the two plugins' own policy, as dotted paths
          * into the configuration they read.
@@ -2598,7 +2625,7 @@ async function startExtensions(nodeExe) {
          */
         advanced: () => {
           try {
-            const runtime = host()
+            const runtime = pluginRuntime()
             const schema = runtime.ADVANCED_SCHEMA || {}
             const owners = ['dshns.health-scheduler', 'dshns.restart-supervisor']
             const resolved = {}

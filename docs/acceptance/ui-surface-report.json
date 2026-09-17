@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-17T07:27:56.275Z",
-  "commit": "f00961957fe887ae4cfee871cb0fe71800575a94",
+  "generatedAt": "2026-09-17T08:30:33.704Z",
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499",
   "source": "docs/acceptance/ui-surface-audit.json (before) + the repair pass in this branch (after)",
   "before": {
     "findings": {
@@ -68,5 +68,38 @@
     "the conversation header new-task action",
     "the Control Center sections in the dock",
     "the rest of the service roster in the official page"
-  ]
+  ],
+  "foundByStartingTheProduct": [
+    {
+      "id": "host-is-not-defined",
+      "symptom": "every built-in-service hook threw `host is not defined`, so the official page drew \"report unavailable\" while the runtime was healthy",
+      "fix": "a module-level `pluginRuntime()` the hooks can reach (desktop-main.cjs)"
+    },
+    {
+      "id": "plugin-require-escapes-package",
+      "symptom": "the Harness could not load the profile packages at all: `Cannot find module ../../core/contracts/plugin.cjs`",
+      "fix": "each plugin declares its contract inside the package (contract.cjs)"
+    },
+    {
+      "id": "package-entry-is-not-a-cordis-plugin",
+      "symptom": "the Harness loader refused the package: `invalid plugin, expect function or object with an \"apply\" method`",
+      "fix": "the package entry also exports a cordis `apply` half, documented as the composition entry"
+    },
+    {
+      "id": "stale-profile-copy",
+      "symptom": "a `file:` plugin copied into the profile never received new files (pnpm answers from its store), so the profile kept a half-plugin",
+      "fix": "the installer detects a stale copy, reinstalls it, and links the profile entry to the checkout"
+    },
+    {
+      "id": "native-adapter-whitelist",
+      "symptom": "the plugin hooks the shell calls (`ensureCompanion`, `stopCompanion`) were dropped by the adapter field list, so no companion ever started",
+      "fix": "the adapter carries the hooks the shell calls, like diagnostics and errorReport"
+    }
+  ],
+  "liveProbe": {
+    "at": "2026-09-17T08:30:08.104Z",
+    "state": "D:\\dsh-acc3\\data\\state",
+    "passed": true,
+    "checks": 70
+  }
 }

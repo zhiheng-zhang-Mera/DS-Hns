@@ -102,7 +102,7 @@ const BUNDLED_MANIFEST = Object.freeze({
       /** The directory under `app/plugins/`, for the installer and for the reader. */
       directory: 'health-scheduler',
       inRepo: true,
-      ref: '2.0.0',
+      ref: '2.0.1',
       commit: null,
       channelVerified: true,
       tested: true,
@@ -116,7 +116,7 @@ const BUNDLED_MANIFEST = Object.freeze({
       package: 'dsh-restart-supervisor',
       directory: 'restart-supervisor',
       inRepo: true,
-      ref: '1.0.0',
+      ref: '1.0.1',
       commit: null,
       channelVerified: true,
       tested: true,

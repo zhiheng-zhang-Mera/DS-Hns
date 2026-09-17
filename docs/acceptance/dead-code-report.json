@@ -1,5 +1,5 @@
 {
-  "scannedAt": "2026-09-17T07:27:55.688Z",
+  "scannedAt": "2026-09-17T08:30:33.129Z",
   "method": "reverse-dependency search (require/import, manifest, route/slot registration, runtime registration in app/plugin-host.cjs and app/plugins/mounted/index.cjs, the lockfile, tests/, and the four gates)",
   "found": [
     {
@@ -16,5 +16,5 @@
     }
   ],
   "conclusion": "no orphaned module was found in the shipped set: every file under app/plugins, app/core, app/extensions and app/reboot is reachable from the shell, the plugin host, a manifest, a route/slot registration or a gate",
-  "commit": "f00961957fe887ae4cfee871cb0fe71800575a94"
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499"
 }

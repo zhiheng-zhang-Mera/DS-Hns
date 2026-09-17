@@ -633,7 +633,7 @@ function createRestartSupervisorPlugin(options = {}) {
       api_version: API,
       id: SUPERVISOR_PLUGIN_ID,
       name: 'Restart Supervisor',
-      version: '1.0.0',
+      version: '1.0.1',
       description: 'the only restart authority: validates and prices a restart request, waits for a safe boundary, stops the application, relaunches it and waits for readiness — in process, or out of process through its companion when the application is hung',
       provides: [...PROVIDES],
       /**
@@ -823,6 +823,33 @@ function restartSupervisorPlugin(options = {}) {
   return createRestartSupervisorPlugin(options)
 }
 
+/**
+ * The package entry, in both shapes the two mounts ask for.
+ *
+ * DS-Hns' own plugin host mounts this file through `NativeHnsAdapter` and calls
+ * `restartSupervisorPlugin()`. The **Harness** composes it as a profile bundle instead, and its loader
+ * requires a cordis plugin: a function, or an object with an `apply` method. An object of helpers is
+ * neither -- the loader refused it with `invalid plugin, expect function or object with an "apply"
+ * method`, which is what "the plugin is installed and the product will not boot" looked like the second
+ * time.
+ *
+ * `apply` is therefore the **harness half**, and it is deliberately small: the restart authority lives in
+ * the DS-Hns shell (there is no companion to spawn from inside the Harness process, and no application to
+ * stop), and the panel reads it through the governance bridge. What this half does is register that
+ * presence so the composition is honest -- a bundle that loads and provides nothing, rather than a bundle
+ * that fails to load.
+ */
+function apply(context) {
+  const note = `the restart authority runs in the DS-Hns shell; this profile entry composes ${SUPERVISOR_PLUGIN_ID} into the Harness and provides ${RESTART_CONTROL_CAPABILITY} there`
+  try {
+    if (context && typeof context.logger === 'function') context.logger('debug', note)
+    else if (context && context.logger && typeof context.logger.debug === 'function') context.logger.debug(note)
+  } catch {
+    // A logging surface that throws is not a reason for the composition to fail.
+  }
+  return { ok: true, registered: SUPERVISOR_PLUGIN_ID, executor: 'the DS-Hns shell' }
+}
+
 module.exports = {
   restartSupervisorPlugin,
   createRestartSupervisorPlugin,
@@ -839,5 +866,8 @@ module.exports = {
   SHUTDOWN_KINDS,
   STATUS_PHASES,
   RECOVERY_RESULTS,
-  DEFAULT_RESTART_CONFIG
+  DEFAULT_RESTART_CONFIG,
+  /** The cordis half: see the note above. */
+  apply,
+  name: SUPERVISOR_PLUGIN_ID
 }

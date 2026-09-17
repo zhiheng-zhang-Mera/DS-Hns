@@ -284,6 +284,7 @@ function main(argv = []) {
   const chaos = readJson(path.join(dir, 'longhost-chaos-report.json'))
   const registration = readJson(path.join(dir, 'installer-registration-report.json'))
   const uiAudit = readJson(path.join(dir, 'ui-surface-audit.json'), { summary: {}, findings: [] })
+  const uiLive = readJson(path.join(dir, 'ui-acceptance-live.json'), null)
 
   const before = architectureSnapshot('before')
   const after = architectureSnapshot('after')
@@ -307,8 +308,10 @@ function main(argv = []) {
       evidence: 'chaos controlled-restart: recovery is judged as FULL only when the task half resumed *and* the continuation named where it started from (the checkpoint)'
     },
     uiFallbackAvailability: {
-      pass: true,
-      evidence: 'the official Settings page draws the plugin roster, the restart record, the advanced policy and the product actions; the five high UI findings in the audit are closed'
+      pass: Boolean(uiLive && uiLive.passed === true),
+      evidence: uiLive && uiLive.passed === true
+        ? `the product was started from this branch (an isolated instance, its own port) and the official-UI probe read the running snapshot: ${uiLive.checks.length} checks, no failures -- the service roster, the restart record, the action vocabulary, the advanced policy and one floating ball`
+        : 'the official-UI probe was not run against a live instance in this run; the page is verified at the DOM level instead'
     },
     longTermUnattendedCodingReadiness: {
       pass: Boolean(soak && soak.failures === 0 && chaos && chaos.failures === 0),
@@ -355,7 +358,22 @@ function main(argv = []) {
         .filter((finding) => finding.severity === 'medium')
         .map((finding) => ({ id: finding.id, title: finding.title, note: 'recorded in ui-surface-audit.json; not required for the fallback-entry guarantee' }))
     },
-    reachableSurfaces: ['the official Settings section (Mega page)', 'the official shell.overlay ball', 'the conversation header new-task action', 'the Control Center sections in the dock', 'the rest of the service roster in the official page']
+    reachableSurfaces: ['the official Settings section (Mega page)', 'the official shell.overlay ball', 'the conversation header new-task action', 'the Control Center sections in the dock', 'the rest of the service roster in the official page'],
+    /**
+     * What starting the product found that the static audit could not.
+     *
+     * The audit read the code; these three were only visible with the product running, and each one made a
+     * finished-looking surface dead. They are recorded here because they are the answer to "why does the
+     * acceptance start the product".
+     */
+    foundByStartingTheProduct: [
+      { id: 'host-is-not-defined', symptom: 'every built-in-service hook threw `host is not defined`, so the official page drew "report unavailable" while the runtime was healthy', fix: 'a module-level `pluginRuntime()` the hooks can reach (desktop-main.cjs)' },
+      { id: 'plugin-require-escapes-package', symptom: 'the Harness could not load the profile packages at all: `Cannot find module ../../core/contracts/plugin.cjs`', fix: 'each plugin declares its contract inside the package (contract.cjs)' },
+      { id: 'package-entry-is-not-a-cordis-plugin', symptom: 'the Harness loader refused the package: `invalid plugin, expect function or object with an "apply" method`', fix: 'the package entry also exports a cordis `apply` half, documented as the composition entry' },
+      { id: 'stale-profile-copy', symptom: 'a `file:` plugin copied into the profile never received new files (pnpm answers from its store), so the profile kept a half-plugin', fix: 'the installer detects a stale copy, reinstalls it, and links the profile entry to the checkout' },
+      { id: 'native-adapter-whitelist', symptom: 'the plugin hooks the shell calls (`ensureCompanion`, `stopCompanion`) were dropped by the adapter field list, so no companion ever started', fix: 'the adapter carries the hooks the shell calls, like diagnostics and errorReport' }
+    ],
+    liveProbe: uiLive ? { at: uiLive.at, state: uiLive.state, passed: uiLive.passed, checks: uiLive.checks.length } : null
   }
 
   const restartRecovery = {

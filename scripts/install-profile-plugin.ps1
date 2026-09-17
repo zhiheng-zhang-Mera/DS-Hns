@@ -164,6 +164,7 @@ function Test-SameSpec([string]$declared) {
 
 Write-Output '[profile-plugin 2/4] Reading the profile the product boots'
 Write-Host "  profile $profileName at $profileDir"
+$reinstallStale = $false
 $declared = Get-DeclaredSpec
 $installed = Test-InstalledCopy
 if ($Remove -and (-not $declared)) {
@@ -185,6 +186,11 @@ if ((-not $Remove) -and (-not $Force) -and (Test-SameSpec $declared) -and $insta
     exit 0
   }
   Write-Host '  the profile has this plugin, but the installed copy is out of date; reinstalling it.'
+  # Reinstalling is not enough on its own: pnpm resolves a `file:` dependency by the package's *manifest*,
+  # so an unchanged name and version is answered from its own store and the stale directory is left in
+  # place (observed: the add succeeded, the new files were still missing). Removing it first is what makes
+  # the add read the directory again -- the same two steps `-Repair` performs.
+  $reinstallStale = $true
 }
 if ($declared -and (-not (Test-SameSpec $declared))) {
   Write-Host "  the profile declares $declared, which is not this checkout; repairing it."
@@ -254,8 +260,12 @@ if (-not $pnpmOnPath) {
   Write-Host "  pnpm: $($pnpmOnPath.Source)"
 }
 
-if ($Remove) {
-  Write-Output '[profile-plugin 4/4] Removing it with the Harness own CLI'
+if ($Remove -or $reinstallStale) {
+  if ($reinstallStale -and -not $Remove) {
+    Write-Output '[profile-plugin 4/4] Removing the stale copy before reinstalling it'
+  } else {
+    Write-Output '[profile-plugin 4/4] Removing it with the Harness own CLI'
+  }
   # Removal names the *package*, not the spec it was installed from: `pnpm remove` matches a
   # dependency by name, and a `file:` path is how it got there rather than what it is called.
   Write-Host "  dsh plugin --profile $profileName remove $pluginName"
@@ -281,8 +291,10 @@ if ($Remove) {
     exit 1
   }
   Write-Host "  the profile no longer carries $pluginName."
-  Write-Output 'removed'
-  exit 0
+  if ($Remove) {
+    Write-Output 'removed'
+    exit 0
+  }
 }
 
 Write-Output '[profile-plugin 4/4] Installing it with the Harness own CLI'
@@ -313,6 +325,27 @@ $installed = Test-InstalledCopy
 if ((-not (Test-SameSpec $declared)) -or (-not $installed)) {
   Write-Warning "the profile still does not carry $pluginName (declared: '$declared', copy: $installed)."
   exit 1
+}
+
+# A *shipped* plugin is code in this repository, so the profile points at it rather than at a snapshot.
+#
+# The Harness' CLI (pnpm) imports a `file:` dependency into its own store and materialises it under
+# `node_modules/<name>`. That import is keyed by the package's name and version, so a file added to the
+# package without a version bump is never copied -- the install reports success and the product then fails
+# to boot with `Cannot find module './contract.cjs'`, which is exactly what happened here. Replacing the
+# materialised directory with a junction to the source makes the copy current by construction: there is
+# nothing to go stale, and a checkout that is updated is a profile that is updated.
+if (-not $Remove) {
+  $junction = $installedDir
+  try {
+    if (Test-Path -LiteralPath $junction) { Remove-Item -LiteralPath $junction -Recurse -Force -ErrorAction Stop }
+    New-Item -ItemType Junction -Path $junction -Target $packageDir -ErrorAction Stop | Out-Null
+    Write-Host "  the profile points at this checkout rather than a copy of it ($junction -> $packageDir)"
+  } catch {
+    # A junction is not essential to correctness on a machine that cannot create one (a locked directory,
+    # a policy): the files are there either way, and the staleness check above already reinstalled them.
+    Write-Host "  the profile carries a copy instead of a link ($($_.Exception.Message))"
+  }
 }
 $hasClientHalf = ($declaredFiles | Where-Object { $_ -match 'client\.js$' }).Count -gt 0
 if ($hasClientHalf) {
