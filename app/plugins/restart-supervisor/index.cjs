@@ -44,7 +44,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('../../core/contracts/plugin.cjs')
+const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('./contract.cjs').contract()
 const {
   SUPERVISOR_PLUGIN_ID,
   RESTART_CONTROL_CAPABILITY,

@@ -46,7 +46,7 @@
  * | a consumer of the health capabilities | everything | nothing; the capabilities are simply unread |
  */
 
-const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('../../core/contracts/plugin.cjs')
+const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('./contract.cjs').contract()
 const { createHealthEngine, ACTIONS, DEFAULT_CONFIG, HEALTH_STATES, inWindow } = require('./health.cjs')
 const { createProviderRegistry, defaultProviders } = require('./providers.cjs')
 

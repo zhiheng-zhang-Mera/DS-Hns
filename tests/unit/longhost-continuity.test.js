@@ -361,3 +361,65 @@ test('the official page shows the restart status, and one ball only', () => {
   const shell = read('app/desktop-main.cjs')
   assert.match(shell, /restartStatus: \(\) => host\(\)\.restartStatus\(\)/)
 })
+
+// ---------------------------------------------------------------------------------------------
+// 5. Packaging: the plugins must load as installed profile packages too
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * A plugin that is installed into a Harness profile is composed by the **Harness' own process**, from
+ * `data/profiles/<profile>/node_modules/<name>/`. A `require` that escapes the package directory -- the
+ * obvious `require('../../core/contracts/plugin.cjs')` the in-repo mount resolves happily -- resolves to
+ * `node_modules/core/...` there, throws `MODULE_NOT_FOUND`, and takes the whole harness process down with
+ * it: the plugin is installed and **the product will not boot**.
+ *
+ * This was found by starting the product (the official-UI acceptance), not by a unit test, so the unit
+ * test is written to be the same shape: the package is copied somewhere with no platform above it and
+ * required from there.
+ */
+test('both plugins load as installed packages, with nothing above them to require', () => {
+  const area = scratch('package-standalone')
+  try {
+    for (const directory of ['restart-supervisor', 'health-scheduler']) {
+      const source = path.join(ROOT, 'app', 'plugins', directory)
+      const installed = path.join(area.dir, 'node_modules', `dsh-${directory}`)
+      fs.cpSync(source, installed, { recursive: true })
+
+      // Every relative require stays inside the package -- or is the *guarded* platform lookup in
+      // `contract.cjs`, which is what makes the package work in both mounts.
+      const walk = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name)
+          if (entry.isDirectory()) { walk(full); continue }
+          if (!entry.name.endsWith('.cjs')) continue
+          const lines = fs.readFileSync(full, 'utf8').split(/\r?\n/)
+          lines.forEach((line, index) => {
+            const trimmed = line.trim()
+            // A comment that *mentions* a path is documentation, not a require. This branch is written
+            // about the very path it forbids, so the scanner has to read code only.
+            if (trimmed.startsWith('*') || trimmed.startsWith('//') || trimmed.startsWith('/*')) return
+            for (const match of line.matchAll(/require\('(\.[^']*)'\)/g)) {
+              const target = path.resolve(path.dirname(full), match[1])
+              if (target.startsWith(installed + path.sep)) continue
+              const guarded = [lines[index - 1] || '', lines[index - 2] || '', line].some((near) => /try\s*\{/.test(near))
+              assert.ok(guarded, `${directory}: ${path.relative(source, full)}:${index + 1} requires ${match[1]}, which leaves the package unguarded`)
+            }
+          })
+        }
+      }
+      walk(installed)
+
+      // ...and it really loads with the platform out of reach.
+      const loaded = require(path.join(installed, 'index.cjs'))
+      const plugin = directory === 'restart-supervisor' ? loaded.restartSupervisorPlugin() : loaded.healthSchedulerPlugin()
+      assert.equal(plugin.manifest.api_version, 'dshns.plugin/v1', `${directory} does not declare the platform API version`)
+      assert.ok(plugin.manifest.id, `${directory} has no plugin id`)
+      assert.equal(typeof plugin.load, 'function')
+      const contract = require(path.join(installed, 'contract.cjs')).contract()
+      assert.equal(contract.source, 'the plugin package itself', `${directory} did not fall back to its own contract`)
+      assert.equal(contract.PLUGIN_API_VERSION, require('../../app/core/contracts/plugin.cjs').PLUGIN_API_VERSION)
+    }
+  } finally {
+    area.dispose()
+  }
+})

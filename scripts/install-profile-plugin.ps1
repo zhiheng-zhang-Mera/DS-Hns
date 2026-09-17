@@ -132,6 +132,29 @@ function Test-InstalledCopy {
   return $true
 }
 
+# Is the installed copy the one this checkout has now?
+#
+# Two questions, because either alone is not enough: does every file the source package ships exist in
+# the copy, and is no source file newer than its copy? A `file:` install copies the directory, so a file
+# added to the package after the install is simply absent - and a file that changed is simply stale. Both
+# are reported as "not current", and the caller reinstalls.
+function Test-InstalledCopyCurrent {
+  if (-not (Test-Path -LiteralPath $installedDir)) { return $false }
+  $sourceFiles = @(Get-ChildItem -LiteralPath $packageDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\node_modules\\' })
+  foreach ($file in $sourceFiles) {
+    $relative = $file.FullName.Substring($packageDir.Length).TrimStart('\')
+    $copy = Join-Path $installedDir $relative
+    if (-not (Test-Path -LiteralPath $copy)) { return $false }
+    try {
+      $copyItem = Get-Item -LiteralPath $copy
+      if ($file.LastWriteTimeUtc -gt $copyItem.LastWriteTimeUtc.AddSeconds(2)) { return $false }
+    } catch {
+      return $false
+    }
+  }
+  return $true
+}
+
 function Test-SameSpec([string]$declared) {
   if (-not $declared) { return $false }
   $left = ($declared -replace '\\', '/').TrimEnd('/')
@@ -149,9 +172,19 @@ if ($Remove -and (-not $declared)) {
   exit 0
 }
 if ((-not $Remove) -and (-not $Force) -and (Test-SameSpec $declared) -and $installed) {
-  Write-Host '  the profile already has this plugin, at this checkout path; leaving it alone.'
-  Write-Output 'already-installed'
-  exit 0
+  # "Already installed" is only true when the copy is *current*.
+  #
+  # A `file:` dependency is copied into the profile when it is installed, so a file added to the package
+  # afterwards is not there -- and this plugin's whole point is that it keeps growing (a new module, a new
+  # companion helper). The declared-file check cannot see a missing sibling, so the source directory and the
+  # installed copy are compared by name and modification time, and a copy that has fallen behind is
+  # reinstalled rather than reported as done. That is what "installed but the product will not boot" was.
+  if (Test-InstalledCopyCurrent) {
+    Write-Host '  the profile already has this plugin, at this checkout path, and the copy is current; leaving it alone.'
+    Write-Output 'already-installed'
+    exit 0
+  }
+  Write-Host '  the profile has this plugin, but the installed copy is out of date; reinstalling it.'
 }
 if ($declared -and (-not (Test-SameSpec $declared))) {
   Write-Host "  the profile declares $declared, which is not this checkout; repairing it."
