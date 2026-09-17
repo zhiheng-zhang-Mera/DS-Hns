@@ -124,6 +124,38 @@ test('there is exactly one restart executor: the supervisor, in process or as it
   assert.deepEqual(capability.CAPABILITIES['restart-control'].providers, ['dshns.restart-supervisor'])
 })
 
+/**
+ * The three paths that are *not* the application restart authority, each asserted for what it is.
+ *
+ * They all still exist, and that is deliberate rather than leftover: a release upgrade, a scheduled
+ * machine shutdown and a stalled task are different questions from "restart the application now". What
+ * must not exist is a *second answer* to that one — so each of them is pinned to the one thing it does.
+ */
+test('the other restart-shaped paths report or schedule, and none of them executes an application restart', () => {
+  const mounted = read('app/plugins/mounted/index.cjs')
+  // The watchdog: a stall detector, and nothing else. Its whole body is scanned, because "it never
+  // restarted anything" is a claim about its code rather than about its name.
+  const watchdog = mounted.slice(mounted.indexOf('function watchdogPlugin()'), mounted.indexOf('/** Session keeper'))
+  assert.ok(watchdog.length > 0, 'the watchdog plugin must still be visible to this scan')
+  assert.match(watchdog, /provides: \['watchdog'\]/)
+  for (const word of ['taskkill', 'process.kill', 'spawn(', 'shutdown', 'restart-control', 'node:child_process']) {
+    assert.equal(watchdog.includes(word), false, `the watchdog must not hold "${word}": it reports a stall, it does not act on one`)
+  }
+
+  // The machine-level tier: the reboot coordinator is the only thing that may schedule a shutdown, and
+  // it is not a restart-control provider.
+  const coordinator = read('app/reboot/coordinator.cjs')
+  assert.match(coordinator, /shutdown \/r/)
+  assert.equal(coordinator.includes('restart-control'), false, 'the machine tier must not hand itself the application restart capability')
+
+  // The release tier: the update runner relaunches once after replacing the installed harness, and it
+  // reads no budget, no heartbeat and no crash loop.
+  const updateRunner = read('app/extensions/mega/updater/update-runner.js')
+  for (const word of ['restart-control', 'safeMode', 'crashLoop']) {
+    assert.equal(updateRunner.includes(word), false, `the update runner must not depend on "${word}"`)
+  }
+})
+
 // ---------------------------------------------------------------------------------------------
 // 2. The budget: maxRestarts, window, cooldown, backoff
 // ---------------------------------------------------------------------------------------------
@@ -785,4 +817,100 @@ test('the supervisor modules parse as programs, not only as modules', () => {
   assert.ok(report.heartbeat, 'the describe report carries the heartbeat')
   assert.equal(report.config.budget.maxRestarts, DEFAULT_RESTART_CONFIG.budget.maxRestarts)
   fs.rmSync(path.join(os.tmpdir(), 'dsh-companion-describe'), { recursive: true, force: true })
+})
+
+// ---------------------------------------------------------------------------------------------
+// 10. Failure isolation: one half going wrong is not the other half going wrong
+// ---------------------------------------------------------------------------------------------
+
+test('a telemetry provider that throws is a fault against itself, and the sample still exists', () => {
+  const { createProviderRegistry, DIMENSIONS } = require('../../app/plugins/health-scheduler/providers.cjs')
+  const { HEALTH_STATES } = require('../../app/plugins/health-scheduler/severity.cjs')
+  const registry = createProviderRegistry({
+    providers: [
+      {
+        id: 'machine',
+        dimensions: [DIMENSIONS.MEMORY, DIMENSIONS.CPU],
+        read: () => ({ readings: { memory: { value: 30, warn: 70, critical: 92 }, cpu: { value: 20, warn: 75, critical: 95 } } })
+      },
+      { id: 'broken-telemetry', dimensions: [DIMENSIONS.RUNTIME], read: () => { throw new Error('the telemetry endpoint is gone') } }
+    ]
+  })
+
+  const read = registry.readAll({ atMs: 1_000 })
+  // The broken provider is *named*, not swallowed: "UNKNOWN is not HEALTHY" starts here.
+  assert.equal(read.ok, false, 'a missing required provider must not report a complete read')
+  assert.deepEqual(read.missingRequired, ['broken-telemetry'])
+  assert.equal(read.faults.length, 1)
+  assert.match(read.faults[0].reason, /telemetry endpoint is gone/)
+  // ...and the providers that answered still answered: one crash does not blind the monitor.
+  assert.equal(read.readings.memory.value, 30)
+  assert.equal(read.readings.cpu.value, 20)
+  assert.ok(read.confidence > 0 && read.confidence < 1, `confidence must show the gap, got ${read.confidence}`)
+
+  /**
+   * The other half of the same rule, at the engine: a *collector* that throws leaves the dimensions
+   * unknown and the verdict UNKNOWN — never HEALTHY. "UNKNOWN is not HEALTHY" is a verdict about
+   * missing data, and this is the shape missing data arrives in.
+   */
+  const { createHealthEngine } = require('../../app/plugins/health-scheduler/health.cjs')
+  const engine = createHealthEngine({
+    now: () => 1_000,
+    readings: () => { throw new Error('the telemetry endpoint is gone') },
+    config: { sampling: { intervalMs: 1_000 } }
+  })
+  const sample = engine.sample()
+  assert.equal(sample.state, HEALTH_STATES.UNKNOWN, `a blinded sample must be UNKNOWN, got ${sample.state}`)
+  assert.deepEqual(sample.unknown.sort(), ['cpu', 'memory', 'runtime'])
+  assert.equal(sample.pressure, 0, 'an unknown sample carries no pressure rather than an invented one')
+})
+
+test('a health engine that throws does not take the supervisor, or the plugin host, down with it', async () => {
+  const area = scratch('isolation')
+  try {
+    /**
+     * Two plugins, one broken.
+     *
+     * The monitor's own health check is made to throw — the worst case the requirement names ("Health
+     * crashes, DS-Hns does not"). The manager must record that against the monitor and nothing else:
+     * the supervisor's capability still answers, both plugins are still listed, and the supervisor's
+     * health is its own answer rather than the monitor's.
+     */
+    const manager = createPluginManager({ log: () => {} })
+    assert.equal(manager.install(createRestartSupervisorPlugin({ stateDir: area.dir, log: () => {} })).ok, true)
+    assert.equal(manager.install(healthSchedulerPlugin()).ok, true)
+    // The monitor ships disabled (sampling is a decision a user makes), so this test enables it the
+    // way the product does — a plugin that is not loaded answers `unknown`, which is a different
+    // question from the one this test is asking.
+    manager.enable('dshns.health-scheduler')
+    await manager.loadAll()
+
+    const monitor = manager.entry('dshns.health-scheduler')
+    assert.ok(monitor && monitor.plugin && monitor.loaded, 'the monitor must be installed and loaded')
+    monitor.plugin.healthCheck = () => { throw new Error('the monitor crashed') }
+
+    const answers = await manager.checkAllHealth()
+    // One answer per plugin, and the broken one is reported rather than thrown: a health check that
+    // takes the host down would make the monitor the very thing it is supposed to watch.
+    assert.equal(typeof answers, 'object')
+    assert.deepEqual(Object.keys(answers).sort(), ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+    const monitorHealth = manager.entry('dshns.health-scheduler').health
+    assert.notEqual(monitorHealth.status, 'healthy', `a throwing health check must not be healthy, got ${JSON.stringify(monitorHealth)}`)
+    assert.match(String(monitorHealth.reason), /monitor crashed/)
+
+    // The supervisor is unaffected: restart-control resolves, and it answers with its own state.
+    const control = manager.registry.resolve(RESTART_CONTROL_CAPABILITY, { optional: true })
+    assert.ok(control && typeof control.getRestartState === 'function', 'restart-control must resolve while the monitor is broken')
+    const state = await control.getRestartState()
+    assert.ok(state && state.state, `the supervisor must report a state, got ${JSON.stringify(state)}`)
+    assert.equal(typeof control.getRestartBudget().remaining, 'number')
+    const supervisorHealth = manager.entry('dshns.restart-supervisor').health
+    assert.ok(supervisorHealth && supervisorHealth.status, 'the supervisor must have its own health answer')
+
+    // Both are still listed, with their states kept apart.
+    const listed = manager.list().map((entry) => entry.id).sort()
+    assert.deepEqual(listed, ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+  } finally {
+    area.dispose()
+  }
 })
