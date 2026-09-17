@@ -28,11 +28,16 @@
 # declares a *different* spec (a profile carried from another machine, where the checkout lived
 # somewhere else) is repaired rather than trusted.
 #
-# Printed output: one line per decision, then `already-installed` or `installed` on stdout.
+# Printed output: one line per decision, then `already-installed` or `installed` on stdout. With
+# `-Remove` it prints `removed` or `not-installed` instead: an uninstaller that removed the two
+# built-in plugins but left the orb in the profile would leave the official UI mounting a plugin the
+# product is no longer installed with, and a removal that cannot say whether it did anything is not a
+# removal.
 # Exit code: 0 when the profile has the plugin (installed now or already), 1 when it does not. A
 # caller must degrade to "this plugin is absent" and carry on, never to a failed installation.
 param(
   [switch]$Force,
+  [switch]$Remove,
   [string]$Plugin = 'mega-core'
 )
 $ErrorActionPreference = 'Stop'
@@ -138,7 +143,12 @@ Write-Output '[profile-plugin 2/4] Reading the profile the product boots'
 Write-Host "  profile $profileName at $profileDir"
 $declared = Get-DeclaredSpec
 $installed = Test-InstalledCopy
-if ((-not $Force) -and (Test-SameSpec $declared) -and $installed) {
+if ($Remove -and (-not $declared)) {
+  Write-Host "  the profile does not carry $pluginName; there is nothing to remove."
+  Write-Output 'not-installed'
+  exit 0
+}
+if ((-not $Remove) -and (-not $Force) -and (Test-SameSpec $declared) -and $installed) {
   Write-Host '  the profile already has this plugin, at this checkout path; leaving it alone.'
   Write-Output 'already-installed'
   exit 0
@@ -209,6 +219,37 @@ if (-not $pnpmOnPath) {
   Write-Host "  pnpm: provided by corepack in $shimDir"
 } else {
   Write-Host "  pnpm: $($pnpmOnPath.Source)"
+}
+
+if ($Remove) {
+  Write-Output '[profile-plugin 4/4] Removing it with the Harness own CLI'
+  # Removal names the *package*, not the spec it was installed from: `pnpm remove` matches a
+  # dependency by name, and a `file:` path is how it got there rather than what it is called.
+  Write-Host "  dsh plugin --profile $profileName remove $pluginName"
+  $transcript = @()
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $transcript = @(& $nodeExe $dshEntry 'plugin' '--profile' $profileName 'remove' $pluginName 2>&1 | ForEach-Object { [string]$_ })
+  } finally {
+    $ErrorActionPreference = $previous
+  }
+  $exit = $LASTEXITCODE
+  foreach ($line in @($transcript | Select-Object -Last 6)) {
+    if ($line.Trim()) { Write-Host "  | $line" }
+  }
+  if ($exit -ne 0) {
+    Write-Warning "the Harness CLI exited $exit; the profile may still carry $pluginName."
+    exit 1
+  }
+  # The CLI is the remover, not the proof: read the profile back, the same way the install path does.
+  if (Get-DeclaredSpec) {
+    Write-Warning "the profile still declares $pluginName; the removal did not land."
+    exit 1
+  }
+  Write-Host "  the profile no longer carries $pluginName."
+  Write-Output 'removed'
+  exit 0
 }
 
 Write-Output '[profile-plugin 4/4] Installing it with the Harness own CLI'

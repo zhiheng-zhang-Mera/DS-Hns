@@ -98,7 +98,7 @@ Three properties are asserted rather than promised: the monitor holds nothing th
 the supervisor has no health policy, and neither is a dependency of the other. See
 `tests/unit/restart-supervisor-authority.test.js` for the source scans and
 `scripts/longhost-soak.cjs` for the synthetic 6/12/24-hour soaks (`--realtime --hours 24` for a real
-machine).
+machine, `--realtime --smoke` for a one-second check of that entry point).
 
 The two community plugins are **optional by construction**: Mega Core and the two built-in plugins are
 signed in before they are ever mentioned, and neither community plugin is a dependency of starting the

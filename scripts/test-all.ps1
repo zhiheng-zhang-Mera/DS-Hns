@@ -79,13 +79,13 @@ try {
   # The restart supervisor's state directory, kept out of the checkout.
   #
   # A plugin that is mounted writes a heartbeat, and the plugin's default directory is derived from the
-  # working directory — which for this runner is `tests\`. That is how a test run left
+  # working directory -- which for this runner is `tests\`. That is how a test run left
   # `tests\data\state\restart-supervisor\` behind, and a suite that edits the tree it is testing is a
   # suite whose second run is not its first. The shell sets this variable for the same reason; here it
   # points at a scratch directory that is removed when the run ends.
   $supervisorState = Join-Path ([System.IO.Path]::GetTempPath()) "dsh-test-supervisor-$PID"
   $env:DSHNS_SUPERVISOR_STATE_DIR = $supervisorState
-  Remove-Item -LiteralPath (Join-Path "$ROOT\tests\data") -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath (Join-Path $ROOT 'tests\data') -Recurse -Force -ErrorAction SilentlyContinue
   # Computer Use coverage (tests\unit\computer-use-*.test.js), including the
   # long-running execution modules (Update-Plan/24h.md Tasks 1-20). The unit
   # directory is globbed, so a new file is picked up automatically; the presence
@@ -230,6 +230,6 @@ try {
   & $node --test --test-concurrency=2 $files 2>&1
   exit $LASTEXITCODE
 } finally {
-  Remove-Item -LiteralPath (Join-Path "$ROOT\tests\data") -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath (Join-Path $ROOT 'tests\data') -Recurse -Force -ErrorAction SilentlyContinue
   Pop-Location
 }

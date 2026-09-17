@@ -153,4 +153,105 @@ function createVirtualClock(options = {}) {
   }
 }
 
-module.exports = { createVirtualClock, SOAK_HORIZONS }
+/**
+ * The same surface as `createVirtualClock`, on the **real** clock.
+ *
+ * The virtual clock answers questions about the *code*; this one answers the question the virtual one
+ * cannot: does the same code hold when time is the machine's own? A soak is only evidence about
+ * production if it can be run on production's clock and production's sampling interval, so
+ * `scripts/longhost-soak.cjs --realtime --hours 24` drives this and really waits.
+ *
+ * `realtime: true` is the one extra field: it is how a caller (and the smoke run) can tell which kind
+ * of clock it was handed rather than assuming.
+ *
+ * @param {object} [options]
+ * @param {Function} [options.sleep] a sleep to use instead of the real one (a test's own stub)
+ */
+function createRealClock(options = {}) {
+  const nap = typeof options.sleep === 'function' ? options.sleep : (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)))
+  let fired = 0
+  let pendingCount = 0
+
+  const now = () => Date.now()
+
+  /** A tracked real timer, so `pending()` is a number here too and `withTimers` can restore the rest. */
+  function trackedSetTimeout(fn, ms = 0, ...args) {
+    pendingCount += 1
+    return setTimeout((...inner) => {
+      pendingCount -= 1
+      fired += 1
+      return fn(...inner)
+    }, ms, ...args)
+  }
+
+  function trackedSetInterval(fn, ms = 1, ...args) {
+    pendingCount += 1
+    return setInterval((...inner) => {
+      fired += 1
+      return fn(...inner)
+    }, ms, ...args)
+  }
+
+  function clearTimer(id) {
+    try {
+      clearTimeout(id)
+      clearInterval(id)
+    } catch {
+      // Clearing an already-cleared timer is not an error.
+    }
+    return { ok: true }
+  }
+
+  /** Waiting is the whole point: this really waits. */
+  async function advance(ms) {
+    await nap(ms)
+    return now()
+  }
+
+  async function sleep(ms) {
+    return advance(ms)
+  }
+
+  /**
+   * Nothing to swap.
+   *
+   * The virtual clock replaces the global timers with its own; the real clock *is* them, so this only
+   * has to run the callback — and it says so rather than pretending to do work.
+   */
+  async function withTimers(fn) {
+    return fn()
+  }
+
+  async function run({ durationMs, stepMs = 1_000, breath = null, onStep = null } = {}) {
+    const steps = Math.max(1, Math.ceil(durationMs / stepMs))
+    for (let step = 0; step < steps; step += 1) {
+      if (typeof breath === 'function') await breath({ step, at: now(), steps })
+      if (typeof onStep === 'function') await onStep({ step, at: now(), steps })
+      await advance(stepMs)
+    }
+    return { steps, at: now() }
+  }
+
+  return {
+    realtime: true,
+    now,
+    advance,
+    sleep,
+    run,
+    withTimers,
+    setTimeout: trackedSetTimeout,
+    setInterval: trackedSetInterval,
+    clearTimeout: clearTimer,
+    clearInterval: clearTimer,
+    fired: () => fired,
+    pending: () => pendingCount,
+    /** A real clock cannot fail to keep time, so there is nothing to report here. */
+    errors: () => [],
+    /** The real clock cannot be set: the answer is simply what time it is. */
+    set() {
+      return now()
+    }
+  }
+}
+
+module.exports = { createVirtualClock, createRealClock, SOAK_HORIZONS }

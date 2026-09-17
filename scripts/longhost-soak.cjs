@@ -32,7 +32,7 @@ const path = require('node:path')
 const os = require('node:os')
 
 const ROOT = path.resolve(__dirname, '..')
-const { createVirtualClock, SOAK_HORIZONS } = require(path.join(ROOT, 'tests', 'helpers', 'longhost-clock.cjs'))
+const { createVirtualClock, createRealClock, SOAK_HORIZONS } = require(path.join(ROOT, 'tests', 'helpers', 'longhost-clock.cjs'))
 const { createHealthEngine, HEALTH_STATES } = require(path.join(ROOT, 'app', 'plugins', 'health-scheduler', 'health.cjs'))
 const { createRestartBudget } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'budget.cjs'))
 const { createHeartbeatMonitor } = require(path.join(ROOT, 'app', 'plugins', 'restart-supervisor', 'heartbeat.cjs'))
@@ -97,9 +97,12 @@ function scriptedReadings(script) {
  *     asymptote somewhere in the middle);
  *   * the trend is present once there are enough samples, and reports the direction.
  */
-async function soakHealth(horizonMs, { intervalMs = 15_000, hot = false, stepMs = 0 } = {}) {
+async function soakHealth(horizonMs, { intervalMs = 15_000, hot = false, stepMs = 0, clock = null } = {}) {
   const soak = createCase(`health-${Math.round(horizonMs / 3_600_000)}h`, `health scheduler over ${Math.round(horizonMs / 3_600_000)}h of synthetic sampling`)
-  const clock = createVirtualClock({ start: 1_700_000_000_000 })
+  // The clock is injected so the same case runs on the virtual clock (a synthetic soak) or on the
+  // machine's own (`--realtime`): the code under test is identical either way, which is what makes the
+  // synthetic run evidence about the real one.
+  const time = clock || createVirtualClock({ start: 1_700_000_000_000 })
   /**
    * The calm/hot/calm script has to spend long enough in each stretch for the *debounce* to adopt the
    * state: a transition needs `model.debounceSamples` consecutive samples, so a stretch shorter than
@@ -121,7 +124,7 @@ async function soakHealth(horizonMs, { intervalMs = 15_000, hot = false, stepMs 
       { memory: 25, cpu: 20, runtime: 2 }
     ]
   const engine = createHealthEngine({
-    now: () => clock.now(),
+    now: () => time.now(),
     readings: scriptedReadings(approach),
     config: {
       sampling: { intervalMs, windowMs: 300_000, maxSamples: 64 },
@@ -137,7 +140,7 @@ async function soakHealth(horizonMs, { intervalMs = 15_000, hot = false, stepMs 
   let sawPause = false
   const actions = new Set()
   const states = new Set()
-  const { steps } = await clock.run({
+  const { steps } = await time.run({
     durationMs: horizonMs,
     stepMs: stepMs > 0 ? stepMs : intervalMs,
     onStep: () => {
@@ -183,10 +186,10 @@ async function soakHealth(horizonMs, { intervalMs = 15_000, hot = false, stepMs 
  * safe mode, the backoff reaches its cap and stays there, the history stays inside its ring, and a
  * successful restart after a failure actually clears the streak.
  */
-async function soakBudget(horizonMs) {
+async function soakBudget(horizonMs, { clock = null } = {}) {
   const soak = createCase(`budget-${Math.round(horizonMs / 3_600_000)}h`, `restart budget over ${Math.round(horizonMs / 3_600_000)}h of a flapping application`)
-  const clock = createVirtualClock({ start: 1_700_000_000_000 })
-  const budget = createRestartBudget({ now: () => clock.now() })
+  const time = clock || createVirtualClock({ start: 1_700_000_000_000 })
+  const budget = createRestartBudget({ now: () => time.now() })
   const config = budget.config
 
   let attempts = 0
@@ -206,9 +209,9 @@ async function soakBudget(horizonMs) {
   // that fails.
   const crashEveryMs = 600_000
   const stepMs = 30_000
-  const startAt = clock.now()
+  const startAt = time.now()
   const isCrashStep = (at) => (at - startAt) % crashEveryMs === 0
-  await clock.run({
+  await time.run({
     durationMs: horizonMs,
     stepMs,
     onStep: ({ at }) => {
@@ -265,7 +268,7 @@ async function soakBudget(horizonMs) {
  */
 async function soakHeartbeat(horizonMs, options = {}) {
   const soak = createCase(`heartbeat-${Math.round(horizonMs / 3_600_000)}h`, `heartbeat monitoring over ${Math.round(horizonMs / 3_600_000)}h with periodic hangs`)
-  const clock = createVirtualClock({ start: 1_700_000_000_000 })
+  const time = options.clock || createVirtualClock({ start: 1_700_000_000_000 })
   /**
    * The hang has to be long enough to cross *both* escalation thresholds — the graceful window and the
    * forced one — or the scenario never observes the escalation it exists to assert. The defaults are
@@ -280,7 +283,7 @@ async function soakHeartbeat(horizonMs, options = {}) {
     gracefulRecoveryMs: Math.min(30_000, Math.round(hangForMs / 3)),
     forcedAfterMs: Math.min(90_000, Math.round((hangForMs * 2) / 3))
   }
-  const monitor = createHeartbeatMonitor({ now: () => clock.now(), config: heartbeatConfig })
+  const monitor = createHeartbeatMonitor({ now: () => time.now(), config: heartbeatConfig })
   const config = monitor.config
 
   let beats = 0
@@ -301,10 +304,10 @@ async function soakHeartbeat(horizonMs, options = {}) {
    */
   const hangAtMs = Math.max(300_000, Math.round(horizonMs / 6))
   let hangingUntil = null
-  const startAt = clock.now()
+  const startAt = time.now()
   const isHangStep = (at) => (at - startAt) % hangAtMs === 0
 
-  await clock.run({
+  await time.run({
     durationMs: horizonMs,
     stepMs: 5_000,
     onStep: ({ at }) => {
@@ -359,11 +362,11 @@ async function soakHeartbeat(horizonMs, options = {}) {
  * day with a maintenance window it never reaches, and asserts that the deferral ends in a *refusal
  * with a reason* inside the configured horizon rather than a request that waits for ever.
  */
-async function soakMaintenance(horizonMs) {
+async function soakMaintenance(horizonMs, { clock = null } = {}) {
   const soak = createCase(`maintenance-${Math.round(horizonMs / 3_600_000)}h`, `maintenance deferral over ${Math.round(horizonMs / 3_600_000)}h`)
-  const clock = createVirtualClock({ start: 1_700_000_000_000 })
+  const time = clock || createVirtualClock({ start: 1_700_000_000_000 })
   const engine = createHealthEngine({
-    now: () => clock.now(),
+    now: () => time.now(),
     readings: scriptedReadings([{ memory: 96, cpu: 97, runtime: 40 }]),
     config: {
       sampling: { intervalMs: 60_000, windowMs: 300_000, maxSamples: 64 },
@@ -376,7 +379,7 @@ async function soakMaintenance(horizonMs) {
   let allowed = 0
   let refused = 0
   const holders = new Set()
-  await clock.run({
+  await time.run({
     durationMs: horizonMs,
     stepMs: 60_000,
     onStep: () => {
@@ -413,12 +416,13 @@ const SCENARIOS = Object.freeze([
 
 async function runScenario(scenario, options = {}) {
   const horizon = Number.isFinite(options.horizonMs) ? options.horizonMs : scenario.horizon
+  const clock = options.clock || null
   const cases = []
-  cases.push(await soakHealth(horizon))
-  cases.push(await soakHealth(horizon, { hot: true }))
-  cases.push(await soakBudget(horizon))
-  cases.push(await soakHeartbeat(horizon))
-  cases.push(await soakMaintenance(horizon))
+  cases.push(await soakHealth(horizon, { ...options, clock }))
+  cases.push(await soakHealth(horizon, { ...options, hot: true, clock }))
+  cases.push(await soakBudget(horizon, { ...options, clock }))
+  cases.push(await soakHeartbeat(horizon, { ...options, clock }))
+  cases.push(await soakMaintenance(horizon, { ...options, clock }))
   return {
     id: scenario.id,
     horizonMs: horizon,
@@ -433,22 +437,60 @@ async function runScenario(scenario, options = {}) {
 /**
  * The real-machine entry point.
  *
- * It is the same scenarios, at the same horizons, on the real clock — so it takes six, twelve or
- * twenty-four hours and is meant to be started deliberately. The sampling interval is *not* shortened:
- * a soak that sampled faster than production would not be evidence about production.
+ * It is the same scenarios, at the same horizons, driven by the **machine's own clock**: the sampling
+ * intervals are production's, the waits are real waits, and a run therefore takes six, twelve or
+ * twenty-four hours. It is meant to be started deliberately, and it is the only mode whose result is
+ * evidence about the wall clock rather than about the arithmetic.
+ *
+ * `options.clock` exists for one caller: the smoke run (`--smoke`), which drives the same wiring for a
+ * fraction of a second to prove the entry point works. Nothing else should pass one.
  */
 async function runRealtime(hours, options = {}) {
   const horizon = hours * 3_600_000
-  return runScenario({ id: `realtime-${hours}h`, horizon }, { horizonMs: horizon, ...options })
+  const clock = options.clock || createRealClock()
+  return runScenario({ id: `realtime-${hours}h`, horizon }, { horizonMs: horizon, ...options, clock })
+}
+
+/**
+ * The entry point's own smoke test.
+ *
+ * A twenty-four hour soak cannot be part of a test gate, so the *entry point* gets one that can be: it
+ * drives the real clock through the health case for a moment and asserts the wiring — that the clock
+ * is the real one, that the case really took time, and that it produced its own checks. The horizon
+ * assertions are deliberately not part of this: they need the full horizon, and a smoke run that
+ * claimed them would be the kind of test that lies.
+ */
+async function smokeRealtime(hours = 0.0001, options = {}) {
+  const clock = options.clock || createRealClock()
+  const soak = createCase('realtime-smoke', 'the real-clock entry point itself')
+  const horizon = Math.max(200, hours * 3_600_000)
+  const startedAt = Date.now()
+  const health = await soakHealth(horizon, { clock, intervalMs: 20, stepMs: 20 })
+  const elapsed = Date.now() - startedAt
+  soak.check('the clock handed to the case is the real one', clock.realtime === true, `realtime=${String(clock.realtime)}`)
+  soak.check('the case ran and reported its own checks', health.checks > 0, `${health.checks} checks`)
+  soak.check('the run spent real time rather than skipping it', elapsed >= 100, `${elapsed}ms of wall clock for a ${horizon}ms horizon`)
+  soak.note(`the real-clock entry point ran ${health.checks} checks in ${elapsed}ms for a ${horizon}ms horizon`)
+  const result = soak.result()
+  return {
+    id: 'realtime-smoke',
+    horizonMs: horizon,
+    horizonHours: Math.round((horizon / 3_600_000) * 10000) / 10000,
+    cases: [result],
+    passed: result.passed,
+    checks: result.checks,
+    failures: result.failed
+  }
 }
 
 function parseArgs(argv) {
-  const args = { scenario: '', list: false, json: false, out: '', realtime: false, hours: 0, horizonMs: 0 }
+  const args = { scenario: '', list: false, json: false, out: '', realtime: false, smoke: false, hours: 0, horizonMs: 0 }
   for (const raw of argv) {
     const arg = String(raw)
     if (arg === '--list') args.list = true
     else if (arg === '--json') args.json = true
     else if (arg === '--realtime') args.realtime = true
+    else if (arg === '--smoke') args.smoke = true
     else if (arg.startsWith('--out=')) args.out = arg.slice('--out='.length)
     else if (arg.startsWith('--hours=')) args.hours = Number(arg.slice('--hours='.length))
     else if (arg.startsWith('--horizon-ms=')) args.horizonMs = Number(arg.slice('--horizon-ms='.length))
@@ -462,7 +504,33 @@ async function main(argv) {
   if (args.list) {
     for (const scenario of SCENARIOS) process.stdout.write(`${scenario.id}\t${scenario.summary}\n`)
     process.stdout.write(`realtime\t--realtime --hours=<h>: the same scenarios on the real clock\n`)
+    process.stdout.write(`smoke\t--realtime --smoke: the real-clock entry point itself, in a second\n`)
     return 0
+  }
+  /**
+   * The smoke run is the entry point's own test, and it is the only path that does not need a scenario:
+   * `--realtime --smoke` proves the real-clock wiring in under a second, so the gate can assert it.
+   */
+  if (args.smoke) {
+    const report = await smokeRealtime(Number.isFinite(args.hours) && args.hours > 0 ? args.hours : 0.0001)
+    for (const entry of report.cases) {
+      process.stderr.write(`[${entry.passed ? 'PASS' : 'FAIL'}] realtime · ${entry.title} (${entry.checks - entry.failed}/${entry.checks})\n`)
+      for (const failure of entry.failures) process.stderr.write(`        ✖ ${failure.label}: ${failure.detail}\n`)
+      for (const note of entry.notes) process.stderr.write(`        · ${note}\n`)
+    }
+    const envelope = {
+      harness: 'longhost-soak',
+      realtime: true,
+      smoke: true,
+      at: new Date().toISOString(),
+      scenarios: [report],
+      checks: report.checks,
+      failures: report.failures
+    }
+    envelope.passed = envelope.failures === 0
+    if (args.json) process.stdout.write(`${JSON.stringify(envelope)}\n`)
+    else process.stdout.write(`longhost-soak: ${envelope.checks - envelope.failures}/${envelope.checks} smoke checks passed on the real clock\n`)
+    return envelope.passed ? 0 : 1
   }
   const wanted = args.scenario && args.scenario !== 'all' ? SCENARIOS.filter((entry) => entry.id === args.scenario) : SCENARIOS
   if (!wanted.length) {
@@ -505,5 +573,5 @@ if (require.main === module) {
     })
 }
 
-module.exports = { main, runScenario, runRealtime, soakHealth, soakBudget, soakHeartbeat, soakMaintenance, SCENARIOS, createCase, scriptedReadings }
+module.exports = { main, runScenario, runRealtime, smokeRealtime, soakHealth, soakBudget, soakHeartbeat, soakMaintenance, SCENARIOS, createCase, scriptedReadings }
 void os

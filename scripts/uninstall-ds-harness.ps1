@@ -121,6 +121,38 @@ if (Test-Path -LiteralPath $uninstaller) {
   Step 'profile plugins removed' $false "install-bundled-plugins.ps1 is missing"
 }
 
+# The **orb** is a profile plugin too -- the installer's step 4/9 signs it in before the built-ins --
+# so an uninstall that stopped at the two built-ins would leave the official UI composing a plugin
+# from a product that is no longer installed. It is removed through the same script that installed it,
+# which is the only thing that knows its package name and its declared files.
+Write-Host ''
+Write-Host 'The orb in the Harness profile'
+$orbScript = Join-Path $PSScriptRoot 'install-profile-plugin.ps1'
+if (Test-Path -LiteralPath $orbScript) {
+  # The home and the profile are passed the way the installer passes them -- through the child's
+  # environment -- because `install-profile-plugin.ps1` resolves both from `$env:` and would otherwise
+  # remove the orb from whatever `DSH_HOME` this shell happens to have, which is a different
+  # installation's profile. An uninstaller that edits somebody else's profile is a defect.
+  $previous = $ErrorActionPreference
+  $previousHome = $env:DSH_HOME
+  $previousProfile = $env:DSH_PROFILE
+  $env:DSH_HOME = $dshHomePath
+  if (-not $env:DSH_PROFILE) { $env:DSH_PROFILE = 'web' }
+  $ErrorActionPreference = 'Continue'
+  try {
+    $orbLines = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $orbScript -Plugin 'mega-core' -Remove 2>&1 | ForEach-Object { [string]$_ })
+    $orbExit = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previous
+    $env:DSH_HOME = $previousHome
+    $env:DSH_PROFILE = $previousProfile
+  }
+  foreach ($line in $orbLines) { if ($line.Trim()) { Write-Host "  $($line.Trim())" } }
+  Step 'orb plugin removed' ($orbExit -eq 0) "the profile plugin step exited $orbExit"
+} else {
+  Step 'orb plugin removed' $false 'install-profile-plugin.ps1 is missing'
+}
+
 # ---- 4. An explicit scan for anything the supervisor left behind: a second companion, a pid file, a
 #         lock whose owner is gone. This is the check the requirement is really about -- "no orphan
 #         process and no leftover startup entry" is a claim, and a claim needs a scan.

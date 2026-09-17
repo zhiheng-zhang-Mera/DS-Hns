@@ -194,6 +194,23 @@ test('installer installs the two built-in plugins from this repository, in their
   assert.match(uninstaller, /-Uninstall/)
   assert.match(uninstaller, /no orphan companion process/)
   assert.match(uninstaller, /no supervisor startup entry/)
+  /**
+   * ...and it removes the **orb** too, through the script that installed it.
+   *
+   * The claim the uninstaller prints is "no profile plugin is left behind", and the orb is a profile
+   * plugin: an uninstall that stopped at the two built-ins would leave the official UI composing a
+   * plugin from a product that is no longer installed. The removal names the profile explicitly
+   * (`DSH_HOME` in the child's environment) because the child resolves it from `$env:` -- an
+   * uninstaller that edited whatever profile the calling shell happened to name is a defect.
+   */
+  assert.match(uninstaller, /\$orbScript = Join-Path \$PSScriptRoot 'install-profile-plugin\.ps1'/)
+  assert.match(uninstaller, /-Plugin 'mega-core' -Remove/)
+  assert.match(uninstaller, /\$env:DSH_HOME = \$dshHomePath/)
+  const profilePlugin = read('scripts/install-profile-plugin.ps1')
+  assert.match(profilePlugin, /\[switch\]\$Remove/)
+  assert.match(profilePlugin, /plugin' '--profile' \$profileName 'remove' \$pluginName/)
+  assert.match(profilePlugin, /Write-Output 'removed'/)
+  assert.match(profilePlugin, /Write-Output 'not-installed'/)
 })
 
 test('installer asks about the optional community plugins after the built-in ones and before the tests', () => {

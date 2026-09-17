@@ -11,8 +11,8 @@ const HARNESS = path.join(ROOT, 'scripts', 'longhost-soak.cjs')
 const CLOCK = path.join(ROOT, 'tests', 'helpers', 'longhost-clock.cjs')
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8')
 
-const { createVirtualClock, SOAK_HORIZONS } = require(CLOCK)
-const { soakHealth, soakBudget, soakHeartbeat, soakMaintenance, SCENARIOS, runScenario } = require(HARNESS)
+const { createVirtualClock, createRealClock, SOAK_HORIZONS } = require(CLOCK)
+const { soakHealth, soakBudget, soakHeartbeat, soakMaintenance, SCENARIOS, runScenario, smokeRealtime } = require(HARNESS)
 
 /**
  * The long-hosting soak, and the claim that makes it worth running.
@@ -127,4 +127,57 @@ test('a scenario reports a failure rather than throwing when a bound is broken',
     assert.equal(typeof entry.checks, 'number')
     assert.ok(Array.isArray(entry.failures))
   }
+})
+
+/**
+ * The real-machine entry point, as two facts that can each be checked quickly.
+ *
+ * The synthetic runs are evidence about the *code*; they say nothing about whether the same code
+ * survives the machine's own clock, and `--realtime --hours 24` is the only mode that answers that. A
+ * twenty-four hour wait cannot be part of a gate, so the gate checks the two halves separately: the
+ * real clock really waits, and the entry point really uses it.
+ */
+test('the real clock waits for real, and shares the virtual clock surface', async () => {
+  const clock = createRealClock()
+  const started = Date.now()
+  await clock.sleep(120)
+  const elapsed = Date.now() - started
+  assert.equal(clock.realtime, true, 'a real clock must say which kind it is')
+  assert.ok(elapsed >= 100, `a 120ms real sleep took ${elapsed}ms of wall clock`)
+  assert.equal(clock.errors().length, 0)
+  // The same surface the virtual clock offers, so a case can be handed either one.
+  for (const method of ['now', 'advance', 'sleep', 'run', 'withTimers', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'fired', 'pending', 'errors']) {
+    assert.equal(typeof clock[method], 'function', `the real clock is missing ${method}()`)
+  }
+  const stepped = await clock.run({ durationMs: 60, stepMs: 20, onStep: () => {} })
+  assert.equal(stepped.steps, 3)
+  await clock.withTimers(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  })
+  assert.ok(clock.now() >= started)
+})
+
+test('the real-machine entry point runs the same cases on the real clock, and smoke-tests itself', async () => {
+  const harness = read('scripts/longhost-soak.cjs')
+  // The entry point builds a real clock instead of a virtual one, and the cases take whichever clock
+  // they are handed rather than creating their own.
+  assert.match(harness, /options\.clock \|\| createRealClock\(\)/)
+  assert.match(harness, /const time = clock \|\| createVirtualClock/)
+  assert.match(harness, /--smoke/)
+
+  // The smoke run is the entry point's own test: real clock, real elapsed time, its own checks.
+  const started = Date.now()
+  const smoke = await smokeRealtime(0.0001, { clock: createRealClock() })
+  assert.equal(smoke.passed, true, JSON.stringify(smoke.cases[0].failures))
+  assert.equal(smoke.failures, 0)
+  assert.ok(Date.now() - started >= 100, 'the smoke run did not spend real time')
+  assert.match(smoke.cases[0].title, /real-clock entry point/)
+
+  // ...and through the program, exactly as an operator would call it.
+  const result = spawnSync(process.execPath, [HARNESS, '--realtime', '--smoke', '--json'], { encoding: 'utf8', windowsHide: true, timeout: 120_000 })
+  assert.equal(result.status, 0, `the smoke run exited ${result.status}: ${result.stderr}`)
+  const parsed = JSON.parse(result.stdout.trim())
+  assert.equal(parsed.realtime, true)
+  assert.equal(parsed.smoke, true)
+  assert.equal(parsed.passed, true)
 })

@@ -234,7 +234,9 @@ Three overlapping restart paths existed before this work, and there is now one:
   clocks, the lifecycle's order and its refusals, readiness retries, `restart-control` through the
   plugin manager, the lock, a stale request, and the companion's watch loop terminating at its budget.
 * `tests/unit/longhost-soak.test.js` and `scripts/longhost-soak.cjs` — the synthetic 6/12/24-hour soaks
-  on a virtual clock, plus `--realtime --hours 24` for the real-machine run.
+  on a virtual clock, plus `--realtime --hours 24` for the real-machine run (same cases, the machine's
+  own clock and production's sampling intervals) and `--realtime --smoke` for the entry point itself,
+  which is the half of that run a test gate can afford.
 * `tests/unit/installer-optional-plugins.test.js` and `scripts/install-bundled-plugins.ps1` — the
   install, repair and uninstall of both plugins through the Harness CLI, and the uninstaller's scan for
   an orphan companion process and a leftover startup entry.
