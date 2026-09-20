@@ -154,6 +154,27 @@ test('installer preflights child PowerShell scripts before dependency work', () 
   assert.ok(text.indexOf('PowerShell parser preflight') < text.indexOf('Resolve/reuse dependencies'))
 })
 
+/**
+ * Where each installation step sits in the installer source.
+ *
+ * The steps are located by the marker text that is unique to each one, and the
+ * *test* step is matched by either of its spellings: the tiered runner replaced
+ * the plain "Unit and architecture tests" label, and an assertion that pinned the
+ * old wording would break the moment the tiers were introduced while proving
+ * nothing about the order it is meant to guard.
+ */
+function stepPositions(text) {
+  const testStep = /Write-Step "6\/9 Installer tests \(\$Mode tier\)"|Write-Step '6\/9 Unit and architecture tests'/
+  const match = text.match(testStep)
+  return {
+    cleanup: text.indexOf('Clean stale runtime and bootstrap directories'),
+    deps: text.indexOf('Resolve/reuse dependencies'),
+    profile: text.indexOf('Sign the shipped client plugin into the Harness profile'),
+    optional: text.indexOf('Optional community plugins'),
+    tests: match ? match.index : -1
+  }
+}
+
 test('installer signs the shipped orb plugin into the Harness profile before the tests', () => {
   const text = read('scripts/install.ps1')
   // The ball in the official UI is drawn by the client plugin DS-Hns ships, and only a profile that
@@ -161,10 +182,10 @@ test('installer signs the shipped orb plugin into the Harness profile before the
   // and the dependency is an absolute `file:` path), so it is a step of the installation: every host
   // installed without it shows no ball at all.
   assert.match(text, /install-profile-plugin\.ps1/)
-  const deps = text.indexOf('Resolve/reuse dependencies')
-  const step = text.indexOf('Sign the shipped client plugin into the Harness profile')
-  const tests = text.indexOf('Unit and architecture tests')
-  assert.ok(step > deps && step < tests, 'the profile step runs after dependencies and before the tests')
+  const at = stepPositions(text)
+  assert.ok(at.deps > 0 && at.profile > 0 && at.tests > 0, `a step marker is missing: ${JSON.stringify(at)}`)
+  assert.ok(at.profile > at.deps, 'the profile step must run after dependencies')
+  assert.ok(at.profile < at.tests, 'the profile step must run before the tests')
   // An enhancement never fails an installation: the step warns, and the install carries on.
   assert.match(text, /The orb plugin is not in the Harness profile/)
   assert.doesNotMatch(text, /throw 'The orb plugin/)
@@ -174,11 +195,10 @@ test('installer asks about the optional community plugins after the shipped plug
   const text = read('scripts/install.ps1')
   // The order is the requirement's: DS-Hns' own plugin is signed in unconditionally first, so nothing
   // about the optional community plugins can turn it into a choice, and both come before the tests.
-  const profile = text.indexOf('Sign the shipped client plugin into the Harness profile')
-  const optional = text.indexOf('Optional community plugins')
-  const tests = text.indexOf('Unit and architecture tests')
-  assert.ok(profile >= 0 && optional > profile, 'the optional plugins are offered before the shipped plugin is signed in')
-  assert.ok(tests > optional, 'the optional plugins are asked about after the tests')
+  const at = stepPositions(text)
+  assert.ok(at.profile > 0 && at.optional > 0 && at.tests > 0, `a step marker is missing: ${JSON.stringify(at)}`)
+  assert.ok(at.optional > at.profile, 'the optional plugins are offered before the shipped plugin is signed in')
+  assert.ok(at.tests > at.optional, 'the tests must run after the optional plugins are decided')
 
   // Each plugin is asked about separately, and the parameters answer the question rather than the prompt.
   assert.match(text, /-InstallMarket/)

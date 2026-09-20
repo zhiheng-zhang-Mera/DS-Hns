@@ -140,7 +140,16 @@ test('the shell starts the official UI first, and only then the optional layers'
     return index
   }
   const skeleton = order(/await showStartupSkeleton\(\)/)
-  const harness = order(/const readyUrl = await waitForHarness\(\)/)
+  /**
+   * The moment the official UI becomes available.
+   *
+   * It used to be `const readyUrl = await waitForHarness()`. The Harness is now
+   * owned by the Runtime Host, so the shell asks the Runtime for the access URL and
+   * the request sits inside a readiness race; `readyUrl` is still the name of the
+   * value and it is still what the window is loaded with, so the ordering facts
+   * this test guards are unchanged.
+   */
+  const harness = order(/const readyUrl = await Promise\.race\(\[/)
   const interactive = order(/startup\.mark\('interactive'\)/)
   const deferredSurfaces = order(/startup\.defer\('official-surfaces-ready'/)
   const extensions = order(/startup\.defer\('extensions-ready'/)

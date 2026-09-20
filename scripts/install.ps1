@@ -45,7 +45,7 @@ param(
   #   Standard       the default for a person installing the product. Everything
   #                  Fast does, plus profile/plugin correctness, a small
   #                  deterministic smoke set and the verifier. It never runs the
-  #                  whole unit suite and never runs a benchmark as a gate.
+  #                  whole repository suite and never runs a benchmark as a gate.
   #
   #   Qualification  a release, CI, a major refactor, or an explicit owner
   #                  request: the full suite, the architecture checks, the
