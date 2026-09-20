@@ -74,7 +74,7 @@ than aspirational.
 Everything derived from that answer is per-instance:
 
 ```
-instance_id = sha256(canonical root + canonical DSH_HOME).slice(0, 16)
+instance_id = sha256(canonical root + canonical DSH_HOME + app name + userData choice).slice(0, 16)
 
 DSH_HOME              <root>/data (or $DSH_HOME)
 state                 <home>/state
@@ -92,23 +92,26 @@ ownership records     <root>/runtime/*.json
 
 Four rules make this safe:
 
-1. **Identity is a pure function of the canonical root *and* home.** The same pair
-   yields the same id on every run; a different root or a different data directory
-   yields a different one. Both inputs matter: the id names the IPC endpoint, the
-   Electron `userData` and the single-instance lock, so an id derived from the root
-   alone would give one checkout served from two data directories a *single*
-   endpoint — the second run would attach to the first one's Runtime, or silently
-   refuse to start. Omitting the home means `<root>/data`, which is what the
-   Runtime Host and the installer use when nothing overrides it.
+1. **The id covers every input that decides a derived path** — the root, the data
+   directory, the run's name, and an explicit `DSH_USER_DATA_DIR`. The id names the
+   IPC endpoint, the Electron `userData` and the single-instance lock, so two runs
+   that differ in *any* of those must not share one. This took three attempts to
+   get right, and each wrong version was found by running the code rather than by
+   reading it: the id started from the root alone (so one checkout served from two
+   data directories shared a lock), gained the home, and finally gained the run
+   name and userData choice. The isolation test now states the property directly:
+   five runs differing in exactly one input each must produce five ids, five
+   endpoints and five userData paths.
 2. **Paths keep the filesystem's spelling.** `canonicalize()` produces a
    lower-cased form for *comparison and hashing only*; `resolveRoot()` produces the
    path to *use*, by taking the real spelling of the deepest existing ancestor.
    Lower-casing a path and then opening it works on a case-insensitive volume and
    silently fails on a case-sensitive one.
-3. **A record is trusted only when both its id and its root match.** A record found
-   at this instance's path that names another root is a leftover — a copied `data`
-   directory, a moved checkout — and is ignored. A record written by an earlier
-   naming scheme simply does not match, which is the correct answer: its port and
+3. **A record is trusted only when its id, its root and its userData all match.**
+   A record found at this instance's path that names another root is a leftover — a
+   copied `data` directory, a moved checkout — and is ignored. A record with no
+   recorded userData is refused rather than trusted. A record written by an earlier
+   naming scheme matches nothing, which is the correct answer: its port and
    endpoint belong to a scheme this build no longer uses.
 4. **The primary instance is not migrated.** An isolated instance gets an
    id-keyed `userData`; the primary keeps `desktop-shell`, because that is where
@@ -348,3 +351,20 @@ node app\runtime\runtime.cjs capability  # this host's profile and derived polic
   request/response adapters; the lifetime-bearing objects are what moved. Moving
   ~900 lines of renderer login into the Host would have been a rewrite of the
   plugin integration surface, which this round explicitly must not do.
+
+## 12. What running it found
+
+Every one of these was a real defect that reading the code did not reveal. They
+are recorded because they are the argument for the acceptance runs, not a list of
+apologies:
+
+| What happened | Why | Fix |
+|---|---|---|
+| A one-shot `computerUse.status` query withdrew the page capability it was asking about | a blanket `close` handler called `handleDisconnect()` for *every* connection, not only subscribers | withdrawal belongs to subscribers |
+| The second instance could not restart after its own Harness was orphaned | a listening port was treated as "somebody else's" without consulting the ownership record | the record decides: foreign listener / own orphan (reaped) / another live Host (reported) |
+| A path that did not exist yet resolved to a *different case* than the filesystem | `canonicalize` lower-cased paths for use, not only for comparison | `resolveRoot` takes the real spelling of the deepest existing ancestor |
+| The CLI reported a different instance id for the same checkout than the Desktop had | the id covered the root and home but not the run name | the id covers every input that decides a derived path |
+| An isolated instance's `userData` was keyed by an id naming nothing else in the instance | `userDataFor` re-derived the id with two of the four inputs | the id is computed once and passed in |
+| The install state said "no previous state" on every run | the CLI's argument parser never initialised its positional list, so `write` silently ran `describe` | positional list initialised |
+| The cached host profile was ignored forever | `Set-Content -Encoding UTF8` writes a BOM, which JSON rejects | BOM stripped in both readers |
+| The installer invoked the *full* test suite even in Fast mode | an index-based assertion matched prose in a comment | tests locate steps by named markers, not by offset |
