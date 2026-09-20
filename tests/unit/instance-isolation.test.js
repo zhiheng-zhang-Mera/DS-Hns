@@ -46,6 +46,60 @@ test('one checkout served from two data directories is two instances', () => {
   assert.notEqual(same, other)
 })
 
+test('every input that changes a derived path also changes the id', () => {
+  /**
+   * The property, stated once: if two runs differ in *anything* that decides a
+   * derived path or endpoint, they must not share an id — because the id is what
+   * names the IPC endpoint and the Electron single-instance lock.
+   *
+   * Each of these was a real collision at some point while this was built: the id
+   * started from the root alone, then the root and the home, and only hashing the
+   * whole discriminator made the invariant hold.
+   */
+  const base = { root: 'D:\\One\\Checkout', dshHome: 'D:\\One\\Checkout\\data' }
+  const plain = instance.describeInstance({ ...base, isolated: false })
+  const named = instance.describeInstance({ ...base, appName: 'DS-Hns (second)', isolated: true })
+  const custom = instance.describeInstance({ ...base, isolated: true, userDataDir: 'D:\\One\\userData-custom' })
+  const otherHome = instance.describeInstance({ root: base.root, dshHome: 'D:\\One\\data-2', isolated: true })
+  const otherRoot = instance.describeInstance({ root: 'D:\\Two\\Checkout', dshHome: base.dshHome, isolated: true })
+
+  const ids = [plain, named, custom, otherHome, otherRoot].map((each) => each.instanceId)
+  assert.equal(new Set(ids).size, ids.length, `ids collided: ${ids.join(', ')}`)
+
+  // And the endpoint follows the id, so no two of them share a pipe either.
+  const endpoints = [plain, named, custom, otherHome, otherRoot].map((each) => each.ipcEndpoint)
+  assert.equal(new Set(endpoints).size, endpoints.length, 'two instances share an IPC endpoint')
+
+  // The userData that the lock lives in follows too, which is the point of all of it.
+  const userDatas = [plain, named, custom, otherHome, otherRoot].map((each) => each.paths.userData)
+  assert.equal(new Set(userDatas).size, userDatas.length, 'two instances share an Electron userData')
+})
+
+test('a record is trusted only when its id, root and userData all belong to this instance', () => {
+  const home = scratch()
+  const rootA = path.join(home, 'a')
+  fs.mkdirSync(rootA, { recursive: true })
+  const a = instance.describeInstance({ root: rootA, dshHome: path.join(home, 'h-a'), appName: 'Named Run', isolated: true })
+  const b = instance.describeInstance({ root: rootA, dshHome: path.join(home, 'h-a'), appName: 'Other Run', isolated: true })
+  const record = instance.writeInstanceRecord({ ...a, harnessPort: 3188 })
+
+  assert.equal(instance.recordBelongsToInstance(record, a), true)
+  // A differently-named run of the same checkout is a different instance.
+  assert.equal(instance.recordBelongsToInstance(record, b), false)
+
+  /**
+   * The same id with a different root, or with no recorded userData, is refused.
+   *
+   * The second case is the one a hand-written or older record produces: the id
+   * alone would trust it, and the root alone would too.
+   */
+  assert.equal(instance.recordBelongsToInstance({ ...record, root: 'D:\\elsewhere' }, a), false, 'a record naming another root was trusted')
+  assert.equal(instance.recordBelongsToInstance({ ...record, userData: undefined }, a), false, 'a record with no userData was trusted')
+  assert.equal(instance.recordBelongsToInstance({ ...record, userData: path.join(home, 'other-user-data') }, a), false, 'a record naming another userData was trusted')
+  assert.equal(instance.recordBelongsToInstance(null, a), false)
+  assert.equal(instance.recordBelongsToInstance(record, null), false)
+})
+
 test('different roots are different instances', () => {
   const main = instance.instanceIdFor('D:\\DS-Hns', 'D:\\DS-Hns\\data')
   const second = instance.instanceIdFor('D:\\DS-Hns-ElectronSplit', 'D:\\DS-Hns-ElectronSplit\\data')
@@ -165,33 +219,6 @@ test('a persisted port is preferred on the next resolve', async () => {
   assert.equal(record.instanceId, second.instanceId)
   assert.equal(record.harnessPort, 3175)
   assert.equal(record.protocol, instance.PROTOCOL_VERSION)
-})
-
-test('a record is trusted only when its id and its root both belong to this instance', () => {
-  const home = scratch()
-  const rootA = path.join(home, 'a')
-  const rootB = path.join(home, 'b')
-  fs.mkdirSync(rootA, { recursive: true })
-  fs.mkdirSync(rootB, { recursive: true })
-  const a = instance.describeInstance({ root: rootA, dshHome: path.join(home, 'h-a'), isolated: true })
-  const b = instance.describeInstance({ root: rootB, dshHome: path.join(home, 'h-b'), isolated: true })
-  const record = instance.writeInstanceRecord({ ...a, harnessPort: 3188 })
-
-  // Its own record: trusted.
-  assert.equal(instance.recordBelongsToInstance(record, a), true)
-  // Another instance's record: refused on the id.
-  assert.equal(instance.recordBelongsToInstance(record, b), false)
-  /**
-   * The same id with a different root is also refused.
-   *
-   * This is the case a copied `data` directory produces, and a mismatch has to be
-   * caught on *both* fields: an id alone would trust a record that was written
-   * about a different checkout.
-   */
-  const forgedId = { ...record, root: b.root }
-  assert.equal(instance.recordBelongsToInstance(forgedId, a), false, 'a record naming another root was trusted')
-  assert.equal(instance.recordBelongsToInstance(null, a), false)
-  assert.equal(instance.recordBelongsToInstance(record, null), false)
 })
 
 test('a foreign instance record is ignored rather than trusted', async () => {

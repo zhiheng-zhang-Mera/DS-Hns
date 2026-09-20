@@ -224,6 +224,38 @@ The lockfile hash is the entry that was missing: `npm ci` consumed
 `app/package-lock.json` but nothing ever compared it, so a lock change that left
 `dsh` and Electron at the same versions was invisible to every reuse decision.
 
+### Measured on this host (16 logical cores, 32 GB, Node 24.14.1)
+
+Per-phase, as the installer reports it:
+
+| Step | Cost |
+|---|---|
+| 0/9 parser preflight | 0.3 s |
+| 1/9 stale-runtime cleanup + directories | 0.4 s |
+| 2/9 dependencies | **8.6 s measured / 0.1 s reused** |
+| 3/9 API key | ~0.1 s |
+| 4/9 profile plugin | **0.1 s reused** / ~1 s when signed in |
+| 5/9 optional plugins | **0.1 s reused** |
+| 6/9 tests | **56 s smoke set** (Standard/Fast) / 7.3 min full suite (Qualification) |
+| 7/9 verification | 0 s (Fast) / ~40 s (Standard) |
+| 8/9–9/9 shortcuts, summary | 0.2 s |
+
+Whole-run totals with state cleared vs. warm, and the smoke set skipped so the
+reuse path is what is being measured:
+
+| Run | Total | What ran |
+|---|---|---|
+| fresh-equivalent (`install-state.json` removed) | **18.2 s** | dependency re-derivation + profile sign-in + optional decision |
+| warm reinstall, no code change | **12.9 s** | nothing re-downloaded, nothing re-installed, no suite |
+| Fast, with the smoke set | **69.7 s** | the smoke set dominates at 56 s |
+| Standard (warm) | **~2 min** | smoke set + verifier |
+| Qualification | **~7.4 min** | the full 1812-test suite |
+
+There is deliberately **no universal wall-clock pass/fail number** here. These
+figures are one machine's timings, reported so the *shape* of the cost is visible:
+the warm path skips dependency work, the profile install, the optional-plugin
+setup, the full suite, and every qualification benchmark.
+
 ## 8. Hardware adaptation
 
 `app/runtime/host-capability.cjs` measures the host rather than looking it up.

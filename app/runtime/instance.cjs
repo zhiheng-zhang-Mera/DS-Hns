@@ -117,27 +117,38 @@ function slugify(value, fallback = 'instance') {
 }
 
 /**
- * The stable instance id: `stableHash(canonical root + canonical DSH_HOME)`.
+ * The stable instance id: a hash of everything that makes two instances distinct.
  *
- * Both inputs matter, and leaving the home out was a real bug. The id names the
- * IPC endpoint, the Electron `userData` and the browser profile, so an id derived
- * from the root alone would give one checkout served from two different data
- * directories a *single* endpoint and a single single-instance lock — the second
- * instance would silently attach to the first one's Runtime, or refuse to start.
- * The home directory is what makes two runs separate instances; the root is what
- * makes them recognisable. Hashing the pair makes the id change whenever either
- * does, which is the safe direction.
+ * The inputs are exactly the things that change a derived path or endpoint:
  *
- * Omitting the home is still supported: it defaults to `<root>/data`, which is
- * exactly what the Runtime Host and the installer use when nothing overrides it.
+ *   root          which checkout
+ *   dshHome       which data directory — so one checkout served from two homes is
+ *                 two instances, not one
+ *   appName       the run's name — so two differently-named runs of one checkout
+ *                 do not share a lock or a pipe
+ *   userDataDir   an explicit Electron userData — so a caller that names its own
+ *                 does not collide with the derived one
+ *
+ * Leaving any of these out was a real bug found by running the code rather than
+ * by reading it. The id names the IPC endpoint, the Electron `userData` and
+ * therefore the single-instance lock, so two runs that differ in any input but
+ * share an id would either attach to each other's Runtime or have the second
+ * window silently refuse to start. Hashing all of them makes the id change
+ * whenever any input does, which is the safe direction.
+ *
+ * The comparison form of each value is hashed (see `canonicalize`), so path
+ * spelling and case cannot produce two ids for one instance. `instanceIdFor(root,
+ * dshHome)` remains the two-argument shorthand for the common case.
  */
-function instanceIdFor(root, dshHome) {
+function instanceIdFor(root, dshHome, discriminator = {}) {
   const canonicalRoot = canonicalize(root)
   if (!canonicalRoot) return ''
   const canonicalHome = canonicalize(dshHome) || path.join(canonicalRoot, 'data')
+  const appName = String(discriminator.appName || '').trim().toLowerCase()
+  const userDataDir = canonicalize(discriminator.userDataDir)
   return crypto
     .createHash('sha256')
-    .update(`${canonicalRoot}\n${canonicalHome}`, 'utf8')
+    .update([canonicalRoot, canonicalHome, appName, userDataDir].join('\n'), 'utf8')
     .digest('hex')
     .slice(0, INSTANCE_ID_LENGTH)
 }
@@ -251,11 +262,33 @@ function ipcEndpointFor(instanceId, platform = process.platform) {
  * as foreign and ignored — which is correct: its port and endpoint belong to a
  * naming scheme this build no longer uses.
  */
+/**
+ * Is this record this instance's own?
+ *
+ * Two questions, and both have to hold:
+ *
+ *   1. **the id matches** — this is the same *derivation*, so the same root, the
+ *      same data directory, the same run name and the same userData choice;
+ *   2. **the recorded root and userData match** — the record was not copied here
+ *      from somewhere else, and the inputs it was written under have not moved.
+ *
+ * The second check is what catches a `data` directory that was copied, a checkout
+ * that was moved, or a `DSH_USER_DATA_DIR` that changed since the record was
+ * written. A record written by an earlier naming scheme matches neither, so it is
+ * treated as foreign and cleared — which is correct: its port and endpoint belong
+ * to a scheme this build no longer uses.
+ */
 function recordBelongsToInstance(record, instance) {
   if (!record || !instance) return false
   if (String(record.instanceId || '') !== instance.instanceId) return false
   const recordRoot = canonicalize(record.root)
-  return Boolean(recordRoot) && recordRoot === canonicalize(instance.root)
+  if (!recordRoot || recordRoot !== canonicalize(instance.root)) return false
+  // A record that does not name a userData is from before the field existed, or
+  // from a writer that predates this build: either way it is not proof of *this*
+  // instance's layout, so it is not trusted as one.
+  const recordUserData = canonicalize(record.userData)
+  if (!recordUserData) return false
+  return recordUserData === canonicalize(instance.paths?.userData)
 }
 
 /**
@@ -303,11 +336,15 @@ function describeInstance({
   const instanceRoot = resolveRoot(root)
   if (!instanceRoot) throw new Error('an instance needs a root')
   const home = resolveRoot(dshHome) || path.join(instanceRoot, 'data')
-  // The id hashes the comparison form of *both* inputs, so two spellings of one
-  // directory are one instance; every path below keeps the filesystem's spelling.
-  const instanceId = instanceIdFor(instanceRoot, home)
   const slug = slugify(appName || path.basename(instanceRoot), 'ds-hns')
   const isIsolated = isolated === undefined ? Boolean(appName) : Boolean(isolated)
+  /**
+   * The id covers every input that changes a derived path, which is why it is
+   * derived here rather than from the root and home alone: an instance named
+   * differently, or given its own userData, is a different instance and must not
+   * share an endpoint or a lock with the one it resembles.
+   */
+  const instanceId = instanceIdFor(instanceRoot, home, { appName, userDataDir })
   return {
     version: IDENTITY_VERSION,
     protocol: PROTOCOL_VERSION,
