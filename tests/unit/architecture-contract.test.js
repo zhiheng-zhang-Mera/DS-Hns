@@ -144,13 +144,25 @@ test('exit paths are graceful and force-exit capable in the shell', () => {
   assert.match(main, /shutdown: \{/)
   assert.match(main, /taskkill\.exe', \['\/pid', String\(childPid\), '\/T', '\/F'\]/)
   assert.match(main, /app\.exit\(0\)/)
-  // State is persisted (extension stop) before the managed child is killed.
+  // State is persisted (extension stop) before the engine is released.
+  //
+  // The engine is released by detaching from the Runtime that owns it; the
+  // in-process stop remains as a fallback for a shell that never attached, and
+  // both spellings are accepted so the ordering cannot be satisfied by renaming
+  // the call. What must stay true is unchanged: the extension stop — which is what
+  // persists the scheduler queue and the task history — happens first.
   const teardown = main.slice(main.indexOf('function teardownManagedResources'), main.indexOf('function gracefulExit'))
-  assert.ok(teardown.indexOf('extensionManager?.stop?.()') >= 0)
-  assert.ok(
-    teardown.indexOf('extensionManager?.stop?.()') < teardown.indexOf('stopHarness()'),
-    'normal exit must flush/persist state before stopping the managed Harness'
-  )
+  const extensionStopAt = teardown.indexOf('extensionManager?.stop?.()')
+  const releaseAt = (() => {
+    const direct = teardown.indexOf('stopHarness()')
+    if (direct >= 0) return direct
+    const inProcess = teardown.indexOf('stopHarnessInProcess()')
+    if (inProcess >= 0) return inProcess
+    return teardown.indexOf('runtimeClient.detach()')
+  })()
+  assert.ok(extensionStopAt >= 0, 'the extension stop is no longer on the teardown path')
+  assert.ok(releaseAt >= 0, 'the teardown no longer releases the Harness')
+  assert.ok(extensionStopAt < releaseAt, 'normal exit must flush/persist state before releasing the managed Harness')
   // Force exit keeps going even when a cleanup step fails.
   const force = main.slice(main.indexOf('function forceExit'), main.indexOf('function integratedDockWidth'))
   assert.ok(force.length > 0 && force.length < 2000, 'the force exit body must be extractable')
@@ -175,10 +187,16 @@ test('Ctrl+Shift+M toggles the dock using actual input logic', () => {
   assert.match(shortcut, /toggleDock\(/)
 })
 
-test('startup detects any listener on 3080 instead of treating authenticated 401 as free', () => {
-  assert.match(main, /function isHarnessPortListening/)
-  assert.match(main, /net\.createConnection/)
-  assert.match(main, /if \(await isHarnessPortListening\(\)\)/)
+test('startup detects any listener on the Harness port instead of treating authenticated 401 as free', () => {
+  // The detection itself is still a connect probe rather than an HTTP status
+  // check, because DSH answers 401 at bare `/` until the token exchange
+  // completes. It now lives in the Harness service, which the Runtime Host owns.
+  const harnessService = fs.readFileSync(path.join(ROOT, 'app', 'runtime', 'harness-service.cjs'), 'utf8')
+  assert.match(harnessService, /function isPortListening/)
+  assert.match(harnessService, /net\.createConnection/)
+  assert.doesNotMatch(harnessService, /isPortListening[\s\S]{0,200}response\.statusCode/)
+  // The refusal to treat an HTTP answer as "free" is what the original assertion
+  // was protecting, and it holds in the new location.
   assert.doesNotMatch(main, /if \(await requestHarness\(HARNESS_URL\)\)/)
 })
 
@@ -192,12 +210,18 @@ test('the harness port is canonical by default and only overridable by opt-in', 
   // The port reaches the managed child only through the composed launch line.
   assert.match(main, /const DSH_LAUNCH_ARGS = \['web', '--no-open', \.\.\.\(HARNESS_PORT_OVERRIDE \? \['--port', String\(HARNESS_PORT\)\] : \[\]\)\]/)
   assert.match(main, /spawn\(nodeExe, \[DSH_ENTRY, \.\.\.DSH_LAUNCH_ARGS\]/)
-  // The env value is read once and everything else derives from it.
-  const envReads = main.match(/process\.env\.DSH_HARNESS_PORT/g) || []
-  assert.equal(envReads.length, 1, 'the port env var is read exactly once')
-  assert.match(main, /const HARNESS_PORT = normalizeHarnessPort\(HARNESS_PORT_RAW\)/)
   assert.match(main, /const HARNESS_PORT_OVERRIDE = Number\.isInteger\(HARNESS_PORT_RAW\) && HARNESS_PORT_RAW === HARNESS_PORT/)
   assert.match(main, /allowedHarnessNavigation[\s\S]*?HARNESS_PORT/)
+  /**
+   * The environment variable is read in exactly two places, and both are the same
+   * decision seen from two sides: the shell's canonical launch line, and the
+   * *request* it hands the instance resolver. Nothing else may read it, because a
+   * third reader is a third answer to "which port is this instance on?".
+   */
+  const envReads = main.match(/process\.env\.DSH_HARNESS_PORT/g) || []
+  assert.equal(envReads.length, 2, `the port env var is read ${envReads.length} times`)
+  const instanceReads = main.match(/requestedPort: Number\(process\.env\.DSH_HARNESS_PORT\)/g) || []
+  assert.equal(instanceReads.length, 1, 'the instance resolver must receive the requested port exactly once')
 })
 
 test('the launch line is byte-identical when the port is not overridden', () => {
@@ -244,12 +268,23 @@ test('runtime ownership is written for the spawned DSH child and cleared on exit
   assert.match(runtime, /parentPid/)
 })
 
-test('owned stale DSH recovery runs before the port-3080 conflict check', () => {
-  const startupBlock = main.slice(main.indexOf('app.whenReady()'))
-  const recovery = startupBlock.indexOf('recoverOwnedStale')
-  const portCheck = startupBlock.indexOf('isHarnessPortListening()')
-  assert.ok(recovery >= 0)
-  assert.ok(portCheck > recovery)
+test('owned stale DSH recovery runs before the Harness is asked to start', () => {
+  /**
+   * The invariant is unchanged — this instance's own orphaned Harness is reclaimed
+   * before anything starts a new one — but the ordering moved with ownership. The
+   * shell now resolves its instance and attaches; the recovery happens inside the
+   * Runtime Host's `harness.start`, which is *before* it spawns the child and
+   * before it decides the port is blocked.
+   */
+  const host = fs.readFileSync(path.join(ROOT, 'app', 'runtime', 'host.cjs'), 'utf8')
+  const startBlock = host.slice(host.indexOf('async function startHarness()'), host.indexOf('function stopHarness()'))
+  const recovery = startBlock.indexOf('recoverOwnedStale')
+  const spawn = startBlock.indexOf('await harness.start()')
+  assert.ok(recovery >= 0, 'the host no longer reclaims a stale Harness')
+  assert.ok(spawn > recovery, 'recovery must run before a new Harness is spawned')
+  // And the port check runs before the spawn too, so a foreign listener is
+  // reported rather than fought over.
+  assert.ok(startBlock.indexOf('isPortListening') < spawn, 'the port is not checked before spawning')
   assert.match(runtime, /isExpectedDshProcess/)
   assert.match(runtime, /taskkill\.exe/)
 })

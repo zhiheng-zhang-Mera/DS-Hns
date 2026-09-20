@@ -478,7 +478,12 @@ function collectHostProfile({
 
 /** Read a fixture profile from disk, for the low/high-capacity simulations. */
 function loadProfileFixture(fixturePath) {
-  const value = JSON.parse(fs.readFileSync(fixturePath, 'utf8'))
+  // Windows PowerShell's `Set-Content -Encoding UTF8` writes a BOM, and a fixture
+  // authored from a shell is exactly the case this reader exists for. Stripping it
+  // is the difference between "the JSON is wrong" and "the file starts with three
+  // bytes JSON does not allow".
+  const raw = fs.readFileSync(fixturePath, 'utf8').replace(/^\uFEFF/, '')
+  const value = JSON.parse(raw)
   return createCalibratedProfile({
     hardware: {
       logicalCores: value.cpu?.logicalCores ?? value.hardware?.logicalCores,
@@ -517,7 +522,12 @@ function profileCachePath(dshHome) {
 function readCachedProfile(dshHome, maxAgeMs = 6 * 60 * 60 * 1000) {
   try {
     const file = profileCachePath(dshHome)
-    const value = JSON.parse(fs.readFileSync(file, 'utf8'))
+    // Windows PowerShell's `Set-Content -Encoding UTF8` writes a BOM, and the
+    // installer is what writes this file. A BOM is three bytes JSON does not
+    // allow, so without this the cache would read as absent forever and the
+    // Runtime would re-calibrate on every start while the file sat there looking
+    // correct.
+    const value = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''))
     if (value?.version !== CAPABILITY_VERSION) return null
     const captured = Date.parse(value.capturedAt || '')
     if (!Number.isFinite(captured) || Date.now() - captured > maxAgeMs) return null

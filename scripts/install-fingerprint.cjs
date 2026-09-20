@@ -317,6 +317,25 @@ function main(argv) {
     return 0
   }
 
+  /**
+   * Classify a simulated host and report the policy it produces.
+   *
+   * The installer's `-HostProfileFixture` uses this so a low-capacity acceptance
+   * runs the *real* classification and budget arithmetic over a described host,
+   * rather than a second implementation that could disagree with the measured one.
+   */
+  if (command === 'host-profile') {
+    const { loadProfileFixture } = require(path.join(root, 'app', 'runtime', 'host-capability.cjs'))
+    const fixture = path.resolve(String(args.fixture || ''))
+    try {
+      process.stdout.write(`${JSON.stringify(loadProfileFixture(fixture))}\n`)
+      return 0
+    } catch (error) {
+      process.stderr.write(`the host profile fixture could not be read: ${error?.message || error}\n`)
+      return 1
+    }
+  }
+
   const state = computeState({
     root,
     dshHome,

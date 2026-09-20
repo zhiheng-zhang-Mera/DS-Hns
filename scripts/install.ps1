@@ -63,7 +63,18 @@ param(
   # Print what was reused and what was re-done, and why. This is the evidence for
   # the incremental install: it names each skipped unit of work and the reason the
   # fingerprint considered it still valid.
-  [switch]$ReportReuse
+  [switch]$ReportReuse,
+  # A simulated host capability profile, as a JSON file.
+  #
+  # This is the seam the low-capacity acceptance needs: it makes the installer
+  # behave as though it were running on the host the profile describes, so "a
+  # 2-core 4 GB machine installs successfully" is a test that can be run on the
+  # machine in front of you rather than a claim about a machine nobody has. It
+  # replaces measurement *only*; every decision made from the profile is the same
+  # code path a measured host takes.
+  #
+  # Never used by a person installing DS-Harness.
+  [string]$HostProfileFixture = ''
 )
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
@@ -326,19 +337,31 @@ if (Test-Path -LiteralPath $fingerprintScript) {
   }
 }
 
-# Host capability, measured rather than assumed. It is collected here and printed as information;
-# nothing below fails an installation because this machine is slow. See
+# Host capability, measured rather than assumed. It is printed as information and cached for the
+# Runtime to use; nothing below fails an installation because this machine is slow. See
 # app/runtime/host-capability.cjs for why a static machine table was rejected in favour of a short
 # calibration, and why the performance numbers are reporting rather than gating.
 $hostProfile = $null
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ($HostProfileFixture) {
+  # A simulated host. The profile is read, classified and cached by the same code a
+  # measured one goes through, so the policy under test is the real policy.
+  $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
   try {
-    $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
-    if (Test-Path -LiteralPath $capabilityScript) {
-      $hostProfile = (& $node @($capabilityScript, 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
-    }
+    $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+    Write-Host "Host capability: SIMULATED from $fixturePath"
   } catch {
+    Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
     $hostProfile = $null
+  }
+}
+if (-not $hostProfile) {
+  $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
+  if (Test-Path -LiteralPath $capabilityScript) {
+    try {
+      $hostProfile = (& $node @($capabilityScript, 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+    } catch {
+      $hostProfile = $null
+    }
   }
 }
 if ($hostProfile) {

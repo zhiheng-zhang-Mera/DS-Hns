@@ -1,0 +1,11 @@
+﻿{
+  "description": "A 2-core 4 GB machine with slow process creation and slow disk: the host the requirement names for the low-capacity simulation. Values are what such a host measures, not a machine model.",
+  "cpu": { "logicalCores": 2, "physicalCores": 2, "architecture": "x64", "model": "simulated-low-capacity" },
+  "memory": { "totalMB": 4096, "availableMB": 1800, "pressure": 0.56 },
+  "calibration": {
+    "nodeSpawnP50Ms": 420,
+    "nodeSpawnP95Ms": 900,
+    "nodeSpawnSamples": 5,
+    "workerColdStartP95Ms": 4200
+  }
+}
