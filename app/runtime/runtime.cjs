@@ -2,17 +2,17 @@
 'use strict'
 
 /**
- * `runtime` — the standalone DS-Hns Runtime command line.
+ * `runtime` 鈥?the standalone DS-Hns Runtime command line.
  *
  * The Runtime Host is not a library that only the Desktop can reach: it is a
  * program. That is what makes `Electron may disappear; DS-Hns Runtime must
- * continue to exist` verifiable instead of merely claimed — a Runtime can be
+ * continue to exist` verifiable instead of merely claimed 鈥?a Runtime can be
  * started, inspected and stopped with no UI in the picture at all.
  *
  *   runtime serve     run the host in the foreground (what the Desktop spawns detached)
  *   runtime start     ensure a host is running, detached, and return
  *   runtime stop      graceful shutdown of the running host
- *   runtime status    attach, ask, report — the UI's own view, without the UI
+ *   runtime status    attach, ask, report 鈥?the UI's own view, without the UI
  *   runtime attach    hold a connection and stream events (debugging)
  *   runtime capability  print this host's capability profile and derived policy
  *
@@ -36,7 +36,7 @@ const HOST_OWNERSHIP_TYPE = 'runtime-host'
  *
  * Without this list a bare `--json start` would consume `start` as the flag's
  * value and leave the positional list empty, so the CLI would silently fall back
- * to `status` — an argument parser that quietly answers a different question than
+ * to `status` 鈥?an argument parser that quietly answers a different question than
  * the one asked. Only the flags that genuinely are booleans are listed, so a
  * valued option may still be written either `--port 3081` or `--port=3081`.
  */
@@ -67,11 +67,39 @@ function parseArgs(argv) {
   return args
 }
 
+/**
+ * Resolve the instance inputs from the command line and the environment.
+ *
+ * The environment is consulted in exactly the same places the Desktop consults
+ * it, and that is the point: `node runtime.cjs status` and the Electron window must
+ * agree on *which instance* they are talking about, and the identity is a function
+ * of all four of these values. A CLI that ignored `DSH_APP_NAME` would derive a
+ * different id than the Desktop had, report a different instance, and 鈥?because the
+ * id names the endpoint 鈥?fail to find a Runtime that was running the whole time.
+ *
+ * An explicit flag always wins over the environment, so a caller can name an
+ * instance it is not currently inside.
+ */
 function resolveRootAndHome(args) {
   const root = path.resolve(String(args.root || process.env.DSH_ROOT || path.join(__dirname, '..', '..')))
   const dshHome = path.resolve(String(args['dsh-home'] || process.env.DSH_HOME || path.join(root, 'data')))
   const requestedPort = args.port !== undefined ? Number(args.port) : Number(process.env.DSH_HARNESS_PORT) || undefined
-  return { root, dshHome, requestedPort }
+  const appName = args['app-name'] !== undefined ? String(args['app-name']) : String(process.env.DSH_APP_NAME || '')
+  const userDataDir = args['user-data-dir'] !== undefined ? String(args['user-data-dir']) : String(process.env.DSH_USER_DATA_DIR || '')
+  return { root, dshHome, requestedPort, appName: appName || undefined, userDataDir: userDataDir || undefined }
+}
+
+/**
+ * The identity options for `instance.cjs`, from the resolved inputs.
+ *
+ * `isolated` is derived the same way the shell derives it 鈥?an explicit name or a
+ * checkout other than the one this module lives in 鈥?so the CLI and the Desktop
+ * classify the same instance identically.
+ */
+function instanceOptions({ root, dshHome, requestedPort, appName, userDataDir }) {
+  const ownRoot = path.resolve(__dirname, '..', '..')
+  const isolated = Boolean(appName) || Boolean(userDataDir) || path.resolve(root) !== ownRoot
+  return { root, dshHome, requestedPort, appName, userDataDir, isolated }
 }
 
 /** `--json` makes every answer a single line, so a caller can read the last line. */
@@ -88,18 +116,22 @@ function logLine(line) {
 
 /** `serve`: the foreground host. This is the process that must outlive the UI. */
 async function commandServe(args) {
-  const { root, dshHome, requestedPort } = resolveRootAndHome(args)
+  const { root, dshHome, requestedPort, appName, userDataDir } = resolveRootAndHome(args)
   // The host takes the port it was told to take: it is the *owner* of that
   // decision, and re-allocating here would move the port out from under the
   // client that already resolved the same instance. A port that is genuinely
   // taken is reported by `harness.start`, not fatal to the host.
-  const instance = instanceModule.describeInstance({ root, dshHome, requestedPort })
+  const instance = instanceModule.describeInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir }))
   const port = Number(args.port) || Number(process.env.DSH_HARNESS_PORT) || instance.requestedPort || 3080
   const { createRuntimeHost } = require('./host.cjs')
   const host = createRuntimeHost({
     root,
     dshHome,
     port,
+    // The identity inputs travel with the root and home, so the endpoint this host
+    // binds is the one its client computed.
+    appName,
+    userDataDir,
     hostProfile: args['profile-fixture'] ? loadProfileFixture(String(args['profile-fixture'])) : null,
     log: logLine
   })
@@ -133,8 +165,8 @@ async function commandServe(args) {
 
 /** `start`: ensure a host exists without stealing an attached one. */
 async function commandStart(args) {
-  const { root, dshHome, requestedPort } = resolveRootAndHome(args)
-  const instance = await instanceModule.resolveInstance({ root, dshHome, requestedPort })
+  const { root, dshHome, requestedPort, appName, userDataDir } = resolveRootAndHome(args)
+  const instance = await instanceModule.resolveInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir, }))
   const probe = await probeRuntime({ instance })
   if (probe.running) {
     print({ ok: true, started: false, alreadyRunning: true, instanceId: instance.instanceId, ipcEndpoint: instance.ipcEndpoint, harnessPort: instance.harnessPort, hostPid: probe.recordPid })
@@ -161,8 +193,8 @@ async function commandStart(args) {
 
 /** `stop`: the explicit full stop, and the only command that ends a Runtime. */
 async function commandStop(args) {
-  const { root, dshHome, requestedPort } = resolveRootAndHome(args)
-  const instance = await instanceModule.resolveInstance({ root, dshHome, requestedPort })
+  const { root, dshHome, requestedPort, appName, userDataDir } = resolveRootAndHome(args)
+  const instance = await instanceModule.resolveInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir, }))
   const client = createRuntimeClient({ instance, log: logLine, subscribe: false })
   const result = await client.shutdownRuntime({ reason: args.reason ? String(args.reason) : 'runtime stop' })
   print({ ok: result.stopped !== false, ...result, instanceId: instance.instanceId })
@@ -170,8 +202,8 @@ async function commandStop(args) {
 }
 
 async function withClient(args, fn) {
-  const { root, dshHome, requestedPort } = resolveRootAndHome(args)
-  const instance = await instanceModule.resolveInstance({ root, dshHome, requestedPort })
+  const { root, dshHome, requestedPort, appName, userDataDir } = resolveRootAndHome(args)
+  const instance = await instanceModule.resolveInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir, }))
   const client = createRuntimeClient({ instance, log: logLine, autoStartRuntime: args['no-start'] !== true })
   await client.attach()
   try {
@@ -182,8 +214,8 @@ async function withClient(args, fn) {
 }
 
 async function commandStatus(args) {
-  const { root, dshHome, requestedPort } = resolveRootAndHome(args)
-  const instance = await instanceModule.resolveInstance({ root, dshHome, requestedPort })
+  const { root, dshHome, requestedPort, appName, userDataDir } = resolveRootAndHome(args)
+  const instance = await instanceModule.resolveInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir, }))
   const probe = await probeRuntime({ instance })
   if (!probe.running) {
     print({
@@ -214,8 +246,8 @@ async function commandStatus(args) {
 }
 
 async function commandAttach(args) {
-  const { root, dshHome, requestedPort } = resolveRootAndHome(args)
-  const instance = await instanceModule.resolveInstance({ root, dshHome, requestedPort })
+  const { root, dshHome, requestedPort, appName, userDataDir } = resolveRootAndHome(args)
+  const instance = await instanceModule.resolveInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir, }))
   const client = createRuntimeClient({ instance, log: logLine })
   await client.attach()
   print({ ok: true, attached: true, endpoint: instance.ipcEndpoint, hostPid: client.welcome?.hostPid ?? null })
@@ -290,3 +322,4 @@ if (require.main === module) {
 }
 
 module.exports = { main, parseArgs }
+

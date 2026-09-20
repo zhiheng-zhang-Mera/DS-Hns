@@ -63,6 +63,16 @@ function createRuntimeHost({
   host: bindHost = '127.0.0.1',
   env = process.env,
   log = () => {},
+  /**
+   * The instance's own name and userData choice.
+   *
+   * These are identity inputs, not decoration: the instance id hashes them, and
+   * the id names the IPC endpoint the host binds. A host that derived its id
+   * without them would listen on a *different* pipe than the client that asked it
+   * to start — which is exactly the failure the CLI's own identity pass fixes.
+   */
+  appName,
+  userDataDir,
   /** Injected for tests: a pre-measured profile instead of calibrating this machine. */
   hostProfile = null,
   electronExe = null,
@@ -76,7 +86,7 @@ function createRuntimeHost({
   const hostPid = process.pid
 
   const instance = {
-    ...instanceModule.describeInstance({ root: ROOT, dshHome: HOME, requestedPort: port }),
+    ...instanceModule.describeInstance({ root: ROOT, dshHome: HOME, requestedPort: port, appName, userDataDir }),
     harnessPort: Number(port) || 3080
   }
 
