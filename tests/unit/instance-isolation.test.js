@@ -25,20 +25,30 @@ function scratch() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-instance-'))
 }
 
-test('the instance id is a stable function of the canonical root', () => {
-  const a = instance.instanceIdFor('D:\\Some\\Checkout')
-  const b = instance.instanceIdFor('d:/some/checkout/')
-  const c = instance.instanceIdFor('D:\\SOME\\CHECKOUT')
+test('the instance id is a stable function of the canonical root and home', () => {
+  const a = instance.instanceIdFor('D:\\Some\\Checkout', 'D:\\Some\\Checkout\\data')
+  const b = instance.instanceIdFor('d:/some/checkout/', 'D:/some/checkout/data/')
   assert.equal(a, b, 'trailing separators and slashes must not change the id')
-  // Windows paths are case-insensitive, so two spellings are one instance.
-  if (process.platform === 'win32') assert.equal(a, c, 'the id must be case-stable on Windows')
   assert.equal(a.length, instance.INSTANCE_ID_LENGTH)
   assert.match(a, /^[0-9a-f]+$/)
+  // Omitting the home means `<root>/data`, which is what the Runtime Host and the
+  // installer use when nothing overrides it.
+  assert.equal(a, instance.instanceIdFor('D:\\Some\\Checkout'))
+})
+
+test('one checkout served from two data directories is two instances', () => {
+  // This is what stops an id derived from the root alone: the id names the IPC
+  // endpoint and the Electron userData (and therefore the single-instance lock),
+  // so sharing it would let a second run attach to the first one's Runtime, or
+  // silently refuse to start.
+  const same = instance.instanceIdFor('D:\\One\\Checkout', 'D:\\One\\Checkout\\data')
+  const other = instance.instanceIdFor('D:\\One\\Checkout', 'D:\\One\\data-2')
+  assert.notEqual(same, other)
 })
 
 test('different roots are different instances', () => {
-  const main = instance.instanceIdFor('D:\\DS-Hns')
-  const second = instance.instanceIdFor('D:\\DS-Hns-ElectronSplit')
+  const main = instance.instanceIdFor('D:\\DS-Hns', 'D:\\DS-Hns\\data')
+  const second = instance.instanceIdFor('D:\\DS-Hns-ElectronSplit', 'D:\\DS-Hns-ElectronSplit\\data')
   assert.notEqual(main, second)
 })
 
@@ -51,7 +61,7 @@ test('an empty root has no identity instead of a shared one', () => {
 })
 
 test('the IPC endpoint is namespaced by instance and by protocol version', () => {
-  const id = instance.instanceIdFor('D:\\DS-Hns-ElectronSplit')
+  const id = instance.instanceIdFor('D:\\DS-Hns-ElectronSplit', 'D:\\DS-Hns-ElectronSplit\\data')
   const endpoint = instance.ipcEndpointFor(id, 'win32')
   assert.equal(endpoint, `\\\\.\\pipe\\dsh-hns-${id}`)
   // The version is carried so a mismatched client fails at connect time rather
@@ -60,7 +70,7 @@ test('the IPC endpoint is namespaced by instance and by protocol version', () =>
 })
 
 test('a pipe name never contains a character a pipe cannot carry', () => {
-  const endpoint = instance.ipcEndpointFor(instance.instanceIdFor('C:\\a b\\c#d%e\\check out'), 'win32')
+  const endpoint = instance.ipcEndpointFor(instance.instanceIdFor('C:\\a b\\c#d%e\\check out', 'C:\\home'), 'win32')
   assert.match(endpoint, /^\\\\\.\\pipe\\dsh-hns-[0-9a-f]+$/)
 })
 
@@ -155,6 +165,33 @@ test('a persisted port is preferred on the next resolve', async () => {
   assert.equal(record.instanceId, second.instanceId)
   assert.equal(record.harnessPort, 3175)
   assert.equal(record.protocol, instance.PROTOCOL_VERSION)
+})
+
+test('a record is trusted only when its id and its root both belong to this instance', () => {
+  const home = scratch()
+  const rootA = path.join(home, 'a')
+  const rootB = path.join(home, 'b')
+  fs.mkdirSync(rootA, { recursive: true })
+  fs.mkdirSync(rootB, { recursive: true })
+  const a = instance.describeInstance({ root: rootA, dshHome: path.join(home, 'h-a'), isolated: true })
+  const b = instance.describeInstance({ root: rootB, dshHome: path.join(home, 'h-b'), isolated: true })
+  const record = instance.writeInstanceRecord({ ...a, harnessPort: 3188 })
+
+  // Its own record: trusted.
+  assert.equal(instance.recordBelongsToInstance(record, a), true)
+  // Another instance's record: refused on the id.
+  assert.equal(instance.recordBelongsToInstance(record, b), false)
+  /**
+   * The same id with a different root is also refused.
+   *
+   * This is the case a copied `data` directory produces, and a mismatch has to be
+   * caught on *both* fields: an id alone would trust a record that was written
+   * about a different checkout.
+   */
+  const forgedId = { ...record, root: b.root }
+  assert.equal(instance.recordBelongsToInstance(forgedId, a), false, 'a record naming another root was trusted')
+  assert.equal(instance.recordBelongsToInstance(null, a), false)
+  assert.equal(instance.recordBelongsToInstance(record, null), false)
 })
 
 test('a foreign instance record is ignored rather than trusted', async () => {

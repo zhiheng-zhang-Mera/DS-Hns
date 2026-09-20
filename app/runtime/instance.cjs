@@ -116,11 +116,30 @@ function slugify(value, fallback = 'instance') {
   return text || fallback
 }
 
-/** The stable, reversible instance id: `stableHash(canonical root)`. */
-function instanceIdFor(root) {
-  const canonical = canonicalize(root)
-  if (!canonical) return ''
-  return crypto.createHash('sha256').update(canonical, 'utf8').digest('hex').slice(0, INSTANCE_ID_LENGTH)
+/**
+ * The stable instance id: `stableHash(canonical root + canonical DSH_HOME)`.
+ *
+ * Both inputs matter, and leaving the home out was a real bug. The id names the
+ * IPC endpoint, the Electron `userData` and the browser profile, so an id derived
+ * from the root alone would give one checkout served from two different data
+ * directories a *single* endpoint and a single single-instance lock — the second
+ * instance would silently attach to the first one's Runtime, or refuse to start.
+ * The home directory is what makes two runs separate instances; the root is what
+ * makes them recognisable. Hashing the pair makes the id change whenever either
+ * does, which is the safe direction.
+ *
+ * Omitting the home is still supported: it defaults to `<root>/data`, which is
+ * exactly what the Runtime Host and the installer use when nothing overrides it.
+ */
+function instanceIdFor(root, dshHome) {
+  const canonicalRoot = canonicalize(root)
+  if (!canonicalRoot) return ''
+  const canonicalHome = canonicalize(dshHome) || path.join(canonicalRoot, 'data')
+  return crypto
+    .createHash('sha256')
+    .update(`${canonicalRoot}\n${canonicalHome}`, 'utf8')
+    .digest('hex')
+    .slice(0, INSTANCE_ID_LENGTH)
 }
 
 /**
@@ -223,6 +242,23 @@ function ipcEndpointFor(instanceId, platform = process.platform) {
 }
 
 /**
+ * Is this a *foreign* record, or this instance's own?
+ *
+ * Two separate questions, and both have to hold: the id must match (this is the
+ * same instance) **and** the recorded root must match (the record was not copied
+ * here from somewhere else). A record written before the id included the home
+ * directory has a shorter derivation and simply will not match, so it is treated
+ * as foreign and ignored — which is correct: its port and endpoint belong to a
+ * naming scheme this build no longer uses.
+ */
+function recordBelongsToInstance(record, instance) {
+  if (!record || !instance) return false
+  if (String(record.instanceId || '') !== instance.instanceId) return false
+  const recordRoot = canonicalize(record.root)
+  return Boolean(recordRoot) && recordRoot === canonicalize(instance.root)
+}
+
+/**
  * Electron's userData directory for an instance.
  *
  * Two rules, and the difference between them matters:
@@ -244,7 +280,7 @@ function ipcEndpointFor(instanceId, platform = process.platform) {
 function userDataFor({ root, dshHome, isolated, explicit, slug }) {
   if (explicit) return path.resolve(explicit)
   const home = dshHome
-  if (isolated) return path.join(home, 'electron', instanceIdFor(root))
+  if (isolated) return path.join(home, 'electron', instanceIdFor(root, home))
   return path.join(home, 'desktop-shell')
 }
 
@@ -266,10 +302,10 @@ function describeInstance({
 } = {}) {
   const instanceRoot = resolveRoot(root)
   if (!instanceRoot) throw new Error('an instance needs a root')
-  // The id hashes the comparison form, so two spellings of one directory are one
-  // instance; every path below keeps the operating system's spelling.
-  const instanceId = instanceIdFor(instanceRoot)
   const home = resolveRoot(dshHome) || path.join(instanceRoot, 'data')
+  // The id hashes the comparison form of *both* inputs, so two spellings of one
+  // directory are one instance; every path below keeps the filesystem's spelling.
+  const instanceId = instanceIdFor(instanceRoot, home)
   const slug = slugify(appName || path.basename(instanceRoot), 'ds-hns')
   const isIsolated = isolated === undefined ? Boolean(appName) : Boolean(isolated)
   return {
@@ -354,14 +390,10 @@ function readInstanceRecord(instance) {
 /**
  * Does a persisted record belong to this instance?
  *
- * A record found at this instance's path that names another root is a leftover —
- * a copied `data` directory, a moved checkout — and must be ignored rather than
- * trusted, exactly like a foreign ownership record.
+ * Defined next to `ipcEndpointFor` above; the single definition is what keeps
+ * "the id matches" and "the root matches" from drifting apart as two different
+ * answers.
  */
-function recordBelongsToInstance(record, instance) {
-  if (!record || !instance) return false
-  return String(record.instanceId || '') === instance.instanceId
-}
 
 /**
  * Resolve an instance and the port it should serve on, in one step.

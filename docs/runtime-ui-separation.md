@@ -74,7 +74,7 @@ than aspirational.
 Everything derived from that answer is per-instance:
 
 ```
-instance_id = sha256(canonical root).slice(0, 16)
+instance_id = sha256(canonical root + canonical DSH_HOME).slice(0, 16)
 
 DSH_HOME              <root>/data (or $DSH_HOME)
 state                 <home>/state
@@ -90,18 +90,27 @@ Harness port          requested → available? use : allocate
 ownership records     <root>/runtime/*.json
 ```
 
-Three rules make this safe:
+Four rules make this safe:
 
-1. **Identity is a pure function of the canonical root.** The same root yields the
-   same id on every run; a different root yields a different one. A record found
-   on disk can therefore be *proven* to belong to this instance before anything is
-   killed.
+1. **Identity is a pure function of the canonical root *and* home.** The same pair
+   yields the same id on every run; a different root or a different data directory
+   yields a different one. Both inputs matter: the id names the IPC endpoint, the
+   Electron `userData` and the single-instance lock, so an id derived from the root
+   alone would give one checkout served from two data directories a *single*
+   endpoint — the second run would attach to the first one's Runtime, or silently
+   refuse to start. Omitting the home means `<root>/data`, which is what the
+   Runtime Host and the installer use when nothing overrides it.
 2. **Paths keep the filesystem's spelling.** `canonicalize()` produces a
    lower-cased form for *comparison and hashing only*; `resolveRoot()` produces the
    path to *use*, by taking the real spelling of the deepest existing ancestor.
    Lower-casing a path and then opening it works on a case-insensitive volume and
    silently fails on a case-sensitive one.
-3. **The primary instance is not migrated.** An isolated instance gets an
+3. **A record is trusted only when both its id and its root match.** A record found
+   at this instance's path that names another root is a leftover — a copied `data`
+   directory, a moved checkout — and is ignored. A record written by an earlier
+   naming scheme simply does not match, which is the correct answer: its port and
+   endpoint belong to a scheme this build no longer uses.
+4. **The primary instance is not migrated.** An isolated instance gets an
    id-keyed `userData`; the primary keeps `desktop-shell`, because that is where
    its window state and cache already live and moving it would be a migration with
    no isolation benefit.
