@@ -55,6 +55,13 @@ The Runtime Host is a **program**, not a library: `node app/runtime/runtime.cjs
 serve` runs it with no UI at all. That is what makes the claim testable rather
 than aspirational.
 
+**Exactly one Host per instance.** On a TCP port the bind is the guard; on a
+Windows named pipe it is not, because several servers may listen on one pipe name.
+So `serve` probes the endpoint before binding and refuses if a Host is already
+there, and `start` reports the existing one instead of creating a second. A start
+command that counted on the bind alone would have produced two owners for one
+Harness.
+
 ### Ownership
 
 | Thing | Owner |
@@ -368,3 +375,5 @@ apologies:
 | The install state said "no previous state" on every run | the CLI's argument parser never initialised its positional list, so `write` silently ran `describe` | positional list initialised |
 | The cached host profile was ignored forever | `Set-Content -Encoding UTF8` writes a BOM, which JSON rejects | BOM stripped in both readers |
 | The installer invoked the *full* test suite even in Fast mode | an index-based assertion matched prose in a comment | tests locate steps by named markers, not by offset |
+| The Desktop reported `harness.start -> started:true` for an instance whose Runtime was already up | Windows allows several servers on one named pipe, so the bind is not the single-instance guard a TCP port is; a host from an earlier run was still holding the pipe and a second had quietly joined it | `serve` probes the endpoint first and exits 3 with `runtime-host-already-running` |
+| `node runtime.cjs status` reported "no runtime is running" for a Runtime that was up | the CLI read `DSH_ROOT`/`DSH_HOME`/`DSH_HARNESS_PORT` but not `DSH_APP_NAME`/`DSH_USER_DATA_DIR`, and the id hashes all five inputs | the CLI reads the same inputs the shell reads, and the identity travels into the host |
