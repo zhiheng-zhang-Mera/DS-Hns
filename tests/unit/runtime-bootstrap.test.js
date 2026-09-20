@@ -164,6 +164,18 @@ test('a second host on the same instance is refused, and start reports the exist
     assert.equal(second.parsed.alreadyRunning, true, 'a second Runtime must not be created')
     assert.equal(second.parsed.started, false)
     assert.equal(second.parsed.hostPid, first?.hostPid ?? second.parsed.hostPid)
+
+    /**
+     * A foreground `serve` must refuse rather than become a second owner.
+     *
+     * A named pipe differs from a TCP port here: Windows permits several servers
+     * to listen on the same name, so the bind alone is not the guard. Without an
+     * explicit check, two Hosts would both answer whichever client connected and
+     * the instance would have two owners for one Harness.
+     */
+    const duplicate = runRuntime(['serve', '--root', instance.root, '--dsh-home', instance.dshHome, '--port', '1'])
+    assert.equal(duplicate.parsed?.event, 'runtime-host-already-running', `serve did not refuse: ${duplicate.stdout}`)
+    assert.equal(duplicate.status, 3, 'the refusal must be a distinct, non-zero exit')
   } finally {
     stopHost(instance)
   }

@@ -25,7 +25,7 @@ const fs = require('node:fs')
 
 const instanceModule = require('./instance.cjs')
 const protocol = require('./protocol.cjs')
-const { createRuntimeClient, probeRuntime, spawnRuntimeHost } = require('./client.cjs')
+const { createRuntimeClient, probeRuntime, spawnRuntimeHost, canConnect } = require('./client.cjs')
 const { collectHostProfile, loadProfileFixture } = require('./host-capability.cjs')
 
 /** The ownership record type the Runtime Host writes; see `client.cjs` for why it is a literal. */
@@ -122,6 +122,26 @@ async function commandServe(args) {
   // client that already resolved the same instance. A port that is genuinely
   // taken is reported by `harness.start`, not fatal to the host.
   const instance = instanceModule.describeInstance(instanceOptions({ root, dshHome, requestedPort, appName, userDataDir }))
+  /**
+   * Refuse to become a second Host for an instance that already has one.
+   *
+   * A named pipe differs from a TCP port here in a way that matters: Windows
+   * permits *several* servers to listen on the same pipe name, so the bind alone
+   * is not the single-instance guard it is on a socket. Without this check a
+   * second `serve` would start silently beside the first, both would answer
+   * whichever client connected, and the instance would have two owners for one
+   * Harness — which is exactly the ambiguity the Runtime exists to remove.
+   */
+  if (await canConnect(instance.ipcEndpoint, 700)) {
+    print({
+      ok: false,
+      event: 'runtime-host-already-running',
+      instanceId: instance.instanceId,
+      ipcEndpoint: instance.ipcEndpoint,
+      reason: 'this instance already has a listening Runtime Host'
+    })
+    return 3
+  }
   const port = Number(args.port) || Number(process.env.DSH_HARNESS_PORT) || instance.requestedPort || 3080
   const { createRuntimeHost } = require('./host.cjs')
   const host = createRuntimeHost({
