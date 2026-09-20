@@ -1,0 +1,376 @@
+'use strict'
+
+/**
+ * Instance Identity.
+ *
+ * DS-Hns is no longer assumed to be a single process tree on a machine. Two
+ * checkouts, a scratch acceptance copy and the developer's own installation, may
+ * legitimately run at the same time — and nothing about them may collide.
+ *
+ * This module is the one place that answers "which DS-Hns instance am I?" and
+ * derives every filesystem and IPC name from that answer. Everything derived is:
+ *
+ *   - **stable**: the same root yields the same id on every run and every host,
+ *     so ownership records, sockets and userData survive a restart;
+ *   - **independent**: a different root yields a different id, so two instances
+ *     cannot share a port, a pipe, a lock file or a browser profile;
+ *   - **reversible**: the id is a pure function of the canonical root, so it can
+ *     be recomputed rather than remembered, and a stale record can be proven to
+ *     belong to this instance before anything is killed.
+ *
+ * The identity is a hash of the *canonical* root, not of the ambient path
+ * spelling, so `D:\DS-Hns` and `d:\ds-hns\` and a subst drive all resolve to the
+ * same instance. That is what makes the id safe to use as an ownership key.
+ *
+ * Nothing here requires Electron, and nothing here reads or writes the
+ * environment globally: an instance is a value you pass around, not a global
+ * side effect. That is what lets the Runtime Host and the Desktop Client agree on
+ * an identity without either one owning the other.
+ */
+
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const crypto = require('node:crypto')
+const net = require('node:net')
+
+/** The protocol the Runtime Host and the Desktop Client speak. */
+const PROTOCOL_VERSION = 'dshns-runtime/v1'
+
+/** Bumped when the derived layout changes in a way a reader must notice. */
+const IDENTITY_VERSION = 1
+
+/** The identity hash is 16 hex characters: long enough to avoid collisions, short enough to read. */
+const INSTANCE_ID_LENGTH = 16
+
+/**
+ * Case-fold a Windows path for comparison and for hashing.
+ *
+ * Windows path comparison is case-insensitive, so `D:\DS-Hns` and `D:\ds-hns` are
+ * the same checkout and must produce the same instance id. A POSIX path is
+ * case-sensitive and is left alone.
+ */
+function canonicalize(target) {
+  if (target === undefined || target === null || String(target).trim() === '') return ''
+  let resolved
+  try {
+    resolved = path.resolve(String(target))
+  } catch {
+    return ''
+  }
+  // Resolve the 8.3 short name and the real case when the path exists, so a
+  // `PROGRA~1` spelling of the same directory is not read as a second instance.
+  try {
+    if (fs.existsSync(resolved)) resolved = fs.realpathSync.native(resolved)
+  } catch {
+    /* A path that does not exist yet is still a valid instance root. */
+  }
+  const normalized = resolved.replace(/[\\/]+$/, '')
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized
+}
+
+/** A filesystem- and pipe-safe slug. Never empty, never contains a separator. */
+function slugify(value, fallback = 'instance') {
+  const text = String(value === undefined || value === null ? '' : value)
+    .trim()
+    .replace(/[^\w.-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return text || fallback
+}
+
+/** The stable, reversible instance id: `stableHash(canonical root)`. */
+function instanceIdFor(root) {
+  const canonical = canonicalize(root)
+  if (!canonical) return ''
+  return crypto.createHash('sha256').update(canonical, 'utf8').digest('hex').slice(0, INSTANCE_ID_LENGTH)
+}
+
+/**
+ * Is another DS-Hns (or, in principle, anything) listening on this TCP port?
+ *
+ * This is a *bind* probe rather than a connect probe on purpose: the Harness port
+ * may legitimately be free while something has a connect in flight, and the only
+ * answer that matters for allocation is "can I own this port".
+ */
+function isPortFree(port, host = '127.0.0.1', timeoutMs = 400) {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      try {
+        server.close()
+      } catch {}
+      resolve(value)
+    }
+    server.once('error', () => finish(false))
+    server.once('listening', () => finish(true))
+    try {
+      server.listen({ port, host, exclusive: true })
+    } catch {
+      finish(false)
+    }
+    setTimeout(() => finish(false), timeoutMs).unref?.()
+  })
+}
+
+/** Ask the OS for a port it will hand out, then immediately give it back. */
+function ephemeralPort(host = '127.0.0.1') {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer()
+    server.once('error', reject)
+    server.listen({ port: 0, host, exclusive: true }, () => {
+      const address = server.address()
+      const port = typeof address === 'object' && address ? address.port : 0
+      server.close(() => (port ? resolve(port) : reject(new Error('the OS did not report a port'))))
+    })
+  })
+}
+
+/**
+ * Choose the port this instance will serve the Harness on.
+ *
+ * The rule the requirement names:
+ *
+ *   requested port -> available? yes -> use it
+ *                             no  -> allocate a safe free port
+ *
+ * A requested port is honoured when it is free. When it is taken the instance
+ * does **not** fail and does **not** take the port: it walks a bounded window
+ * above the requested port, and only then asks the OS. The chosen port is
+ * returned so the caller can persist it; nothing here writes to disk.
+ *
+ * `3080` is a *preference*, never a requirement, and `3081` is not special-cased
+ * anywhere: an instance asked for 3081 gets 3081 when it is free and something
+ * else when it is not.
+ *
+ * @returns {Promise<{port: number, requested: number, reused: boolean, allocated: boolean, candidates: number[]}>}
+ */
+async function allocateHarnessPort({ requested, host = '127.0.0.1', window = 40 } = {}) {
+  const preferred = Number.isInteger(Number(requested)) && Number(requested) >= 1024 && Number(requested) <= 65535
+    ? Number(requested)
+    : 3080
+  const candidates = []
+  for (let offset = 0; offset <= window; offset += 1) {
+    const candidate = preferred + offset
+    if (candidate > 65535) break
+    candidates.push(candidate)
+  }
+  for (const candidate of candidates) {
+    if (await isPortFree(candidate, host)) {
+      return { port: candidate, requested: preferred, reused: candidate === preferred, allocated: candidate !== preferred, candidates }
+    }
+  }
+  // Every candidate in the window is taken. The OS still knows a free port.
+  const fallback = await ephemeralPort(host)
+  return { port: fallback, requested: preferred, reused: false, allocated: true, candidates }
+}
+
+/**
+ * The named pipe (Windows) or Unix domain socket (POSIX) this instance's Runtime
+ * Host listens on.
+ *
+ * A pipe name carries the instance id, so two instances on one machine cannot
+ * collide, and the protocol version, so a client built against another revision
+ * fails loudly at connect time rather than misreading a handshake.
+ */
+function ipcEndpointFor(instanceId, platform = process.platform) {
+  const id = slugify(instanceId, 'unknown')
+  if (platform === 'win32') return `\\\\.\\pipe\\dsh-hns-${id}`
+  // A Unix socket path is length-limited (~104 bytes on macOS), so it lives in the
+  // per-user runtime directory rather than under a possibly deep checkout.
+  const base = process.env.XDG_RUNTIME_DIR || os.tmpdir()
+  return path.join(base, `dsh-hns-${id}.sock`)
+}
+
+/**
+ * Electron's userData directory for an instance.
+ *
+ * Two rules, and the difference between them matters:
+ *
+ *   - an **isolated** instance (a second checkout, `DSH_USER_DATA_DIR`, an
+ *     explicit `DSH_APP_NAME`) gets `<home>/electron/<instanceId>`. It is keyed
+ *     by the instance id so it is provably unique, and it is deliberately NOT
+ *     Electron's default, which would be shared with every other DS-Hns on the
+ *     machine — along with Cookies, Local Storage, the GPU cache, and the
+ *     single-instance lock that would then make the second instance silently
+ *     refuse to start.
+ *
+ *   - the **primary** instance keeps the historical `<home>/desktop-shell`.
+ *     That path is already specific to this checkout's own `data` directory, so
+ *     it is isolated in the way that matters — and it is where every existing
+ *     user's window state, cache and login already are. Moving it would be a
+ *     migration with no isolation benefit, which is not what this change is for.
+ */
+function userDataFor({ root, dshHome, isolated, explicit, slug }) {
+  if (explicit) return path.resolve(explicit)
+  const home = dshHome
+  if (isolated) return path.join(home, 'electron', instanceIdFor(root))
+  return path.join(home, 'desktop-shell')
+}
+
+/**
+ * The complete derived layout for one instance.
+ *
+ * Every path is under the instance's own root or its own `DSH_HOME`; nothing is
+ * shared with another instance, and nothing is placed in a machine-global
+ * location.
+ */
+function describeInstance({
+  root,
+  dshHome,
+  appName,
+  requestedPort,
+  isolated,
+  userDataDir,
+  platform = process.platform
+} = {}) {
+  const instanceRoot = canonicalize(root)
+  if (!instanceRoot) throw new Error('an instance needs a root')
+  const instanceId = instanceIdFor(instanceRoot)
+  const home = canonicalize(dshHome) || path.join(instanceRoot, 'data')
+  const slug = slugify(appName || path.basename(instanceRoot), 'ds-hns')
+  const isIsolated = isolated === undefined ? Boolean(appName) : Boolean(isolated)
+  return {
+    version: IDENTITY_VERSION,
+    protocol: PROTOCOL_VERSION,
+    instanceId,
+    root: instanceRoot,
+    dshHome: home,
+    appName: appName || path.basename(path.resolve(instanceRoot)) || 'DS-Harness',
+    slug,
+    isolated: isIsolated,
+    ipcEndpoint: ipcEndpointFor(instanceId, platform),
+    requestedPort: Number.isInteger(Number(requestedPort)) ? Number(requestedPort) : null,
+    paths: {
+      /** The instance's own record of itself: id, protocol, chosen port, endpoint. */
+      identityFile: path.join(home, 'state', 'instance.json'),
+      /** Both ownership record kinds live under the instance's `runtime/`. */
+      runtimeDir: path.join(instanceRoot, 'runtime'),
+      stateDir: path.join(home, 'state'),
+      logsDir: path.join(instanceRoot, 'logs'),
+      tempDir: path.join(instanceRoot, 'temp'),
+      cacheDir: path.join(instanceRoot, 'cache'),
+      /**
+       * Electron's userData: per-instance, and never Electron's default. See
+       * `userDataFor` for why the primary instance keeps its historical name.
+       */
+      userData: userDataFor({ root: instanceRoot, dshHome: home, isolated: isIsolated, explicit: userDataDir, slug }),
+      /** Where the Runtime Host writes its own log, separate from the UI's. */
+      runtimeLog: path.join(instanceRoot, 'logs', 'runtime-host.log'),
+      /** Where the Desktop Client writes its own log. */
+      desktopLog: path.join(instanceRoot, 'logs', 'desktop-runtime.log'),
+      /**
+       * A browser profile per instance. The Electron session partition AND any
+       * Computer Use browser context key off this, so a page driven in one
+       * instance is never the page of the other.
+       */
+      browserProfile: path.join(home, 'browser', instanceId)
+    }
+  }
+}
+
+/**
+ * Persist the instance record so a later `attach` can find the port and endpoint
+ * without recomputing the choice — and so a human can read which instance owns
+ * what. The write is atomic (a rename) because a half-written identity file would
+ * read as "a different instance".
+ */
+function writeInstanceRecord(instance, extra = {}) {
+  const record = {
+    version: IDENTITY_VERSION,
+    protocol: PROTOCOL_VERSION,
+    instanceId: instance.instanceId,
+    root: instance.root,
+    dshHome: instance.dshHome,
+    appName: instance.appName,
+    ipcEndpoint: instance.ipcEndpoint,
+    userData: instance.paths.userData,
+    harnessPort: instance.harnessPort ?? null,
+    updatedAt: new Date().toISOString(),
+    ...extra
+  }
+  try {
+    fs.mkdirSync(path.dirname(instance.paths.identityFile), { recursive: true })
+    const temporary = `${instance.paths.identityFile}.${process.pid}.tmp`
+    fs.writeFileSync(temporary, JSON.stringify(record, null, 2), 'utf8')
+    fs.renameSync(temporary, instance.paths.identityFile)
+    return record
+  } catch {
+    return null
+  }
+}
+
+function readInstanceRecord(instance) {
+  try {
+    const value = JSON.parse(fs.readFileSync(instance.paths.identityFile, 'utf8'))
+    return value && typeof value === 'object' ? value : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Does a persisted record belong to this instance?
+ *
+ * A record found at this instance's path that names another root is a leftover —
+ * a copied `data` directory, a moved checkout — and must be ignored rather than
+ * trusted, exactly like a foreign ownership record.
+ */
+function recordBelongsToInstance(record, instance) {
+  if (!record || !instance) return false
+  return String(record.instanceId || '') === instance.instanceId
+}
+
+/**
+ * Resolve an instance and the port it should serve on, in one step.
+ *
+ * A five-step order, and the precedence is the interesting part:
+ *
+ *   1. an explicit `DSH_HARNESS_PORT` is a *request*;
+ *   2. otherwise a port this instance already persisted is a request — an instance
+ *      that chose 3093 last run should still be on 3093;
+ *   3. otherwise the canonical 3080 is the request;
+ *   4. a request is always subject to availability (see `allocateHarnessPort`);
+ *   5. the answer is persisted before it is returned.
+ *
+ * Step 2 is what stops an instance from silently drifting to a new port on every
+ * restart just because its own previous Harness had not released the port yet.
+ *
+ * Identity options are **not** re-derived here: they are passed straight through
+ * to `describeInstance`, which is still the single place that decides a name, a
+ * slug and a userData path. Resolving identity twice is how the two answers drift
+ * apart — and a userData path that changes between "before Electron was ready" and
+ * "after the port was chosen" would silently move the single-instance lock.
+ */
+async function resolveInstance(options = {}) {
+  const instance = describeInstance(options)
+  const persisted = readInstanceRecord(instance)
+  const fromRecord = recordBelongsToInstance(persisted, instance) ? Number(persisted.harnessPort) : NaN
+  const requested =
+    instance.requestedPort ??
+    (Number.isInteger(fromRecord) && fromRecord > 0 ? fromRecord : options.defaultPort ?? 3080)
+  const allocation = await allocateHarnessPort({ requested, host: options.host, window: options.window })
+  const resolved = { ...instance, harnessPort: allocation.port, portAllocation: allocation }
+  writeInstanceRecord(resolved)
+  return resolved
+}
+
+module.exports = {
+  PROTOCOL_VERSION,
+  IDENTITY_VERSION,
+  INSTANCE_ID_LENGTH,
+  canonicalize,
+  slugify,
+  instanceIdFor,
+  isPortFree,
+  ephemeralPort,
+  allocateHarnessPort,
+  ipcEndpointFor,
+  describeInstance,
+  writeInstanceRecord,
+  readInstanceRecord,
+  recordBelongsToInstance,
+  resolveInstance
+}

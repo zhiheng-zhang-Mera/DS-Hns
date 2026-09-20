@@ -14,6 +14,8 @@ const net = require('node:net')
 const path = require('node:path')
 const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
+const runtimeInstance = require('./runtime/instance.cjs')
+const { createRuntimeClient } = require('./runtime/client.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 const { createStartupManager } = require('./startup.cjs')
@@ -150,6 +152,22 @@ let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 let officialFocusArmedAt = Number.POSITIVE_INFINITY
 let megaDockCollapseInFlight = false
 let harnessProcess = null
+/**
+ * The connection to the DS-Hns Runtime.
+ *
+ * The Harness child is **not** owned by this process any more: it belongs to the
+ * Runtime Host, which is a separate long-lived process that outlives this window.
+ * `harnessProcess` therefore remains only as the in-process fallback described in
+ * `stopHarnessInProcess`, and the UI's real relationship with the engine is this
+ * client object.
+ */
+let runtimeClient = null
+/**
+ * The fully resolved instance: identity, endpoint, and the port this instance
+ * actually owns. `SHELL_INSTANCE` is the pre-Electron-ready subset (names only);
+ * this is the same instance after the port has been chosen and persisted.
+ */
+let RUNTIME_INSTANCE = null
 let shuttingDown = false
 let harnessUrl = null
 let resolveHarnessUrl = null
@@ -331,22 +349,35 @@ if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
  * Instance identity. Electron's single-instance lock lives in the userData
  * directory, so a second, isolated instance needs its own: `DSH_USER_DATA_DIR`
  * names it outright, and a `DSH_ROOT` pointing at another checkout (or a run
- * named through `DSH_APP_NAME`) derives one under that root. Unset, the shell is
- * "DS-Harness" under `<root>/data/desktop-shell` and behaves exactly as before.
+ * named through `DSH_APP_NAME`) derives one under that root.
+ *
+ * The derivation itself now lives in `app/runtime/instance.cjs`, because the
+ * Runtime Host needs the *same* answer: the instance id names the IPC endpoint,
+ * keys the browser profile, and is what proves a record on disk belongs to this
+ * instance. Two processes deriving their own notion of "which instance am I"
+ * would be two chances to disagree.
  */
 const APP_NAME_OVERRIDE = String(process.env.DSH_APP_NAME || '').trim()
 const ISOLATED_ROOT = Boolean(process.env.DSH_ROOT) && path.resolve(process.env.DSH_ROOT) !== ROOT
-const APP_NAME = APP_NAME_OVERRIDE || (ISOLATED_ROOT ? `DS-Harness (${path.basename(process.env.DSH_ROOT) || 'isolated'})` : 'DS-Harness')
 const ISOLATED_INSTANCE = Boolean(APP_NAME_OVERRIDE) || ISOLATED_ROOT
+const APP_NAME = APP_NAME_OVERRIDE || (ISOLATED_ROOT ? `DS-Harness (${path.basename(process.env.DSH_ROOT) || 'isolated'})` : 'DS-Harness')
 /** A filesystem-safe profile name so several isolated runs cannot share a lock. */
 const PROFILE_SLUG = (APP_NAME_OVERRIDE || path.basename(process.env.DSH_ROOT) || 'isolated').replace(/[^\w.-]+/g, '-')
+/**
+ * The shell's own instance record. `describeInstance` is pure, so this is safe
+ * to compute before Electron is ready — and it must be, because `setPath` has to
+ * happen before the single-instance lock is taken.
+ */
+const SHELL_INSTANCE = runtimeInstance.describeInstance({
+  root: process.env.DSH_ROOT || ROOT,
+  dshHome: process.env.DSH_HOME || path.join(ROOT, 'data'),
+  appName: ISOLATED_INSTANCE ? APP_NAME : undefined,
+  isolated: ISOLATED_INSTANCE,
+  userDataDir: process.env.DSH_USER_DATA_DIR || undefined,
+  requestedPort: Number(process.env.DSH_HARNESS_PORT) || undefined
+})
 app.setName(APP_NAME)
-app.setPath(
-  'userData',
-  process.env.DSH_USER_DATA_DIR
-    ? path.resolve(process.env.DSH_USER_DATA_DIR)
-    : path.join(process.env.DSH_ROOT, 'data', ISOLATED_INSTANCE ? `desktop-shell-${PROFILE_SLUG}` : 'desktop-shell')
-)
+app.setPath('userData', SHELL_INSTANCE.paths.userData)
 // Windows needs an explicit AppUserModelID so terminal task notifications and
 // taskbar grouping carry the DS-Harness identity instead of Electron's.
 try {
@@ -509,18 +540,6 @@ function observeStartupOutput(source, chunk, log) {
   }
 }
 
-async function waitForHarness() {
-  const deadline = Date.now() + STARTUP_TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (harnessUrl && await requestHarness(harnessUrl)) return harnessUrl
-    if (harnessProcess?.exitCode !== null) {
-      throw startupError(`Harness service exited early with code ${harnessProcess.exitCode}`)
-    }
-    await new Promise((resolve) => setTimeout(resolve, 400))
-  }
-  throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds`)
-}
-
 /**
  * Refresh the profile's copy of the plugin DS-Hns ships, before the Harness is asked to boot it.
  *
@@ -601,7 +620,8 @@ function startHarness(nodeExe) {
   return urlPromise
 }
 
-function stopHarness() {
+/** Legacy in-process stop, kept for the compatibility paths that still call it. */
+function stopHarnessInProcess() {
   const childPid = harnessProcess?.pid
   if (harnessProcess && harnessProcess.exitCode === null) {
     if (process.platform === 'win32') {
@@ -611,6 +631,210 @@ function stopHarness() {
     }
   }
   if (childPid) runtimeProcess.clearOwnership({ root: ROOT, childPid })
+}
+
+/**
+ * The Harness is owned by the Runtime Host, not by this process.
+ *
+ * Everything that used to be inline here — spawning the child, writing its
+ * ownership record, scraping the access URL out of its output — now happens one
+ * process over, in `app/runtime/host.cjs`. The shell keeps this function because
+ * every caller still asks the same question ("start the Harness"); the answer is
+ * simply no longer produced by code that lives inside the UI.
+ *
+ * `runtimeClient` is created and attached before this is reached, so the command
+ * is a request to an already-running owner. A failure here is reported, never
+ * fatal: the Runtime Host outlives this call, and the UI attaching to a Runtime
+ * that later recovers is the whole point of the split.
+ *
+ * The **credential** is the one thing that has to cross the boundary. The Harness
+ * announces an authenticated `?token=...` URL on its own stdout; the Host captures
+ * it and hands it back over the instance's own named pipe, which only a process
+ * running as the same user in the same instance can open. It is never logged here
+ * (`redact` still guards the log lines) and never placed in an IPC payload.
+ */
+async function startHarnessViaRuntime() {
+  if (!runtimeClient) {
+    harnessProcess = null
+    throw startupError('The DS-Hns Runtime is not attached; the Harness cannot be started.')
+  }
+  // The profile's copy of the shipped plugin is refreshed from the *checkout*, and
+  // the checkout is the UI's own directory, so this stays on this side of the
+  // boundary — and it runs before the start command so the Host boots the fresh copy.
+  syncHarnessProfilePlugin()
+  const status = await runtimeClient.command('harness.start')
+  logLine(`runtime harness.start: ${JSON.stringify({ started: status?.started, alreadyRunning: status?.alreadyRunning, ready: status?.ready, port: status?.port, blocked: status?.blocked, error: status?.error })}`)
+  if (status?.blocked) throw startupError(`Port ${status.port} is already in use by another process. Close it before starting DS-Harness.`)
+  if (status?.error) throw startupError(`The Runtime could not start the Harness: ${status.error}`)
+  return waitForHarnessUrl()
+}
+
+/**
+ * Attach to this instance's Runtime, starting one only when there is none.
+ *
+ * The probe-then-attach-then-start order is what stops two Desktops from racing
+ * into two Runtimes: the second one to arrive finds the first one's endpoint
+ * already bound and attaches instead.
+ */
+async function connectRuntime() {
+  /**
+   * Resolve the instance *now*, not at module evaluation.
+   *
+   * `describeInstance` (used above, before Electron was ready) deliberately does
+   * not touch the filesystem or the network: it only derives names, because it has
+   * to run before `app.setPath('userData')` and the single-instance lock. Choosing
+   * a **port** is a different job — it probes the machine and persists the answer —
+   * so it happens here, and the resolved instance is what the client and the Host
+   * both use.
+   *
+   * This is also the fix for the collision the first version had: without it the
+   * shell asked for the canonical 3080 regardless of `DSH_HARNESS_PORT`, and the
+   * second instance was told its port was taken by the first one's Harness.
+   */
+  const resolved = await runtimeInstance.resolveInstance({
+    root: process.env.DSH_ROOT || ROOT,
+    dshHome: process.env.DSH_HOME || path.join(ROOT, 'data'),
+    appName: ISOLATED_INSTANCE ? APP_NAME : undefined,
+    isolated: ISOLATED_INSTANCE,
+    userDataDir: process.env.DSH_USER_DATA_DIR || undefined,
+    requestedPort: SHELL_INSTANCE.requestedPort
+  })
+  RUNTIME_INSTANCE = resolved
+  // The identity must not move between module evaluation and this point: the
+  // single-instance lock was already taken in `SHELL_INSTANCE.paths.userData`, and
+  // a different answer here would put the lock and the cache in two places.
+  if (resolved.paths.userData !== SHELL_INSTANCE.paths.userData) {
+    logLine(`WARNING: resolved userData ${resolved.paths.userData} differs from the applied ${SHELL_INSTANCE.paths.userData}`)
+  }
+  logLine(
+    `instance ${resolved.instanceId}: root=${resolved.root} home=${resolved.dshHome} ` +
+      `port=${resolved.harnessPort} (${resolved.portAllocation?.reused ? 'requested port free' : `allocated, requested ${resolved.portAllocation?.requested}`}) ` +
+      `ipc=${resolved.ipcEndpoint}`
+  )
+  runtimeClient = createRuntimeClient({
+    instance: RUNTIME_INSTANCE,
+    log: logLine,
+    autoStartRuntime: true,
+    nodeExe: resolveNodeExe()
+  })
+  runtimeClient.events.on('state', ({ state, detail }) => {
+    logLine(`runtime connection: ${state}${detail ? ` (${detail})` : ''}`)
+    // A Runtime that goes away is a *degraded* UI, never a dead one. Nothing here
+    // touches the window, the tray or any managed resource: the client keeps
+    // retrying on its own, and the next successful attach restores the view.
+    if (state === 'disconnected') {
+      reportRuntimeDisconnected(detail)
+    }
+  })
+  runtimeClient.events.on('attached', (welcome) => {
+    logLine(`runtime attached: hostPid=${welcome?.hostPid} instance=${welcome?.instanceId} port=${welcome?.harnessPort}`)
+    runtimeUsable = true
+  })
+  const result = await runtimeClient.attach()
+  runtimeUsable = true
+  return result
+}
+
+/** A single, bounded line to the log; the UI's own degraded state is the renderer's. */
+function reportRuntimeDisconnected(detail) {
+  runtimeUsable = false
+  logLine(`runtime disconnected; the UI stays alive and will reattach (${detail || 'no detail'})`)
+}
+
+/**
+ * Whether the Runtime is currently reachable. Every caller that used to assume
+ * "the Harness is up because I started it" asks this instead.
+ */
+let runtimeUsable = false
+
+/**
+ * Wait for the Host to report the authenticated URL, with the *host's* budget
+ * rather than a number written into the UI. A slow machine gets its own measured
+ * allowance; see `app/runtime/host-capability.cjs`.
+ */
+async function waitForHarnessUrl() {
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS
+  let lastReason = ''
+  while (Date.now() < deadline) {
+    try {
+      const answer = await runtimeClient.command('harness.url')
+      if (answer?.available && answer.url) {
+        harnessUrl = answer.url
+        logLine('captured the Harness access URL from the Runtime')
+        return harnessUrl
+      }
+      lastReason = answer?.reason || ''
+    } catch (error) {
+      lastReason = error?.message || String(error)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  }
+  throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds${lastReason ? ` (${lastReason})` : ''}`)
+}
+
+/**
+ * Stop the Harness **through its owner**.
+ *
+ * Kept as a named capability rather than an exit hook, because it is exactly the
+ * thing every exit path must *not* do. It exists for the compatibility surface
+ * that asks for a Harness stop without a full Runtime stop, and it is reached only
+ * from `stopRuntimeCompletely()`.
+ */
+function stopHarness() {
+  if (runtimeClient) {
+    return runtimeClient
+      .command('harness.stop')
+      .then((result) => {
+        logLine(`runtime harness.stop: ${JSON.stringify(result)}`)
+        return result
+      })
+      .catch((error) => {
+        logLine(`runtime harness.stop failed: ${error?.message || error}`)
+        return null
+      })
+  }
+  // No Runtime is attached. The in-process path is retained only so a shell that
+  // somehow never attached cannot leak a child it started itself.
+  stopHarnessInProcess()
+  return null
+}
+
+/**
+ * The UI's view of the Runtime connection, for a renderer that wants to show
+ * "disconnected" rather than an empty window.
+ *
+ * Registered in the same main process as everything else, so it costs nothing and
+ * cannot fail a boot. It is intentionally *read-only*: it reports, and it offers
+ * the one explicit full stop; it never lets a renderer stop the Runtime by
+ * accident through a generic command channel.
+ */
+function registerRuntimeIpc() {
+  try {
+    ipcMain.removeHandler('runtime:status')
+  } catch {}
+  try {
+    ipcMain.removeHandler('runtime:stop-completely')
+  } catch {}
+  ipcMain.handle('runtime:status', async () => {
+    const identity = RUNTIME_INSTANCE || SHELL_INSTANCE
+    if (!runtimeClient) {
+      return { ok: true, attached: false, state: 'idle', instanceId: identity.instanceId, reason: 'the shell has not attached yet' }
+    }
+    const described = runtimeClient.describe()
+    if (!runtimeClient.attached) return { ok: true, ...described }
+    try {
+      const status = await runtimeClient.status()
+      return { ok: true, ...described, runtime: status }
+    } catch (error) {
+      // A Runtime that cannot answer is reported as data, never as a rejected
+      // renderer promise: the panel must be able to say "disconnected".
+      return { ok: true, ...described, error: String(error?.message || error) }
+    }
+  })
+  ipcMain.handle('runtime:stop-completely', async () => {
+    const result = await stopRuntimeCompletely('renderer request')
+    return { ok: result?.stopped !== false, result }
+  })
 }
 
 /**
@@ -1486,14 +1710,25 @@ function disposeComputerUseOnExit(source = 'shell') {
 }
 
 /**
- * Shared teardown for every exit path: stop the extension (which stops the
- * scheduler and persists the queue/history), pause+flush+terminate the optional
- * Sub-worker, drop the integrated views, and terminate the managed Harness
- * child tree.
+ * Shared teardown for the UI's own exit.
  *
- * Order matters (plan §25): state is persisted by the extension stop, then the
- * worker is paused/flushed and its process tree is terminated, and only then is
- * the managed Harness stopped.
+ *   closing the GUI  !=  stopping the Runtime
+ *
+ * This function releases everything the **UI** holds: the extension host (which
+ * persists the scheduler queue and history), the optional Sub-worker that this
+ * process created, the engineering and plugin hosts, the computer-use runtime and
+ * the integrated views. It does **not** stop the Harness, and it does not ask the
+ * Runtime to shut down.
+ *
+ * That is the requirement's central sentence, made operational. The Harness is
+ * owned by the Runtime Host — a separate, detached process — so a window closing
+ * cannot take the engine with it, and a task that was running keeps running.
+ * Stopping everything is an explicit, separate act: `stopRuntimeCompletely()`,
+ * reached only from "Stop DS-Hns Completely" and from `runtime.cjs stop`.
+ *
+ * The connection is *detached* rather than dropped: the client stops reconnecting
+ * and the socket is closed, so the Runtime sees a client leave rather than a
+ * process die.
  */
 function teardownManagedResources({ destroyWindows = false } = {}) {
   try {
@@ -1524,9 +1759,40 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy()
     } catch {}
   }
+  // Detach, never stop. The Runtime outlives this process by design.
   try {
-    stopHarness()
+    if (runtimeClient) {
+      runtimeClient.detach()
+      logLine('detached from the Runtime; it keeps running')
+    } else {
+      // Only reachable if the shell never attached and started a child itself.
+      stopHarnessInProcess()
+    }
   } catch {}
+}
+
+/**
+ * The explicit full stop: "Stop DS-Hns Completely".
+ *
+ * This is the only UI path that ends the Runtime, and it does it the civil way —
+ * it *asks* the Runtime to drain, checkpoint and terminate its own children, and
+ * then waits for it to go. Nothing here kills a process by PID, because the
+ * Runtime owns its children and knows the order they must stop in.
+ */
+async function stopRuntimeCompletely(source = 'shell') {
+  logLine(`complete stop requested from the UI (${source})`)
+  if (!runtimeClient) {
+    stopHarnessInProcess()
+    return { stopped: false, reason: 'no runtime client' }
+  }
+  try {
+    const result = await runtimeClient.shutdownRuntime({ reason: `desktop complete stop (${source})` })
+    logLine(`complete stop result: ${JSON.stringify(result)}`)
+    return result
+  } catch (error) {
+    logLine(`complete stop failed: ${error?.message || error}`)
+    return { stopped: false, error: String(error?.message || error) }
+  }
 }
 
 /**
@@ -2464,16 +2730,28 @@ app.whenReady().then(async () => {
     // like a product that had not started. The page below is ours — a script-free skeleton of the
     // shape that is coming — and the official UI replaces it when it answers.
     await showStartupSkeleton()
-    await runtimeProcess.recoverOwnedStale({ root: ROOT, dshEntry: DSH_ENTRY, log: logLine })
-    if (await isHarnessPortListening()) {
-      throw startupError(`Port ${HARNESS_PORT} is already in use by another process. Close it before starting DS-Harness.`)
-    }
+    /**
+     * Attach to this instance's Runtime — or start one — before asking it for the Harness.
+     *
+     * This is the inversion, in the one place where it is visible: the UI no
+     * longer spawns the engine. It asks the Runtime to, and the Runtime keeps
+     * owning it after this window is gone. The stale-runtime sweep and the
+     * "port already in use" check that used to sit here now belong to the owner
+     * too (`recoverOwnedStale` and the `blocked` answer inside `harness.start`),
+     * because a second process doing its own sweep is exactly how one instance
+     * kills another's Harness.
+     */
+    await connectRuntime()
+    // The Runtime's own IPC surface: what the UI's connection looks like, and the
+    // one explicit full stop. Registered here so a panel can report
+    // "disconnected" for the rest of the session even if the Runtime later goes.
+    registerRuntimeIpc()
+    startup.mark('runtime-attached')
     const nodeExe = resolveNodeExe()
-    await Promise.race([
-      startHarness(nodeExe),
+    const readyUrl = await Promise.race([
+      startHarnessViaRuntime(),
       new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
     ])
-    const readyUrl = await waitForHarness()
     startup.mark('harness-ready')
     // The Dual-UI backend client talks to the same authenticated Harness the
     // official renderer uses; publishing the origin is what lets the native
@@ -2595,12 +2873,30 @@ app.on('second-instance', () => {
   mainWindow.show()
   mainWindow.focus()
 })
+/**
+ * Closing the last window quits the *Desktop*, and only the Desktop.
+ *
+ * `before-quit` releases the UI's own resources (see `teardownManagedResources`)
+ * and detaches from the Runtime. Nothing on this path stops the Harness, because
+ * the Harness does not belong to this process: it belongs to the Runtime Host,
+ * which was started detached and which keeps serving after this window is gone.
+ *
+ * The `exit` handler is deliberately *not* `stopHarness` any more. A synchronous
+ * "kill the child on the way out" is exactly the coupling this change removes,
+ * and it would have silently undone the split on the one path that runs no matter
+ * how the process ends. It now only cleans up a child this process started
+ * itself, which the attached path never does.
+ */
 app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   // Closing the main window (or a system shutdown) is the implicit normal exit.
   if (shuttingDown) return
   shuttingDown = true
-  logLine('before-quit: reconciling managed resources')
+  logLine('before-quit: releasing the UI; the Runtime is left running')
   teardownManagedResources()
 })
-process.on('exit', stopHarness)
+process.on('exit', () => {
+  try {
+    stopHarnessInProcess()
+  } catch {}
+})
