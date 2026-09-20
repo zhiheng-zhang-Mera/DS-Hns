@@ -31,6 +31,17 @@ const { collectHostProfile, loadProfileFixture } = require('./host-capability.cj
 /** The ownership record type the Runtime Host writes; see `client.cjs` for why it is a literal. */
 const HOST_OWNERSHIP_TYPE = 'runtime-host'
 
+/**
+ * Flags that never take a value.
+ *
+ * Without this list a bare `--json start` would consume `start` as the flag's
+ * value and leave the positional list empty, so the CLI would silently fall back
+ * to `status` — an argument parser that quietly answers a different question than
+ * the one asked. Only the flags that genuinely are booleans are listed, so a
+ * valued option may still be written either `--port 3081` or `--port=3081`.
+ */
+const BOOLEAN_FLAGS = new Set(['json', 'compact', 'write', 'strict', 'refresh', 'measure-electron', 'help', 'quiet'])
+
 function parseArgs(argv) {
   const args = { _: [] }
   for (let index = 0; index < argv.length; index += 1) {
@@ -46,7 +57,7 @@ function parseArgs(argv) {
     }
     const key = token.slice(2)
     const next = argv[index + 1]
-    if (next === undefined || next.startsWith('--')) {
+    if (BOOLEAN_FLAGS.has(key) || next === undefined || next.startsWith('--')) {
       args[key] = true
     } else {
       args[key] = next
@@ -63,8 +74,11 @@ function resolveRootAndHome(args) {
   return { root, dshHome, requestedPort }
 }
 
+/** `--json` makes every answer a single line, so a caller can read the last line. */
+let compactOutput = false
+
 function print(value) {
-  process.stdout.write(`${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}\n`)
+  process.stdout.write(`${typeof value === 'string' ? value : JSON.stringify(value, null, compactOutput ? 0 : 2)}\n`)
 }
 
 function logLine(line) {
@@ -149,7 +163,7 @@ async function commandStart(args) {
 async function commandStop(args) {
   const { root, dshHome, requestedPort } = resolveRootAndHome(args)
   const instance = await instanceModule.resolveInstance({ root, dshHome, requestedPort })
-  const client = createRuntimeClient({ instance, log: logLine })
+  const client = createRuntimeClient({ instance, log: logLine, subscribe: false })
   const result = await client.shutdownRuntime({ reason: args.reason ? String(args.reason) : 'runtime stop' })
   print({ ok: result.stopped !== false, ...result, instanceId: instance.instanceId })
   return result.stopped === false && args.strict ? 1 : 0
@@ -186,7 +200,9 @@ async function commandStatus(args) {
     })
     return 0
   }
-  const client = createRuntimeClient({ instance, log: logLine })
+  // A one-shot question, not a subscription: asking "what is running?" must not
+  // make this process look like an attached UI to the Runtime it is asking.
+  const client = createRuntimeClient({ instance, log: logLine, subscribe: false })
   await client.attach()
   try {
     const status = await client.status()
@@ -226,6 +242,7 @@ async function commandCapability(args) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
+  compactOutput = args.json === true || args.compact === true
   const command = String(args._[0] || 'status')
   switch (command) {
     case 'serve':

@@ -193,13 +193,24 @@ test('describeInstance refuses a missing root instead of inventing one', () => {
 test('the repository checkout resolves to a real, instance-specific layout', () => {
   const resolved = instance.describeInstance({ root: ROOT, dshHome: path.join(ROOT, 'data') })
   assert.equal(resolved.instanceId.length, instance.INSTANCE_ID_LENGTH)
-  // Paths are canonicalized (lower-cased on Windows) for comparison and for
-  // hashing, so the containment check compares canonical forms too.
-  const canonicalHome = instance.canonicalize(path.join(ROOT, 'data'))
-  assert.ok(resolved.paths.userData.startsWith(path.join(canonicalHome, 'desktop-shell')))
-  assert.equal(resolved.paths.browserProfile.startsWith(canonicalHome), true)
+  // Derived paths keep the operating system's spelling, so they are compared
+  // against the resolved root rather than against a case-folded form.
+  const realRoot = instance.resolveRoot(ROOT)
+  assert.equal(resolved.root, realRoot)
+  assert.equal(resolved.paths.userData, path.join(realRoot, 'data', 'desktop-shell'))
+  assert.equal(resolved.paths.browserProfile.startsWith(realRoot), true)
   assert.ok(resolved.ipcEndpoint.includes(resolved.instanceId))
   // The primary instance is not treated as isolated, so its userData keeps the
   // historical `desktop-shell` name rather than the id-keyed one.
   assert.equal(resolved.isolated, false)
+})
+
+test('a root that does not exist yet keeps the caller spelling the filesystem will use', () => {
+  const dir = scratch()
+  const mixed = path.join(dir, 'MixedCaseRoot-ABC', 'checkout')
+  const resolved = instance.describeInstance({ root: mixed, dshHome: path.join(dir, 'data') })
+  // Lower-casing a path and then opening it works on a case-insensitive volume and
+  // silently fails on a case-sensitive one, so the spelling must survive.
+  assert.equal(resolved.root, mixed)
+  assert.equal(fs.existsSync(dir), true)
 })

@@ -44,11 +44,18 @@ const IDENTITY_VERSION = 1
 const INSTANCE_ID_LENGTH = 16
 
 /**
- * Case-fold a Windows path for comparison and for hashing.
+ * Case-fold a Windows path for *comparison and hashing*.
  *
- * Windows path comparison is case-insensitive, so `D:\DS-Hns` and `D:\ds-hns` are
- * the same checkout and must produce the same instance id. A POSIX path is
+ * Windows path comparison is case-insensitive, so `D:\DS-Hns` and `D:\ds-hns`
+ * are the same checkout and must produce the same instance id. A POSIX path is
  * case-sensitive and is left alone.
+ *
+ * This form is **never** used as a filesystem path. Lower-casing a path and then
+ * opening it happens to work on a case-insensitive volume and silently fails on a
+ * case-sensitive one, and — more importantly — it produces a path whose spelling
+ * does not match what the operating system reports back, which makes two
+ * processes disagree about where they are. `resolveRoot` is what produces a path
+ * to *use*; this produces a path to *compare*.
  */
 function canonicalize(target) {
   if (target === undefined || target === null || String(target).trim() === '') return ''
@@ -58,15 +65,46 @@ function canonicalize(target) {
   } catch {
     return ''
   }
-  // Resolve the 8.3 short name and the real case when the path exists, so a
-  // `PROGRA~1` spelling of the same directory is not read as a second instance.
-  try {
-    if (fs.existsSync(resolved)) resolved = fs.realpathSync.native(resolved)
-  } catch {
-    /* A path that does not exist yet is still a valid instance root. */
-  }
   const normalized = resolved.replace(/[\\/]+$/, '')
   return process.platform === 'win32' ? normalized.toLowerCase() : normalized
+}
+
+/**
+ * A filesystem path for an instance root, in the operating system's own spelling.
+ *
+ * The tail of an instance root often does not exist yet — the installer, a test,
+ * or a brand-new acceptance directory creates it later — so the path is resolved
+ * by walking up to the deepest existing ancestor, taking *that* directory's real
+ * spelling from the filesystem, and re-appending the missing segments. Two
+ * processes therefore agree on the root whether or not it exists yet, on a
+ * case-insensitive volume or a case-sensitive one.
+ *
+ * Falls back to plain `path.resolve` when nothing along the path exists, which is
+ * the best available answer and is still consistent between processes.
+ */
+function resolveRoot(target) {
+  if (target === undefined || target === null || String(target).trim() === '') return ''
+  let resolved
+  try {
+    resolved = path.resolve(String(target))
+  } catch {
+    return ''
+  }
+  const tail = []
+  let cursor = resolved
+  for (;;) {
+    try {
+      const real = fs.realpathSync.native(cursor)
+      const joined = tail.length ? path.join(real, ...tail.reverse()) : real
+      return joined.replace(/[\\/]+$/, '') || real
+    } catch {
+      const parent = path.dirname(cursor)
+      // Walked past the root of the volume without finding anything that exists.
+      if (parent === cursor) return resolved.replace(/[\\/]+$/, '') || resolved
+      tail.push(path.basename(cursor))
+      cursor = parent
+    }
+  }
 }
 
 /** A filesystem- and pipe-safe slug. Never empty, never contains a separator. */
@@ -226,10 +264,12 @@ function describeInstance({
   userDataDir,
   platform = process.platform
 } = {}) {
-  const instanceRoot = canonicalize(root)
+  const instanceRoot = resolveRoot(root)
   if (!instanceRoot) throw new Error('an instance needs a root')
+  // The id hashes the comparison form, so two spellings of one directory are one
+  // instance; every path below keeps the operating system's spelling.
   const instanceId = instanceIdFor(instanceRoot)
-  const home = canonicalize(dshHome) || path.join(instanceRoot, 'data')
+  const home = resolveRoot(dshHome) || path.join(instanceRoot, 'data')
   const slug = slugify(appName || path.basename(instanceRoot), 'ds-hns')
   const isIsolated = isolated === undefined ? Boolean(appName) : Boolean(isolated)
   return {
@@ -362,6 +402,7 @@ module.exports = {
   IDENTITY_VERSION,
   INSTANCE_ID_LENGTH,
   canonicalize,
+  resolveRoot,
   slugify,
   instanceIdFor,
   isPortFree,

@@ -97,6 +97,40 @@ function createRuntimeHost({
   /** Lifecycle log, so `status` can explain what happened without a UI. */
   const history = []
 
+  /**
+   * Drop sockets that are no longer usable.
+   *
+   * A client that detaches and then exits may never deliver a clean `close` before
+   * the operating system tears the pipe down, and a subscriber entry that outlives
+   * its socket makes `electronAttached` claim a UI is present when none is. Pruning
+   * on read makes the reported state a fact about the sockets rather than a hope
+   * about the events.
+   */
+  function pruneSubscribers() {
+    for (const [key, socket] of subscribers) {
+      if (socket.destroyed || socket.readableEnded || !socket.writable) {
+        subscribers.delete(key)
+        hostLog(`subscriber ${key} pruned (socket gone); ${subscribers.size} attached`)
+      }
+    }
+  }
+
+  function attachSubscriber(key, socket) {
+    subscribers.set(key, socket)
+    // `close` and `end` can both arrive; releasing the capability is idempotent,
+    // so the handler is bound to whichever arrives first and the other is a no-op.
+    const release = () => {
+      const wasSubscribed = subscribers.get(key) === socket
+      if (wasSubscribed) subscribers.delete(key)
+      if (wasSubscribed) handleDisconnect()
+    }
+    socket.once('close', release)
+    socket.once('end', release)
+    socket.once('error', () => {
+      if (subscribers.get(key) === socket) subscribers.delete(key)
+    })
+  }
+
   function hostLog(message) {
     const line = `${new Date().toISOString()} ${String(message)}`
     history.push(line)
@@ -390,6 +424,7 @@ function createRuntimeHost({
   // --- Status / snapshot ---------------------------------------------------
 
   function status() {
+    pruneSubscribers()
     return {
       protocol: protocol.PROTOCOL_VERSION,
       instanceId: instance.instanceId,
@@ -503,8 +538,7 @@ function createRuntimeHost({
       case 'subscribe': {
         subscriberSeq += 1
         const key = `${hostPid}-${subscriberSeq}`
-        subscribers.set(key, socket)
-        socket.once('close', () => subscribers.delete(key))
+        attachSubscriber(key, socket)
         hostLog(`subscriber attached (${key}); ${subscribers.size} attached`)
         answer({ subscribed: true, topics: params.topics || ['harness', 'worker', 'computer-use', 'runtime'] })
         // The Client is now the Computer Use page provider until it goes away.

@@ -153,6 +153,15 @@ function createRuntimeClient({
   reconnectMs = 1500,
   /** How long a single request may wait for its answer. */
   requestTimeoutMs = 30_000,
+  /**
+   * Whether attaching also subscribes to the Runtime's event stream.
+   *
+   * Default true: the Desktop is a long-lived subscriber and must be counted as
+   * one, which is what `electronAttached` means. A one-shot CLI command (`runtime
+   * status`) passes false, because it asks one question and leaves — counting it
+   * as an attached UI would be a lie that outlives the process that told it.
+   */
+  subscribe = true,
   nodeExe = process.execPath,
   runtimeEntry = path.join(__dirname, 'runtime.cjs')
 } = {}) {
@@ -253,10 +262,12 @@ function createRuntimeClient({
           welcome = answer
           events.emit('welcome', welcome)
           setState('attached')
-          try {
-            await request('subscribe', { topics: ['harness', 'worker', 'computer-use', 'runtime'] })
-          } catch (error) {
-            clientLog(`subscribe failed: ${error?.message || error}`)
+          if (subscribe) {
+            try {
+              await request('subscribe', { topics: ['harness', 'worker', 'computer-use', 'runtime'] })
+            } catch (error) {
+              clientLog(`subscribe failed: ${error?.message || error}`)
+            }
           }
           events.emit('attached', welcome)
           finish(true)
