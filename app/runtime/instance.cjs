@@ -309,11 +309,15 @@ function recordBelongsToInstance(record, instance) {
  *     it is isolated in the way that matters — and it is where every existing
  *     user's window state, cache and login already are. Moving it would be a
  *     migration with no isolation benefit, which is not what this change is for.
+ *
+ * The id is passed in rather than recomputed. Recomputing it here is how the two
+ * answers drifted apart once already: this function did not know the run's name,
+ * so it derived a *different* id than `describeInstance` had, and the userData
+ * directory was keyed by an id that named no other part of the instance.
  */
-function userDataFor({ root, dshHome, isolated, explicit, slug }) {
+function userDataFor({ home, isolated, explicit, instanceId }) {
   if (explicit) return path.resolve(explicit)
-  const home = dshHome
-  if (isolated) return path.join(home, 'electron', instanceIdFor(root, home))
+  if (isolated) return path.join(home, 'electron', instanceId)
   return path.join(home, 'desktop-shell')
 }
 
@@ -369,7 +373,7 @@ function describeInstance({
        * Electron's userData: per-instance, and never Electron's default. See
        * `userDataFor` for why the primary instance keeps its historical name.
        */
-      userData: userDataFor({ root: instanceRoot, dshHome: home, isolated: isIsolated, explicit: userDataDir, slug }),
+      userData: userDataFor({ home, isolated: isIsolated, explicit: userDataDir, instanceId }),
       /** Where the Runtime Host writes its own log, separate from the UI's. */
       runtimeLog: path.join(instanceRoot, 'logs', 'runtime-host.log'),
       /** Where the Desktop Client writes its own log. */
