@@ -719,10 +719,16 @@ function createRuntimeHost({
         socket.on('error', () => {
           /* a broken pipe is a disconnect, not a fault */
         })
-        socket.on('close', () => {
-          for (const [key, candidate] of subscribers) if (candidate === socket) subscribers.delete(key)
-          handleDisconnect()
-        })
+        /**
+         * Cleanup is owned by `attachSubscriber`, not by this handler.
+         *
+         * This was originally a blanket `handleDisconnect()` on every connection's
+         * `close`, which was wrong in a way worth naming: the Computer Use page
+         * capability belongs to *subscribers*, and a one-shot client that asks
+         * `computerUse.status` is not one. With the blanket handler, asking the
+         * question withdrew the capability it was asking about — the observation
+         * changed the thing observed.
+         */
       })
       server.once('error', (error) => {
         hostLog(`runtime host could not bind ${socketPath}: ${error?.message || error}`)
