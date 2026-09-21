@@ -27,12 +27,54 @@ param(
   [string]$CommunityExtraArgs = '',
   # Skip step 1/9's stale-runtime sweep.
   #
-  # The sweep refuses to run while an unrelated process holds port 3080, and it is right to: it stops
-  # *this* repository's processes and nothing else. That refusal is exactly what makes a real clean
-  # installation impossible to rehearse while another DS-Harness (a development instance, the one this
-  # documentation was written against) is serving. This switch says "I know; the runtime is somebody
-  # else's; install the files anyway" -- and it is a switch a person has to type, never a fallback.
-  [switch]$SkipRuntimeCleanup
+  # The sweep refuses to run while an unrelated process holds the port this
+  # instance would serve on, and it is right to: it stops *this* repository's
+  # processes and nothing else. That refusal is exactly what makes a real clean
+  # installation impossible to rehearse while another DS-Harness (a development
+  # instance, the one this documentation was written against) is serving. This
+  # switch says "I know; the runtime is somebody else's; install the files anyway"
+  # -- and it is a switch a person has to type, never a fallback.
+  [switch]$SkipRuntimeCleanup,
+  # How much of the repository's own qualification this installation performs.
+  #
+  #   Fast           installing during development, over and over. Syntax, the
+  #                  required files, the dependency reuse decision and a critical
+  #                  installer smoke check. No test suite, no verification, no
+  #                  performance measurement.
+  #
+  #   Standard       the default for a person installing the product. Everything
+  #                  Fast does, plus profile/plugin correctness, a small
+  #                  deterministic smoke set and the verifier. It never runs the
+  #                  whole repository suite and never runs a benchmark as a gate.
+  #
+  #   Qualification  a release, CI, a major refactor, or an explicit owner
+  #                  request: the full suite, the architecture checks, the
+  #                  dual-instance acceptance and the performance qualification.
+  #
+  # The distinction this encodes is the one that was missing: INSTALLATION
+  # CORRECTNESS, REPOSITORY QUALIFICATION and PERFORMANCE BENCHMARK are three
+  # different questions, and only the first is the installer's to answer.
+  [ValidateSet('Fast', 'Standard', 'Qualification')]
+  [string]$Mode = 'Standard',
+  # Skip step 7/9's verifier. `-SkipTests` already skips the test tier; this is
+  # its counterpart, and it exists because verification was previously impossible
+  # to skip at all -- a bootstrap or a recovery install had to pay for it.
+  [switch]$SkipVerify,
+  # Print what was reused and what was re-done, and why. This is the evidence for
+  # the incremental install: it names each skipped unit of work and the reason the
+  # fingerprint considered it still valid.
+  [switch]$ReportReuse,
+  # A simulated host capability profile, as a JSON file.
+  #
+  # This is the seam the low-capacity acceptance needs: it makes the installer
+  # behave as though it were running on the host the profile describes, so "a
+  # 2-core 4 GB machine installs successfully" is a test that can be run on the
+  # machine in front of you rather than a claim about a machine nobody has. It
+  # replaces measurement *only*; every decision made from the profile is the same
+  # code path a measured host takes.
+  #
+  # Never used by a person installing DS-Harness.
+  [string]$HostProfileFixture = ''
 )
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
@@ -45,6 +87,34 @@ function Write-Step([string]$text) {
   Write-Host ''
   Write-Host "== $text ==" -ForegroundColor Cyan
 }
+
+<#
+Resolve a Node executable for the installer's own bookkeeping (the install-state fingerprint and the
+host capability calibration).
+
+`install-deps.ps1` puts a Node on PATH, but it does that *after* this script already needs one, and it
+runs as a child process whose environment changes do not come back here. So the same preference order
+is repeated locally: the checkout's bundled runtime first, then PATH. Not finding one is not fatal --
+both callers treat a missing Node as "cannot compute", never as a bad installation.
+#>
+function Resolve-InstallerNode {
+  $runtimeDir = Join-Path $ROOT 'runtime'
+  if (Test-Path -LiteralPath $runtimeDir) {
+    $candidate = Get-ChildItem -LiteralPath $runtimeDir -Directory -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -like 'node-v*-win-x64' } |
+      Sort-Object Name |
+      Select-Object -Last 1
+    if ($candidate) {
+      $exe = Join-Path $candidate.FullName 'node.exe'
+      if (Test-Path -LiteralPath $exe) { return $exe }
+    }
+  }
+  $onPath = Get-Command node -ErrorAction SilentlyContinue
+  if ($onPath) { return $onPath.Source }
+  return ''
+}
+
+$node = Resolve-InstallerNode
 
 function Test-RealApiKey([string]$value) {
   if ([string]::IsNullOrWhiteSpace($value)) { return $false }
@@ -242,9 +312,108 @@ foreach ($d in $dirs) {
 }
 Write-Host 'Directory structure ready.'
 
+# --- Install state -------------------------------------------------------------------------------
+#
+# Everything above is installation. Everything below decides how much of the *repository's* own
+# qualification this run is responsible for, and how much of the work already done can be kept.
+#
+# The state is computed once, before the steps that consult it, and written once at the end. It is
+# deliberately advisory: `install-deps.ps1` and `install-profile-plugin.ps1` remain the things that
+# install and repair, and this only tells them whether they are *needed*. A wrong "reuse" would be a
+# broken installation, which is why every reuse decision re-checks that the installed files exist.
+$fingerprintScript = Join-Path $PSScriptRoot 'install-fingerprint.cjs'
+$profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } elseif ($Profile) { $Profile } else { 'web' }
+$dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $ROOT 'data' }
+$electronExe = Join-Path $ROOT 'app\node_modules\electron\dist\electron.exe'
+$megaCoreDir = Join-Path $ROOT 'app\plugins\mega-core'
+$installState = $null
+$installStateFile = Join-Path $dshHome 'state\install-state.json'
+if (Test-Path -LiteralPath $fingerprintScript) {
+  try {
+    $installStateJson = & $node @($fingerprintScript, 'describe', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
+    $installState = ($installStateJson | Select-Object -Last 1) | ConvertFrom-Json
+  } catch {
+    Write-Warning "Install state could not be computed; this run will do the full work: $($_.Exception.Message)"
+    $installState = $null
+  }
+}
+
+# Host capability, measured rather than assumed. It is printed as information and cached for the
+# Runtime to use; nothing below fails an installation because this machine is slow. See
+# app/runtime/host-capability.cjs for why a static machine table was rejected in favour of a short
+# calibration, and why the performance numbers are reporting rather than gating.
+$hostProfile = $null
+if ($HostProfileFixture) {
+  # A simulated host. The profile is read, classified and cached by the same code a
+  # measured one goes through, so the policy under test is the real policy.
+  $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
+  try {
+    $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+    Write-Host "Host capability: SIMULATED from $fixturePath"
+  } catch {
+    Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
+    $hostProfile = $null
+  }
+}
+if (-not $hostProfile) {
+  $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
+  if (Test-Path -LiteralPath $capabilityScript) {
+    try {
+      $hostProfile = (& $node @($capabilityScript, 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+    } catch {
+      $hostProfile = $null
+    }
+  }
+}
+if ($hostProfile) {
+  $capacity = $hostProfile.capacity.class
+  $cores = $hostProfile.cpu.logicalCores
+  $memoryMb = $hostProfile.memory.totalMB
+  Write-Host "Host capability: $capacity ($cores logical cores, ${memoryMb} MB RAM)."
+  Write-Host "  worker ceiling: $($hostProfile.workers.recommended) ($($hostProfile.workers.label) scaling)"
+  Write-Host "  measured node spawn p95: $($hostProfile.calibration.nodeSpawnP95Ms) ms"
+  if ($capacity -eq 'LOW_CAPACITY' -or $capacity -eq 'CONSERVATIVE') {
+    # Reported as a *policy*, not as an error: a small machine gets conservative defaults and the
+    # installation continues to completion.
+    Write-Host '  this host is treated as conservative: lower worker concurrency and longer timeouts.'
+  }
+  # Recorded for the Runtime, so the worker ceiling it uses is the one measured here rather than a
+  # default chosen on a faster machine.
+  try {
+    $profileFile = Join-Path $dshHome 'state\host-profile.json'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $profileFile) -Force | Out-Null
+    $hostProfile | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $profileFile -Encoding UTF8
+  } catch {
+    Write-Warning "The host capability profile could not be cached: $($_.Exception.Message)"
+  }
+}
+
 Write-Step '2/9 Resolve/reuse dependencies'
 $dependencyScript = Join-Path $PSScriptRoot 'install-deps.ps1'
-& $dependencyScript -Full
+
+# The fast path, before any work is done.
+#
+# `install-deps.ps1` already reuses a version-matched tree internally, but it gets there by resolving
+# Node, reading both package manifests and probing four paths -- and, when the state says nothing
+# changed, the *answer is already known*. So the state is consulted first, and only a run that cannot
+# prove reuse falls through to the script.
+#
+# The proof is deliberately conservative: the lockfile hash, the manifest hash, the Node build, the
+# expected versions, and the existence of `lib/bin.js`, `electron/install.js` and `electron.exe`. A
+# missing file fails the check, so the fast path can never skip a repair that is actually needed.
+$depsReuse = $false
+if ($installState -and $installState.decisions -and $installState.decisions.dependencies) {
+  $depsReuse = [bool]$installState.decisions.dependencies.reuse
+}
+if ($depsReuse) {
+  Write-Host "  reuse: $($installState.decisions.dependencies.reason)"
+  Write-Host '  dsh and Electron are installed, version-matched and present; npm will not run.'
+} else {
+  if ($installState -and $installState.decisions -and $installState.decisions.dependencies) {
+    Write-Host "  reinstall: $($installState.decisions.dependencies.reason)"
+  }
+  & $dependencyScript -Full
+}
 
 Write-Step '3/9 Resolve DeepSeek API key'
 $envFile = Join-Path $ROOT 'config\.env'
@@ -324,19 +493,34 @@ $script:BuiltInRegistration = [ordered]@{
   'dshns.health-scheduler' = 'NOT VERIFIED'
   'dshns.restart-supervisor' = 'NOT VERIFIED'
 }
+$profileReuse = $false
+if ($installState -and $installState.decisions -and $installState.decisions.profile) {
+  $profileReuse = [bool]$installState.decisions.profile.reuse
+}
 try {
   # The orb first, and separately, because its outcome is what the summary's Mega Core line reports.
-  $orbLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') -Plugin 'mega-core' 2>&1 | ForEach-Object { [string]$_ })
-  $orbExit = $LASTEXITCODE
-  $orbTail = ($orbLines | Select-Object -Last 1)
-  if ($orbExit -ne 0) {
-    $script:MegaCoreState = 'FAILED'
-    Write-Warning 'The orb plugin is not in the Harness profile, so the official UI will show no ball.'
-    Write-Warning 'DS-Harness is fully usable without it; re-run scripts\install-profile-plugin.ps1 to add it.'
-  } elseif ($orbTail -match 'already-installed') {
+  # The runtime branch's fingerprint can prove that this exact checkout is already installed; only in
+  # that case may the expensive Harness CLI call be skipped. The two required long-host plugins below
+  # still run through their own freshness-aware installer and registration probe.
+  if ($profileReuse) {
     $script:MegaCoreState = 'ALREADY INSTALLED'
+    Write-Host "  reuse: $($installState.decisions.profile.reason)"
   } else {
-    $script:MegaCoreState = 'LOADED'
+    if ($installState -and $installState.decisions -and $installState.decisions.profile) {
+      Write-Host "  sign-in required: $($installState.decisions.profile.reason)"
+    }
+    $orbLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') -Plugin 'mega-core' 2>&1 | ForEach-Object { [string]$_ })
+    $orbExit = $LASTEXITCODE
+    $orbTail = ($orbLines | Select-Object -Last 1)
+    if ($orbExit -ne 0) {
+      $script:MegaCoreState = 'FAILED'
+      Write-Warning 'The orb plugin is not in the Harness profile, so the official UI will show no ball.'
+      Write-Warning 'DS-Harness is fully usable without it; re-run scripts\install-profile-plugin.ps1 to add it.'
+    } elseif ($orbTail -match 'already-installed') {
+      $script:MegaCoreState = 'ALREADY INSTALLED'
+    } else {
+      $script:MegaCoreState = 'LOADED'
+    }
   }
 
   # Then the two built-in plugins, through the one installer that owns the list.
@@ -463,6 +647,9 @@ $communityAvailable = $false
 # and a guess here would either silence a real prompt or hang an unattended install. Node can tell, so
 # Node decides, and an unattended install installs nothing.
 
+# Resolve the Node the community command line will run on. This is cheap (a bundled runtime or PATH)
+# and is needed by the fast path below, because the channel's availability is part of deciding whether
+# there is anything left to do.
 $communityNode = ''
 try {
   $communityNodeResult = & (Join-Path $PSScriptRoot 'ensure-node.ps1') | Select-Object -Last 1
@@ -478,11 +665,48 @@ if (-not $communityNode) {
   if ($systemNode) { $communityNode = $systemNode.Source }
 }
 
-$communityAvailable = (Test-Path -LiteralPath $communityCli) -and (Test-Path -LiteralPath (Join-Path $ROOT 'app\node_modules\@deepseek-ai\dsh\lib\bin.js')) -and ($communityNode -ne '')
-if (-not $communityAvailable) {
-  Write-Host 'The optional community plugins cannot be offered on this machine; the installation continues.'
-  if (-not (Test-Path -LiteralPath $communityCli)) { Write-Warning "the community plugin command line is missing: $communityCli" }
-  if (-not ($communityNode -ne '')) { Write-Warning 'no usable Node.js was found for the community plugin command line.' }
+# The optional fast path, decided before any work.
+#
+# This step's cost is entirely in the *setup*: resolving Node again, making corepack produce a pnpm
+# shim, and then asking the Node command line for a plan. None of that can change the answer when the
+# user's decision is already recorded and this run did not ask for anything different -- and re-doing
+# it on every Standard install is precisely the "optional plugins should not slow a repeat install"
+# rule. The step is skipped only in that case:
+#
+#   * a parameter this run (`-InstallMarket` / `-InstallWallpaper`) is a new decision, so it runs;
+#   * no recorded decision at all means there is something to ask, so it runs;
+#   * the optional community channel still has to be *available*; if the plugin CLI or the Harness
+#     binary is missing, the step runs so it can report the real reason.
+#
+# `-SkipOptionalPlugins` and `-NonInteractive` are themselves recorded by `--skip`, so a declined
+# plugin is a recorded decision and is not re-asked.
+$marketRequested = [bool]$InstallMarket
+$wallpaperRequested = [bool]$InstallWallpaper
+$skipOptional = [bool]$SkipOptionalPlugins -or [bool]$NonInteractive
+$communityCliPath = Join-Path $ROOT 'app\extensions\mega\plugins\community-install-cli.cjs'
+$communityDshBin = Join-Path $ROOT 'app\node_modules\@deepseek-ai\dsh\lib\bin.js'
+$optionalDecisionAlreadyRecorded = $false
+if ($installState -and $installState.optional -and $installState.optional.decisions) {
+  $recordedDecisions = @($installState.optional.decisions.PSObject.Properties)
+  $optionalDecisionAlreadyRecorded = ($recordedDecisions.Count -gt 0) -and (@($recordedDecisions | Where-Object { $_.Value.state -and $_.Value.state -ne '' }).Count -eq $recordedDecisions.Count)
+}
+$optionalReuse = $optionalDecisionAlreadyRecorded -and
+  (-not $InstallMarket) -and (-not $InstallWallpaper) -and
+  (Test-Path -LiteralPath $communityCliPath) -and (Test-Path -LiteralPath $communityDshBin)
+
+if ($optionalReuse) {
+  Write-Host "  reuse: every optional community plugin already has a recorded decision"
+  foreach ($property in @($installState.optional.decisions.PSObject.Properties)) {
+    if ($communitySelections.Contains($property.Name)) { $communitySelections[$property.Name] = [string]$property.Value.state }
+  }
+  $communityAvailable = $false
+} else {
+  $communityAvailable = (Test-Path -LiteralPath $communityCli) -and (Test-Path -LiteralPath $communityDshBin) -and ($communityNode -ne '')
+  if (-not $communityAvailable) {
+    Write-Host 'The optional community plugins cannot be offered on this machine; the installation continues.'
+    if (-not (Test-Path -LiteralPath $communityCli)) { Write-Warning "the community plugin command line is missing: $communityCli" }
+    if (-not ($communityNode -ne '')) { Write-Warning 'no usable Node.js was found for the community plugin command line.' }
+  }
 }
 
 # `dsh plugin` is a thin pnpm forwarder, so the channel needs a pnpm the CLI can spawn. Step 4/9's
@@ -522,10 +746,6 @@ if ($communityAvailable) {
     }
   }
 }
-
-$marketRequested = [bool]$InstallMarket
-$wallpaperRequested = [bool]$InstallWallpaper
-$skipOptional = [bool]$SkipOptionalPlugins -or [bool]$NonInteractive
 
 if ($communityAvailable) {
   # The plan is what the summary reads before anything happens: the release pin, the profile's own
@@ -620,20 +840,42 @@ if ($communityAvailable) {
   }
 }
 
-Write-Step '6/9 Unit and architecture tests'
+Write-Step "6/9 Installer tests ($Mode tier)"
+# Three questions, three answers, and only one of them is the installer's:
+#
+#   is this installation correct?      -> yes, asserted below, every mode
+#   is the repository fully qualified? -> only in Qualification
+#   is it as fast as a benchmark says? -> never a gate outside Qualification
+#
+# `-SkipTests` still means what it always meant: run none of it. It exists for a
+# bootstrap or a recovery install, where the point is to get files on disk.
 if ($SkipTests) {
   Write-Host 'Tests skipped by -SkipTests.'
-} elseif (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'test-all.ps1'))) {
-  Write-Warning 'This installation has no test suite; nothing to run.'
 } else {
-  & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-all.ps1')
+  $tierScript = Join-Path $PSScriptRoot 'install-tests.ps1'
+  if (-not (Test-Path -LiteralPath $tierScript)) {
+    # Falling back to the full suite would be the worst outcome: it would silently
+    # restore the cost this step exists to remove. A missing tier runner is a
+    # broken installation, and a broken installation must say so.
+    throw "The installer test runner is missing: $tierScript"
+  }
+  $tierArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tierScript, '-Tier', $Mode)
+  if ($Mode -ne 'Fast') { $tierArgs += '-ReportTiming' }
+  & $selfPowerShell @tierArgs
   if ($LASTEXITCODE -ne 0) {
-    throw 'Unit/architecture tests failed.'
+    throw "Installer tests failed ($Mode tier)."
   }
 }
 
-Write-Step '7/9 Verification'
-if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'verify.ps1'))) {
+Write-Step "7/9 Verification"
+# The verifier is a *repository* qualification as much as an installation check,
+# so its weight follows the mode. Fast skips it (it is measured in tens of
+# seconds, which is the whole cost Fast exists to avoid); Standard and
+# Qualification run it with tests already handled above.
+if ($SkipVerify -or $Mode -eq 'Fast') {
+  $why = if ($SkipVerify) { '-SkipVerify' } else { "the $Mode tier" }
+  Write-Host "Verification skipped by $why."
+} elseif (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'verify.ps1'))) {
   Write-Warning 'This installation has no verifier; nothing to verify.'
 } else {
   & $selfPowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'verify.ps1') -SkipTests
@@ -747,6 +989,7 @@ function Write-SummaryLine([string]$label, [string]$state) {
 
 Write-Host ''
 Write-Host 'Installation summary'
+Write-SummaryLine 'Mode' $Mode
 Write-SummaryLine 'Official Harness UI' $harnessUiState
 Write-SummaryLine 'DS-Hns runtime' $runtimeState
 Write-SummaryLine 'Mega Core' $script:MegaCoreState
@@ -774,6 +1017,33 @@ Write-Host 'Primary UI: official DeepSeek Harness (Alien-derived shell).'
 Write-Host 'Mega tools: Ctrl+Shift+M.'
 Write-Host 'Orb: the ball in the official UI comes from the Mega Core profile plugin (step 4/9).'
 Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
+
+# --- Persist the install state ---------------------------------------------------------------------
+#
+# Written last, and only when every step above succeeded: a state file written after a partial install
+# would claim work that did not happen. The next run reads it and skips what has not changed, which is
+# what makes a warm reinstall cheap instead of a repeat of the first one.
+if (Test-Path -LiteralPath $fingerprintScript) {
+  try {
+    $writeResult = & $node @($fingerprintScript, 'write', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
+    $written = ($writeResult | Select-Object -Last 1) | ConvertFrom-Json
+    if ($written -and $written.write -and $written.write.ok) {
+      Write-Host "Install state recorded: $installStateFile"
+      if ($ReportReuse) {
+        Write-Host '  reuse decisions for this run:'
+        foreach ($name in @('dependencies', 'profile')) {
+          if ($written.decisions.$name) {
+            Write-Host ("    {0}: {1} ({2})" -f $name, $(if ($written.decisions.$name.reuse) { 'reuse' } else { 'install' }), $written.decisions.$name.reason)
+          }
+        }
+      }
+    } else {
+      Write-Warning 'The install state could not be recorded; the next run will do the full work.'
+    }
+  } catch {
+    Write-Warning "The install state could not be recorded: $($_.Exception.Message)"
+  }
+}
 
 if (-not $NoLaunch) {
   Write-Host 'Launching DS-Harness...'

@@ -1,0 +1,11 @@
+﻿{
+  "description": "A 32-core 64 GB machine with fast process creation: the high-capacity simulation. Present so the policy can be shown to scale up as well as down, and so a hardware-shaped policy cannot silently clamp every host to the conservative branch.",
+  "cpu": { "logicalCores": 32, "physicalCores": 16, "architecture": "x64", "model": "simulated-high-capacity" },
+  "memory": { "totalMB": 65536, "availableMB": 52000, "pressure": 0.21 },
+  "calibration": {
+    "nodeSpawnP50Ms": 40,
+    "nodeSpawnP95Ms": 70,
+    "nodeSpawnSamples": 5,
+    "workerColdStartP95Ms": 300
+  }
+}

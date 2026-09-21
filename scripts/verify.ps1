@@ -109,7 +109,14 @@ $desktopMain = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
 Check 'Startup state machine exists with the four states' (($startupModule -match 'BOOTING') -and ($startupModule -match 'CORE_READY') -and ($startupModule -match 'INTERACTIVE') -and ($startupModule -match 'ENHANCED'))
 Check 'Startup reports every phase in one log shape' (($startupModule -match "\[BOOT\]") -and ($startupModule -match 'overBudget'))
 Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'function defer') -and ($startupModule -match 'the boot carries on'))
-Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
+# The marker is the skeleton call itself, and the thing it must precede is the *call* that asks for the
+# Harness -- not the definition of the function that does the asking. With the Runtime owning the
+# Harness, that call is `startHarnessViaRuntime()` inside the readiness race; the in-process
+# `startHarness(` fallback is checked too, so whichever path is taken the skeleton is already on screen.
+$skeletonAt = $desktopMain.IndexOf('await showStartupSkeleton()')
+$harnessAskAt = $desktopMain.IndexOf('Promise.race([')
+$harnessFallbackAt = $desktopMain.IndexOf('startHarness(nodeExe),')
+Check 'The window is on screen with a skeleton before the Harness is asked anything' (($skeletonAt -ge 0) -and ($harnessAskAt -ge 0) -and ($skeletonAt -lt $harnessAskAt) -and (($harnessFallbackAt -lt 0) -or ($skeletonAt -lt $harnessFallbackAt)))
 Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
 Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
 # ---- The Harness profile's copy of the plugin DS-Hns ships (app\harness-profile.cjs) ----

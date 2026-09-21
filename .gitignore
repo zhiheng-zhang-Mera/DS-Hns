@@ -7,7 +7,16 @@ data/*
 data/pricing/*
 !data/pricing/official-pricing.json
 
+# The *workspace* runtime directory is generated state: ownership records,
+# downloaded portable Node, worker scratch. `app/runtime/` is the opposite — it is
+# the Runtime Host's source code and must be committed. The bare `runtime/`
+# pattern matches a directory of that name at *any* depth, so the code directory
+# is re-included explicitly; without this the whole Runtime/UI separation is
+# untracked and a fresh clone would be missing it.
 runtime/
+!app/runtime/
+app/runtime/*
+!app/runtime/**
 cache/
 downloads/
 logs/

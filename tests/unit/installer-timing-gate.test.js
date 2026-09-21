@@ -87,11 +87,19 @@ test('the multi-supervisor suite still covers the whole section 46 acceptance ta
 
 test('the installer does not turn a benchmark into a failed installation', () => {
   const installer = read(path.join(ROOT, 'scripts', 'install.ps1'))
-  // The installer runs the suite and throws on its exit code; the warning must not reach that code.
-  assert.match(installer, /test-all\.ps1/)
-  assert.match(installer, /throw 'Unit\/architecture tests failed\.'/)
+  // The installer runs a *tier* and throws on its exit code; the warning must not
+  // reach that code. The tier runner is what selects the tests, and the full suite
+  // is reachable only from the Qualification tier (see installer-mode.test.js), so
+  // the preflight list is the only remaining mention of test-all.ps1 here.
+  assert.match(installer, /install-tests\.ps1/)
+  assert.match(installer, /throw "Installer tests failed \(\$Mode tier\)\."/)
   // Nothing in the installer asserts a wall-clock number of its own.
   assert.equal(/8500/.test(installer), false, 'the installer carries a wall-clock threshold of its own')
+  // ...and the tier runner reports timing without ever failing on it.
+  const runner = read(path.join(ROOT, 'scripts', 'install-tests.ps1'))
+  assert.match(runner, /\[benchmark\] test tier/)
+  const reportBlock = runner.split('if ($ReportTiming)')[1].split('if ($exit')[0]
+  assert.equal(/throw|exit 1/.test(reportBlock), false, 'the timing report can fail the installer')
   void fs
   void os
 })
