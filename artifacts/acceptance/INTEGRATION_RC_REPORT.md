@@ -81,6 +81,10 @@ Final real process paths were under `D:\Hns-Integration-RC` for Electron and pro
 - P3 `RC1-UI-004`: real system-orb expansion is NOT_RUN because the window was not targetable; no product failure is asserted.
 - Real Windows reboot, cross-machine performance stability, and independent QA are NOT_RUN.
 
+## Publication
+
+The branch `dev/hns-integration-visual-rc1` was pushed and its remote SHA was compared with the local SHA. GitHub Actions is `NOT_RUN`: `.github/workflows/verify.yml` limits `push.branches` to `main`, `merging`, `better-install`, `target-standby`, `Theme-Cover`, `computer-use`, `long-term-work`, and `test-reboot`; the RC branch is not in that trigger list. No PR was created to manufacture a run.
+
 ## Final decision
 
 The RC is suitable for owner review and independent QA, but it is not gate-ready because a mandatory machine threshold and an installer/UI state contradiction remain open.
