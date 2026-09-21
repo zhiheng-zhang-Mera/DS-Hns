@@ -68,14 +68,16 @@ Final real process paths were under `D:\Hns-Integration-RC` for Electron and pro
 
 - Repository, node_modules, portable Node, npm/Electron caches, task TEMP, app data, runtime state, logs, screenshots, tests, and reports are under `D:\Hns-Integration-RC`.
 - Final command TEMP is `D:\Hns-Integration-RC\temp`, outside the Git workspace but on the same volume; this is required by the command sandbox.
-- No files newer than the task cutoff were found under `C:\Users\15601\AppData\Roaming\Electron` or `C:\Users\15601\AppData\Local\electron`; `C:\Users\15601\.dsh` is absent.
+- No project writes were found under the default Electron roaming/local profiles and `C:\Users\15601\.dsh` is absent.
+- Final process auditing nevertheless found project test artifacts under `C:\Users\15601\AppData\Local\Temp`: runtime-bootstrap scratch roots, restart-supervisor scratch roots, and a `dsh-sub-worker-tests` path that explicitly derives from `LOCALAPPDATA`. One leaked runtime Host (PID 54124) used the D-drive portable Node with a C-drive test checkout/data root. It was stopped; its three generated files were removed, while empty directories remain because host policy rejected directory deletion.
 - Codex's own PowerShell/UI automation runtime executes from C: as an uncontrollable orchestration/system component. It was not used as project workspace, cache, userData, or runtimeData.
-- No project step was stopped as `BLOCKED_BY_C_DRIVE_WRITE_POLICY`.
+- C-drive policy result: `BLOCKED_BY_C_DRIVE_WRITE_POLICY`. Cleanup does not retroactively convert the violation into a pass.
 
 ## Remaining issues and blockers
 
 - P1 `RC1-GATE-001`: full combined acceptance failed the unchanged 1.2x performance threshold at 1.189x.
 - P1 `RC1-INSTALL-002`: Standard installer says Plugin Market failed while the same profile UI says installed @0.4.7.
+- P1 `RC1-STORAGE-001`: repository tests created controllable scratch/runtime data in the default C-drive Temp tree and leaked one host process.
 - P2 `RC1-UI-002`: duplicate Plugin Market rows.
 - P2 `RC1-UI-003`: Computer Use remains degraded without a host runtime.
 - P3 `RC1-UI-004`: real system-orb expansion is NOT_RUN because the window was not targetable; no product failure is asserted.

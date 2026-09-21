@@ -110,6 +110,20 @@
       "finalStatus": "OPEN_BLOCKER"
     },
     {
+      "id": "RC1-STORAGE-001",
+      "category": "C_DRIVE_POLICY",
+      "severity": "P1",
+      "reproduction": "Run the repository Qualification suite, then audit C:\\Users\\15601\\AppData\\Local\\Temp and project-owned processes.",
+      "expected": "All controllable test scratch, runtime data, and child processes stay under D:\\Hns-Integration-RC and terminate.",
+      "actual": "Runtime/restart test scratch roots and dsh-sub-worker-tests were written beneath the default C-drive Temp tree; one D-drive Node runtime Host remained alive with a C-drive test checkout/data root.",
+      "rootCause": "Some tests derive scratch from os.tmpdir or LOCALAPPDATA; at least the sub-worker test explicitly uses LOCALAPPDATA rather than the task-local D-drive root. The shutdown scenario also failed to reap its child.",
+      "filesChanged": [],
+      "fix": null,
+      "automatedTest": null,
+      "cleanup": "Stopped PID 54124 and deleted its three generated files. Empty test directories remain after host policy rejected directory deletion.",
+      "finalStatus": "BLOCKED_BY_C_DRIVE_WRITE_POLICY"
+    },
+    {
       "id": "RC1-UI-004",
       "category": "NOT_RUN",
       "severity": "P3",
