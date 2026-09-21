@@ -76,6 +76,7 @@ const REQUIRED_CAPABILITIES = Object.freeze([])
  * @param {object} [options.config] overrides merged over the shipped defaults
  * @param {string} [options.stateDir] where the companion's files and the heartbeat live
  * @param {object} [options.host] the shell hooks, all optional
+ * @param {string} [options.nodeExe] the Node executable used for the out-of-process companion
  * @param {Function} [options.host.stopApp] `({ kind, timeoutMs }) => { ok, detail }`
  * @param {Function} [options.host.launchApp] `() => { ok, pid }`
  * @param {Function} [options.host.spawnCompanion] `(spec) => { ok, pid }`
@@ -91,6 +92,9 @@ function createRestartSupervisorPlugin(options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => Date.now()
   const log = typeof options.log === 'function' ? options.log : () => {}
   const host = options.host && typeof options.host === 'object' ? options.host : {}
+  const companionNodeExe = typeof options.nodeExe === 'string' && options.nodeExe.trim()
+    ? path.resolve(options.nodeExe)
+    : process.execPath
   const stateDir = path.resolve(String(options.stateDir || process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(process.cwd(), 'data', 'state', 'restart-supervisor')))
   const paths = companionPaths(stateDir)
 
@@ -113,6 +117,9 @@ function createRestartSupervisorPlugin(options = {}) {
   let lastRefusal = null
   let lastOutcome = null
   let cooldownUntil = null
+  // The child publishes its pid file asynchronously. Keep the spawn result in memory so the
+  // first post-start health read does not incorrectly report a missing companion during that gap.
+  let companionLaunch = null
 
   function note(type, detail) {
     const entry = { type, at: now(), ...detail }
@@ -411,7 +418,17 @@ function createRestartSupervisorPlugin(options = {}) {
   /** Is a companion process alive for this state directory? A file plus a liveness probe. */
   function companionStatus() {
     const record = readJson(paths.pidFile)
-    if (!record || !Number.isFinite(Number(record.pid))) return { running: false, pid: null, reason: 'no companion pid file' }
+    if (!record || !Number.isFinite(Number(record.pid))) {
+      if (companionLaunch && Number.isFinite(Number(companionLaunch.pid))) {
+        try {
+          process.kill(Number(companionLaunch.pid), 0)
+          return { running: true, pid: Number(companionLaunch.pid), since: null, starting: true }
+        } catch {
+          companionLaunch = null
+        }
+      }
+      return { running: false, pid: null, reason: 'no companion pid file' }
+    }
     try {
       process.kill(Number(record.pid), 0)
       /**
@@ -491,7 +508,7 @@ function createRestartSupervisorPlugin(options = {}) {
     if (!Array.isArray(appCommand) || !appCommand.length) appCommand = [process.execPath, ...process.argv.slice(1)]
     const args = [entry, `--state-dir=${spec.stateDir || stateDir}`, `--attach=${process.pid}`]
     if (appCommand.length) args.push('--app', ...appCommand.map(String))
-    const child = spawn(process.execPath, args, {
+    const child = spawn(companionNodeExe, args, {
       cwd: process.cwd(),
       detached: true,
       stdio: 'ignore',
@@ -552,6 +569,7 @@ function createRestartSupervisorPlugin(options = {}) {
         note('companion-spawn-failed', { reason: outcome.reason })
         return { ok: false, reason: outcome.reason || 'the companion could not be started' }
       }
+      companionLaunch = outcome && Number.isFinite(Number(outcome.pid)) ? { pid: Number(outcome.pid) } : null
       note('companion-started', { pid: outcome && outcome.pid ? outcome.pid : null })
       return { ok: true, started: true, pid: outcome && outcome.pid ? outcome.pid : null }
     } catch (error) {

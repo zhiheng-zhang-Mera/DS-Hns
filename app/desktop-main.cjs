@@ -15,6 +15,7 @@ const path = require('node:path')
 const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
 const runtimeInstance = require('./runtime/instance.cjs')
+const { resolveCommandTemp } = require('./runtime/temp-root.cjs')
 const { createRuntimeClient } = require('./runtime/client.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
@@ -486,9 +487,10 @@ function resolveNodeExe() {
 }
 
 function ensureRuntimeDirs() {
-  for (const dir of ['logs', 'temp', 'cache', 'data', 'workspace', 'runtime']) {
+  for (const dir of ['logs', 'cache', 'data', 'workspace', 'runtime']) {
     fs.mkdirSync(path.join(ROOT, dir), { recursive: true })
   }
+  fs.mkdirSync(resolveCommandTemp(ROOT, process.env), { recursive: true })
 }
 
 /**
@@ -583,6 +585,7 @@ function startHarness(nodeExe) {
   syncHarnessProfilePlugin()
   startupOutput = ''
   harnessUrl = null
+  const commandTemp = resolveCommandTemp(ROOT, process.env)
 
   logLine('--- DSH launch begin ---')
   logLine(`node=${nodeExe}`)
@@ -601,8 +604,8 @@ function startHarness(nodeExe) {
       DSH_HOME: path.join(ROOT, 'data'),
       DSH_NODE: nodeExe,
       npm_config_cache: path.join(ROOT, 'cache', 'npm'),
-      TEMP: path.join(ROOT, 'temp'),
-      TMP: path.join(ROOT, 'temp'),
+      TEMP: commandTemp,
+      TMP: commandTemp,
       PATH: `${path.dirname(nodeExe)};${process.env.PATH || ''}`
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -1315,7 +1318,8 @@ function ensurePluginHost() {
     continuity: taskContinuity().hooks,
     // A compatibility-mode plugin is activated in a separate process. It has to be *this*
     // deployment's node: a packaged application has no other one on the machine.
-    nodeExe: safeNodeExe()
+    nodeExe: safeNodeExe(),
+    restartSupervisorStateDir: path.join(ROOT, 'data', 'state', 'restart-supervisor')
   })
   logLine(`plugin runtime ready (${PLUGIN_CHANNELS.length} channels; lock enforcement ${block.enforceLock === true ? 'on' : 'off'})`)
   return pluginHost
@@ -1404,6 +1408,9 @@ async function startRestartSupervisor() {
   const listed = host.list()
   const plugins = Array.isArray(listed) ? listed : (listed && Array.isArray(listed.plugins) ? listed.plugins : [])
   const outcome = host.startCompanions()
+  // `ensure()` checked health before companions were started. Refresh the owning plugin now so the
+  // first visible service report reflects the launched process instead of caching that boot-time gap.
+  await host.health({ id: 'dshns.restart-supervisor' })
   /**
    * Say what this step did, always.
    *

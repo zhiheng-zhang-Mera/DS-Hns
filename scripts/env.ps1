@@ -3,12 +3,17 @@
 $ErrorActionPreference = 'Stop'
 $script:ROOT = Split-Path -Parent $PSScriptRoot
 $script:envLoaded = $true
+$script:commandTemp = if ($env:DSH_TEMP_ROOT) {
+  [System.IO.Path]::GetFullPath([string]$env:DSH_TEMP_ROOT)
+} else {
+  Join-Path (Split-Path -Parent $ROOT) 'temp'
+}
 
 $script:requiredDirs = @(
   "$ROOT\workspace\active",
   "$ROOT\workspace\completed",
   "$ROOT\workspace\temp",
-  "$ROOT\cache\temp",
+  $script:commandTemp,
   "$ROOT\cache\npm",
   "$ROOT\cache\electron",
   "$ROOT\cache\downloads",
@@ -28,7 +33,7 @@ foreach ($dir in $script:requiredDirs) {
   }
 }
 
-$probe = Join-Path "$ROOT\cache\temp" ("write-probe-{0}.tmp" -f ([guid]::NewGuid().ToString('N')))
+$probe = Join-Path $script:commandTemp ("write-probe-{0}.tmp" -f ([guid]::NewGuid().ToString('N')))
 try {
   Set-Content -LiteralPath $probe -Value 'probe' -Encoding ascii
   Remove-Item -LiteralPath $probe -Force
@@ -39,8 +44,8 @@ try {
 
 $env:DSH_ROOT = $ROOT
 $env:DSH_HOME = "$ROOT\data"
-$env:TEMP = "$ROOT\cache\temp"
-$env:TMP = "$ROOT\cache\temp"
+$env:TEMP = $script:commandTemp
+$env:TMP = $script:commandTemp
 $env:PIP_CACHE_DIR = "$ROOT\cache\pip"
 $env:npm_config_cache = "$ROOT\cache\npm"
 $env:ELECTRON_CACHE = "$ROOT\cache\electron"

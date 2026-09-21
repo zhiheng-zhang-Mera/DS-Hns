@@ -3,9 +3,10 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 
-const { createBundledPlugins, installBundled, removeBundled, sameReference, BUNDLED_MANIFEST, BUNDLED_STATE, communityEntries } = require('../../app/extensions/mega/plugins/index.cjs')
+const { createBundledPlugins, installBundled, removeBundled, sameReference, resolveProfileDependencyVersion, BUNDLED_MANIFEST, BUNDLED_STATE, communityEntries } = require('../../app/extensions/mega/plugins/index.cjs')
 const { createProtectionLayer, MODULE_STATE } = require('../../app/extensions/mega/protection/index.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
@@ -236,7 +237,7 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
   const main = read('app/desktop-main.cjs')
   // MEGA owns the bundled set (§19): the manager is created there, reads the store's own record, and
   // its protected modules are registered on start.
-  assert.match(index, /const \{ createBundledPlugins, installBundled, removeBundled \} = require\('\.\/plugins\/index\.cjs'\)/)
+  assert.match(index, /const \{ createBundledPlugins, installBundled, removeBundled, resolveProfileDependencyVersion \} = require\('\.\/plugins\/index\.cjs'\)/)
   assert.match(index, /bundled\(\)\.registerProtected\(\)/)
   assert.match(index, /installed: \(\) => \[/)
   assert.match(index, /protection: ctx\?\.protection \|\| null/)
@@ -259,7 +260,8 @@ test('the manager is wired into MEGA, and the shell hands it the protection laye
 test('installed means both places a bundled plugin can live, and a tag matches its version', () => {
   const index = read('app/extensions/mega/index.cjs')
   assert.match(index, /function harnessProfileDependencies\(\)/)
-  assert.match(index, /path\.join\(PATHS\.ROOT, 'data', 'profiles', harnessProfile\(\), 'package\.json'\)/)
+  assert.match(index, /const profileDir = path\.join\(PATHS\.ROOT, 'data', 'profiles', harnessProfile\(\)\)/)
+  assert.match(index, /const file = path\.join\(profileDir, 'package\.json'\)/)
   assert.match(index, /\.\.\.harnessProfileDependencies\(\)/)
   // The manifest pins the wallpaper engine's tag (`v0.7.1`) and npm records the version (`0.7.1`): the manager
   // must not call those different references.
@@ -277,6 +279,19 @@ test('installed means both places a bundled plugin can live, and a tag matches i
     ['dsh-wallpaper-engine', BUNDLED_STATE.INSTALLED],
     ['@dsh-market/plugin', BUNDLED_STATE.INSTALLED]
   ])
+})
+
+test('a file profile dependency is assessed by the installed package version, not its local path', () => {
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-profile-version-'))
+  try {
+    const packageDir = path.join(profile, 'node_modules', 'dsh-health-scheduler')
+    fs.mkdirSync(packageDir, { recursive: true })
+    fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: 'dsh-health-scheduler', version: '2.0.1' }))
+    assert.equal(resolveProfileDependencyVersion(profile, 'dsh-health-scheduler', 'file:D:/some/checkout/app/plugins/health-scheduler'), '2.0.1')
+    assert.equal(resolveProfileDependencyVersion(profile, '@dsh-market/plugin', '^0.4.7'), '0.4.7')
+  } finally {
+    fs.rmSync(profile, { recursive: true, force: true })
+  }
 })
 
 /**

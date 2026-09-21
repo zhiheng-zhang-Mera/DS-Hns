@@ -543,7 +543,7 @@ function createPluginHost(options = {}) {
    */
   function shippedArtifacts() {
     const host = continuity && typeof continuity === 'object' ? { ...continuity } : null
-    return [...mountedPlugins({ host }), ...accelerationPlugins()].map((plugin) => ({
+    return [...mountedPlugins({ host, nodeExe: options.nodeExe, stateDir: options.restartSupervisorStateDir }), ...accelerationPlugins()].map((plugin) => ({
       module: plugin,
       source: 'the shipped plugin set',
       shipped: true

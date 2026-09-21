@@ -3,6 +3,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8')
@@ -35,6 +36,19 @@ test('shared environment maps DeepSeek_API alias without changing system scope',
   assert.match(text, /DeepSeek_API/)
   assert.match(text, /\$env:DEEPSEEK_API_KEY = \[string\]\$legacyApi/)
   assert.doesNotMatch(text, /SetEnvironmentVariable\('DeepSeek_API'/)
+})
+
+test('shared command temp is on the same volume but outside the git workspace', () => {
+  const envScript = path.join(ROOT, 'scripts', 'env.ps1').replace(/'/g, "''")
+  const result = spawnSync('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy', 'Bypass',
+    '-Command', `. '${envScript}'; [Console]::Write($env:TEMP)`
+  ], { encoding: 'utf8' })
+  assert.equal(result.status, 0, result.stderr)
+  const resolved = path.resolve(result.stdout.trim())
+  assert.equal(path.parse(resolved).root.toLowerCase(), path.parse(ROOT).root.toLowerCase())
+  assert.equal(resolved.toLowerCase().startsWith(`${ROOT.toLowerCase()}${path.sep}`), false, `TEMP must not be inside ${ROOT}: ${resolved}`)
 })
 
 test('dependency installer has package, binary-repair, and fully-ready states', () => {

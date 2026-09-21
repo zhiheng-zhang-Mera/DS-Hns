@@ -117,7 +117,7 @@ test('there is exactly one restart executor: the supervisor, in process or as it
   const mounted = read('app/plugins/mounted/index.cjs')
   const providers = (mounted.match(/provides:.*restart-control/g) || []).length
   assert.equal(providers <= 1, true, 'more than one shipped plugin claims restart-control')
-  assert.match(mounted, /restartSupervisorPlugin\(host \? \{ host \} : \{\}\)/)
+  assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir \}\)/)
   /**
    * ...and the shell's continuity layer reaches that plugin, and only it.
    *
@@ -125,7 +125,7 @@ test('there is exactly one restart executor: the supervisor, in process or as it
    * supervisor through `createPluginHost({ continuity })` and the mounted set. A plugin that received
    * it by accident would be a plugin that can stop a user's work.
    */
-  assert.equal((mounted.match(/\(host \? \{ host \} : \{\}\)/g) || []).length, 1, 'the continuity host must be passed to exactly one plugin')
+  assert.equal((mounted.match(/restartSupervisorPlugin\(\{ host, nodeExe, stateDir \}\)/g) || []).length, 1, 'the continuity host must be passed to exactly one plugin')
   const shell = read('app/desktop-main.cjs')
   assert.match(shell, /continuity: taskContinuity\(\)\.hooks/)
   assert.match(shell, /function taskContinuity\(\)/)
@@ -729,6 +729,7 @@ test('the shell starts the companion at boot, watches its graceful request, and 
   const host = read('app/plugin-host.cjs')
   assert.match(shell, /startup\.defer\('restart-supervisor', \(\) => startRestartSupervisor\(\)\)/)
   assert.match(shell, /host\.startCompanions\(\)/)
+  assert.match(shell, /await host\.health\(\{ id: 'dshns\.restart-supervisor' \}\)/)
   assert.match(shell, /watchSupervisorStopRequest\(\)/)
   assert.match(shell, /app\.stop-request\.json/)
   assert.match(shell, /standDownRestartSupervisor\(\)/)
@@ -737,6 +738,41 @@ test('the shell starts the companion at boot, watches its graceful request, and 
   assert.match(host, /stopCompanions: \(reason = 'the application is exiting normally'\)/)
   // A companion is started through the plugin that owns it, not by a spawn path invented in the shell.
   assert.equal(/spawn\(.*companion.*main\.cjs/.test(shell), false)
+})
+
+test('the restart companion uses the portable Node executable supplied by the desktop host', () => {
+  const area = scratch('companion-node-exe')
+  const childProcess = require('node:child_process')
+  const originalSpawn = childProcess.spawn
+  const suppliedNode = path.join(area.dir, 'portable-node.exe')
+  let invocation = null
+  childProcess.spawn = (command, args, options) => {
+    invocation = { command, args, options }
+    return { pid: process.pid, unref() {} }
+  }
+  try {
+    const supervisor = createRestartSupervisorPlugin({ stateDir: area.dir, nodeExe: suppliedNode })
+    const started = supervisor.ensureCompanion({ force: true })
+    assert.equal(started.ok, true, JSON.stringify(started))
+    assert.equal(invocation.command, suppliedNode, 'Electron must not be used as the companion Node host')
+    assert.match(invocation.args[0], /companion[\\/]main\.cjs$/)
+    assert.deepEqual(
+      supervisor.companionStatus(),
+      { running: true, pid: process.pid, since: null, starting: true },
+      'health must recognize the launched companion before its asynchronous pid file appears'
+    )
+
+    const pluginHost = read('app/plugin-host.cjs')
+    const mounted = read('app/plugins/mounted/index.cjs')
+    const shell = read('app/desktop-main.cjs')
+    assert.match(pluginHost, /mountedPlugins\(\{ host, nodeExe: options\.nodeExe, stateDir: options\.restartSupervisorStateDir \}\)/)
+    assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir \}\)/)
+    assert.match(shell, /nodeExe: safeNodeExe\(\)/)
+    assert.match(shell, /restartSupervisorStateDir: path\.join\(ROOT, 'data', 'state', 'restart-supervisor'\)/)
+  } finally {
+    childProcess.spawn = originalSpawn
+    area.dispose()
+  }
 })
 
 // ---------------------------------------------------------------------------------------------

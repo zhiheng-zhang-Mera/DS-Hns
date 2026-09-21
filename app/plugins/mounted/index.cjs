@@ -614,6 +614,8 @@ function modelRuntimePlugin() {
  */
 function mountedPlugins(options = {}) {
   const host = options && typeof options.host === 'object' ? options.host : null
+  const nodeExe = options && typeof options.nodeExe === 'string' ? options.nodeExe : undefined
+  const stateDir = options && typeof options.stateDir === 'string' ? options.stateDir : undefined
   return [
     shellRuntimePlugin(),
     gitOperatorPlugin(),
@@ -639,7 +641,7 @@ function mountedPlugins(options = {}) {
     // out-of-process companion is started through the shell hooks `desktop-main.cjs` passes in.
     // Unlike the monitor it ships *enabled*, because without it no restart can be requested at all
     // -- and its budget, not a disabled plugin, is what keeps that from being dangerous.
-    restartSupervisorPlugin(host ? { host } : {})
+    restartSupervisorPlugin({ host, nodeExe, stateDir })
   ]
 }
 

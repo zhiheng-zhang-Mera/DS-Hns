@@ -28,6 +28,8 @@
  * an identity without either one owning the other.
  */
 
+const { resolveCommandTemp } = require('./temp-root.cjs')
+
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -367,7 +369,7 @@ function describeInstance({
       runtimeDir: path.join(instanceRoot, 'runtime'),
       stateDir: path.join(home, 'state'),
       logsDir: path.join(instanceRoot, 'logs'),
-      tempDir: path.join(instanceRoot, 'temp'),
+      tempDir: resolveCommandTemp(instanceRoot, {}),
       cacheDir: path.join(instanceRoot, 'cache'),
       /**
        * Electron's userData: per-instance, and never Electron's default. See

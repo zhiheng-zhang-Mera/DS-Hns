@@ -22,7 +22,7 @@ const { createDockTarget } = require('./dock/target')
 // The dock's rectangle, including the band it yields to the official UI. Shared with the shell so
 // the legacy window and the integrated view cannot disagree about where the dock starts.
 const { dockBounds, dockTopInset } = require('./dock/geometry.cjs')
-const { createBundledPlugins, installBundled, removeBundled } = require('./plugins/index.cjs')
+const { createBundledPlugins, installBundled, removeBundled, resolveProfileDependencyVersion } = require('./plugins/index.cjs')
 const { createMegaItems } = require('./mega-items.cjs')
 const { createAppearanceController } = require('./appearance/index.cjs')
 const { buildControlCenter } = require('./control-center.cjs')
@@ -2433,7 +2433,8 @@ function harnessProfile() {
  */
 function harnessProfileDependencies() {
   try {
-    const file = path.join(PATHS.ROOT, 'data', 'profiles', harnessProfile(), 'package.json')
+    const profileDir = path.join(PATHS.ROOT, 'data', 'profiles', harnessProfile())
+    const file = path.join(profileDir, 'package.json')
     if (!fs.existsSync(file)) return []
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'))
     const { entryForPackage } = require('./plugins/index.cjs')
@@ -2447,7 +2448,7 @@ function harnessProfileDependencies() {
         /** The package the profile actually declares, kept beside the id so a report can show both. */
         package: name,
         channel: entry ? entry.channel || 'harness-profile' : null,
-        version: String(version).replace(/^[\^~]/, ''),
+        version: resolveProfileDependencyVersion(profileDir, name, version),
         dir: null,
         enabled: true,
         where: 'harness-profile'

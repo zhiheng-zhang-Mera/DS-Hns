@@ -29,6 +29,7 @@ const { spawn, spawnSync } = require('node:child_process')
 const { EventEmitter } = require('node:events')
 
 const { syncShippedPackage } = require('../harness-profile.cjs')
+const { resolveCommandTemp } = require('./temp-root.cjs')
 
 const STARTUP_BUFFER_LIMIT = 64 * 1024
 
@@ -66,10 +67,11 @@ function resolveNodeExe({ root, env = process.env, log = () => {} } = {}) {
 }
 
 /** The instance's own directories, which the Harness is told to use and nothing else. */
-function ensureRuntimeDirs(root, dshHome) {
-  const dirs = ['logs', 'temp', 'cache', 'data', 'workspace', 'runtime']
+function ensureRuntimeDirs(root, dshHome, commandTemp) {
+  const dirs = ['logs', 'cache', 'data', 'workspace', 'runtime']
   for (const dir of dirs) fs.mkdirSync(path.join(root, dir), { recursive: true })
   if (dshHome) fs.mkdirSync(dshHome, { recursive: true })
+  fs.mkdirSync(commandTemp || resolveCommandTemp(root, process.env), { recursive: true })
 }
 
 /**
@@ -138,6 +140,7 @@ function createHarnessService({
   const DSH_ENTRY = entry || path.join(__dirname, '..', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
   const HARNESS_PORT = Number(port) || 3080
   const launchArgs = ['web', '--no-open', ...(portExplicit ? ['--port', String(HARNESS_PORT)] : [])]
+  const commandTemp = resolveCommandTemp(ROOT, env)
   const events = new EventEmitter()
   events.setMaxListeners(0)
 
@@ -203,7 +206,7 @@ function createHarnessService({
     if (child && child.exitCode === null) return Promise.resolve(url)
     stopped = false
     const nodeExe = resolveNodeExe({ root: ROOT, env, log: emitLog })
-    ensureRuntimeDirs(ROOT, HOME)
+    ensureRuntimeDirs(ROOT, HOME, commandTemp)
     syncProfilePlugin()
     output = ''
     url = null
@@ -232,8 +235,8 @@ function createHarnessService({
         DSH_NODE: nodeExe,
         DSH_HARNESS_PORT: String(HARNESS_PORT),
         npm_config_cache: path.join(ROOT, 'cache', 'npm'),
-        TEMP: path.join(ROOT, 'temp'),
-        TMP: path.join(ROOT, 'temp'),
+        TEMP: commandTemp,
+        TMP: commandTemp,
         PATH: `${path.dirname(nodeExe)};${env.PATH || ''}`
       },
       stdio: ['ignore', 'pipe', 'pipe'],

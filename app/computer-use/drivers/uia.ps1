@@ -868,6 +868,21 @@ function Invoke-FindOp($request) {
     $windowElement = Get-WindowElement $window
     if ($null -eq $windowElement) { continue }
     $searched++
+
+    # A request for a top-level window must not depend on that application's
+    # descendant provider. Some real apps expose their window properties
+    # promptly but can block indefinitely while UIA materialises the subtree.
+    # Match the window itself first and return as soon as the caller's limit is
+    # satisfied; descendant searches keep the existing exhaustive behaviour.
+    $scanned++
+    if (Test-NodeMatches $windowElement $filter) {
+      $record = New-FoundNode $windowElement $windowElement $window.Handle $maxDepth $memo
+      if ($null -ne $record) {
+        [void]$matches.Add($record)
+        if ($matches.Count -ge $limit) { break }
+      }
+    }
+
     $hits = @()
     try {
       # One native, explicitly conditioned search per window. It covers the window

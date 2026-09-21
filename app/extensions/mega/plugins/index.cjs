@@ -1,5 +1,6 @@
 'use strict'
 
+const fs = require('node:fs')
 const path = require('node:path')
 
 /**
@@ -244,6 +245,29 @@ function sameReference(installed, entry) {
   return version === entry.ref
     || version === entry.commit
     || sameVersionReference(version, entry.ref)
+}
+
+/**
+ * Return the version that is actually installed in a Harness profile.
+ *
+ * Published dependencies carry their version in the declaration. A local
+ * `file:` dependency carries only a checkout path there, so comparing that
+ * path with a release pin produces a false drift warning. For that shape the
+ * materialised package is the authority and its own package.json supplies the
+ * version. If it is missing or unreadable we retain the declaration so the
+ * caller reports the mismatch instead of inventing a successful install.
+ */
+function resolveProfileDependencyVersion(profileDir, packageName, declared) {
+  const declaration = String(declared || '').replace(/^[\^~]/, '')
+  if (!/^file:/i.test(declaration)) return declaration
+  try {
+    const manifest = path.join(profileDir, 'node_modules', ...String(packageName || '').split('/'), 'package.json')
+    const parsed = JSON.parse(fs.readFileSync(manifest, 'utf8'))
+    const version = String(parsed?.version || '').trim()
+    return version || declaration
+  } catch {
+    return declaration
+  }
 }
 
 /**
@@ -658,6 +682,7 @@ module.exports = {
   removeBundled,
   sameReference,
   sameVersionReference,
+  resolveProfileDependencyVersion,
   entryForPackage,
   normalizeReference
 }
