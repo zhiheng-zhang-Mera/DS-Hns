@@ -1,0 +1,20 @@
+{
+  "scannedAt": "2026-09-17T08:30:33.129Z",
+  "method": "reverse-dependency search (require/import, manifest, route/slot registration, runtime registration in app/plugin-host.cjs and app/plugins/mounted/index.cjs, the lockfile, tests/, and the four gates)",
+  "found": [
+    {
+      "id": "chaos-harness-unused-imports",
+      "path": "scripts/longhost-chaos.cjs, scripts/plugin-registration-check.cjs",
+      "finding": "two unused requires and their `void` suppressions",
+      "action": "removed"
+    },
+    {
+      "id": "orb-ipc-channels",
+      "path": "app/extensions/mega/index.cjs (mega:orb-*), ui/orb-preload.cjs",
+      "finding": "eleven IPC channels and the orb documents are unreachable unless DSH_SYSTEM_ORB=1",
+      "action": "kept: they are the opt-in system ball, classified E; deleting them would delete a feature"
+    }
+  ],
+  "conclusion": "no orphaned module was found in the shipped set: every file under app/plugins, app/core, app/extensions and app/reboot is reachable from the shell, the plugin host, a manifest, a route/slot registration or a gate",
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499"
+}

@@ -1,4 +1,4 @@
-# DS-Harness: sign the shipped client plugin into the Harness profile the product boots.
+# DS-Harness: sign a shipped plugin into the Harness profile the product boots.
 #
 # The orb (the floating ball in the official UI) is not drawn by our shell. It is drawn by
 # `app\plugins\mega-core`, a Harness *client* plugin whose browser half registers itself into the
@@ -16,25 +16,40 @@
 # never a hand-written profile: installing is another application's business. This script only
 # resolves Node, makes a pnpm reachable for that CLI, and calls it.
 #
+# **This script is generic over the plugin.** `-Plugin` names a directory under `app\plugins\` or an
+# absolute package directory, and what counts as "installed" is derived from *that package's own
+# manifest* -- its `main`/`exports['.']` entry, its `dsh.bundle.patch` file and its `exports['./client']`
+# when it declares one, read from the profile's own copy. A hard-coded `lib\client.js` check is what
+# this replaced: it only ever described one plugin, and the second one to need installing would have
+# had to either fake a browser half or be checked for something it does not ship.
+#
 # Reuse-first and idempotent: a profile that already declares this plugin at this checkout's own
 # `file:` spec, with the installed copy present, is reported and left untouched. A profile that
 # declares a *different* spec (a profile carried from another machine, where the checkout lived
 # somewhere else) is repaired rather than trusted.
 #
-# Printed output: one line per decision, then `already-installed` or `installed` on stdout.
-# Exit code: 0 when the profile has the shipped plugin (installed now or already), 1 when it does
-# not. A caller must degrade to "no orb" and carry on, never to a failed installation.
-param([switch]$Force)
+# Printed output: one line per decision, then `already-installed` or `installed` on stdout. With
+# `-Remove` it prints `removed` or `not-installed` instead: an uninstaller that removed the two
+# built-in plugins but left the orb in the profile would leave the official UI mounting a plugin the
+# product is no longer installed with, and a removal that cannot say whether it did anything is not a
+# removal.
+# Exit code: 0 when the profile has the plugin (installed now or already), 1 when it does not. A
+# caller must degrade to "this plugin is absent" and carry on, never to a failed installation.
+param(
+  [switch]$Force,
+  [switch]$Remove,
+  [string]$Plugin = 'mega-core'
+)
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
 
 Write-Output '[profile-plugin 1/4] Resolving the shipped plugin'
-$packageDir = Join-Path $ROOT 'app\plugins\mega-core'
+$packageDir = if ([System.IO.Path]::IsPathRooted($Plugin)) { $Plugin } else { Join-Path $ROOT (Join-Path 'app\plugins' $Plugin) }
 $manifestPath = Join-Path $packageDir 'package.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) {
-  # Also the honest answer for a checkout that never had the orb (the default branch before the
-  # plugin landed): say so rather than pretending an install failed.
-  Write-Warning "this checkout does not ship $packageDir, so there is no orb to install."
+  # Also the honest answer for a checkout that never had the plugin (the default branch before it
+  # landed): say so rather than pretending an install failed.
+  Write-Warning "this checkout does not ship $packageDir, so there is no plugin to install."
   exit 1
 }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -48,6 +63,42 @@ if (-not $pluginName) {
 $spec = 'file:' + ($packageDir -replace '\\', '/')
 Write-Host "  $pluginName $($manifest.version) from $spec"
 
+# The files this package's own manifest promises, as package-relative paths.
+#
+# Derived rather than assumed: `main` and `exports['.']` name the entry, `dsh.bundle.patch` names the
+# patch the Harness composes, and `exports['./client']` names a browser half *when the package
+# declares one*. A plugin without a client half (the health scheduler and the restart supervisor are
+# both in that group) is complete without one, and demanding `lib\client.js` from it would be this
+# script inventing a requirement.
+function Get-DeclaredFiles {
+  $declared = @()
+  if ($manifest.main) { $declared += [string]$manifest.main }
+  $exports = $manifest.exports
+  if ($exports) {
+    foreach ($key in @('.', './client')) {
+      if (-not ($exports.PSObject.Properties.Name -contains $key)) { continue }
+      $value = $exports.$key
+      if ($value -is [string]) { $declared += [string]$value }
+      elseif ($value) {
+        foreach ($condition in @('default', 'import', 'require', 'node')) {
+          if ($value.PSObject.Properties.Name -contains $condition) { $declared += [string]$value.$condition; break }
+        }
+      }
+    }
+  }
+  $dsh = $manifest.dsh
+  if ($dsh -and $dsh.bundle -and $dsh.bundle.patch) { $declared += [string]$dsh.bundle.patch }
+  return ($declared | Where-Object { $_ } | ForEach-Object { $_.TrimStart('./').Replace('/', '\') } | Sort-Object -Unique)
+}
+
+$declaredFiles = Get-DeclaredFiles
+if ($declaredFiles.Count -eq 0) {
+  # A manifest that names nothing is a package nothing can verify, and installing it would be a
+  # promise this script cannot keep.
+  Write-Warning "$manifestPath declares no entry (main, exports or dsh.bundle.patch), so the installed copy cannot be verified."
+  exit 1
+}
+
 $profileName = if ($env:DSH_PROFILE) { $env:DSH_PROFILE } else { 'web' }
 $dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $ROOT 'data' }
 $env:DSH_HOME = $dshHome
@@ -59,7 +110,6 @@ if (-not $env:npm_config_cache) { $env:npm_config_cache = Join-Path $ROOT 'cache
 
 $profileDir = Join-Path $dshHome "profiles\$profileName"
 $installedDir = Join-Path $profileDir "node_modules\$pluginName"
-$clientHalf = Join-Path $installedDir 'lib\client.js'
 
 function Get-DeclaredSpec {
   $file = Join-Path $profileDir 'package.json'
@@ -76,7 +126,33 @@ function Get-DeclaredSpec {
 }
 
 function Test-InstalledCopy {
-  return ((Test-Path -LiteralPath $clientHalf) -and (Test-Path -LiteralPath (Join-Path $installedDir 'lib\index.js')))
+  foreach ($relative in $declaredFiles) {
+    if (-not (Test-Path -LiteralPath (Join-Path $installedDir $relative))) { return $false }
+  }
+  return $true
+}
+
+# Is the installed copy the one this checkout has now?
+#
+# Two questions, because either alone is not enough: does every file the source package ships exist in
+# the copy, and is no source file newer than its copy? A `file:` install copies the directory, so a file
+# added to the package after the install is simply absent - and a file that changed is simply stale. Both
+# are reported as "not current", and the caller reinstalls.
+function Test-InstalledCopyCurrent {
+  if (-not (Test-Path -LiteralPath $installedDir)) { return $false }
+  $sourceFiles = @(Get-ChildItem -LiteralPath $packageDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\node_modules\\' })
+  foreach ($file in $sourceFiles) {
+    $relative = $file.FullName.Substring($packageDir.Length).TrimStart('\')
+    $copy = Join-Path $installedDir $relative
+    if (-not (Test-Path -LiteralPath $copy)) { return $false }
+    try {
+      $copyItem = Get-Item -LiteralPath $copy
+      if ($file.LastWriteTimeUtc -gt $copyItem.LastWriteTimeUtc.AddSeconds(2)) { return $false }
+    } catch {
+      return $false
+    }
+  }
+  return $true
 }
 
 function Test-SameSpec([string]$declared) {
@@ -88,12 +164,33 @@ function Test-SameSpec([string]$declared) {
 
 Write-Output '[profile-plugin 2/4] Reading the profile the product boots'
 Write-Host "  profile $profileName at $profileDir"
+$reinstallStale = $false
 $declared = Get-DeclaredSpec
 $installed = Test-InstalledCopy
-if ((-not $Force) -and (Test-SameSpec $declared) -and $installed) {
-  Write-Host '  the profile already has this plugin, at this checkout path; leaving it alone.'
-  Write-Output 'already-installed'
+if ($Remove -and (-not $declared)) {
+  Write-Host "  the profile does not carry $pluginName; there is nothing to remove."
+  Write-Output 'not-installed'
   exit 0
+}
+if ((-not $Remove) -and (-not $Force) -and (Test-SameSpec $declared) -and $installed) {
+  # "Already installed" is only true when the copy is *current*.
+  #
+  # A `file:` dependency is copied into the profile when it is installed, so a file added to the package
+  # afterwards is not there -- and this plugin's whole point is that it keeps growing (a new module, a new
+  # companion helper). The declared-file check cannot see a missing sibling, so the source directory and the
+  # installed copy are compared by name and modification time, and a copy that has fallen behind is
+  # reinstalled rather than reported as done. That is what "installed but the product will not boot" was.
+  if (Test-InstalledCopyCurrent) {
+    Write-Host '  the profile already has this plugin, at this checkout path, and the copy is current; leaving it alone.'
+    Write-Output 'already-installed'
+    exit 0
+  }
+  Write-Host '  the profile has this plugin, but the installed copy is out of date; reinstalling it.'
+  # Reinstalling is not enough on its own: pnpm resolves a `file:` dependency by the package's *manifest*,
+  # so an unchanged name and version is answered from its own store and the stale directory is left in
+  # place (observed: the add succeeded, the new files were still missing). Removing it first is what makes
+  # the add read the directory again -- the same two steps `-Repair` performs.
+  $reinstallStale = $true
 }
 if ($declared -and (-not (Test-SameSpec $declared))) {
   Write-Host "  the profile declares $declared, which is not this checkout; repairing it."
@@ -163,6 +260,43 @@ if (-not $pnpmOnPath) {
   Write-Host "  pnpm: $($pnpmOnPath.Source)"
 }
 
+if ($Remove -or $reinstallStale) {
+  if ($reinstallStale -and -not $Remove) {
+    Write-Output '[profile-plugin 4/4] Removing the stale copy before reinstalling it'
+  } else {
+    Write-Output '[profile-plugin 4/4] Removing it with the Harness own CLI'
+  }
+  # Removal names the *package*, not the spec it was installed from: `pnpm remove` matches a
+  # dependency by name, and a `file:` path is how it got there rather than what it is called.
+  Write-Host "  dsh plugin --profile $profileName remove $pluginName"
+  $transcript = @()
+  $previous = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $transcript = @(& $nodeExe $dshEntry 'plugin' '--profile' $profileName 'remove' $pluginName 2>&1 | ForEach-Object { [string]$_ })
+  } finally {
+    $ErrorActionPreference = $previous
+  }
+  $exit = $LASTEXITCODE
+  foreach ($line in @($transcript | Select-Object -Last 6)) {
+    if ($line.Trim()) { Write-Host "  | $line" }
+  }
+  if ($exit -ne 0) {
+    Write-Warning "the Harness CLI exited $exit; the profile may still carry $pluginName."
+    exit 1
+  }
+  # The CLI is the remover, not the proof: read the profile back, the same way the install path does.
+  if (Get-DeclaredSpec) {
+    Write-Warning "the profile still declares $pluginName; the removal did not land."
+    exit 1
+  }
+  Write-Host "  the profile no longer carries $pluginName."
+  if ($Remove) {
+    Write-Output 'removed'
+    exit 0
+  }
+}
+
 Write-Output '[profile-plugin 4/4] Installing it with the Harness own CLI'
 Write-Host "  dsh plugin --profile $profileName add $spec"
 $transcript = @()
@@ -192,6 +326,32 @@ if ((-not (Test-SameSpec $declared)) -or (-not $installed)) {
   Write-Warning "the profile still does not carry $pluginName (declared: '$declared', copy: $installed)."
   exit 1
 }
-Write-Host "  the profile now has $pluginName; the next launch mounts it and draws the orb."
+
+# A *shipped* plugin is code in this repository, so the profile points at it rather than at a snapshot.
+#
+# The Harness' CLI (pnpm) imports a `file:` dependency into its own store and materialises it under
+# `node_modules/<name>`. That import is keyed by the package's name and version, so a file added to the
+# package without a version bump is never copied -- the install reports success and the product then fails
+# to boot with `Cannot find module './contract.cjs'`, which is exactly what happened here. Replacing the
+# materialised directory with a junction to the source makes the copy current by construction: there is
+# nothing to go stale, and a checkout that is updated is a profile that is updated.
+if (-not $Remove) {
+  $junction = $installedDir
+  try {
+    if (Test-Path -LiteralPath $junction) { Remove-Item -LiteralPath $junction -Recurse -Force -ErrorAction Stop }
+    New-Item -ItemType Junction -Path $junction -Target $packageDir -ErrorAction Stop | Out-Null
+    Write-Host "  the profile points at this checkout rather than a copy of it ($junction -> $packageDir)"
+  } catch {
+    # A junction is not essential to correctness on a machine that cannot create one (a locked directory,
+    # a policy): the files are there either way, and the staleness check above already reinstalled them.
+    Write-Host "  the profile carries a copy instead of a link ($($_.Exception.Message))"
+  }
+}
+$hasClientHalf = ($declaredFiles | Where-Object { $_ -match 'client\.js$' }).Count -gt 0
+if ($hasClientHalf) {
+  Write-Host "  the profile now has $pluginName; the next launch mounts it and draws the orb."
+} else {
+  Write-Host "  the profile now has $pluginName; the next launch composes its row and lists it in the official plugin inventory."
+}
 Write-Output 'installed'
 exit 0

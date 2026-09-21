@@ -90,9 +90,22 @@ const plugin = { id: 'dsh-plugin-mega-core', version: '0.1.0' }
 
 test('the view model asks governance for exactly the actions the bridge accepts', async () => {
   const { MEGA_ACTIONS } = await loadView()
-  // Two lists, one closed set: if the bridge gains or loses an action and the plugin does not follow, this is
-  // the test that says so — rather than a button in the official UI that silently does nothing.
-  assert.deepEqual([...MEGA_ACTIONS], [...BRIDGE_ACTIONS])
+  /**
+   * Two lists, one closed set — and they are now one list.
+   *
+   * The plugin used to carry its own `MEGA_ACTIONS`, and the view offered service actions the bridge had
+   * never heard of (`diagnostics`, `restart-plugin`, `manual-restart`, `reset-budget`): four buttons that
+   * could only ever print a refusal. The vocabulary lives in `app/core/contracts/service-actions.cjs` now,
+   * and this asserts the view's module recovery set is exactly the contract's non-balance half — so a new
+   * action cannot be drawn without the bridge accepting it.
+   */
+  const { PRODUCT_ACTIONS, MODULE_ACTIONS, ACCEPTED_ACTIONS } = require('../../app/core/contracts/service-actions.cjs')
+  const recovery = PRODUCT_ACTIONS.filter((action) => action.id !== 'refresh-balance').map((action) => action.id)
+  assert.deepEqual([...MEGA_ACTIONS], [...recovery, ...MODULE_ACTIONS])
+  for (const action of MEGA_ACTIONS) {
+    assert.ok(ACCEPTED_ACTIONS.includes(action), `the bridge does not accept ${action}`)
+    assert.ok(BRIDGE_ACTIONS.includes(action), `the bridge does not accept ${action}`)
+  }
 })
 
 test('a degraded layer is degraded everywhere: status, hover, lines and fields agree', async () => {

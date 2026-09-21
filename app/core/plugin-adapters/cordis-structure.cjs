@@ -271,12 +271,20 @@ function patchRowsFor(dir, relative) {
  * @param {string} dir the plugin directory
  * @param {object} pkg its package.json
  * @param {string[]} roots directories that provide host dependencies, most specific first
+ * @param {string[]} [platformWords] specifiers the *client module host* supplies as platform words
+ *   rather than as installed packages. A community plugin's `dsh.client.inject` list is exactly that
+ *   list: those names are answered by the browser module loader's own table at load time, so a
+ *   `node_modules` search for them is the wrong question. Anything unresolved that is named here is
+ *   reported as `providedAtRuntime` and not as missing — a distinction that keeps "the host does not
+ *   provide this" apart from "this host has nothing to do with it".
  */
-function auditPeers(dir, pkg, roots = []) {
+function auditPeers(dir, pkg, roots = [], platformWords = []) {
   const peers = pkg.peerDependencies && typeof pkg.peerDependencies === 'object' ? pkg.peerDependencies : {}
   const meta = pkg.peerDependenciesMeta && typeof pkg.peerDependenciesMeta === 'object' ? pkg.peerDependenciesMeta : {}
+  const words = new Set((Array.isArray(platformWords) ? platformWords : []).map(String))
   const resolved = {}
   const missing = []
+  const providedAtRuntime = []
   const required = []
   const optional = []
 
@@ -303,6 +311,10 @@ function auditPeers(dir, pkg, roots = []) {
     if (found) {
       const manifest = readJson(path.join(found.root, name, 'package.json'))
       resolved[name] = { ...found, version: manifest && manifest.version ? String(manifest.version) : null }
+    } else if (words.has(name)) {
+      // A platform word: the client module host answers this specifier out of its own table, so
+      // there is nothing to resolve from disk and nothing missing.
+      providedAtRuntime.push({ ...entry, providedBy: 'client-module-platform' })
     } else if (!isOptional) {
       // Only a *required* peer that is missing is a blocker. An optional peer that is absent is
       // the plugin's own stated degradation, and reporting it as a failure would be this platform
@@ -310,7 +322,7 @@ function auditPeers(dir, pkg, roots = []) {
       missing.push(entry)
     }
   }
-  return { required, optional, resolved, missing }
+  return { required, optional, resolved, missing, providedAtRuntime }
 }
 
 /**
@@ -351,7 +363,12 @@ function analyzeCordisPlugin(dir, options = {}) {
   if (pkg.peerDependencies && pkg.peerDependencies['@deepseek-ai/cordis']) markers.push(STRUCTURE_MARKERS.PEER_CORDIS)
 
   const inject = injectFrom(hostEntry.file ? path.join(root, hostEntry.file) : null)
-  const peers = auditPeers(root, pkg, Array.isArray(options.roots) ? options.roots : [])
+  // The client half's `inject` list is the set of specifiers the browser module loader answers as
+  // platform words, so the peer audit is told about them: an unresolved `@deepseek-ai/dsh-client-runtime`
+  // is answered by that table at load time, and calling it missing would be a wrong report about a
+  // plugin's correctness rather than a fact about the host.
+  const clientInject = client && Array.isArray(client.inject) ? client.inject.map(String) : []
+  const peers = auditPeers(root, pkg, Array.isArray(options.roots) ? options.roots : [], clientInject)
 
   const shape = bundle.patch || patch.exists
     ? PLUGIN_SHAPES.DSH_BUNDLE

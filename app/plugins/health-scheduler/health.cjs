@@ -4,38 +4,54 @@
  * DS-Hns: the health engine behind `dshns.health-scheduler`.
  *
  * This is the part that reads the machine and the runtime, keeps a bounded history, scores a
- * pressure and decides what to do about it. It is deliberately free of any host coupling: it takes
- * a `readings()` function, a clock and a configuration, and returns values. That is what makes it
- * testable without a machine under load, and what keeps the plugin's lifecycle in `index.cjs`
- * where the platform's contract lives.
+ * pressure, decides what to do about it and explains the whole chain. It is deliberately free of any
+ * host coupling: it takes a clock, a configuration, a provider registry and an optional readings
+ * function, and returns values. That is what makes it testable without a machine under load, and what
+ * keeps the plugin's lifecycle in `index.cjs` where the platform's contract lives.
  *
- * ## Two rules the scoring follows
+ * ## Three rules the model follows
  *
- * **Unknown is never healthy.** A dimension whose telemetry is missing is reported `unknown` and
- * its weight is *redistributed* across the dimensions that did report, with the coverage published
- * alongside the score. Scoring a missing sensor as zero pressure is how a monitor reports calm on a
- * machine it cannot see.
+ * **Unknown is never healthy.** A dimension whose telemetry is missing is reported `unknown` and its
+ * weight is *redistributed* across the dimensions that did report, with the coverage published
+ * alongside the score. A sample that could see too little of the machine is `UNKNOWN` at the state
+ * level too, and `UNKNOWN` never escalates to a maintenance action. Scoring a missing sensor as zero
+ * pressure is how a monitor reports calm on a machine it cannot see.
  *
- * **Pressure is a trend, not a spike.** Samples enter a rolling window and the score uses the
- * window's behaviour, not the latest number. One garbage collection is not memory pressure.
+ * **Pressure is a trend, not a spike.** Samples enter a rolling window and both the score and the
+ * state use the window's behaviour: hysteresis on the thresholds, a debounce on the transitions and a
+ * least-squares trend beside them. One garbage collection is not memory pressure, and one checkpoint
+ * is not a reason to restart.
+ *
+ * **One broken sensor is one broken sensor.** Every reading arrives through a provider, and every
+ * provider call is isolated (`providers.cjs`). A provider that throws leaves the dimensions it fed
+ * *unknown*, records a fault against itself, lowers the sample's confidence and changes nothing else.
  *
  * ## The action ladder, and where authority stops
  *
- * The ladder is `NO_ACTION → THROTTLE → PAUSE_NEW_WORK → REQUEST_RESTART`, with hysteresis so a
- * score hovering on a threshold does not flap between two decisions. The engine *decides* up to
- * `PAUSE_NEW_WORK`; beyond that it produces a **request**, and a request is not an action. Nothing
- * in this file restarts anything, and nothing in it can: the caller passes in whatever can execute
- * a restart, and when it passes nothing the decision is still made and reported — with the restart
+ * The ladder is `NO_ACTION → THROTTLE → PAUSE_NEW_WORK → REQUEST_RESTART`, with hysteresis so a score
+ * hovering on a threshold does not flap between two decisions. The engine *decides* up to
+ * `PAUSE_NEW_WORK`; beyond that it produces a **request**, and a request is not an action. Nothing in
+ * this file restarts anything, and nothing in it can: the caller passes in whatever can execute a
+ * restart, and when it passes nothing the decision is still made and reported — with the restart
  * marked unavailable rather than silently dropped.
  */
 
-/** The dimensions a score is made of, and what each one is reading. */
-const DIMENSIONS = Object.freeze({
-  memory: 'how much of the machine\'s memory is committed',
-  cpu: 'how loaded the machine\'s processors are',
-  runtime: 'how long this process has been up and how much it has grown',
-  responsiveness: 'how far the event loop is drifting from its schedule'
-})
+const {
+  DIMENSIONS,
+  ENRICHMENT_KEYS,
+  createProviderRegistry,
+  defaultProviders,
+  machineProvider,
+  processAgeProvider,
+  eventLoopProvider,
+  workerProvider,
+  taskProvider,
+  historyProvider,
+  clamp,
+  reading: makeReading
+} = require('./providers.cjs')
+
+const { HEALTH_STATES, TRENDS, DEFAULT_MODEL, createSeverityModel, stateForSample, trendOf } = require('./severity.cjs')
 
 /** The actions, in escalating order. The rank is the order, not a severity scale. */
 const ACTIONS = Object.freeze({
@@ -52,7 +68,15 @@ const ACTION_RANK = Object.freeze({
   REQUEST_RESTART: 3
 })
 
-/** The shipped defaults. Every threshold has an `exit` below its `enter`, which is the hysteresis. */
+/**
+ * The shipped defaults. Every threshold has an `exit` below its `enter`, which is the hysteresis.
+ *
+ * `enrichment` is the part a panel configures: the ceilings the new dimensions are scored against,
+ * and the weights they carry *in the enrichment score* — a separate, advisory number that never
+ * drives an action on its own. The four base dimensions keep their weights exactly, so the action
+ * ladder's behaviour is unchanged by the richer telemetry; what the new dimensions do is change the
+ * *state* and the *explanation*.
+ */
 const DEFAULT_CONFIG = Object.freeze({
   enabled: true,
   sampling: { intervalMs: 15_000, windowMs: 300_000, maxSamples: 64 },
@@ -63,9 +87,34 @@ const DEFAULT_CONFIG = Object.freeze({
     restart: { enter: 85, exit: 72 }
   },
   cooldowns: { restartMs: 1_800_000, actionMs: 300_000 },
-  maintenance: { enabled: false, windowStart: '03:00', windowEnd: '05:00' },
+  maintenance: {
+    enabled: false,
+    windowStart: '03:00',
+    windowEnd: '05:00',
+    /** How long a restart may be deferred waiting for a safe moment. Never unbounded. */
+    maxDeferMs: 1_800_000,
+    /** The hard deadline. Past it the request is refused with a reason rather than deferred again. */
+    deadlineMs: 7_200_000,
+    /**
+     * Whether a *planned* machine-level escalation is the tier once the deadline is near.
+     *
+     * It is off by default and it is not reachable from this plugin: the escalation tier is the
+     * restart supervisor's, decided by its maintenance policy, and this monitor never asks for one.
+     * The flag exists so a deployment can record the intent without this file gaining a path to it.
+     */
+    allowSystemEscalation: false
+  },
   /** A restart is requested only when the pressure has been sustained, never on one sample. */
-  restartRequiresSustainedMs: 120_000
+  restartRequiresSustainedMs: 120_000,
+  /** The five-state model: thresholds, debounce and the floors below which a sample is UNKNOWN. */
+  model: { ...DEFAULT_MODEL, thresholds: { ...DEFAULT_MODEL.thresholds } },
+  /** The ceilings the enrichment dimensions are measured against. */
+  enrichment: {
+    queueCeiling: 20,
+    longRunningMinutes: 30,
+    /** Below this heartbeat quality the sample's confidence is treated as low. */
+    heartbeatQualityFloor: 0.5
+  }
 })
 
 /** Read a clock as minutes since midnight. */
@@ -93,12 +142,6 @@ function inWindow(minuteOfDay, startClock, endClock) {
   return minuteOfDay >= start || minuteOfDay < end
 }
 
-/** Clamp to the 0-100 a score lives in. */
-function clamp(value) {
-  if (!Number.isFinite(value)) return 0
-  return Math.max(0, Math.min(100, value))
-}
-
 /** A dimension's 0-100 pressure, or null when its telemetry is missing. */
 function scoreDimension(name, reading) {
   if (!reading || !Number.isFinite(reading.value)) return null
@@ -111,8 +154,10 @@ function scoreDimension(name, reading) {
 /**
  * The default readings, from `node:os` and `node:process`.
  *
- * Injectable so a test can drive the engine without a machine under load, and so a deployment can
- * extend it without editing this file.
+ * Kept as an injectable function because a test drives the engine with it, and because a deployment
+ * may replace the whole collector. It is one *provider-like* source among several now — the extra
+ * dimensions arrive through `providers.cjs` — but it is deliberately still the simplest thing that
+ * can work, so a test that only wants the four base dimensions has nothing to set up.
  */
 function defaultReadings() {
   const os = require('node:os')
@@ -143,13 +188,37 @@ function defaultReadings() {
 
 /**
  * @param {object} [options]
- * @param {Function} [options.readings] returns the raw dimension readings
+ * @param {Function} [options.readings] returns the raw base-dimension readings
+ * @param {Array}  [options.providers] extra telemetry providers
+ * @param {object} [options.capabilities] live capability values the providers read through
  * @param {Function} [options.now]
  */
 function createHealthEngine(options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => Date.now()
   const read = typeof options.readings === 'function' ? options.readings : defaultReadings
   const config = mergeConfig(DEFAULT_CONFIG, options.config)
+
+  /**
+   * Which providers this engine reads through.
+   *
+   * The registry always carries the *independent* observations — the event loop's own lateness, the
+   * heartbeat, the worker pool, the queue and the restart history — because none of them can be
+   * supplied by the base collector and none of them overlaps with it.
+   *
+   * The machine and process-age providers are the opposite case: they produce exactly the dimensions
+   * the base collector produces, so registering both would mean two answers to one question. They are
+   * therefore registered only when the caller did *not* supply a collector, and a caller that did is
+   * the authority for those dimensions — its reading wins, and the provider enriches nothing there.
+   */
+  const injected = typeof options.readings === 'function'
+  const baseProviders = injected ? [] : [machineProvider(), processAgeProvider()]
+  const extraProviders = Array.isArray(options.providers) ? options.providers : []
+  const providers = createProviderRegistry({
+    providers: [...baseProviders, eventLoopProvider(), workerProvider(), taskProvider(), historyProvider(), ...extraProviders]
+  })
+  const severity = createSeverityModel({ config: config.model, now })
+  /** The capability values a provider may read through, refreshed by the plugin on each tick. */
+  const capabilities = options.capabilities && typeof options.capabilities === 'object' ? options.capabilities : {}
 
   const samples = []
   const decisions = []
@@ -164,7 +233,8 @@ function createHealthEngine(options = {}) {
    */
   let restartRequestedAt = null
   let pressureSince = null
-
+  /** When the current maintenance deferral began, for the bounded defer. */
+  let deferringSince = null
   /** Loop drift: how late a scheduled tick actually ran, as a share of its interval. */
   let lastTickAt = null
   let driftMs = 0
@@ -180,21 +250,33 @@ function createHealthEngine(options = {}) {
     return out
   }
 
+  /** Update the capability values a provider reads through, without rebuilding the engine. */
+  function bindCapabilities(next = {}) {
+    Object.assign(capabilities, next)
+    return { ...capabilities }
+  }
+
+  /** Record a heartbeat beat, so the heartbeat provider has something to score. */
+  function beat(atMs = now(), detail = null) {
+    return providers.beat('heartbeat', atMs, detail)
+  }
+
   /**
    * Take one sample.
    *
    * The readings are read through a guard because a collector is the one thing here that touches
    * the machine: a `node:os` call that throws must leave a dimension *unknown*, not take the
-   * monitor down with it.
+   * monitor down with it. The same guard, generalized, is what `providers.cjs` does for every
+   * provider — this one remains because the base collector is injectable and is not a provider.
    */
   function sample(atMs = now()) {
-    let readings = {}
+    let injected = {}
     let failure = null
     try {
-      readings = read() || {}
+      injected = read() || {}
     } catch (error) {
       failure = String(error && error.message ? error.message : error)
-      readings = {}
+      injected = {}
     }
 
     if (lastTickAt !== null) {
@@ -202,15 +284,32 @@ function createHealthEngine(options = {}) {
       driftMs = Math.max(0, (atMs - lastTickAt) - interval)
     }
     lastTickAt = atMs
-    // Responsiveness is measured here rather than collected: it is the sampler's own observation
-    // about the process it is running in.
-    const driftShare = Math.min((driftMs / Math.max(config.sampling.intervalMs, 1)) * 100, 100)
-    readings = {
-      ...readings,
-      responsiveness: { value: driftShare, warn: 60, critical: 90, detail: { driftMs } }
-    }
+    // The loop's own lateness is handed to the provider that owns the dimension, rather than being
+    // written straight into the readings: it is one provider's observation, with the same fault
+    // boundary as every other, and keeping it there is what makes "a provider cannot take the
+    // monitor down" true without an exception for the one reading the monitor makes itself.
+    providers.observe('event-loop', driftMs)
 
-    const at = atMs
+    const provided = providers.readAll({
+      atMs,
+      intervalMs: config.sampling.intervalMs,
+      capabilities,
+      runtimeHealth: capabilities['runtime-health'] || null,
+      restartControl: capabilities['restart-control'] || null,
+      pendingWork: typeof capabilities.pendingWork === 'function' ? capabilities.pendingWork() : (capabilities.pendingWork || null),
+      ceilings: config.enrichment
+    })
+
+    // The base readings are merged with the providers', and the injected value wins for a dimension
+    // it names. That precedence is deliberate and observable: a caller that supplied `readings` is
+    // the authority for the dimensions it returns, and a provider enriches around it.
+    const readings = { ...provided.readings }
+    for (const [dimension, value] of Object.entries(injected)) {
+      if (value && Number.isFinite(value.value)) readings[dimension] = value
+    }
+    // Responsiveness is the sampler's own observation, so it always comes from the provider.
+    if (provided.readings.responsiveness) readings.responsiveness = provided.readings.responsiveness
+
     const scores = {}
     const unknown = []
     let weighted = 0
@@ -244,9 +343,42 @@ function createHealthEngine(options = {}) {
      */
     const escalation = Math.max(0, (worst - 60) / 2)
     const pressure = Math.round(clamp(mean + escalation))
-    const entry = { at, pressure, mean: Math.round(mean), worst, scores, unknown, coverage: Math.round(weightUsed * 100), driftMs, failure }
+
+    /**
+     * The sample confidence combines what the *providers* answered with the *heartbeat quality*.
+     *
+     * Coverage already says how much of the machine reported; this says how much of the telemetry
+     * machinery is working at all. A product whose heartbeat has stopped is a product whose readings
+     * are stale even when every dimension answered, and the model refuses to call that healthy.
+     */
+    const heartbeatQuality = Number.isFinite(provided.enrichment.heartbeatQuality) ? provided.enrichment.heartbeatQuality : null
+    const qualityFactor = heartbeatQuality === null ? 1 : Math.max(0.25, heartbeatQuality)
+    const confidence = Number(((provided.confidence * qualityFactor)).toFixed(3))
+
+    const entry = {
+      at: atMs,
+      pressure,
+      mean: Math.round(mean),
+      worst,
+      scores,
+      unknown,
+      coverage: Math.round(weightUsed * 100),
+      confidence,
+      driftMs,
+      failure,
+      /** Every dimension's raw reading, so a report can show what the score was made of. */
+      readings: Object.fromEntries(Object.entries(readings).map(([dimension, value]) => [dimension, value ? { value: Math.round(value.value * 100) / 100, warn: value.warn, critical: value.critical, detail: value.detail || null } : null])),
+      /** The enrichment dimensions: the extra facts a provider contributed, `null` when unknown. */
+      enrichment: Object.fromEntries(ENRICHMENT_KEYS.map((key) => [key, provided.enrichment[key] === undefined ? null : provided.enrichment[key]])),
+      /** Which providers answered, and which broke — the fault boundary made visible. */
+      providers: { answered: provided.answered.slice(), failures: provided.failures.slice(), missingRequired: provided.missingRequired.slice(), confidence: provided.confidence },
+      /** The five-state verdict for *this* sample, before debounce. */
+      state: stateForSample({ pressure, coverage: Math.round(weightUsed * 100), confidence }, config.model).state
+    }
     samples.push(entry)
     if (samples.length > config.sampling.maxSamples) samples.shift()
+    // The severity model sees the sample, which is what carries the debounce and the transitions.
+    entry.model = severity.observe(entry, atMs)
     return entry
   }
 
@@ -271,6 +403,51 @@ function createHealthEngine(options = {}) {
     if (pressure >= (rank >= ACTION_RANK.PAUSE_NEW_WORK ? pause.exit : pause.enter)) next = ACTIONS.PAUSE_NEW_WORK
     if (pressure >= (rank >= ACTION_RANK.REQUEST_RESTART ? restart.exit : restart.enter)) next = ACTIONS.REQUEST_RESTART
     return next
+  }
+
+  function minuteOfDayFrom(atMs) {
+    const date = new Date(atMs)
+    return date.getHours() * 60 + date.getMinutes()
+  }
+
+  /** Whether a *planned* restart may happen at this moment, and if not, why not. */
+  function maintenanceVerdict(atMs, request) {
+    const maintenance = config.maintenance
+    if (!request) return { allowed: true, reason: null, deferUntil: null }
+    if (!maintenance.enabled) return { allowed: true, reason: 'no maintenance window is configured', deferUntil: null }
+    const minute = minuteOfDayFrom(atMs)
+    const open = inWindow(minute, maintenance.windowStart, maintenance.windowEnd)
+    if (open) {
+      deferringSince = null
+      return { allowed: true, reason: 'now is inside the maintenance window', deferUntil: null }
+    }
+    // Outside the window the request is *deferred*, inside a bounded horizon: `maxDeferMs` is how long
+    // it may wait for the window to open, and `deadlineMs` is the hard stop past which the answer is
+    // a refusal with a reason rather than another deferral.
+    if (deferringSince === null) deferringSince = atMs
+    const deferredFor = atMs - deferringSince
+    if (deferredFor >= maintenance.deadlineMs) {
+      return {
+        allowed: false,
+        reason: `the restart has been deferred for ${deferredFor}ms, past the ${maintenance.deadlineMs}ms maintenance deadline`,
+        deferUntil: null,
+        deadlinePassed: true
+      }
+    }
+    if (deferredFor >= maintenance.maxDeferMs) {
+      return {
+        allowed: false,
+        reason: `the restart has waited ${deferredFor}ms for the maintenance window, past the ${maintenance.maxDeferMs}ms maximum defer`,
+        deferUntil: null,
+        maxDeferReached: true
+      }
+    }
+    return {
+      allowed: false,
+      reason: `now is outside the maintenance window (${maintenance.windowStart}-${maintenance.windowEnd}); the restart is deferred`,
+      deferUntil: maintenance.windowStart,
+      deferredForMs: deferredFor
+    }
   }
 
   /**
@@ -301,12 +478,16 @@ function createHealthEngine(options = {}) {
         scores: Object.fromEntries(Object.keys(DIMENSIONS).map((dimension) => [dimension, null])),
         unknown: Object.keys(DIMENSIONS).slice(),
         coverage: 0,
+        confidence: 0,
+        state: HEALTH_STATES.UNKNOWN,
+        trend: TRENDS.UNKNOWN,
         inMaintenance: false,
         sustainedMs: 0,
         request: null,
         held: null,
         reasons: ['no samples have been taken yet'],
-        coverage_note: null
+        coverage_note: null,
+        maintenance: { allowed: false, reason: 'nothing has been sampled, so nothing may be scheduled', deferUntil: null }
       }
       decisions.push(empty)
       if (decisions.length > 50) decisions.shift()
@@ -320,35 +501,52 @@ function createHealthEngine(options = {}) {
 
     const wanted = actionFor(latest.pressure, lastAction)
     const inMaintenance = config.maintenance.enabled && inWindow(minuteOfDayFrom(atMs), config.maintenance.windowStart, config.maintenance.windowEnd)
+    const trendResult = trendOf(window, config.model)
+    const model = severity.explain(latest, atMs, window)
 
     const reasons = []
     if (latest.unknown.length) reasons.push(`${latest.unknown.join(', ')} reported no telemetry`)
+    if (latest.providers && latest.providers.failures.length) reasons.push(`${latest.providers.failures.map((fault) => fault.provider).join(', ')} telemetry provider(s) failed`)
     if (latest.pressure >= config.thresholds.throttle.enter) reasons.push(`pressure ${latest.pressure} is at or above the throttle threshold`)
+    if (trendResult.trend === TRENDS.RISING) reasons.push(`pressure is rising (${trendResult.slopePerMinute}/min)`)
     if (inMaintenance) reasons.push('now is inside the maintenance window')
 
     let action = wanted
     let request = null
     let held = null
+    let maintenance = { allowed: true, reason: null, deferUntil: null }
 
     if (action === ACTIONS.REQUEST_RESTART) {
-      // A restart is the one decision that is *requested* rather than taken, so it has three
-      // separate gates: the pressure must have been sustained, the cooldown must have elapsed, and
-      // the caller must be able to execute it.
-      if (sustainedMs < config.restartRequiresSustainedMs) {
+      // A restart is the one decision that is *requested* rather than taken, so it has four
+      // separate gates: the state must not be UNKNOWN, the pressure must have been sustained, the
+      // cooldown must have elapsed, and a maintenance window must allow it.
+      if (latest.state === HEALTH_STATES.UNKNOWN) {
+        held = `the sample is ${HEALTH_STATES.UNKNOWN} (${model.triggeredReason}), and a restart is never requested on a sample that cannot see the machine`
+        action = ACTIONS.PAUSE_NEW_WORK
+      } else if (sustainedMs < config.restartRequiresSustainedMs) {
         held = `pressure has been above ${config.thresholds.restart.enter} for ${sustainedMs}ms, short of the ${config.restartRequiresSustainedMs}ms a restart requires`
         action = ACTIONS.PAUSE_NEW_WORK
       } else if (restartRequestedAt !== null && atMs - restartRequestedAt < config.cooldowns.restartMs) {
         held = `a restart was requested ${atMs - restartRequestedAt}ms ago, inside the ${config.cooldowns.restartMs}ms cooldown`
         action = ACTIONS.PAUSE_NEW_WORK
       } else {
-        request = {
+        const candidate = {
           reasonCode: 'RUNTIME_PRESSURE',
-          reasonSummary: `health pressure ${latest.pressure} sustained for ${sustainedMs}ms`,
+          reasonSummary: `health pressure ${latest.pressure} sustained for ${sustainedMs}ms (state ${latest.state}, trend ${trendResult.trend})`,
           mode: 'application',
           priority: latest.pressure >= 95 ? 'high' : 'normal',
           checkpointRequired: true
         }
-        restartRequestedAt = atMs
+        maintenance = maintenanceVerdict(atMs, candidate)
+        if (maintenance.allowed) {
+          request = { ...candidate, maintenance: maintenance.reason }
+          restartRequestedAt = atMs
+        } else {
+          held = maintenance.reason
+          // A deferral is `PAUSE_NEW_WORK` with a stated horizon: the monitor keeps watching, the
+          // request stays pending, and the deadline is what stops it pending forever.
+          action = ACTIONS.PAUSE_NEW_WORK
+        }
       }
     }
 
@@ -367,21 +565,23 @@ function createHealthEngine(options = {}) {
       scores: latest.scores,
       unknown: latest.unknown,
       coverage: latest.coverage,
+      confidence: latest.confidence,
+      state: latest.state,
+      model,
+      trend: trendResult.trend,
+      slopePerMinute: trendResult.slopePerMinute,
       inMaintenance,
+      maintenance,
       sustainedMs,
       request,
       held,
       reasons,
       coverage_note: latest.coverage < 100 ? 'some dimensions had no telemetry; the score is over the rest' : null
     }
+    severity.noteDecision(decision)
     decisions.push(decision)
     if (decisions.length > 50) decisions.shift()
     return decision
-  }
-
-  function minuteOfDayFrom(atMs) {
-    const date = new Date(atMs)
-    return date.getHours() * 60 + date.getMinutes()
   }
 
   /** Note the outcome of a restart request so the cooldown and the report reflect reality. */
@@ -392,19 +592,24 @@ function createHealthEngine(options = {}) {
 
   function report() {
     const window = windowed()
+    const latest = samples.length ? samples[samples.length - 1] : null
     return {
       samples: samples.length,
       window: window.length,
-      latest: samples.length ? samples[samples.length - 1] : null,
+      latest,
       peak: window.reduce((max, entry) => Math.max(max, entry.pressure), 0),
       lastAction,
       lastDecision: decisions.length ? decisions[decisions.length - 1] : null,
       restartRequestedAt: restartRequestedAt || null,
+      /** The five-state model in force, with its trend and its transitions. */
+      state: { current: severity.state, trend: trendOf(window, config.model), since: latest && latest.model ? latest.model.stateSince : null },
+      providers: providers.describe(),
       config: {
         intervalMs: config.sampling.intervalMs,
         windowMs: config.sampling.windowMs,
         thresholds: config.thresholds,
-        maintenance: config.maintenance
+        maintenance: config.maintenance,
+        model: config.model
       }
     }
   }
@@ -412,6 +617,8 @@ function createHealthEngine(options = {}) {
   return {
     DIMENSIONS,
     ACTIONS,
+    HEALTH_STATES,
+    TRENDS,
     config,
     sample,
     decide,
@@ -420,14 +627,23 @@ function createHealthEngine(options = {}) {
     noteRestartOutcome,
     decisions: () => decisions.slice(),
     samples: () => samples.slice(),
+    providers,
+    severity,
+    bindCapabilities,
+    beat,
+    /** One deterministic observation rather than a timer, for the plugin and for tests. */
+    observeEventLoop: (drift) => providers.observe('event-loop', drift),
     /** For a test that wants to start clean without rebuilding the engine. */
     reset() {
       samples.length = 0
       decisions.length = 0
       lastAction = ACTIONS.NO_ACTION
       lastActionAt = 0
-      restartRequestedAt = 0
+      restartRequestedAt = null
       pressureSince = null
+      deferringSince = null
+      providers.reset()
+      severity.reset()
     }
   }
 }
@@ -437,10 +653,13 @@ module.exports = {
   ACTIONS,
   ACTION_RANK,
   DEFAULT_CONFIG,
+  HEALTH_STATES,
+  TRENDS,
   createHealthEngine,
   defaultReadings,
   scoreDimension,
   inWindow,
   minutesOfDay,
-  clamp
+  clamp,
+  makeReading
 }

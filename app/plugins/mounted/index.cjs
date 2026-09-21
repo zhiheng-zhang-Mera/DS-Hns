@@ -25,6 +25,7 @@ const path = require('node:path')
 
 const { PLUGIN_API_VERSION, FAULT_LEVELS, HEALTH_STATUS } = require('../../core/contracts/plugin.cjs')
 const { healthSchedulerPlugin } = require('../health-scheduler/index.cjs')
+const { restartSupervisorPlugin } = require('../restart-supervisor/index.cjs')
 
 const API = PLUGIN_API_VERSION
 
@@ -602,8 +603,17 @@ function modelRuntimePlugin() {
   }
 }
 
-/** Every mounted plugin, in the order the plan lists them. */
-function mountedPlugins() {
+/**
+ * Every mounted plugin, in the order the plan lists them.
+ *
+ * `options.host` is the shell's continuity layer, and it is passed to the **restart supervisor only**:
+ * that plugin asks what is running, parks it before a restart and continues it afterwards, and the
+ * answer has to be Core's rather than a plugin's. Every other mounted plugin gets exactly what it got
+ * before, because a hook handed to a plugin that does not need it is a hook that will eventually be
+ * used for something else.
+ */
+function mountedPlugins(options = {}) {
+  const host = options && typeof options.host === 'object' ? options.host : null
   return [
     shellRuntimePlugin(),
     gitOperatorPlugin(),
@@ -623,7 +633,13 @@ function mountedPlugins() {
     // exactly like the ones above, which is the point: a native plugin is adapted by
     // `NativeHnsAdapter` rather than installed through a second, privileged path. It ships
     // disabled -- sampling the machine is a decision a user makes.
-    healthSchedulerPlugin()
+    healthSchedulerPlugin(),
+    // The **one** restart authority. It is mounted here, not privileged: it provides
+    // `restart-control`, which is what the monitor above asks when it wants a restart, and the
+    // out-of-process companion is started through the shell hooks `desktop-main.cjs` passes in.
+    // Unlike the monitor it ships *enabled*, because without it no restart can be requested at all
+    // -- and its budget, not a disabled plugin, is what keeps that from being dangerous.
+    restartSupervisorPlugin(host ? { host } : {})
   ]
 }
 
@@ -635,6 +651,8 @@ module.exports = {
   telemetryPlugin,
   watchdogPlugin,
   failureRecoveryPlugin,
+  healthSchedulerPlugin,
+  restartSupervisorPlugin,
   checkpointPlugin,
   acceptanceGatePlugin,
   sessionKeeperPlugin,

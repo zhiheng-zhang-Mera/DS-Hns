@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const { createBundledPlugins, installBundled, removeBundled, sameReference, BUNDLED_MANIFEST, BUNDLED_STATE } = require('../../app/extensions/mega/plugins/index.cjs')
+const { createBundledPlugins, installBundled, removeBundled, sameReference, BUNDLED_MANIFEST, BUNDLED_STATE, communityEntries } = require('../../app/extensions/mega/plugins/index.cjs')
 const { createProtectionLayer, MODULE_STATE } = require('../../app/extensions/mega/protection/index.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8')
@@ -56,23 +56,31 @@ function build({ manifest = BUNDLED_MANIFEST, installed = [], userEnabled = () =
 }
 
 test('the shipped manifest pins real references and never says "latest"', () => {
-  const ids = BUNDLED_MANIFEST.plugins.map((entry) => entry.id)
-  assert.deepEqual(ids, ['dsh-wallpaper-engine', '@dsh-market/plugin'])
-  for (const entry of BUNDLED_MANIFEST.plugins) {
+  /**
+   * Two kinds of entry live in this one manifest, and this suite is about the **community** half.
+   *
+   * The manifest is the single place that says what a release carries, so the two built-in plugins were
+   * added to it rather than kept in a second list — which means the community assertions have to name
+   * the community set explicitly instead of iterating "the plugins". `communityEntries()` is that
+   * filter, and it is the same one the installer uses.
+   */
+  const community = communityEntries()
+  assert.deepEqual(community.map((entry) => entry.id), ['dsh-wallpaper-engine', '@dsh-market/plugin'])
+  for (const entry of community) {
     // A pin is a tag, a published version, or a commit — never "latest" (the assertion below says so).
     assert.match(entry.ref, /^(v?\d+\.\d+\.\d+|[0-9a-f]{7,40})$/, `${entry.id} is pinned to something that is not a tag, a version or a commit`)
     assert.equal(/latest/i.test(entry.ref), false)
-    assert.equal(entry.required, false, `${entry.id} is bundled as required, which the plan does not allow`)
+    assert.equal(entry.required, false, `${entry.id} is a community plugin bundled as required, which the plan does not allow`)
   }
   // The market publishes no tags, so its version *is* a commit — that is the point of pinning one.
-  const market = BUNDLED_MANIFEST.plugins.find((entry) => entry.id === '@dsh-market/plugin')
+  const market = community.find((entry) => entry.id === '@dsh-market/plugin')
   // Its *published* version is what a Harness profile installs (`pnpm add @dsh-market/plugin@0.4.7`), and the
   // repository commit stays recorded beside it so the source of that version is traceable.
   assert.equal(market.ref, '0.4.7')
   assert.match(market.commit, /^[0-9a-f]{7,40}$/, 'the repository commit must stay recorded beside the published version')
   // Each entry names the channel it can actually be installed through, read from the repository rather than
   // assumed: both are Harness *client* plugins (`dsh.client.platform: web`), installed by the Harness' own CLI.
-  const wallpaper = BUNDLED_MANIFEST.plugins.find((entry) => entry.id === 'dsh-wallpaper-engine')
+  const wallpaper = community.find((entry) => entry.id === 'dsh-wallpaper-engine')
   assert.equal(wallpaper.channel, 'harness-profile')
   assert.equal(wallpaper.package, 'dsh-plugin-wallpaper-engine')
   // The market's name *is* published — the first pass read a workspace root's package.json and concluded
@@ -84,12 +92,16 @@ test('the shipped manifest pins real references and never says "latest"', () => 
   assert.equal(/latest/i.test(market.ref), false)
   // Three claims, kept apart: the install command was run for real in a throwaway profile, it was then run in
   // the product's own profile, and the manual UI review ran the result inside the product (§23's flip).
-  for (const entry of BUNDLED_MANIFEST.plugins) {
+  for (const entry of community) {
     assert.equal(entry.channelVerified, true, `${entry.id}'s installation channel is not recorded as verified`)
     assert.equal(entry.tested, true, `${entry.id} is still marked untested after the UI review passed it`)
   }
   const reported = build().manager.describe().manifest.plugins
+  // The manager's own manifest view carries every entry, built-in ones included: a panel that listed only
+  // the community half would hide the two components whose failure the product is meant to survive.
   assert.deepEqual(reported.map((entry) => [entry.id, entry.channel, entry.channelVerified, entry.tested]), [
+    ['dshns.health-scheduler', 'harness-profile', true, true],
+    ['dshns.restart-supervisor', 'harness-profile', true, true],
     ['dsh-wallpaper-engine', 'harness-profile', true, true],
     ['@dsh-market/plugin', 'harness-profile', true, true]
   ])
@@ -97,6 +109,8 @@ test('the shipped manifest pins real references and never says "latest"', () => 
   // that saw only the state would show "declared" and "installable" as the same thing.
   const assessments = build().manager.describe().plugins
   assert.deepEqual(assessments.map((entry) => [entry.id, entry.channel, entry.channelVerified, entry.tested]), [
+    ['dshns.health-scheduler', 'harness-profile', true, true],
+    ['dshns.restart-supervisor', 'harness-profile', true, true],
     ['dsh-wallpaper-engine', 'harness-profile', true, true],
     ['@dsh-market/plugin', 'harness-profile', true, true]
   ])
@@ -156,6 +170,36 @@ test('an incompatible plugin is reported, and repair is the one path that reinst
   const repairs = calls.filter((call) => call.id === 'dsh-wallpaper-engine')
   assert.deepEqual(repairs.map((call) => call.action), ['uninstall', 'install'])
   assert.equal(repairs[1].ref, 'v0.7.1')
+})
+
+test('a built-in plugin is never installed by a boot, and its absence is reported in its real state', async () => {
+  /**
+   * The regression this test exists for: the two built-in plugins are `tested: true` and, on a machine
+   * whose profile has not been signed yet, `missing` — so the policy pass would install them. It must
+   * not. Their installation is the *installer's* step (`scripts\install-bundled-plugins.ps1`), and a
+   * boot that started a package manager to fetch its own components would be a boot that a network can
+   * delay. The absence is still reported — as the missing state it is, with the reason saying who owns
+   * the fix — because hiding it would be the other failure.
+   */
+  const { manager, calls } = build()
+  const applied = await manager.ensure()
+  const byId = Object.fromEntries(applied.map((entry) => [entry.id, entry]))
+  assert.equal(byId['dshns.health-scheduler'].action, 'delegated')
+  assert.equal(byId['dshns.restart-supervisor'].action, 'delegated')
+  assert.equal(byId['dshns.health-scheduler'].state, BUNDLED_STATE.MISSING, 'a built-in that is not in the profile must not be reported as installed')
+  assert.match(byId['dshns.restart-supervisor'].reason, /installation signs the built-in plugins/)
+  assert.deepEqual(calls.map((call) => call.id).filter((id) => id.startsWith('dshns.')), [], 'a boot installed a built-in plugin')
+  // The community half still goes through the policy, so the delegation is not a blanket "install nothing".
+  assert.equal(byId['dsh-wallpaper-engine'].action, 'install')
+
+  // A person asking for a repair still gets one, and the entry handed over is the whole entry: the
+  // built-in's `file:` spec is built from `inRepo`/`directory`, which a trimmed copy would not carry.
+  const repaired = await manager.repair('dshns.health-scheduler')
+  assert.equal(repaired.ok, true)
+  const repairCall = calls.find((call) => call.action === 'install' && call.id === 'dshns.health-scheduler')
+  assert.ok(repairCall, 'an explicit repair must still install the pinned copy')
+  assert.equal(repairCall.inRepo, true)
+  assert.equal(repairCall.directory, 'health-scheduler')
 })
 
 test('repair refuses to conjure a version out of an untested pin', async () => {
@@ -222,9 +266,14 @@ test('installed means both places a bundled plugin can live, and a tag matches i
   assert.equal(sameReference({ version: '0.7.1' }, { ref: 'v0.7.1', commit: 'x' }), true)
   assert.equal(sameReference({ version: '0.4.7' }, { ref: '0.4.7', commit: 'x' }), true)
   assert.equal(sameReference({ version: '0.9.9' }, { ref: 'v0.7.1', commit: 'x' }), false)
-  // And the shipped manifest is what the product has installed now, so the assessment says so.
+  // And the shipped manifest is what the product has installed now, so the assessment says so. The two
+  // built-in entries are in the same manifest and are *not* in the store the test seeded, so they read
+  // `missing` — which is the correct answer for a machine that has not run the installer, and the reason
+  // this assertion names both halves rather than only the community one.
   const assessments = build({ installed: [{ id: 'dsh-wallpaper-engine', version: '0.7.1' }, { id: '@dsh-market/plugin', version: '0.4.7' }] }).manager.describe().plugins
   assert.deepEqual(assessments.map((entry) => [entry.id, entry.state]), [
+    ['dshns.health-scheduler', BUNDLED_STATE.MISSING],
+    ['dshns.restart-supervisor', BUNDLED_STATE.MISSING],
     ['dsh-wallpaper-engine', BUNDLED_STATE.INSTALLED],
     ['@dsh-market/plugin', BUNDLED_STATE.INSTALLED]
   ])
@@ -237,7 +286,12 @@ test('installed means both places a bundled plugin can live, and a tag matches i
  */
 test('removal follows the entry\'s channel, and an unresolved entry has nothing to remove', async () => {
   const calls = []
-  const harness = await removeBundled(BUNDLED_MANIFEST.plugins[0], { harnessRemove: async (input) => { calls.push(input); return { ok: true } } })
+  // The test names the two community entries explicitly rather than indexing the manifest: the two
+  // built-in plugins sit at the front of that list now, and `plugins[0]` would silently become the
+  // health scheduler — which is a different channel question entirely.
+  const wallpaper = communityEntries().find((entry) => entry.id === 'dsh-wallpaper-engine')
+  const market = communityEntries().find((entry) => entry.id === '@dsh-market/plugin')
+  const harness = await removeBundled(wallpaper, { harnessRemove: async (input) => { calls.push(input); return { ok: true } } })
   assert.equal(harness.ok, true)
   assert.deepEqual(calls[0], { profile: 'web', package: 'dsh-plugin-wallpaper-engine' })
 
@@ -246,8 +300,8 @@ test('removal follows the entry\'s channel, and an unresolved entry has nothing 
   assert.deepEqual(calls[1], { id: 'dshns.some-plugin' })
 
   // The market names the same channel, so its removal goes through the same CLI.
-  const market = await removeBundled(BUNDLED_MANIFEST.plugins[1], { harnessRemove: async (input) => { calls.push(input); return { ok: true } } })
-  assert.equal(market.ok, true)
+  const marketRemoval = await removeBundled(market, { harnessRemove: async (input) => { calls.push(input); return { ok: true } } })
+  assert.equal(marketRemoval.ok, true)
   assert.deepEqual(calls[2], { profile: 'web', package: '@dsh-market/plugin' })
 
   // An entry with no channel has nothing to remove — the branch stays for a future entry that needs a decision.
@@ -256,13 +310,28 @@ test('removal follows the entry\'s channel, and an unresolved entry has nothing 
   assert.match(unresolved.reason, /no dsh descriptor yet/)
   assert.equal((await removeBundled({ id: 'x', channel: 'neon' }, {})).ok, false)
   // A channel with no tool available is a refusal, not a silent success.
-  assert.equal((await removeBundled(BUNDLED_MANIFEST.plugins[0], {})).ok, false)
+  assert.equal((await removeBundled(wallpaper, {})).ok, false)
 
   // And the installer dispatches the same way, for the same reason.
-  assert.equal((await installBundled(BUNDLED_MANIFEST.plugins[0], { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
+  assert.equal((await installBundled(wallpaper, { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
   assert.deepEqual(calls[3], { profile: 'web', package: 'dsh-plugin-wallpaper-engine@v0.7.1' })
-  assert.equal((await installBundled(BUNDLED_MANIFEST.plugins[1], { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
+  assert.equal((await installBundled(market, { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })).ok, true)
   assert.deepEqual(calls[4], { profile: 'web', package: '@dsh-market/plugin@0.4.7' })
+
+  /**
+   * A **built-in** entry goes through the same channel with a `file:` spec: the code is in this
+   * repository, so the spec the Harness' CLI is handed is its absolute path rather than a package name
+   * and a reference. That is the whole reason `inRepo` and `directory` exist on the entry.
+   */
+  const health = communityEntries(BUNDLED_MANIFEST).length ? BUNDLED_MANIFEST.plugins.find((entry) => entry.id === 'dshns.health-scheduler') : null
+  assert.ok(health, 'the health scheduler must be in the manifest')
+  const builtIn = await installBundled(health, { harnessAdd: async (input) => { calls.push(input); return { ok: true } } })
+  assert.equal(builtIn.ok, true)
+  assert.match(calls[5].package, /^file:.*app\/plugins\/health-scheduler$/)
+  // ...and it is *this* checkout's directory, not a path that merely ends the same way: the spec is
+  // what the Harness' CLI is asked to install, and one `..` too few would name `app/app/plugins`.
+  assert.equal(calls[5].package, `file:${path.join(ROOT, 'app', 'plugins', 'health-scheduler').replace(/\\/g, '/')}`)
+  assert.equal(calls[5].profile, 'web')
 })
 
 test('compatibility is answered by whoever owns the descriptor, and says which one answered', () => {

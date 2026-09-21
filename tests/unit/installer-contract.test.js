@@ -113,7 +113,7 @@ test('reinstall cleanup kills only repository-owned Electron and DSH processes',
 test('installer runs stale-runtime cleanup before dependency installation', () => {
   const text = read('scripts/install.ps1')
   const cleanup = text.indexOf("cleanup-runtime.ps1")
-  const deps = text.indexOf("2/8 Resolve/reuse dependencies")
+  const deps = text.indexOf("Resolve/reuse dependencies")
   assert.ok(cleanup >= 0)
   assert.ok(deps > cleanup)
 })
@@ -130,6 +130,9 @@ test('critical installer PowerShell files stay ASCII-only for Windows PowerShell
     'scripts/install.ps1',
     'scripts/install-deps.ps1',
     'scripts/install-profile-plugin.ps1',
+    'scripts/install-bundled-plugins.ps1',
+    'scripts/uninstall-ds-harness.ps1',
+    'scripts/install-community-plugins.ps1',
     'scripts/ensure-node.ps1',
     'scripts/cleanup-runtime.ps1',
     'scripts/stop.ps1',
@@ -148,7 +151,9 @@ test('installer preflights child PowerShell scripts before dependency work', () 
   assert.match(text, /Parser\]::ParseFile/)
   assert.match(text, /PowerShell parser preflight/i)
   assert.match(text, /cleanup-runtime\.ps1/)
-  assert.ok(text.indexOf("0/8 PowerShell parser preflight") < text.indexOf("2/8 Resolve/reuse dependencies"))
+  // The step numbers move when a step is added (the optional community plugins became 5/9), so the
+  // order is asserted against the steps themselves rather than against their numbers.
+  assert.ok(text.indexOf('PowerShell parser preflight') < text.indexOf('Resolve/reuse dependencies'))
 })
 
 test('installer signs the shipped orb plugin into the Harness profile before the tests', () => {
@@ -158,13 +163,80 @@ test('installer signs the shipped orb plugin into the Harness profile before the
   // and the dependency is an absolute `file:` path), so it is a step of the installation: every host
   // installed without it shows no ball at all.
   assert.match(text, /install-profile-plugin\.ps1/)
-  const deps = text.indexOf('2/8 Resolve/reuse dependencies')
-  const step = text.indexOf('4/8 Sign the shipped client plugin into the Harness profile')
-  const tests = text.indexOf('5/8 Unit and architecture tests')
+  const deps = text.indexOf('Resolve/reuse dependencies')
+  // The step is named "plugins" now, because it signs the orb *and* the two built-in long-hosting
+  // plugins in; the orb remains a distinct, unconditional part of it.
+  const step = text.indexOf('Sign the shipped plugins into the Harness profile')
+  const tests = text.indexOf('Unit and architecture tests')
   assert.ok(step > deps && step < tests, 'the profile step runs after dependencies and before the tests')
   // An enhancement never fails an installation: the step warns, and the install carries on.
   assert.match(text, /The orb plugin is not in the Harness profile/)
   assert.doesNotMatch(text, /throw 'The orb plugin/)
+})
+
+test('installer installs the two built-in plugins from this repository, in their own step', () => {
+  const text = read('scripts/install.ps1')
+  // The two built-in long-hosting plugins are part of the installation, never a choice, and they are
+  // installed by the one script that owns the list rather than by an inline call per plugin.
+  assert.match(text, /install-bundled-plugins\.ps1/)
+  assert.match(text, /Health Scheduler/)
+  assert.match(text, /Restart Supervisor/)
+  // The list is data, and it names both plugins as required.
+  const list = JSON.parse(read('scripts/bundled-plugins.json'))
+  const ids = list.plugins.map((entry) => entry.id).sort()
+  assert.deepEqual(ids, ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+  for (const entry of list.plugins) {
+    assert.equal(entry.required, true, `${entry.id} must be required: it is part of the installation`)
+    assert.equal(entry.channel, 'harness-profile')
+  }
+  // The uninstall path exists, and it scans rather than claims.
+  const uninstaller = read('scripts/uninstall-ds-harness.ps1')
+  assert.match(uninstaller, /-Uninstall/)
+  assert.match(uninstaller, /no orphan companion process/)
+  assert.match(uninstaller, /no supervisor startup entry/)
+  /**
+   * ...and it removes the **orb** too, through the script that installed it.
+   *
+   * The claim the uninstaller prints is "no profile plugin is left behind", and the orb is a profile
+   * plugin: an uninstall that stopped at the two built-ins would leave the official UI composing a
+   * plugin from a product that is no longer installed. The removal names the profile explicitly
+   * (`DSH_HOME` in the child's environment) because the child resolves it from `$env:` -- an
+   * uninstaller that edited whatever profile the calling shell happened to name is a defect.
+   */
+  assert.match(uninstaller, /\$orbScript = Join-Path \$PSScriptRoot 'install-profile-plugin\.ps1'/)
+  assert.match(uninstaller, /-Plugin 'mega-core' -Remove/)
+  assert.match(uninstaller, /\$env:DSH_HOME = \$dshHomePath/)
+  const profilePlugin = read('scripts/install-profile-plugin.ps1')
+  assert.match(profilePlugin, /\[switch\]\$Remove/)
+  assert.match(profilePlugin, /plugin' '--profile' \$profileName 'remove' \$pluginName/)
+  assert.match(profilePlugin, /Write-Output 'removed'/)
+  assert.match(profilePlugin, /Write-Output 'not-installed'/)
+})
+
+test('installer asks about the optional community plugins after the built-in ones and before the tests', () => {
+  const text = read('scripts/install.ps1')
+  // The order is the requirement's: DS-Hns' own plugins are signed in unconditionally first, so
+  // nothing about the optional community plugins can turn any of them into a choice, and both steps
+  // come before the tests.
+  const profile = text.indexOf('Sign the shipped plugins into the Harness profile')
+  const optional = text.indexOf('Optional community plugins')
+  const tests = text.indexOf('Unit and architecture tests')
+  assert.ok(profile >= 0 && optional > profile, 'the optional plugins are offered before the built-in plugins are signed in')
+  assert.ok(tests > optional, 'the optional plugins are asked about after the tests')
+
+  // Each plugin is asked about separately, and the parameters answer the question rather than the prompt.
+  assert.match(text, /-InstallMarket/)
+  assert.match(text, /-InstallWallpaper/)
+  assert.match(text, /-SkipOptionalPlugins/)
+  assert.match(text, /-NonInteractive/)
+  // The channel is the product's own, not a clone.
+  assert.match(text, /install-community-plugins\.ps1/)
+  assert.doesNotMatch(text, /git clone/i)
+
+  // The completion summary names every line the requirement asks for.
+  for (const line of ['Official Harness UI', 'DS-Hns runtime', 'Mega Core', 'Health Scheduler', 'Restart Supervisor', 'Plugin Market', 'Wallpaper Engine', 'Adapter registry', 'Governance bridge']) {
+    assert.ok(text.includes(line), `the installation summary does not report ${line}`)
+  }
 })
 
 test('the orb plugin is installed by the Harness own CLI, never by writing the profile', () => {

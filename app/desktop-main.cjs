@@ -324,6 +324,15 @@ normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
+/**
+ * Where the restart supervisor's out-of-process companion keeps its files.
+ *
+ * One variable, both sides: the companion is handed this directory as `--state-dir`, the plugin writes
+ * its heartbeat and reads its requests there, and the shell watches the companion's graceful-stop
+ * request in the same place. Deriving it in three places from `process.cwd()` would be three answers to
+ * one question, and the failure mode is a supervisor watching a directory nobody writes to.
+ */
+process.env.DSHNS_SUPERVISOR_STATE_DIR = process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
@@ -1047,6 +1056,19 @@ function safeNodeExe() {
   return process.execPath
 }
 
+/**
+ * The plugin runtime, as any scope in this file reaches it.
+ *
+ * `registerPluginIpc` has its own local `host()`; the hooks handed to the extension (`pluginServices`) are
+ * built in a **different function**, so they need a name that exists there too. That is what this is — and
+ * its absence is why the whole built-in-service surface was once dead in the product: the hooks called
+ * `host()`, the identifier did not exist in their scope, every call threw `host is not defined`, and the
+ * panel drew "report unavailable" while the runtime was perfectly healthy.
+ */
+function pluginRuntime() {
+  return ensurePluginHost()
+}
+
 function ensurePluginHost() {
   if (pluginHost) return pluginHost
   const { createPluginHost } = require('./plugin-host.cjs')
@@ -1059,6 +1081,14 @@ function ensurePluginHost() {
     reason: () => 'the plugin runtime is disabled by config/app.json (plugins.enabled = false)',
     defaults: block,
     enforceLock: block.enforceLock === true,
+    /**
+     * Core's task-continuity hooks, handed to the shipped plugins that declare a need for them.
+     *
+     * The supervisor asks them what is running, parks it before a restart and continues it afterwards;
+     * this is the layer that can answer, because the tasks are the shell's and the extension's, not a
+     * plugin's.
+     */
+    continuity: taskContinuity().hooks,
     // A compatibility-mode plugin is activated in a separate process. It has to be *this*
     // deployment's node: a packaged application has no other one on the machine.
     nodeExe: safeNodeExe()
@@ -1087,6 +1117,101 @@ function pluginsEnabled() {
     return config?.plugins?.enabled !== false
   } catch {
     return true
+  }
+}
+
+/**
+ * The companion's graceful-stop request, as this process sees it.
+ *
+ * The companion cannot send a signal that Windows will honour as "please leave" — `child.kill()` there
+ * terminates whether the child wanted to or not — so the graceful half of a restart is a *file*: the
+ * companion writes `app.stop-request.json`, and the application leaves on its own terms, which is what
+ * lets a restart pass through the shell's own exit path (checkpoints, managed resources, the harness).
+ * The companion only escalates to `taskkill` if this does not happen inside the timeout.
+ *
+ * A missing or unreadable file is not an error — it is the normal case for every second of the day
+ * that nobody is restarting anything — so this stays silent until there is something to act on, and it
+ * acts **once** per request.
+ */
+function watchSupervisorStopRequest() {
+  const file = path.join(process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor'), 'app.stop-request.json')
+  let handledAt = 0
+  const timer = setInterval(() => {
+    let request = null
+    try {
+      request = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch {
+      return
+    }
+    const at = Number(request && request.at)
+    if (!Number.isFinite(at) || at <= handledAt) return
+    handledAt = at
+    logLine(`the restart supervisor asked this instance to leave gracefully (${request.kind || 'graceful'}): ${request.reason || 'no reason given'}`)
+    gracefulExit('restart-supervisor')
+  }, 1_000)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
+
+/**
+ * Start the out-of-process half of the restart authority, behind the boot.
+ *
+ * The restart supervisor can only supervise if part of it is *outside* the process it watches: a hung
+ * or dead main process cannot reliably restart itself, and nothing inside it can notice that the event
+ * loop stopped answering. That outside half is the companion — a separate Node program in
+ * `app/plugins/restart-supervisor/companion/` — and this is what starts it.
+ *
+ * Two properties decide the shape of this call:
+ *
+ *   * **through the plugin runtime**, not around it: the companion's state directory, its policy and
+ *     its pid file belong to the plugin, so the shell asks the plugin to start its own companion
+ *     (`startCompanions`) instead of spawning a path it would have to keep in step by hand;
+ *   * **behind the boot**: it is a `startup.defer` step, so a companion that will not start is a line
+ *     in the boot report and a `degraded` health row — never a shell that refuses to open.
+ */
+async function startRestartSupervisor() {
+  if (!pluginsEnabled()) return { ok: false, skipped: true, reason: 'the plugin runtime is disabled by config/app.json' }
+  const host = ensurePluginHost()
+  const built = await host.ensure()
+  if (built.ok === false) {
+    logLine(`restart supervisor: the plugin world could not be built (${built.error || built.code || 'no reason given'})`)
+    return { ok: false, skipped: true, reason: built.error || 'the plugin world could not be built' }
+  }
+  const listed = host.list()
+  const plugins = Array.isArray(listed) ? listed : (listed && Array.isArray(listed.plugins) ? listed.plugins : [])
+  const outcome = host.startCompanions()
+  /**
+   * Say what this step did, always.
+   *
+   * It is the one boot phase whose whole purpose is to have something *running* before anything can go
+   * wrong, so "it ran and started nothing" has to be visible in the boot report rather than inferred from
+   * the absence of a line -- the first version of this logged only the success and the failure cases, so a
+   * runtime whose world did not mount looked exactly like a healthy one.
+   */
+  logLine(`restart supervisor: plugin world ${plugins.length} plugin(s); companions ${JSON.stringify((outcome && outcome.started) || [])}`)
+  for (const entry of outcome.started || []) {
+    if (entry.ok === true) logLine(`restart supervisor companion: ${entry.already === true ? `already running (pid ${entry.pid})` : `started (pid ${entry.pid || 'unknown'})`}`)
+    else if (entry.skipped === true) logLine(`restart supervisor companion not started: ${entry.reason}`)
+    else logLine(`restart supervisor companion failed to start: ${entry.reason}`)
+  }
+  return outcome
+}
+
+/**
+ * Tell the companion this exit is intentional, before the process is gone.
+ *
+ * The companion watches a pid and a heartbeat, and neither can distinguish "the user closed the
+ * window" from "the application died" — so the difference is written down here, while there is still a
+ * process to write it. Without it, every normal quit would be crash-recovered.
+ */
+function standDownRestartSupervisor() {
+  try {
+    const outcome = pluginHost && typeof pluginHost.stopCompanions === 'function' ? pluginHost.stopCompanions('the shell is quitting') : null
+    if (outcome && outcome.built) logLine(`restart supervisor companion: ${JSON.stringify(outcome.stopped)}`)
+    return outcome
+  } catch (error) {
+    logLine(`could not stand the restart supervisor down: ${error?.message || error}`)
+    return null
   }
 }
 
@@ -1303,63 +1428,15 @@ function ensureReboot() {
     store: rebootStoreRef,
     platform,
     log: (line) => logLine(line),
-    targets: {
-      subWorker: {
-        status: () => {
-          if (!workerManager) return null
-          const state = workerManager.state || {}
-          return { running: Boolean(workerManager.isRunning), state: state.state || null, stage: state.stage || null, task_id: state.task_id || null }
-        },
-        suspend: async ({ plan }) => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = workerManager.pause(`scheduled restart ${plan.id}`)
-          if (!result || result.ok === false) return result || { ok: false, reason: 'the worker refused to pause' }
-          const delivered = Array.isArray(result.workers) ? result.workers.length : 0
-          return {
-            ok: true,
-            // A running worker answers `pause` and suspends at its own next checkpoint: that is a request
-            // in flight, and the coordinator waits for it rather than restarting over it.
-            pending: result.state === 'PAUSING' || delivered > 0,
-            state: result.state || null,
-            detail: delivered || result.state === 'PAUSING'
-              ? 'the worker was asked to stop at its next checkpoint'
-              : 'the worker is suspended'
-          }
-        },
-        resume: async () => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = typeof workerManager.resumeLastTask === 'function'
-            ? await workerManager.resumeLastTask()
-            : workerManager.resume('continuing after a scheduled restart')
-          return { ok: Boolean(result && result.ok !== false), detail: (result && (result.reason || result.detail)) || 'the sub-worker was resumed' }
-        }
-      },
-      engineering: {
-        parkPolicy: 'boundary-first',
-        status: () => {
-          if (!engineeringHost) return null
-          const state = engineeringHost.status()
-          if (!state || state.ok === false) return null
-          return { running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
-        },
-        suspend: async () => {
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          const cancelled = engineeringHost.cancel({ reason: 'a scheduled restart is waiting for a parkable phase' })
-          if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
-          return { ok: true, detail: 'the episode stopped at a step boundary and checkpointed' }
-        },
-        resume: async (intent) => {
-          const request = intent && intent.targetState && intent.targetState.request
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          if (!request || !request.workspace || !request.goal) {
-            return { ok: false, reason: 'the episode was not recorded with a repository and a goal, so it cannot be resumed automatically' }
-          }
-          const started = engineeringHost.run({ workspace: request.workspace, goal: request.goal, reason: 'continuing after a scheduled restart' })
-          if (started && started.ok === false) return { ok: false, reason: started.error || 'the episode could not be restarted' }
-          return { ok: true, detail: 'the episode resumed from its last checkpoint' }
-        }
-      }
-    }
+    /**
+     * The task targets, from the one module that owns them.
+     *
+     * They used to be written out here, which meant the only path that knew how to park the sub-worker
+     * and the engineering runtime was the *scheduled machine restart*. The restart supervisor needs the
+     * same two things — what is running, and how to stop and continue it — so they live in
+     * `app/reboot/targets.cjs` and both paths drive them (see `taskContinuity()` below).
+     */
+    targets: taskTargets()
   })
   logLine(`reboot scheduler ready (${platform.supported ? 'restart supported' : `restart not supported on ${platform.platform}`})`)
   return rebootCoordinator
@@ -1369,6 +1446,85 @@ function ensureReboot() {
 function rebootStore() {
   ensureReboot()
   return rebootStoreRef
+}
+
+/**
+ * The task targets both restart paths drive.
+ *
+ * The shell owns the sub-worker and the engineering runtime, so it is the layer that can hand out an
+ * adapter for each; *how* to park and continue them is not written here any more (`app/reboot/targets.cjs`),
+ * because the scheduled machine restart and the supervisor's application restart must not drift apart.
+ */
+let rebootTargetsRef = null
+function taskTargets() {
+  if (rebootTargetsRef) return rebootTargetsRef
+  const { createRebootTargets } = require('./reboot/targets.cjs')
+  rebootTargetsRef = createRebootTargets({ workerManager, engineeringHost, log: (line) => logLine(line) })
+  return rebootTargetsRef
+}
+
+/**
+ * Core's **task continuity**, as the restart supervisor consumes it.
+ *
+ * This is the answer to the half of a restart that is not about processes: what is running, park it at
+ * its own boundary, write down what will have to be continued, and afterwards continue it — reporting
+ * the three different things "recovery" can mean (process, task, semantic) instead of one `ok: true`.
+ *
+ * It is created once and shared: the plugin host hands it to the shipped plugins that declare a need
+ * for it, and the shell's own diagnostics read the same object, so the recorded intent and the resumed
+ * work cannot disagree.
+ */
+let taskContinuityRef = null
+function taskContinuity() {
+  if (taskContinuityRef) return taskContinuityRef
+  const { createTaskContinuity } = require('./core/task-continuity.cjs')
+  taskContinuityRef = createTaskContinuity({
+    targets: taskTargets(),
+    stateDir: path.join(ROOT, 'data', 'state'),
+    log: (line) => logLine(line)
+  })
+  return taskContinuityRef
+}
+
+/**
+ * The health decision, as a plain snapshot the queue can act on.
+ *
+ * It reads the `health-pressure` capability from the plugin registry — read-only, once per question,
+ * and `null` when no monitor is providing one. Nothing here samples the machine: a second sampler
+ * would be a second opinion about pressure, which is the duplication this whole split exists to
+ * avoid.
+ */
+function healthDecisionSnapshot() {
+  try {
+    const registry = pluginHost && pluginHost.manager ? pluginHost.manager.registry : null
+    if (!registry || typeof registry.resolve !== 'function') return null
+    const surface = registry.resolve('health-pressure', { optional: true })
+    if (!surface || typeof surface.decide !== 'function') return null
+    const decision = surface.decide() || {}
+    const latest = typeof surface.pressure === 'function' ? surface.pressure() : null
+    const pressure = Number.isFinite(Number(decision.pressure)) ? Number(decision.pressure) : (latest && Number.isFinite(Number(latest.pressure)) ? Number(latest.pressure) : null)
+    const reasons = Array.isArray(decision.reasons) ? decision.reasons.filter(Boolean) : []
+    return {
+      action: decision.action || 'NO_ACTION',
+      state: decision.state || null,
+      pressure,
+      trend: decision.trend && decision.trend.trend ? decision.trend.trend : null,
+      reason: reasons.length ? reasons.join('; ') : (decision.held ? String(decision.held) : null),
+      explicit: true
+    }
+  } catch (error) {
+    logLine(`the health decision could not be read: ${error?.message || error}`)
+    return null
+  }
+}
+
+/** The one work-admission gate, built once. */
+let workAdmissionRef = null
+function workAdmission() {
+  if (workAdmissionRef) return workAdmissionRef
+  const { createWorkAdmission } = require('./core/work-admission.cjs')
+  workAdmissionRef = createWorkAdmission({ provider: healthDecisionSnapshot, log: (line) => logLine(line) })
+  return workAdmissionRef
 }
 
 /** A due plan fires within a few seconds, and the countdown the panel draws stays true. */
@@ -2421,10 +2577,102 @@ async function startExtensions(nodeExe) {
       // and the dock must degrade gracefully.
       subWorker: workerManager,
       onSubWorkerChange: subscribeSubWorker,
+      /**
+       * **Work admission**: the health decision, asked by the queue before it starts anything new.
+       *
+       * `app/core/work-admission.cjs` turns the monitor's decision into "may new work start, and with
+       * how many slots". The seam is here because the shell is the only layer that can see both halves:
+       * the queue belongs to the Mega extension, the decision to a plugin, and neither may reach into
+       * the other. A monitor that is absent, disabled or answering UNKNOWN admits — no evidence, no
+       * restriction — and one that throws is a log line rather than a stopped queue.
+       */
+      workAdmission: () => workAdmission().admit(),
       // The store changes the installed set while the plugin host's world is already built.
       // This hook lets the store *await* the rebuild, so the panel's next read cannot show
       // "enabled" for a plugin the runtime has not mounted yet.
       reloadInstalledPlugins,
+      /**
+       * The plugin host, as the surface Mega and the official page read the two **built-in services**
+       * through: the health scheduler and the restart supervisor.
+       *
+       * Every call is synchronous and side-effect free except the four that act (`setEnabled`,
+       * `checkHealth`, `reload`, `restartControl`), because this is handed to a *panel*: it describes
+       * plugins, and the operations it can perform are the ones the Control Center's own action
+       * vocabulary names. The shell owns the host, so this is a hook rather than an import — the
+       * extension never reaches into the runtime's internals.
+       */
+      pluginServices: {
+        report: (id) => pluginRuntime().serviceReport(id),
+        reportAll: (ids) => pluginRuntime().serviceReports(ids),
+        /**
+         * The formal `restart_status`, for the panels.
+         *
+         * It is its own hook rather than a field a panel digs out of the supervisor's record: the
+         * official UI must be able to show "when did this machine last restart and what came back"
+         * even while the plugin that owns the answer is the thing that just failed.
+         */
+        restartStatus: () => pluginRuntime().restartStatus(),
+        setEnabled: (id, enabled) => pluginRuntime().setEnabled(id, enabled),
+        checkHealth: (id) => pluginRuntime().health(id),
+        reload: (id, options) => pluginRuntime().reload(id, options),
+        /**
+         * The **advanced** settings the panel may change: the two plugins' own policy, as dotted paths
+         * into the configuration they read.
+         *
+         * `advanced()` describes (the schema's label, type and range beside the value in force);
+         * `setAdvanced()` writes. Both go through the host's one validator, so a value the panel offers
+         * is a value the host accepts, and a refusal carries its reason rather than being clamped.
+         */
+        advanced: () => {
+          try {
+            const runtime = pluginRuntime()
+            const schema = runtime.ADVANCED_SCHEMA || {}
+            const owners = ['dshns.health-scheduler', 'dshns.restart-supervisor']
+            const resolved = {}
+            for (const owner of owners) {
+              try {
+                resolved[owner] = runtime.config ? runtime.config.forPlugin(owner).resolved : null
+              } catch {
+                resolved[owner] = null
+              }
+            }
+            const read = (object, key) => key.split('.').reduce((cursor, part) => (cursor && typeof cursor === 'object' ? cursor[part] : undefined), object)
+            return Object.entries(schema).map(([key, rule]) => ({
+              key,
+              owner: rule.owner,
+              label: rule.label || key,
+              type: rule.type || 'string',
+              min: Number.isFinite(rule.min) ? rule.min : null,
+              max: Number.isFinite(rule.max) ? rule.max : null,
+              enum: Array.isArray(rule.enum) ? rule.enum.slice() : null,
+              value: resolved[rule.owner] ? read(resolved[rule.owner], key) : undefined
+            }))
+          } catch (error) {
+            logLine(`the advanced plugin settings could not be described: ${error?.message || error}`)
+            return null
+          }
+        },
+        setAdvanced: (settings) => host().configure({ settings }),
+        /**
+         * `restart-control`, if anything provides it.
+         *
+         * Resolved through the capability registry rather than by importing the supervisor: the
+         * monitor's own rule applies to every consumer, and the answer carries the reason when nothing
+         * provides it, so a surface can say "unavailable, because" rather than showing a dead button.
+         */
+        restartControl: () => {
+          try {
+            const runtime = host()
+            const resolved = runtime.registry && typeof runtime.registry.resolve === 'function'
+              ? runtime.registry.resolve('restart-control')
+              : null
+            if (!resolved) return { ok: false, reason: 'no plugin provides restart-control' }
+            return { ok: true, value: resolved }
+          } catch (error) {
+            return { ok: false, reason: `resolving restart-control threw: ${error?.message || error}` }
+          }
+        }
+      },
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
@@ -2536,6 +2784,15 @@ app.whenReady().then(async () => {
     if (pluginsEnabled()) {
       registerPluginIpc()
       logLine('plugins: runtime available on demand (plugins:* IPC)')
+      // The companion's graceful request is watched from boot, so a restart the supervisor starts is a
+      // graceful one rather than a `taskkill` — even when nobody ever opens a plugin panel.
+      watchSupervisorStopRequest()
+      // ...and the one process that has to be up *before* anything can go wrong: the restart
+      // supervisor's companion. Deferred, so it is a boot-report phase rather than a boot dependency.
+      startup.defer('restart-supervisor', () => startRestartSupervisor())
+        .then((outcome) => {
+          if (outcome?.value?.ok === false) logLine(`restart supervisor: ${outcome.value.reason}`)
+        })
     } else {
       logLine('plugins: disabled by config/app.json')
     }
@@ -2601,6 +2858,9 @@ app.on('before-quit', () => {
   if (shuttingDown) return
   shuttingDown = true
   logLine('before-quit: reconciling managed resources')
+  // Before anything is torn down, and while this process can still write: an intentional exit and a
+  // crash look identical from outside, so the companion is told which one this is.
+  standDownRestartSupervisor()
   teardownManagedResources()
 })
 process.on('exit', stopHarness)
