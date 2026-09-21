@@ -1,0 +1,115 @@
+{
+  "at": "2026-09-21T07:49:46.467Z",
+  "node": "v24.14.1",
+  "platform": "win32/x64",
+  "commit": "137523b65147247c52e30d4fe3d758dd849c8cd6",
+  "checks": [
+    {
+      "phase": "C",
+      "name": "both configurations accept the same patch, and it is correct",
+      "ok": true,
+      "detail": [
+        {
+          "label": "baseline",
+          "timeToAcceptedPatchMs": 17114,
+          "accepted": true,
+          "correctness": true,
+          "modelCalls": 13,
+          "scans": 6,
+          "reads": 6,
+          "commands": 7,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "approvalReason": "the full verification passed after the last change"
+        },
+        {
+          "label": "optimized",
+          "timeToAcceptedPatchMs": 14119,
+          "accepted": true,
+          "correctness": true,
+          "modelCalls": 2,
+          "scans": 1,
+          "reads": 6,
+          "commands": 7,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "approvalReason": "the full verification passed after the last change"
+        }
+      ]
+    },
+    {
+      "phase": "C",
+      "name": "the accelerators cut the model round trips the task needs",
+      "ok": true,
+      "detail": {
+        "baselineCalls": 13,
+        "optimizedCalls": 2,
+        "scans": {
+          "baseline": 6,
+          "optimized": 1
+        },
+        "reads": {
+          "baseline": 6,
+          "optimized": 6
+        }
+      }
+    },
+    {
+      "phase": "C",
+      "name": "the repository is scanned once with the map, and per lookup without it",
+      "ok": true,
+      "detail": {
+        "baselineScans": 6,
+        "optimizedScans": 1
+      }
+    },
+    {
+      "phase": "C",
+      "name": "Time To Accepted Patch improves materially with the accelerators on",
+      "ok": true,
+      "detail": {
+        "metric": "Time To Accepted Patch",
+        "baselineMs": 17114,
+        "optimizedMs": 14119,
+        "improvement": 1.212,
+        "declaredModelLatencyMs": 250,
+        "note": "the round-trip counts are measured; the per-call latency is a declared constant because no provider is called from acceptance"
+      }
+    }
+  ],
+  "phaseC": {
+    "measured": [
+      {
+        "label": "baseline",
+        "timeToAcceptedPatchMs": 17114,
+        "accepted": true,
+        "correctness": true,
+        "modelCalls": 13,
+        "scans": 6,
+        "reads": 6,
+        "commands": 7,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "approvalReason": "the full verification passed after the last change"
+      },
+      {
+        "label": "optimized",
+        "timeToAcceptedPatchMs": 14119,
+        "accepted": true,
+        "correctness": true,
+        "modelCalls": 2,
+        "scans": 1,
+        "reads": 6,
+        "commands": 7,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "approvalReason": "the full verification passed after the last change"
+      }
+    ],
+    "metric": "Time To Accepted Patch",
+    "improvement": 1.212,
+    "declaredModelLatencyMs": 250
+  },
+  "summary": {
+    "checks": 4,
+    "passed": 4,
+    "failed": 0,
+    "verdict": "ACCEPTED"
+  }
+}
