@@ -269,12 +269,16 @@ test('the repository checkout resolves to a real, instance-specific layout', () 
   assert.equal(resolved.isolated, false)
 })
 
-test('a root that does not exist yet keeps the caller spelling the filesystem will use', () => {
+test('a root that does not exist yet canonicalizes its ancestor and preserves its missing tail', () => {
   const dir = scratch()
   const mixed = path.join(dir, 'MixedCaseRoot-ABC', 'checkout')
   const resolved = instance.describeInstance({ root: mixed, dshHome: path.join(dir, 'data') })
-  // Lower-casing a path and then opening it works on a case-insensitive volume and
-  // silently fails on a case-sensitive one, so the spelling must survive.
-  assert.equal(resolved.root, mixed)
+  // Windows runners may expose TEMP through an 8.3 alias such as RUNNER~1 even
+  // though the filesystem reports the existing ancestor as `runneradmin`.
+  // Existing segments therefore take their canonical filesystem spelling while
+  // the not-yet-created tail must retain the caller's exact case.
+  const canonicalDir = fs.realpathSync.native(dir)
+  assert.equal(resolved.root, path.join(canonicalDir, 'MixedCaseRoot-ABC', 'checkout'))
+  assert.equal(path.relative(canonicalDir, resolved.root), path.join('MixedCaseRoot-ABC', 'checkout'))
   assert.equal(fs.existsSync(dir), true)
 })
