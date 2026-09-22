@@ -207,6 +207,7 @@ function fallbackTextSearch(workspace, needle) {
  */
 async function runEpisode(options) {
   const { workspace, mode, accelerators, label } = options
+  const batchVerification = options.batchVerification === true
   const bus = createEventBus()
   const events = []
   bus.onAny((payload, event) => events.push({ type: event.type, at: event.at, durationMs: payload && payload.durationMs }))
@@ -242,7 +243,7 @@ async function runEpisode(options) {
       })
     : null
   const executor = createParallelExecutor({ mode, resources, isolation, log: () => {} })
-  const counters = { scans: 0, reads: 0, commands: 0, cacheHits: 0, cacheMisses: 0, modelCalls: 0, rollbacks: 0 }
+  const counters = { scans: 0, reads: 0, commands: 0, processStarts: 0, cacheHits: 0, cacheMisses: 0, modelCalls: 0, rollbacks: 0 }
   const startedAt = nowMs()
 
   /** One model round trip, through the single serving queue when acceleration is on. */
@@ -326,10 +327,12 @@ async function runEpisode(options) {
         return { ...lookup.result, cached: true }
       }
       counters.cacheMisses += 1
+      counters.processStarts += 1
       const result = await runTests(workspace, input.args)
       cache.record({ command, files: input.files, env: process.env.NODE_ENV, result, ok: result.ok === true, durationMs: result.ms })
       return { ...result, cached: false, missReason: lookup.reason }
     }
+    counters.processStarts += 1
     return { ...(await runTests(workspace, input.args)), cached: false, missReason: 'no cache' }
   }
 
@@ -350,10 +353,25 @@ async function runEpisode(options) {
    * share no files, so they may overlap — and each is a real `node --test` process, so
    * the wall-clock difference between the serial and parallel runs is real too.
    */
+  let verificationBatch = null
   const verifyOne = async (node, context) => {
     const name = node.id.replace(/^verify-/, '')
     const file = `tests/${name}.test.cjs`
-    const result = await runCached({ command: `node --test ${file}`, files: [`src/${name}.cjs`, file], args: [file] })
+    // Phase C's optimized path uses the existing tool-batching accelerator to
+    // start Node once for the same six explicit test files. The workload and
+    // acceptance semantics are unchanged; only five redundant process startups
+    // disappear. Phase B leaves this off because it is specifically measuring
+    // independent scheduler lanes rather than validation batching.
+    if (batchVerification && !verificationBatch) {
+      verificationBatch = runCached({
+        command: `node --test ${options.fixture.testFiles.join(' ')}`,
+        files: [...options.fixture.sourceFiles, ...options.fixture.testFiles],
+        args: options.fixture.testFiles
+      })
+    }
+    const result = batchVerification
+      ? await verificationBatch
+      : await runCached({ command: `node --test ${file}`, files: [`src/${name}.cjs`, file], args: [file] })
     verifyResults.push({ name, ok: result.ok === true, ms: result.ms, cached: result.cached })
     bus.emit('validation.completed', { level: name, durationMs: result.ms })
     // Verification itself is mechanical; the model is asked to triage only when it fails.
@@ -542,7 +560,14 @@ async function acceptanceC() {
     const fixture = createFixture()
     try {
       // Serial in both, so the comparison isolates the accelerators from the scheduler.
-      const run = await runEpisode({ workspace: fixture.dir, mode: PARALLEL_MODES.OFF, accelerators: configuration.accelerators, fixture, label: `C/${configuration.label}` })
+      const run = await runEpisode({
+        workspace: fixture.dir,
+        mode: PARALLEL_MODES.OFF,
+        accelerators: configuration.accelerators,
+        batchVerification: configuration.accelerators,
+        fixture,
+        label: `C/${configuration.label}`
+      })
       const tests = await runTests(fixture.dir, fixture.testFiles)
       measured.push({
         label: configuration.label,
@@ -553,6 +578,9 @@ async function acceptanceC() {
         scans: run.counters.scans,
         reads: run.counters.reads,
         commands: run.counters.commands,
+        processStarts: run.counters.processStarts,
+        modelLatencyBudgetMs: run.counters.modelCalls * MODEL_LATENCY_MS,
+        nonModelWallMs: Math.max(0, run.wallMs - (run.counters.modelCalls * MODEL_LATENCY_MS)),
         patchHash: fixture.hash('src/math.cjs'),
         approvalReason: run.approvalReason
       })
@@ -572,6 +600,11 @@ async function acceptanceC() {
     reads: { baseline: baseline.reads, optimized: optimized.reads }
   })
   check('C', 'the repository is scanned once with the map, and per lookup without it', optimized.scans < baseline.scans, { baselineScans: baseline.scans, optimizedScans: optimized.scans })
+  check('C', 'the optimized path batches the same validation workload into fewer process starts', optimized.processStarts < baseline.processStarts, {
+    baselineProcessStarts: baseline.processStarts,
+    optimizedProcessStarts: optimized.processStarts,
+    workload: MODULES.map((name) => `tests/${name}.test.cjs`)
+  })
   const improvement = baseline.timeToAcceptedPatchMs && optimized.timeToAcceptedPatchMs
     ? Number((baseline.timeToAcceptedPatchMs / optimized.timeToAcceptedPatchMs).toFixed(3))
     : null
