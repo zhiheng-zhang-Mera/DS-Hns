@@ -30,6 +30,7 @@ const { EventEmitter } = require('node:events')
 
 const { syncShippedPackage } = require('../harness-profile.cjs')
 const { resolveCommandTemp } = require('./temp-root.cjs')
+const { patchPluginMarket } = require('./plugin-market-canonical.cjs')
 
 const STARTUP_BUFFER_LIMIT = 64 * 1024
 
@@ -208,6 +209,8 @@ function createHarnessService({
     const nodeExe = resolveNodeExe({ root: ROOT, env, log: emitLog })
     ensureRuntimeDirs(ROOT, HOME, commandTemp)
     syncProfilePlugin()
+    const activeProfile = env.DSH_PROFILE || 'web'
+    patchPluginMarket({ profileDir: path.join(HOME, 'profiles', activeProfile), log: emitLog })
     output = ''
     url = null
     startedAt = new Date().toISOString()
@@ -232,6 +235,7 @@ function createHarnessService({
         ...env,
         DSH_ROOT: ROOT,
         DSH_HOME: HOME,
+        DSH_PROFILE: activeProfile,
         DSH_NODE: nodeExe,
         DSH_HARNESS_PORT: String(HARNESS_PORT),
         npm_config_cache: path.join(ROOT, 'cache', 'npm'),
