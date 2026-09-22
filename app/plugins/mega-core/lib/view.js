@@ -206,6 +206,11 @@ function pluginTone(state) {
   return 'warn'
 }
 
+function optionalHostUnavailable(service) {
+  const reason = String(service?.health?.reason || '')
+  return service?.id === 'dshns.computer-use' && /no host runtime (?:was )?attached/i.test(reason)
+}
+
 /**
  * The state one of the two built-in services is in, as a word a person reads.
  *
@@ -219,6 +224,7 @@ function serviceState(service) {
   if (service.ok !== true) return 'NOT IN THE RUNTIME'
   if (service.enabled !== true) return 'DISABLED'
   if (service.loaded !== true) return 'ENABLED'
+  if (optionalHostUnavailable(service)) return 'UNAVAILABLE'
   const status = service.health && service.health.status
   if (status === 'degraded') return 'DEGRADED'
   if (status === 'unknown') return 'UNKNOWN'
@@ -259,6 +265,8 @@ function serviceView(service, vocabulary = SERVICE_ACTIONS) {
     enabled: service.enabled === true,
     loaded: service.loaded === true,
     healthy: service.healthy,
+    /** An optional GUI host may be absent while the runtime core remains healthy. */
+    coreImpact: !optionalHostUnavailable(service),
     health: service.health || null,
     heartbeat: service.heartbeat || null,
     lastError: service.lastError || null,
@@ -522,7 +530,10 @@ export function buildMegaView({ plugin = {}, bridge = null, governance = null, n
   })
   for (const service of offNominalServices) {
     const tone = serviceTone(service)
-    lines.push(line(tone, `${tone === 'bad' ? '✖' : '⚠'} ${service.name || service.id} ${String(serviceState(service)).toLowerCase()}${service.lastError ? ` — ${service.lastError.reason}` : ''}`))
+    const reason = optionalHostUnavailable(service)
+      ? 'no host runtime attached; core unaffected'
+      : (service.lastError?.reason || service.health?.reason || '')
+    lines.push(line(tone, `${tone === 'bad' ? '✖' : '⚠'} ${service.name || service.id} ${String(serviceState(service)).toLowerCase()}${reason ? ` — ${reason}` : ''}`))
   }
   if (!lines.length) lines.push(line('ok', `✓ ${modules.length} plugin module(s) healthy`))
   // The two positive lines are stated whatever the faults are: they are facts about *other* things, and a list

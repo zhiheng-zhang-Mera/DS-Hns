@@ -159,6 +159,33 @@ test('nothing wrong is reported as fine, and only as fine', async () => {
   assert.equal(view.fields.find((entry) => entry.id === 'lastError').tone, 'ok')
 })
 
+test('an optional Computer Use host absence is explained as unavailable without downgrading the core', async () => {
+  const { buildMegaView } = await loadView()
+  const clean = snapshot({
+    modules: [{ id: 'mega:dock', state: 'HEALTHY', retries: 0, lastError: null, fallback: null, tone: 'ok', actions: ['check', 'retry', 'reset-fallback'] }],
+    degraded: 0,
+    services: [{
+      id: 'dshns.computer-use',
+      name: 'Computer Use',
+      ok: true,
+      installed: true,
+      enabled: true,
+      loaded: true,
+      healthy: false,
+      health: {
+        status: 'degraded',
+        reason: 'no host runtime was attached, so GUI work is unavailable in this process'
+      }
+    }]
+  })
+  const view = buildMegaView({ plugin, bridge: BRIDGE, governance: clean })
+
+  assert.equal(view.status.label, 'Healthy', 'an absent optional GUI host must not downgrade the core')
+  assert.equal(view.services[0].state, 'UNAVAILABLE')
+  assert.equal(view.services[0].coreImpact, false)
+  assert.match(view.lines.find((entry) => /Computer Use/.test(entry.text)).text, /Computer Use unavailable — no host runtime attached; core unaffected/)
+})
+
 test('a failed module outranks a degraded one, and pending human work reaches the badge', async () => {
   const { buildMegaView } = await loadView()
   const failed = buildMegaView({ plugin, bridge: BRIDGE, governance: snapshot({ failed: 1 }) })
