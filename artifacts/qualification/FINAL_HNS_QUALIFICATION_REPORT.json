@@ -1,0 +1,40 @@
+{
+  "schema": "hns-final-qualification-report/v1",
+  "candidateBranch": "dev/hns-final-qualification-rc2",
+  "baselineMainBeforeQualification": "59d816b734bea1c20ff2fbd6244395fc715304fe",
+  "productionTag": "hns-production-v1",
+  "exactIdentitySource": "immutable qualification-summary.json plus final git refs",
+  "mandatoryContract": {
+    "localQualification": "PASS_REQUIRED",
+    "cleanroomInstallAndQualification": "PASS_REQUIRED",
+    "githubRequiredChecks": "PASS_REQUIRED",
+    "mainTreeEqualsQualifiedTree": "PASS_REQUIRED",
+    "postMergeSmoke": "PASS_REQUIRED"
+  },
+  "nonMandatoryEnhancedQualification": {
+    "realWindowsReboot": "REAL_REBOOT_NOT_RUN_BY_HOST_POLICY",
+    "realtime24hSoak": "NOT_RUN"
+  },
+  "resolvedIssues": [
+    "RC1-INSTALL-002 installer/profile/runtime status reconciliation",
+    "RC1-STORAGE-001 D-drive roots, process-leak gate, and C-drive write audit",
+    "RC1-GATE-001 stable Phase C threshold without lowering workload or threshold",
+    "RC1-UI-002 canonical logical plugin identity",
+    "RC1-UI-003 explicit optional Computer Use host-unavailable state",
+    "RC1-UI-004 real System Orb click, expansion, and feedback evidence",
+    "FQ-SUPERVISOR-001 stale pid-file hand-off cached a false degraded state"
+  ],
+  "phaseC": {
+    "threshold": 1.2,
+    "repeats": 3,
+    "min": 1.875,
+    "median": 1.879,
+    "max": 1.881,
+    "variance": 0.000006222222222222234,
+    "workloadChanged": false,
+    "thresholdChanged": false
+  },
+  "evidenceIndex": "artifacts/qualification/FINAL_EVIDENCE_INDEX.json",
+  "paperMaterial": "docs/paper-material/PAPER_MATERIAL_INDEX.md",
+  "claimBoundary": "Engineering qualification does not establish legal certification, universal hardware compatibility, research novelty, or real 24-hour/reboot evidence."
+}

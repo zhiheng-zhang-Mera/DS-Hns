@@ -1,0 +1,10 @@
+{
+  "schema": "hns-real-reboot-acceptance/v1",
+  "status": "REAL_REBOOT_NOT_RUN_BY_HOST_POLICY",
+  "passed": null,
+  "realWindowsRebootPerformed": false,
+  "reason": "The interactive Codex qualification session has no guaranteed post-boot continuation or durable authority to resume after restarting the owner workstation.",
+  "substitutesAccepted": false,
+  "syntheticEvidence": "The restart-continuity, chaos, soak, and Electron restart gates are separate engineering evidence and are not a real Windows reboot.",
+  "nextExecutableAction": "Run the documented reboot ceremony from a host-controlled persistent runner that automatically resumes this qualification after Windows startup."
+}
