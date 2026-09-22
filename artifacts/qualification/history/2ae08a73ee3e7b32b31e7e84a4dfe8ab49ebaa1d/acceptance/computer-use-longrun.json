@@ -1,0 +1,672 @@
+{
+  "harness": "computer-use-longrun-acceptance",
+  "plan": "Update-Plan/24h.md §23-§26",
+  "cycles": 300,
+  "startedAt": "2026-09-21T07:47:08.214Z",
+  "platform": "win32",
+  "node": "v24.14.1",
+  "cases": [
+    {
+      "id": "soak",
+      "title": "accelerated soak: 300 action cycles",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "the soak ran hundreds of action cycles",
+          "ok": true,
+          "detail": "300 must be >= 200"
+        },
+        {
+          "name": "the soak verified real filesystem effects",
+          "ok": true,
+          "detail": "300 must be >= 270"
+        },
+        {
+          "name": "the step trace ring stayed bounded",
+          "ok": true,
+          "detail": "329 must be <= 2000"
+        },
+        {
+          "name": "the progress ring stayed bounded",
+          "ok": true,
+          "detail": "32 must be <= 32"
+        },
+        {
+          "name": "the focus-trust history stayed bounded",
+          "ok": true,
+          "detail": "100 must be <= 100"
+        },
+        {
+          "name": "the mutation check ring stayed bounded",
+          "ok": true,
+          "detail": "200 must be <= 200"
+        },
+        {
+          "name": "the stall history stayed bounded",
+          "ok": true,
+          "detail": "200 must be <= 200"
+        },
+        {
+          "name": "the live capture ring stayed bounded by the ceiling",
+          "ok": true,
+          "detail": "8 must be <= 8"
+        },
+        {
+          "name": "transient captures were dropped rather than accumulated",
+          "ok": true,
+          "detail": "292 must be >= 1"
+        },
+        {
+          "name": "the screenshot log ring stayed bounded",
+          "ok": true,
+          "detail": "0 must be <= 200"
+        },
+        {
+          "name": "no owned process leaked",
+          "ok": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "the process registry recorded the children it settled",
+          "ok": true,
+          "detail": "100 must be >= 20"
+        },
+        {
+          "name": "the finished-process ring stayed bounded",
+          "ok": true,
+          "detail": "100 must be <= 120"
+        },
+        {
+          "name": "the runtime never owns more than its ceiling",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "retries stayed proportional to the injected misses",
+          "ok": true,
+          "detail": "28 must be <= 29"
+        },
+        {
+          "name": "focus trust was cleared by a window change and never inferred",
+          "ok": true,
+          "detail": "invalidation snapshots: 29"
+        },
+        {
+          "name": "focus trust matches the last verification verdict",
+          "ok": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the log rotated or stayed inside its own byte ceiling",
+          "ok": true,
+          "detail": "215390 bytes"
+        },
+        {
+          "name": "the log recorded its run id on every line",
+          "ok": true,
+          "detail": "expected \"soak\", got \"soak\""
+        },
+        {
+          "name": "every logged step carries the structured long-running fields",
+          "ok": true,
+          "detail": null
+        },
+        {
+          "name": "the workspace stayed verified for the whole soak",
+          "ok": true,
+          "detail": "{\"ok\":true,\"cwd\":\"D:\\\\Hns-Integration-RC\\\\.tmp\\\\cu-longrun-ws-ovw5PU\",\"reason\":null,\"verifiedAt\":12940,\"unscoped\":false,\"drifts\":[]}"
+        },
+        {
+          "name": "no workspace drift was recorded",
+          "ok": true,
+          "detail": "expected 0, got 0"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:cdp-disconnect",
+      "title": "[recover] the browser transport disconnects mid-step and is reconnected within its bound",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "the disconnect was classified as a transport failure",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the channel was reconnected",
+          "ok": true,
+          "detail": "expected \"reconnected\", got \"reconnected\""
+        },
+        {
+          "name": "the reconnect stayed inside its attempt bound",
+          "ok": true,
+          "detail": "2 must be <= 2"
+        },
+        {
+          "name": "the budget is per step, so a fresh step resets it",
+          "ok": true,
+          "detail": "expected 0, got 0"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:window-closes",
+      "title": "[recover] the focused window disappears: focus trust is cleared and the target is re-resolved",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "the focus is trusted while its world is present",
+          "ok": true,
+          "detail": "expected \"field-a\", got \"field-a\""
+        },
+        {
+          "name": "the closed window is detected",
+          "ok": true,
+          "detail": "{\"invalidated\":true,\"reasons\":[\"window_changed\",\"target_detached\"]}"
+        },
+        {
+          "name": "a detached target clears the verified focus reference",
+          "ok": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the invalidation is recorded",
+          "ok": true,
+          "detail": null
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:target-moves",
+      "title": "[recover] the target moves while settling: the coordinate is never reused",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "a moved target produces a reobserve verdict",
+          "ok": true,
+          "detail": "expected \"reobserve\", got \"reobserve\""
+        },
+        {
+          "name": "the settling stayed inside the action bound",
+          "ok": true,
+          "detail": "50 must be <= 400"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:target-disappears",
+      "title": "[fail-with-evidence] the target disappears: the step fails with a typed code, not a hang",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "two unchanged actions are a stall",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the ladder ends instead of looping",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the ladder is bounded by its own length",
+          "ok": true,
+          "detail": "expected 8, got 8"
+        },
+        {
+          "name": "the last rung is fail-with-context",
+          "ok": true,
+          "detail": "expected \"fail_with_context\", got \"fail_with_context\""
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:ui-freezes",
+      "title": "[recover] the UI freezes temporarily: the wait is bounded and the run continues",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "a frozen UI never waits past the action ceiling",
+          "ok": true,
+          "detail": "50 must be <= 250"
+        },
+        {
+          "name": "the wait ended in a bounded decision, not a sleep",
+          "ok": true,
+          "detail": "stable"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:modal-appears",
+      "title": "[recover] an unexpected modal appears: it is dismissed by its own control and the action resumes",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "a destructive control is never pressed by default",
+          "ok": true,
+          "detail": "press/safe_dismiss"
+        },
+        {
+          "name": "a safe dismissal is pressed",
+          "ok": true,
+          "detail": "expected \"press\", got \"press\""
+        },
+        {
+          "name": "the dismissal keeps its interaction channel",
+          "ok": true,
+          "detail": "expected \"page\", got \"page\""
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:shell-timeout",
+      "title": "[fail-with-evidence] a foreground command outlives its timeout: the owned child is terminated and reported",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "an over-running foreground command is terminated",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the timeout is reported, not hidden",
+          "ok": true,
+          "detail": "expected \"failure\", got \"failure\""
+        },
+        {
+          "name": "the terminated child is settled in the registry",
+          "ok": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "the receipt carries the bound it was given",
+          "ok": true,
+          "detail": "expected 1200, got 1200"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:child-crash",
+      "title": "[fail-with-evidence] a child process crashes: its exit is recorded, not lost",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "the crash exit code is recorded",
+          "ok": true,
+          "detail": "expected 9, got 9"
+        },
+        {
+          "name": "a non-zero exit is a reported failure",
+          "ok": true,
+          "detail": "expected \"failure\", got \"failure\""
+        },
+        {
+          "name": "the crashed child is not leaked",
+          "ok": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "the crashed child has a recorded outcome",
+          "ok": true,
+          "detail": "[{\"id\":\"p1\",\"pid\":46312,\"command\":\"D:\\\\Hns-Integration-RC\\\\repo\\\\runtime\\\\node-v24.14.1-win-x64\\\\node.exe\",\"args\":[\"-e\",\"process.exit(9)\"],\"cwd\":\"D:\\\\Hns-Integration-RC\\\\.tmp\",\"mode\":\"foreground\",\"ownership\":\"runtime\",\"expectedLifetimeMs\":15000,\"startedAt\":1000,\"status\":\"exited\",\"exitCode\":9,\"signal\":null,\"durationMs\":0,\"step\":null}]"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:file-locked",
+      "title": "[fail-with-evidence] a file mutation cannot be confirmed on disk: the step is not a success",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "an unconfirmed mutation is not a success",
+          "ok": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "resuming re-observes instead of blindly rewriting",
+          "ok": true,
+          "detail": "expected \"retry\", got \"retry\""
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:workspace-inaccessible",
+      "title": "[block] the workspace disappears: the runtime blocks instead of writing elsewhere",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "a missing workspace refuses a working directory",
+          "ok": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the refusal explains itself",
+          "ok": true,
+          "detail": "the workspace is not accessible: ENOENT: no such file or directory, stat 'D:\\Hns-Integration-RC\\.tmp\\cu-ws-gone-18936-1789976828206'"
+        },
+        {
+          "name": "the workspace reports itself unavailable",
+          "ok": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the runtime has a block reason for it",
+          "ok": true,
+          "detail": null
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:vision-unavailable",
+      "title": "[degrade] vision goes away: the other capabilities keep working",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "one dead controller degrades rather than blocks",
+          "ok": true,
+          "detail": "expected \"degraded\", got \"degraded\""
+        },
+        {
+          "name": "the dead controller is named",
+          "ok": true,
+          "detail": "[\"vision\"]"
+        },
+        {
+          "name": "the surviving capabilities stay usable",
+          "ok": true,
+          "detail": "[\"browser\",\"desktop\",\"shell\",\"file\"]"
+        },
+        {
+          "name": "the runtime is not blocked",
+          "ok": true,
+          "detail": []
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "inject:verification-unknown",
+      "title": "[block] state integrity is uncertain: the runtime stops rather than guessing",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "an uncertain state blocks the runtime",
+          "ok": true,
+          "detail": "expected \"blocked\", got \"blocked\""
+        },
+        {
+          "name": "the block reason is state integrity",
+          "ok": true,
+          "detail": "[{\"code\":\"state_integrity_uncertain\",\"reason\":\"the runtime cannot vouch for its own state\"}]"
+        },
+        {
+          "name": "an uncertain state is the only reason it stops",
+          "ok": true,
+          "detail": "expected \"healthy\", got \"healthy\""
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:A",
+      "title": "scenario A (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "focus trust is not accumulated after a miss",
+          "ok": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the focus history stayed bounded",
+          "ok": true,
+          "detail": "100 must be <= 100"
+        },
+        {
+          "name": "the capture ring stayed inside its ceiling",
+          "ok": true,
+          "detail": "6 must be <= 6"
+        },
+        {
+          "name": "transient captures were evicted",
+          "ok": true,
+          "detail": "394 must be >= 1"
+        },
+        {
+          "name": "retries tracked the misses, not the steps",
+          "ok": true,
+          "detail": "100 must be <= 100"
+        },
+        {
+          "name": "the progress ring stayed bounded",
+          "ok": true,
+          "detail": "24 must be <= 24"
+        },
+        {
+          "name": "lastProgressAt is not moved by the no-ops",
+          "ok": true,
+          "detail": 1
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:B",
+      "title": "scenario B (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "a long-running process is still owned while it runs",
+          "ok": true,
+          "detail": "[{\"id\":\"p1\",\"pid\":4242,\"command\":\"npm\",\"args\":[\"run\",\"build\"],\"cwd\":\"D:\\\\Hns-Integration-RC\\\\.tmp\",\"mode\":\"long_running\",\"ownership\":\"runtime\",\"expectedLifetimeMs\":600000,\"startedAt\":1000,\"status\":\"running\",\"exitCode\":null,\"signal\":null,\"durationMs\":120000,\"step\":1}]"
+        },
+        {
+          "name": "it is not reported as hung inside its expected lifetime",
+          "ok": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "it is reported as hung once it outlives its declared lifetime",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "its ownership is explicit",
+          "ok": true,
+          "detail": "{\"id\":\"p1\",\"pid\":4242,\"command\":\"npm\",\"args\":[\"run\",\"build\"],\"cwd\":\"D:\\\\Hns-Integration-RC\\\\.tmp\",\"mode\":\"long_running\",\"ownership\":\"runtime\",\"expectedLifetimeMs\":600000,\"startedAt\":1000,\"status\":\"running\",\"exitCode\":null,\"signal\":null,\"durationMs\":120000,\"step\":1}"
+        },
+        {
+          "name": "a live long-running process does not sit on a timeout leash",
+          "ok": true,
+          "detail": "600000 must be <= 600000"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:C",
+      "title": "scenario C (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "the owned process was terminated at its bound",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "the registry records the outcome",
+          "ok": true,
+          "detail": "expected 0, got 0"
+        },
+        {
+          "name": "the failure evidence is preserved in the log",
+          "ok": true,
+          "detail": null
+        },
+        {
+          "name": "the run reports a bounded failure",
+          "ok": true,
+          "detail": "expected \"failed\", got \"failed\""
+        },
+        {
+          "name": "a process the runtime does not own can never be killed",
+          "ok": true,
+          "detail": "{\"ok\":false,\"reason\":\"not_owned\",\"id\":\"not-ours\"}"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:D",
+      "title": "scenario D (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "a cwd inside the workspace resolves",
+          "ok": true,
+          "detail": "expected true, got true"
+        },
+        {
+          "name": "a cwd outside the workspace is refused",
+          "ok": true,
+          "detail": "expected false, got false"
+        },
+        {
+          "name": "the drift is recorded",
+          "ok": true,
+          "detail": "expected 1, got 1"
+        },
+        {
+          "name": "a relative path resolves against the verified workspace",
+          "ok": true,
+          "detail": "expected \"D:\\\\Hns-Integration-RC\\\\.tmp\\\\cu-drift-GQdfFd\\\\a\\\\b.txt\", got \"D:\\\\Hns-Integration-RC\\\\.tmp\\\\cu-drift-GQdfFd\\\\a\\\\b.txt\""
+        },
+        {
+          "name": "a path outside the workspace is refused",
+          "ok": true,
+          "detail": "expected false, got false"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:E",
+      "title": "scenario E (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "the focus is trusted after a verified action",
+          "ok": true,
+          "detail": "expected \"field-a\", got \"field-a\""
+        },
+        {
+          "name": "a matching context keeps the verified focus",
+          "ok": true,
+          "detail": "expected \"field-a\", got \"field-a\""
+        },
+        {
+          "name": "replacing the UI context is detected",
+          "ok": true,
+          "detail": "{\"invalidated\":true,\"reasons\":[\"window_changed\",\"target_detached\"]}"
+        },
+        {
+          "name": "the replacement is named as a window or navigation change",
+          "ok": true,
+          "detail": "[\"window_changed\",\"target_detached\"]"
+        },
+        {
+          "name": "the verified focus reference is cleared",
+          "ok": true,
+          "detail": "expected null, got null"
+        },
+        {
+          "name": "the invalidation reason is recorded",
+          "ok": true,
+          "detail": "[{\"at\":1000,\"kind\":\"invalidate\",\"reason\":\"window_changed\",\"had\":true,\"source\":\"context\"},{\"at\":1000,\"kind\":\"invalidate\",\"reason\":\"target_detached\",\"had\":false,\"source\":\"context\"}]"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:F",
+      "title": "scenario F (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "an unauthorised destructive control is not pressed",
+          "ok": true,
+          "detail": "expected \"USER_ACTION_REQUIRED\", got \"USER_ACTION_REQUIRED\""
+        },
+        {
+          "name": "the refusal names the action it refuses",
+          "ok": true,
+          "detail": "expected \"DELETE\", got \"DELETE\""
+        },
+        {
+          "name": "a modal with no safe control needs a user decision",
+          "ok": true,
+          "detail": "{\"action\":\"USER_ACTION_REQUIRED\",\"control\":null,\"kind\":\"unknown\",\"destructiveKind\":null,\"requiresUser\":true,\"reason\":\"the dialog exposes no control the runtime can classify\",\"classification\":{\"type\":\"confirm\",\"message\":\"Continue?\",\"source\":null,\"ref\":null,\"windowHandle\":null,\"messageDestructiveKind\":null,\"controls\":[],\"counts\":{}},\"ref\":null,\"source\":null}"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    },
+    {
+      "id": "scenario:G",
+      "title": "scenario G (plan §25)",
+      "status": "passed",
+      "checks": [
+        {
+          "name": "one dead controller degrades the runtime",
+          "ok": true,
+          "detail": "expected \"degraded\", got \"degraded\""
+        },
+        {
+          "name": "the surviving controllers are usable",
+          "ok": true,
+          "detail": "[\"desktop\",\"shell\",\"file\",\"vision\"]"
+        },
+        {
+          "name": "the runtime is not blocked",
+          "ok": true,
+          "detail": "[]"
+        }
+      ],
+      "notes": [],
+      "failed": []
+    }
+  ],
+  "checks": 96,
+  "failures": 0
+}

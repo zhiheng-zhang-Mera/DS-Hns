@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-09-17T08:30:33.704Z",
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499",
+  "formalRecord": {
+    "file": "restart_status.json (in the supervisor state directory)",
+    "fields": [
+      "reason.code",
+      "reason.summary",
+      "reason.requestedBy",
+      "requestedAt",
+      "startedAt",
+      "stoppingAt",
+      "relaunchedAt",
+      "completedAt",
+      "phase",
+      "phases[]",
+      "recovery.result",
+      "recovery.process",
+      "recovery.task",
+      "recovery.semantic",
+      "recovery.failedReason",
+      "history[]"
+    ],
+    "capability": "restart-control.getRestartStatus()",
+    "surfaces": [
+      "the plugin’s own diagnostics",
+      "pluginServices.restartStatus()",
+      "the Control Center restart section",
+      "the official Settings page restart block"
+    ]
+  },
+  "recoveryKinds": {
+    "process": "the readiness gates passed (chaos controlled-restart, kill-core)",
+    "task": "the interrupted work re-entered an executable state through Core continuity (chaos host-restart)",
+    "semantic": "the continuation named where it started from, after the verification checked the working tree, HEAD, the recorded commit, the checkpoint and the artifacts"
+  },
+  "evidence": [
+    {
+      "id": "kill-core",
+      "passed": true,
+      "checks": 15,
+      "notes": [
+        "pid 19272 -> 2172; recovery PARTIAL"
+      ]
+    },
+    {
+      "id": "controlled-restart",
+      "passed": true,
+      "checks": 12,
+      "notes": [
+        "order phase:CONTINUITY > phase:BOUNDARY > phase:STOPPING > stop > phase:STOPPED > phase:RELAUNCHING > launch > phase:READINESS > phase:RECOVERY; recovery FULL"
+      ]
+    },
+    {
+      "id": "plugin-crash",
+      "passed": true,
+      "checks": 7,
+      "notes": []
+    },
+    {
+      "id": "plugin-timeout",
+      "passed": true,
+      "checks": 5,
+      "notes": [
+        "checkHealth answered after 504ms with status unknown"
+      ]
+    },
+    {
+      "id": "network-failure",
+      "passed": true,
+      "checks": 7,
+      "notes": []
+    },
+    {
+      "id": "host-restart",
+      "passed": true,
+      "checks": 8,
+      "notes": [
+        "the real Windows reboot is NOT exercised in this environment; the resume path it drives is"
+      ]
+    },
+    {
+      "id": "git-interruption",
+      "passed": true,
+      "checks": 4,
+      "notes": [
+        "commits 2 -> 3; the continuity check reads HEAD and the last 20 commits before resuming"
+      ]
+    },
+    {
+      "id": "false-success",
+      "passed": true,
+      "checks": 7,
+      "notes": []
+    }
+  ]
+}
