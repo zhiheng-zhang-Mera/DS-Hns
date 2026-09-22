@@ -29,6 +29,7 @@
  */
 
 const { resolveCommandTemp } = require('./temp-root.cjs')
+const { resolveRuntimeRoot } = require('./storage-roots.cjs')
 
 const fs = require('node:fs')
 const os = require('node:os')
@@ -245,12 +246,12 @@ async function allocateHarnessPort({ requested, host = '127.0.0.1', window = 40 
  * collide, and the protocol version, so a client built against another revision
  * fails loudly at connect time rather than misreading a handshake.
  */
-function ipcEndpointFor(instanceId, platform = process.platform) {
+function ipcEndpointFor(instanceId, platform = process.platform, root = process.cwd(), env = process.env) {
   const id = slugify(instanceId, 'unknown')
   if (platform === 'win32') return `\\\\.\\pipe\\dsh-hns-${id}`
   // A Unix socket path is length-limited (~104 bytes on macOS), so it lives in the
   // per-user runtime directory rather than under a possibly deep checkout.
-  const base = process.env.XDG_RUNTIME_DIR || os.tmpdir()
+  const base = resolveRuntimeRoot(root, env)
   return path.join(base, `dsh-hns-${id}.sock`)
 }
 
@@ -360,13 +361,13 @@ function describeInstance({
     appName: appName || path.basename(path.resolve(instanceRoot)) || 'DS-Harness',
     slug,
     isolated: isIsolated,
-    ipcEndpoint: ipcEndpointFor(instanceId, platform),
+    ipcEndpoint: ipcEndpointFor(instanceId, platform, instanceRoot, process.env),
     requestedPort: Number.isInteger(Number(requestedPort)) ? Number(requestedPort) : null,
     paths: {
       /** The instance's own record of itself: id, protocol, chosen port, endpoint. */
       identityFile: path.join(home, 'state', 'instance.json'),
       /** Both ownership record kinds live under the instance's `runtime/`. */
-      runtimeDir: path.join(instanceRoot, 'runtime'),
+      runtimeDir: resolveRuntimeRoot(instanceRoot, process.env),
       stateDir: path.join(home, 'state'),
       logsDir: path.join(instanceRoot, 'logs'),
       tempDir: resolveCommandTemp(instanceRoot, {}),

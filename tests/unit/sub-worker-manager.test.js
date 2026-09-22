@@ -79,7 +79,7 @@ function scratch(name, { gitRepo = true } = {}) {
 
 /** A scratch directory that is guaranteed to be outside any git work tree. */
 function scratchOutsideRepo(name) {
-  const base = path.join(process.env.LOCALAPPDATA || os.homedir(), 'Temp', 'dsh-sub-worker-tests')
+  const base = path.join(process.env.DSH_TEST_ROOT || os.tmpdir(), 'dsh-sub-worker-tests')
   fs.mkdirSync(base, { recursive: true })
   const root = fs.mkdtempSync(path.join(base, `dsh-sub-nonrepo-${name}-`))
   CREATED_ROOTS.push(root)

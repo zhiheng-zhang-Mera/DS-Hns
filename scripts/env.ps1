@@ -3,17 +3,26 @@
 $ErrorActionPreference = 'Stop'
 $script:ROOT = Split-Path -Parent $PSScriptRoot
 $script:envLoaded = $true
+$script:taskRoot = Split-Path -Parent $ROOT
 $script:commandTemp = if ($env:DSH_TEMP_ROOT) {
   [System.IO.Path]::GetFullPath([string]$env:DSH_TEMP_ROOT)
 } else {
-  Join-Path (Split-Path -Parent $ROOT) 'temp'
+  Join-Path $script:taskRoot 'temp'
 }
+$script:runtimeRoot = if ($env:DSH_RUNTIME_ROOT) { [System.IO.Path]::GetFullPath([string]$env:DSH_RUNTIME_ROOT) } else { Join-Path $script:taskRoot 'runtime-data' }
+$script:testRoot = if ($env:DSH_TEST_ROOT) { [System.IO.Path]::GetFullPath([string]$env:DSH_TEST_ROOT) } else { Join-Path $script:taskRoot 'test-artifacts' }
+$script:localAppData = Join-Path $script:taskRoot '.localappdata'
+$script:roamingAppData = Join-Path $script:taskRoot '.appdata'
 
 $script:requiredDirs = @(
   "$ROOT\workspace\active",
   "$ROOT\workspace\completed",
   "$ROOT\workspace\temp",
   $script:commandTemp,
+  $script:runtimeRoot,
+  $script:testRoot,
+  $script:localAppData,
+  $script:roamingAppData,
   "$ROOT\cache\npm",
   "$ROOT\cache\electron",
   "$ROOT\cache\downloads",
@@ -44,8 +53,13 @@ try {
 
 $env:DSH_ROOT = $ROOT
 $env:DSH_HOME = "$ROOT\data"
+$env:DSH_TEMP_ROOT = $script:commandTemp
+$env:DSH_RUNTIME_ROOT = $script:runtimeRoot
+$env:DSH_TEST_ROOT = $script:testRoot
 $env:TEMP = $script:commandTemp
 $env:TMP = $script:commandTemp
+$env:LOCALAPPDATA = $script:localAppData
+$env:APPDATA = $script:roamingAppData
 $env:PIP_CACHE_DIR = "$ROOT\cache\pip"
 $env:npm_config_cache = "$ROOT\cache\npm"
 $env:ELECTRON_CACHE = "$ROOT\cache\electron"

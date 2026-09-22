@@ -33,6 +33,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ROOT = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'env.ps1')
 
 function Resolve-Node {
   $local = Get-ChildItem -Path (Join-Path $ROOT 'runtime') -Directory -ErrorAction SilentlyContinue |
@@ -111,6 +112,7 @@ if ($Tier -eq 'Qualification') {
 }
 
 $started = Get-Date
+$startedUtc = $started.ToUniversalTime().ToString('o')
 $arguments = @('--test', '--test-concurrency=2') + $files
 Push-Location $testsDir
 try {
@@ -121,6 +123,16 @@ try {
 }
 $elapsed = ((Get-Date) - $started).TotalSeconds
 
+$auditFailure = $null
+if ($Tier -eq 'Qualification') {
+  $auditReport = Join-Path $env:DSH_TEST_ROOT 'post-test-audit.json'
+  try {
+    & (Join-Path $PSScriptRoot 'post-test-audit.ps1') -Root $ROOT -StartedAtUtc $startedUtc -ReportPath $auditReport
+  } catch {
+    $auditFailure = $_
+  }
+}
+
 if ($ReportTiming) {
   # Printed, never asserted. See tests/unit/installer-timing-gate.test.js.
   Write-Host ("  [benchmark] test tier {0}: {1:N1}s" -f $Tier, $elapsed)
@@ -128,5 +140,8 @@ if ($ReportTiming) {
 
 if ($exit -ne 0) {
   throw "Installer tests failed (tier $Tier)."
+}
+if ($auditFailure) {
+  throw $auditFailure
 }
 Write-Host "  Installer tests passed (tier $Tier, $([math]::Round($elapsed,1))s)."
