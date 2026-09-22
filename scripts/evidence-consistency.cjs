@@ -3,10 +3,15 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
+function parseJsonText(text) {
+  return JSON.parse(String(text).replace(/^\uFEFF/, ''))
+}
+
 function countChecks(report) {
   if (Array.isArray(report?.checks)) return report.checks.length
   if (Number.isFinite(report?.checks)) return Number(report.checks)
   if (Number.isFinite(report?.summary?.checks)) return Number(report.summary.checks)
+  if (report?.gates && typeof report.gates === 'object') return Object.keys(report.gates).length
   return null
 }
 
@@ -14,11 +19,13 @@ function countFailures(report) {
   if (Number.isFinite(report?.failures)) return Number(report.failures)
   if (Number.isFinite(report?.summary?.failed)) return Number(report.summary.failed)
   if (Array.isArray(report?.checks)) return report.checks.filter((entry) => entry?.ok === false).length
+  if (report?.gates && typeof report.gates === 'object') return Object.values(report.gates).filter((entry) => entry !== 'PASS').length
   return null
 }
 
 function reportPassed(report) {
   if (typeof report?.passed === 'boolean') return report.passed
+  if (typeof report?.ok === 'boolean') return report.ok
   if (report?.summary?.verdict) return report.summary.verdict === 'ACCEPTED'
   const failures = countFailures(report)
   return failures === null ? null : failures === 0
@@ -55,7 +62,7 @@ function validateQualification(summary, { runDir } = {}) {
       else if (!fs.existsSync(reportFile)) errors.push(`${label}: report does not exist`)
       else {
         let report
-        try { report = JSON.parse(fs.readFileSync(reportFile, 'utf8')) } catch { errors.push(`${label}: report is not valid JSON`) }
+        try { report = parseJsonText(fs.readFileSync(reportFile, 'utf8')) } catch { errors.push(`${label}: report is not valid JSON`) }
         if (report) {
           const artifactPass = reportPassed(report)
           if (artifactPass !== null && artifactPass !== (result.exitCode === 0)) errors.push(`${label}: child report passed state contradicts exitCode`)
@@ -79,7 +86,7 @@ function main(argv) {
   const file = argv[0]
   if (!file) throw new Error('usage: node scripts/evidence-consistency.cjs <summary.json>')
   const absolute = path.resolve(file)
-  const summary = JSON.parse(fs.readFileSync(absolute, 'utf8'))
+  const summary = parseJsonText(fs.readFileSync(absolute, 'utf8'))
   const result = validateQualification(summary, { runDir: path.dirname(absolute) })
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`)
   return result.ok ? 0 : 1
@@ -92,4 +99,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { countChecks, countFailures, reportPassed, validateQualification }
+module.exports = { parseJsonText, countChecks, countFailures, reportPassed, validateQualification }

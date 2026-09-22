@@ -1,7 +1,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$Root,
   [Parameter(Mandatory = $true)][string]$StartedAtUtc,
-  [string]$ReportPath = ''
+  [string]$ReportPath = '',
+  [int[]]$ExcludeProcessId = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,6 +15,7 @@ $processLeaks = @(
   Get-CimInstance Win32_Process -ErrorAction Stop |
     Where-Object {
       $_.ProcessId -ne $PID -and
+      $_.ProcessId -notin $ExcludeProcessId -and
       $_.Name -match '^(node|electron)(\.exe)?$' -and
       [string]$_.CommandLine -like "*$workspace*"
     } |
@@ -69,4 +71,3 @@ if ($cWrites.Count -gt 0) {
   $cWrites | Format-Table -AutoSize | Out-String | Write-Host
   throw 'C_DRIVE_WRITE_AUDIT failed.'
 }
-

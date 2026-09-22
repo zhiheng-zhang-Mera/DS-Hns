@@ -351,7 +351,7 @@ process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
  * request in the same place. Deriving it in three places from `process.cwd()` would be three answers to
  * one question, and the failure mode is a supervisor watching a directory nobody writes to.
  */
-process.env.DSHNS_SUPERVISOR_STATE_DIR = process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor')
+process.env.DSHNS_SUPERVISOR_STATE_DIR = process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(process.env.DSH_HOME, 'state', 'restart-supervisor')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
@@ -567,7 +567,7 @@ function syncHarnessProfilePlugin() {
   try {
     const changed = syncShippedPackage({
       sourceDir: path.join(__dirname, 'plugins', 'mega-core'),
-      modulesDir: path.join(ROOT, 'data', 'profiles', profile, 'node_modules'),
+      modulesDir: path.join(process.env.DSH_HOME, 'profiles', profile, 'node_modules'),
       log: logLine
     })
     if (changed.length) logLine(`[profile] the profile's copy of the shipped plugin was refreshed: ${changed.join(', ')}`)
@@ -591,7 +591,7 @@ function startHarness(nodeExe) {
   logLine(`node=${nodeExe}`)
   logLine(`entry=${DSH_ENTRY}`)
   logLine(`cwd=${ROOT}`)
-  logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
+  logLine(`DSH_HOME=${process.env.DSH_HOME}`)
   logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
 
   // The fixed prefix is the canonical launch line; `--port` is appended only when
@@ -601,7 +601,7 @@ function startHarness(nodeExe) {
     env: {
       ...process.env,
       DSH_ROOT: ROOT,
-      DSH_HOME: path.join(ROOT, 'data'),
+      DSH_HOME: process.env.DSH_HOME,
       DSH_NODE: nodeExe,
       npm_config_cache: path.join(ROOT, 'cache', 'npm'),
       TEMP: commandTemp,
@@ -2754,6 +2754,7 @@ function createOfficialSurfaceAdapter() {
       if (!officialSurfaces) {
         return {
           available: false,
+          reason: officialView ? 'official_surfaces_unavailable' : 'official_renderer_is_window_page',
           surfaces: PAINTABLE.map((id) => ({ id, created: false, ready: false, bounds: null })),
           protected: protectedSurface,
           wallpaper

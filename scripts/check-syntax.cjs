@@ -159,6 +159,7 @@ const EXTRA_FILES = [
   // run orchestrator and its fail-closed evidence auditor.
   path.join(ROOT, 'app', 'runtime', 'plugin-market-canonical.cjs'),
   path.join(ROOT, 'scripts', 'qualification-runner.cjs'),
+  path.join(ROOT, 'scripts', 'qualification-fixtures.cjs'),
   path.join(ROOT, 'scripts', 'evidence-consistency.cjs'),
   // The stand-in Harness CLI the installer suites drive the real installation channel with.
   path.join(ROOT, 'tests', 'helpers', 'harness-cli-stub.cjs'),

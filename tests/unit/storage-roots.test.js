@@ -4,8 +4,10 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 
 const ROOT = path.resolve(__dirname, '..', '..')
+const TEST_ROOT = process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts')
 
 test('one storage contract resolves temp, runtime and test roots on the repository volume outside the checkout', () => {
   const { resolveStorageRoots } = require('../../app/runtime/storage-roots.cjs')
@@ -53,8 +55,27 @@ test('qualification runs named post-test process and C-drive write gates', () =>
   assert.match(audit, /POST_TEST_PROCESS_LEAK_GATE/)
   assert.match(audit, /C_DRIVE_WRITE_AUDIT/)
   assert.match(audit, /Win32_Process/)
+  assert.match(audit, /ExcludeProcessId/)
   assert.match(audit, /LocalApplicationData/)
   assert.match(runner, /post-test-audit\.ps1/)
   assert.match(runner, /-StartedAtUtc/)
   assert.match(runner, /\$Tier -eq 'Qualification'/)
+})
+
+test('Mega mutable paths and Harness children honor the isolated DSH_HOME contract', () => {
+  const isolated = path.join(TEST_ROOT, 'isolated-home')
+  const probe = spawnSync(process.execPath, ['-e', "const {PATHS}=require('./app/extensions/mega/utils/paths.js'); process.stdout.write(JSON.stringify(PATHS))"], {
+    cwd: ROOT,
+    env: { ...process.env, DSH_HOME: isolated, DSH_RUNTIME_ROOT: path.join(TEST_ROOT, 'runtime-root'), DSH_TEMP_ROOT: path.join(TEST_ROOT, 'temp-root') },
+    encoding: 'utf8',
+    windowsHide: true
+  })
+  assert.equal(probe.status, 0, probe.stderr)
+  const paths = JSON.parse(probe.stdout)
+  assert.equal(paths.DSH_HOME, isolated)
+  assert.equal(paths.DATA, isolated)
+  assert.equal(paths.STATE, path.join(isolated, 'state'))
+  const shell = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+  assert.match(shell, /DSH_HOME: process\.env\.DSH_HOME/)
+  assert.doesNotMatch(shell, /DSH_HOME: path\.join\(ROOT, 'data'\)/)
 })

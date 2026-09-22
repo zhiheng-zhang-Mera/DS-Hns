@@ -5,7 +5,7 @@ const os = require('node:os')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { spawnSync } = require('node:child_process')
-const { countChecks, countFailures, validateQualification } = require('./evidence-consistency.cjs')
+const { parseJsonText, countChecks, countFailures, validateQualification } = require('./evidence-consistency.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const NODE = process.execPath
@@ -19,24 +19,26 @@ function git(...args) {
 
 function definitions(runDir, startedAt) {
   const report = (name) => path.join(runDir, 'reports', `${name}.json`)
+  const fixtures = path.join(runDir, 'runtime', 'test', 'qualification-fixtures')
   const ps = (file, ...args) => ({ command: POWERSHELL, args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(ROOT, 'scripts', file), ...args] })
   const node = (file, ...args) => ({ command: NODE, args: [path.join(ROOT, 'scripts', file), ...args] })
   return [
     { id: 'syntax-check', mandatory: true, ...node('check-syntax.cjs') },
     { id: 'all-unit-tests', mandatory: true, ...ps('test-all.ps1') },
     { id: 'architecture-verifier', mandatory: true, ...ps('verify.ps1') },
-    { id: 'install-pipeline', mandatory: true, ...node('install-pipeline-acceptance.cjs', '--json') },
-    { id: 'cordis-adapter', mandatory: true, ...node('cordis-adapter-acceptance.cjs', '--json') },
-    { id: 'process-adapter', mandatory: true, ...node('process-adapter-acceptance.cjs', '--json') },
+    { id: 'external-fixtures', mandatory: true, report: report('external-fixtures'), ...node('qualification-fixtures.cjs', fixtures, report('external-fixtures')) },
+    { id: 'install-pipeline', mandatory: true, report: report('install-pipeline'), stdoutJson: true, ...node('install-pipeline-acceptance.cjs', '--json', '--samples', path.join(fixtures, 'samples'), '--companion-repo', path.join(fixtures, 'dsh-restart')) },
+    { id: 'cordis-adapter', mandatory: true, report: report('cordis-adapter'), stdoutJson: true, ...node('cordis-adapter-acceptance.cjs', '--json', '--samples', path.join(fixtures, 'samples')) },
+    { id: 'process-adapter', mandatory: true, report: report('process-adapter'), stdoutJson: true, ...node('process-adapter-acceptance.cjs', '--json', '--companion-repo', path.join(fixtures, 'dsh-restart')) },
     { id: 'native-hns-adapter', mandatory: true, command: NODE, args: ['--test', path.join(ROOT, 'tests', 'unit', 'plugin-hns-native.test.js')] },
     { id: 'health-restart-continuity', mandatory: true, command: NODE, args: ['--test', path.join(ROOT, 'tests', 'unit', 'restart-supervisor-authority.test.js'), path.join(ROOT, 'tests', 'unit', 'longhost-continuity.test.js')] },
     { id: 'community-installer', mandatory: true, report: report('community-installer'), ...node('installer-community-acceptance.cjs', '--json', `--report=${report('community-installer')}`) },
-    { id: 'electron-ui-acceptance', mandatory: true, report: report('electron-ui-acceptance'), command: NODE, args: [path.join(ROOT, 'scripts', 'acceptance.mjs'), '--root', ROOT, '--port', '3091', '--cdp', '9331', '--user-data-dir', path.join(runDir, 'runtime', 'electron-user-data'), '--report', report('electron-ui-acceptance')] },
+    { id: 'electron-ui-acceptance', mandatory: true, report: report('electron-ui-acceptance'), command: NODE, args: [path.join(ROOT, 'scripts', 'acceptance.mjs'), '--root', ROOT, '--port', '3091', '--cdp', '9331', '--user-data-dir', path.join(runDir, 'runtime', 'electron-user-data'), '--data-dir', path.join(runDir, 'runtime', 'electron-data'), '--report', report('electron-ui-acceptance'), '--skills', '--github'] },
     { id: 'computer-use-longrun', mandatory: true, report: report('computer-use-longrun'), ...node('computer-use-longrun-acceptance.cjs', '--out', report('computer-use-longrun')) },
     { id: 'longhost-chaos', mandatory: true, report: report('longhost-chaos'), ...node('longhost-chaos.cjs', `--out=${report('longhost-chaos')}`) },
     { id: 'synthetic-soak', mandatory: true, report: report('synthetic-soak'), ...node('longhost-soak.cjs', `--out=${report('synthetic-soak')}`) },
     { id: 'combined-acceptance', mandatory: true, report: report('combined-acceptance'), ...node('combined-acceptance.cjs', '--out', report('combined-acceptance')) },
-    { id: 'post-test-audit', mandatory: true, report: report('post-test-audit'), ...ps('post-test-audit.ps1', '-Root', ROOT, '-StartedAtUtc', startedAt, '-ReportPath', report('post-test-audit')) }
+    { id: 'post-test-audit', mandatory: true, report: report('post-test-audit'), ...ps('post-test-audit.ps1', '-Root', ROOT, '-StartedAtUtc', startedAt, '-ReportPath', report('post-test-audit'), '-ExcludeProcessId', String(process.pid)) }
   ]
 }
 
@@ -57,7 +59,7 @@ function parseArgs(argv) {
 
 function readReport(file) {
   if (!file || !fs.existsSync(file)) return null
-  try { return JSON.parse(fs.readFileSync(file, 'utf8')) } catch { return null }
+  try { return parseJsonText(fs.readFileSync(file, 'utf8')) } catch { return null }
 }
 
 function runOne(definition, context) {
@@ -75,8 +77,38 @@ function runOne(definition, context) {
   })
   fs.writeFileSync(stdoutFile, result.stdout || '', 'utf8')
   fs.writeFileSync(stderrFile, result.stderr || '', 'utf8')
-  const exitCode = Number.isInteger(result.status) ? result.status : 1
-  const childReport = readReport(definition.report)
+  const processExitCode = Number.isInteger(result.status) ? result.status : 1
+  let reportError = null
+  if (definition.stdoutJson && definition.report) {
+    try {
+      const parsed = parseJsonText(result.stdout || '')
+      fs.writeFileSync(definition.report, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8')
+    } catch (error) {
+      reportError = `JSON stdout could not be persisted: ${error.message}`
+    }
+  }
+  let childReport = readReport(definition.report)
+  if (definition.report && !childReport) {
+    reportError = reportError || 'child did not produce a valid JSON report'
+    childReport = {
+      passed: false,
+      checks: 1,
+      failures: 1,
+      reason: reportError,
+      childExitCode: processExitCode
+    }
+  }
+  if (childReport) {
+    childReport.qualification = {
+      runId: context.runId,
+      gitSha: context.gitSha,
+      gitTree: context.gitTree,
+      branch: context.branch,
+      gate: definition.id
+    }
+    fs.writeFileSync(definition.report, `${JSON.stringify(childReport, null, 2)}\n`, 'utf8')
+  }
+  const exitCode = reportError && processExitCode === 0 ? 1 : processExitCode
   const wrapper = {
     id: definition.id,
     runId: context.runId,
@@ -93,7 +125,9 @@ function runOne(definition, context) {
     failures: childReport ? countFailures(childReport) : null,
     report: definition.report || null,
     rawEvidence: { stdout: stdoutFile, stderr: stderrFile },
-    spawnError: result.error ? String(result.error.message || result.error) : null
+    spawnError: result.error ? String(result.error.message || result.error) : null,
+    processExitCode,
+    reportError
   }
   fs.writeFileSync(path.join(context.runDir, 'results', `${definition.id}.json`), `${JSON.stringify(wrapper, null, 2)}\n`)
   process.stdout.write(`[qualification] ${wrapper.passed ? 'PASS' : 'FAIL'} ${definition.id} exit=${exitCode}\n`)
@@ -105,8 +139,9 @@ function hashFiles(runDir) {
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const file = path.join(dir, entry.name)
+      if (path.relative(runDir, file).split(path.sep)[0] === 'runtime') continue
       if (entry.isDirectory()) walk(file)
-      else if (entry.name !== 'artifact-index.json') {
+      else if (entry.isFile() && entry.name !== 'artifact-index.json') {
         entries.push({ path: path.relative(runDir, file).replaceAll('\\', '/'), sha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), bytes: fs.statSync(file).size })
       }
     }
@@ -197,4 +232,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, definitions, hashFiles }
+module.exports = { parseArgs, definitions, readReport, runOne, hashFiles }

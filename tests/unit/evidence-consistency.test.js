@@ -7,7 +7,16 @@ const path = require('node:path')
 
 const ROOT = path.resolve(__dirname, '..', '..')
 const TEST_ROOT = process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts')
-const { validateQualification } = require('../../scripts/evidence-consistency.cjs')
+const { parseJsonText, reportPassed, validateQualification } = require('../../scripts/evidence-consistency.cjs')
+
+test('JSON evidence accepts the UTF-8 BOM emitted by Windows PowerShell 5', () => {
+  assert.deepEqual(parseJsonText(`\uFEFF${JSON.stringify({ passed: true })}`), { passed: true })
+})
+
+test('acceptance reports that use ok instead of passed retain their verdict', () => {
+  assert.equal(reportPassed({ ok: false, checks: 1, failures: 1 }), false)
+  assert.equal(reportPassed({ ok: true, checks: 1, failures: 0 }), true)
+})
 
 function fixture() {
   fs.mkdirSync(TEST_ROOT, { recursive: true })

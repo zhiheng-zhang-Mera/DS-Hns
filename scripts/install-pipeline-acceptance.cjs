@@ -47,8 +47,9 @@ function arg(name, fallback) {
 }
 
 const JSON_OUT = process.argv.includes('--json')
-const SAMPLES = path.resolve(arg('samples', 'D:/test-DSH/samples'))
-const COMPANION_REPO = path.resolve(arg('companion-repo', 'D:/test-DSH/dsh-restart'))
+const FIXTURES = path.join(process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts'), 'qualification-fixtures')
+const SAMPLES = path.resolve(arg('samples', path.join(FIXTURES, 'samples')))
+const COMPANION_REPO = path.resolve(arg('companion-repo', path.join(FIXTURES, 'dsh-restart')))
 
 const results = []
 const notes = []

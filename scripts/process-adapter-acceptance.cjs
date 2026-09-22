@@ -49,7 +49,7 @@ function arg(name, fallback) {
 }
 
 const JSON_OUT = process.argv.includes('--json')
-const COMPANION_REPO = path.resolve(arg('companion-repo', 'D:/test-DSH/dsh-restart'))
+const COMPANION_REPO = path.resolve(arg('companion-repo', path.join(process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts'), 'qualification-fixtures', 'dsh-restart')))
 const SUPERVISOR_ENTRY = path.join(COMPANION_REPO, 'bin', 'supervisor.mjs')
 const COMPANION_SOURCE = path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')
 
