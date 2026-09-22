@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "results": [
+    {"id":"N1","failure":"An unref'd restart timer let the supervisor exit.","lineage":["791773d","9417ca8"],"consequence":"The entry point owns a keep-alive while library timers remain non-blocking."},
+    {"id":"N2","failure":"A crash before handshake could cancel a required restart.","lineage":["9417ca8"],"consequence":"Handshake death and steady-state death use distinct transitions."},
+    {"id":"N3","failure":"Readiness waiting could outlive a dead child.","lineage":["9417ca8"],"consequence":"Child exit cancels readiness waiting."},
+    {"id":"N4","failure":"Runtime-discovered capabilities could widen permission surface.","lineage":["db5ebab"],"consequence":"Capabilities are declared and allow-listed before launch."},
+    {"id":"N5","failure":"Weighted pressure made restart unreachable.","lineage":["16d722c"],"consequence":"Severe signals and restart authority are modeled separately."},
+    {"id":"N6","failure":"Epoch-zero cooldown and reads mutated health state.","lineage":["16d722c"],"consequence":"Reads are side-effect free and cooldown handles zero timestamps."},
+    {"id":"N7","failure":"Cordis parser and service mismatches broke adaptation.","lineage":["d44d835"],"consequence":"Controlled providers and degraded browser halves are reported honestly."},
+    {"id":"N8","failure":"Broad route reservation and handler errors returned HTTP 200.","lineage":["bridge tests"],"consequence":"Exact route ownership and error-status propagation are required."},
+    {"id":"N9","failure":"Activation failure was overwritten, refusal counted twice, and native main ignored.","lineage":["adapter and install tests"],"consequence":"One terminal result per stage and tested native entry resolution."},
+    {"id":"N10","failure":"Installer reported Plugin Market failure after materialization succeeded.","lineage":["412ec64"],"consequence":"Materialized package and profile state outrank stale transient output."},
+    {"id":"N11","failure":"Project tests wrote to C drive and left a host process.","lineage":["277ef17","be743a7"],"consequence":"Explicit D roots plus post-test process and storage gates."},
+    {"id":"N12","failure":"Phase C reached only 1.189x against a 1.2x threshold.","lineage":["9cecd68","0bbd32e"],"consequence":"Identical validations are batched; the threshold and workload remain unchanged."},
+    {"id":"N13","failure":"A soak report passed while its top summary exit code was 2.","lineage":["67b741a"],"consequence":"Immutable run directories and consistency checking fail closed."},
+    {"id":"N14","failure":"Junction-based Plugin Market isolation returned zero rows.","lineage":["task5 UI evidence"],"consequence":"The rejected experiment is retained and canonical identity is implemented directly."},
+    {"id":"N15","failure":"A CDP target existed before documentElement.","lineage":["be743a7"],"consequence":"UI acceptance waits for a renderer document."},
+    {"id":"N16","failure":"Qualification depended on prebuilt D:\\test-DSH samples.","lineage":["be743a7"],"consequence":"Pinned upstream fixtures are freshly installed and built per run."}
+  ]
+}

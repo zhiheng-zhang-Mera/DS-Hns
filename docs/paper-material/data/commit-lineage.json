@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-09-22",
+  "reachableCommitCount": 326,
+  "deduplicationMethod": "git patch-id --stable plus ancestry inspection",
+  "patchEquivalentGroups": [
+    {"logicalChange": "capability-gated plugin adapter", "commits": ["22b3261", "db5ebab"], "patchId": "def35337e01da733c0cf71c27cfa7044e123902d"},
+    {"logicalChange": "Cordis adapter integration", "commits": ["7969807", "d44d835"], "patchId": "159b5d64731e6283a7f134d5dc950dbaa4506c64"},
+    {"logicalChange": "managed-process adapter", "commits": ["791773d", "9417ca8"], "patchId": "35c8c23d2948bc3fb0676a340d4839675337605a"},
+    {"logicalChange": "health scheduler", "commits": ["96c571f", "16d722c"], "patchId": "0199c249a0c9575db6327b320f4a3e5923a49708"},
+    {"logicalChange": "unified native load path", "commits": ["d76dc3d", "1965f33"], "patchId": "90187c443e10db04b03577f57917487d16b39ac2"}
+  ],
+  "qualificationLineage": {
+    "integrationRc": "2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d",
+    "prePaperCandidate": "be743a705966858bf7086010dcba45f6730b432c",
+    "mainBaseline": "59d816b734bea1c20ff2fbd6244395fc715304fe"
+  },
+  "notes": [
+    "Patch-equivalent commits count once as a logical change.",
+    "Merge commits and preserved history are not additional research contributions."
+  ]
+}

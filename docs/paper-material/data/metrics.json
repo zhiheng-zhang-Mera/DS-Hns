@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "metrics": [
+    {"id":"phase_c_improvement","definition":"baseline elapsed divided by optimized elapsed for the same six files","unit":"ratio","source":"E-PHASE-C","boundary":"host and process-start dependent"},
+    {"id":"accepted_patch_latency","definition":"elapsed validation path to an accepted patch result","unit":"milliseconds","source":"E-PHASE-C","boundary":"simulated engineering loop"},
+    {"id":"gate_checks_failures","definition":"explicit assertions and false assertions","unit":"count","source":"qualification child reports","boundary":"suite grains differ"},
+    {"id":"restart_attempts_refusals","definition":"requested relaunches allowed or refused by budget","unit":"count","source":"E-SOAK and E-CHAOS","boundary":"injected schedule"},
+    {"id":"recovery_level","definition":"continuity classification after restart","unit":"categorical","source":"E-CHAOS","boundary":"project-defined semantics"},
+    {"id":"process_leaks","definition":"live Node or Electron commands naming the checkout after gates","unit":"count","source":"post-test audit","boundary":"unrelated processes excluded"},
+    {"id":"c_drive_writes","definition":"project-shaped LocalAppData entries modified after run start","unit":"count","source":"post-test audit","boundary":"named project entries only"},
+    {"id":"evidence_consistency_errors","definition":"identity, time, verdict, total or path contradictions","unit":"count","source":"E-QUAL","boundary":"structural consistency only"},
+    {"id":"ui_journey_checks","definition":"renderer and interaction assertions","unit":"count","source":"E-UI","boundary":"not a usability or accessibility score"}
+  ]
+}

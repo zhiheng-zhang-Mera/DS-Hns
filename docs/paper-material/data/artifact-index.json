@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {"id":"phase-c-summary","path":"artifacts/qualification/task4-phase-c-summary.json","kind":"measurement","scope":"construction","status":"PASS"},
+    {"id":"phase-c-narrative","path":"artifacts/qualification/task4-phase-c-summary.md","kind":"report","scope":"construction","status":"PASS"},
+    {"id":"ui-acceptance","path":"artifacts/qualification/task5-ui-acceptance.json","kind":"acceptance","scope":"construction","status":"PASS"},
+    {"id":"ui-acceptance-narrative","path":"artifacts/qualification/task5-ui-acceptance.md","kind":"report","scope":"construction","status":"PASS"},
+    {"id":"ui-screenshots","path":"artifacts/qualification/visual/","kind":"visual evidence","scope":"construction","status":"PASS"},
+    {"id":"rc1-archive","path":"artifacts/qualification/history/2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d/","kind":"immutable historical evidence","scope":"historical","status":"ARCHIVED_NOT_CURRENT"},
+    {"id":"final-local-run","path":"D:/Hns-Final-Qualification/test-artifacts/<runId>/","kind":"immutable raw qualification","scope":"final candidate","status":"PENDING"},
+    {"id":"final-cleanroom-run","path":"D:/Hns-Cleanroom-Qualification*/test-artifacts/<runId>/","kind":"immutable clean-room qualification","scope":"final candidate","status":"PENDING"},
+    {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","kind":"enhanced qualification","scope":"real machine","status":"NOT_RUN"},
+    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","kind":"enhanced qualification","scope":"real wall-clock","status":"NOT_RUN"}
+  ],
+  "rule":"Historical, construction, synthetic and final-candidate evidence remain explicitly separated."
+}
