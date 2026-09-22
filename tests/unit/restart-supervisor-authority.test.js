@@ -775,6 +775,30 @@ test('the restart companion uses the portable Node executable supplied by the de
   }
 })
 
+test('a newly launched companion outranks the previous stale pid file during hand-off', () => {
+  const area = scratch('companion-stale-pid-handoff')
+  const childProcess = require('node:child_process')
+  const originalSpawn = childProcess.spawn
+  const paths = companionPaths(area.dir)
+  childProcess.spawn = () => ({ pid: process.pid, unref() {} })
+  try {
+    fs.writeFileSync(paths.pidFile, JSON.stringify({ pid: 999_999_999, at: Date.now() - 60_000 }), 'utf8')
+    const supervisor = createRestartSupervisorPlugin({ stateDir: area.dir, nodeExe: process.execPath })
+    const started = supervisor.ensureCompanion({ force: true })
+    assert.equal(started.ok, true, JSON.stringify(started))
+
+    const status = supervisor.companionStatus()
+    assert.deepEqual(
+      status,
+      { running: true, pid: process.pid, since: null, starting: true },
+      'the old pid file must not overwrite the successful launch while the new companion publishes its pid file'
+    )
+  } finally {
+    childProcess.spawn = originalSpawn
+    area.dispose()
+  }
+})
+
 // ---------------------------------------------------------------------------------------------
 // 9. The installer's view of the two plugins
 // ---------------------------------------------------------------------------------------------

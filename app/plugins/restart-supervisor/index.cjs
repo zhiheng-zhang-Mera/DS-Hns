@@ -417,16 +417,26 @@ function createRestartSupervisorPlugin(options = {}) {
 
   /** Is a companion process alive for this state directory? A file plus a liveness probe. */
   function companionStatus() {
+    /**
+     * A successful spawn is authoritative during the short hand-off before the child replaces
+     * `companion.pid`. The previous run may have left a well-formed but dead pid file behind; if
+     * that file wins merely because it exists, the post-start health pass caches a false degraded
+     * result even though the newly launched child is alive.
+     */
+    function launchedStatus() {
+      if (!companionLaunch || !Number.isFinite(Number(companionLaunch.pid))) return null
+      try {
+        process.kill(Number(companionLaunch.pid), 0)
+        return { running: true, pid: Number(companionLaunch.pid), since: null, starting: true }
+      } catch {
+        companionLaunch = null
+        return null
+      }
+    }
     const record = readJson(paths.pidFile)
     if (!record || !Number.isFinite(Number(record.pid))) {
-      if (companionLaunch && Number.isFinite(Number(companionLaunch.pid))) {
-        try {
-          process.kill(Number(companionLaunch.pid), 0)
-          return { running: true, pid: Number(companionLaunch.pid), since: null, starting: true }
-        } catch {
-          companionLaunch = null
-        }
-      }
+      const launched = launchedStatus()
+      if (launched) return launched
       return { running: false, pid: null, reason: 'no companion pid file' }
     }
     try {
@@ -443,6 +453,8 @@ function createRestartSupervisorPlugin(options = {}) {
       }
       return { running: true, pid: Number(record.pid), since: record.at || null, file: paths.pidFile }
     } catch {
+      const launched = launchedStatus()
+      if (launched) return launched
       return { running: false, pid: Number(record.pid), stale: true, reason: `pid ${record.pid} is gone; the pid file is stale` }
     }
   }
