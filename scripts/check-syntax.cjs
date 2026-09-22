@@ -155,6 +155,11 @@ const EXTRA_FILES = [
   // Harness profile from the registry and read back through the adapter layer. It is the one script
   // that answers "do the pinned packages really install", so it is checked like the others.
   path.join(ROOT, 'scripts', 'installer-community-acceptance.cjs'),
+  // Final qualification: canonical Plugin Market identity plus the immutable
+  // run orchestrator and its fail-closed evidence auditor.
+  path.join(ROOT, 'app', 'runtime', 'plugin-market-canonical.cjs'),
+  path.join(ROOT, 'scripts', 'qualification-runner.cjs'),
+  path.join(ROOT, 'scripts', 'evidence-consistency.cjs'),
   // The stand-in Harness CLI the installer suites drive the real installation channel with.
   path.join(ROOT, 'tests', 'helpers', 'harness-cli-stub.cjs'),
   // The virtual clock the 6/12/24-hour synthetic soaks run on, and the soak harness itself. Both are
