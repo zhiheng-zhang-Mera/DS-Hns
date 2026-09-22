@@ -1,0 +1,144 @@
+{
+  "at": "2026-09-22T01:21:40.373Z",
+  "node": "v24.14.1",
+  "platform": "win32/x64",
+  "commit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+  "checks": [
+    {
+      "phase": "C",
+      "name": "both configurations accept the same patch, and it is correct",
+      "ok": true,
+      "detail": [
+        {
+          "label": "baseline",
+          "timeToAcceptedPatchMs": 17198,
+          "accepted": true,
+          "correctness": true,
+          "modelCalls": 13,
+          "scans": 6,
+          "reads": 6,
+          "commands": 7,
+          "processStarts": 7,
+          "modelLatencyBudgetMs": 3250,
+          "nonModelWallMs": 13948,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "approvalReason": "the full verification passed after the last change"
+        },
+        {
+          "label": "optimized",
+          "timeToAcceptedPatchMs": 9141,
+          "accepted": true,
+          "correctness": true,
+          "modelCalls": 2,
+          "scans": 1,
+          "reads": 6,
+          "commands": 2,
+          "processStarts": 2,
+          "modelLatencyBudgetMs": 500,
+          "nonModelWallMs": 8641,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "approvalReason": "the full verification passed after the last change"
+        }
+      ]
+    },
+    {
+      "phase": "C",
+      "name": "the accelerators cut the model round trips the task needs",
+      "ok": true,
+      "detail": {
+        "baselineCalls": 13,
+        "optimizedCalls": 2,
+        "scans": {
+          "baseline": 6,
+          "optimized": 1
+        },
+        "reads": {
+          "baseline": 6,
+          "optimized": 6
+        }
+      }
+    },
+    {
+      "phase": "C",
+      "name": "the repository is scanned once with the map, and per lookup without it",
+      "ok": true,
+      "detail": {
+        "baselineScans": 6,
+        "optimizedScans": 1
+      }
+    },
+    {
+      "phase": "C",
+      "name": "the optimized path batches the same validation workload into fewer process starts",
+      "ok": true,
+      "detail": {
+        "baselineProcessStarts": 7,
+        "optimizedProcessStarts": 2,
+        "workload": [
+          "tests/math.test.cjs",
+          "tests/format.test.cjs",
+          "tests/parse.test.cjs",
+          "tests/util.test.cjs",
+          "tests/token.test.cjs",
+          "tests/store.test.cjs"
+        ]
+      }
+    },
+    {
+      "phase": "C",
+      "name": "Time To Accepted Patch improves materially with the accelerators on",
+      "ok": true,
+      "detail": {
+        "metric": "Time To Accepted Patch",
+        "baselineMs": 17198,
+        "optimizedMs": 9141,
+        "improvement": 1.881,
+        "declaredModelLatencyMs": 250,
+        "note": "the round-trip counts are measured; the per-call latency is a declared constant because no provider is called from acceptance"
+      }
+    }
+  ],
+  "phaseC": {
+    "measured": [
+      {
+        "label": "baseline",
+        "timeToAcceptedPatchMs": 17198,
+        "accepted": true,
+        "correctness": true,
+        "modelCalls": 13,
+        "scans": 6,
+        "reads": 6,
+        "commands": 7,
+        "processStarts": 7,
+        "modelLatencyBudgetMs": 3250,
+        "nonModelWallMs": 13948,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "approvalReason": "the full verification passed after the last change"
+      },
+      {
+        "label": "optimized",
+        "timeToAcceptedPatchMs": 9141,
+        "accepted": true,
+        "correctness": true,
+        "modelCalls": 2,
+        "scans": 1,
+        "reads": 6,
+        "commands": 2,
+        "processStarts": 2,
+        "modelLatencyBudgetMs": 500,
+        "nonModelWallMs": 8641,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "approvalReason": "the full verification passed after the last change"
+      }
+    ],
+    "metric": "Time To Accepted Patch",
+    "improvement": 1.881,
+    "declaredModelLatencyMs": 250
+  },
+  "summary": {
+    "checks": 5,
+    "passed": 5,
+    "failed": 0,
+    "verdict": "ACCEPTED"
+  }
+}
