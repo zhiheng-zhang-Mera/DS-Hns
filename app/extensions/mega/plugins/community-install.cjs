@@ -367,6 +367,48 @@ function readOptionalPlugins(root) {
 }
 
 /**
+ * Reconcile an installer's last transient result with the profile that actually
+ * exists now. A failed command is evidence about an attempt; a declared and
+ * materialized package manifest is evidence about final installation state.
+ * The latter wins only while it remains present. The transient result is kept
+ * as provenance so a later diagnostic does not erase the failed attempt.
+ */
+function reconcileOptionalPluginState({ root, dshHome = null, profile = 'web', id, manifest = BUNDLED_MANIFEST } = {}) {
+  const entry = communityEntry(id, manifest)
+  if (!entry) return fault(COMMUNITY_FAULT_CODES.UNKNOWN_PLUGIN, `${id} is not one of the optional community plugins`)
+  const transient = readOptionalPlugins(root).plugins[String(id)] || null
+  const materialized = readInstalled({ root, dshHome, profile, packageName: entry.package })
+  if (materialized.ok === true && materialized.installed === true) {
+    const expected = String(entry.ref || '').replace(/^v/, '')
+    const actual = String(materialized.version || materialized.declared || '').replace(/^v/, '').replace(/^[~^]/, '')
+    return {
+      id: entry.id,
+      state: actual && expected && actual !== expected ? 'version-drift' : 'installed',
+      installed: true,
+      version: materialized.version || null,
+      declared: materialized.declared || null,
+      expected: entry.ref || null,
+      provenance: 'materialized-profile',
+      transientState: transient ? String(transient.state || '') : null,
+      transientReason: transient ? transient.reason || null : null,
+      packageDir: materialized.packageDir
+    }
+  }
+  return {
+    id: entry.id,
+    state: transient && transient.state ? String(transient.state) : 'not-installed',
+    installed: false,
+    version: null,
+    declared: materialized.ok === true ? materialized.declared || null : null,
+    expected: entry.ref || null,
+    provenance: transient ? 'installer-record' : 'profile-observation',
+    transientState: transient ? String(transient.state || '') : null,
+    transientReason: transient ? transient.reason || null : null,
+    reason: materialized.reason || (transient ? transient.reason || null : null)
+  }
+}
+
+/**
  * Record one plugin's outcome, merging with what is already written.
  *
  * A decline is remembered as firmly as an install: the boot-time pass (`bundled().ensure()`) must not
@@ -449,6 +491,7 @@ module.exports = {
   declaredVersion,
   optionalPluginsFile,
   readOptionalPlugins,
+  reconcileOptionalPluginState,
   recordOptionalPlugin,
   isDeclined,
   skipped

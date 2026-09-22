@@ -57,6 +57,31 @@ test.after(() => {
   fs.rmSync(SCRATCH, { recursive: true, force: true })
 })
 
+test('materialized profile truth outranks a stale transient installer failure, but absence does not', () => {
+  const root = scratchDir('reconcile-stale-failure')
+  const dshHome = path.join(root, 'data')
+  const profileDir = path.join(dshHome, 'profiles', 'web')
+  const packageDir = path.join(profileDir, 'node_modules', '@dsh-market', 'plugin')
+  fs.mkdirSync(packageDir, { recursive: true })
+  fs.writeFileSync(path.join(profileDir, 'package.json'), JSON.stringify({ dependencies: { [MARKET]: '^0.4.7' } }), 'utf8')
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: MARKET, version: '0.4.7' }), 'utf8')
+  community.recordOptionalPlugin(root, { id: MARKET, state: 'failed', reason: 'stale CLI timeout' })
+
+  const reconciled = community.reconcileOptionalPluginState({ root, dshHome, profile: 'web', id: MARKET })
+  assert.equal(reconciled.state, 'installed')
+  assert.equal(reconciled.version, '0.4.7')
+  assert.equal(reconciled.provenance, 'materialized-profile')
+  assert.equal(reconciled.transientState, 'failed')
+  const fingerprint = require('../../scripts/install-fingerprint.cjs').computeOptionalFingerprint({ root, dshHome, profile: 'web' })
+  assert.equal(fingerprint.decisions[MARKET].state, 'installed')
+  assert.equal(fingerprint.decisions[MARKET].provenance, 'materialized-profile')
+
+  fs.rmSync(packageDir, { recursive: true, force: true })
+  const missing = community.reconcileOptionalPluginState({ root, dshHome, profile: 'web', id: MARKET })
+  assert.equal(missing.state, 'failed')
+  assert.equal(missing.provenance, 'installer-record')
+})
+
 let counter = 0
 function scratchDir(label) {
   counter += 1

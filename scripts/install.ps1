@@ -697,7 +697,17 @@ $optionalReuse = $optionalDecisionAlreadyRecorded -and
 if ($optionalReuse) {
   Write-Host "  reuse: every optional community plugin already has a recorded decision"
   foreach ($property in @($installState.optional.decisions.PSObject.Properties)) {
-    if ($communitySelections.Contains($property.Name)) { $communitySelections[$property.Name] = [string]$property.Value.state }
+    if ($communitySelections.Contains($property.Name)) {
+      switch ([string]$property.Value.state) {
+        'installed' { $communitySelections[$property.Name] = 'ALREADY INSTALLED' }
+        'already-installed' { $communitySelections[$property.Name] = 'ALREADY INSTALLED' }
+        'declined' { $communitySelections[$property.Name] = 'SKIPPED' }
+        'skipped' { $communitySelections[$property.Name] = 'SKIPPED' }
+        'failed' { $communitySelections[$property.Name] = 'FAILED' }
+        'version-drift' { $communitySelections[$property.Name] = 'VERSION DRIFT' }
+        default { $communitySelections[$property.Name] = ([string]$property.Value.state).ToUpperInvariant() }
+      }
+    }
   }
   $communityAvailable = $false
 } else {
