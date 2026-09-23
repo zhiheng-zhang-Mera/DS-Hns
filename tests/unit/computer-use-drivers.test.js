@@ -582,6 +582,15 @@ test('uia find walks real windows, not just the desktop children', async (t) => 
   assert.ok(ownedWindows.some(window => String(window.handle) === target.handle), 'owned fixture must be a real enumerated window')
   const nodes = driver.find({ name: target.title, exact: true, processId: target.processId }, { limit: 5 })
   t.diagnostic(JSON.stringify(nodes.map(({ ref, role, name, patterns }) => ({ ref, role, name, patterns }))))
+  if (nodes.length !== 5) {
+    // Preserve the original failure; this additional owned-window read is only
+    // diagnostic, never a substitute result or a relaxed search assertion.
+    try {
+      t.diagnostic(`owned subtree after incomplete find: ${JSON.stringify(driver.children(`w:${target.handle}`, { depth: 4 }))}`)
+    } catch (error) {
+      t.diagnostic(`owned subtree diagnostic failed: ${error.code || ''} ${error.message}`)
+    }
+  }
   assert.ok(Array.isArray(nodes), 'find must return an array')
   assert.equal(nodes.length, 5, 'find must return the owned root and all four descendant buttons')
   assert.equal(new Set(nodes.map(node => node.ref)).size, 5, 'the pre-matched root must not consume the result limit twice')

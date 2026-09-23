@@ -377,7 +377,8 @@ test('a worker crash is contained: CRASHED is recorded, the Harness keeps runnin
   const { manager, logs } = makeManager(root)
   t.after(() => manager.forceStop('test cleanup'))
 
-  await manager.start({ reason: 'test' })
+  const started = await manager.start({ reason: 'test' })
+  assert.equal(started.ok, true, JSON.stringify(started))
   const task = editTask(target, {
     task_id: 'crash-task',
     operations: [
@@ -385,8 +386,16 @@ test('a worker crash is contained: CRASHED is recorded, the Harness keeps runnin
       { op: 'run_command', command: 'node -e "setTimeout(()=>{},30000)"' }
     ]
   })
-  manager.assignTask(task)
-  await waitFor(() => manager.currentTask !== null, { label: 'the task to be dispatched' })
+  const admitted = manager.assignTask(task)
+  assert.equal(admitted.ok, true, JSON.stringify(admitted))
+  try {
+    await waitFor(() => manager.currentTask !== null, { label: 'the task to be dispatched' })
+  } catch (error) {
+    // Same deadline and original failure. Explain whether admission, resource
+    // policy or execution blocked dispatch instead of guessing from a timeout.
+    t.diagnostic(JSON.stringify({ state: manager.describe(), decision: manager.lastDecision, logs: logs.slice(-40) }))
+    throw error
+  }
 
   // Simulate an external kill (out-of-memory, a task manager, a hard shutdown).
   const pid = manager.child.pid
