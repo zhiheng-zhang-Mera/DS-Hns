@@ -26,4 +26,6 @@
 
 | N21 | direct instance tests inherited caller TEMP; C-drive audit missed `dshns` names | `artifacts/qualification/STORAGE_AUDIT_FOLLOWUP.md` | repository-volume scratch, behavioral audit-name regression, preserved historical failure and recoverable D-drive relocation |
 
+| N22 | a stationary pointermove swallowed real orb clicks | `artifacts/qualification/ORB_POINTER_FOLLOWUP.md` | measure from press coordinates and require drag displacement; RED/GREEN regression plus real screenshot/click/detail feedback |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

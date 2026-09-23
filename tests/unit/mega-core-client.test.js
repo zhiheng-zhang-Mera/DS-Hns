@@ -478,6 +478,30 @@ test('apply claims three official slots: the ball, the page, and the conversatio
   assert.equal(mounted.listeners.has('visibilitychange'), false, 'the visibility listener outlived the plugin')
 })
 
+test('stationary pointer events and small hand jitter do not turn an orb click into a drag', async () => {
+  for (const delta of [0, 1, 2]) {
+    const mounted = await mount()
+    const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+    const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+    ball.props.onPointerDown({ button: 0, clientX: 122, clientY: 222, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 100, top: 200 }) } })
+    ball.props.onPointerMove({ clientX: 122 + delta, clientY: 222 })
+    ball.props.onPointerUp()
+    const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+    assert.match(strings(opened.tree).join(' | '), /价格 · Price/, `a ${delta}px move swallowed the click`)
+  }
+})
+
+test('a deliberate pointer drag does not open the orb panel', async () => {
+  const mounted = await mount()
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  ball.props.onPointerDown({ button: 0, clientX: 122, clientY: 222, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 100, top: 200 }) } })
+  ball.props.onPointerMove({ clientX: 102, clientY: 202 })
+  ball.props.onPointerUp()
+  const after = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  assert.doesNotMatch(strings(after.tree).join(' | '), /价格 · Price/)
+})
+
 test('the ball opens on every category, all shut, each with its own headline', async () => {
   const mounted = await mount()
   const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)

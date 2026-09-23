@@ -1299,15 +1299,15 @@ window.__ModuleLoader__.load({
 				// what makes that true while keeping the button in the tab order.
 				if (event && typeof event.preventDefault === 'function') event.preventDefault();
 				if (event && event.button !== undefined && event.button !== 0) return;
-				// The drag is measured from the orb's own rectangle, so it works the same whether that
-				// rectangle is in window coordinates or inside a transformed ancestor — and the offsets it
-				// produces are distances from the layer's corner, which is what gets stored.
+				// Pointer deltas start at the press, so grabbing the middle does not jump
+				// the ball by its radius. The rectangle is only a fallback for callers
+				// without pointer coordinates; stored offsets remain layer-relative.
 				const rect = event?.currentTarget && typeof event.currentTarget.getBoundingClientRect === 'function'
 					? event.currentTarget.getBoundingClientRect()
 					: null;
 				drag.current = {
-					startX: rect ? rect.left : Number(event?.clientX || 0),
-					startY: rect ? rect.top : Number(event?.clientY || 0),
+					startX: Number(event?.clientX ?? rect?.left ?? 0),
+					startY: Number(event?.clientY ?? rect?.top ?? 0),
 					// The offsets the drag started from. They are what every move is measured against: using
 					// the *running* offsets instead would apply each pointer event's whole delta again, and
 					// the orb would accelerate away from the pointer.
@@ -1331,6 +1331,9 @@ window.__ModuleLoader__.load({
 				if (!current) return;
 				const dx = Number(event?.clientX || 0) - current.startX;
 				const dy = Number(event?.clientY || 0) - current.startY;
+				// Captured stationary events and hand jitter are still a click. Measure
+				// from the pointer-down point, not the ball's top-left corner.
+				if (!current.moved && Math.hypot(dx, dy) < 4) return;
 				// Left and up both *increase* the distances from the corner: the orb follows the pointer.
 				const next = clampOffsets({ right: current.startRight - dx, bottom: current.startBottom - dy }, current.box);
 				current.moved = true;
