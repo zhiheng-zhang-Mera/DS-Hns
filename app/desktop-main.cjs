@@ -2896,9 +2896,9 @@ async function startExtensions(nodeExe) {
          * even while the plugin that owns the answer is the thing that just failed.
          */
         restartStatus: () => pluginRuntime().restartStatus(),
-        setEnabled: (id, enabled) => pluginRuntime().setEnabled(id, enabled),
-        checkHealth: (id) => pluginRuntime().health(id),
-        reload: (id, options) => pluginRuntime().reload(id, options),
+        setEnabled: (id, enabled) => pluginRuntime().setEnabled({ id, enabled }),
+        checkHealth: (id) => pluginRuntime().health({ id }),
+        reload: (id, options) => pluginRuntime().reload({ ...options, id }),
         /**
          * The **advanced** settings the panel may change: the two plugins' own policy, as dotted paths
          * into the configuration they read.
@@ -2915,7 +2915,8 @@ async function startExtensions(nodeExe) {
             const resolved = {}
             for (const owner of owners) {
               try {
-                resolved[owner] = runtime.config ? runtime.config.forPlugin(owner).resolved : null
+                const description = runtime.describe({ id: owner })
+                resolved[owner] = description?.ok === true ? description.config : null
               } catch {
                 resolved[owner] = null
               }
@@ -2936,7 +2937,7 @@ async function startExtensions(nodeExe) {
             return null
           }
         },
-        setAdvanced: (settings) => host().configure({ settings }),
+        setAdvanced: (settings) => pluginRuntime().configure({ settings }),
         /**
          * `restart-control`, if anything provides it.
          *
@@ -2946,7 +2947,7 @@ async function startExtensions(nodeExe) {
          */
         restartControl: () => {
           try {
-            const runtime = host()
+            const runtime = pluginRuntime()
             const resolved = runtime.registry && typeof runtime.registry.resolve === 'function'
               ? runtime.registry.resolve('restart-control')
               : null

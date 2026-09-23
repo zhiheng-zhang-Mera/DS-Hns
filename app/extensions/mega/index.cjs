@@ -2007,14 +2007,14 @@ async function serviceAction(action, id) {
     }
     if (action === 'enable' || action === 'disable') {
       const outcome = await host.setEnabled(id, action === 'enable')
-      return { ok: outcome?.ok !== false, action, id, result: outcome, reason: outcome?.ok === false ? outcome.reason : null }
+      return { ok: outcome?.ok !== false, action, id, result: outcome, reason: outcome?.ok === false ? outcome.reason || outcome.error || outcome.load?.reason || 'the plugin host refused the request' : null }
     }
     if (action === 'restart-plugin') {
       // A restart of a plugin's host half is an unload and a load. Doing it through the host's own
       // `reload` keeps the four states and the capability registry consistent, which a hand-written
       // disable/enable pair would not.
       const outcome = await host.reload(id, { reason: 'a person asked for a plugin restart' })
-      return { ok: outcome?.ok !== false, action, id, result: outcome, reason: outcome?.ok === false ? outcome.reason : null }
+      return { ok: outcome?.ok !== false, action, id, result: outcome, reason: outcome?.ok === false ? outcome.reason || outcome.error || outcome.load?.reason || 'the plugin host refused the request' : null }
     }
     // The two supervisor operations go through the capability, and only it.
     const control = await host.restartControl()

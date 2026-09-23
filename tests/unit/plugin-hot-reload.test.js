@@ -107,6 +107,119 @@ const ENTRY = {
   enabled: true
 }
 
+// Execute the shipped desktop adapter against a real plugin host. These catch
+// positional arguments silently crossing the host's object-input boundary.
+function desktopServiceAdapter(name, host) {
+  const source = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+  const block = source.slice(source.indexOf('      pluginServices: {'))
+  const line = block.split(/\r?\n/).find((value) => value.trim().startsWith(`${name}:`))
+  assert.ok(line, `desktop adapter ${name} exists`)
+  const expression = line.trim().slice(name.length + 1).replace(/,$/, '')
+  return require('node:vm').runInNewContext(`(${expression})`, { pluginRuntime: () => host })
+}
+
+test('desktop enable adapter changes the real named plugin without losing its id or boolean', async () => {
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  try {
+    await h.host.ensure()
+    const setEnabled = desktopServiceAdapter('setEnabled', h.host)
+    const off = await setEnabled(ENTRY.id, false)
+    assert.equal(off.ok, true, JSON.stringify(off))
+    assert.equal(h.host.registry.has('example-capability'), false)
+    const on = await setEnabled(ENTRY.id, true)
+    assert.equal(on.ok, true, JSON.stringify(on))
+    assert.equal(h.host.registry.has('example-capability'), true)
+  } finally { await h.dispose() }
+})
+
+test('Mega service action preserves a real host refusal for a missing plugin', async () => {
+  const h = harness([])
+  try {
+    const source = fs.readFileSync(path.join(ROOT, 'app/extensions/mega/index.cjs'), 'utf8')
+    const start = source.indexOf('async function serviceAction(action, id) {')
+    const end = source.indexOf('\n/**', start)
+    const action = require('node:vm').runInNewContext(source.slice(start, end) + '\nserviceAction', {
+      ctx: { pluginServices: {
+        report: (id) => h.host.serviceReport(id),
+        setEnabled: desktopServiceAdapter('setEnabled', h.host)
+      } }, log: () => {}
+    })
+    const result = await action('enable', 'missing.plugin')
+    assert.equal(result.ok, false)
+    assert.match(result.reason || '', /no plugin missing\.plugin/)
+    assert.equal(result.result.code, 'PLUGIN_NOT_FOUND')
+  } finally { await h.dispose() }
+})
+
+test('desktop advanced adapter writes through the real host validator and owner config', async () => {
+  const h = harness([])
+  try {
+    const configure = desktopServiceAdapter('setAdvanced', h.host)
+    const result = await configure({ intervalMs: 5000 })
+    assert.equal(result.ok, true, JSON.stringify(result))
+    assert.equal(result.written.length, 1)
+    const ownerFile = result.written[0]
+    assert.equal(path.basename(ownerFile), 'dshns.health-scheduler.json')
+    assert.equal(JSON.parse(fs.readFileSync(ownerFile, 'utf8')).intervalMs, 5000)
+    const refused = await configure({ intervalMs: 0 })
+    assert.equal(refused.ok, false)
+    assert.equal(refused.code, 'INVALID_SETTING')
+    assert.equal(JSON.parse(fs.readFileSync(ownerFile, 'utf8')).intervalMs, 5000)
+  } finally { await h.dispose() }
+})
+
+test('desktop advanced readback reports the value stored by the real host', async () => {
+  const h = harness([])
+  try {
+    await h.host.ensure()
+    assert.equal((await h.host.configure({ settings: { intervalMs: 5000 } })).ok, true)
+    const source = fs.readFileSync(path.join(ROOT, 'app/desktop-main.cjs'), 'utf8')
+    const start = source.indexOf('        advanced: () => {')
+    const end = source.indexOf('\n        setAdvanced:', start)
+    const expression = source.slice(start, end).trim().replace(/^advanced:\s*/, '').replace(/,$/, '')
+    const read = require('node:vm').runInNewContext(`(${expression})`, { pluginRuntime: () => h.host, logLine: () => {} })
+    assert.equal(read().find((field) => field.key === 'intervalMs').value, 5000)
+  } finally { await h.dispose() }
+})
+
+test('desktop restart control resolves the real registry without invoking a restart', async () => {
+  const h = harness([])
+  try {
+    await h.host.ensure()
+    const source = fs.readFileSync(path.join(ROOT, 'app/desktop-main.cjs'), 'utf8')
+    const start = source.indexOf('        restartControl: () => {')
+    const end = source.indexOf('\n      },', start)
+    const expression = source.slice(start, end).trim().replace(/^restartControl:\s*/, '')
+    const resolve = require('node:vm').runInNewContext(`(${expression})`, { pluginRuntime: () => h.host })
+    const result = resolve()
+    assert.equal(result.ok, true, result.reason)
+    assert.equal(result.value, h.host.registry.resolve('restart-control'))
+    assert.equal(typeof result.value.manualRestart, 'function')
+  } finally { await h.dispose() }
+})
+
+test('desktop health adapter checks only the requested real plugin', async () => {
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  try {
+    await h.host.ensure()
+    const result = await desktopServiceAdapter('checkHealth', h.host)(ENTRY.id)
+    assert.equal(result.ok, true)
+    assert.equal(result.id, ENTRY.id, 'a named check must not turn into check-all')
+    assert.equal(result.health.status, 'healthy')
+  } finally { await h.dispose() }
+})
+
+test('desktop reload adapter actually reloads the named real plugin', async () => {
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  try {
+    await h.host.ensure()
+    const result = await desktopServiceAdapter('reload', h.host)(ENTRY.id, { reason: 'contract test' })
+    assert.equal(result.ok, true, JSON.stringify(result))
+    assert.equal(result.restartCount, 1)
+    assert.equal(h.host.registry.has('example-capability'), true)
+  } finally { await h.dispose() }
+})
+
 test('enabling a plugin while the world runs mounts it, with no restart and no false promise', async () => {
   const harnessed = harness([{ ...ENTRY, enabled: false, module: moduleFor('vendor.example', '1.0.0') }])
   try {

@@ -448,6 +448,56 @@ test('when DS-Hns is not running the plugin says so instead of inventing an answ
   }
 })
 
+test('official action route preserves confirmation and advanced values through the real bridge', async () => {
+  const host = await loadHost()
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-action-contract-'))
+  let applied = null
+  const bridge = createGovernanceBridge({
+    stateDir: path.join(home, 'state'),
+    snapshot: () => ({}),
+    act: async ({ body }) => {
+      applied = { key: body.key, value: body.value }
+      return { ok: true }
+    },
+    log: () => {}
+  })
+  await bridge.start()
+  try {
+    const server = stubWebServer()
+    host.apply({ webServer: server }, { env: { DSH_HOME: home } })
+    const handler = server.routes.get('/mega-core/action').handler
+    const denied = fakeExchange({ method: 'POST', body: { action: 'set-advanced', key: 'health.sampleIntervalMs', value: 5000 } })
+    await handler(denied.request, denied.response)
+    assert.equal(denied.response.statusCode, 409)
+    assert.equal(applied, null, 'absence of confirmation must not execute')
+    const allowed = fakeExchange({ method: 'POST', body: { action: 'set-advanced', confirm: true, key: 'health.sampleIntervalMs', value: 5000 } })
+    await handler(allowed.request, allowed.response)
+    assert.equal(allowed.response.statusCode, 200, allowed.response.body)
+    assert.deepEqual(applied, { key: 'health.sampleIntervalMs', value: 5000 })
+  } finally { await bridge.stop(); fs.rmSync(home, { recursive: true, force: true }) }
+})
+
+test('official action route exposes the concrete nested refusal without losing raw result', async () => {
+  const host = await loadHost()
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-action-refusal-'))
+  const bridge = createGovernanceBridge({
+    stateDir: path.join(home, 'state'), snapshot: () => ({}),
+    act: async () => ({ ok: false, reason: 'named plugin unavailable', code: 'PLUGIN_NOT_FOUND' }),
+    log: () => {}
+  })
+  await bridge.start()
+  try {
+    const server = stubWebServer()
+    host.apply({ webServer: server }, { env: { DSH_HOME: home } })
+    const exchange = fakeExchange({ method: 'POST', body: { action: 'enable', id: 'missing.plugin' } })
+    await server.routes.get('/mega-core/action').handler(exchange.request, exchange.response)
+    assert.equal(exchange.response.statusCode, 409)
+    const body = JSON.parse(exchange.response.body)
+    assert.equal(body.reason, 'named plugin unavailable')
+    assert.equal(body.result.code, 'PLUGIN_NOT_FOUND')
+  } finally { await bridge.stop(); fs.rmSync(home, { recursive: true, force: true }) }
+})
+
 test('a bridge file that claims a non-loopback host is refused', async () => {
   const host = await loadHost()
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-mega-core-far-'))

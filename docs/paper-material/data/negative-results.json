@@ -253,6 +253,12 @@
       "failure": "Control Center dropped native orb ownership, making the official view render an additional in-UI ball alongside System Orb.",
       "lineage": ["artifacts/qualification/ORB_OWNERSHIP_FOLLOWUP.md"],
       "consequence": "Preserve ownership through the actual builder and serialized view boundary; distinguish a proven propagation defect from unproven native input failure and rerun immutable-candidate qualification."
+    },
+    {
+      "id": "N33",
+      "failure": "Real UI service enable was refused: positional/object host contracts, stale host accessors, dropped confirmation/value fields and lost nested refusal reasons broke the management chain.",
+      "lineage": ["artifacts/qualification/SERVICE_ACTION_FOLLOWUP.md"],
+      "consequence": "Test shipped adapters against real host state/config and actual bridge envelopes; preserve explicit confirmation, concrete failures and raw results. Construction regression is not renewed immutable-candidate visual qualification."
     }
   ]
 }
