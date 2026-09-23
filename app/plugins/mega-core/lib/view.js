@@ -387,7 +387,13 @@ function restartStatusView(status) {
       rows: []
     }
   }
-  const iso = (value) => (Number.isFinite(Number(value)) ? new Date(Number(value)).toISOString() : null)
+  const iso = (value) => {
+    // Absence is not epoch zero. Preserve genuine numeric zero while rejecting
+    // coercible non-timestamps and dates outside JavaScript's supported range.
+    if (typeof value !== 'number' && (typeof value !== 'string' || !value.trim())) return null
+    const date = new Date(Number(value))
+    return Number.isFinite(date.getTime()) ? date.toISOString() : null
+  }
   const rows = [
     { id: 'restart:phase', cn: '重启状态', en: 'Restart status', value: String(status.phase || 'UNKNOWN'), tone: status.inFlight ? 'warn' : status.phase === 'FAILED' ? 'bad' : null },
     { id: 'restart:reason', cn: '重启原因', en: 'Restart reason', value: status.reason ? `${status.reason.code || 'UNKNOWN'}${status.reason.summary ? ` — ${status.reason.summary}` : ''}${status.reason.requestedBy ? ` (by ${status.reason.requestedBy})` : ''}` : '—' },

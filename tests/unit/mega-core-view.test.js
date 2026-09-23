@@ -88,6 +88,27 @@ function snapshot(overrides = {}) {
 const BRIDGE = { available: true, host: '127.0.0.1', port: 51000, schema: 1 }
 const plugin = { id: 'dsh-plugin-mega-core', version: '0.1.0' }
 
+for (const [label, value, expected] of [
+  ['null', null, '—'], ['missing', undefined, '—'], ['empty', '', '—'],
+  ['whitespace', '  ', '—'], ['boolean', false, '—'], ['object', {}, '—'],
+  ['out of Date range', 9e15, '—'], ['not finite', Infinity, '—'],
+  ['real epoch zero', 0, '1970-01-01T00:00:00.000Z'],
+  ['actual milliseconds', 1700000000000, '2023-11-14T22:13:20.000Z'],
+  ['numeric persisted string', '1700000000000', '2023-11-14T22:13:20.000Z']
+]) {
+  test(`restart timestamps preserve absence and do not invent history: ${label}`, async () => {
+    const { buildMegaView } = await loadView()
+    const view = buildMegaView({ plugin, bridge: BRIDGE, governance: snapshot({
+      restartStatus: { phase: 'IDLE', inFlight: false, requestedAt: value, completedAt: value, historyCount: 0 }
+    }) })
+    for (const id of ['restart:requested', 'restart:completed']) {
+      assert.equal(view.restartStatus.rows.find(row => row.id === id).value, expected)
+    }
+    assert.equal(view.restartStatus.phase, 'IDLE')
+    assert.equal(view.restartStatus.historyCount, 0)
+  })
+}
+
 // Regression: dropping Desktop's orb ownership in Control Center made the
 // official renderer draw a second ball alongside the native system window.
 for (const [name, orb, mode, hideInUi] of [
