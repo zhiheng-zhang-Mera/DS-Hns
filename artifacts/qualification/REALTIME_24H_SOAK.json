@@ -4,7 +4,7 @@
   "passed": null,
   "durationHours": 0,
   "realWallClock": false,
-  "reason": "A continuous 24-hour observation cannot be completed within this interactive qualification session.",
+  "reason": "No continuous 24-hour product observation has yet completed. No technical or host-policy prohibition on its execution has been established. The existing --realtime scenario uses scripted readings and alone does not measure the live product telemetry required by this experiment.",
   "substitutesAccepted": false,
   "syntheticEvidence": "The synthetic-soak gate uses virtual time and remains labelled synthetic.",
   "nextExecutableAction": "Run the same candidate for 24 continuous wall-clock hours under a persistent host observer and publish interval samples plus terminal leak and growth audits."

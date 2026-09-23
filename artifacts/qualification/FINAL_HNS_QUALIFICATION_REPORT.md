@@ -20,7 +20,7 @@ The production-like package for this repository is its pinned fresh Standard ins
 
 ## Evidence boundaries
 
-- Real Windows reboot: `REAL_REBOOT_NOT_RUN_BY_HOST_POLICY`.
+- Real Windows reboot: `NOT_RUN`; automatic post-boot qualification resumption is unverified, not an established host-policy prohibition.
 - Real 24-hour wall-clock soak: `NOT_RUN`.
 - Synthetic soak remains labelled synthetic.
 - Automated Electron interaction, real Codex visual inspection, and cleanroom visual inspection are reported as distinct evidence sources.
