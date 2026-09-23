@@ -436,8 +436,17 @@ function createHealthSchedulerPlugin(options = {}) {
 }
 
 /** The plugin object the platform loads: a manifest and the lifecycle hooks. */
-function healthSchedulerPlugin() {
-  return createHealthSchedulerPlugin()
+function healthSchedulerPlugin(options = {}) {
+  const config = options.config || {}
+  // The public settings contract predates the engine's sampling block.
+  // Preserve its flat interval key while retaining nested sampling options.
+  const sampling = config.intervalMs === undefined
+    ? config.sampling
+    : { ...(config.sampling || {}), intervalMs: config.intervalMs }
+  return createHealthSchedulerPlugin({
+    ...options,
+    config: { ...config, ...(sampling ? { sampling } : {}) }
+  })
 }
 
 /** The id this plugin is known by, in both mounts. */

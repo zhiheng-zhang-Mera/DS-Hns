@@ -635,13 +635,13 @@ function mountedPlugins(options = {}) {
     // exactly like the ones above, which is the point: a native plugin is adapted by
     // `NativeHnsAdapter` rather than installed through a second, privileged path. It ships
     // disabled -- sampling the machine is a decision a user makes.
-    healthSchedulerPlugin(),
+    healthSchedulerPlugin({ config: options.healthConfig }),
     // The **one** restart authority. It is mounted here, not privileged: it provides
     // `restart-control`, which is what the monitor above asks when it wants a restart, and the
     // out-of-process companion is started through the shell hooks `desktop-main.cjs` passes in.
     // Unlike the monitor it ships *enabled*, because without it no restart can be requested at all
     // -- and its budget, not a disabled plugin, is what keeps that from being dangerous.
-    restartSupervisorPlugin({ host, nodeExe, stateDir })
+    restartSupervisorPlugin({ host, nodeExe, stateDir, config: options.restartConfig })
   ]
 }
 

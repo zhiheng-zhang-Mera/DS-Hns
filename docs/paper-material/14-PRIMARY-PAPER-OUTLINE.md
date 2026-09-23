@@ -12,7 +12,7 @@ Provisional title candidates:
 4. **Architecture:** Runtime Host/UI client, manager/adapters, health scheduler, restart-control provider, continuity store.
 5. **Implementation:** Windows/Electron/Node, named pipe, controlled bridge, JSONL managed process.
 6. **Evaluation:** adapter/install gates, eight chaos cases, synthetic horizons, Phase C measurement, clean-room qualification.
-7. **Failure analysis:** current N1–N39 catalog (original historical slice N1–N16), preserving unresolved follow-ups and distinguishing bounded repairs from new contributions.
+7. **Failure analysis:** current N1–N40 catalog (original historical slice N1–N16), preserving unresolved follow-ups and distinguishing bounded repairs from new contributions.
 8. **Threats/limitations:** one host, synthetic time, stand-in app, no real reboot/24h.
 9. **Reproducibility:** pinned source fixtures and immutable evidence run.
 10. **Conclusion claim:** the implementation demonstrates bounded behavior under the tested conditions; it does not establish superiority, novelty, or field reliability.

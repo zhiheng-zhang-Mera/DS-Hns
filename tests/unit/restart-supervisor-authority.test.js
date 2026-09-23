@@ -117,7 +117,7 @@ test('there is exactly one restart executor: the supervisor, in process or as it
   const mounted = read('app/plugins/mounted/index.cjs')
   const providers = (mounted.match(/provides:.*restart-control/g) || []).length
   assert.equal(providers <= 1, true, 'more than one shipped plugin claims restart-control')
-  assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir \}\)/)
+  assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir, config: options\.restartConfig \}\)/)
   /**
    * ...and the shell's continuity layer reaches that plugin, and only it.
    *
@@ -125,7 +125,7 @@ test('there is exactly one restart executor: the supervisor, in process or as it
    * supervisor through `createPluginHost({ continuity })` and the mounted set. A plugin that received
    * it by accident would be a plugin that can stop a user's work.
    */
-  assert.equal((mounted.match(/restartSupervisorPlugin\(\{ host, nodeExe, stateDir \}\)/g) || []).length, 1, 'the continuity host must be passed to exactly one plugin')
+  assert.equal((mounted.match(/restartSupervisorPlugin\(\{ host, nodeExe, stateDir, config: options\.restartConfig \}\)/g) || []).length, 1, 'the continuity host must be passed to exactly one plugin')
   const shell = read('app/desktop-main.cjs')
   assert.match(shell, /continuity: taskContinuity\(\)\.hooks/)
   assert.match(shell, /function taskContinuity\(\)/)
@@ -765,8 +765,8 @@ test('the restart companion uses the portable Node executable supplied by the de
     const pluginHost = read('app/plugin-host.cjs')
     const mounted = read('app/plugins/mounted/index.cjs')
     const shell = read('app/desktop-main.cjs')
-    assert.match(pluginHost, /mountedPlugins\(\{ host, nodeExe: options\.nodeExe, stateDir: options\.restartSupervisorStateDir \}\)/)
-    assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir \}\)/)
+    assert.match(pluginHost, /mountedPlugins\(\{\s*host, nodeExe: options\.nodeExe, stateDir: options\.restartSupervisorStateDir,/)
+    assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir, config: options\.restartConfig \}\)/)
     assert.match(shell, /nodeExe: safeNodeExe\(\)/)
     assert.match(shell, /restartSupervisorStateDir: path\.join\(ROOT, 'data', 'state', 'restart-supervisor'\)/)
   } finally {

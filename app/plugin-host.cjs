@@ -543,7 +543,13 @@ function createPluginHost(options = {}) {
    */
   function shippedArtifacts() {
     const host = continuity && typeof continuity === 'object' ? { ...continuity } : null
-    return [...mountedPlugins({ host, nodeExe: options.nodeExe, stateDir: options.restartSupervisorStateDir }), ...accelerationPlugins()].map((plugin) => ({
+    // These engines resolve policy at construction, before load(context).
+    // Rebuild them from the same owner-specific layers the manager publishes.
+    return [...mountedPlugins({
+      host, nodeExe: options.nodeExe, stateDir: options.restartSupervisorStateDir,
+      healthConfig: config.forPlugin('dshns.health-scheduler').resolved,
+      restartConfig: config.forPlugin('dshns.restart-supervisor').resolved
+    }), ...accelerationPlugins()].map((plugin) => ({
       module: plugin,
       source: 'the shipped plugin set',
       shipped: true

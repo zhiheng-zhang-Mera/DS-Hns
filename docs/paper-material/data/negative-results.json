@@ -295,6 +295,12 @@
       "failure": "Health retained load-time optional restart-control unavailability after the provider registered; real policy Apply left enabled/loaded Health DEGRADED while Restart Supervisor was loaded.",
       "lineage": ["b3fec70", "artifacts/qualification/HEALTH_CAPABILITY_REFRESH_FOLLOWUP.md"],
       "consequence": "Refresh the existing optional authority resolver at status, diagnostics, sampling and request boundaries. Preserve provider removal and zero restart requests under low pressure; do not widen authority or make the dependency mandatory. Focused RED/GREEN evidence does not replace renewed candidate qualification and actual GUI acceptance."
+    },
+    {
+      "id": "N40",
+      "failure": "Real UI saved interval16000 but Health still sampled at15000; real host regression also found saved Restart budget2 left its engine at3. Manager configuration did not reach constructor-time engines.",
+      "lineage": ["27eea59", "artifacts/qualification/EFFECTIVE_POLICY_FOLLOWUP.md"],
+      "consequence": "Pass each owner's resolved policy through the existing mounted factory path, normalize the public Health interval alias, and assert actual engine configuration after rebuild/reopen. Focused regression is not cleanroom or final user acceptance; preserve all failures."
     }
   ]
 }
