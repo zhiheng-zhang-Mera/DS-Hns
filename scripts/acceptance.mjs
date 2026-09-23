@@ -833,6 +833,11 @@ async function run() {
     // The create call must observe the real UI first: this is where a
     // structure-only regression would hide, so the observation verdict is
     // returned by the engine and asserted here.
+    // A real native picker returns focus to the official page, which correctly
+    // collapses the dock. Restore the visible-dock precondition through the same
+    // control used above before measuring its theme snapshot and wallpaper cut.
+    const themeDockExpanded = await expandViaRail()
+    check('the dock is expanded again before theme and wallpaper measurements', themeDockExpanded === true)
     const themeFlow = await dock.page.evaluate(`
       const engine = window.megaTools.theme
       return engine.create({ prompt: '赛博全息 HUD，黑灰蓝，扫描线，人物不要抢屏' }).then((created) => {
@@ -1017,8 +1022,8 @@ async function run() {
           window.addEventListener('mousedown', () => { window.__hnsAcceptanceInput.mousedown += 1 }, true)
           window.addEventListener('mouseup', () => { window.__hnsAcceptanceInput.mouseup += 1 }, true)
           window.addEventListener('click', () => { window.__hnsAcceptanceInput.clicks += 1 }, true)
-          window.addEventListener('blur', () => { window.__hnsAcceptanceInput.blur += 1 }, true)
-          window.addEventListener('focus', () => { window.__hnsAcceptanceInput.focus += 1 }, true)
+          window.addEventListener('blur', (event) => { if (event.target === window) window.__hnsAcceptanceInput.blur += 1 }, true)
+          window.addEventListener('focus', (event) => { if (event.target === window) window.__hnsAcceptanceInput.focus += 1 }, true)
           window.addEventListener('keydown', () => { window.__hnsAcceptanceInput.keydown += 1 }, true)
           window.addEventListener('wheel', () => { window.__hnsAcceptanceInput.wheel += 1 }, { capture: true, passive: true })
         }
