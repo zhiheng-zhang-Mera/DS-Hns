@@ -19,4 +19,9 @@
 | N15 | CDP target existed before `documentElement` | first final qualification run | explicit renderer document-ready gate |
 | N16 | qualification depended on `D:\test-DSH` prebuilt samples | first final qualification run, `be743a7` | pinned upstream SHAs are freshly installed/built per run |
 
+| N17 | stale companion PID file masked a newly launched live process | `f03cc37` | prefer the live launch during PID hand-off |
+| N18 | Windows CI TEMP used an 8.3 alias while the test expected literal spelling | `e32d55d`, GitHub run `35784256767` | canonicalize existing ancestor; preserve missing tail case |
+| N19 | crash ledger became visible before the relaunched stand-in wrote its PID | `80ffe0e`, run `2026-09-22T21-20-24-182Z-c820a927` | wait for a distinct live PID within the same 20-second budget |
+| N20 | failed repository/checkpoint verification still resumed work and cleared its intent | `f90660b` | refuse parked recovery before side effects and preserve durable intent; regression failed before repair, 55 focused tests and 65 chaos checks passed after |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

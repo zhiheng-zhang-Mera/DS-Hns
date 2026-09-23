@@ -1,17 +1,374 @@
 {
   "schemaVersion": 1,
   "experiments": [
-    {"id":"E-PHASE-C","goal":"Reduce accepted-patch latency for the same six validation files.","host":"Alien Windows host","commit":"0bbd32e","workload":"six unchanged validation files","baseline":"six process starts","treatment":"one batched process","metric":"baseline_ms / optimized_ms","threshold":1.2,"rawResults":[{"baselineMs":17198,"optimizedMs":9141,"ratio":1.881},{"baselineMs":17218,"optimizedMs":9184,"ratio":1.875},{"baselineMs":17381,"optimizedMs":9248,"ratio":1.879}],"aggregate":{"min":1.875,"median":1.879,"max":1.881,"populationVariance":0.0000062222},"repeatCount":3,"status":"PASS","artifact":"artifacts/qualification/task4-phase-c-summary.json","limitations":["Host and process-start sensitive."]},
-    {"id":"E-COMBINED","goal":"Exercise engineering acceptance phases A-D.","host":"Alien Windows host","commit":"be743a7","workload":"repository-defined combined acceptance","metric":"checks passed","threshold":"all checks pass","aggregate":{"passed":52,"total":52},"repeatCount":"repeated during qualification","status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local combined-acceptance.json","limitations":["Contains synthetic and model-simulation components."]},
-    {"id":"E-CU-LONG","goal":"Exercise sustained Computer Use state transitions.","host":"Alien Windows host","commit":"be743a7","workload":"injected controller and runtime events","metric":"failures","threshold":0,"aggregate":{"checks":96,"failures":0},"repeatCount":1,"status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local computer-use-longrun.json","limitations":["Not a human desktop session."]},
-    {"id":"E-CHAOS","goal":"Test bounded recovery under eight injected faults.","host":"Alien Windows host","commit":"be743a7","workload":"kill, timeout, network loss, restart and interruption","metric":"scenario checks","threshold":"all pass","aggregate":{"checks":65,"failures":0},"repeatCount":1,"status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local longhost-chaos.json","limitations":["Reboot path is simulated."]},
-    {"id":"E-SOAK","goal":"Test scheduler and recovery over 6/12/24-hour virtual horizons.","host":"Alien Windows host","commit":"be743a7","workload":"virtual-clock horizons","metric":"failures","threshold":0,"aggregate":{"checks":120,"failures":0},"repeatCount":3,"status":"PASS_SYNTHETIC","artifact":"run-local longhost-soak.json","limitations":["Synthetic virtual time is not wall-clock evidence."]},
-    {"id":"E-INSTALL","goal":"Exercise unified installation formats and refusal paths.","host":"Alien Windows host","commit":"be743a7","workload":"repository, native, process, refusal and lifecycle fixtures","metric":"checks","threshold":"all pass","repeatCount":"per qualification run","status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local installation-acceptance.json","limitations":["Requires network access for pinned source fetches."]},
-    {"id":"E-CORDIS","goal":"Test Cordis adaptation without plugin-specific adapter code.","host":"Alien Windows host","commit":"be743a7","workload":"two pinned published bundles and one generated stranger","metric":"routes, lifecycle and teardown","threshold":"all pass","repeatCount":"per qualification run","status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local cordis-adapter-acceptance.json","limitations":["Browser halves are not served."]},
-    {"id":"E-PROCESS","goal":"Test an external supervisor behind the JSONL bridge.","host":"Alien Windows host","commit":"be743a7","workload":"real supervisor with stand-in watched app","metric":"bounded restart and safe mode","threshold":"all pass","repeatCount":"per qualification run","status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local process-adapter-acceptance.json","limitations":["Watched application is a stand-in."]},
-    {"id":"E-UI","goal":"Exercise the visible Electron operator journey.","host":"Alien Windows host","commit":"be743a7","workload":"renderer, skills, GitHub, theme, orb and official-page input","metric":"mandatory interaction checks","threshold":"all pass","repeatCount":"per qualification run","status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local electron-ui-acceptance.json plus screenshots","limitations":["Not accessibility certification."]},
-    {"id":"E-QUAL","goal":"Reject mixed-run or contradictory qualification evidence.","host":"Alien Windows host","commit":"be743a7","workload":"immutable run with child reports","metric":"consistency errors","threshold":0,"repeatCount":"per qualification run","status":"PASS_CONSTRUCTION_EVIDENCE","artifact":"run-local evidence-consistency.json","limitations":["Project-specific evidence schema."]},
-    {"id":"E-REBOOT","goal":"Verify exact-once recovery after a real Windows reboot.","host":"Alien Windows host","commit":null,"workload":"durable unfinished task across OS reboot","metric":"exact-once resume","threshold":"all pass","repeatCount":0,"status":"NOT_RUN","artifact":"REAL_REBOOT_ACCEPTANCE.json","limitations":["Requires host policy and guaranteed post-boot continuation."]},
-    {"id":"E-24H","goal":"Measure real wall-clock stability for 24 hours.","host":"Alien Windows host","commit":null,"workload":"continuous real-time health, resource and continuity probes","metric":"guardrail violations","threshold":0,"repeatCount":0,"status":"NOT_RUN","artifact":"REALTIME_24H_SOAK.json","limitations":["Synthetic soak is not a substitute."]}
+    {
+      "id": "E-PHASE-C",
+      "goal": "Reduce accepted-patch latency for the same six validation files.",
+      "host": "Alien Windows host",
+      "commit": "0bbd32e",
+      "workload": "six unchanged validation files",
+      "baseline": "six process starts",
+      "treatment": "one batched process",
+      "metric": "baseline_ms / optimized_ms",
+      "threshold": 1.2,
+      "rawResults": [
+        {
+          "baselineMs": 17198,
+          "optimizedMs": 9141,
+          "ratio": 1.881
+        },
+        {
+          "baselineMs": 17218,
+          "optimizedMs": 9184,
+          "ratio": 1.875
+        },
+        {
+          "baselineMs": 17381,
+          "optimizedMs": 9248,
+          "ratio": 1.879
+        }
+      ],
+      "aggregate": {
+        "min": 1.875,
+        "median": 1.879,
+        "max": 1.881,
+        "populationVariance": 0.0000062222
+      },
+      "repeatCount": 3,
+      "status": "PASS",
+      "artifact": "artifacts/qualification/task4-phase-c-summary.json",
+      "limitations": [
+        "Host and process-start sensitive."
+      ],
+      "hypothesis": "Reduce accepted-patch latency for the same six validation files.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "variance": 0.0000062222,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/combined-acceptance.cjs --phase c --out <new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-COMBINED",
+      "goal": "Exercise engineering acceptance phases A-D.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "repository-defined combined acceptance",
+      "metric": "checks passed",
+      "threshold": "all checks pass",
+      "aggregate": {
+        "passed": 52,
+        "total": 52
+      },
+      "repeatCount": "repeated during qualification",
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local combined-acceptance.json",
+      "limitations": [
+        "Contains synthetic and model-simulation components."
+      ],
+      "hypothesis": "Exercise engineering acceptance phases A-D.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "repository-defined combined acceptance",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/combined-acceptance.cjs --out <new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-CU-LONG",
+      "goal": "Exercise sustained Computer Use state transitions.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "injected controller and runtime events",
+      "metric": "failures",
+      "threshold": 0,
+      "aggregate": {
+        "checks": 96,
+        "failures": 0
+      },
+      "repeatCount": 1,
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local computer-use-longrun.json",
+      "limitations": [
+        "Not a human desktop session."
+      ],
+      "hypothesis": "Exercise sustained Computer Use state transitions.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "injected controller and runtime events",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/computer-use-longrun-acceptance.cjs --out <new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-CHAOS",
+      "goal": "Test bounded recovery under eight injected faults.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "kill, timeout, network loss, restart and interruption",
+      "metric": "scenario checks",
+      "threshold": "all pass",
+      "aggregate": {
+        "checks": 65,
+        "failures": 0
+      },
+      "repeatCount": 1,
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local longhost-chaos.json",
+      "limitations": [
+        "Reboot path is simulated."
+      ],
+      "hypothesis": "Test bounded recovery under eight injected faults.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "kill, timeout, network loss, restart and interruption",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/longhost-chaos.cjs --out=<new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-SOAK",
+      "goal": "Test scheduler and recovery over 6/12/24-hour virtual horizons.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "virtual-clock horizons",
+      "metric": "failures",
+      "threshold": 0,
+      "aggregate": {
+        "checks": 120,
+        "failures": 0
+      },
+      "repeatCount": 3,
+      "status": "PASS_SYNTHETIC",
+      "artifact": "run-local synthetic-soak.json",
+      "limitations": [
+        "Synthetic virtual time is not wall-clock evidence."
+      ],
+      "hypothesis": "Test scheduler and recovery over 6/12/24-hour virtual horizons.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "virtual-clock horizons",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/longhost-soak.cjs --out=<new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-INSTALL",
+      "goal": "Exercise unified installation formats and refusal paths.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "repository, native, process, refusal and lifecycle fixtures",
+      "metric": "checks",
+      "threshold": "all pass",
+      "repeatCount": "per qualification run",
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local install-pipeline.json",
+      "limitations": [
+        "Requires network access for pinned source fetches."
+      ],
+      "hypothesis": "Exercise unified installation formats and refusal paths.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "repository, native, process, refusal and lifecycle fixtures",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/install-pipeline-acceptance.cjs --json --samples <fresh-fixtures/samples> --companion-repo <fresh-fixtures/dsh-restart>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-CORDIS",
+      "goal": "Test Cordis adaptation without plugin-specific adapter code.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "two pinned published bundles and one generated stranger",
+      "metric": "routes, lifecycle and teardown",
+      "threshold": "all pass",
+      "repeatCount": "per qualification run",
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local cordis-adapter.json",
+      "limitations": [
+        "Browser halves are not served."
+      ],
+      "hypothesis": "Test Cordis adaptation without plugin-specific adapter code.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "two pinned published bundles and one generated stranger",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/cordis-adapter-acceptance.cjs --json --samples <fresh-fixtures/samples>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-PROCESS",
+      "goal": "Test an external supervisor behind the JSONL bridge.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "real supervisor with stand-in watched app",
+      "metric": "bounded restart and safe mode",
+      "threshold": "all pass",
+      "repeatCount": "per qualification run",
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local process-adapter.json",
+      "limitations": [
+        "Watched application is a stand-in."
+      ],
+      "hypothesis": "Test an external supervisor behind the JSONL bridge.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "real supervisor with stand-in watched app",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": "Observed PID-readiness race in run 2026-09-22T21-20-24-182Z-c820a927; repaired by 80ffe0e.",
+      "reproductionCommand": "node scripts/process-adapter-acceptance.cjs --json --companion-repo <fresh-fixtures/dsh-restart>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-UI",
+      "goal": "Exercise the visible Electron operator journey.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "renderer, skills, GitHub, theme, orb and official-page input",
+      "metric": "mandatory interaction checks",
+      "threshold": "all pass",
+      "repeatCount": "per qualification run",
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local electron-ui-acceptance.json plus screenshots",
+      "limitations": [
+        "Not accessibility certification."
+      ],
+      "hypothesis": "Exercise the visible Electron operator journey.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "renderer, skills, GitHub, theme, orb and official-page input",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/acceptance.mjs --root <checkout> --port 3091 --cdp 9331 --user-data-dir <fresh-userData> --data-dir <fresh-data> --report <new-report.json> --skills --github",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-QUAL",
+      "goal": "Reject mixed-run or contradictory qualification evidence.",
+      "host": "Alien Windows host",
+      "commit": "be743a7",
+      "workload": "immutable run with child reports",
+      "metric": "consistency errors",
+      "threshold": 0,
+      "repeatCount": "per qualification run",
+      "status": "PASS_CONSTRUCTION_EVIDENCE",
+      "artifact": "run-local evidence-consistency.json",
+      "limitations": [
+        "Project-specific evidence schema."
+      ],
+      "hypothesis": "Reject mixed-run or contradictory qualification evidence.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "immutable run with child reports",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/qualification-runner.cjs --out-root <fresh-evidence-root>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-REBOOT",
+      "goal": "Verify exact-once recovery after a real Windows reboot.",
+      "host": "Alien Windows host",
+      "commit": null,
+      "workload": "durable unfinished task across OS reboot",
+      "metric": "exact-once resume",
+      "threshold": "all pass",
+      "repeatCount": 0,
+      "status": "NOT_RUN",
+      "artifact": "REAL_REBOOT_ACCEPTANCE.json",
+      "limitations": [
+        "Requires host policy and guaranteed post-boot continuation."
+      ],
+      "hypothesis": "Verify exact-once recovery after a real Windows reboot.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "durable unfinished task across OS reboot",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": null,
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-24H",
+      "goal": "Measure real wall-clock stability for 24 hours.",
+      "host": "Alien Windows host",
+      "commit": null,
+      "workload": "continuous real-time health, resource and continuity probes",
+      "metric": "guardrail violations",
+      "threshold": 0,
+      "repeatCount": 0,
+      "status": "NOT_RUN",
+      "artifact": "REALTIME_24H_SOAK.json",
+      "limitations": [
+        "Synthetic soak is not a substitute."
+      ],
+      "hypothesis": "Measure real wall-clock stability for 24 hours.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "continuous real-time health, resource and continuity probes",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": null,
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-CLEANROOM",
+      "goal": "Verify installation from fresh remote clone without reused dependencies or mutable state",
+      "hypothesis": "Declared bootstrap and plugin channels produce a usable isolated installation",
+      "host": "Alien Windows host",
+      "softwareVersions": null,
+      "commit": null,
+      "workload": "fresh clone, Standard installation, full qualification, real Electron visual journey",
+      "baseline": null,
+      "treatment": "empty D-drive checkout and caches",
+      "metric": "mandatory failures",
+      "threshold": 0,
+      "rawResults": null,
+      "aggregate": null,
+      "repeatCount": 0,
+      "variance": null,
+      "failureMode": null,
+      "status": "PENDING_FINAL_CANDIDATE",
+      "reproductionCommand": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1 -Mode Standard -NoLaunch -NoShortcuts -ApiKeyMode Later -InstallMarket -InstallWallpaper; then node scripts/qualification-runner.cjs --out-root <fresh-evidence-root>",
+      "artifact": "Resolve final cleanroom summary from artifacts/qualification/FINAL_EVIDENCE_INDEX.json",
+      "limitations": [
+        "Each candidate run is separate; an older cleanroom PASS does not qualify a later source revision."
+      ]
+    }
   ]
 }

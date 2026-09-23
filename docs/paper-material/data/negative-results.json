@@ -16,6 +16,10 @@
     {"id":"N13","failure":"A soak report passed while its top summary exit code was 2.","lineage":["67b741a"],"consequence":"Immutable run directories and consistency checking fail closed."},
     {"id":"N14","failure":"Junction-based Plugin Market isolation returned zero rows.","lineage":["task5 UI evidence"],"consequence":"The rejected experiment is retained and canonical identity is implemented directly."},
     {"id":"N15","failure":"A CDP target existed before documentElement.","lineage":["be743a7"],"consequence":"UI acceptance waits for a renderer document."},
-    {"id":"N16","failure":"Qualification depended on prebuilt D:\\test-DSH samples.","lineage":["be743a7"],"consequence":"Pinned upstream fixtures are freshly installed and built per run."}
+    {"id":"N16","failure":"Qualification depended on prebuilt D:\\test-DSH samples.","lineage":["be743a7"],"consequence":"Pinned upstream fixtures are freshly installed and built per run."},
+    {"id":"N17","failure":"Stale companion PID masked a live launch.","lineage":["f03cc37"],"consequence":"Prefer live launch during PID hand-off."},
+    {"id":"N18","failure":"Windows TEMP short-name alias contradicted a literal path assertion.","lineage":["e32d55d"],"consequence":"Canonical ancestor plus case-preserved missing tail."},
+    {"id":"N19","failure":"Crash ledger preceded the relaunched application's PID evidence.","lineage":["80ffe0e"],"consequence":"Wait for distinct live PID within unchanged budget."},
+    {"id":"N20","failure":"Failed continuity verification still executed recovery and erased intent.","lineage":["f90660b"],"consequence":"Refuse execution and retain durable intent on failed verification."}
   ]
 }
