@@ -258,7 +258,31 @@
       "id": "N33",
       "failure": "Real UI service enable was refused: positional/object host contracts, stale host accessors, dropped confirmation/value fields and lost nested refusal reasons broke the management chain.",
       "lineage": ["artifacts/qualification/SERVICE_ACTION_FOLLOWUP.md"],
-      "consequence": "Test shipped adapters against real host state/config and actual bridge envelopes; preserve explicit confirmation, concrete failures and raw results. Construction regression is not renewed immutable-candidate visual qualification."
+      "consequence": "Test shipped adapters against real host state/config and actual bridge envelopes; preserve explicit confirmation, concrete failures and raw results. Fresh17 later exposed the remaining nested key/value and positional setter defects repaired in545462a; see artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md. Construction regression is not renewed immutable-candidate visual qualification."
+    },
+    {
+      "id": "N34",
+      "failure": "Desktop reopen successfully attached to a live Runtime while an earlier free-port resolver overwrote its authoritative port and ownership record.",
+      "lineage": ["1f901d0", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Distinguish live identity from TCP availability and stale metadata. Verify actual IPC before allocation; preserve Host authority and custom isolated paths. Not evidence of duplicate Runtime execution."
+    },
+    {
+      "id": "N35",
+      "failure": "A successful diagnostics acknowledgement discarded the actual returned service report, leaving the operator without diagnostic content.",
+      "lineage": ["42b48b9", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Preserve the result across the store boundary and render bounded literal data, pending and refusal beside the requested service. React stand-in coverage is not renewed visual acceptance."
+    },
+    {
+      "id": "N36",
+      "failure": "Null restart timestamps became epoch1970; finite values beyond the Date range threw instead of preserving an unavailable timestamp.",
+      "lineage": ["4a823ae", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Retain absence and valid zero as different facts, validate actual Date range, and never invent restart history from coercion."
+    },
+    {
+      "id": "N37",
+      "failure": "PureAlien disabled the Mega extension but an independent integrated-dock flag still created a dead reserved rail.",
+      "lineage": ["e9d8232", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Apply the existing disable authority before dock creation. Keep profile-plugin ownership separate; full fallback acceptance still needs real startup evidence."
     }
   ]
 }
