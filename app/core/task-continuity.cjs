@@ -318,6 +318,24 @@ function createTaskContinuity(input = {}) {
       return { ok: true, skipped: true, resumed: [], alreadyComplete: [], semantic: null, detail: 'no resume intent was left by the restart' }
     }
     const verification = verify({ intent, workspace: options.workspace || intent.workspace || null })
+    // A completed-only intent has no work to resume. Any parked work, however,
+    // must pass verification before a target can perform side effects.
+    if (Array.isArray(intent.parked) && intent.parked.length && !verification.ok) {
+      const result = {
+        ok: false,
+        code: 'CONTINUITY_VERIFICATION_FAILED',
+        at: now(),
+        resumed: [],
+        skipped: [],
+        alreadyComplete: [],
+        failures: [{ target: null, reason: verification.reason }],
+        verification,
+        semantic: { ok: false, from: null, reason: verification.reason },
+        detail: 'Recovery verification failed; the durable intent is retained for repair.'
+      }
+      rememberResume(result)
+      return result
+    }
     const resumed = []
     const skipped = []
     const alreadyComplete = Array.isArray(intent.completedSteps) ? intent.completedSteps.slice(0, 50) : []

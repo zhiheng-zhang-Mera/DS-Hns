@@ -248,6 +248,30 @@ test('resume continues what was parked, skips what was not, and claims semantics
   }
 })
 
+test('failed recovery verification blocks target execution and preserves the durable intent', async () => {
+  const area = scratch('continuity-refusal')
+  try {
+    let calls = 0
+    const continuity = createTaskContinuity({
+      stateDir: area.dir,
+      git: () => ({ status: 1, stdout: '' }),
+      targets: { task: {
+        status: () => ({ running: false }),
+        resume: async () => { calls += 1; return { ok: true, from: 'missing' } }
+      } }
+    })
+    continuity.writeIntent({ checkpoint: 'missing', targets: [{ target: 'task' }], parked: ['task'] })
+    const before = fs.readFileSync(continuity.intentFile, 'utf8')
+    const result = await continuity.resume()
+    assert.equal(result.verification.ok, false)
+    assert.equal(calls, 0)
+    assert.equal(result.ok, false)
+    assert.equal(result.semantic.ok, false)
+    assert.equal(result.code, 'CONTINUITY_VERIFICATION_FAILED')
+    assert.equal(fs.readFileSync(continuity.intentFile, 'utf8'), before)
+  } finally { area.dispose() }
+})
+
 test('a task that was already finished before the restart is not run again', async () => {
   const area = scratch('continuity-norepeat')
   try {
