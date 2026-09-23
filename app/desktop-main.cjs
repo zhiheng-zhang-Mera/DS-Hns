@@ -410,7 +410,12 @@ function resolveAppIcon() {
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
-if (!hasSingleInstanceLock) app.quit()
+if (!hasSingleInstanceLock) {
+  app.quit()
+  // quit() requests exit; it does not stop CommonJS entry evaluation. Do not
+  // register startup work or create runtimes in this rejected second instance.
+  return
+}
 
 function logPath() {
   return path.join(ROOT, 'logs', 'desktop-runtime.log')
@@ -2618,6 +2623,11 @@ function createWindow() {
   mainWindow.on('unmaximize', layoutIntegratedViews)
   mainWindow.on('restore', layoutIntegratedViews)
   mainWindow.on('closed', () => {
+    // Wallpaper, notification and optional orb windows may still exist, so
+    // window-all-closed is not the primary-window exit signal. Use the existing
+    // before-quit teardown (detach, never stop the Runtime) while owned view
+    // references are still available. Explicit shutdown already owns this path.
+    if (!shuttingDown) app.quit()
     megaDockView = null
     officialView = null
     mainWindow = null

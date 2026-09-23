@@ -41,3 +41,5 @@
 | N30 | a real UIA test depended on an arbitrary foreign window; root-first plus Subtree also returned a duplicate ref and consumed a distinct child's slot | `artifacts/qualification/UIA_OWNED_WINDOW_FOLLOWUP.md` | owned real-provider fixture, stronger descendant/uniqueness assertions, and Descendants-only query after the root check; preserve both full-run timeouts without blaming an unrecorded external application |
 
 These failures motivate mechanisms; they do not by themselves demonstrate generality.
+
+| N31 | primary-window close left Desktop/companion running despite no targetable window; relaunch evidence also contained a separate empty-environment-variable launcher defect | `artifacts/qualification/DESKTOP_CLOSE_FOLLOWUP.md` | bind primary closure to existing detach/quit ownership; distinguish product lifecycle failure from instrumentation failure; bounded native regression does not replace fresh full Journey |

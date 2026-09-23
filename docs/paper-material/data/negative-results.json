@@ -241,6 +241,12 @@
       "failure": "An arbitrary desktop window made the real UIA test depend on a foreign provider; root-first plus Subtree duplicated the root ref and displaced a distinct child.",
       "lineage": ["artifacts/qualification/UIA_OWNED_WINDOW_FOLLOWUP.md"],
       "consequence": "Use an owned real provider with unchanged search budget and stronger descendant/uniqueness assertions; search Descendants after the root check. Preserve two full-run timeouts; exact historical external target was not recorded."
+    },
+    {
+      "id": "N31",
+      "failure": "Primary-window closure left Desktop and companion alive; subsequent native crash evidence was confounded by an external launcher leaving ELECTRON_RUN_AS_NODE present but empty.",
+      "lineage": ["artifacts/qualification/DESKTOP_CLOSE_FOLLOWUP.md"],
+      "consequence": "Own primary closure explicitly through existing detach/quit teardown, stop rejected-instance initialization, and separate product defects from instrumentation failures. Bounded construction diagnostics do not certify a fresh final Journey."
     }
   ]
 }
