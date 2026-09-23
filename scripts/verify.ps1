@@ -255,7 +255,9 @@ $chaosHarness = Get-Content "$ROOT\scripts\longhost-chaos.cjs" -Raw -ErrorAction
 $registrationProbe = Get-Content "$ROOT\scripts\plugin-registration-check.cjs" -Raw -ErrorAction SilentlyContinue
 $supervisorDocs = Get-Content "$ROOT\docs\restart-supervisor.md" -Raw -ErrorAction SilentlyContinue
 
-Check 'Both built-in plugins are part of the shipped set, mounted through the one adapter' (($mountedIndex -match 'healthSchedulerPlugin\(\)') -and ($mountedIndex -match 'restartSupervisorPlugin\('))
+# Require the owner-resolved policy at both existing factory calls. A no-argument
+# Health call silently discards saved policy and is no longer valid wiring.
+Check 'Both built-in plugins are part of the shipped set, mounted through the one adapter' (($mountedIndex -match 'healthSchedulerPlugin\(\{\s*config:\s*options\.healthConfig\s*\}\)') -and ($mountedIndex -match 'restartSupervisorPlugin\(\{\s*host,\s*nodeExe,\s*stateDir,\s*config:\s*options\.restartConfig\s*\}\)'))
 Check 'The health scheduler cannot stop anything, and the supervisor has no health policy' (
   (-not ($healthIndex -match 'taskkill|process\.kill|node:child_process|SIGTERM|SIGKILL|shutdown|reboot')) -and
   (-not ($healthEngine -match 'taskkill|process\.kill|node:child_process|SIGKILL')) -and

@@ -301,6 +301,12 @@
       "failure": "Real UI saved interval16000 but Health still sampled at15000; real host regression also found saved Restart budget2 left its engine at3. Manager configuration did not reach constructor-time engines.",
       "lineage": ["27eea59", "artifacts/qualification/EFFECTIVE_POLICY_FOLLOWUP.md"],
       "consequence": "Pass each owner's resolved policy through the existing mounted factory path, normalize the public Health interval alias, and assert actual engine configuration after rebuild/reopen. Focused regression is not cleanroom or final user acceptance; preserve all failures."
+    },
+    {
+      "id": "N41",
+      "failure": "The architecture gate required a no-argument Health factory after effective-policy wiring was repaired, rejecting correct configuration and accepting a return to ignored defaults.",
+      "lineage": ["5cec025", "artifacts/qualification/ARCHITECTURE_POLICY_GATE_FOLLOWUP.md"],
+      "consequence": "Execute the actual gate against valid wiring and controlled missing/default/swapped-policy mutations. Preserve the failed full run; require both existing factories and their owner configuration rather than weakening the check to symbol presence."
     }
   ]
 }
