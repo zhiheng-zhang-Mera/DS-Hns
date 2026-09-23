@@ -283,6 +283,12 @@
       "failure": "PureAlien disabled the Mega extension but an independent integrated-dock flag still created a dead reserved rail.",
       "lineage": ["e9d8232", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
       "consequence": "Apply the existing disable authority before dock creation. Keep profile-plugin ownership separate; full fallback acceptance still needs real startup evidence."
+    },
+    {
+      "id": "N38",
+      "failure": "A successful advanced-policy write rebuilt the plugin manager and silently discarded an explicit Health Scheduler enable decision; store-installed defaults could likewise erase explicit disable.",
+      "lineage": ["08900a8", "artifacts/qualification/HEALTH_LIFECYCLE_FOLLOWUP.md"],
+      "consequence": "Persist lifecycle intent at the existing configuration boundary, preserve default-off fresh profiles, and refuse invalid writes before changing live state. Eight actual-host/filesystem regressions and full unit regression passed; renewed frozen-candidate cleanroom and visual qualification remain required. Earlier machine PASS did not certify the defective user journey."
     }
   ]
 }
