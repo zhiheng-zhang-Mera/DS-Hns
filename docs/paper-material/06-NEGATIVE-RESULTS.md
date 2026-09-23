@@ -43,3 +43,4 @@
 These failures motivate mechanisms; they do not by themselves demonstrate generality.
 
 | N31 | primary-window close left Desktop/companion running despite no targetable window; relaunch evidence also contained a separate empty-environment-variable launcher defect | `artifacts/qualification/DESKTOP_CLOSE_FOLLOWUP.md` | bind primary closure to existing detach/quit ownership; distinguish product lifecycle failure from instrumentation failure; bounded native regression does not replace fresh full Journey |
+| N32 | governance dropped native orb ownership, so the official view rendered an additional in-UI ball | `artifacts/qualification/ORB_OWNERSHIP_FOLLOWUP.md` | preserve ownership across the actual builder/serialization/view boundary; separate proven state propagation failure from unproven native input failure; renew candidate qualification |

@@ -247,6 +247,12 @@
       "failure": "Primary-window closure left Desktop and companion alive; subsequent native crash evidence was confounded by an external launcher leaving ELECTRON_RUN_AS_NODE present but empty.",
       "lineage": ["artifacts/qualification/DESKTOP_CLOSE_FOLLOWUP.md"],
       "consequence": "Own primary closure explicitly through existing detach/quit teardown, stop rejected-instance initialization, and separate product defects from instrumentation failures. Bounded construction diagnostics do not certify a fresh final Journey."
+    },
+    {
+      "id": "N32",
+      "failure": "Control Center dropped native orb ownership, making the official view render an additional in-UI ball alongside System Orb.",
+      "lineage": ["artifacts/qualification/ORB_OWNERSHIP_FOLLOWUP.md"],
+      "consequence": "Preserve ownership through the actual builder and serialized view boundary; distinguish a proven propagation defect from unproven native input failure and rerun immutable-candidate qualification."
     }
   ]
 }

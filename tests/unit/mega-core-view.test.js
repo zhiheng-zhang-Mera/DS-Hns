@@ -88,6 +88,22 @@ function snapshot(overrides = {}) {
 const BRIDGE = { available: true, host: '127.0.0.1', port: 51000, schema: 1 }
 const plugin = { id: 'dsh-plugin-mega-core', version: '0.1.0' }
 
+// Regression: dropping Desktop's orb ownership in Control Center made the
+// official renderer draw a second ball alongside the native system window.
+for (const [name, orb, mode, hideInUi] of [
+  ['native system owner', { mode: 'system', system: true }, 'system', true],
+  ['in-UI owner', { mode: 'in-ui', system: false }, 'in-ui', false],
+  ['absent native owner', undefined, 'in-ui', false]
+]) {
+  test(`Control Center preserves ${name} through the real view pipeline`, async () => {
+    const { buildMegaView } = await loadView()
+    const governance = JSON.parse(JSON.stringify(buildControlCenter({ orb })))
+    const view = buildMegaView({ plugin, bridge: BRIDGE, governance })
+    assert.equal(view.orb.mode, mode)
+    assert.equal(view.orb.hideInUi, hideInUi)
+  })
+}
+
 test('the view model asks governance for exactly the actions the bridge accepts', async () => {
   const { MEGA_ACTIONS } = await loadView()
   /**

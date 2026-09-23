@@ -8,6 +8,6 @@
 - Paper construction: `11-FIGURE-PLAN.md` through `16-METHODS-MATERIAL.md`, plus `19-RELATED-WORK-SEARCH-TERMS.md`
 - Machine-readable: `data/commit-lineage.json`, `claims.json`, `experiments.json`, `metrics.json`, `negative-results.json`, `artifact-index.json`
 
-Current inventory: 7 claim rows (6 bounded engineering claims, 1 explicitly unsupported comparator claim), 13 experiment rows including a retained failed UI experiment, two `NOT_RUN` and one pending final cleanroom record, and 30 negative-result rows. Counts describe catalog entries, not statistical samples. Null experiment fields mean unrecorded or unexecuted; consult the hash-bound historical run before using a value as a measurement. A passing child from an overall failed run is not final qualification.
+Current inventory: 7 claim rows (6 bounded engineering claims, 1 explicitly unsupported comparator claim), 13 experiment rows including a retained failed UI experiment, two `NOT_RUN` and one pending final cleanroom record, and 32 negative-result rows. Counts describe catalog entries, not statistical samples. Null experiment fields mean unrecorded or unexecuted; consult the hash-bound historical run before using a value as a measurement. A passing child from an overall failed run is not final qualification.
 
 Run `node scripts/validate-paper-material.cjs` from the repository root to check claim identity alignment, actual source/test paths, and bound historical SHA/run/verdict/count/hash consistency. The same validation is included in the full unit suite and CI.

@@ -162,7 +162,7 @@ function pluginActions(state) {
  * @param {object} [input.balance]    `balanceService.describe()` — the account the runs are billed to (MEGA-04)
  * @param {object} [input.pricing]    `PricingRepository.describe()` — which price list the cost is billed against
  */
-function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null, services = null, restartStatus = null, advanced = null } = {}) {
+function buildControlCenter({ snapshot = {}, protection = null, bundled = null, boot = null, cache = null, appearance = null, bridge = null, balance = null, pricing = null, services = null, restartStatus = null, advanced = null, orb = null } = {}) {
   const scheduler = snapshot.scheduler || {}
   const active = scheduler.activeQueue || {}
   const counts = scheduler.counts || {}
@@ -530,7 +530,7 @@ function buildControlCenter({ snapshot = {}, protection = null, bundled = null, 
     }))
   }
 
-  return { ok: true, sections, dashboard, modules, plugins, services: Array.isArray(services) ? services : [], restartStatus: restartStatus && restartStatus.available !== false ? restartStatus : null, advanced: advanced || null, degraded, failed, failing, pending: waitingHuman, deferred, serviceActions: serviceActions.SERVICE_ACTIONS, productActions: serviceActions.PRODUCT_ACTIONS }
+  return { ok: true, sections, dashboard, modules, plugins, services: Array.isArray(services) ? services : [], restartStatus: restartStatus && restartStatus.available !== false ? restartStatus : null, advanced: advanced || null, orb, degraded, failed, failing, pending: waitingHuman, deferred, serviceActions: serviceActions.SERVICE_ACTIONS, productActions: serviceActions.PRODUCT_ACTIONS }
 }
 
 module.exports = { buildControlCenter, moduleActions, pluginActions, moduleTone, pluginTone }
