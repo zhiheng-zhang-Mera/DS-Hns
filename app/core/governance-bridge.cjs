@@ -182,7 +182,10 @@ function createGovernanceBridge({ stateDir, snapshot, act, timing = null, create
         return json(response, 409, { ok: false, action, id: id || null, needsConfirmation: true, reason: `"${action}" changes the running product; send confirm: true once a person has agreed` })
       }
       try {
-        const result = await act({ action, id: id || null, confirm, body: body || {} })
+        // Keep the legacy body envelope, but preserve the named advanced fields
+        // consumed by the same controlAction used by desktop IPC. Never spread
+        // arbitrary body fields over the validated action/id/confirmation.
+        const result = await act({ action, id: id || null, confirm, key: body.key, value: body.value, body: body || {} })
         return json(response, result?.ok === false ? 409 : 200, { ok: result?.ok !== false, action, id: id || null, result: result || null })
       } catch (error) {
         lastError = String(error?.message || error)

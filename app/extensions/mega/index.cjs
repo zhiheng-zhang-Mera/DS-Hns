@@ -2102,8 +2102,8 @@ async function advancedAction(payload = {}) {
     return { ok: false, action: 'set-advanced', key, reason: 'the plugin host is not available in this build' }
   }
   try {
-    const outcome = await ctx.pluginServices.setAdvanced(key, payload.value)
-    if (outcome && outcome.ok === false) return { ok: false, action: 'set-advanced', key, reason: outcome.reason || 'the host refused the value' }
+    const outcome = await ctx.pluginServices.setAdvanced({ [key]: payload.value })
+    if (outcome && outcome.ok === false) return { ok: false, action: 'set-advanced', key, reason: outcome.reason || outcome.error || 'the host refused the value' }
     // The panels read the config through the same hook, so what they show next is what was written.
     return { ok: true, action: 'set-advanced', key, result: outcome || { key, value: payload.value } }
   } catch (error) {

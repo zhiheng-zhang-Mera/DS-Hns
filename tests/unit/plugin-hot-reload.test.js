@@ -182,6 +182,70 @@ test('desktop advanced readback reports the value stored by the real host', asyn
   } finally { await h.dispose() }
 })
 
+test('advanced writes traverse the shipped proxy, governance callback and Mega setter into owner config', async () => {
+  // Catches dropped key/value at the bridge callback and positional/object
+  // setter drift. Real HTTP and owner files; not an Electron/GUI acceptance.
+  const h = harness([])
+  const vm = require('node:vm')
+  const http = require('node:http')
+  const { pathToFileURL } = require('node:url')
+  const source = fs.readFileSync(path.join(ROOT, 'app/extensions/mega/index.cjs'), 'utf8')
+  const bridgeCode = source.slice(source.indexOf('let governanceBridgeState = null'), source.indexOf('\n/**', source.indexOf('function governanceBridge()')))
+  const actionCode = source.slice(source.indexOf('async function advancedAction('), source.indexOf('\nfunction registerControlCenterIpc()'))
+  const bridge = vm.runInNewContext(`${bridgeCode}\n${actionCode}\ngovernanceBridge()`, {
+    path, PATHS: { ROOT: h.root },
+    createGovernanceBridge: require('../../app/core/governance-bridge.cjs').createGovernanceBridge,
+    serviceActions: require('../../app/core/contracts/service-actions.cjs'),
+    ctx: { pluginServices: { setAdvanced: desktopServiceAdapter('setAdvanced', h.host) } },
+    controlCenter: () => ({}), log: () => {}
+  })
+  const routes = new Map()
+  const proxy = await import(pathToFileURL(path.join(ROOT, 'app/plugins/mega-core/lib/index.js')).href)
+  const dispose = proxy.apply({ webServer: {
+    register: ({ path: route, handler }) => { routes.set(route, handler); return () => routes.delete(route) }
+  } }, { env: { DSH_HOME: path.join(h.root, 'data') } })
+  const server = http.createServer((req, res) => {
+    const handler = routes.get(req.url)
+    if (!handler) { res.writeHead(404); res.end(); return }
+    Promise.resolve(handler(req, res)).catch(error => { res.writeHead(500); res.end(String(error)) })
+  })
+  try {
+    assert.equal((await bridge.start()).ok, true)
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
+    const call = async input => {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/mega-core/action`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'set-advanced', ...input })
+      })
+      return { status: response.status, body: await response.json() }
+    }
+    const ownerFile = path.join(h.root, 'config/plugins/dshns.health-scheduler.json')
+    const denied = await call({ key: 'intervalMs', value: 16000 })
+    assert.equal(denied.status, 409)
+    assert.equal(fs.existsSync(ownerFile), false, 'unconfirmed action wrote owner config')
+    const written = await call({ confirm: true, key: 'intervalMs', value: 16000 })
+    assert.equal(written.status, 200, JSON.stringify(written.body))
+    assert.equal(written.body.ok, true)
+    const actualFile = written.body.result.result.written[0]
+    assert.equal(actualFile, ownerFile)
+    assert.equal(path.basename(actualFile), 'dshns.health-scheduler.json')
+    const before = fs.readFileSync(actualFile, 'utf8')
+    assert.equal(JSON.parse(before).intervalMs, 16000)
+    for (const input of [{ key: 'intervalMs', value: 0 }, { key: 'unknown.policy', value: 1 }]) {
+      const refused = await call({ confirm: true, ...input })
+      assert.equal(refused.status, 409)
+      assert.match(refused.body.reason, input.key === 'intervalMs' ? /intervalMs/ : /unknown setting/)
+      assert.equal(fs.readFileSync(actualFile, 'utf8'), before, 'refused write changed owner config')
+    }
+  } finally {
+    server.closeAllConnections()
+    await new Promise(resolve => server.close(resolve))
+    dispose()
+    await bridge.stop()
+    await h.dispose()
+  }
+})
+
 test('desktop restart control resolves the real registry without invoking a restart', async () => {
   const h = harness([])
   try {
