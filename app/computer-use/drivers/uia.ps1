@@ -885,11 +885,12 @@ function Invoke-FindOp($request) {
 
     $hits = @()
     try {
-      # One native, explicitly conditioned search per window. It covers the window
-      # element itself and every descendant in a single provider call, which is
+      # The window itself was already considered above. Search descendants only
+      # so its root ref cannot consume the limit twice and hide a distinct hit.
+      # One native, explicitly conditioned search per window is
       # what makes a by-name search affordable on a desktop with hundreds of
       # windows: a PowerShell side walk costs milliseconds per node.
-      $hits = @($windowElement.FindAll([System.Windows.Automation.TreeScope]::Subtree, $condition))
+      $hits = @($windowElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition))
     } catch { $hits = @() }
     foreach ($hit in $hits) {
       if ($matches.Count -ge $limit) { break }

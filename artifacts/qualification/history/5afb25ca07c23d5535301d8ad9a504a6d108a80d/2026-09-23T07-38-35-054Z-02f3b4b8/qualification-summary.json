@@ -1,0 +1,530 @@
+{
+  "schema": 1,
+  "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+  "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+  "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+  "branch": "dev/hns-final-qualification-rc2",
+  "host": {
+    "hostname": "Mera-Alianware",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "cpus": 16,
+    "totalMemory": 34101420032
+  },
+  "toolchain": {
+    "node": "v24.14.1",
+    "nodeExecutable": "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+    "powershell": "powershell.exe"
+  },
+  "startedAt": "2026-09-23T07:38:35.054Z",
+  "completedAt": "2026-09-23T08:06:42.521Z",
+  "results": [
+    {
+      "id": "syntax-check",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T07:38:35.059Z",
+      "completedAt": "2026-09-23T07:43:10.708Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\check-syntax.cjs"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\syntax-check.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\syntax-check.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "all-unit-tests",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T07:43:10.709Z",
+      "completedAt": "2026-09-23T07:52:07.337Z",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\test-all.ps1"
+      ],
+      "exitCode": 1,
+      "passed": false,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\all-unit-tests.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\all-unit-tests.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 1,
+      "reportError": null
+    },
+    {
+      "id": "architecture-verifier",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T07:52:07.338Z",
+      "completedAt": "2026-09-23T08:00:07.930Z",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\verify.ps1"
+      ],
+      "exitCode": 1,
+      "passed": false,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\architecture-verifier.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\architecture-verifier.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 1,
+      "reportError": null
+    },
+    {
+      "id": "external-fixtures",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:00:07.931Z",
+      "completedAt": "2026-09-23T08:01:11.273Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\qualification-fixtures.cjs",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\test\\qualification-fixtures",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\external-fixtures.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 3,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\external-fixtures.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\external-fixtures.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\external-fixtures.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "install-pipeline",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:01:11.273Z",
+      "completedAt": "2026-09-23T08:01:19.260Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\install-pipeline-acceptance.cjs",
+        "--json",
+        "--samples",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\test\\qualification-fixtures\\samples",
+        "--companion-repo",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\test\\qualification-fixtures\\dsh-restart"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 46,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\install-pipeline.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\install-pipeline.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\install-pipeline.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "cordis-adapter",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:01:19.261Z",
+      "completedAt": "2026-09-23T08:01:28.853Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\cordis-adapter-acceptance.cjs",
+        "--json",
+        "--samples",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\test\\qualification-fixtures\\samples"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 66,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\cordis-adapter.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\cordis-adapter.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\cordis-adapter.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "process-adapter",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:01:28.853Z",
+      "completedAt": "2026-09-23T08:01:40.553Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\process-adapter-acceptance.cjs",
+        "--json",
+        "--companion-repo",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\test\\qualification-fixtures\\dsh-restart"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 33,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\process-adapter.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\process-adapter.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\process-adapter.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "native-hns-adapter",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:01:40.553Z",
+      "completedAt": "2026-09-23T08:01:43.192Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "--test",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\tests\\unit\\plugin-hns-native.test.js"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\native-hns-adapter.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\native-hns-adapter.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "health-restart-continuity",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:01:43.192Z",
+      "completedAt": "2026-09-23T08:01:55.209Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "--test",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\tests\\unit\\restart-supervisor-authority.test.js",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\tests\\unit\\longhost-continuity.test.js"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\health-restart-continuity.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\health-restart-continuity.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "community-installer",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:01:55.209Z",
+      "completedAt": "2026-09-23T08:02:06.422Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\installer-community-acceptance.cjs",
+        "--json",
+        "--report=D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\community-installer.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\community-installer.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\community-installer.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\community-installer.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "electron-ui-acceptance",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:02:06.422Z",
+      "completedAt": "2026-09-23T08:04:36.561Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\acceptance.mjs",
+        "--root",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo",
+        "--port",
+        "3091",
+        "--cdp",
+        "9331",
+        "--user-data-dir",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\electron-user-data",
+        "--data-dir",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\runtime\\electron-data",
+        "--report",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\electron-ui-acceptance.json",
+        "--skills",
+        "--github"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 131,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\electron-ui-acceptance.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\electron-ui-acceptance.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\electron-ui-acceptance.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "computer-use-longrun",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:04:36.561Z",
+      "completedAt": "2026-09-23T08:04:41.065Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\computer-use-longrun-acceptance.cjs",
+        "--out",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\computer-use-longrun.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 96,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\computer-use-longrun.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\computer-use-longrun.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\computer-use-longrun.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "longhost-chaos",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:04:41.066Z",
+      "completedAt": "2026-09-23T08:04:50.648Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\longhost-chaos.cjs",
+        "--out=D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\longhost-chaos.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 65,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\longhost-chaos.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\longhost-chaos.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\longhost-chaos.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "synthetic-soak",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:04:50.648Z",
+      "completedAt": "2026-09-23T08:04:52.059Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\longhost-soak.cjs",
+        "--out=D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\synthetic-soak.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 120,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\synthetic-soak.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\synthetic-soak.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\synthetic-soak.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "combined-acceptance",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:04:52.059Z",
+      "completedAt": "2026-09-23T08:06:41.365Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\combined-acceptance.cjs",
+        "--out",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\combined-acceptance.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 52,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\combined-acceptance.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\combined-acceptance.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\combined-acceptance.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "post-test-audit",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:06:41.365Z",
+      "completedAt": "2026-09-23T08:06:42.512Z",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\post-test-audit.ps1",
+        "-Root",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo",
+        "-StartedAtUtc",
+        "2026-09-23T07:38:35.054Z",
+        "-ReportPath",
+        "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\post-test-audit.json",
+        "-ExcludeProcessId",
+        "8884"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 2,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\post-test-audit.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\post-test-audit.stdout.txt",
+        "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\post-test-audit.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "evidence-consistency",
+      "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+      "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+      "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T08:06:42.521Z",
+      "completedAt": "2026-09-23T08:06:42.521Z",
+      "command": [
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\evidence-consistency.cjs",
+        "<summary.json>"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 1,
+      "failures": 0,
+      "report": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\evidence-consistency.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\reports\\evidence-consistency.json",
+        "stderr": null
+      },
+      "spawnError": null
+    }
+  ],
+  "mandatoryFailures": 2,
+  "passed": false,
+  "evidenceConsistency": {
+    "ok": true,
+    "code": "PASS",
+    "errors": []
+  }
+}

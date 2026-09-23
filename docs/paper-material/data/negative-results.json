@@ -235,6 +235,12 @@
         "artifacts/qualification/PAPER_PROVENANCE_FOLLOWUP.md"
       ],
       "consequence": "Validate canonical claim identities, real source/test paths and hash-bound historical run/SHA/child verdicts; preserve failed UI evidence and separate code SHA from evidence commit."
+    },
+    {
+      "id": "N30",
+      "failure": "An arbitrary desktop window made the real UIA test depend on a foreign provider; root-first plus Subtree duplicated the root ref and displaced a distinct child.",
+      "lineage": ["artifacts/qualification/UIA_OWNED_WINDOW_FOLLOWUP.md"],
+      "consequence": "Use an owned real provider with unchanged search budget and stronger descendant/uniqueness assertions; search Descendants after the root check. Preserve two full-run timeouts; exact historical external target was not recorded."
     }
   ]
 }

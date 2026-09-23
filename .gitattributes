@@ -21,3 +21,4 @@
 
 # Immutable qualification evidence must retain byte identity across platforms.
 artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/** -text
+artifacts/qualification/history/5afb25ca07c23d5535301d8ad9a504a6d108a80d/** -text

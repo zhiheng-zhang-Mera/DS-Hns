@@ -38,4 +38,6 @@
 | N28 | repeated observation and detach accumulated native Electron Debugger listeners | `artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md` | current-view adapter ownership, native listener cleanup and bootstrap invalidation; no raised warning limit |
 | N29 | paper claim IDs drifted between Markdown/JSON and generic paths/SHA labels failed to identify actual evidence | `artifacts/qualification/PAPER_PROVENANCE_FOLLOWUP.md` | fail-closed catalog validation and immutable hash-bound child evidence; whole-run failure remains visible |
 
+| N30 | a real UIA test depended on an arbitrary foreign window; root-first plus Subtree also returned a duplicate ref and consumed a distinct child's slot | `artifacts/qualification/UIA_OWNED_WINDOW_FOLLOWUP.md` | owned real-provider fixture, stronger descendant/uniqueness assertions, and Descendants-only query after the root check; preserve both full-run timeouts without blaming an unrecorded external application |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

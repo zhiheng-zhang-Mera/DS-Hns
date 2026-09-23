@@ -9,7 +9,8 @@
     {"id":"rc1-archive","path":"artifacts/qualification/history/2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d/","kind":"immutable historical evidence","scope":"historical","status":"ARCHIVED_NOT_CURRENT"},
     {"id":"bound-historical-run","path":"artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json","kind":"immutable historical qualification","scope":"historical","status":"FAIL"},
     {"id":"final-local-run","path":"D:/Hns-Final-Qualification/test-artifacts/qualification-runs/<runId>/","kind":"immutable raw qualification","scope":"final candidate","status":"PENDING"},
-    {"id":"final-cleanroom-run","path":"D:/Hns-Cleanroom-Qualification-12/test-artifacts/qualification-runs/<runId>/","kind":"immutable clean-room qualification","scope":"final candidate","status":"PENDING"},
+    {"id":"failed-cleanroom-12","path":"artifacts/qualification/history/5afb25ca07c23d5535301d8ad9a504a6d108a80d/2026-09-23T07-38-35-054Z-02f3b4b8/qualification-summary.json","kind":"immutable historical clean-room qualification","scope":"historical","status":"FAIL"},
+    {"id":"final-cleanroom-run","path":"D:/Hns-Cleanroom-Qualification-13/test-artifacts/qualification-runs/<runId>/","kind":"immutable clean-room qualification","scope":"final candidate","status":"PENDING"},
     {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","kind":"enhanced qualification","scope":"real machine","status":"NOT_RUN"},
     {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","kind":"enhanced qualification","scope":"real wall-clock","status":"NOT_RUN"}
   ],

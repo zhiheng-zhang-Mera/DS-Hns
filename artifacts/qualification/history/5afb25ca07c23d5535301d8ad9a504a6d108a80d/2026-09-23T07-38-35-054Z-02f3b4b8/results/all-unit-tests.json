@@ -1,0 +1,30 @@
+{
+  "id": "all-unit-tests",
+  "runId": "2026-09-23T07-38-35-054Z-02f3b4b8",
+  "gitSha": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+  "gitTree": "746892de77cc4abf0ae0a024cd1d881524cbdd5c",
+  "branch": "dev/hns-final-qualification-rc2",
+  "mandatory": true,
+  "startedAt": "2026-09-23T07:43:10.709Z",
+  "completedAt": "2026-09-23T07:52:07.337Z",
+  "command": [
+    "powershell.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "D:\\Hns-Cleanroom-Qualification-12\\repo\\scripts\\test-all.ps1"
+  ],
+  "exitCode": 1,
+  "passed": false,
+  "checks": null,
+  "failures": null,
+  "report": null,
+  "rawEvidence": {
+    "stdout": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\all-unit-tests.stdout.txt",
+    "stderr": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs\\2026-09-23T07-38-35-054Z-02f3b4b8\\raw\\all-unit-tests.stderr.txt"
+  },
+  "spawnError": null,
+  "processExitCode": 1,
+  "reportError": null
+}
