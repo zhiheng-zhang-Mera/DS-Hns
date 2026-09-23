@@ -26,7 +26,7 @@ $processLeaks = @(
 # roots. Inspect the real Windows LocalAppData tree for project-shaped entries
 # modified during this test run, independent of the process-local redirection.
 $realLocalAppData = [Environment]::GetFolderPath('LocalApplicationData')
-$projectPattern = '(?i)(^|[-_.])(dsh|ds-hns|ds-harness|hns)([-_.]|$)'
+$projectPattern = '(?i)(^|[-_.])(dsh|dshns|ds-hns|ds-harness|hns)([-_.]|$)'
 $cWrites = @()
 if ($realLocalAppData -and ([System.IO.Path]::GetPathRoot($realLocalAppData) -ieq 'C:\')) {
   $auditParents = @($realLocalAppData, (Join-Path $realLocalAppData 'Temp'))

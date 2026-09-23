@@ -13,7 +13,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
-const os = require('node:os')
+const { resolveTestRoot } = require('../../app/runtime/storage-roots.cjs')
 const net = require('node:net')
 const path = require('node:path')
 
@@ -22,7 +22,9 @@ const instance = require('../../app/runtime/instance.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 
 function scratch() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-instance-'))
+  const testRoot = resolveTestRoot(ROOT)
+  fs.mkdirSync(testRoot, { recursive: true })
+  return fs.mkdtempSync(path.join(testRoot, 'dshns-instance-'))
 }
 
 test('the instance id is a stable function of the canonical root and home', () => {

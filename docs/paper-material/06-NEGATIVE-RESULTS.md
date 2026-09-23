@@ -24,4 +24,6 @@
 | N19 | crash ledger became visible before the relaunched stand-in wrote its PID | `80ffe0e`, run `2026-09-22T21-20-24-182Z-c820a927` | wait for a distinct live PID within the same 20-second budget |
 | N20 | failed repository/checkpoint verification still resumed work and cleared its intent | `f90660b` | refuse parked recovery before side effects and preserve durable intent; regression failed before repair, 55 focused tests and 65 chaos checks passed after |
 
+| N21 | direct instance tests inherited caller TEMP; C-drive audit missed `dshns` names | `artifacts/qualification/STORAGE_AUDIT_FOLLOWUP.md` | repository-volume scratch, behavioral audit-name regression, preserved historical failure and recoverable D-drive relocation |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

@@ -9,6 +9,35 @@ const { spawnSync } = require('node:child_process')
 const ROOT = path.resolve(__dirname, '..', '..')
 const TEST_ROOT = process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts')
 
+test('direct instance tests use project scratch even when caller TEMP points elsewhere', () => {
+  const scratchRoot = require('../../app/runtime/storage-roots.cjs').resolveTestRoot(ROOT)
+  fs.mkdirSync(scratchRoot, { recursive: true })
+  const probeRoot = fs.mkdtempSync(path.join(scratchRoot, 'instance-root-probe-'))
+  const callerTemp = path.join(probeRoot, 'caller-temp')
+  const projectTemp = path.join(probeRoot, 'project-temp')
+  fs.mkdirSync(callerTemp)
+  const env = { ...process.env, TEMP: callerTemp, TMP: callerTemp, TMPDIR: callerTemp, DSH_TEST_ROOT: projectTemp }
+  delete env.NODE_TEST_CONTEXT
+  const probe = spawnSync(process.execPath, ['--test', path.join(ROOT, 'tests/unit/instance-isolation.test.js')], {
+    cwd: ROOT, encoding: 'utf8', windowsHide: true,
+    env
+  })
+  assert.equal(probe.status, 0, probe.stderr || probe.stdout)
+  assert.deepEqual(fs.readdirSync(callerTemp), [], 'instance tests wrote outside project scratch')
+  assert.ok(fs.readdirSync(projectTemp).some(name => name.startsWith('dshns-instance-')))
+})
+
+test('the live storage audit recognizes instance scratch names without matching unrelated applications', { skip: process.platform !== 'win32' }, () => {
+  const script = path.join(ROOT, 'scripts', 'post-test-audit.ps1').replaceAll("'", "''")
+  const root = path.join(TEST_ROOT, 'audit-name-probe').replaceAll("'", "''")
+  const probe = spawnSync('powershell.exe', ['-NoProfile', '-Command',
+    `. '${script}' -Root '${root}' -StartedAtUtc '9999-01-01T00:00:00Z' -ExcludeProcessId ${process.pid}; @('dshns-instance-425ZOx','dsh-test','ds-hns','ds-harness-cache','hns-data','unrelated-app','friendship') | ForEach-Object { [bool]($_ -match $projectPattern) } | ConvertTo-Json -Compress`
+  ], { encoding: 'utf8', windowsHide: true })
+  assert.equal(probe.status, 0, probe.stderr)
+  const actual = JSON.parse(probe.stdout.trim().split(/\r?\n/).at(-1))
+  assert.deepEqual(actual, [true, true, true, true, true, false, false])
+})
+
 test('one storage contract resolves temp, runtime and test roots on the repository volume outside the checkout', () => {
   const { resolveStorageRoots } = require('../../app/runtime/storage-roots.cjs')
   const taskRoot = path.dirname(ROOT)
