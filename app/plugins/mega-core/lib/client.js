@@ -1178,10 +1178,11 @@ window.__ModuleLoader__.load({
 							]))
 						])
 						: null,
-					text('模块 · Modules', { display: 'block', marginTop: '6px', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+					text('保护模块 · Protection modules', { display: 'block', marginTop: '6px', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
 					...((view.modules || []).length
 						? view.modules.map((entry) => box('div', { key: `m:${entry.id}`, style: { padding: '3px 0' } }, [
-							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
+							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : entry.state === 'DISABLED' ? '○' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
+							String(entry.id || '').startsWith('bundled:') ? text('安装保护记录，非插件加载状态 · installation protection, not plugin load state', { display: 'block', color: MUTED, font: font(10, 400) }) : null,
 							...(entry.actions || []).map((action) => actionButton(action, entry.id, onAction, `m:${entry.id}:${action}`))
 						]))
 						: [text('—', { color: MUTED })]),

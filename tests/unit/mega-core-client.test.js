@@ -504,6 +504,20 @@ test('a large diagnostic report is visibly truncated and a missing report is not
   }
 })
 
+test('bundled protection state is labeled separately from installed and loaded plugin state', async () => {
+  const view = fixtureView()
+  view.modules = [{ id: 'bundled:dsh-health-scheduler', state: 'DISABLED', actions: [] }]
+  view.services = [{ id: 'dshns.health-scheduler', state: 'LOADED', installed: true, enabled: true, loaded: true, actions: [] }]
+  const mounted = await mount({ fetchImpl: fakeFetch({ view }) })
+  const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+  const content = strings(rendered.tree).join(' ')
+  assert.match(content, /Protection modules/)
+  assert.match(content, /installation protection, not plugin load state/)
+  assert.match(content, /bundled:dsh-health-scheduler — DISABLED/)
+  assert.doesNotMatch(content, /⚠ bundled:dsh-health-scheduler/)
+  assert.match(content, /dshns.health-scheduler — LOADED/)
+})
+
 test('the bundle parses as a classic script, the way a combo is delivered', () => {
   /**
    * The loader serves application bundles as one concatenated, classic script: our file is parsed by the
