@@ -653,7 +653,11 @@ function createPluginHost(options = {}) {
         // outranks a manifest's `default_enabled: false`: without this, a store plugin that ships
         // switched off (every compatibility-mode plugin does) would be mounted and never loaded —
         // enabled in the panel and not running, with nothing saying why.
-        enabled: fromStore ? true : (typeof resolved.resolved.enabled === 'boolean' ? resolved.resolved.enabled : undefined),
+        // A later explicit lifecycle choice in plugin config outranks store
+        // installation too; otherwise a disabled store plugin reappears on rebuild.
+        enabled: resolved.sources.enabled === 'plugin-config' && typeof resolved.resolved.enabled === 'boolean'
+          ? resolved.resolved.enabled
+          : fromStore ? true : (typeof resolved.resolved.enabled === 'boolean' ? resolved.resolved.enabled : undefined),
         config: resolved.resolved
       }
     }
@@ -882,6 +886,26 @@ function createPluginHost(options = {}) {
     if (!manager) return { ok: false, error: 'the plugin runtime could not be built', code: 'PLUGIN_RUNTIME_UNAVAILABLE' }
     if (!manager.has(id)) return { ok: false, error: `no plugin ${id}`, code: 'PLUGIN_NOT_FOUND' }
     const enabled = input.enabled !== false
+    // Lifecycle choices must survive configure() rebuilding the manager and
+    // subsequent desktop launches. Preserve the plugin's other settings, and
+    // refuse unreadable/unwritable configuration before changing live state.
+    const file = config.fileFor(id)
+    let current = {}
+    try {
+      if (fs.existsSync(file)) {
+        current = JSON.parse(fs.readFileSync(file, 'utf8'))
+        if (!current || typeof current !== 'object' || Array.isArray(current)) throw new Error('plugin config must be an object')
+      }
+    } catch (error) {
+      return { ok: false, code: 'CONFIG_UNREADABLE', error: `cannot read ${file}: ${error.message}` }
+    }
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, `${JSON.stringify({ ...current, enabled }, null, 2)}\n`, 'utf8')
+    } catch (error) {
+      return { ok: false, code: 'CONFIG_UNWRITABLE', error: `cannot write ${file}: ${error.message}` }
+    }
+    config.refresh()
     const outcome = enabled ? manager.enable(id) : await manager.disable(id)
     if (outcome.ok) {
       const loaded = enabled ? await manager.load(id) : { ok: true, already: true }
