@@ -26,10 +26,8 @@ function pageFromWebContents(webContents, options = {}) {
   if (!webContents || typeof webContents.debugger?.sendCommand !== 'function') return null
   const transport = createElectronDebuggerTransport(webContents)
   const page = createCdpPage({ transport, id: options.id || 'shell-page', clock: options.clock })
-  if (typeof transport.onEvent === 'function') {
-    transport.onEvent((method, params) => page.handleEvent(method, params))
-  }
   page.transport = transport
+  page.webContents = webContents
   return page
 }
 
@@ -45,6 +43,7 @@ function pageFromWebContents(webContents, options = {}) {
  */
 function createElectronHost(options = {}) {
   const notes = []
+  let currentAdapter = null
 
   function attempt(label, factory, fallback = null) {
     try {
@@ -72,9 +71,14 @@ function createElectronHost(options = {}) {
     if (typeof options.getWebContents !== 'function') return null
     try {
       const webContents = options.getWebContents()
+      if (currentAdapter && (currentAdapter.webContents !== webContents || webContents?.isDestroyed?.())) {
+        currentAdapter.transport.detach()
+        currentAdapter = null
+      }
       if (!webContents || webContents.isDestroyed?.()) return null
       if (options.page && options.page.webContents === webContents) return options.page
-      return pageFromWebContents(webContents, { clock: options.clock })
+      if (!currentAdapter) currentAdapter = pageFromWebContents(webContents, { clock: options.clock })
+      return currentAdapter
     } catch (error) {
       notes.push(`page attach: ${error && error.message ? error.message : String(error)}`)
       return null
@@ -85,8 +89,8 @@ function createElectronHost(options = {}) {
     /** The ports the runtime consumes; a null port simply degrades its controller. */
     host: {
       // The shell's visible surface can be replaced while the runtime is alive, so
-      // the page is re-attached per run instead of being frozen at construction
-      // time (reconstruct the transient execution context per run).
+      // resolve the current view per run, reusing only that view's adapter. A
+      // replacement releases the old transport; native detach resets bootstrap.
       getPage: currentPage,
       desktop: win32,
       accessibility: uia,
