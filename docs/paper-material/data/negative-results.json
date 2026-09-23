@@ -22,6 +22,7 @@
     {"id":"N19","failure":"Crash ledger preceded the relaunched application's PID evidence.","lineage":["80ffe0e"],"consequence":"Wait for distinct live PID within unchanged budget."},
     {"id":"N20","failure":"Failed continuity verification still executed recovery and erased intent.","lineage":["f90660b"],"consequence":"Refuse execution and retain durable intent on failed verification."},
     {"id":"N21","failure":"Direct instance tests inherited caller TEMP and the C-drive audit missed dshns names.","lineage":["artifacts/qualification/STORAGE_AUDIT_FOLLOWUP.md"],"consequence":"Use repository-volume test roots and include instance names in the real audit; preserve historical failed audit and moved scratch."},
-    {"id":"N22","failure":"Stationary pointermove events turned orb clicks into drags and suppressed panel expansion.","lineage":["artifacts/qualification/ORB_POINTER_FOLLOWUP.md"],"consequence":"Measure from pointer-down coordinates and apply a bounded drag threshold; verify real click, expansion and detail feedback."}
+    {"id":"N22","failure":"Stationary pointermove events turned orb clicks into drags and suppressed panel expansion.","lineage":["artifacts/qualification/ORB_POINTER_FOLLOWUP.md"],"consequence":"Measure from pointer-down coordinates and apply a bounded drag threshold; verify real click, expansion and detail feedback."},
+    {"id":"N23","failure":"A generic billing timezone label implied that a browser-local scheduling input used Asia/Shanghai.","lineage":["artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md"],"consequence":"Identify local input time separately from model billing timezone in both task forms without changing scheduling semantics."}
   ]
 }

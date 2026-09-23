@@ -28,4 +28,6 @@
 
 | N22 | a stationary pointermove swallowed real orb clicks | `artifacts/qualification/ORB_POINTER_FOLLOWUP.md` | measure from press coordinates and require drag displacement; RED/GREEN regression plus real screenshot/click/detail feedback |
 
+| N23 | billing timezone label was ambiguous beside a browser-local datetime input | `artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md` | explicitly distinguish local send time from billing windows; preserve scheduling semantics |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

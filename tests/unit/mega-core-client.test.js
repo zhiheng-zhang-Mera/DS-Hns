@@ -676,6 +676,8 @@ test('the ball\'s own panel offers the new-task entry, first, and it opens the b
   assert.equal(find(rendered.tree, (element) => element.props['data-primitive'] === 'modal').length, 0, 'the ball opened the header\'s centred sub-page');
   assert.match(said, /要执行的内容/, 'the ball\'s form has no prompt');
   assert.match(said, /发送时间/, 'the ball\'s form opened without its schedule');
+  assert.match(said, /发送时间（本机时间）/, 'local schedule input must identify its time basis');
+  assert.match(said, /计费时区 Asia\/Shanghai/, 'price timezone must not imply the input timezone');
   // The dashboard is not drawn under the form: one column, one surface.
   assert.equal(find(rendered.tree, (element) => element.props['data-hns-mega-category']).length, 0, 'the dashboard is still drawn under the form');
 
@@ -1065,7 +1067,8 @@ test('the header action opens a centred sub-page whose composer is the input and
   assert.ok(schedule, 'the dialog has no schedule section');
   assert.match(said, /定时设置/);
   assert.match(said, /发送时间/);
-  assert.match(said, /时区 Asia\/Shanghai/);
+  assert.match(said, /发送时间（本机时间）/, 'local schedule input must identify its time basis');
+  assert.match(said, /计费时区 Asia\/Shanghai/, 'price timezone must not imply the input timezone');
   assert.match(said, /峰价时段 09:00-12:00, 14:00-18:00/);
   assert.match(said, /3 分钟后/);
   const timeField = find(task.rendered.tree, (element) => element.props['data-hns-mega-task-time'] === 'on')[0];

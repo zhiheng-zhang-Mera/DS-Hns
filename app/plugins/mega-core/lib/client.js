@@ -2020,9 +2020,9 @@ window.__ModuleLoader__.load({
 						text('定时设置', { color: MUTED, font: font(12) }),
 						text('Schedule', { color: FAINT, font: font(10, 400) }),
 						box('span', { key: 'tz', style: { flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400) } },
-							timing?.schedule?.timeZone ? `时区 ${timing.schedule.timeZone}` : '')
+							timing?.schedule?.timeZone ? `计费时区 ${timing.schedule.timeZone}` : '')
 					]),
-					field('startAt', '发送时间', 'Send at', box('input', {
+					field('startAt', '发送时间（本机时间）', 'Send at (local time)', box('input', {
 						key: 'input',
 						'data-hns-mega-task-time': 'on',
 						type: 'datetime-local',
@@ -2249,11 +2249,11 @@ window.__ModuleLoader__.load({
 					box('div', { key: 'title', style: { display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' } }, [
 						text('定时设置', { color: MUTED, font: font(11) }),
 						text('Schedule', { color: FAINT, font: font(10, 400) }),
-						text(timing?.schedule?.timeZone ? `时区 ${timing.schedule.timeZone}` : '', {
+						text(timing?.schedule?.timeZone ? `计费时区 ${timing.schedule.timeZone}` : '', {
 							flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400)
 						})
 					]),
-					text('发送时间 · Send at', { key: 'time-label', display: 'block', marginBottom: '3px', color: MUTED, font: font(11) }),
+					text('发送时间（本机时间） · Send at (local time)', { key: 'time-label', display: 'block', marginBottom: '3px', color: MUTED, font: font(11) }),
 					box('input', {
 						key: 'time',
 						'data-hns-mega-task-time': 'on',

@@ -12,7 +12,7 @@
     },
     {
       "id": "cleanroom-final-qualification",
-      "root": "D:\\Hns-Cleanroom-Qualification-7\\test-artifacts\\qualification-runs",
+      "root": "D:\\Hns-Cleanroom-Qualification-8\\test-artifacts\\qualification-runs",
       "selection": "PASS run from the fresh remote clone whose gitSha equals the final candidate SHA",
       "required": true
     },
@@ -31,7 +31,7 @@
       "id": "real-reboot",
       "path": "artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json",
       "required": false,
-      "status": "REAL_REBOOT_NOT_RUN_BY_HOST_POLICY"
+      "status": "NOT_RUN"
     },
     {
       "id": "realtime-24h-soak",
