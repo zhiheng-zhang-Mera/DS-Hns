@@ -443,6 +443,67 @@ test('the bundle is the shape the module loader materialises, and it requires on
   assert.equal(/require\((['"])(?!react|@deepseek-ai\/dsh-client-ui-primitives)/.test(source), false, 'the client half required something the platform table does not seed')
 })
 
+test('diagnostics displays the returned report at its service instead of discarding it for an acknowledgement', async () => {
+  const id = 'dshns.health-scheduler'
+  const view = fixtureView()
+  view.services = [id, 'dshns.restart-supervisor'].map(serviceId => ({
+    id: serviceId, name: serviceId, state: 'LOADED', enabled: true, loaded: true,
+    installed: true, healthy: true, actions: ['diagnostics'], capabilities: { provides: [] }
+  }))
+  const report = { id, ok: true, diagnostics: { samples: 19, label: '<script>literal report</script>' } }
+  const mounted = await mount({ fetchImpl: fakeFetch({ view, action: {
+    ok: true, action: 'diagnostics', id, result: { ok: true, action: 'diagnostics', id, result: report }
+  } }) })
+  await mounted.store.act('diagnostics', id)
+  const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+  const target = find(rendered.tree, element => element.props['data-hns-service'] === id)[0]
+  assert.match(strings(target).join(' '), /"samples": 19/)
+  assert.match(strings(target).join(' '), /<script>literal report<\/script>/)
+  assert.equal(find(target, element => element.props.dangerouslySetInnerHTML).length, 0)
+  const other = find(rendered.tree, element => element.props['data-hns-service'] === 'dshns.restart-supervisor')[0]
+  assert.doesNotMatch(strings(other).join(' '), /literal report/)
+})
+
+test('diagnostics exposes pending and refusal beside the requested service', async () => {
+  const id = 'dshns.health-scheduler'
+  const view = fixtureView()
+  view.services = [{ id, state: 'LOADED', actions: ['diagnostics'] }]
+  let resolveAction
+  const mounted = await mount({ fetchImpl: async url => url === '/mega-core/action'
+    ? new Promise(resolve => { resolveAction = resolve }) : answer(200, view) })
+  const request = mounted.store.act('diagnostics', id)
+  try {
+    const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+    const row = find(rendered.tree, element => element.props['data-hns-service'] === id)[0]
+    assert.match(strings(row).join(' '), /Loading diagnostics/)
+  } finally {
+    resolveAction(answer(409, { ok: false, reason: 'diagnostic unavailable now' }))
+    await request
+  }
+  const refused = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+  const row = find(refused.tree, element => element.props['data-hns-service'] === id)[0]
+  assert.match(strings(row).join(' '), /diagnostic unavailable now/)
+  assert.doesNotMatch(strings(row).join(' '), /Loading diagnostics/)
+})
+
+test('a large diagnostic report is visibly truncated and a missing report is not a success certificate', async () => {
+  const id = 'dshns.health-scheduler'
+  const view = fixtureView()
+  view.services = [{ id, state: 'LOADED', actions: ['diagnostics'] }]
+  for (const [result, expected] of [
+    [{ ok: true, result: { detail: 'x'.repeat(20000) } }, /truncated/],
+    [null, /No diagnostic report returned/]
+  ]) {
+    const mounted = await mount({ fetchImpl: fakeFetch({ view, action: { ok: true, result } }) })
+    await mounted.store.act('diagnostics', id)
+    const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+    const row = find(rendered.tree, element => element.props['data-hns-service'] === id)[0]
+    const content = strings(row).join(' ')
+    assert.match(content, expected)
+    assert.ok(content.length < 17000, 'unbounded diagnostic text in service row')
+  }
+})
+
 test('the bundle parses as a classic script, the way a combo is delivered', () => {
   /**
    * The loader serves application bundles as one concatenated, classic script: our file is parsed by the

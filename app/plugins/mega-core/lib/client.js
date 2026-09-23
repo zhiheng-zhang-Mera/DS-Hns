@@ -392,6 +392,10 @@ window.__ModuleLoader__.load({
 
 			/** Ask governance for one of the actions it accepts, then re-read (the state may have moved). */
 			async function act(action, id, options = {}) {
+				if (action === 'diagnostics') {
+					snapshot = { ...snapshot, action: { ok: null, pending: true, id, action } };
+					emit();
+				}
 				try {
 					const response = await send(ACTION_URL, {
 						method: 'POST',
@@ -414,7 +418,7 @@ window.__ModuleLoader__.load({
 						})
 					});
 					const body = await readJson(response, 'the action route');
-					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id, action, reason: body?.reason || null, needsConfirmation: body?.needsConfirmation === true } };
+					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id, action, result: body?.result || null, reason: body?.reason || null, needsConfirmation: body?.needsConfirmation === true } };
 				} catch (error) {
 					snapshot = { ...snapshot, action: { ok: false, id, action, reason: String(error?.message || error) } };
 				}
@@ -1047,6 +1051,21 @@ window.__ModuleLoader__.load({
 		 * the reason the two surfaces cannot drift: both render the same `view`, and the numbers on the ball come
 		 * from the same snapshot the page's fields do.
 		 */
+		function serviceDiagnostics(action, id) {
+			if (action?.action !== 'diagnostics' || action.id !== id) return null;
+			let content;
+			if (action.pending) content = '正在读取诊断 · Loading diagnostics…';
+			else if (action.ok === false) content = `诊断失败 · Diagnostics failed: ${action.reason || 'unavailable'}`;
+			else if (action.result?.result == null) content = '未返回诊断报告 · No diagnostic report returned';
+			else {
+				content = JSON.stringify(action.result.result, null, 2);
+				if (content.length > 16384) content = `${content.slice(0, 16384)}\n… truncated · 报告过长，已截断`;
+			}
+			// Text children only: diagnostics are data, never markup. Bound both the
+			// content and its visible height so one report cannot bury the controls.
+			return box('pre', { role: 'status', style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '240px', overflow: 'auto', margin: '6px 0', padding: '8px', background: 'rgba(255,255,255,.05)', color: action.ok === false ? TONES.bad : MUTED, font: font(11, 400) } }, content);
+		}
+
 		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded, onDashboardAction, onTaskAction }) {
 			const view = snapshot?.view;
 			if (!view) {
@@ -1116,7 +1135,8 @@ window.__ModuleLoader__.load({
 								entry.permissions ? `permissions: ${typeof entry.permissions === 'string' ? entry.permissions : JSON.stringify(entry.permissions)}` : null,
 								entry.lastError ? `last error: ${entry.lastError.reason}` : null
 							].filter(Boolean).join(' · '), { display: 'block', color: MUTED, font: font(10, 400) }),
-							...(entry.actions || []).map((action) => actionButton(action, entry.id, onAction, `s:${entry.id}:${action}`))
+							...(entry.actions || []).map((action) => actionButton(action, entry.id, onAction, `s:${entry.id}:${action}`)),
+							serviceDiagnostics(snapshot.action, entry.id)
 						]))
 						: [text('—', { color: MUTED })]),
 					/**
@@ -1186,7 +1206,7 @@ window.__ModuleLoader__.load({
 					onToggleExpanded ? React.createElement(ActionButton, { key: 'expand', label: expanded ? '收起 · Collapse' : '治理详情 · Governance', onClick: () => onToggleExpanded(!expanded) }) : null
 				].filter(Boolean)),
 				snapshot.action ? text(
-					snapshot.action.ok ? `✓ ${snapshot.action.action}${snapshot.action.id ? ` ${snapshot.action.id}` : ''}` : `✖ ${snapshot.action.reason || '操作被拒绝 · refused'}`,
+					snapshot.action.pending ? '正在读取诊断 · Loading diagnostics…' : snapshot.action.ok ? `✓ ${snapshot.action.action}${snapshot.action.id ? ` ${snapshot.action.id}` : ''}` : `✖ ${snapshot.action.reason || '操作被拒绝 · refused'}`,
 					{ display: 'block', marginTop: '4px', color: snapshot.action.ok ? TONES.ok : TONES.bad, fontWeight: '400' }
 				) : null,
 				/**
