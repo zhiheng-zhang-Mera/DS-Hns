@@ -12,7 +12,7 @@
     },
     {
       "id": "cleanroom-final-qualification",
-      "root": "D:\\Hns-Cleanroom-Qualification-8\\test-artifacts\\qualification-runs",
+      "root": "D:\\Hns-Cleanroom-Qualification-9\\test-artifacts\\qualification-runs",
       "selection": "PASS run from the fresh remote clone whose gitSha equals the final candidate SHA",
       "required": true
     },

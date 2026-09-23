@@ -67,6 +67,7 @@ Write-Host "  test tier: $Tier (node: $node)"
 #   adaptive-performance-policy     budgets scale with the host and stay bounded
 #   instance-isolation              two instances cannot share a port or a lock
 #   runtime-bootstrap               the Runtime Host starts, serves and stops alone
+#   bundled-plugin-packaging        packed plugins load without source junctions
 $smokeSet = @(
   'installer-contract.test.js',
   'installer-timing-gate.test.js',
@@ -75,7 +76,8 @@ $smokeSet = @(
   'host-capability-profile.test.js',
   'adaptive-performance-policy.test.js',
   'instance-isolation.test.js',
-  'runtime-bootstrap.test.js'
+  'runtime-bootstrap.test.js',
+  'bundled-plugin-packaging.test.js'
 )
 
 $testsDir = Join-Path $ROOT 'tests\unit'

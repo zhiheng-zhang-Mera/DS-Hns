@@ -14,6 +14,7 @@
   },
   "files": [
     "index.cjs",
+    "contract.cjs",
     "health.cjs",
     "providers.cjs",
     "severity.cjs",

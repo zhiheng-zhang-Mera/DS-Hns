@@ -8,4 +8,4 @@
 - Paper construction: `11-FIGURE-PLAN.md` through `16-METHODS-MATERIAL.md`, plus `19-RELATED-WORK-SEARCH-TERMS.md`
 - Machine-readable: `data/commit-lineage.json`, `claims.json`, `experiments.json`, `metrics.json`, `negative-results.json`, `artifact-index.json`
 
-Current inventory: 7 claim rows (6 supported engineering claims, 1 explicitly unsupported comparator claim), 13 experiment rows including two `NOT_RUN` and one pending final cleanroom record, and 23 negative-result rows. Counts describe catalog entries, not statistical samples. Null experiment fields mean unrecorded or unexecuted; consult the referenced immutable run before using a value as a measurement.
+Current inventory: 7 claim rows (6 supported engineering claims, 1 explicitly unsupported comparator claim), 13 experiment rows including two `NOT_RUN` and one pending final cleanroom record, and 24 negative-result rows. Counts describe catalog entries, not statistical samples. Null experiment fields mean unrecorded or unexecuted; consult the referenced immutable run before using a value as a measurement.

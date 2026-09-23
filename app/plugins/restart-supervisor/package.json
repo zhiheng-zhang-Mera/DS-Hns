@@ -17,6 +17,8 @@
   },
   "files": [
     "index.cjs",
+    "contract.cjs",
+    "status.cjs",
     "policy.cjs",
     "budget.cjs",
     "heartbeat.cjs",

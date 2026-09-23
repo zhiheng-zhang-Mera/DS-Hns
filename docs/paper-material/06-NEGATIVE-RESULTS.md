@@ -30,4 +30,6 @@
 
 | N23 | billing timezone label was ambiguous beside a browser-local datetime input | `artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md` | explicitly distinguish local send time from billing windows; preserve scheduling semantics |
 
+| N24 | built-in packages omitted contract/status files; source junctions concealed the missing dependencies | `artifacts/qualification/PACKAGING_FOLLOWUP.md` | actual pack/extract/require tests protect package boundaries; installer smoke does not replace real launch |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.
