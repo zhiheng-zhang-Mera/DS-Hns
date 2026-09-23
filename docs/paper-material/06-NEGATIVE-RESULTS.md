@@ -34,4 +34,7 @@
 | N25 | concurrent UI occupied a unit test's required-free port3099 | `artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md` | isolate ports and serialize UI; a focused pass cannot replace a failed full run |
 | N26 | broad-title activation plus global keystrokes sent a fixture path into another conversation | `artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md` | targeted native input, exclusive coordination record and actual installed-state assertions; no fallback certificate |
 
+| N27 | a real picker collapsed the dock before a geometry assertion; descendant blur polluted window focus counts | `artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md` | explicit surface preconditions and correctly scoped observations; failed full run preserved |
+| N28 | repeated observation and detach accumulated native Electron Debugger listeners | `artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md` | current-view adapter ownership, native listener cleanup and bootstrap invalidation; no raised warning limit |
+
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

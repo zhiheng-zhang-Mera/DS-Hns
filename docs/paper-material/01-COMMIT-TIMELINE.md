@@ -29,3 +29,20 @@ History was inspected with `git log --all`, graph/merge-base queries, `git show`
 | 2026-09-22 | Final Qualification | `277ef17` through `be743a7` | D-only roots, installer reconciliation, Phase C repair, P2 UI repairs, immutable evidence runner, clean-room fixture materialization. |
 
 All dates are repository author dates. They describe engineering sequence, not independent experimental replications.
+
+## Qualification follow-up snapshot (2026-09-23)
+
+Remote refs were refreshed at candidate `1a2fa2c`;340commits are reachable, versus326in the original mining snapshot. The14additional commits have14distinct stable patch IDs. This finite snapshot does not count the commit containing this refresh or any future production merge.
+
+| Commits | Observed follow-up | Boundary |
+|---|---|---|
+| `734bc64`, `1c7d338`, `bf2c9dc` | paper corpus, isolated profile wiring assertion, final evidence contracts | catalog/contract work, not new runtime contributions |
+| `f03cc37`, `e32d55d`, `80ffe0e` | live PID handoff, canonical Windows paths, recovered-process readiness | preserve old failed runs; focused checks are not full qualification |
+| `f90660b`, `9e7404d` | refuse recovery after failed verification; preserve negatives and unknowns | prevents false success; no real reboot claim |
+| `9989ea7` | direct-test scratch containment and broader C-write detection | historical C-write failure remains recorded |
+| `c20e6f5`, `7afe8bc` | actual orb click repair and unambiguous local scheduling labels | observed interaction, not an unconstrained UI rewrite |
+| `231fd7f` | retract unsupported host-policy attribution | NOT_RUN must state observed prerequisites, not an invented prohibition |
+| `9900555` | packaged built-in modules included in tarballs | real installation is not proof of real launch |
+| `1a2fa2c` | targeted native input replaces broad-title global keystrokes | actual operator input plus catalog/disk evidence; no fallback PASS |
+
+The subsequently observed UI-precondition and Debugger-listener failures are documented in `artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md` and `artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md` and in negative entriesN27/N28. Repairs are independently committed as `65121f1` (dock/focus preconditions) and `2d76ca3` (native listener lifecycle). Reading their actual diffs extends the cutoff to342reachable commits at `2d76ca3`; their stable patch IDs are recorded separately from the earlier340commit snapshot. The first listener repair's failed full regression is retained, followed by1930pass/0fail/2definedskip and a real dirty/UI-only131/131 diagnostic, not final qualification.

@@ -3,8 +3,9 @@
   "status": "NOT_RUN",
   "passed": null,
   "realWindowsRebootPerformed": false,
-  "reason": "No reboot ceremony has been performed and automatic resumption of this qualification after host startup has not yet been verified. No explicit host-policy prohibition has been established.",
+  "reason": "The shipped resume bootstrap writes HKCU CurrentVersion/Run (DSHnsRebootResume); the Startup-folder alternative resolves to the C-drive user profile. Neither is an established D-only automatic continuation of this qualification. The owner requires fail-closed for controllable project C writes, and no exception is assumed. No global host-policy prohibition on reboot has been established.",
+  "limitationCode": "D_ONLY_AUTOMATIC_RESUMPTION_PREREQUISITE_UNMET",
   "substitutesAccepted": false,
   "syntheticEvidence": "The restart-continuity, chaos, soak, and Electron restart gates are separate engineering evidence and are not a real Windows reboot.",
-  "nextExecutableAction": "Run the documented reboot ceremony from a host-controlled persistent runner that automatically resumes this qualification after Windows startup."
+  "nextExecutableAction": "Establish a compliant host-controlled startup/resumption mechanism, or obtain an explicit exception for the named C-profile autostart write; then run the durable checkpoint/reboot/exactly-once ceremony."
 }

@@ -12,3 +12,7 @@
 | wallpaper fixture | GitHub `b3937a3…` | pinned external source, npm lock | Cordis acceptance |
 
 Host identity and tool versions are captured by qualification summary. API credentials are not included. Real reboot and real 24h outputs do not exist unless separately generated; absence is recorded as `NOT_RUN`, not zero.
+
+The2026-09-23ref refresh through `1a2fa2c` reaches340commits and extends the326commit original snapshot by14distinct stable patches. Read `commit-lineage.json.refresh` and the timeline supplement for the finite cutoff. Diagnostic UI-only dirty-tree runs are explicitly excluded from final candidate qualification even when their individual checks pass. External observer component self-tests do not start a24-hour observation clock.
+
+`commit-lineage.json.postRefreshRepairs` separately records the two observed UI/listener repair diffs through `2d76ca3` (342reachable commits), preserving the earlier finite snapshots rather than overwriting their counts. This metadata commit and subsequent release/ref changes are outside that cutoff.

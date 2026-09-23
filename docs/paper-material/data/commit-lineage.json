@@ -2,7 +2,24 @@
   "schemaVersion": 1,
   "snapshotDate": "2026-09-22",
   "reachableCommitCount": 326,
+  "refresh": {
+    "snapshotDate": "2026-09-23",
+    "head": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "reachableCommitCount": 340,
+    "additionalCommits": ["734bc64", "1c7d338", "f03cc37", "bf2c9dc", "e32d55d", "80ffe0e", "f90660b", "9e7404d", "9989ea7", "c20e6f5", "231fd7f", "7afe8bc", "9900555", "1a2fa2c"],
+    "additionalStablePatchIdsUnique": 14,
+    "scope": "Fetched refs and inspected qualification follow-up lineage; later self-describing followup commits are not included in this fixed snapshot count."
+  },
   "deduplicationMethod": "git patch-id --stable plus ancestry inspection",
+  "postRefreshRepairs": {
+    "head": "2d76ca3caf6c3f3a99ee2e453d46a7daafaaebfd",
+    "reachableCommitCount": 342,
+    "commits": [
+      {"sha": "65121f1", "patchId": "33c34a91623aaf11682fd34857a408bcd2316cbe", "negative": "N27"},
+      {"sha": "2d76ca3", "patchId": "e34a8d7cfba6f7c076d9d4e0c45eed460e0861a0", "negative": "N28"}
+    ],
+    "scope": "Actual repair diffs reviewed; excludes this metadata commit and future release commits."
+  },
   "patchEquivalentGroups": [
     {"logicalChange": "capability-gated plugin adapter", "commits": ["22b3261", "db5ebab"], "patchId": "def35337e01da733c0cf71c27cfa7044e123902d"},
     {"logicalChange": "Cordis adapter integration", "commits": ["7969807", "d44d835"], "patchId": "159b5d64731e6283a7f134d5dc950dbaa4506c64"},

@@ -24,6 +24,7 @@ The production-like package for this repository is its pinned fresh Standard ins
 - Real 24-hour wall-clock soak: `NOT_RUN`.
 - Synthetic soak remains labelled synthetic.
 - Automated Electron interaction, real Codex visual inspection, and cleanroom visual inspection are reported as distinct evidence sources.
+- Historical task5 screenshots show the visible Mega orb/panel within the application window. They do not by themselves establish acceptance of the separate native System Orb implementation; the final journey must identify the actual surface it exercises.
 - No claim of novelty, state of the art, universal production suitability, or accessibility certification is made.
 
 See [`FINAL_EVIDENCE_INDEX.md`](FINAL_EVIDENCE_INDEX.md) and [`docs/paper-material/PAPER_MATERIAL_INDEX.md`](../../docs/paper-material/PAPER_MATERIAL_INDEX.md).
