@@ -442,7 +442,9 @@ function readInstanceRecord(instance) {
 /**
  * Resolve an instance and the port it should serve on, in one step.
  *
- * A five-step order, and the precedence is the interesting part:
+ * A verified live Host is authoritative: return its port without rewriting its
+ * record. A reachable but invalid/unresponsive peer fails closed. Only when no
+ * Host endpoint exists do we allocate for a new instance in this order:
  *
  *   1. an explicit `DSH_HARNESS_PORT` is a *request*;
  *   2. otherwise a port this instance already persisted is a request — an instance
@@ -451,8 +453,8 @@ function readInstanceRecord(instance) {
  *   4. a request is always subject to availability (see `allocateHarnessPort`);
  *   5. the answer is persisted before it is returned.
  *
- * Step 2 is what stops an instance from silently drifting to a new port on every
- * restart just because its own previous Harness had not released the port yet.
+ * Step 2 remembers the previous choice after a Host has stopped. The live IPC
+ * handshake, not a TCP free-port probe or stale record, prevents reopen drift.
  *
  * Identity options are **not** re-derived here: they are passed straight through
  * to `describeInstance`, which is still the single place that decides a name, a
@@ -460,8 +462,64 @@ function readInstanceRecord(instance) {
  * apart — and a userData path that changes between "before Electron was ready" and
  * "after the port was chosen" would silently move the single-instance lock.
  */
+// A live Host owns its port and record. Query it without subscribing or starting
+// services; TCP availability alone cannot distinguish our Harness from a stranger.
+function queryLiveInstance(instance) {
+  const protocol = require('./protocol.cjs')
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(instance.ipcEndpoint)
+    const id = `${process.pid}-resolve`
+    let buffer = ''
+    let settled = false
+    const finish = (error, value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      socket.destroy()
+      if (error) reject(error)
+      else resolve(value)
+    }
+    const timer = setTimeout(() => finish(new Error('Runtime identity handshake timed out')), 1500)
+    socket.setEncoding('utf8')
+    socket.once('connect', () => socket.write(protocol.encode(protocol.request('hello', {
+      client: 'ds-hns-instance-resolver', protocol: PROTOCOL_VERSION, pid: process.pid
+    }, id))))
+    socket.on('data', chunk => {
+      buffer += chunk
+      if (buffer.length > 65536) return finish(new Error('Runtime identity handshake exceeded limit'))
+      const decoded = protocol.decode(buffer)
+      buffer = decoded.remainder
+      for (const frame of decoded.frames) {
+        if (frame.id !== id) continue
+        const answer = frame.params
+        if (frame.method !== 'welcome' || answer?.protocol !== PROTOCOL_VERSION ||
+            answer.instanceId !== instance.instanceId ||
+            canonicalize(answer.root) !== canonicalize(instance.root) ||
+            canonicalize(answer.dshHome) !== canonicalize(instance.dshHome) ||
+            !Number.isInteger(answer.hostPid) || answer.hostPid <= 0 ||
+            !Number.isInteger(answer.harnessPort) || answer.harnessPort < 1 || answer.harnessPort > 65535) {
+          return finish(new Error('Runtime identity handshake did not match this instance'))
+        }
+        return finish(null, answer)
+      }
+    })
+    socket.once('error', error => {
+      if (error.code === 'ENOENT' || error.code === 'ECONNREFUSED') return finish(null, null)
+      finish(error)
+    })
+    socket.once('close', () => {
+      if (!settled) finish(new Error('Runtime closed before identity handshake completed'))
+    })
+  })
+}
+
 async function resolveInstance(options = {}) {
   const instance = describeInstance(options)
+  const live = await queryLiveInstance(instance)
+  if (live) {
+    return { ...instance, harnessPort: live.harnessPort,
+      portAllocation: { port: live.harnessPort, requested: instance.requestedPort, reused: true, allocated: false, liveRuntime: true } }
+  }
   const persisted = readInstanceRecord(instance)
   const fromRecord = recordBelongsToInstance(persisted, instance) ? Number(persisted.harnessPort) : NaN
   const requested =

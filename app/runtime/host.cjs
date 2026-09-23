@@ -748,6 +748,8 @@ function createRuntimeHost({
         const instancePaths = instanceModule.describeInstance({
           root: ROOT,
           dshHome: HOME,
+          appName,
+          userDataDir,
           requestedPort: instance.harnessPort
         }).paths
         const ownership = runtimeProcessModule.writeOwnership({
