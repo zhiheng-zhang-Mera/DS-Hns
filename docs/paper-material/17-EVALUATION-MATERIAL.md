@@ -18,4 +18,4 @@ The optimized Phase C path batches the same six test files into one validation p
 
 ## RQ5 — deployability and evidence integrity
 
-The final protocol requires fresh clone/bootstrap/profile/plugin install/Electron launch and an immutable evidence audit. Real UI acceptance includes renderer readiness, Skills, live GitHub installation, theme lifecycle, and official-page input. Screenshot evidence separately covers Plugin Market canonicalization, Computer Use explanation, and System Orb clicks.
+The final protocol requires fresh clone/bootstrap/profile/plugin install/Electron launch and an immutable evidence audit. Real UI acceptance includes renderer readiness, Skills, live GitHub installation, theme lifecycle, and official-page input. The bound historical UI experiment failed127/130; later isolated diagnostic repairs are not final qualification. Screenshot evidence separately covers Plugin Market canonicalization, Computer Use explanation, and the default in-UI Mega orb. Separate native System Orb acceptance must not be inferred from those screenshots.

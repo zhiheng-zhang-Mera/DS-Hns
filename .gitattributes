@@ -18,3 +18,6 @@
 *.ps1 text eol=lf
 *.html text eol=lf
 *.css text eol=lf
+
+# Immutable qualification evidence must retain byte identity across platforms.
+artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/** -text

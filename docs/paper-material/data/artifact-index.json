@@ -7,8 +7,9 @@
     {"id":"ui-acceptance-narrative","path":"artifacts/qualification/task5-ui-acceptance.md","kind":"report","scope":"construction","status":"PASS"},
     {"id":"ui-screenshots","path":"artifacts/qualification/visual/","kind":"visual evidence","scope":"construction","status":"PASS"},
     {"id":"rc1-archive","path":"artifacts/qualification/history/2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d/","kind":"immutable historical evidence","scope":"historical","status":"ARCHIVED_NOT_CURRENT"},
-    {"id":"final-local-run","path":"D:/Hns-Final-Qualification/test-artifacts/<runId>/","kind":"immutable raw qualification","scope":"final candidate","status":"PENDING"},
-    {"id":"final-cleanroom-run","path":"D:/Hns-Cleanroom-Qualification*/test-artifacts/<runId>/","kind":"immutable clean-room qualification","scope":"final candidate","status":"PENDING"},
+    {"id":"bound-historical-run","path":"artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json","kind":"immutable historical qualification","scope":"historical","status":"FAIL"},
+    {"id":"final-local-run","path":"D:/Hns-Final-Qualification/test-artifacts/qualification-runs/<runId>/","kind":"immutable raw qualification","scope":"final candidate","status":"PENDING"},
+    {"id":"final-cleanroom-run","path":"D:/Hns-Cleanroom-Qualification-12/test-artifacts/qualification-runs/<runId>/","kind":"immutable clean-room qualification","scope":"final candidate","status":"PENDING"},
     {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","kind":"enhanced qualification","scope":"real machine","status":"NOT_RUN"},
     {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","kind":"enhanced qualification","scope":"real wall-clock","status":"NOT_RUN"}
   ],

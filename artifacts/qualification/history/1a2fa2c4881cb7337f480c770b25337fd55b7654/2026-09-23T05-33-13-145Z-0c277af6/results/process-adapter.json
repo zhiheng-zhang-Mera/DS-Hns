@@ -1,0 +1,29 @@
+{
+  "id": "process-adapter",
+  "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+  "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+  "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+  "branch": "dev/hns-final-qualification-rc2",
+  "mandatory": true,
+  "startedAt": "2026-09-23T05:55:03.304Z",
+  "completedAt": "2026-09-23T05:55:14.802Z",
+  "command": [
+    "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+    "D:\\Hns-Final-Qualification\\repo\\scripts\\process-adapter-acceptance.cjs",
+    "--json",
+    "--companion-repo",
+    "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\dsh-restart"
+  ],
+  "exitCode": 0,
+  "passed": true,
+  "checks": 33,
+  "failures": 0,
+  "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\process-adapter.json",
+  "rawEvidence": {
+    "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\process-adapter.stdout.txt",
+    "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\process-adapter.stderr.txt"
+  },
+  "spawnError": null,
+  "processExitCode": 0,
+  "reportError": null
+}

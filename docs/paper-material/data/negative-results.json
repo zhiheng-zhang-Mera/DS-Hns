@@ -1,33 +1,240 @@
 {
   "schemaVersion": 1,
   "results": [
-    {"id":"N1","failure":"An unref'd restart timer let the supervisor exit.","lineage":["791773d","9417ca8"],"consequence":"The entry point owns a keep-alive while library timers remain non-blocking."},
-    {"id":"N2","failure":"A crash before handshake could cancel a required restart.","lineage":["9417ca8"],"consequence":"Handshake death and steady-state death use distinct transitions."},
-    {"id":"N3","failure":"Readiness waiting could outlive a dead child.","lineage":["9417ca8"],"consequence":"Child exit cancels readiness waiting."},
-    {"id":"N4","failure":"Runtime-discovered capabilities could widen permission surface.","lineage":["db5ebab"],"consequence":"Capabilities are declared and allow-listed before launch."},
-    {"id":"N5","failure":"Weighted pressure made restart unreachable.","lineage":["16d722c"],"consequence":"Severe signals and restart authority are modeled separately."},
-    {"id":"N6","failure":"Epoch-zero cooldown and reads mutated health state.","lineage":["16d722c"],"consequence":"Reads are side-effect free and cooldown handles zero timestamps."},
-    {"id":"N7","failure":"Cordis parser and service mismatches broke adaptation.","lineage":["d44d835"],"consequence":"Controlled providers and degraded browser halves are reported honestly."},
-    {"id":"N8","failure":"Broad route reservation and handler errors returned HTTP 200.","lineage":["bridge tests"],"consequence":"Exact route ownership and error-status propagation are required."},
-    {"id":"N9","failure":"Activation failure was overwritten, refusal counted twice, and native main ignored.","lineage":["adapter and install tests"],"consequence":"One terminal result per stage and tested native entry resolution."},
-    {"id":"N10","failure":"Installer reported Plugin Market failure after materialization succeeded.","lineage":["412ec64"],"consequence":"Materialized package and profile state outrank stale transient output."},
-    {"id":"N11","failure":"Project tests wrote to C drive and left a host process.","lineage":["277ef17","be743a7"],"consequence":"Explicit D roots plus post-test process and storage gates."},
-    {"id":"N12","failure":"Phase C reached only 1.189x against a 1.2x threshold.","lineage":["9cecd68","0bbd32e"],"consequence":"Identical validations are batched; the threshold and workload remain unchanged."},
-    {"id":"N13","failure":"A soak report passed while its top summary exit code was 2.","lineage":["67b741a"],"consequence":"Immutable run directories and consistency checking fail closed."},
-    {"id":"N14","failure":"Junction-based Plugin Market isolation returned zero rows.","lineage":["task5 UI evidence"],"consequence":"The rejected experiment is retained and canonical identity is implemented directly."},
-    {"id":"N15","failure":"A CDP target existed before documentElement.","lineage":["be743a7"],"consequence":"UI acceptance waits for a renderer document."},
-    {"id":"N16","failure":"Qualification depended on prebuilt D:\\test-DSH samples.","lineage":["be743a7"],"consequence":"Pinned upstream fixtures are freshly installed and built per run."},
-    {"id":"N17","failure":"Stale companion PID masked a live launch.","lineage":["f03cc37"],"consequence":"Prefer live launch during PID hand-off."},
-    {"id":"N18","failure":"Windows TEMP short-name alias contradicted a literal path assertion.","lineage":["e32d55d"],"consequence":"Canonical ancestor plus case-preserved missing tail."},
-    {"id":"N19","failure":"Crash ledger preceded the relaunched application's PID evidence.","lineage":["80ffe0e"],"consequence":"Wait for distinct live PID within unchanged budget."},
-    {"id":"N20","failure":"Failed continuity verification still executed recovery and erased intent.","lineage":["f90660b"],"consequence":"Refuse execution and retain durable intent on failed verification."},
-    {"id":"N21","failure":"Direct instance tests inherited caller TEMP and the C-drive audit missed dshns names.","lineage":["artifacts/qualification/STORAGE_AUDIT_FOLLOWUP.md"],"consequence":"Use repository-volume test roots and include instance names in the real audit; preserve historical failed audit and moved scratch."},
-    {"id":"N22","failure":"Stationary pointermove events turned orb clicks into drags and suppressed panel expansion.","lineage":["artifacts/qualification/ORB_POINTER_FOLLOWUP.md"],"consequence":"Measure from pointer-down coordinates and apply a bounded drag threshold; verify real click, expansion and detail feedback."},
-    {"id":"N23","failure":"A generic billing timezone label implied that a browser-local scheduling input used Asia/Shanghai.","lineage":["artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md"],"consequence":"Identify local input time separately from model billing timezone in both task forms without changing scheduling semantics."},
-    {"id":"N24","failure":"Source junctions concealed required contract/status files omitted from built-in plugin packages; fresh installation passed smoke but failed real launch.","lineage":["artifacts/qualification/PACKAGING_FOLLOWUP.md"],"consequence":"Include runtime files in package allowlists and test actual packed/extracted packages without source access during installer smoke and full qualification."},
-    {"id":"N25","failure":"A concurrent qualification UI occupied3099, invalidating a unit test's free-port precondition and its nested storage test.","lineage":["artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md"],"consequence":"Reserve machine-test ports and serialize qualification UI; preserve the failed full run rather than substituting a focused rerun."},
-    {"id":"N26","failure":"Native-picker acceptance used broad window titles and delayed global keystrokes, sending a fixture path into another qualification conversation.","lineage":["artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md"],"consequence":"Remove global input; require targeted native interaction and actual installation evidence, with no fallback success certificate."},
-    {"id":"N27","failure":"Real native input invalidated a later visible-dock precondition; descendant control blur was miscounted as renderer focus loss.","lineage":["artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md"],"consequence":"Restore and assert the actual surface precondition, scope focus observations to their claimed target, preserve failed full qualification."},
-    {"id":"N28","failure":"Repeated Electron observation created new adapters and native Debugger listeners were not removed on detach.","lineage":["artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md"],"consequence":"Own one current-view adapter, remove native listeners on release, invalidate bootstrap on connection loss; never raise the listener limit to hide growth."}
+    {
+      "id": "N1",
+      "failure": "An unref'd restart timer let the supervisor exit.",
+      "lineage": [
+        "791773d",
+        "9417ca8"
+      ],
+      "consequence": "The entry point owns a keep-alive while library timers remain non-blocking."
+    },
+    {
+      "id": "N2",
+      "failure": "A crash before handshake could cancel a required restart.",
+      "lineage": [
+        "9417ca8"
+      ],
+      "consequence": "Handshake death and steady-state death use distinct transitions."
+    },
+    {
+      "id": "N3",
+      "failure": "Readiness waiting could outlive a dead child.",
+      "lineage": [
+        "9417ca8"
+      ],
+      "consequence": "Child exit cancels readiness waiting."
+    },
+    {
+      "id": "N4",
+      "failure": "Runtime-discovered capabilities could widen permission surface.",
+      "lineage": [
+        "db5ebab"
+      ],
+      "consequence": "Capabilities are declared and allow-listed before launch."
+    },
+    {
+      "id": "N5",
+      "failure": "Weighted pressure made restart unreachable.",
+      "lineage": [
+        "16d722c"
+      ],
+      "consequence": "Severe signals and restart authority are modeled separately."
+    },
+    {
+      "id": "N6",
+      "failure": "Epoch-zero cooldown and reads mutated health state.",
+      "lineage": [
+        "16d722c"
+      ],
+      "consequence": "Reads are side-effect free and cooldown handles zero timestamps."
+    },
+    {
+      "id": "N7",
+      "failure": "Cordis parser and service mismatches broke adaptation.",
+      "lineage": [
+        "d44d835"
+      ],
+      "consequence": "Controlled providers and degraded browser halves are reported honestly."
+    },
+    {
+      "id": "N8",
+      "failure": "Broad route reservation and handler errors returned HTTP 200.",
+      "lineage": [
+        "bridge tests"
+      ],
+      "consequence": "Exact route ownership and error-status propagation are required."
+    },
+    {
+      "id": "N9",
+      "failure": "Activation failure was overwritten, refusal counted twice, and native main ignored.",
+      "lineage": [
+        "adapter and install tests"
+      ],
+      "consequence": "One terminal result per stage and tested native entry resolution."
+    },
+    {
+      "id": "N10",
+      "failure": "Installer reported Plugin Market failure after materialization succeeded.",
+      "lineage": [
+        "412ec64"
+      ],
+      "consequence": "Materialized package and profile state outrank stale transient output."
+    },
+    {
+      "id": "N11",
+      "failure": "Project tests wrote to C drive and left a host process.",
+      "lineage": [
+        "277ef17",
+        "be743a7"
+      ],
+      "consequence": "Explicit D roots plus post-test process and storage gates."
+    },
+    {
+      "id": "N12",
+      "failure": "Phase C reached only 1.189x against a 1.2x threshold.",
+      "lineage": [
+        "9cecd68",
+        "0bbd32e"
+      ],
+      "consequence": "Identical validations are batched; the threshold and workload remain unchanged."
+    },
+    {
+      "id": "N13",
+      "failure": "A soak report passed while its top summary exit code was 2.",
+      "lineage": [
+        "67b741a"
+      ],
+      "consequence": "Immutable run directories and consistency checking fail closed."
+    },
+    {
+      "id": "N14",
+      "failure": "Junction-based Plugin Market isolation returned zero rows.",
+      "lineage": [
+        "task5 UI evidence"
+      ],
+      "consequence": "The rejected experiment is retained and canonical identity is implemented directly."
+    },
+    {
+      "id": "N15",
+      "failure": "A CDP target existed before documentElement.",
+      "lineage": [
+        "be743a7"
+      ],
+      "consequence": "UI acceptance waits for a renderer document."
+    },
+    {
+      "id": "N16",
+      "failure": "Qualification depended on prebuilt D:\\test-DSH samples.",
+      "lineage": [
+        "be743a7"
+      ],
+      "consequence": "Pinned upstream fixtures are freshly installed and built per run."
+    },
+    {
+      "id": "N17",
+      "failure": "Stale companion PID masked a live launch.",
+      "lineage": [
+        "f03cc37"
+      ],
+      "consequence": "Prefer live launch during PID hand-off."
+    },
+    {
+      "id": "N18",
+      "failure": "Windows TEMP short-name alias contradicted a literal path assertion.",
+      "lineage": [
+        "e32d55d"
+      ],
+      "consequence": "Canonical ancestor plus case-preserved missing tail."
+    },
+    {
+      "id": "N19",
+      "failure": "Crash ledger preceded the relaunched application's PID evidence.",
+      "lineage": [
+        "80ffe0e"
+      ],
+      "consequence": "Wait for distinct live PID within unchanged budget."
+    },
+    {
+      "id": "N20",
+      "failure": "Failed continuity verification still executed recovery and erased intent.",
+      "lineage": [
+        "f90660b"
+      ],
+      "consequence": "Refuse execution and retain durable intent on failed verification."
+    },
+    {
+      "id": "N21",
+      "failure": "Direct instance tests inherited caller TEMP and the C-drive audit missed dshns names.",
+      "lineage": [
+        "artifacts/qualification/STORAGE_AUDIT_FOLLOWUP.md"
+      ],
+      "consequence": "Use repository-volume test roots and include instance names in the real audit; preserve historical failed audit and moved scratch."
+    },
+    {
+      "id": "N22",
+      "failure": "Stationary pointermove events turned orb clicks into drags and suppressed panel expansion.",
+      "lineage": [
+        "artifacts/qualification/ORB_POINTER_FOLLOWUP.md"
+      ],
+      "consequence": "Measure from pointer-down coordinates and apply a bounded drag threshold; verify real click, expansion and detail feedback."
+    },
+    {
+      "id": "N23",
+      "failure": "A generic billing timezone label implied that a browser-local scheduling input used Asia/Shanghai.",
+      "lineage": [
+        "artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md"
+      ],
+      "consequence": "Identify local input time separately from model billing timezone in both task forms without changing scheduling semantics."
+    },
+    {
+      "id": "N24",
+      "failure": "Source junctions concealed required contract/status files omitted from built-in plugin packages; fresh installation passed smoke but failed real launch.",
+      "lineage": [
+        "artifacts/qualification/PACKAGING_FOLLOWUP.md"
+      ],
+      "consequence": "Include runtime files in package allowlists and test actual packed/extracted packages without source access during installer smoke and full qualification."
+    },
+    {
+      "id": "N25",
+      "failure": "A concurrent qualification UI occupied3099, invalidating a unit test's free-port precondition and its nested storage test.",
+      "lineage": [
+        "artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md"
+      ],
+      "consequence": "Reserve machine-test ports and serialize qualification UI; preserve the failed full run rather than substituting a focused rerun."
+    },
+    {
+      "id": "N26",
+      "failure": "Native-picker acceptance used broad window titles and delayed global keystrokes, sending a fixture path into another qualification conversation.",
+      "lineage": [
+        "artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md"
+      ],
+      "consequence": "Remove global input; require targeted native interaction and actual installation evidence, with no fallback success certificate."
+    },
+    {
+      "id": "N27",
+      "failure": "Real native input invalidated a later visible-dock precondition; descendant control blur was miscounted as renderer focus loss.",
+      "lineage": [
+        "artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md"
+      ],
+      "consequence": "Restore and assert the actual surface precondition, scope focus observations to their claimed target, preserve failed full qualification."
+    },
+    {
+      "id": "N28",
+      "failure": "Repeated Electron observation created new adapters and native Debugger listeners were not removed on detach.",
+      "lineage": [
+        "artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md"
+      ],
+      "consequence": "Own one current-view adapter, remove native listeners on release, invalidate bootstrap on connection loss; never raise the listener limit to hide growth."
+    },
+    {
+      "id": "N29",
+      "failure": "Paper claim IDs differed between Markdown and JSON; conceptual paths and generic artifact labels misattributed measurements to an untested commit.",
+      "lineage": [
+        "artifacts/qualification/PAPER_PROVENANCE_FOLLOWUP.md"
+      ],
+      "consequence": "Validate canonical claim identities, real source/test paths and hash-bound historical run/SHA/child verdicts; preserve failed UI evidence and separate code SHA from evidence commit."
+    }
   ]
 }

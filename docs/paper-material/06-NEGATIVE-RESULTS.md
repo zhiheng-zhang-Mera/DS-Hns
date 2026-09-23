@@ -36,5 +36,6 @@
 
 | N27 | a real picker collapsed the dock before a geometry assertion; descendant blur polluted window focus counts | `artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md` | explicit surface preconditions and correctly scoped observations; failed full run preserved |
 | N28 | repeated observation and detach accumulated native Electron Debugger listeners | `artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md` | current-view adapter ownership, native listener cleanup and bootstrap invalidation; no raised warning limit |
+| N29 | paper claim IDs drifted between Markdown/JSON and generic paths/SHA labels failed to identify actual evidence | `artifacts/qualification/PAPER_PROVENANCE_FOLLOWUP.md` | fail-closed catalog validation and immutable hash-bound child evidence; whole-run failure remains visible |
 
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

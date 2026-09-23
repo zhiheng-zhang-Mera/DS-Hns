@@ -11,7 +11,7 @@
 
 ## Unsupported or future claims
 
-- `UNSUPPORTED`: DS-Hns improves reliability over other AI harnesses; no comparative baseline exists.
+- **C7 — comparative reliability against other AI harnesses.** `UNSUPPORTED`: no comparative baseline exists.
 - `UNSUPPORTED`: the design is novel or first; no literature review establishes novelty.
 - `UNSUPPORTED`: production reliability over 24 hours; synthetic virtual-time soak is not wall-clock evidence.
 - `UNSUPPORTED`: cross-platform behavior; qualification is Windows-only.
