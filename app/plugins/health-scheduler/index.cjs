@@ -151,7 +151,15 @@ function createHealthSchedulerPlugin(options = {}) {
    * context's to resolve and neither of which the engine can reach. Absent capabilities are passed as
    * `null`, which the providers report as `unknown` rather than as a healthy worker or an empty queue.
    */
+  function refreshRestartControl() {
+    restartControl = resolveRestartControl()
+    restartAvailability = { available: restartControl.available, reason: restartControl.reason }
+  }
+
   function bindCapabilities() {
+    // Optional providers can load after this monitor or disappear on rebuild.
+    // Sampling must use the current registry, not the load-time snapshot.
+    refreshRestartControl()
     const runtimeHealth = resolveOptional('runtime-health')
     let pendingWork = null
     if (context && typeof context.require === 'function') {
@@ -209,8 +217,7 @@ function createHealthSchedulerPlugin(options = {}) {
    * outcome comes back through `getRestartHistory`, not through this call.
    */
   async function requestRestart(decision) {
-    restartControl = resolveRestartControl()
-    restartAvailability = { available: restartControl.available, reason: restartControl.reason }
+    refreshRestartControl()
     if (!restartControl.available) {
       lastOutcome = { ok: false, unavailable: true, reason: restartControl.reason }
       note('restart-unavailable', { reason: restartControl.reason, requested: decision.request })
@@ -338,8 +345,6 @@ function createHealthSchedulerPlugin(options = {}) {
         provided.push({ capability, ok: result && result.ok !== false })
       }
 
-      restartControl = resolveRestartControl()
-      restartAvailability = { available: restartControl.available, reason: restartControl.reason }
       bindCapabilities()
 
       // One sample immediately, so a consumer that asks the moment the plugin loads gets a reading
@@ -378,6 +383,7 @@ function createHealthSchedulerPlugin(options = {}) {
      */
     healthCheck() {
       if (!timer) return { status: HEALTH_STATUS.UNKNOWN, reason: 'the plugin is not sampling' }
+      refreshRestartControl()
       const report = engine.report()
       const latest = report.latest
       const notes = []
@@ -406,6 +412,7 @@ function createHealthSchedulerPlugin(options = {}) {
 
     /** Everything a diagnostic surface needs, without reaching into the engine. */
     diagnostics() {
+      if (timer) refreshRestartControl()
       const decision = engine.decide()
       return {
         report: engine.report(),

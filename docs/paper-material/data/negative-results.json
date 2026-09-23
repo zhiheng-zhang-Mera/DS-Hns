@@ -289,6 +289,12 @@
       "failure": "A successful advanced-policy write rebuilt the plugin manager and silently discarded an explicit Health Scheduler enable decision; store-installed defaults could likewise erase explicit disable.",
       "lineage": ["08900a8", "artifacts/qualification/HEALTH_LIFECYCLE_FOLLOWUP.md"],
       "consequence": "Persist lifecycle intent at the existing configuration boundary, preserve default-off fresh profiles, and refuse invalid writes before changing live state. Eight actual-host/filesystem regressions and full unit regression passed; renewed frozen-candidate cleanroom and visual qualification remain required. Earlier machine PASS did not certify the defective user journey."
+    },
+    {
+      "id": "N39",
+      "failure": "Health retained load-time optional restart-control unavailability after the provider registered; real policy Apply left enabled/loaded Health DEGRADED while Restart Supervisor was loaded.",
+      "lineage": ["b3fec70", "artifacts/qualification/HEALTH_CAPABILITY_REFRESH_FOLLOWUP.md"],
+      "consequence": "Refresh the existing optional authority resolver at status, diagnostics, sampling and request boundaries. Preserve provider removal and zero restart requests under low pressure; do not widen authority or make the dependency mandatory. Focused RED/GREEN evidence does not replace renewed candidate qualification and actual GUI acceptance."
     }
   ]
 }

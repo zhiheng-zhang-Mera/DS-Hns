@@ -23,6 +23,9 @@ test('enabled Health Scheduler remains loaded after changing its sampling interv
     const after = host.serviceReports().find((entry) => entry.id === 'dshns.health-scheduler')
     assert.equal(after.enabled, true, 'advanced configuration discarded explicit enable')
     assert.equal(after.loaded, true, 'sampling stopped after a successful configuration write')
+    assert.equal(host.capabilities().capabilities.find(entry => entry.capability === 'restart-control').provided, true)
+    const health = await host.health({ id: 'dshns.health-scheduler' })
+    assert.equal(health.health.detail.restart.available, true, health.health.reason)
   } finally {
     await host.dispose('enable continuity test teardown')
     fs.rmSync(dir, { recursive: true, force: true })
