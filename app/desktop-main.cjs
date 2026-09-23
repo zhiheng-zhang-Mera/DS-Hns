@@ -50,7 +50,7 @@ const DSH_LAUNCH_ARGS = ['web', '--no-open', ...(HARNESS_PORT_OVERRIDE ? ['--por
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
 const STARTUP_BUFFER_LIMIT = 64 * 1024
-const INTEGRATED_MEGA_DOCK = process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
+const INTEGRATED_MEGA_DOCK = process.env.DSH_DISABLE_MEGA !== '1' && process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
 const MEGA_DOCK_COLLAPSED_WIDTH = 48
 const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
