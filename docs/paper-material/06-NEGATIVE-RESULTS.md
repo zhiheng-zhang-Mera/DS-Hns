@@ -31,5 +31,7 @@
 | N23 | billing timezone label was ambiguous beside a browser-local datetime input | `artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md` | explicitly distinguish local send time from billing windows; preserve scheduling semantics |
 
 | N24 | built-in packages omitted contract/status files; source junctions concealed the missing dependencies | `artifacts/qualification/PACKAGING_FOLLOWUP.md` | actual pack/extract/require tests protect package boundaries; installer smoke does not replace real launch |
+| N25 | concurrent UI occupied a unit test's required-free port3099 | `artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md` | isolate ports and serialize UI; a focused pass cannot replace a failed full run |
+| N26 | broad-title activation plus global keystrokes sent a fixture path into another conversation | `artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md` | targeted native input, exclusive coordination record and actual installed-state assertions; no fallback certificate |
 
 These failures motivate mechanisms; they do not by themselves demonstrate generality.

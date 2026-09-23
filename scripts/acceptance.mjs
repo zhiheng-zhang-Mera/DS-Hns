@@ -478,68 +478,24 @@ function killShell(child) {
 // skill install through the native directory picker
 // ---------------------------------------------------------------------------
 
-/** `pwsh` is not present on every Windows host; fall back to Windows PowerShell. */
-function resolvePowerShell() {
-  for (const candidate of ['pwsh', 'powershell.exe', 'powershell']) {
-    const probe = spawnSync(candidate, ['-NoProfile', '-Command', 'exit 0'], { stdio: 'ignore', windowsHide: true })
-    if (probe.status === 0) return candidate
-  }
-  return null
-}
-
 /**
- * Drive the real "local install" path: click the button, then type the path into
- * the native Windows folder picker and confirm it.
- *
- * Only the *click* is load-bearing here. The dialog is a real OS window: it may
- * be titled by the app, by Windows' own localised "Select Folder" string, or not
- * be activatable at all on a locked/headless desktop. When the keystrokes do not
- * land, the caller falls back to the same source-channel install, so this returns
- * whether the automation had a fair chance rather than pretending to know.
+ * Open the real picker in the CDP-selected renderer. Native input is performed
+ * by an operator using an explicitly selected OS window, never global keystrokes.
+ * The request file is a coordination artifact, NOT proof of installation. The
+ * caller still requires the installed catalog entry and the actual file on disk.
  */
 async function pickLocalDirectory(page, directory) {
-  const shell = resolvePowerShell()
-  if (!shell) return false
-  const escaped = directory.replace(/\\/g, '\\\\')
-  const script = `
-    Add-Type -AssemblyName System.Windows.Forms
-    $wsh = New-Object -ComObject WScript.Shell
-    $titles = @('选择技能目录或 SKILL.md', 'Select Folder', 'Select a folder', '选择文件夹', 'DS-Harness')
-    $seen = $false
-    for ($i = 0; $i -lt 120; $i++) {
-      Start-Sleep -Milliseconds 250
-      foreach ($title in $titles) {
-        if ($wsh.AppActivate($title)) { $seen = $true; break }
-      }
-      if ($seen) { break }
-    }
-    if (-not $seen) { exit 3 }
-    Start-Sleep -Milliseconds 600
-    [System.Windows.Forms.SendKeys]::SendWait('^l')
-    Start-Sleep -Milliseconds 400
-    [System.Windows.Forms.SendKeys]::SendWait('${escaped}')
-    Start-Sleep -Milliseconds 400
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-    Start-Sleep -Milliseconds 1000
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-  `
-  const child = spawn(shell, ['-NoProfile', '-NonInteractive', '-Command', script], {
-    stdio: 'ignore',
-    windowsHide: true
-  })
-  // The click opens the modal; the SendKeys process types into it.
+  const requestFile = path.join(OPTIONS.dataDir, 'native-picker-request.json')
+  fs.writeFileSync(requestFile, `${JSON.stringify({
+    status: 'AWAITING_TARGETED_NATIVE_INPUT',
+    root: OPTIONS.root,
+    appName: OPTIONS.appName,
+    port: Number(OPTIONS.port),
+    directory,
+    startedAt: new Date().toISOString()
+  }, null, 2)}\n`, { flag: 'wx' })
+  note(`native picker requires targeted operator input; request: ${requestFile}`)
   await page.evaluate("document.getElementById('skillsPickDir').click(); return true")
-  await new Promise((resolve) => {
-    const timer = setTimeout(resolve, 30_000)
-    child.on('exit', () => {
-      clearTimeout(timer)
-      resolve()
-    })
-    child.on('error', () => {
-      clearTimeout(timer)
-      resolve()
-    })
-  })
   return true
 }
 
@@ -842,41 +798,18 @@ async function run() {
       ].join('\n'), 'utf8')
 
       const before = await dock.page.evaluate(`return window.megaTools.skills.snapshot().then((s) => s.skills.length)`)
-      // The dialog can be slow to appear behind an expanded dock, and one wasted
-      // attempt costs nothing: try the real picker twice before falling back.
-      let picked = false
-      let nativePickerDriven = true
-      for (let attempt = 0; attempt < 2 && !picked; attempt += 1) {
-        try {
-          await pickLocalDirectory(dock.page, localSource)
-          const after = await dock.page.poll(`
-            return window.megaTools.skills.snapshot().then((s) => s.skills.some((k) => k.name === 'acceptance-local-skill') ? s.skills.length : null)
-          `, { timeoutMs: 25_000 })
-          check('a local directory installs through the native picker', after > before, `${before} -> ${after}`)
-          picked = true
-        } catch (error) {
-          if (attempt === 1) {
-            // The OS dialog cannot be driven reliably in every environment; report
-            // it rather than claiming success or failing the whole run.
-            note(`native directory picker could not be driven (${error.message}); local install verified through the source channel instead`)
-            warn('the native directory picker could not be automated in this environment; the install path was verified through the source channel')
-            nativePickerDriven = false
-            const direct = await dock.page.evaluate(`
-              const engine = window.megaTools.skills
-              return engine.installSource({ source: ${JSON.stringify(localSource)} }).then((r) => ({ ok: r.ok, installed: (r.installed || []).map((i) => i.name), reason: r.reason || null }))
-            `)
-            check('a local path installs through the source channel', direct.ok, JSON.stringify(direct))
-          } else {
-            note(`native directory picker attempt ${attempt + 1} did not complete; retrying`)
-          }
-        }
-      }
-      if (nativePickerDriven) note('the native directory picker was driven end to end')
-      // Either path must leave the skill on disk: that is what the user asked for.
+      await pickLocalDirectory(dock.page, localSource)
+      // Operator coordination budget, not a product performance threshold. No
+      // source-channel fallback can turn an unobserved native flow into PASS.
+      const after = await dock.page.poll(`
+        return window.megaTools.skills.snapshot().then((s) => s.skills.some((k) => k.name === 'acceptance-local-skill') ? s.skills.length : null)
+      `, { timeoutMs: 120_000 })
+      check('a local directory installs through the native picker', after > before, `${before} -> ${after}`)
+      note('native picker installation observed; see separate operator visual evidence for input provenance')
       const localInstalled = await dock.page.poll(`
         return window.megaTools.skills.snapshot().then((s) => s.skills.some((k) => k.name === 'acceptance-local-skill') ? true : null)
       `, { timeoutMs: 20_000 })
-      check('the local skill is installed either way', localInstalled === true, String(localInstalled))
+      check('the native-picked local skill is installed', localInstalled === true, String(localInstalled))
       const localFile = path.join(skillRoot, 'acceptance-local-skill.md')
       const localDir = path.join(skillRoot, 'acceptance-local-skill')
       check('the locally installed skill exists on disk', fs.existsSync(localFile) || fs.existsSync(localDir))
