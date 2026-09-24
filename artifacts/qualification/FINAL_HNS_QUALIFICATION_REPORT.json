@@ -1,40 +1,116 @@
 {
-  "schema": "hns-final-qualification-report/v1",
-  "candidateBranch": "dev/hns-final-qualification-rc2",
-  "baselineMainBeforeQualification": "59d816b734bea1c20ff2fbd6244395fc715304fe",
-  "productionTag": "hns-production-v1",
-  "exactIdentitySource": "immutable qualification-summary.json plus final git refs",
-  "mandatoryContract": {
-    "localQualification": "PASS_REQUIRED",
-    "cleanroomInstallAndQualification": "PASS_REQUIRED",
-    "githubRequiredChecks": "PASS_REQUIRED",
-    "mainTreeEqualsQualifiedTree": "PASS_REQUIRED",
-    "postMergeSmoke": "PASS_REQUIRED"
+  "schema": "hns-final-qualification-report/v2",
+  "status": "HNS_PRODUCTION_BASELINE_ESTABLISHED",
+  "scope": "Mandatory engineering qualification and tagged production baseline; open P2 and enhanced NOT_RUN limits remain explicit.",
+  "candidate": {
+    "branch": "dev/hns-final-qualification-rc2",
+    "sha": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
+    "tree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+    "runId": "2026-09-24T06-54-31-334Z-09571b4b",
+    "freshRemoteClone": "D:\\HnsQ24\\qualification-rerun-63eabc9\\clean-room",
+    "host": "Mera-Alianware; Windows 10.0.26200; x64; 16 CPU; approximately 34 GB RAM",
+    "toolchain": {"node":"v24.14.1","npm":"11.11.0","electron":"43.4.0","dsh":"0.1.5-rc.1","packageManager":"npm via app/package-lock.json"},
+    "startedAtUtc": "2026-09-24T06:54:31.334Z",
+    "completedAtUtc": "2026-09-24T07:22:19.561Z"
   },
-  "nonMandatoryEnhancedQualification": {
-    "realWindowsReboot": "NOT_RUN",
-    "realtime24hSoak": "NOT_RUN"
+  "release": {
+    "pullRequest": {"number":2,"url":"https://github.com/zhiheng-zhang-Mera/DS-Hns/pull/2","mergedAtUtc":"2026-09-24T07:54:07Z"},
+    "mergeSha": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "mergeTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+    "candidateTreeEqualsMergeTree": true,
+    "productionTag": "hns-production-v1",
+    "tagObject": "2d4aeeda945b410d3e35ad82b456f7b74de922fc",
+    "tagTarget": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "candidateCi": {"runId":35953056840,"url":"https://github.com/zhiheng-zhang-Mera/DS-Hns/actions/runs/35953056840","conclusion":"success","headSha":"63eabc9a9341abd2e612bf603e3ce340eaa2cc57"},
+    "mergeCi": {"runId":35972160064,"url":"https://github.com/zhiheng-zhang-Mera/DS-Hns/actions/runs/35972160064","conclusion":"success","headSha":"5dcde767020161f6f6c7a5fc3330bccaca1d14a3"},
+    "tagMovedOrOverwritten": false,
+    "reportDelivery": "This report and paper refresh follow the product tag through a documentation-only PR; final product-source paths must remain identical to the tagged tree."
   },
-  "resolvedIssues": [
-    "RC1-INSTALL-002 installer/profile/runtime status reconciliation",
-    "RC1-STORAGE-001 D-drive roots, process-leak gate, and C-drive write audit",
-    "RC1-GATE-001 stable Phase C threshold without lowering workload or threshold",
-    "RC1-UI-002 canonical logical plugin identity",
-    "RC1-UI-003 explicit optional Computer Use host-unavailable state",
-    "RC1-UI-004 real visible Mega orb click, expansion, and feedback construction evidence; separate native System Orb qualification is not established by that artifact",
-    "FQ-SUPERVISOR-001 stale pid-file hand-off cached a false degraded state"
-  ],
+  "branchDisposition": {
+    "better-install": {"head":"a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6","status":"ALREADY_INCLUDED","basis":"branch head is ancestor of release main"},
+    "target-standby": {"head":"5efa302acd381d57d44bc87bbdc36f80a21dda9a","status":"ALREADY_INCLUDED","basis":"branch head is ancestor of release main"},
+    "try-auto": {"head":"432cf431f2b40843ab3ec5287ffd7e5296cb6626","status":"INCLUDE","basis":"reviewed commits contribute to candidate; head is ancestor of release main"},
+    "dev/runtime-ui-separation-v1": {"head":"923f5293a2ada553cb7f91a4bc1b54e750dfe7c3","status":"INCLUDE","basis":"reviewed commits contribute to candidate; head is ancestor of release main"},
+    "dev/hns-integration-visual-rc1": {"head":"2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d","status":"ALREADY_INCLUDED","basis":"branch head is ancestor of candidate/release main"},
+    "dev/hns-final-qualification-rc2": {"head":"63eabc9a9341abd2e612bf603e3ce340eaa2cc57","status":"INCLUDE","basis":"qualified by runId above and merged through PR #2"},
+    "superseded": [],
+    "excluded": [],
+    "reachableCommitCountAtRelease": 366,
+    "deduplication": "Stable patch-id and ancestry review; merge commits and patch-equivalent changes are not distinct contribution counts."
+  },
+  "mandatoryQualification": {
+    "passed": true,
+    "mandatoryGates": 17,
+    "mandatoryFailures": 0,
+    "countedRuns": 1,
+    "gates": [
+      {"id":"syntax-check","status":"PASS"},
+      {"id":"all-unit-tests","status":"PASS","total":2004,"passed":2002,"failed":0,"skipped":2,"skipPolicy":"two repository-defined optional sample-dependent checks; optional upstream samples absent"},
+      {"id":"architecture-verifier","status":"PASS"},
+      {"id":"external-fixtures","status":"PASS","checks":3,"failures":0},
+      {"id":"install-pipeline","status":"PASS","checks":46,"failures":0},
+      {"id":"cordis-adapter","status":"PASS","checks":66,"failures":0},
+      {"id":"process-adapter","status":"PASS","checks":33,"failures":0},
+      {"id":"native-hns-adapter","status":"PASS"},
+      {"id":"health-restart-continuity","status":"PASS"},
+      {"id":"community-installer","status":"PASS"},
+      {"id":"electron-ui-acceptance","status":"PASS","checks":131,"failures":0},
+      {"id":"computer-use-longrun","status":"PASS","checks":96,"failures":0,"evidenceType":"bounded acceptance harness"},
+      {"id":"longhost-chaos","status":"PASS","checks":65,"failures":0,"evidenceType":"injected faults"},
+      {"id":"synthetic-soak","status":"PASS","checks":120,"failures":0,"evidenceType":"synthetic virtual time"},
+      {"id":"combined-acceptance","status":"PASS","checks":52,"failures":0,"primaryPhaseCRatio":1.897,"baselineMs":17325,"optimizedMs":9131},
+      {"id":"post-test-audit","status":"PASS","checks":2,"processLeaks":0,"detectedCDriveProjectWrites":0},
+      {"id":"evidence-consistency","status":"PASS","checks":1,"failures":0}
+    ]
+  },
+  "productionLikePackage": {
+    "status": "PASS",
+    "description": "Repository-declared Standard PowerShell installer/bootstrap plus unpacked Electron runtime; Standard install used -NoLaunch and Electron was separately launched for UI acceptance.",
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1 -Mode Standard -NoLaunch -NoShortcuts -ApiKeyMode Later -InstallMarket -InstallWallpaper",
+    "installerTranscript": "D:\\HnsQ24\\qualification-rerun-63eabc9\\standard-install-valid.log",
+    "installerTranscriptSha256": "50efd6be62bdef850927add13e508844807a318973686da23c819dd4a95b6d36",
+    "signedMsiOrElectronBuilderArtifact": "NOT_DECLARED_NOT_CLAIMED"
+  },
   "phaseC": {
-    "threshold": 1.2,
-    "repeats": 3,
-    "min": 1.875,
-    "median": 1.879,
-    "max": 1.881,
-    "variance": 0.000006222222222222234,
-    "workloadChanged": false,
-    "thresholdChanged": false
+    "primaryCombinedRun": {"ratio":1.897,"baselineMs":17325,"optimizedMs":9131},
+    "extraSequentialRepeats": [
+      {"baselineMs":17582,"optimizedMs":9202,"ratio":1.911,"reportSha256":"4efbf945053bfdf157a2e15be36d8358970f5bf4b7e5fa5a2e665fead8491d37"},
+      {"baselineMs":17303,"optimizedMs":9265,"ratio":1.868,"reportSha256":"00729a1b280d557d92ef6736f8802d2072a41eb68a6762dd67430c257c1e63ed"},
+      {"baselineMs":17471,"optimizedMs":9106,"ratio":1.919,"reportSha256":"741f9d6631d28c7add7af3fa687b1aebe8fb8db9b68985266a90ec300ccd8763"}
+    ],
+    "threshold":1.2,
+    "thresholdOrWorkloadChanged":false,
+    "aggregate":{"min":1.868,"median":1.911,"max":1.919,"mean":1.8993333333333334,"populationVariance":0.0005015555555555555},
+    "boundary":"single-host engineering timing; declared latency is not a live-provider measurement or comparative research result"
   },
-  "evidenceIndex": "artifacts/qualification/FINAL_EVIDENCE_INDEX.json",
-  "paperMaterial": "docs/paper-material/PAPER_MATERIAL_INDEX.md",
-  "claimBoundary": "Engineering qualification does not establish legal certification, universal hardware compatibility, research novelty, or real 24-hour/reboot evidence."
+  "visualAndJourney": {
+    "exactCandidateUi":{"status":"PASS","checks":131,"passed":131,"failed":0,"nativeWindowsPicker":true,"DDriveSelectionVerifiedOnDisk":true,"codexVisualScreenshotReadClick":true,"modelAssistedThemeGeneration":"NOT_RUN; deterministic interpreter used"},
+    "completeJourney":{"status":"PASS_PRODUCT_CODE_EQUIVALENT","commit":"dafd3bfff8db30f2aaf094e4a15ed41a2c1f9ce6","candidate":"63eabc9a9341abd2e612bf603e3ce340eaa2cc57","identicalPaths":["app/","scripts/","tests/"],"checks":{"nativeOrbClickAndExpansion":true,"schedulerHealthy":true,"uniquePluginRows":4,"nativePickerDWorkspace":true,"realDeepSeekAnswer":"1109","sameInstanceConversationReopened":true},"privateScreenshotsPublished":false}
+  },
+  "issues": {
+    "resolvedRc1P1P2": ["RC1-UIA-001","RC1-RESTART-001","RC1-TEMP-001","RC1-INSTALL-002","RC1-GATE-001","RC1-STORAGE-001","RC1-PLUGIN-001","RC1-UI-002","RC1-UI-003","RC1-UI-004","FQ-SUPERVISOR-001"],
+    "open": [{"id":"FQ-UI-DOCK-OVERLAP-001","severity":"P2","status":"OPEN","trigger":"DSH_MEGA_INTEGRATED_DOCK=1 with expanded dock on fresh profile","decision":"bounded official-surface layout change requires renewed qualification; no unsafe offset patch"}],
+    "unconfirmed": ["FQ-UI-SCHEDULER-COPY-001","FQ-PLUGIN-AGGREGATE-001"],
+    "openP1":0,
+    "openP2":1,
+    "unconfirmedCount":2
+  },
+  "enhancedQualification": {
+    "realWindowsReboot":{"status":"NOT_RUN","passed":null,"reason":"D-only automatic continuation prerequisite not established; no C-profile autostart write or reboot; no global host-policy prohibition inferred"},
+    "real24HourWallClock":{"status":"NOT_RUN","passed":null,"reason":"no accepted continuous exact-candidate run; an unrelated prior-SHA observer remains active and is not stopped or counted"},
+    "syntheticSoak":{"status":"PASS_SYNTHETIC","checks":120}
+  },
+  "storageCompliance": {
+    "controlledRootsDrive":"D:",
+    "candidateRoots":["D:\\HnsQ24\\qualification-rerun-63eabc9\\clean-room","D:\\HQR\\qualification-runs\\2026-09-24T06-54-31-334Z-09571b4b"],
+    "postMergeSmokeRoot":"D:\\HQR\\post-merge-5dcde76",
+    "npmCacheTempUserDataRuntimeDataTestArtifacts":"D:-controlled",
+    "detectedCandidateProjectWritesOnC":0,
+    "cDriveAuditScope":"project-shaped writes checked by the repository audit; not arbitrary Windows system writes",
+    "cNpmrc":"C:\\Users\\15601\\.npmrc read for configuration; not modified",
+    "unrelatedActiveObserver":{"processId":13896,"rootMismatch":true,"stopped":false,"countedAsCandidate":false}
+  },
+  "postMergeSmoke": {"status":"PASS","mainSha":"5dcde767020161f6f6c7a5fc3330bccaca1d14a3","freshClone":"D:\\HQR\\post-merge-5dcde76\\repo","syntaxFiles":284,"syntaxFailures":0,"targetedUnitTests":32,"targetedUnitFailures":0,"worktreeClean":true},
+  "paperMaterial": {"claims":7,"supportedEngineeringClaims":6,"unsupportedComparatorClaims":1,"experiments":17,"metrics":11,"negativeResults":43,"noveltyClaim":"UNSUPPORTED_NOT_MADE"},
+  "evidenceBoundaries": ["No comparative reliability, novelty, accessibility, cross-platform, signed installer, or universal production claim.","Product-source release tree is exact candidate tree; later report publication must remain docs-only.","Historical failed runs and rejected experiments are retained and never relabelled current PASS."]
 }

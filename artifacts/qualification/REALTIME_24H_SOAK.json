@@ -2,10 +2,26 @@
   "schema": "hns-realtime-soak/v1",
   "status": "NOT_RUN",
   "passed": null,
+  "candidateSha": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
+  "candidateTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
   "durationHours": 0,
   "realWallClock": false,
-  "reason": "No continuous 24-hour product observation has yet completed. No technical or host-policy prohibition on its execution has been established. The existing --realtime scenario uses scripted readings and alone does not measure the live product telemetry required by this experiment.",
+  "reason": "No continuous 24-hour observation of the exact qualified candidate completed. A separate observer remains active for prior source-equivalent commit dafd3bfff8db30f2aaf094e4a15ed41a2c1f9ce6; it is not accepted for this candidate because its recorded SHA differs and its declared process root D:\\HnsQ24\\repo does not match the observed runtime executable root D:\\Hns-Cleanroom-Qualification-20\\repo.",
+  "unacceptedObserver": {
+    "status": "IN_PROGRESS_NOT_ACCEPTED",
+    "candidateSha": "dafd3bfff8db30f2aaf094e4a15ed41a2c1f9ce6",
+    "observerScript": "D:\\HnsQ24\\journey-dafd3bf\\observe-24h.ps1",
+    "observerProcessId": 13896,
+    "observerProcessStartedLocal": "2026-09-24T13:03:45+10:00",
+    "latestObservedSampleIndex": 302,
+    "latestSampleElapsedSeconds": 18492.036,
+    "runtimeReportedRunning": true,
+    "runtimePort": 32101,
+    "samplePath": "D:\\HnsQ24\\journey-dafd3bf\\real-24h-samples.jsonl",
+    "doNotStop": true,
+    "acceptanceLimit": "This observer filters owned processes under its declared D:\\HnsQ24\\repo root, while the observed runtime process belongs to D:\\Hns-Cleanroom-Qualification-20\\repo; it cannot establish the current candidate's complete process, task, plugin, or leak telemetry."
+  },
   "substitutesAccepted": false,
   "syntheticEvidence": "The synthetic-soak gate uses virtual time and remains labelled synthetic.",
-  "nextExecutableAction": "Run the same candidate for 24 continuous wall-clock hours under a persistent host observer and publish interval samples plus terminal leak and growth audits."
+  "nextExecutableAction": "Run the exact qualified product candidate for 24 continuous wall-clock hours under a persistent host observer whose SHA, process roots, and live-product telemetry are verified before the observation clock starts; preserve and do not stop the unrelated existing observer."
 }
