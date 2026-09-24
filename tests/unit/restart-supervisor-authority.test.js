@@ -657,6 +657,77 @@ test('the companion watch loop restarts a gone application and stops at the budg
   }
 })
 
+test('nonpositive companion watch intervals use the configured heartbeat cadence', async () => {
+  const area = scratch('supervisor-watch-interval')
+  try {
+    const sleepIntervals = []
+    const companion = createRestartCompanion({
+      stateDir: area.dir,
+      config: { heartbeat: { intervalMs: 5_000 } },
+      sleep: async (ms) => { sleepIntervals.push(ms) }
+    })
+    const probe = () => ({ pid: 4242, alive: true, ready: true, responsive: true })
+    const run = (intervalMs) => companion.watch({
+      iterations: 2,
+      ...(intervalMs === undefined ? {} : { intervalMs }),
+      probe
+    })
+
+    await run(undefined)
+    await run(0)
+    await run(-10)
+    await run(250)
+
+    assert.deepEqual(sleepIntervals, [2_500, 2_500, 2_500, 250])
+  } finally {
+    area.dispose()
+  }
+})
+
+test('an open-ended companion watch bounds its retained trace', async () => {
+  const area = scratch('supervisor-watch-trace')
+  try {
+    const paths = companionPaths(area.dir)
+    let waits = 0
+    const companion = createRestartCompanion({
+      stateDir: area.dir,
+      sleep: async () => {
+        waits += 1
+        if (waits === 200) fs.writeFileSync(paths.stopFile, JSON.stringify({ at: Date.now() }), 'utf8')
+      }
+    })
+
+    const result = await companion.watch({
+      iterations: Infinity,
+      intervalMs: 2_500,
+      probe: () => ({ pid: 4242, alive: true, ready: true, responsive: true })
+    })
+
+    assert.equal(waits, 200)
+    assert.ok(result.trace.length <= 100, `open-ended trace retained ${result.trace.length} entries`)
+    assert.equal(result.trace.at(-1).verdict, 'stopped')
+  } finally {
+    area.dispose()
+  }
+})
+
+test('a finite companion watch retains its complete trace', async () => {
+  const area = scratch('supervisor-watch-finite-trace')
+  try {
+    const companion = createRestartCompanion({ stateDir: area.dir, sleep: async () => {} })
+    const result = await companion.watch({
+      iterations: 125,
+      intervalMs: 1,
+      probe: () => ({ pid: 4242, alive: true, ready: true, responsive: true })
+    })
+
+    assert.equal(result.trace.length, 125)
+    assert.equal(result.trace.at(-1).iteration, 125)
+  } finally {
+    area.dispose()
+  }
+})
+
 /**
  * The shell's own application is already running when the companion starts, so the companion must
  * *adopt* it rather than launch a second copy — and it must then judge liveness by asking the OS about
