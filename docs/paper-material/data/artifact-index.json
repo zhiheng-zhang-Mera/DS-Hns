@@ -1,18 +1,24 @@
 {
   "schemaVersion": 1,
   "entries": [
-    {"id":"phase-c-summary","path":"artifacts/qualification/task4-phase-c-summary.json","kind":"measurement","scope":"construction","status":"PASS"},
-    {"id":"phase-c-narrative","path":"artifacts/qualification/task4-phase-c-summary.md","kind":"report","scope":"construction","status":"PASS"},
-    {"id":"ui-acceptance","path":"artifacts/qualification/task5-ui-acceptance.json","kind":"acceptance","scope":"construction","status":"PASS"},
-    {"id":"ui-acceptance-narrative","path":"artifacts/qualification/task5-ui-acceptance.md","kind":"report","scope":"construction","status":"PASS"},
-    {"id":"ui-screenshots","path":"artifacts/qualification/visual/","kind":"visual evidence","scope":"construction","status":"PASS"},
+    {"id":"phase-c-construction","path":"artifacts/qualification/task4-phase-c-summary.json","kind":"measurement","scope":"construction/historical candidate","status":"PASS_HISTORICAL"},
+    {"id":"construction-ui-acceptance","path":"artifacts/qualification/task5-ui-acceptance.json","kind":"acceptance","scope":"construction","status":"PASS_HISTORICAL"},
     {"id":"rc1-archive","path":"artifacts/qualification/history/2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d/","kind":"immutable historical evidence","scope":"historical","status":"ARCHIVED_NOT_CURRENT"},
     {"id":"bound-historical-run","path":"artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json","kind":"immutable historical qualification","scope":"historical","status":"FAIL"},
-    {"id":"final-local-run","path":"D:/Hns-Final-Qualification/test-artifacts/qualification-runs/<runId>/","kind":"immutable raw qualification","scope":"final candidate","status":"PENDING"},
-    {"id":"failed-cleanroom-12","path":"artifacts/qualification/history/5afb25ca07c23d5535301d8ad9a504a6d108a80d/2026-09-23T07-38-35-054Z-02f3b4b8/qualification-summary.json","kind":"immutable historical clean-room qualification","scope":"historical","status":"FAIL"},
-    {"id":"final-cleanroom-run","path":"D:/Hns-Cleanroom-Qualification-13/test-artifacts/qualification-runs/<runId>/","kind":"immutable clean-room qualification","scope":"final candidate","status":"PENDING"},
-    {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","kind":"enhanced qualification","scope":"real machine","status":"NOT_RUN"},
-    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","kind":"enhanced qualification","scope":"real wall-clock","status":"NOT_RUN"}
+    {"id":"failed-cleanroom-run","path":"artifacts/qualification/history/5afb25ca07c23d5535301d8ad9a504a6d108a80d/2026-09-23T07-38-35-054Z-02f3b4b8/qualification-summary.json","kind":"immutable historical clean-room qualification","scope":"historical","status":"FAIL"},
+    {"id":"final-candidate-run","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/qualification-summary.json","kind":"immutable local-host qualification from fresh remote clone","scope":"candidate SHA 63eabc9a9341abd2e612bf603e3ce340eaa2cc57","status":"PASS","runId":"2026-09-24T06-54-31-334Z-09571b4b","sha256":"b0c76898e96cfc6ef1076913114892786090e7c9b2842b63a026943f42f94a99"},
+    {"id":"final-run-file-index","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/artifact-index.json","kind":"hash index for all raw, result and report files","scope":"same immutable runId","status":"PASS","sha256":"8679cd6a04935de4113672c657cdd108c131300c490bdaadb2969780e5e987ea"},
+    {"id":"cleanroom-standard-install","path":"D:/HnsQ24/qualification-rerun-63eabc9/standard-install-valid.log","kind":"fresh-clone Standard install transcript","scope":"candidate SHA 63eabc9a9341abd2e612bf603e3ce340eaa2cc57","status":"PASS","sha256":"50efd6be62bdef850927add13e508844807a318973686da23c819dd4a95b6d36"},
+    {"id":"phase-c-final-repeats","path":"artifacts/qualification/FINAL_PHASE_C_RERUNS.json","kind":"three sequential measurements","scope":"candidate SHA 63eabc9a9341abd2e612bf603e3ce340eaa2cc57","status":"PASS","sha256":"185e8b70e3213b32b1ff451937388421acfe6bfedf2307b2150bbef54786393a"},
+    {"id":"final-electron-ui","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/reports/electron-ui-acceptance.json","kind":"real Electron UI and native picker acceptance","scope":"candidate SHA exact","status":"PASS","sha256":"19ecc7f7592371e897927acfcb815242a14bfa39c967a1a379d826201dfe7cbf"},
+    {"id":"complete-visible-journey","path":"artifacts/qualification/FINAL_JOURNEY_EVIDENCE.md","kind":"Codex Computer Use journey narrative","scope":"product-code-equivalent commit dafd3bf; app/scripts/tests identical to candidate","status":"PASS_PRODUCT_CODE_EQUIVALENT","sha256":"3491c067228e8f270157660001de4bb6de322c5972c46f11495b2c902159b6d3"},
+    {"id":"post-merge-smoke","path":"D:/HQR/post-merge-5dcde76/POST_MERGE_SMOKE.json","kind":"fresh-main-clone install, syntax and targeted tests","scope":"merge commit 5dcde767020161f6f6c7a5fc3330bccaca1d14a3","status":"PASS","sha256":"ca4e92f71b93703371a32116014323f534a3df6d13b993a9ace044a807395972"},
+    {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","kind":"enhanced qualification","scope":"real machine","status":"NOT_RUN","sha256":"30985a55cad20213087bb2daaa641c57e15c15648491bfa2428defb1aaf5b9d8"},
+    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","kind":"enhanced qualification","scope":"exact candidate wall-clock observation","status":"NOT_RUN","sha256":"8cd0d83d337b4967c9aef59cb8bb2abf813342bdfb39045e163d3b7294b7a641"},
+    {"id":"final-issue-inventory","path":"artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json","kind":"current issue inventory","scope":"candidate UI observations","status":"OPEN_P2_DOCUMENTED","sha256":"6c4040a2ef50074b7307bfeba5b8abe7e06a5b3a9ea9e885849820d84cc3e880"},
+    {"id":"final-qualification-report","path":"artifacts/qualification/FINAL_HNS_QUALIFICATION_REPORT.json","kind":"current final qualification report","scope":"candidate, merge and tag identities","status":"HNS_PRODUCTION_BASELINE_ESTABLISHED"},
+    {"id":"final-evidence-index","path":"artifacts/qualification/FINAL_EVIDENCE_INDEX.json","kind":"hash-bound evidence map","scope":"qualification, visual journey, CI, post-merge and storage","status":"COMPLETE_WITH_LIMITATIONS"},
+    {"id":"paper-material","path":"docs/paper-material/PAPER_MATERIAL_INDEX.md","kind":"provenance-linked research-material corpus","scope":"all refs through qualified production baseline","status":"COMPLETE_WITH_LIMITATIONS"}
   ],
-  "rule":"Historical, construction, synthetic and final-candidate evidence remain explicitly separated."
+  "rule":"Historical, current-candidate, product-code-equivalent, synthetic and non-candidate observer evidence remain explicitly separated; each immutable qualification file set is bound by its run artifact-index SHA-256."
 }
