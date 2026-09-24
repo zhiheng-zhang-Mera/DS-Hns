@@ -307,6 +307,18 @@
       "failure": "The architecture gate required a no-argument Health factory after effective-policy wiring was repaired, rejecting correct configuration and accepting a return to ignored defaults.",
       "lineage": ["5cec025", "artifacts/qualification/ARCHITECTURE_POLICY_GATE_FOLLOWUP.md"],
       "consequence": "Execute the actual gate against valid wiring and controlled missing/default/swapped-policy mutations. Preserve the failed full run; require both existing factories and their owner configuration rather than weakening the check to symbol presence."
+    },
+    {
+      "id": "N42",
+      "failure": "A deeply nested D-drive qualification root triggered Windows path-length failures and invalidated fixture/scratch assumptions in earlier attempts.",
+      "lineage": ["retained failed qualification attempts on D:", "D:\\HQR\\qualification-runs\\2026-09-24T06-54-31-334Z-09571b4b"],
+      "consequence": "Keep failed evidence; use a short fresh root and verify path handling before interpreting results. Do not replace a failed full attempt with an unrelated isolated pass."
+    },
+    {
+      "id": "N43",
+      "failure": "With opt-in DSH_MEGA_INTEGRATED_DOCK=1, the expanded dock obscured most of the first-run disclosure Continue control.",
+      "lineage": ["artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json", "D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md"],
+      "consequence": "Retain as open P2; safe correction requires an official-surface layout change and renewed qualification. Do not apply a speculative CSS or pixel-offset patch."
     }
   ]
 }

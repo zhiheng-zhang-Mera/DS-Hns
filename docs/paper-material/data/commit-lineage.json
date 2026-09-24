@@ -45,6 +45,28 @@
     "prePaperCandidate": "be743a705966858bf7086010dcba45f6730b432c",
     "mainBaseline": "59d816b734bea1c20ff2fbd6244395fc715304fe"
   },
+  "productionBaselineSnapshot": {
+    "snapshotDate": "2026-09-24",
+    "qualifiedCandidate": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
+    "qualifiedTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+    "productionMerge": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "productionTag": "hns-production-v1",
+    "productionTagObject": "2d4aeeda945b410d3e35ad82b456f7b74de922fc",
+    "productionTagTarget": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "mainTreeAtRelease": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+    "reachableCommitCount": 366,
+    "branchHeads": [
+      {"name":"better-install","sha":"a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6","status":"ALREADY_INCLUDED","basis":"branch head is an ancestor of release main"},
+      {"name":"target-standby","sha":"5efa302acd381d57d44bc87bbdc36f80a21dda9a","status":"ALREADY_INCLUDED","basis":"branch head is an ancestor of release main"},
+      {"name":"try-auto","sha":"432cf431f2b40843ab3ec5287ffd7e5296cb6626","status":"INCLUDE","basis":"reviewed commits contributed to the candidate; branch head is an ancestor of release main"},
+      {"name":"dev/runtime-ui-separation-v1","sha":"923f5293a2ada553cb7f91a4bc1b54e750dfe7c3","status":"INCLUDE","basis":"reviewed commits contributed to the candidate; branch head is an ancestor of release main"},
+      {"name":"dev/hns-integration-visual-rc1","sha":"2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d","status":"ALREADY_INCLUDED","basis":"branch head is an ancestor of candidate/release main"},
+      {"name":"dev/hns-final-qualification-rc2","sha":"63eabc9a9341abd2e612bf603e3ce340eaa2cc57","status":"INCLUDE","basis":"qualified candidate merged by PR #2"}
+    ],
+    "supersededBranches": [],
+    "excludedBranches": [],
+    "scope": "Reachable commit count covers the fully fetched project refs at the qualified product baseline. Report-only commits created after tagging are administrative and are excluded from research-contribution counts; merge commits and patch-equivalent changes are not separate contributions."
+  },
   "notes": [
     "Patch-equivalent commits count once as a logical change.",
     "Merge commits and preserved history are not additional research contributions."
