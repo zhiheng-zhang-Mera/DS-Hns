@@ -20,6 +20,8 @@ All candidate qualification artifacts are under `D:\HQR\qualification-runs\2026-
 
 The local-host full matrix used one immutable run from a fresh remote clone. It is intentionally not double-counted as two independent replications.
 
+Historical failures remain in the repository and were not promoted to final evidence. In particular, Cleanroom9 is an older candidate (`9900555`) and its initial marker journey was later contaminated by an unsafe global-input helper from a concurrent machine gate; neither that journey nor its failed full run is a final certificate. See `NATIVE_PICKER_SAFETY_FOLLOWUP.md` and the retained qualification history.
+
 ## Visual journey and issue evidence
 
 | Evidence | Path | SHA-256 / boundary |
