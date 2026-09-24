@@ -262,6 +262,40 @@ test('desktop restart control resolves the real registry without invoking a rest
   } finally { await h.dispose() }
 })
 
+test('Mega named check reaches the real plugin instead of checking protection modules', async () => {
+  // Regression: product-first dispatch swallowed the service id on the UI path.
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  const protection = require('../../app/extensions/mega/protection/index.cjs').createProtectionLayer()
+  protection.register({ id: 'unrelated-module', healthCheck: () => true })
+  try {
+    await h.host.ensure()
+    const source = fs.readFileSync(path.join(ROOT, 'app/extensions/mega/index.cjs'), 'utf8')
+    const actionCode = source.slice(source.indexOf('async function serviceAction('), source.indexOf('\nfunction registerControlCenterIpc()'))
+    const act = require('node:vm').runInNewContext(`${actionCode}\ncontrolAction`, {
+      serviceActions: require('../../app/core/contracts/service-actions.cjs'),
+      ctx: { protection, pluginServices: {
+        report: id => h.host.serviceReport(id),
+        checkHealth: desktopServiceAdapter('checkHealth', h.host)
+      } }, log: () => {}
+    })
+    const before = JSON.stringify(protection.describe())
+    const checked = await act({ action: 'check', id: ENTRY.id })
+    assert.equal(checked.ok, true)
+    assert.equal(checked.result.health?.health?.status, 'healthy')
+    assert.equal(h.host.serviceReport(ENTRY.id).healthy, true)
+    assert.equal(JSON.stringify(protection.describe()), before, 'named service check touched unrelated protection modules')
+    const missing = await act({ action: 'check', id: 'missing.plugin' })
+    assert.equal(missing.ok, false, 'unknown service must not report a successful global check')
+    protection.register({ id: 'second-module', healthCheck: () => true })
+    const namedModule = await act({ action: 'check', id: 'unrelated-module' })
+    assert.equal(namedModule.ok, true)
+    assert.deepEqual(Array.from(namedModule.result.touched), ['unrelated-module'])
+    const all = await act({ action: 'check' })
+    assert.equal(all.ok, true)
+    assert.deepEqual(Array.from(all.result.touched), ['unrelated-module', 'second-module'])
+  } finally { await h.dispose() }
+})
+
 test('desktop health adapter checks only the requested real plugin', async () => {
   const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
   try {

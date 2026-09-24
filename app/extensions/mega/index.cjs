@@ -2057,7 +2057,7 @@ async function productAction(action, id = null) {
     const described = typeof protection.describe === 'function' ? protection.describe() : {}
     const modules = Array.isArray(described.modules) ? described.modules : []
     const degraded = modules.filter((module) => module.state && module.state !== 'HEALTHY' && module.state !== 'DISABLED')
-    const targets = action === 'check' ? modules.map((module) => module.id) : degraded.map((module) => module.id)
+    const targets = action === 'check' ? modules.filter((module) => !id || module.id === id).map((module) => module.id) : degraded.map((module) => module.id)
     if (action === 'refresh-balance') return { ok: true, action, id: null, result: { note: 'handled before this point' } }
     const touched = []
     const refused = []
@@ -2146,7 +2146,12 @@ async function controlAction(payload = {}) {
      * that needs them. They used to require an id the page never sent, which is why every recovery button
      * on the official page was dead. With no id they now fan out over the modules that answer.
      */
-    if (serviceActions.PRODUCT_ACTIONS.some((entry) => entry.id === action)) {
+    // `check` is shared by product, protection-module and plugin-service rows.
+    // A named plugin must reach its host, not silently fan out over protection.
+    const namedProtectionCheck = action === 'check' && id &&
+      (ctx.protection?.describe?.().modules || []).some((module) => module.id === id)
+    if (serviceActions.PRODUCT_ACTIONS.some((entry) => entry.id === action) &&
+        (action !== 'check' || !id || namedProtectionCheck)) {
       return productAction(action, id || null)
     }
     if (action === 'set-advanced') {
