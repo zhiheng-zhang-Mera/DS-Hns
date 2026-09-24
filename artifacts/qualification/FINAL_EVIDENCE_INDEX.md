@@ -28,7 +28,7 @@ Historical failures remain in the repository and were not promoted to final evid
 |---|---|---|
 | Complete Computer Use journey narrative | `artifacts/qualification/FINAL_JOURNEY_EVIDENCE.md` | `3491c067228e8f270157660001de4bb6de322c5972c46f11495b2c902159b6d3`; journey commit is product-code-equivalent, not exact SHA |
 | Journey source observations | `D:\HnsQ24\journey-dafd3bf\JOURNEY_DAFD3BF.md` | `01127ca4c34781b1efe8aaa09d43b5eb48b976f12add48ca4ac39a3067b54d9e` |
-| Reopened conversation screenshot | `D:\HnsQ24\journey-dafd3bf\conversation-reopened-main.jpg` | retained locally; private account screenshots `orb-account-*.jpg` are not published |
+| Reopened conversation screenshot | `D:\HnsQ24\journey-dafd3bf\conversation-reopened-main.jpg` | SHA-256 `922bc094dc75502580b8e9bf716e37e00c28fcc00bdff5bba9ed9cea2a8be0d7`; private account screenshots `orb-account-*.jpg` are not published |
 | Open integrated-dock P2 triage | `D:\HnsQ24\journey-dafd3bf\OPT_IN_DOCK_P2_TRIAGE.md` | `c7346f3d8b58fc408edfa30b3bf29ce820be0f769e4e2b1e89fbd9c1049f7515` |
 | Current UI issue inventory | `artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json` | `6c4040a2ef50074b7307bfeba5b8abe7e06a5b3a9ea9e885849820d84cc3e880`; 0 open P1, 1 open P2, 2 unconfirmed |
 
