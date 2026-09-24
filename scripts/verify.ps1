@@ -109,7 +109,14 @@ $desktopMain = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
 Check 'Startup state machine exists with the four states' (($startupModule -match 'BOOTING') -and ($startupModule -match 'CORE_READY') -and ($startupModule -match 'INTERACTIVE') -and ($startupModule -match 'ENHANCED'))
 Check 'Startup reports every phase in one log shape' (($startupModule -match "\[BOOT\]") -and ($startupModule -match 'overBudget'))
 Check 'Deferred work cannot fail or delay the boot' (($startupModule -match 'function defer') -and ($startupModule -match 'the boot carries on'))
-Check 'The window is on screen with a skeleton before the Harness is asked anything' (($desktopMain.IndexOf('await showStartupSkeleton()') -ge 0) -and ($desktopMain.IndexOf('await showStartupSkeleton()') -lt $desktopMain.IndexOf('const readyUrl = await waitForHarness()')))
+# The marker is the skeleton call itself, and the thing it must precede is the *call* that asks for the
+# Harness -- not the definition of the function that does the asking. With the Runtime owning the
+# Harness, that call is `startHarnessViaRuntime()` inside the readiness race; the in-process
+# `startHarness(` fallback is checked too, so whichever path is taken the skeleton is already on screen.
+$skeletonAt = $desktopMain.IndexOf('await showStartupSkeleton()')
+$harnessAskAt = $desktopMain.IndexOf('Promise.race([')
+$harnessFallbackAt = $desktopMain.IndexOf('startHarness(nodeExe),')
+Check 'The window is on screen with a skeleton before the Harness is asked anything' (($skeletonAt -ge 0) -and ($harnessAskAt -ge 0) -and ($skeletonAt -lt $harnessAskAt) -and (($harnessFallbackAt -lt 0) -or ($skeletonAt -lt $harnessFallbackAt)))
 Check 'INTERACTIVE is declared before every optional layer' (($desktopMain.IndexOf("startup.mark('interactive')") -ge 0) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('extensions-ready'")) -and ($desktopMain.IndexOf("startup.mark('interactive')") -lt $desktopMain.IndexOf("startup.defer('dock-ready'")))
 Check 'Startup skeleton exists and carries no script' ((Test-Path "$ROOT\app\splash.html") -and (-not ((Get-Content "$ROOT\app\splash.html" -Raw) -match '<script')))
 # ---- The Harness profile's copy of the plugin DS-Hns ships (app\harness-profile.cjs) ----
@@ -205,6 +212,92 @@ Check 'A Harness client plugin is installed by the Harness own CLI' (((Get-Conte
 Check 'An entry without a channel is reported, never installed' (($bundledPlugins -match 'BUNDLED_STATE.UNRESOLVED') -and ($bundledPlugins -match "action: 'report'"))
 Check 'Removal and compatibility follow the same channel as installation' (($bundledPlugins -match 'async function removeBundled') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "checked: 'harness'") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "harnessRemove:"))
 Check 'The channel is recorded as verified, and the runtime only after it was run' (($bundledPlugins -match 'channelVerified: true') -and ($bundledPlugins -match 'tested: true') -and ($bundledPlugins -match 'channelVerified: entry.channelVerified === true') -and ($bundledPlugins -match 'tested: entry\.tested === true'))
+# ---- The optional community plugins at install time (branch better-install) ----
+# Two plugins DS-Hns offers and does not depend on. The installer asks about each one separately, and
+# every question has a parameter that answers it without asking -- so the checks below are about the
+# surface a person chooses through, and about the two rules that keep an optional plugin optional.
+$communityCli = Get-Content "$ROOT\app\extensions\mega\plugins\community-install-cli.cjs" -Raw -ErrorAction SilentlyContinue
+$communityModule = Get-Content "$ROOT\app\extensions\mega\plugins\community-install.cjs" -Raw -ErrorAction SilentlyContinue
+$installerScript = Get-Content "$ROOT\scripts\install.ps1" -Raw -ErrorAction SilentlyContinue
+$communityScript = Get-Content "$ROOT\scripts\install-community-plugins.ps1" -Raw -ErrorAction SilentlyContinue
+Check 'The community plugin installer exists, and reuses the release manifest rather than a second list' ($communityCli -and $communityModule -and ($communityModule -match 'require\(''\./index\.cjs''\)') -and ($communityModule -match 'installBundled\('))
+Check 'Nothing optional is installed by a default nobody chose' (($communityModule -match 'unanswered') -and ($communityCli -match 'not selected; optional community plugins are skipped unless they are asked for'))
+Check 'The installer accepts the parameters the requirement names' (($installerScript -match '\-InstallMarket') -and ($installerScript -match '\-InstallWallpaper') -and ($installerScript -match '\-SkipOptionalPlugins') -and ($installerScript -match '\-NonInteractive'))
+Check 'A contradictory invocation is an error with a reason, never a silent override' (($communityModule -match 'COMMUNITY_CONFLICTING_PARAMETERS') -and ($installerScript -match 'cannot be combined with'))
+Check 'Each plugin is asked about separately, in both languages' (((Get-Content "$ROOT\app\extensions\mega\plugins\community-labels.json" -Raw) -match 'Plugin Market') -and ((Get-Content "$ROOT\app\extensions\mega\plugins\community-labels.json" -Raw) -match 'Wallpaper Engine') -and ($communityCli -match 'askSelected'))
+Check 'The installer never clones a plugin into place' ((-not ($installerScript -match 'git clone')) -and (-not ($communityScript -match 'git clone')))
+Check 'The installer reports what happened rather than what it intended' (($installerScript -match 'Installation summary') -and ($installerScript -match 'Plugin Market') -and ($installerScript -match 'Wallpaper Engine') -and ($installerScript -match 'Adapter registry'))
+Check 'A failed community plugin warns and lets the installation succeed' (($installerScript -match 'This plugin is optional; DS-Harness itself is installed and usable without it') -and ($installerScript -match 'Write-Warning'))
+Check 'The Harness-profile channel has its own adapter, registered on the framework' (((Get-Content "$ROOT\app\core\plugin-adapters\adapters\harness-profile.cjs" -Raw) -match "id: 'dshns\.harness-profile'") -and ((Get-Content "$ROOT\app\plugin-host.cjs" -Raw) -match 'createHarnessProfileAdapter'))
+Check 'A profile plugin is verified from its own declarations, never run by this host' (((Get-Content "$ROOT\app\core\plugin-adapters\adapters\harness-profile.cjs" -Raw) -match 'loaded: false') -and ((Get-Content "$ROOT\app\core\plugin-adapters\adapters\harness-profile.cjs" -Raw) -match 'never run by this host'))
+# ---- The two built-in long-hosting plugins (branch target-standby) ----
+# The health scheduler decides; the restart supervisor executes. The checks below are about the line
+# between them, about the two plugins being part of the shipped set, and about the installer carrying
+# them -- which is the half of the requirement a source scan is the only way to assert.
+$healthIndex = Get-Content "$ROOT\app\plugins\health-scheduler\index.cjs" -Raw -ErrorAction SilentlyContinue
+$healthEngine = Get-Content "$ROOT\app\plugins\health-scheduler\health.cjs" -Raw -ErrorAction SilentlyContinue
+$healthProviders = Get-Content "$ROOT\app\plugins\health-scheduler\providers.cjs" -Raw -ErrorAction SilentlyContinue
+$healthSeverity = Get-Content "$ROOT\app\plugins\health-scheduler\severity.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorIndex = Get-Content "$ROOT\app\plugins\restart-supervisor\index.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorPolicy = Get-Content "$ROOT\app\plugins\restart-supervisor\policy.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorBudget = Get-Content "$ROOT\app\plugins\restart-supervisor\budget.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorHeartbeat = Get-Content "$ROOT\app\plugins\restart-supervisor\heartbeat.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorLifecycle = Get-Content "$ROOT\app\plugins\restart-supervisor\lifecycle.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorCompanion = Get-Content "$ROOT\app\plugins\restart-supervisor\companion.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorMain = Get-Content "$ROOT\app\plugins\restart-supervisor\companion\main.cjs" -Raw -ErrorAction SilentlyContinue
+$mountedIndex = Get-Content "$ROOT\app\plugins\mounted\index.cjs" -Raw -ErrorAction SilentlyContinue
+$bundledList = Get-Content "$ROOT\scripts\bundled-plugins.json" -Raw -ErrorAction SilentlyContinue
+$bundledInstaller = Get-Content "$ROOT\scripts\install-bundled-plugins.ps1" -Raw -ErrorAction SilentlyContinue
+$uninstaller = Get-Content "$ROOT\scripts\uninstall-ds-harness.ps1" -Raw -ErrorAction SilentlyContinue
+$hostSource = Get-Content "$ROOT\app\plugin-host.cjs" -Raw -ErrorAction SilentlyContinue
+$soakHarness = Get-Content "$ROOT\scripts\longhost-soak.cjs" -Raw -ErrorAction SilentlyContinue
+$chaosHarness = Get-Content "$ROOT\scripts\longhost-chaos.cjs" -Raw -ErrorAction SilentlyContinue
+$registrationProbe = Get-Content "$ROOT\scripts\plugin-registration-check.cjs" -Raw -ErrorAction SilentlyContinue
+$supervisorDocs = Get-Content "$ROOT\docs\restart-supervisor.md" -Raw -ErrorAction SilentlyContinue
+
+# Require the owner-resolved policy at both existing factory calls. A no-argument
+# Health call silently discards saved policy and is no longer valid wiring.
+Check 'Both built-in plugins are part of the shipped set, mounted through the one adapter' (($mountedIndex -match 'healthSchedulerPlugin\(\{\s*config:\s*options\.healthConfig\s*\}\)') -and ($mountedIndex -match 'restartSupervisorPlugin\(\{\s*host,\s*nodeExe,\s*stateDir,\s*config:\s*options\.restartConfig\s*\}\)'))
+Check 'The health scheduler cannot stop anything, and the supervisor has no health policy' (
+  (-not ($healthIndex -match 'taskkill|process\.kill|node:child_process|SIGTERM|SIGKILL|shutdown|reboot')) -and
+  (-not ($healthEngine -match 'taskkill|process\.kill|node:child_process|SIGKILL')) -and
+  (-not ($healthProviders -match 'taskkill|process\.kill|node:child_process|SIGKILL')) -and
+  (-not ($healthSeverity -match 'taskkill|process\.kill|node:child_process|SIGKILL')) -and
+  (-not ($supervisorIndex -match "'health-pressure'|'hardware-health'|os\.cpus|os\.freemem|health-scheduler")) -and
+  (-not ($supervisorBudget -match "'health-pressure'|os\.cpus|health-scheduler"))
+)
+Check 'The monitor reaches the authority only through the capability registry' (($healthIndex -match "context\.require\('restart-control', \{ optional: true \}\)") -and (-not ($healthIndex -match 'require\(.*restart-supervisor')))
+Check 'The supervisor provides exactly restart-control, and needs nothing to provide it' (($supervisorIndex -match "PROVIDES = Object\.freeze\(\[RESTART_CONTROL_CAPABILITY\]\)") -and ($supervisorIndex -match 'requires_capabilities: \[\]'))
+Check 'The capability vocabulary names the supervisor as the restart authority' ((Get-Content "$ROOT\app\core\contracts\capability.cjs" -Raw) -match "providers: \['dshns\.restart-supervisor'\]")
+Check 'The restart budget, the backoff and the crash-loop ladder are all present and bounded' (($supervisorPolicy -match 'maxRestarts') -and ($supervisorPolicy -match 'backoffMaxMs') -and ($supervisorPolicy -match 'safeModeAt') -and ($supervisorBudget -match 'REFUSAL_CODES\.BUDGET_EXHAUSTED') -and ($supervisorBudget -match 'SUPERVISOR_HEALTH\.SAFE_MODE'))
+Check 'Safe mode refuses every automatic restart and offers a human reset' (($supervisorBudget -match 'REFUSAL_CODES\.SAFE_MODE') -and ($supervisorIndex -match 'resetRestartBudget') -and ($supervisorIndex -match 'manualRestart'))
+Check 'The heartbeat keeps process liveness and runtime responsiveness on separate clocks' (($supervisorHeartbeat -match 'livenessTimeoutMs') -and ($supervisorHeartbeat -match 'forced-restart') -and ($supervisorHeartbeat -match 'graceful-recovery') -and ($supervisorPolicy -match 'livenessTimeoutMs'))
+Check 'The lifecycle is ordered, bounded and leaves resuming to Core continuity' (($supervisorLifecycle -match 'beforeRestart') -and ($supervisorLifecycle -match 'pendingWork') -and ($supervisorLifecycle -match 'afterRestart') -and ($supervisorLifecycle -match 'readinessAttempts') -and ($supervisorLifecycle -match 'does not implement task recovery'))
+Check 'Readiness retries a gate that is not up yet, and only a required gate fails the boot' (($supervisorLifecycle -match 'requiredGates') -and ($supervisorLifecycle -match 'timedOut'))
+Check 'The out-of-process companion exists and refuses to run twice' (($supervisorCompanion -match 'function claimRestartLock') -and ($supervisorCompanion -match 'restartLockHeldByOther') -and ($supervisorMain -match 'companion\.claim\(\)') -and ($supervisorMain -match 'companion\.release\(\)'))
+Check 'The companion is registered nowhere as a startup entry' (($bundledList -match '"startupRegistration": "none"') -and (-not ($bundledInstaller -match 'Run\\')))
+Check 'Both plugins are in the installer list as required built-ins' (($bundledList -match 'dshns\.health-scheduler') -and ($bundledList -match 'dshns\.restart-supervisor') -and ($bundledList -match '"required": true'))
+Check 'The installer installs the built-ins in their own step, before the optional plugins' (($installerScript -match 'install-bundled-plugins\.ps1') -and $installerScript.IndexOf('Sign the shipped plugins into the Harness profile') -lt $installerScript.IndexOf('Optional community plugins'))
+Check 'The uninstaller removes the companion and scans for orphans' (($uninstaller -match 'companion stopped') -and ($uninstaller -match 'no orphan companion process') -and ($uninstaller -match 'no supervisor startup entry'))
+Check 'The plugin host reports both services, and the panel has an action for each' (($hostSource -match 'function serviceRecordOf') -and ($hostSource -match 'serviceReports') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'SERVICE_ACTIONS'))
+Check 'Mega owns the advanced configuration, validated by the host that writes it' (($hostSource -match 'ADVANCED_SCHEMA') -and ($hostSource -match 'function setPath') -and ((Get-Content "$ROOT\app\extensions\mega\control-center.cjs" -Raw) -match 'advanced'))
+Check 'The synthetic 6/12/24-hour soak harness exists with a real-machine entry point' (($soakHarness -match 'soak-6h') -and ($soakHarness -match 'soak-12h') -and ($soakHarness -match 'soak-24h') -and ($soakHarness -match '--realtime'))
+Check 'The long-hosting chaos harness injects the failures the requirement names' (($chaosHarness -match 'kill-core') -and ($chaosHarness -match 'controlled-restart') -and ($chaosHarness -match 'plugin-crash') -and ($chaosHarness -match 'plugin-timeout') -and ($chaosHarness -match 'network-failure') -and ($chaosHarness -match 'host-restart') -and ($chaosHarness -match 'git-interruption') -and ($chaosHarness -match 'false-success'))
+Check 'The chaos harness drives the real companion and records the reboot it did not run' (($chaosHarness -match "companion', 'main\.cjs'") -and ($chaosHarness -match 'NOT exercised'))
+Check 'The installer verifies registration, not only the files it wrote' (($registrationProbe -match 'plugin-registration-check') -and ($registrationProbe -match 'duplicateRegistrations') -and ((Get-Content "$ROOT\scripts\install.ps1" -Raw) -match 'plugin-registration-check\.cjs'))
+$acceptanceDir = Join-Path $ROOT 'docs\acceptance'
+$acceptanceFiles = @('architecture-before.json', 'architecture-after.json', 'cleanup-candidates.json', 'cleanup-review-needed.json', 'dead-code-report.json', 'ui-surface-report.json', 'restart-recovery-report.json', 'longhost-chaos-report.json', 'longhost-soak-report.json', 'installer-registration-report.json', 'LONGHOST-ACCEPTANCE.json', 'LONGHOST-ACCEPTANCE.md')
+$missingAcceptance = @($acceptanceFiles | Where-Object { -not (Test-Path (Join-Path $acceptanceDir $_)) })
+Check 'The long-hosting acceptance record ships, every document the requirement names' ($missingAcceptance.Count -eq 0)
+$acceptanceJson = Get-Content (Join-Path $acceptanceDir 'LONGHOST-ACCEPTANCE.json') -Raw -ErrorAction SilentlyContinue
+Check 'The acceptance record states the metrics the requirement asks for' (($acceptanceJson -match 'lostTasks') -and ($acceptanceJson -match 'falseSuccess') -and ($acceptanceJson -match 'infiniteRestartLoops') -and ($acceptanceJson -match 'duplicatePluginRegistrations') -and ($acceptanceJson -match 'unexpectedDeletedFeatures'))
+Check 'The acceptance record names what was not exercised rather than claiming it' (($acceptanceJson -match 'notExercised') -and ($acceptanceJson -match 'real Windows reboot'))
+Check 'The acceptance record is generated from the harness reports, not written by hand' ((Get-Content "$ROOT\scripts\longhost-acceptance.cjs" -Raw) -match 'longhost-chaos-report\.json')
+Check 'The restart status is a formal, persisted record with the three recovery claims' (((Get-Content "$ROOT\app\plugins\restart-supervisor\status.cjs" -Raw) -match 'restart_status\.json') -and ((Get-Content "$ROOT\app\plugins\restart-supervisor\status.cjs" -Raw) -match 'PROCESS_ONLY') -and ((Get-Content "$ROOT\app\plugins\restart-supervisor\status.cjs" -Raw) -match 'failedReason'))
+Check 'Task continuity parks, remembers and resumes through Core, not through the supervisor' (((Get-Content "$ROOT\app\core\task-continuity.cjs" -Raw) -match 'resume-intent\.json') -and ((Get-Content "$ROOT\app\core\task-continuity.cjs" -Raw) -match 'semantic'))
+Check 'The health decision gates new work through one seam' (((Get-Content "$ROOT\app\core\work-admission.cjs" -Raw) -match 'PAUSE_NEW_WORK') -and ((Get-Content "$ROOT\app\extensions\mega\scheduler\scheduler.js" -Raw) -match 'setWorkAdmission'))
+Check 'One action vocabulary is shared by the page, the panel and the bridge' (((Get-Content "$ROOT\app\core\contracts\service-actions.cjs" -Raw) -match 'DANGEROUS_ACTIONS') -and ((Get-Content "$ROOT\app\core\governance-bridge.cjs" -Raw) -match "contracts/service-actions\.cjs") -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match "contracts/service-actions\.cjs"))
+Check 'The restart supervisor is documented, with the authority line stated' (($supervisorDocs -match 'application restart\*\* authority') -and ($supervisorDocs -match 'resume tasks'))Check 'A profile dependency is joined to the manifest by package name, not confused with the plugin id' (((Get-Content "$ROOT\app\extensions\mega\plugins\index.cjs" -Raw) -match 'function entryForPackage') -and ((Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw) -match 'entryForPackage'))
 Check 'Asset pipeline is split into planner/generator/processor/validator/fallback' ((Test-Path "$ROOT\app\extensions\mega\theme\assets\planner.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\generator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\processor.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\validator.js") -and (Test-Path "$ROOT\app\extensions\mega\theme\assets\fallback.js"))
 Check 'Procedural asset factory is retained as the fallback renderer' (Test-Path "$ROOT\app\extensions\mega\theme\asset-factory.js")
 Check 'Overlay layout engine exists' (Test-Path "$ROOT\app\extensions\mega\theme\official\overlay-layout.js")

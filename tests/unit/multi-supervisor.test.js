@@ -105,6 +105,47 @@ function git(args, cwd) {
   return spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true })
 }
 
+/**
+ * The performance budget for the parallelism scenario, and why it does not fail a run.
+ *
+ * Two 5 s nodes on two workers have a serial floor of ~10 s, and the pool has to grow
+ * first (progressive scaling, §11), so "well under serial" is the claim. It is a claim
+ * about *this machine at this moment*: a hosted runner that spawns each worker several
+ * times slower, a busy developer machine, or a cold page cache all move it without the
+ * supervisor being any less parallel.
+ *
+ * So the wall-clock number is a **benchmark, not a gate**. The correctness of parallelism
+ * is asserted structurally and deterministically — both nodes really in flight at once,
+ * the plan completed, both tasks recorded — and a run that is slower than the budget prints
+ * the measurement and carries on. That is a deliberate split: a timing threshold that can
+ * fail an installation is a threshold that makes an installer fail for a reason that is not
+ * about the installer. Where a build genuinely wants a timing gate (`DSH_SUPERVISOR_WALL_CLOCK_GATE=strict`,
+ * which CI may set), it is available and it is the same number.
+ *
+ * The budget may also be moved without editing this file: `DSH_SUPERVISOR_WALL_CLOCK_MS`.
+ */
+const PARALLEL_WALL_CLOCK_BUDGET_MS = (() => {
+  const configured = Number(process.env.DSH_SUPERVISOR_WALL_CLOCK_MS)
+  return Number.isFinite(configured) && configured > 0 ? configured : 8500
+})()
+
+/** Report a wall-clock measurement: a strict gate only when a caller explicitly asks for one. */
+function reportWallClock(assert, { label, measuredMs, budgetMs, serialMs = null }) {
+  const serial = serialMs ? ` (serial floor ~${serialMs} ms)` : ''
+  const line = `wall-clock ${label}: ${measuredMs} ms against a ${budgetMs} ms budget${serial}`
+  if (measuredMs <= budgetMs) {
+    console.log(`[benchmark] ${line} - within budget`)
+    return 'within-budget'
+  }
+  const detail = `${line} - SLOWER THAN BUDGET (a warning, not a failure: parallelism itself is asserted structurally)`
+  if (String(process.env.DSH_SUPERVISOR_WALL_CLOCK_GATE || '').toLowerCase() === 'strict') {
+    assert.ok(measuredMs <= budgetMs, detail)
+    return 'failed'
+  }
+  console.log(`[benchmark] ${detail}`)
+  return 'over-budget'
+}
+
 function makeRepo(parent, name = 'TargetRepo') {
   const target = path.join(parent, name)
   fs.mkdirSync(target, { recursive: true })
@@ -279,10 +320,17 @@ test('并行验收: independent nodes really run at the same time on N workers',
 
   assert.equal(maxConcurrent, 2, 'both nodes must be in flight at once')
   assert.equal(manager.describe().plans[0].status, 'completed')
-  // Two 5 s tasks on two workers beat one-after-the-other (≈10 s) even though the
-  // pool has to grow first (progressive scaling, §11).
-  assert.ok(parallelMs < 8500, `expected a real speed-up, took ${parallelMs} ms`)
-  assert.ok(manager.describe().metrics.tasks >= 2)
+  assert.deepEqual(manager.describe().plans[0].nodes.map((node) => node.status), ['completed', 'completed'])
+  assert.ok(manager.describe().metrics.tasks >= 2, `expected 2 recorded tasks, got ${manager.describe().metrics.tasks}`)
+  // Two 5 s tasks on two workers beat one-after-the-other (≈10 s) even though the pool
+  // has to grow first (progressive scaling, §11). The measurement is reported, and it only
+  // fails where a caller asked for a strict gate; see `reportWallClock` above.
+  reportWallClock(assert, {
+    label: 'parallel plan (2 x 5 s nodes on 2 workers)',
+    measuredMs: parallelMs,
+    budgetMs: PARALLEL_WALL_CLOCK_BUDGET_MS,
+    serialMs: 10_000
+  })
 })
 
 test('DAG 依赖: a node only starts once its dependencies completed', async (t) => {

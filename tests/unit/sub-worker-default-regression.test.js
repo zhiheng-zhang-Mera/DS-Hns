@@ -133,7 +133,26 @@ test('the worker process is spawned only from the explicit enable path', () => {
 test('the exit path always reclaims the worker before the Harness is stopped', () => {
   const teardown = main.slice(main.indexOf('function teardownManagedResources'), main.indexOf('function gracefulExit'))
   assert.ok(teardown.indexOf('extensionManager?.stop?.()') < teardown.indexOf('stopSubWorkerOnExit'))
-  assert.ok(teardown.indexOf('stopSubWorkerOnExit') < teardown.indexOf('stopHarness()'), 'AC-10 ordering')
+  /**
+   * AC-10 ordering, restated for the split.
+   *
+   * The Harness is owned by the Runtime Host now, so the Desktop's exit path no
+   * longer stops it at all: it *detaches*. What this assertion has to keep true is
+   * the ordering that always mattered — the optional worker is reclaimed before
+   * the engine is released — and that the teardown still refuses to stop the
+   * Harness in-process. Both spellings of the stop are accepted so the ordering
+   * check cannot be satisfied by simply renaming the call.
+   */
+  const workerAt = teardown.indexOf('stopSubWorkerOnExit')
+  const harnessStopAt = (() => {
+    const direct = teardown.indexOf('stopHarness()')
+    if (direct >= 0) return direct
+    return teardown.indexOf('stopHarnessInProcess()')
+  })()
+  assert.ok(workerAt >= 0, 'the worker is no longer reclaimed on exit')
+  assert.ok(workerAt < harnessStopAt, 'AC-10 ordering: the worker must be reclaimed before the Harness is released')
+  // The detach is what the exit path actually does with the Runtime.
+  assert.match(teardown, /runtimeClient\.detach\(\)/)
   const stopWorker = main.slice(main.indexOf('function stopSubWorkerOnExit'), main.indexOf('function registerSubWorkerIpc'))
   assert.match(stopWorker, /prepareExit/)
   assert.match(stopWorker, /forceStop/)

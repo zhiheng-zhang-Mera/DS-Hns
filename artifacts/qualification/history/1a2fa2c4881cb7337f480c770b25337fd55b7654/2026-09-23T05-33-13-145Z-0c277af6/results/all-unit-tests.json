@@ -1,0 +1,30 @@
+{
+  "id": "all-unit-tests",
+  "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+  "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+  "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+  "branch": "dev/hns-final-qualification-rc2",
+  "mandatory": true,
+  "startedAt": "2026-09-23T05:37:47.633Z",
+  "completedAt": "2026-09-23T05:46:24.876Z",
+  "command": [
+    "powershell.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "D:\\Hns-Final-Qualification\\repo\\scripts\\test-all.ps1"
+  ],
+  "exitCode": 0,
+  "passed": true,
+  "checks": null,
+  "failures": null,
+  "report": null,
+  "rawEvidence": {
+    "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\all-unit-tests.stdout.txt",
+    "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\all-unit-tests.stderr.txt"
+  },
+  "spawnError": null,
+  "processExitCode": 0,
+  "reportError": null
+}

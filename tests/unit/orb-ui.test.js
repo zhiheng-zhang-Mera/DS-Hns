@@ -23,6 +23,63 @@ const ROOT = path.resolve(__dirname, '..', '..')
 const ORB = path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'orb.js')
 const source = fs.readFileSync(ORB, 'utf8')
 
+test('panel width is border-box so measured width does not grow on each shell acknowledgement', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'app', 'extensions', 'mega', 'ui', 'orb.css'), 'utf8')
+  const rule = css.match(/#panel\s*\{([^}]*)\}/)
+  assert.ok(rule, 'panel CSS rule is missing')
+  assert.match(rule[1], /box-sizing\s*:\s*border-box\s*;/)
+})
+
+test('a later true document leave is delivered after a spurious leave', () => {
+  const orb = loadOrb()
+  const calls = []
+  orb.api.hover = async value => { calls.push(value); return { ok: true } }
+  orb.sandbox.document.fire('pointermove', { target: orb.elements.get('ballGlyph'), screenX: 50, screenY: 50 })
+  orb.sandbox.document.fire('mouseleave', {})
+  orb.sandbox.document.fire('mouseleave', {})
+  assert.deepEqual(calls, [true, false, false])
+})
+
+test('a measurement acknowledgement cannot close the panel or restart its measurement loop', async () => {
+  const orb = loadOrb()
+  let measurements = 0
+  orb.elements.get('panel').offsetWidth = 340
+  orb.elements.get('panelHead').offsetHeight = 40
+  orb.elements.get('panelBody').scrollHeight = 200
+  // setPanelSize returns an operation report; renderer state arrives separately
+  // on mega:orb-state. Its panel is dimensions, not a renderer offset payload.
+  orb.api.measure = async () => {
+    measurements++
+    return { ok: true, bounds: { x: 20, y: 20, width: 410, height: 310 }, panel: { width: 340, height: 240 } }
+  }
+  orb.apply({ open: true, ball: { x: 8, y: 8 }, ballSize: 44,
+    panel: { offset: { x: 62, y: 62 }, width: 340, height: 240 }, view: null })
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(orb.sandbox.hnsOrbView.state().open, true)
+  assert.equal(orb.elements.get('panel').hidden, false)
+  orb.sandbox.hnsOrbView.measure()
+  await Promise.resolve()
+  assert.equal(measurements, 1, 'unchanged panel geometry must not be requested again')
+  orb.apply({ ok: false, reason: 'operation unavailable' })
+  assert.equal(orb.sandbox.hnsOrbView.state().open, true, 'an operation refusal is not a closed-state snapshot')
+})
+
+test('geometry-only state echoes do not remeasure an unchanged panel', () => {
+  const orb = loadOrb()
+  const panel = orb.elements.get('panel')
+  panel.offsetWidth = 200
+  orb.elements.get('panelHead').offsetHeight = 40
+  orb.elements.get('panelBody').scrollHeight = 90
+  const next = payload(fixtureView())
+  next.panel = { offset: { x: 8, y: 8 }, width: 200, height: 130 }
+  orb.apply(next)
+  const before = orb.calls.filter(call => call.startsWith('measure:')).length
+  orb.elements.get('panelBody').scrollHeight = 106
+  orb.apply({ ...next, panel: { ...next.panel, height: 146 } })
+  assert.equal(orb.calls.filter(call => call.startsWith('measure:')).length, before)
+})
+
 /** One element: the handful of properties the renderer writes, plus what a test needs to read back. */
 function makeElement(tag, id, dom) {
   const classes = new Set()

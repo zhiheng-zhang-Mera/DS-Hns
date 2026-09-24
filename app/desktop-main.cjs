@@ -14,6 +14,9 @@ const net = require('node:net')
 const path = require('node:path')
 const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
+const runtimeInstance = require('./runtime/instance.cjs')
+const { resolveCommandTemp } = require('./runtime/temp-root.cjs')
+const { createRuntimeClient } = require('./runtime/client.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
 const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 const { createStartupManager } = require('./startup.cjs')
@@ -47,7 +50,7 @@ const DSH_LAUNCH_ARGS = ['web', '--no-open', ...(HARNESS_PORT_OVERRIDE ? ['--por
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
 const STARTUP_BUFFER_LIMIT = 64 * 1024
-const INTEGRATED_MEGA_DOCK = process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
+const INTEGRATED_MEGA_DOCK = process.env.DSH_DISABLE_MEGA !== '1' && process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
 const MEGA_DOCK_COLLAPSED_WIDTH = 48
 const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
@@ -150,6 +153,22 @@ let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
 let officialFocusArmedAt = Number.POSITIVE_INFINITY
 let megaDockCollapseInFlight = false
 let harnessProcess = null
+/**
+ * The connection to the DS-Hns Runtime.
+ *
+ * The Harness child is **not** owned by this process any more: it belongs to the
+ * Runtime Host, which is a separate long-lived process that outlives this window.
+ * `harnessProcess` therefore remains only as the in-process fallback described in
+ * `stopHarnessInProcess`, and the UI's real relationship with the engine is this
+ * client object.
+ */
+let runtimeClient = null
+/**
+ * The fully resolved instance: identity, endpoint, and the port this instance
+ * actually owns. `SHELL_INSTANCE` is the pre-Electron-ready subset (names only);
+ * this is the same instance after the port has been chosen and persisted.
+ */
+let RUNTIME_INSTANCE = null
 let shuttingDown = false
 let harnessUrl = null
 let resolveHarnessUrl = null
@@ -324,6 +343,15 @@ normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
+/**
+ * Where the restart supervisor's out-of-process companion keeps its files.
+ *
+ * One variable, both sides: the companion is handed this directory as `--state-dir`, the plugin writes
+ * its heartbeat and reads its requests there, and the shell watches the companion's graceful-stop
+ * request in the same place. Deriving it in three places from `process.cwd()` would be three answers to
+ * one question, and the failure mode is a supervisor watching a directory nobody writes to.
+ */
+process.env.DSHNS_SUPERVISOR_STATE_DIR = process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(process.env.DSH_HOME, 'state', 'restart-supervisor')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
@@ -331,22 +359,35 @@ if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
  * Instance identity. Electron's single-instance lock lives in the userData
  * directory, so a second, isolated instance needs its own: `DSH_USER_DATA_DIR`
  * names it outright, and a `DSH_ROOT` pointing at another checkout (or a run
- * named through `DSH_APP_NAME`) derives one under that root. Unset, the shell is
- * "DS-Harness" under `<root>/data/desktop-shell` and behaves exactly as before.
+ * named through `DSH_APP_NAME`) derives one under that root.
+ *
+ * The derivation itself now lives in `app/runtime/instance.cjs`, because the
+ * Runtime Host needs the *same* answer: the instance id names the IPC endpoint,
+ * keys the browser profile, and is what proves a record on disk belongs to this
+ * instance. Two processes deriving their own notion of "which instance am I"
+ * would be two chances to disagree.
  */
 const APP_NAME_OVERRIDE = String(process.env.DSH_APP_NAME || '').trim()
 const ISOLATED_ROOT = Boolean(process.env.DSH_ROOT) && path.resolve(process.env.DSH_ROOT) !== ROOT
-const APP_NAME = APP_NAME_OVERRIDE || (ISOLATED_ROOT ? `DS-Harness (${path.basename(process.env.DSH_ROOT) || 'isolated'})` : 'DS-Harness')
 const ISOLATED_INSTANCE = Boolean(APP_NAME_OVERRIDE) || ISOLATED_ROOT
+const APP_NAME = APP_NAME_OVERRIDE || (ISOLATED_ROOT ? `DS-Harness (${path.basename(process.env.DSH_ROOT) || 'isolated'})` : 'DS-Harness')
 /** A filesystem-safe profile name so several isolated runs cannot share a lock. */
 const PROFILE_SLUG = (APP_NAME_OVERRIDE || path.basename(process.env.DSH_ROOT) || 'isolated').replace(/[^\w.-]+/g, '-')
+/**
+ * The shell's own instance record. `describeInstance` is pure, so this is safe
+ * to compute before Electron is ready — and it must be, because `setPath` has to
+ * happen before the single-instance lock is taken.
+ */
+const SHELL_INSTANCE = runtimeInstance.describeInstance({
+  root: process.env.DSH_ROOT || ROOT,
+  dshHome: process.env.DSH_HOME || path.join(ROOT, 'data'),
+  appName: ISOLATED_INSTANCE ? APP_NAME : undefined,
+  isolated: ISOLATED_INSTANCE,
+  userDataDir: process.env.DSH_USER_DATA_DIR || undefined,
+  requestedPort: Number(process.env.DSH_HARNESS_PORT) || undefined
+})
 app.setName(APP_NAME)
-app.setPath(
-  'userData',
-  process.env.DSH_USER_DATA_DIR
-    ? path.resolve(process.env.DSH_USER_DATA_DIR)
-    : path.join(process.env.DSH_ROOT, 'data', ISOLATED_INSTANCE ? `desktop-shell-${PROFILE_SLUG}` : 'desktop-shell')
-)
+app.setPath('userData', SHELL_INSTANCE.paths.userData)
 // Windows needs an explicit AppUserModelID so terminal task notifications and
 // taskbar grouping carry the DS-Harness identity instead of Electron's.
 try {
@@ -369,7 +410,12 @@ function resolveAppIcon() {
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
-if (!hasSingleInstanceLock) app.quit()
+if (!hasSingleInstanceLock) {
+  app.quit()
+  // quit() requests exit; it does not stop CommonJS entry evaluation. Do not
+  // register startup work or create runtimes in this rejected second instance.
+  return
+}
 
 function logPath() {
   return path.join(ROOT, 'logs', 'desktop-runtime.log')
@@ -446,9 +492,10 @@ function resolveNodeExe() {
 }
 
 function ensureRuntimeDirs() {
-  for (const dir of ['logs', 'temp', 'cache', 'data', 'workspace', 'runtime']) {
+  for (const dir of ['logs', 'cache', 'data', 'workspace', 'runtime']) {
     fs.mkdirSync(path.join(ROOT, dir), { recursive: true })
   }
+  fs.mkdirSync(resolveCommandTemp(ROOT, process.env), { recursive: true })
 }
 
 /**
@@ -509,18 +556,6 @@ function observeStartupOutput(source, chunk, log) {
   }
 }
 
-async function waitForHarness() {
-  const deadline = Date.now() + STARTUP_TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (harnessUrl && await requestHarness(harnessUrl)) return harnessUrl
-    if (harnessProcess?.exitCode !== null) {
-      throw startupError(`Harness service exited early with code ${harnessProcess.exitCode}`)
-    }
-    await new Promise((resolve) => setTimeout(resolve, 400))
-  }
-  throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds`)
-}
-
 /**
  * Refresh the profile's copy of the plugin DS-Hns ships, before the Harness is asked to boot it.
  *
@@ -537,7 +572,7 @@ function syncHarnessProfilePlugin() {
   try {
     const changed = syncShippedPackage({
       sourceDir: path.join(__dirname, 'plugins', 'mega-core'),
-      modulesDir: path.join(ROOT, 'data', 'profiles', profile, 'node_modules'),
+      modulesDir: path.join(process.env.DSH_HOME, 'profiles', profile, 'node_modules'),
       log: logLine
     })
     if (changed.length) logLine(`[profile] the profile's copy of the shipped plugin was refreshed: ${changed.join(', ')}`)
@@ -555,12 +590,13 @@ function startHarness(nodeExe) {
   syncHarnessProfilePlugin()
   startupOutput = ''
   harnessUrl = null
+  const commandTemp = resolveCommandTemp(ROOT, process.env)
 
   logLine('--- DSH launch begin ---')
   logLine(`node=${nodeExe}`)
   logLine(`entry=${DSH_ENTRY}`)
   logLine(`cwd=${ROOT}`)
-  logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
+  logLine(`DSH_HOME=${process.env.DSH_HOME}`)
   logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
 
   // The fixed prefix is the canonical launch line; `--port` is appended only when
@@ -570,11 +606,11 @@ function startHarness(nodeExe) {
     env: {
       ...process.env,
       DSH_ROOT: ROOT,
-      DSH_HOME: path.join(ROOT, 'data'),
+      DSH_HOME: process.env.DSH_HOME,
       DSH_NODE: nodeExe,
       npm_config_cache: path.join(ROOT, 'cache', 'npm'),
-      TEMP: path.join(ROOT, 'temp'),
-      TMP: path.join(ROOT, 'temp'),
+      TEMP: commandTemp,
+      TMP: commandTemp,
       PATH: `${path.dirname(nodeExe)};${process.env.PATH || ''}`
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -601,7 +637,8 @@ function startHarness(nodeExe) {
   return urlPromise
 }
 
-function stopHarness() {
+/** Legacy in-process stop, kept for the compatibility paths that still call it. */
+function stopHarnessInProcess() {
   const childPid = harnessProcess?.pid
   if (harnessProcess && harnessProcess.exitCode === null) {
     if (process.platform === 'win32') {
@@ -611,6 +648,210 @@ function stopHarness() {
     }
   }
   if (childPid) runtimeProcess.clearOwnership({ root: ROOT, childPid })
+}
+
+/**
+ * The Harness is owned by the Runtime Host, not by this process.
+ *
+ * Everything that used to be inline here — spawning the child, writing its
+ * ownership record, scraping the access URL out of its output — now happens one
+ * process over, in `app/runtime/host.cjs`. The shell keeps this function because
+ * every caller still asks the same question ("start the Harness"); the answer is
+ * simply no longer produced by code that lives inside the UI.
+ *
+ * `runtimeClient` is created and attached before this is reached, so the command
+ * is a request to an already-running owner. A failure here is reported, never
+ * fatal: the Runtime Host outlives this call, and the UI attaching to a Runtime
+ * that later recovers is the whole point of the split.
+ *
+ * The **credential** is the one thing that has to cross the boundary. The Harness
+ * announces an authenticated `?token=...` URL on its own stdout; the Host captures
+ * it and hands it back over the instance's own named pipe, which only a process
+ * running as the same user in the same instance can open. It is never logged here
+ * (`redact` still guards the log lines) and never placed in an IPC payload.
+ */
+async function startHarnessViaRuntime() {
+  if (!runtimeClient) {
+    harnessProcess = null
+    throw startupError('The DS-Hns Runtime is not attached; the Harness cannot be started.')
+  }
+  // The profile's copy of the shipped plugin is refreshed from the *checkout*, and
+  // the checkout is the UI's own directory, so this stays on this side of the
+  // boundary — and it runs before the start command so the Host boots the fresh copy.
+  syncHarnessProfilePlugin()
+  const status = await runtimeClient.command('harness.start')
+  logLine(`runtime harness.start: ${JSON.stringify({ started: status?.started, alreadyRunning: status?.alreadyRunning, ready: status?.ready, port: status?.port, blocked: status?.blocked, error: status?.error })}`)
+  if (status?.blocked) throw startupError(`Port ${status.port} is already in use by another process. Close it before starting DS-Harness.`)
+  if (status?.error) throw startupError(`The Runtime could not start the Harness: ${status.error}`)
+  return waitForHarnessUrl()
+}
+
+/**
+ * Attach to this instance's Runtime, starting one only when there is none.
+ *
+ * The probe-then-attach-then-start order is what stops two Desktops from racing
+ * into two Runtimes: the second one to arrive finds the first one's endpoint
+ * already bound and attaches instead.
+ */
+async function connectRuntime() {
+  /**
+   * Resolve the instance *now*, not at module evaluation.
+   *
+   * `describeInstance` (used above, before Electron was ready) deliberately does
+   * not touch the filesystem or the network: it only derives names, because it has
+   * to run before `app.setPath('userData')` and the single-instance lock. Choosing
+   * a **port** is a different job — it probes the machine and persists the answer —
+   * so it happens here, and the resolved instance is what the client and the Host
+   * both use.
+   *
+   * This is also the fix for the collision the first version had: without it the
+   * shell asked for the canonical 3080 regardless of `DSH_HARNESS_PORT`, and the
+   * second instance was told its port was taken by the first one's Harness.
+   */
+  const resolved = await runtimeInstance.resolveInstance({
+    root: process.env.DSH_ROOT || ROOT,
+    dshHome: process.env.DSH_HOME || path.join(ROOT, 'data'),
+    appName: ISOLATED_INSTANCE ? APP_NAME : undefined,
+    isolated: ISOLATED_INSTANCE,
+    userDataDir: process.env.DSH_USER_DATA_DIR || undefined,
+    requestedPort: SHELL_INSTANCE.requestedPort
+  })
+  RUNTIME_INSTANCE = resolved
+  // The identity must not move between module evaluation and this point: the
+  // single-instance lock was already taken in `SHELL_INSTANCE.paths.userData`, and
+  // a different answer here would put the lock and the cache in two places.
+  if (resolved.paths.userData !== SHELL_INSTANCE.paths.userData) {
+    logLine(`WARNING: resolved userData ${resolved.paths.userData} differs from the applied ${SHELL_INSTANCE.paths.userData}`)
+  }
+  logLine(
+    `instance ${resolved.instanceId}: root=${resolved.root} home=${resolved.dshHome} ` +
+      `port=${resolved.harnessPort} (${resolved.portAllocation?.reused ? 'requested port free' : `allocated, requested ${resolved.portAllocation?.requested}`}) ` +
+      `ipc=${resolved.ipcEndpoint}`
+  )
+  runtimeClient = createRuntimeClient({
+    instance: RUNTIME_INSTANCE,
+    log: logLine,
+    autoStartRuntime: true,
+    nodeExe: resolveNodeExe()
+  })
+  runtimeClient.events.on('state', ({ state, detail }) => {
+    logLine(`runtime connection: ${state}${detail ? ` (${detail})` : ''}`)
+    // A Runtime that goes away is a *degraded* UI, never a dead one. Nothing here
+    // touches the window, the tray or any managed resource: the client keeps
+    // retrying on its own, and the next successful attach restores the view.
+    if (state === 'disconnected') {
+      reportRuntimeDisconnected(detail)
+    }
+  })
+  runtimeClient.events.on('attached', (welcome) => {
+    logLine(`runtime attached: hostPid=${welcome?.hostPid} instance=${welcome?.instanceId} port=${welcome?.harnessPort}`)
+    runtimeUsable = true
+  })
+  const result = await runtimeClient.attach()
+  runtimeUsable = true
+  return result
+}
+
+/** A single, bounded line to the log; the UI's own degraded state is the renderer's. */
+function reportRuntimeDisconnected(detail) {
+  runtimeUsable = false
+  logLine(`runtime disconnected; the UI stays alive and will reattach (${detail || 'no detail'})`)
+}
+
+/**
+ * Whether the Runtime is currently reachable. Every caller that used to assume
+ * "the Harness is up because I started it" asks this instead.
+ */
+let runtimeUsable = false
+
+/**
+ * Wait for the Host to report the authenticated URL, with the *host's* budget
+ * rather than a number written into the UI. A slow machine gets its own measured
+ * allowance; see `app/runtime/host-capability.cjs`.
+ */
+async function waitForHarnessUrl() {
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS
+  let lastReason = ''
+  while (Date.now() < deadline) {
+    try {
+      const answer = await runtimeClient.command('harness.url')
+      if (answer?.available && answer.url) {
+        harnessUrl = answer.url
+        logLine('captured the Harness access URL from the Runtime')
+        return harnessUrl
+      }
+      lastReason = answer?.reason || ''
+    } catch (error) {
+      lastReason = error?.message || String(error)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  }
+  throw startupError(`Harness service did not become ready within ${STARTUP_TIMEOUT_MS / 1000} seconds${lastReason ? ` (${lastReason})` : ''}`)
+}
+
+/**
+ * Stop the Harness **through its owner**.
+ *
+ * Kept as a named capability rather than an exit hook, because it is exactly the
+ * thing every exit path must *not* do. It exists for the compatibility surface
+ * that asks for a Harness stop without a full Runtime stop, and it is reached only
+ * from `stopRuntimeCompletely()`.
+ */
+function stopHarness() {
+  if (runtimeClient) {
+    return runtimeClient
+      .command('harness.stop')
+      .then((result) => {
+        logLine(`runtime harness.stop: ${JSON.stringify(result)}`)
+        return result
+      })
+      .catch((error) => {
+        logLine(`runtime harness.stop failed: ${error?.message || error}`)
+        return null
+      })
+  }
+  // No Runtime is attached. The in-process path is retained only so a shell that
+  // somehow never attached cannot leak a child it started itself.
+  stopHarnessInProcess()
+  return null
+}
+
+/**
+ * The UI's view of the Runtime connection, for a renderer that wants to show
+ * "disconnected" rather than an empty window.
+ *
+ * Registered in the same main process as everything else, so it costs nothing and
+ * cannot fail a boot. It is intentionally *read-only*: it reports, and it offers
+ * the one explicit full stop; it never lets a renderer stop the Runtime by
+ * accident through a generic command channel.
+ */
+function registerRuntimeIpc() {
+  try {
+    ipcMain.removeHandler('runtime:status')
+  } catch {}
+  try {
+    ipcMain.removeHandler('runtime:stop-completely')
+  } catch {}
+  ipcMain.handle('runtime:status', async () => {
+    const identity = RUNTIME_INSTANCE || SHELL_INSTANCE
+    if (!runtimeClient) {
+      return { ok: true, attached: false, state: 'idle', instanceId: identity.instanceId, reason: 'the shell has not attached yet' }
+    }
+    const described = runtimeClient.describe()
+    if (!runtimeClient.attached) return { ok: true, ...described }
+    try {
+      const status = await runtimeClient.status()
+      return { ok: true, ...described, runtime: status }
+    } catch (error) {
+      // A Runtime that cannot answer is reported as data, never as a rejected
+      // renderer promise: the panel must be able to say "disconnected".
+      return { ok: true, ...described, error: String(error?.message || error) }
+    }
+  })
+  ipcMain.handle('runtime:stop-completely', async () => {
+    const result = await stopRuntimeCompletely('renderer request')
+    return { ok: result?.stopped !== false, result }
+  })
 }
 
 /**
@@ -1047,6 +1288,19 @@ function safeNodeExe() {
   return process.execPath
 }
 
+/**
+ * The plugin runtime, as any scope in this file reaches it.
+ *
+ * `registerPluginIpc` has its own local `host()`; the hooks handed to the extension (`pluginServices`) are
+ * built in a **different function**, so they need a name that exists there too. That is what this is — and
+ * its absence is why the whole built-in-service surface was once dead in the product: the hooks called
+ * `host()`, the identifier did not exist in their scope, every call threw `host is not defined`, and the
+ * panel drew "report unavailable" while the runtime was perfectly healthy.
+ */
+function pluginRuntime() {
+  return ensurePluginHost()
+}
+
 function ensurePluginHost() {
   if (pluginHost) return pluginHost
   const { createPluginHost } = require('./plugin-host.cjs')
@@ -1059,9 +1313,18 @@ function ensurePluginHost() {
     reason: () => 'the plugin runtime is disabled by config/app.json (plugins.enabled = false)',
     defaults: block,
     enforceLock: block.enforceLock === true,
+    /**
+     * Core's task-continuity hooks, handed to the shipped plugins that declare a need for them.
+     *
+     * The supervisor asks them what is running, parks it before a restart and continues it afterwards;
+     * this is the layer that can answer, because the tasks are the shell's and the extension's, not a
+     * plugin's.
+     */
+    continuity: taskContinuity().hooks,
     // A compatibility-mode plugin is activated in a separate process. It has to be *this*
     // deployment's node: a packaged application has no other one on the machine.
-    nodeExe: safeNodeExe()
+    nodeExe: safeNodeExe(),
+    restartSupervisorStateDir: path.join(ROOT, 'data', 'state', 'restart-supervisor')
   })
   logLine(`plugin runtime ready (${PLUGIN_CHANNELS.length} channels; lock enforcement ${block.enforceLock === true ? 'on' : 'off'})`)
   return pluginHost
@@ -1087,6 +1350,104 @@ function pluginsEnabled() {
     return config?.plugins?.enabled !== false
   } catch {
     return true
+  }
+}
+
+/**
+ * The companion's graceful-stop request, as this process sees it.
+ *
+ * The companion cannot send a signal that Windows will honour as "please leave" — `child.kill()` there
+ * terminates whether the child wanted to or not — so the graceful half of a restart is a *file*: the
+ * companion writes `app.stop-request.json`, and the application leaves on its own terms, which is what
+ * lets a restart pass through the shell's own exit path (checkpoints, managed resources, the harness).
+ * The companion only escalates to `taskkill` if this does not happen inside the timeout.
+ *
+ * A missing or unreadable file is not an error — it is the normal case for every second of the day
+ * that nobody is restarting anything — so this stays silent until there is something to act on, and it
+ * acts **once** per request.
+ */
+function watchSupervisorStopRequest() {
+  const file = path.join(process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor'), 'app.stop-request.json')
+  let handledAt = 0
+  const timer = setInterval(() => {
+    let request = null
+    try {
+      request = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch {
+      return
+    }
+    const at = Number(request && request.at)
+    if (!Number.isFinite(at) || at <= handledAt) return
+    handledAt = at
+    logLine(`the restart supervisor asked this instance to leave gracefully (${request.kind || 'graceful'}): ${request.reason || 'no reason given'}`)
+    gracefulExit('restart-supervisor')
+  }, 1_000)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
+
+/**
+ * Start the out-of-process half of the restart authority, behind the boot.
+ *
+ * The restart supervisor can only supervise if part of it is *outside* the process it watches: a hung
+ * or dead main process cannot reliably restart itself, and nothing inside it can notice that the event
+ * loop stopped answering. That outside half is the companion — a separate Node program in
+ * `app/plugins/restart-supervisor/companion/` — and this is what starts it.
+ *
+ * Two properties decide the shape of this call:
+ *
+ *   * **through the plugin runtime**, not around it: the companion's state directory, its policy and
+ *     its pid file belong to the plugin, so the shell asks the plugin to start its own companion
+ *     (`startCompanions`) instead of spawning a path it would have to keep in step by hand;
+ *   * **behind the boot**: it is a `startup.defer` step, so a companion that will not start is a line
+ *     in the boot report and a `degraded` health row — never a shell that refuses to open.
+ */
+async function startRestartSupervisor() {
+  if (!pluginsEnabled()) return { ok: false, skipped: true, reason: 'the plugin runtime is disabled by config/app.json' }
+  const host = ensurePluginHost()
+  const built = await host.ensure()
+  if (built.ok === false) {
+    logLine(`restart supervisor: the plugin world could not be built (${built.error || built.code || 'no reason given'})`)
+    return { ok: false, skipped: true, reason: built.error || 'the plugin world could not be built' }
+  }
+  const listed = host.list()
+  const plugins = Array.isArray(listed) ? listed : (listed && Array.isArray(listed.plugins) ? listed.plugins : [])
+  const outcome = host.startCompanions()
+  // `ensure()` checked health before companions were started. Refresh the owning plugin now so the
+  // first visible service report reflects the launched process instead of caching that boot-time gap.
+  await host.health({ id: 'dshns.restart-supervisor' })
+  /**
+   * Say what this step did, always.
+   *
+   * It is the one boot phase whose whole purpose is to have something *running* before anything can go
+   * wrong, so "it ran and started nothing" has to be visible in the boot report rather than inferred from
+   * the absence of a line -- the first version of this logged only the success and the failure cases, so a
+   * runtime whose world did not mount looked exactly like a healthy one.
+   */
+  logLine(`restart supervisor: plugin world ${plugins.length} plugin(s); companions ${JSON.stringify((outcome && outcome.started) || [])}`)
+  for (const entry of outcome.started || []) {
+    if (entry.ok === true) logLine(`restart supervisor companion: ${entry.already === true ? `already running (pid ${entry.pid})` : `started (pid ${entry.pid || 'unknown'})`}`)
+    else if (entry.skipped === true) logLine(`restart supervisor companion not started: ${entry.reason}`)
+    else logLine(`restart supervisor companion failed to start: ${entry.reason}`)
+  }
+  return outcome
+}
+
+/**
+ * Tell the companion this exit is intentional, before the process is gone.
+ *
+ * The companion watches a pid and a heartbeat, and neither can distinguish "the user closed the
+ * window" from "the application died" — so the difference is written down here, while there is still a
+ * process to write it. Without it, every normal quit would be crash-recovered.
+ */
+function standDownRestartSupervisor() {
+  try {
+    const outcome = pluginHost && typeof pluginHost.stopCompanions === 'function' ? pluginHost.stopCompanions('the shell is quitting') : null
+    if (outcome && outcome.built) logLine(`restart supervisor companion: ${JSON.stringify(outcome.stopped)}`)
+    return outcome
+  } catch (error) {
+    logLine(`could not stand the restart supervisor down: ${error?.message || error}`)
+    return null
   }
 }
 
@@ -1303,63 +1664,15 @@ function ensureReboot() {
     store: rebootStoreRef,
     platform,
     log: (line) => logLine(line),
-    targets: {
-      subWorker: {
-        status: () => {
-          if (!workerManager) return null
-          const state = workerManager.state || {}
-          return { running: Boolean(workerManager.isRunning), state: state.state || null, stage: state.stage || null, task_id: state.task_id || null }
-        },
-        suspend: async ({ plan }) => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = workerManager.pause(`scheduled restart ${plan.id}`)
-          if (!result || result.ok === false) return result || { ok: false, reason: 'the worker refused to pause' }
-          const delivered = Array.isArray(result.workers) ? result.workers.length : 0
-          return {
-            ok: true,
-            // A running worker answers `pause` and suspends at its own next checkpoint: that is a request
-            // in flight, and the coordinator waits for it rather than restarting over it.
-            pending: result.state === 'PAUSING' || delivered > 0,
-            state: result.state || null,
-            detail: delivered || result.state === 'PAUSING'
-              ? 'the worker was asked to stop at its next checkpoint'
-              : 'the worker is suspended'
-          }
-        },
-        resume: async () => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = typeof workerManager.resumeLastTask === 'function'
-            ? await workerManager.resumeLastTask()
-            : workerManager.resume('continuing after a scheduled restart')
-          return { ok: Boolean(result && result.ok !== false), detail: (result && (result.reason || result.detail)) || 'the sub-worker was resumed' }
-        }
-      },
-      engineering: {
-        parkPolicy: 'boundary-first',
-        status: () => {
-          if (!engineeringHost) return null
-          const state = engineeringHost.status()
-          if (!state || state.ok === false) return null
-          return { running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
-        },
-        suspend: async () => {
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          const cancelled = engineeringHost.cancel({ reason: 'a scheduled restart is waiting for a parkable phase' })
-          if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
-          return { ok: true, detail: 'the episode stopped at a step boundary and checkpointed' }
-        },
-        resume: async (intent) => {
-          const request = intent && intent.targetState && intent.targetState.request
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          if (!request || !request.workspace || !request.goal) {
-            return { ok: false, reason: 'the episode was not recorded with a repository and a goal, so it cannot be resumed automatically' }
-          }
-          const started = engineeringHost.run({ workspace: request.workspace, goal: request.goal, reason: 'continuing after a scheduled restart' })
-          if (started && started.ok === false) return { ok: false, reason: started.error || 'the episode could not be restarted' }
-          return { ok: true, detail: 'the episode resumed from its last checkpoint' }
-        }
-      }
-    }
+    /**
+     * The task targets, from the one module that owns them.
+     *
+     * They used to be written out here, which meant the only path that knew how to park the sub-worker
+     * and the engineering runtime was the *scheduled machine restart*. The restart supervisor needs the
+     * same two things — what is running, and how to stop and continue it — so they live in
+     * `app/reboot/targets.cjs` and both paths drive them (see `taskContinuity()` below).
+     */
+    targets: taskTargets()
   })
   logLine(`reboot scheduler ready (${platform.supported ? 'restart supported' : `restart not supported on ${platform.platform}`})`)
   return rebootCoordinator
@@ -1369,6 +1682,85 @@ function ensureReboot() {
 function rebootStore() {
   ensureReboot()
   return rebootStoreRef
+}
+
+/**
+ * The task targets both restart paths drive.
+ *
+ * The shell owns the sub-worker and the engineering runtime, so it is the layer that can hand out an
+ * adapter for each; *how* to park and continue them is not written here any more (`app/reboot/targets.cjs`),
+ * because the scheduled machine restart and the supervisor's application restart must not drift apart.
+ */
+let rebootTargetsRef = null
+function taskTargets() {
+  if (rebootTargetsRef) return rebootTargetsRef
+  const { createRebootTargets } = require('./reboot/targets.cjs')
+  rebootTargetsRef = createRebootTargets({ workerManager, engineeringHost, log: (line) => logLine(line) })
+  return rebootTargetsRef
+}
+
+/**
+ * Core's **task continuity**, as the restart supervisor consumes it.
+ *
+ * This is the answer to the half of a restart that is not about processes: what is running, park it at
+ * its own boundary, write down what will have to be continued, and afterwards continue it — reporting
+ * the three different things "recovery" can mean (process, task, semantic) instead of one `ok: true`.
+ *
+ * It is created once and shared: the plugin host hands it to the shipped plugins that declare a need
+ * for it, and the shell's own diagnostics read the same object, so the recorded intent and the resumed
+ * work cannot disagree.
+ */
+let taskContinuityRef = null
+function taskContinuity() {
+  if (taskContinuityRef) return taskContinuityRef
+  const { createTaskContinuity } = require('./core/task-continuity.cjs')
+  taskContinuityRef = createTaskContinuity({
+    targets: taskTargets(),
+    stateDir: path.join(ROOT, 'data', 'state'),
+    log: (line) => logLine(line)
+  })
+  return taskContinuityRef
+}
+
+/**
+ * The health decision, as a plain snapshot the queue can act on.
+ *
+ * It reads the `health-pressure` capability from the plugin registry — read-only, once per question,
+ * and `null` when no monitor is providing one. Nothing here samples the machine: a second sampler
+ * would be a second opinion about pressure, which is the duplication this whole split exists to
+ * avoid.
+ */
+function healthDecisionSnapshot() {
+  try {
+    const registry = pluginHost && pluginHost.manager ? pluginHost.manager.registry : null
+    if (!registry || typeof registry.resolve !== 'function') return null
+    const surface = registry.resolve('health-pressure', { optional: true })
+    if (!surface || typeof surface.decide !== 'function') return null
+    const decision = surface.decide() || {}
+    const latest = typeof surface.pressure === 'function' ? surface.pressure() : null
+    const pressure = Number.isFinite(Number(decision.pressure)) ? Number(decision.pressure) : (latest && Number.isFinite(Number(latest.pressure)) ? Number(latest.pressure) : null)
+    const reasons = Array.isArray(decision.reasons) ? decision.reasons.filter(Boolean) : []
+    return {
+      action: decision.action || 'NO_ACTION',
+      state: decision.state || null,
+      pressure,
+      trend: decision.trend && decision.trend.trend ? decision.trend.trend : null,
+      reason: reasons.length ? reasons.join('; ') : (decision.held ? String(decision.held) : null),
+      explicit: true
+    }
+  } catch (error) {
+    logLine(`the health decision could not be read: ${error?.message || error}`)
+    return null
+  }
+}
+
+/** The one work-admission gate, built once. */
+let workAdmissionRef = null
+function workAdmission() {
+  if (workAdmissionRef) return workAdmissionRef
+  const { createWorkAdmission } = require('./core/work-admission.cjs')
+  workAdmissionRef = createWorkAdmission({ provider: healthDecisionSnapshot, log: (line) => logLine(line) })
+  return workAdmissionRef
 }
 
 /** A due plan fires within a few seconds, and the countdown the panel draws stays true. */
@@ -1486,14 +1878,25 @@ function disposeComputerUseOnExit(source = 'shell') {
 }
 
 /**
- * Shared teardown for every exit path: stop the extension (which stops the
- * scheduler and persists the queue/history), pause+flush+terminate the optional
- * Sub-worker, drop the integrated views, and terminate the managed Harness
- * child tree.
+ * Shared teardown for the UI's own exit.
  *
- * Order matters (plan §25): state is persisted by the extension stop, then the
- * worker is paused/flushed and its process tree is terminated, and only then is
- * the managed Harness stopped.
+ *   closing the GUI  !=  stopping the Runtime
+ *
+ * This function releases everything the **UI** holds: the extension host (which
+ * persists the scheduler queue and history), the optional Sub-worker that this
+ * process created, the engineering and plugin hosts, the computer-use runtime and
+ * the integrated views. It does **not** stop the Harness, and it does not ask the
+ * Runtime to shut down.
+ *
+ * That is the requirement's central sentence, made operational. The Harness is
+ * owned by the Runtime Host — a separate, detached process — so a window closing
+ * cannot take the engine with it, and a task that was running keeps running.
+ * Stopping everything is an explicit, separate act: `stopRuntimeCompletely()`,
+ * reached only from "Stop DS-Hns Completely" and from `runtime.cjs stop`.
+ *
+ * The connection is *detached* rather than dropped: the client stops reconnecting
+ * and the socket is closed, so the Runtime sees a client leave rather than a
+ * process die.
  */
 function teardownManagedResources({ destroyWindows = false } = {}) {
   try {
@@ -1524,9 +1927,40 @@ function teardownManagedResources({ destroyWindows = false } = {}) {
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy()
     } catch {}
   }
+  // Detach, never stop. The Runtime outlives this process by design.
   try {
-    stopHarness()
+    if (runtimeClient) {
+      runtimeClient.detach()
+      logLine('detached from the Runtime; it keeps running')
+    } else {
+      // Only reachable if the shell never attached and started a child itself.
+      stopHarnessInProcess()
+    }
   } catch {}
+}
+
+/**
+ * The explicit full stop: "Stop DS-Hns Completely".
+ *
+ * This is the only UI path that ends the Runtime, and it does it the civil way —
+ * it *asks* the Runtime to drain, checkpoint and terminate its own children, and
+ * then waits for it to go. Nothing here kills a process by PID, because the
+ * Runtime owns its children and knows the order they must stop in.
+ */
+async function stopRuntimeCompletely(source = 'shell') {
+  logLine(`complete stop requested from the UI (${source})`)
+  if (!runtimeClient) {
+    stopHarnessInProcess()
+    return { stopped: false, reason: 'no runtime client' }
+  }
+  try {
+    const result = await runtimeClient.shutdownRuntime({ reason: `desktop complete stop (${source})` })
+    logLine(`complete stop result: ${JSON.stringify(result)}`)
+    return result
+  } catch (error) {
+    logLine(`complete stop failed: ${error?.message || error}`)
+    return { stopped: false, error: String(error?.message || error) }
+  }
 }
 
 /**
@@ -2189,6 +2623,11 @@ function createWindow() {
   mainWindow.on('unmaximize', layoutIntegratedViews)
   mainWindow.on('restore', layoutIntegratedViews)
   mainWindow.on('closed', () => {
+    // Wallpaper, notification and optional orb windows may still exist, so
+    // window-all-closed is not the primary-window exit signal. Use the existing
+    // before-quit teardown (detach, never stop the Runtime) while owned view
+    // references are still available. Explicit shutdown already owns this path.
+    if (!shuttingDown) app.quit()
     megaDockView = null
     officialView = null
     mainWindow = null
@@ -2325,6 +2764,7 @@ function createOfficialSurfaceAdapter() {
       if (!officialSurfaces) {
         return {
           available: false,
+          reason: officialView ? 'official_surfaces_unavailable' : 'official_renderer_is_window_page',
           surfaces: PAINTABLE.map((id) => ({ id, created: false, ready: false, bounds: null })),
           protected: protectedSurface,
           wallpaper
@@ -2421,10 +2861,103 @@ async function startExtensions(nodeExe) {
       // and the dock must degrade gracefully.
       subWorker: workerManager,
       onSubWorkerChange: subscribeSubWorker,
+      /**
+       * **Work admission**: the health decision, asked by the queue before it starts anything new.
+       *
+       * `app/core/work-admission.cjs` turns the monitor's decision into "may new work start, and with
+       * how many slots". The seam is here because the shell is the only layer that can see both halves:
+       * the queue belongs to the Mega extension, the decision to a plugin, and neither may reach into
+       * the other. A monitor that is absent, disabled or answering UNKNOWN admits — no evidence, no
+       * restriction — and one that throws is a log line rather than a stopped queue.
+       */
+      workAdmission: () => workAdmission().admit(),
       // The store changes the installed set while the plugin host's world is already built.
       // This hook lets the store *await* the rebuild, so the panel's next read cannot show
       // "enabled" for a plugin the runtime has not mounted yet.
       reloadInstalledPlugins,
+      /**
+       * The plugin host, as the surface Mega and the official page read the two **built-in services**
+       * through: the health scheduler and the restart supervisor.
+       *
+       * Every call is synchronous and side-effect free except the four that act (`setEnabled`,
+       * `checkHealth`, `reload`, `restartControl`), because this is handed to a *panel*: it describes
+       * plugins, and the operations it can perform are the ones the Control Center's own action
+       * vocabulary names. The shell owns the host, so this is a hook rather than an import — the
+       * extension never reaches into the runtime's internals.
+       */
+      pluginServices: {
+        report: (id) => pluginRuntime().serviceReport(id),
+        reportAll: (ids) => pluginRuntime().serviceReports(ids),
+        /**
+         * The formal `restart_status`, for the panels.
+         *
+         * It is its own hook rather than a field a panel digs out of the supervisor's record: the
+         * official UI must be able to show "when did this machine last restart and what came back"
+         * even while the plugin that owns the answer is the thing that just failed.
+         */
+        restartStatus: () => pluginRuntime().restartStatus(),
+        setEnabled: (id, enabled) => pluginRuntime().setEnabled({ id, enabled }),
+        checkHealth: (id) => pluginRuntime().health({ id }),
+        reload: (id, options) => pluginRuntime().reload({ ...options, id }),
+        /**
+         * The **advanced** settings the panel may change: the two plugins' own policy, as dotted paths
+         * into the configuration they read.
+         *
+         * `advanced()` describes (the schema's label, type and range beside the value in force);
+         * `setAdvanced()` writes. Both go through the host's one validator, so a value the panel offers
+         * is a value the host accepts, and a refusal carries its reason rather than being clamped.
+         */
+        advanced: () => {
+          try {
+            const runtime = pluginRuntime()
+            const schema = runtime.ADVANCED_SCHEMA || {}
+            const owners = ['dshns.health-scheduler', 'dshns.restart-supervisor']
+            const resolved = {}
+            for (const owner of owners) {
+              try {
+                const description = runtime.describe({ id: owner })
+                resolved[owner] = description?.ok === true ? description.config : null
+              } catch {
+                resolved[owner] = null
+              }
+            }
+            const read = (object, key) => key.split('.').reduce((cursor, part) => (cursor && typeof cursor === 'object' ? cursor[part] : undefined), object)
+            return Object.entries(schema).map(([key, rule]) => ({
+              key,
+              owner: rule.owner,
+              label: rule.label || key,
+              type: rule.type || 'string',
+              min: Number.isFinite(rule.min) ? rule.min : null,
+              max: Number.isFinite(rule.max) ? rule.max : null,
+              enum: Array.isArray(rule.enum) ? rule.enum.slice() : null,
+              value: resolved[rule.owner] ? read(resolved[rule.owner], key) : undefined
+            }))
+          } catch (error) {
+            logLine(`the advanced plugin settings could not be described: ${error?.message || error}`)
+            return null
+          }
+        },
+        setAdvanced: (settings) => pluginRuntime().configure({ settings }),
+        /**
+         * `restart-control`, if anything provides it.
+         *
+         * Resolved through the capability registry rather than by importing the supervisor: the
+         * monitor's own rule applies to every consumer, and the answer carries the reason when nothing
+         * provides it, so a surface can say "unavailable, because" rather than showing a dead button.
+         */
+        restartControl: () => {
+          try {
+            const runtime = pluginRuntime()
+            const resolved = runtime.registry && typeof runtime.registry.resolve === 'function'
+              ? runtime.registry.resolve('restart-control')
+              : null
+            if (!resolved) return { ok: false, reason: 'no plugin provides restart-control' }
+            return { ok: true, value: resolved }
+          } catch (error) {
+            return { ok: false, reason: `resolving restart-control threw: ${error?.message || error}` }
+          }
+        }
+      },
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
@@ -2464,16 +2997,28 @@ app.whenReady().then(async () => {
     // like a product that had not started. The page below is ours — a script-free skeleton of the
     // shape that is coming — and the official UI replaces it when it answers.
     await showStartupSkeleton()
-    await runtimeProcess.recoverOwnedStale({ root: ROOT, dshEntry: DSH_ENTRY, log: logLine })
-    if (await isHarnessPortListening()) {
-      throw startupError(`Port ${HARNESS_PORT} is already in use by another process. Close it before starting DS-Harness.`)
-    }
+    /**
+     * Attach to this instance's Runtime — or start one — before asking it for the Harness.
+     *
+     * This is the inversion, in the one place where it is visible: the UI no
+     * longer spawns the engine. It asks the Runtime to, and the Runtime keeps
+     * owning it after this window is gone. The stale-runtime sweep and the
+     * "port already in use" check that used to sit here now belong to the owner
+     * too (`recoverOwnedStale` and the `blocked` answer inside `harness.start`),
+     * because a second process doing its own sweep is exactly how one instance
+     * kills another's Harness.
+     */
+    await connectRuntime()
+    // The Runtime's own IPC surface: what the UI's connection looks like, and the
+    // one explicit full stop. Registered here so a panel can report
+    // "disconnected" for the rest of the session even if the Runtime later goes.
+    registerRuntimeIpc()
+    startup.mark('runtime-attached')
     const nodeExe = resolveNodeExe()
-    await Promise.race([
-      startHarness(nodeExe),
+    const readyUrl = await Promise.race([
+      startHarnessViaRuntime(),
       new Promise((_, reject) => setTimeout(() => reject(startupError(`No Harness access token was announced within ${STARTUP_TIMEOUT_MS / 1000} seconds`)), STARTUP_TIMEOUT_MS))
     ])
-    const readyUrl = await waitForHarness()
     startup.mark('harness-ready')
     // The Dual-UI backend client talks to the same authenticated Harness the
     // official renderer uses; publishing the origin is what lets the native
@@ -2536,6 +3081,15 @@ app.whenReady().then(async () => {
     if (pluginsEnabled()) {
       registerPluginIpc()
       logLine('plugins: runtime available on demand (plugins:* IPC)')
+      // The companion's graceful request is watched from boot, so a restart the supervisor starts is a
+      // graceful one rather than a `taskkill` — even when nobody ever opens a plugin panel.
+      watchSupervisorStopRequest()
+      // ...and the one process that has to be up *before* anything can go wrong: the restart
+      // supervisor's companion. Deferred, so it is a boot-report phase rather than a boot dependency.
+      startup.defer('restart-supervisor', () => startRestartSupervisor())
+        .then((outcome) => {
+          if (outcome?.value?.ok === false) logLine(`restart supervisor: ${outcome.value.reason}`)
+        })
     } else {
       logLine('plugins: disabled by config/app.json')
     }
@@ -2595,12 +3149,33 @@ app.on('second-instance', () => {
   mainWindow.show()
   mainWindow.focus()
 })
+/**
+ * Closing the last window quits the *Desktop*, and only the Desktop.
+ *
+ * `before-quit` releases the UI's own resources (see `teardownManagedResources`)
+ * and detaches from the Runtime. Nothing on this path stops the Harness, because
+ * the Harness does not belong to this process: it belongs to the Runtime Host,
+ * which was started detached and which keeps serving after this window is gone.
+ *
+ * The `exit` handler is deliberately *not* `stopHarness` any more. A synchronous
+ * "kill the child on the way out" is exactly the coupling this change removes,
+ * and it would have silently undone the split on the one path that runs no matter
+ * how the process ends. It now only cleans up a child this process started
+ * itself, which the attached path never does.
+ */
 app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   // Closing the main window (or a system shutdown) is the implicit normal exit.
   if (shuttingDown) return
   shuttingDown = true
-  logLine('before-quit: reconciling managed resources')
+  logLine('before-quit: releasing the UI and reconciling desktop resources; the Runtime is left running')
+  // Before anything is torn down, and while this process can still write: an intentional exit and a
+  // crash look identical from outside, so the companion is told which one this is.
+  standDownRestartSupervisor()
   teardownManagedResources()
 })
-process.on('exit', stopHarness)
+process.on('exit', () => {
+  try {
+    stopHarnessInProcess()
+  } catch {}
+})

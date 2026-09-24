@@ -391,16 +391,34 @@ window.__ModuleLoader__.load({
 			}
 
 			/** Ask governance for one of the actions it accepts, then re-read (the state may have moved). */
-			async function act(action, id) {
+			async function act(action, id, options = {}) {
+				if (action === 'diagnostics') {
+					snapshot = { ...snapshot, action: { ok: null, pending: true, id, action } };
+					emit();
+				}
 				try {
 					const response = await send(ACTION_URL, {
 						method: 'POST',
 						headers: { 'content-type': 'application/json' },
 						credentials: 'same-origin',
-						body: JSON.stringify({ action, id })
+						/**
+						 * `confirm` is what makes a dangerous action legal.
+						 *
+						 * The host refuses `manual-restart`, `reset-budget`, `restart-plugin` and
+						 * `set-advanced` without `confirm: true`, so the confirmation is not a label in a
+						 * button: this flag is only ever set after a person agreed to the step in the UI, and
+						 * a caller that skipped it is refused rather than obeyed.
+						 */
+						body: JSON.stringify({
+							action,
+							id: id === null || id === undefined ? null : id,
+							confirm: options.confirm === true,
+							key: options.key,
+							value: options.value
+						})
 					});
 					const body = await readJson(response, 'the action route');
-					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id, action, reason: body?.reason || null } };
+					snapshot = { ...snapshot, action: { ok: body?.ok !== false, id, action, result: body?.result || null, reason: body?.reason || null, needsConfirmation: body?.needsConfirmation === true } };
 				} catch (error) {
 					snapshot = { ...snapshot, action: { ok: false, id, action, reason: String(error?.message || error) } };
 				}
@@ -929,6 +947,77 @@ window.__ModuleLoader__.load({
 			]);
 		}
 
+		/**
+		 * A button for a **dangerous** action: it asks first, and it says what it is asking.
+		 *
+		 * The page used to render `"manual-restart (confirm)"` as its label and perform the restart on the
+		 * first click — a warning label, not a confirmation. This asks in place (a second button, and a way
+		 * to back out), and the action is only sent with `confirm: true` once a person has agreed. The host
+		 * refuses it otherwise, so the step cannot be skipped by another surface either.
+		 */
+		function DangerousActionButton({ label, title, onConfirm, key }) {
+			const [asking, setAsking] = React.useState(false);
+			if (!asking) {
+				return React.createElement(ActionButton, {
+					key,
+					label: `⚠ ${label}`,
+					title: title || 'this changes the running product; it asks before doing it',
+					tone: 'warn',
+					onClick: () => setAsking(true)
+				});
+			}
+			return box('span', { key, style: { display: 'inline-flex', alignItems: 'center', gap: '4px', margin: '2px 4px 2px 0' } }, [
+				text(`${label}?`, { key: 'ask', color: TONES.warn, font: font(12) }),
+				React.createElement(ActionButton, { key: 'yes', label: '确认 · Confirm', tone: 'bad', onClick: () => { setAsking(false); onConfirm(); } }),
+				React.createElement(ActionButton, { key: 'no', label: '取消 · Cancel', onClick: () => setAsking(false) })
+			]);
+		}
+
+		/**
+		 * One action, drawn the way its own definition says it must be.
+		 *
+		 * The `" (confirm)"` suffix travels with the action because that is how the view model marks a
+		 * dangerous one; it is stripped from the label here and turned into the confirmation above rather
+		 * than being shown to the user as text.
+		 */
+		function actionButton(action, id, onAction, key) {
+			const wanted = String(action);
+			const dangerous = /\(confirm\)/.test(wanted);
+			const label = wanted.replace(' (confirm)', '');
+			if (!dangerous) return React.createElement(ActionButton, { key, label, onClick: () => onAction(label, id, {}) });
+			return React.createElement(DangerousActionButton, { key, label, onConfirm: () => onAction(label, id, { confirm: true }) });
+		}
+
+		/**
+		 * One advanced policy key, with the field that writes it.
+		 *
+		 * The value in force is shown as the field's placeholder rather than as its value: a field that
+		 * arrives pre-filled invites an accidental write of a number the operator did not choose, and this
+		 * is the surface where a typo changes when a machine restarts.
+		 */
+		function AdvancedRow({ entry, onApply }) {
+			const [draft, setDraft] = React.useState('');
+			const current = entry.value === undefined || entry.value === null ? '—' : String(entry.value);
+			return box('span', { key: `adv:${entry.key}`, style: { display: 'inline-flex', alignItems: 'center', gap: '4px', margin: '2px 0' } }, [
+				text(`= ${current}`, { key: 'value', color: TONES.ok, font: font(11) }),
+				box('input', {
+					key: 'draft',
+					type: 'text',
+					placeholder: entry.type === 'boolean' ? 'true/false' : (Array.isArray(entry.values) && entry.values.length ? entry.values.join('|') : String(current)),
+					value: draft,
+					onChange: (event) => setDraft(String(event?.target?.value ?? '')),
+					style: { all: 'initial', width: '120px', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,.22)', color: '#ededed', font: font(11) }
+				}),
+				React.createElement(ActionButton, {
+					key: 'apply',
+					label: '写入 · Apply',
+					tone: 'warn',
+					title: 'writes this key through the host validator; a value the plugin would refuse is refused',
+					onClick: () => { const value = draft; setDraft(''); onApply(value); }
+				})
+			]);
+		}
+
 		/** A button that matches the panel's own styling instead of the official one. */
 		function ActionButton({ label, title, onClick, tone, key }) {
 			return box('button', {
@@ -962,6 +1051,21 @@ window.__ModuleLoader__.load({
 		 * the reason the two surfaces cannot drift: both render the same `view`, and the numbers on the ball come
 		 * from the same snapshot the page's fields do.
 		 */
+		function serviceDiagnostics(action, id) {
+			if (action?.action !== 'diagnostics' || action.id !== id) return null;
+			let content;
+			if (action.pending) content = '正在读取诊断 · Loading diagnostics…';
+			else if (action.ok === false) content = `诊断失败 · Diagnostics failed: ${action.reason || 'unavailable'}`;
+			else if (action.result?.result == null) content = '未返回诊断报告 · No diagnostic report returned';
+			else {
+				content = JSON.stringify(action.result.result, null, 2);
+				if (content.length > 16384) content = `${content.slice(0, 16384)}\n… truncated · 报告过长，已截断`;
+			}
+			// Text children only: diagnostics are data, never markup. Bound both the
+			// content and its visible height so one report cannot bury the controls.
+			return box('pre', { role: 'status', style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '240px', overflow: 'auto', margin: '6px 0', padding: '8px', background: 'rgba(255,255,255,.05)', color: action.ok === false ? TONES.bad : MUTED, font: font(11, 400) } }, content);
+		}
+
 		function MegaBody({ snapshot, onAction, onRefresh, expanded, onToggleExpanded, onDashboardAction, onTaskAction }) {
 			const view = snapshot?.view;
 			if (!view) {
@@ -999,28 +1103,94 @@ window.__ModuleLoader__.load({
 				text(value, { color: '#ededed', font: font(12) })
 			]));
 
-			const actions = (view.actions || []).map((action) => React.createElement(ActionButton, {
-				key: `all:${action}`,
-				label: action,
-				title: `对全部有问题的模块执行 ${action}`,
-				onClick: () => onAction(action, null)
-			}));
+			const actions = (view.actions || []).map((action) => actionButton(action, null, onAction, `all:${action}`));
 
 			const detail = expanded ? box('div', { key: 'detail', style: { marginTop: '8px' } }, [
 				box('div', { key: 'fields', style: { marginTop: '4px' } }, (view.fields || []).map(FieldRow)),
 				box('div', { key: 'rosters', style: { marginTop: '8px' } }, [
-					text('模块 · Modules', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+					/**
+					 * The two built-in services first, because they are the components whose failure the product is
+					 * meant to survive — the health scheduler and the restart supervisor — and because every field
+					 * below is the plugin host's own service record rather than a re-derivation.
+					 *
+					 * Each service shows the four states separately (never one on/off flag), its own health answer,
+					 * its heartbeat, the capabilities it provides, and — when there is one — the last error. The
+					 * actions come from the record, so a control the plugin would refuse is never drawn.
+					 */
+					text('内置服务 · Built-in services', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+					...((view.services || []).length
+						? view.services.map((entry) => box('div', { key: `s:${entry.id}`, 'data-hns-service': entry.id, style: { padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,.06)' } }, [
+							text(`${entry.tone === 'ok' ? '✓' : entry.tone === 'bad' ? '✖' : '⚠'} ${entry.name || entry.id} — ${entry.state}${entry.version ? ` v${entry.version}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
+							text([
+								`installed ${entry.installed ? 'yes' : 'no'} · enabled ${entry.enabled ? 'yes' : 'no'} · loaded ${entry.loaded ? 'yes' : 'no'} · healthy ${entry.healthy === null || entry.healthy === undefined ? '—' : entry.healthy ? 'yes' : 'no'}`,
+								entry.health?.reason ? `health: ${entry.health.reason}` : null,
+								entry.heartbeat ? `heartbeat: ${entry.heartbeat.verdict || entry.heartbeat}` : null,
+								(entry.capabilities?.provides || []).length ? `provides: ${entry.capabilities.provides.join(', ')}` : null,
+								entry.pressure !== null && entry.pressure !== undefined ? `pressure ${entry.pressure}${entry.trend ? ` · trend ${entry.trend}` : ''}${entry.state5 ? ` · state ${entry.state5}` : ''}` : null,
+								entry.restart ? `supervisor ${entry.restart.supervisorState || '—'}${entry.restart.budget ? ` · restarts ${entry.restart.budget.used}/${entry.restart.budget.config?.maxRestarts ?? '—'}` : ''}${entry.restart.safeMode ? ' · SAFE MODE' : ''}${entry.restart.companion ? ` · companion ${entry.restart.companion.running ? 'running' : 'stopped'}` : ''}` : null,
+								/** Why the monitor is holding work — the reason, not just the pressure number. */
+								entry.held ? `held: ${entry.held}` : null,
+								entry.maintenance && entry.maintenance.enabled ? `maintenance ${entry.maintenance.windowStart}-${entry.maintenance.windowEnd}${entry.maintenance.allowed === false ? ' (holding)' : ''}` : null,
+								/** What this plugin is allowed to do, as the host recorded it. */
+								entry.permissions ? `permissions: ${typeof entry.permissions === 'string' ? entry.permissions : JSON.stringify(entry.permissions)}` : null,
+								entry.lastError ? `last error: ${entry.lastError.reason}` : null
+							].filter(Boolean).join(' · '), { display: 'block', color: MUTED, font: font(10, 400) }),
+							...(entry.actions || []).map((action) => actionButton(action, entry.id, onAction, `s:${entry.id}:${action}`)),
+							serviceDiagnostics(snapshot.action, entry.id)
+						]))
+						: [text('—', { color: MUTED })]),
+					/**
+					 * The formal `restart_status`.
+					 *
+					 * Its own block, because it answers a different question from the service rows above:
+					 * they say whether the supervisor is *running*, this says what the last restart did —
+					 * the reason, when it was asked for and when it finished, whether the interrupted work
+					 * recovered (and if not, why), and how many attempts the ring holds. It is drawn from the
+					 * persisted record, so it is here even for a restart whose process never came back to
+					 * write anything itself.
+					 */
+					view.restartStatus && view.restartStatus.available
+						? box('div', { key: 'restart-status', 'data-hns-restart-status': view.restartStatus.phase || 'UNKNOWN', style: { marginTop: '6px' } }, [
+							text('重启状态 · Restart status', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+							...(view.restartStatus.rows || []).map((row_) => text(`${row_.cn} · ${row_.en}: ${row_.value}`, { key: row_.id, display: 'block', color: TONES[row_.tone] || '#ededed', font: font(11, 400) })),
+							...(Array.isArray(view.restartStatus.history) && view.restartStatus.history.length
+								? [text(`历史 · History: ${view.restartStatus.history.map((entry) => `${entry.reasonCode || 'UNKNOWN'}${entry.ok === true ? ' ✓' : entry.ok === false ? ' ✖' : ''}`).join(', ')}`, { display: 'block', color: MUTED, font: font(10, 400) })]
+								: [])
+						])
+						: null,
+					/**
+					 * The **advanced policy**, from the host's own description.
+					 *
+					 * Thirty-eight dotted keys — thresholds, hysteresis exits, sampling interval, cooldown,
+					 * maintenance window, restart budget, backoff, heartbeat and readiness timeouts — reached
+					 * the snapshot and were drawn by nothing: an operator could not see the policy in force,
+					 * let alone change it, from the one UI every user has. Each row shows the key, its range
+					 * or its allowed values and the value in force, and writes through the host's validator —
+					 * so a value the plugin would refuse is refused with a reason, never clamped.
+					 */
+					(view.advanced || []).length
+						? box('div', { key: 'advanced', 'data-hns-advanced': String((view.advanced || []).length), style: { marginTop: '6px' } }, [
+							text('高级设置 · Advanced policy', { display: 'block', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
+							...view.advanced.map((entry) => box('div', { key: `a:${entry.key}`, 'data-hns-advanced-key': entry.key, style: { padding: '3px 0' } }, [
+								text(`${entry.label || entry.key} (${entry.key}) — ${entry.type}${entry.min !== undefined && entry.min !== null ? ` ${entry.min}..${entry.max}` : ''}${Array.isArray(entry.values) && entry.values.length ? ` [${entry.values.join('|')}]` : ''}`, { display: 'block', color: '#ededed', font: font(11, 400) }),
+								text(`${entry.cn || ''}${entry.cn ? ' · ' : ''}${entry.en || ''}${entry.owner ? ` · ${entry.owner}` : ''}`, { display: 'block', color: FAINT, font: font(10, 400) }),
+								React.createElement(AdvancedRow, { key: `a:${entry.key}:editor`, entry, onApply: (value) => onAction('set-advanced', entry.owner || null, { confirm: true, key: entry.key, value }) })
+							]))
+						])
+						: null,
+					text('保护模块 · Protection modules', { display: 'block', marginTop: '6px', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
 					...((view.modules || []).length
 						? view.modules.map((entry) => box('div', { key: `m:${entry.id}`, style: { padding: '3px 0' } }, [
-							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
-							...(entry.actions || []).map((action) => React.createElement(ActionButton, { key: `m:${entry.id}:${action}`, label: action, onClick: () => onAction(action, entry.id) }))
+							text(`${entry.state === 'HEALTHY' ? '✓' : entry.state === 'FAILED' ? '✖' : entry.state === 'DISABLED' ? '○' : '⚠'} ${entry.id} — ${entry.state}${entry.retries ? ` · ${entry.retries} retry` : ''}${entry.lastError ? ` · ${entry.lastError}` : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
+							String(entry.id || '').startsWith('bundled:') ? text('安装保护记录，非插件加载状态 · installation protection, not plugin load state', { display: 'block', color: MUTED, font: font(10, 400) }) : null,
+							...(entry.actions || []).map((action) => actionButton(action, entry.id, onAction, `m:${entry.id}:${action}`))
 						]))
 						: [text('—', { color: MUTED })]),
 					text('社区插件 · Bundled plugins', { display: 'block', marginTop: '6px', color: 'rgba(255,255,255,.62)', marginBottom: '4px' }),
 					...((view.plugins || []).length
 						? view.plugins.map((entry) => box('div', { key: `p:${entry.id}`, style: { padding: '3px 0' } }, [
 							text(`${entry.state === 'installed' ? '✓' : '⚠'} ${entry.id} — ${entry.state}${entry.installedVersion ? ` @${entry.installedVersion}` : ''}${entry.expected ? ` · pin ${entry.expected}` : ''}${entry.channel ? ` · ${entry.channel}` : ''}${entry.tested ? ' · tested' : ''}`, { display: 'block', color: TONES[entry.tone] || '#ededed', fontWeight: '400' }),
-							...(entry.actions || []).map((action) => React.createElement(ActionButton, { key: `p:${entry.id}:${action}`, label: action, onClick: () => onAction(action, entry.id) }))
+							...(entry.actions || []).map((action) => actionButton(action, entry.id, onAction, `p:${entry.id}:${action}`))
 						]))
 						: [text('—', { color: MUTED })])
 				])
@@ -1037,7 +1207,7 @@ window.__ModuleLoader__.load({
 					onToggleExpanded ? React.createElement(ActionButton, { key: 'expand', label: expanded ? '收起 · Collapse' : '治理详情 · Governance', onClick: () => onToggleExpanded(!expanded) }) : null
 				].filter(Boolean)),
 				snapshot.action ? text(
-					snapshot.action.ok ? `✓ ${snapshot.action.action}${snapshot.action.id ? ` ${snapshot.action.id}` : ''}` : `✖ ${snapshot.action.reason || '操作被拒绝 · refused'}`,
+					snapshot.action.pending ? '正在读取诊断 · Loading diagnostics…' : snapshot.action.ok ? `✓ ${snapshot.action.action}${snapshot.action.id ? ` ${snapshot.action.id}` : ''}` : `✖ ${snapshot.action.reason || '操作被拒绝 · refused'}`,
 					{ display: 'block', marginTop: '4px', color: snapshot.action.ok ? TONES.ok : TONES.bad, fontWeight: '400' }
 				) : null,
 				/**
@@ -1150,15 +1320,15 @@ window.__ModuleLoader__.load({
 				// what makes that true while keeping the button in the tab order.
 				if (event && typeof event.preventDefault === 'function') event.preventDefault();
 				if (event && event.button !== undefined && event.button !== 0) return;
-				// The drag is measured from the orb's own rectangle, so it works the same whether that
-				// rectangle is in window coordinates or inside a transformed ancestor — and the offsets it
-				// produces are distances from the layer's corner, which is what gets stored.
+				// Pointer deltas start at the press, so grabbing the middle does not jump
+				// the ball by its radius. The rectangle is only a fallback for callers
+				// without pointer coordinates; stored offsets remain layer-relative.
 				const rect = event?.currentTarget && typeof event.currentTarget.getBoundingClientRect === 'function'
 					? event.currentTarget.getBoundingClientRect()
 					: null;
 				drag.current = {
-					startX: rect ? rect.left : Number(event?.clientX || 0),
-					startY: rect ? rect.top : Number(event?.clientY || 0),
+					startX: Number(event?.clientX ?? rect?.left ?? 0),
+					startY: Number(event?.clientY ?? rect?.top ?? 0),
 					// The offsets the drag started from. They are what every move is measured against: using
 					// the *running* offsets instead would apply each pointer event's whole delta again, and
 					// the orb would accelerate away from the pointer.
@@ -1182,6 +1352,9 @@ window.__ModuleLoader__.load({
 				if (!current) return;
 				const dx = Number(event?.clientX || 0) - current.startX;
 				const dy = Number(event?.clientY || 0) - current.startY;
+				// Captured stationary events and hand jitter are still a click. Measure
+				// from the pointer-down point, not the ball's top-left corner.
+				if (!current.moved && Math.hypot(dx, dy) < 4) return;
 				// Left and up both *increase* the distances from the corner: the orb follows the pointer.
 				const next = clampOffsets({ right: current.startRight - dx, bottom: current.startBottom - dy }, current.box);
 				current.moved = true;
@@ -1389,7 +1562,7 @@ window.__ModuleLoader__.load({
 					expanded,
 					onToggleExpanded: setExpanded,
 					onRefresh: () => store.refresh(),
-					onAction: (action, id) => store.act(action, id),
+					onAction: (action, id, options) => store.act(action, id, options || {}),
 					onDashboardAction: (action) => store.actDashboard(action),
 					/**
 					 * The queue's three operations, from the ball's panel.
@@ -1409,6 +1582,18 @@ window.__ModuleLoader__.load({
 			// The wrapper is the layer's box: `inset: 0` on it, and both the orb and the panel are absolute
 			// inside it, so the panel can never be clipped by the orb's own box and neither is positioned
 			// against the window.
+			/**
+			 * One ball, whoever draws it.
+			 *
+			 * DS-Hns has two ways to put a floating ball on screen: this one, inside the official UI's own
+			 * overlay slot, and the system-wide window (`app/extensions/mega/system-orb.cjs`), which floats
+			 * over *every* application and is opt-in. When the host says that window is the one running,
+			 * this component draws nothing — two balls sharing one state is exactly the duplicate entry the
+			 * product must not have. The decision is the host's (it is the layer that knows), and it is made
+			 * at render time so a change reaches an already-mounted page without a reload.
+			 */
+			if (snapshot?.view?.orb?.hideInUi) return null;
+
 			return box('div', {
 				key: 'mega-orb-stack',
 				ref: layerRef,
@@ -1435,7 +1620,7 @@ window.__ModuleLoader__.load({
 					// §4.4 is the full page, so it opens expanded and never offers to collapse into itself.
 					expanded: true,
 					onRefresh: () => store.refresh(),
-					onAction: (action, id) => store.act(action, id)
+					onAction: (action, id, options) => store.act(action, id, options || {})
 				})
 			]);
 		}
@@ -1856,9 +2041,9 @@ window.__ModuleLoader__.load({
 						text('定时设置', { color: MUTED, font: font(12) }),
 						text('Schedule', { color: FAINT, font: font(10, 400) }),
 						box('span', { key: 'tz', style: { flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400) } },
-							timing?.schedule?.timeZone ? `时区 ${timing.schedule.timeZone}` : '')
+							timing?.schedule?.timeZone ? `计费时区 ${timing.schedule.timeZone}` : '')
 					]),
-					field('startAt', '发送时间', 'Send at', box('input', {
+					field('startAt', '发送时间（本机时间）', 'Send at (local time)', box('input', {
 						key: 'input',
 						'data-hns-mega-task-time': 'on',
 						type: 'datetime-local',
@@ -2085,11 +2270,11 @@ window.__ModuleLoader__.load({
 					box('div', { key: 'title', style: { display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' } }, [
 						text('定时设置', { color: MUTED, font: font(11) }),
 						text('Schedule', { color: FAINT, font: font(10, 400) }),
-						text(timing?.schedule?.timeZone ? `时区 ${timing.schedule.timeZone}` : '', {
+						text(timing?.schedule?.timeZone ? `计费时区 ${timing.schedule.timeZone}` : '', {
 							flex: '1 1 auto', textAlign: 'right', color: FAINT, font: font(10, 400)
 						})
 					]),
-					text('发送时间 · Send at', { key: 'time-label', display: 'block', marginBottom: '3px', color: MUTED, font: font(11) }),
+					text('发送时间（本机时间） · Send at (local time)', { key: 'time-label', display: 'block', marginBottom: '3px', color: MUTED, font: font(11) }),
 					box('input', {
 						key: 'time',
 						'data-hns-mega-task-time': 'on',

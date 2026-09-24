@@ -9,9 +9,9 @@ name: verify
 # top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
-    branches: [main, merging, Theme-Cover, computer-use, long-term-work, test-reboot]
+    branches: [main, merging, better-install, target-standby, Theme-Cover, computer-use, long-term-work, test-reboot]
   pull_request:
-    branches: [main, merging, Theme-Cover, computer-use, long-term-work]
+    branches: [main, merging, better-install, target-standby, Theme-Cover, computer-use, long-term-work]
 
 jobs:
   verify:
@@ -344,6 +344,44 @@ jobs:
             # name here for the same reason as the rest: a renamed file must fail the gate rather than
             # silently drop the one check that leaves the checkout.
             'tests/unit/mega-core-install-acceptance.test.js',
+            # The optional community plugins, at the installation level (branch `better-install`): the
+            # market and the wallpaper engine, asked about one at a time, installed through the Harness
+            # plugin CLI and verified by the adapter layer. Asserted by name because these two files are
+            # the only coverage of the installer's own interaction, its summary and its new parameters --
+            # and of the rule that a community plugin failing never fails DS-Hns' own installation.
+            'tests/unit/installer-optional-plugins.test.js',
+            'tests/unit/installer-timing-gate.test.js',
+            # The two built-in long-hosting plugins of this release, and the soak harness that drives
+            # them. Asserted by name because a renamed file here would drop the coverage of the one
+            # claim the pair exists for: the thing that decides cannot restart anything.
+            'app/plugins/health-scheduler/index.cjs',
+            'app/plugins/health-scheduler/health.cjs',
+            'app/plugins/health-scheduler/providers.cjs',
+            'app/plugins/health-scheduler/severity.cjs',
+            'app/plugins/restart-supervisor/index.cjs',
+            'app/plugins/restart-supervisor/policy.cjs',
+            'app/plugins/restart-supervisor/budget.cjs',
+            'app/plugins/restart-supervisor/heartbeat.cjs',
+            'app/plugins/restart-supervisor/lifecycle.cjs',
+            'app/plugins/restart-supervisor/companion.cjs',
+            'app/plugins/restart-supervisor/companion/main.cjs',
+            'tests/unit/restart-supervisor-authority.test.js',
+            'tests/unit/longhost-soak.test.js',
+            'tests/helpers/longhost-clock.cjs',
+            'scripts/longhost-soak.cjs',
+            'scripts/install-bundled-plugins.ps1',
+            'scripts/uninstall-ds-harness.ps1',
+            'scripts/bundled-plugins.json',
+            'docs/restart-supervisor.md',
+            'tests/helpers/harness-cli-stub.cjs',
+            'tests/fixtures/community/dsh-market/package.json',
+            'tests/fixtures/community/dsh-plugin-wallpaper-engine/package.json',
+            'app/core/plugin-adapters/adapters/harness-profile.cjs',
+            'app/extensions/mega/plugins/community-install.cjs',
+            'app/extensions/mega/plugins/community-install-cli.cjs',
+            'app/extensions/mega/plugins/community-labels.json',
+            'scripts/install-community-plugins.ps1',
+            'scripts/installer-community-acceptance.cjs',
             'dshns-lock.yaml'
           )
           $missing = $required | Where-Object { -not (Test-Path $_) }
@@ -359,9 +397,41 @@ jobs:
           # The adapter framework and the install pipeline arrived with their own suite matrix, and the
           # suite list is only worth asserting if the names in it are asserted too: a suite that left
           # `test-all.ps1` while staying in this list would be a green gate over unchecked code.
-          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-compat\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-github\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js', 'plugin-adapters-contract\.test\.js', 'plugin-adapters-detection\.test\.js', 'plugin-adapters-lifecycle\.test\.js', 'plugin-adapters-framework\.test\.js', 'plugin-adapters-fault-injection\.test\.js', 'plugin-adapters-compatibility\.test\.js', 'plugin-cordis-structure\.test\.js', 'plugin-cordis-bridge\.test\.js', 'plugin-cordis-dsh\.test\.js', 'plugin-process-adapter\.test\.js', 'plugin-hns-native\.test\.js', 'plugin-install-pipeline\.test\.js', 'mega-core-install-acceptance\.test\.js')) {
+          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-compat\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-github\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js', 'plugin-adapters-contract\.test\.js', 'plugin-adapters-detection\.test\.js', 'plugin-adapters-lifecycle\.test\.js', 'plugin-adapters-framework\.test\.js', 'plugin-adapters-fault-injection\.test\.js', 'plugin-adapters-compatibility\.test\.js', 'plugin-cordis-structure\.test\.js', 'plugin-cordis-bridge\.test\.js', 'plugin-cordis-dsh\.test\.js', 'plugin-process-adapter\.test\.js', 'plugin-hns-native\.test\.js', 'plugin-install-pipeline\.test\.js', 'mega-core-install-acceptance\.test\.js', 'installer-optional-plugins\.test\.js', 'installer-timing-gate\.test\.js', 'restart-supervisor-authority\.test\.js', 'longhost-soak\.test\.js')) {
             if ($tests -notmatch $suite) { Write-Error "test-all.ps1 does not assert $suite"; exit 1 }
           }
+          # The two built-in plugins' own surface: the authority line, the installer's list and the
+          # long-running soak. A green gate over a monitor that could restart things would be worse
+          # than a red one, so the separation is asserted here as well as in the suite.
+          $health = Get-Content app/plugins/health-scheduler/index.cjs -Raw
+          $supervisor = Get-Content app/plugins/restart-supervisor/index.cjs -Raw
+          if ($health -match 'taskkill|process\.kill|node:child_process') { Write-Error 'the health scheduler can stop something'; exit 1 }
+          if ($supervisor -notmatch "RESTART_CONTROL_CAPABILITY") { Write-Error 'the restart supervisor does not provide restart-control'; exit 1 }
+          $capability = Get-Content app/core/contracts/capability.cjs -Raw
+          if ($capability -notmatch "providers: \['dshns\.restart-supervisor'\]") { Write-Error 'the capability vocabulary does not name the supervisor as the restart authority'; exit 1 }
+          $bundled = Get-Content scripts/bundled-plugins.json -Raw
+          if ($bundled -notmatch 'dshns\.health-scheduler' -or $bundled -notmatch 'dshns\.restart-supervisor') { Write-Error 'the installer does not carry both built-in plugins'; exit 1 }
+          # The synthetic soak has to be runnable by the CI step, with all three horizons and the
+          # real-machine entry point.
+          $soak = Get-Content scripts/longhost-soak.cjs -Raw
+          foreach ($horizon in @('soak-6h', 'soak-12h', 'soak-24h', '--realtime')) {
+            if ($soak -notmatch [regex]::Escape($horizon)) { Write-Error "the soak harness does not name $horizon"; exit 1 }
+          }
+          # The installer's own surface: the optional community plugins are an installation step of the
+          # real installer, and the parameters that answer its questions have to exist there. A green gate
+          # over an installer whose interaction was removed is worse than a red one.
+          $installer = Get-Content scripts/install.ps1 -Raw
+          foreach ($parameter in @('-InstallMarket', '-InstallWallpaper', '-SkipOptionalPlugins', '-NonInteractive')) {
+            if ($installer -notmatch [regex]::Escape($parameter)) { Write-Error "scripts/install.ps1 does not accept $parameter"; exit 1 }
+          }
+          if ($installer -notmatch 'community-install-cli\.cjs') { Write-Error 'the installer does not call the community plugin command line'; exit 1 }
+          if ($installer -match 'git clone') { Write-Error 'the installer clones a community plugin instead of using the plugin channel'; exit 1 }
+          if ($installer -notmatch 'Installation summary') { Write-Error 'the installer does not print the installation summary'; exit 1 }
+          # The channel's own adapter, registered on the framework the runtime builds.
+          $host_ = Get-Content app/plugin-host.cjs -Raw
+          if ($host_ -notmatch 'createHarnessProfileAdapter') { Write-Error 'the harness-profile adapter is not registered on the adapter framework'; exit 1 }
+          $profileAdapter = Get-Content app/core/plugin-adapters/adapters/harness-profile.cjs -Raw
+          if ($profileAdapter -notmatch "id: 'dshns\.harness-profile'") { Write-Error 'the harness-profile adapter declares a different id'; exit 1 }
           # The plugin panel is a control surface: it must reach the platform only through
           # the bridge, and it must not execute anything itself.
           $panel = Get-Content app/extensions/mega/ui/plugin-panel.js -Raw

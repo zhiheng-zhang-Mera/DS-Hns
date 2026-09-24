@@ -1,0 +1,15 @@
+
+  #  D:\Hns-Cleanroom-Qualification-13\repo\app\node_modules\electron\dist\electron.exe[25708]: Environment *__cdecl node::CreateEnvironment(IsolateData *, Local<Context>, const std::vector<std::string> &, const std::vector<std::string> &, EnvironmentFlags::Flags, ThreadId, std::unique_ptr<InspectorParentHandle>, std::string_view) at ..\..\third_party\electron_node\src\api\environment.cc:462
+  #  Assertion failed: (isolate_data->snapshot_data()) != nullptr
+
+----- Native stack trace -----
+
+ 1: 00007FF78A2B360C v8_inspector::V8InspectorClient::unmuteMetrics+24492
+ 2: 00007FF78A2F837B node::CreateEnvironment+763
+ 3: 00007FF78A2F8035 node::CreateEnvironment+85
+ 4: 00007FF78A2F78DC v8::CpuProfiler::UseDetailedSourcePositionsForProfiling+6380
+ 5: 00007FF78A6D3B80 node::AsyncResource::CallbackScope::~CallbackScope+1968
+ 6: 00007FF78954725F uv_os_free_environ+2236543
+ 7: 00007FF78A243152 uv_now+40322
+ 8: 00007FFD6EFFCD87 BaseThreadInitThunk+23
+ 9: 00007FFD6F62CAEC RtlUserThreadStart+44

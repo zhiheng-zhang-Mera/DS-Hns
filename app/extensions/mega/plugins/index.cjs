@@ -1,5 +1,8 @@
 'use strict'
 
+const fs = require('node:fs')
+const path = require('node:path')
+
 /**
  * The Bundled Plugin Manager (`updateplan/startup2.md` §19-§23).
  *
@@ -73,8 +76,53 @@
  * plugins' runtime behaviour inside this product, which is what `tested` means and why it is still false.
  */
 const BUNDLED_MANIFEST = Object.freeze({
-  version: 'startup2',
+  version: 'target-standby',
   plugins: Object.freeze([
+    /**
+     * The two **built-in** plugins this product ships in its own repository.
+     *
+     * They are entries here for the same reason the two community ones are: this manifest is the one
+     * place that says *what this release carries, at which reference, through which channel*, and the
+     * installer, the manager and the panel all read it. What makes them built-in is not a field — it
+     * is where they live (`app/plugins/<name>`, shipped in the checkout) and that their `required` is
+     * true: the installation signs them into the profile unconditionally, in its own step before any
+     * optional plugin is mentioned, and a plugin a user may turn down is a different kind of thing.
+     *
+     * The channel is `harness-profile` because that is *how the Harness' own CLI installs a `file:`
+     * spec* — `dsh plugin --profile web add file:<in-repo path>` — and it is the channel that puts
+     * them in the official UI's plugin inventory. `inRepo: true` records the other half: the code is
+     * in this repository, mounted by `app/plugin-host.cjs` through `NativeHnsAdapter`, so a runtime
+     * update is a `git pull` and never a re-fetch.
+     */
+    Object.freeze({
+      id: 'dshns.health-scheduler',
+      role: 'health',
+      repo: null,
+      channel: 'harness-profile',
+      package: 'dsh-health-scheduler',
+      /** The directory under `app/plugins/`, for the installer and for the reader. */
+      directory: 'health-scheduler',
+      inRepo: true,
+      ref: '2.0.1',
+      commit: null,
+      channelVerified: true,
+      tested: true,
+      required: true
+    }),
+    Object.freeze({
+      id: 'dshns.restart-supervisor',
+      role: 'restart',
+      repo: null,
+      channel: 'harness-profile',
+      package: 'dsh-restart-supervisor',
+      directory: 'restart-supervisor',
+      inRepo: true,
+      ref: '1.0.1',
+      commit: null,
+      channelVerified: true,
+      tested: true,
+      required: true
+    }),
     Object.freeze({
       id: 'dsh-wallpaper-engine',
       role: 'appearance',
@@ -109,10 +157,48 @@ const BUNDLED_MANIFEST = Object.freeze({
 /** The installation channels a bundled entry can name. */
 const BUNDLED_CHANNELS = Object.freeze(['harness-profile', 'dshns-store', 'unresolved'])
 
+/** The roles that mean "this product ships it in its own repository". */
+const BUILT_IN_ROLES = Object.freeze(['health', 'restart'])
+
+/**
+ * The built-in plugins, as the *installer* sees them.
+ *
+ * `scripts\install-bundled-plugins.ps1` is a PowerShell program and cannot read a frozen object out
+ * of a CommonJS file, so it reads `bundled-plugins.json` instead — and the two are kept in step by
+ * `tests/unit/restart-supervisor-authority.test.js`, which asserts that every built-in entry in this
+ * manifest appears in the file with the same id, directory and reference. A second list that could
+ * drift silently would be worse than no list, so the drift is a failing test rather than a hope.
+ */
+function builtInEntries(manifest = BUNDLED_MANIFEST) {
+  return (Array.isArray(manifest && manifest.plugins) ? manifest.plugins : []).filter((entry) => entry.inRepo === true || BUILT_IN_ROLES.includes(entry.role))
+}
+
+/**
+ * The **community** entries: the plugins this product offers and does not ship.
+ *
+ * The complement of `builtInEntries`, and it exists for the same reason: the manifest is one list, and
+ * every reader that used to iterate "the plugins" now has to say which half it means. The installer's
+ * optional step, the pins-and-channels policy and the panel's community roster all read this one.
+ */
+function communityEntries(manifest = BUNDLED_MANIFEST) {
+  const builtIn = new Set(builtInEntries(manifest).map((entry) => entry.id))
+  return (Array.isArray(manifest && manifest.plugins) ? manifest.plugins : []).filter((entry) => !builtIn.has(entry.id))
+}
+
 /** Where a bundled plugin's fallback leads, per §18: what the product does without it. */
 const BUNDLED_FALLBACK = Object.freeze({
   appearance: { id: 'simple-wallpaper', label: 'the built-in simple wallpaper' },
-  'plugin-store': { id: 'store-hidden', label: 'the store entry stays hidden' }
+  'plugin-store': { id: 'store-hidden', label: 'the store entry stays hidden' },
+  /**
+   * The two built-in plugins have no fallback, and saying so is the honest row.
+   *
+   * Without the restart supervisor there is no restart authority at all: a request is reported
+   * unavailable and the monitor keeps watching. Without the health scheduler nothing samples the
+   * machine. Neither is replaced by something simpler, because "restart anyway" and "guess the
+   * pressure" are not fallbacks — they are the failures these plugins exist to prevent.
+   */
+  health: { id: 'health-off', label: 'no health sampling and no maintenance decision' },
+  restart: { id: 'restart-unavailable', label: 'no restart can be requested or executed' }
 })
 
 /** §23: what the manager decided about one plugin. */
@@ -136,13 +222,73 @@ function normalizeReference(value) {
   return String(value || '').trim().replace(/^v(?=\d)/i, '')
 }
 
+/**
+ * Whether two references name the same version.
+ *
+ * Both sides are normalised before they are compared, and that is the half that was missing: the rule is
+ * symmetric — `v0.7.1` written for `0.7.1` and `0.7.1` written for `v0.7.1` are one reference, whichever
+ * side the `v` happens to be on. The Harness' own CLI records the *published version* (`0.7.1`) in the
+ * profile's `dependencies` while the release manifest pins the repository's *tag* (`v0.7.1`), so a
+ * one-sided comparison reported a correctly installed plugin as "ahead of pin" whenever the tag carried
+ * the `v` and the recorded version did not.
+ */
+function sameVersionReference(left, right) {
+  const a = normalizeReference(left)
+  const b = normalizeReference(right)
+  return Boolean(a) && a === b
+}
+
 function sameReference(installed, entry) {
   if (!installed) return false
   const version = String(installed.version || installed.commit || '')
   if (!version) return false
   return version === entry.ref
     || version === entry.commit
-    || normalizeReference(version) === normalizeReference(entry.ref)
+    || sameVersionReference(version, entry.ref)
+}
+
+/**
+ * Return the version that is actually installed in a Harness profile.
+ *
+ * Published dependencies carry their version in the declaration. A local
+ * `file:` dependency carries only a checkout path there, so comparing that
+ * path with a release pin produces a false drift warning. For that shape the
+ * materialised package is the authority and its own package.json supplies the
+ * version. If it is missing or unreadable we retain the declaration so the
+ * caller reports the mismatch instead of inventing a successful install.
+ */
+function resolveProfileDependencyVersion(profileDir, packageName, declared) {
+  const declaration = String(declared || '').replace(/^[\^~]/, '')
+  if (!/^file:/i.test(declaration)) return declaration
+  try {
+    const manifest = path.join(profileDir, 'node_modules', ...String(packageName || '').split('/'), 'package.json')
+    const parsed = JSON.parse(fs.readFileSync(manifest, 'utf8'))
+    const version = String(parsed?.version || '').trim()
+    return version || declaration
+  } catch {
+    return declaration
+  }
+}
+
+/**
+ * The bundled entry a Harness profile dependency refers to.
+ *
+ * A profile's `dependencies` are npm **package names** while this manifest keys its entries by **plugin
+ * id**, and for the wallpaper engine those are different strings (`dsh-plugin-wallpaper-engine` vs
+ * `dsh-wallpaper-engine`). Every reader joining a profile's install to this manifest has to translate
+ * between them, so the translation is made once, here, rather than once per reader — a reader that
+ * skipped it asked the manager about an id nothing declares and was told, wrongly, that the plugin was
+ * missing.
+ *
+ * @param {string} name the package name recorded in a profile's `dependencies`
+ * @param {object} [manifest] the release manifest, defaulting to the shipped one
+ * @returns {object|null} the bundled entry, or `null` when the dependency is not a bundled plugin
+ */
+function entryForPackage(name, manifest = BUNDLED_MANIFEST) {
+  const wanted = String(name || '')
+  if (!wanted) return null
+  const entries = Array.isArray(manifest && manifest.plugins) ? manifest.plugins : []
+  return entries.find((entry) => String(entry.package || entry.id) === wanted) || null
 }
 
 /**
@@ -289,6 +435,28 @@ function createBundledPlugins({
         applied.push({ id: entry.id, action: 'none', state: assessed.state, reason: assessed.reason })
         continue
       }
+      /**
+       * A **built-in** plugin is never installed by a boot.
+       *
+       * `inRepo: true` means the code ships in this repository, so "bundled" is a promise the
+       * *installation* keeps: `scripts\install-bundled-plugins.ps1` signs both plugins into the Harness
+       * profile before the product is ever started, and the completion summary reports what it found.
+       * A boot that reached for a package manager to fetch its own components would be the opposite of
+       * that promise — and it would be a boot that can be delayed by a network, which §35 forbids.
+       *
+       * Being absent is therefore *reported*, and it is reported in the state it really is: a person
+       * reads it in the official page and re-runs the installer. Repair stays available and stays
+       * explicit: `repair(id)` still installs the pinned copy, because somebody asked for it.
+       */
+      if (entry.inRepo === true) {
+        applied.push({
+          id: entry.id,
+          action: 'delegated',
+          state: assessed.state,
+          reason: 'the installation signs the built-in plugins into the Harness profile; a boot never installs its own components'
+        })
+        continue
+      }
       // An entry with no channel is a decision, not an install: it is reported and left exactly where it is.
       if (assessed.state === BUNDLED_STATE.UNRESOLVED) {
         applied.push({ id: entry.id, action: 'report', state: assessed.state, reason: assessed.reason })
@@ -304,7 +472,10 @@ function createBundledPlugins({
         applied.push(failed)
         continue
       }
-      const outcome = await install({ id: entry.id, repo: entry.repo, ref: entry.ref, commit: entry.commit, role: entry.role })
+      // The whole entry is handed over, not a trimmed copy: a built-in plugin's installation spec is
+      // built from its own `inRepo`/`directory` fields, and an installer that received only the id
+      // would ask the channel for a package that does not exist under that name.
+      const outcome = await install({ ...entry })
       const record = { id: entry.id, action: 'install', state: outcome?.ok === false ? BUNDLED_STATE.FAILED : BUNDLED_STATE.INSTALLED, reason: outcome?.reason || null, version: outcome?.version || null }
       results.set(entry.id, record)
       applied.push(record)
@@ -326,7 +497,7 @@ function createBundledPlugins({
       const removed = await uninstall(id)
       if (removed?.ok === false) return { id, ok: false, reason: removed.reason || 'the old copy could not be removed' }
     }
-    const outcome = await install({ id, repo: entry.repo, ref: entry.ref, commit: entry.commit, role: entry.role })
+    const outcome = await install({ ...entry })
     return { id, ok: outcome?.ok !== false, version: outcome?.version || null, reason: outcome?.reason || null }
   }
 
@@ -394,10 +565,32 @@ function createBundledPlugins({
  * @param {Function} [hooks.harnessAdd] `({ profile, package: spec }) => { ok, reason }`
  * @param {object}   [hooks.store]      `{ stage, enable }`
  * @param {string}   [hooks.profile]    the Harness profile to add into
+ * @param {Function} [hooks.verify]     `(input) => ({ ok, reason, adapter? })` — the compatibility check for
+ *   the channel, run through the adapter layer by the caller. A harness-profile install is a package the
+ *   Harness will compose; whether it really is the community bundle the release pinned is a question about
+ *   the *installed files*, and it is asked after the CLI succeeded rather than assumed from the exit code.
+ *   A refusal is reported as a failure on purpose: an install nobody can recognise is not an install.
  */
-async function installBundled(entry = {}, { harnessAdd = null, store = null, profile = 'web' } = {}) {
+async function installBundled(entry = {}, { harnessAdd = null, store = null, profile = 'web', verify = null, root = null } = {}) {
   const channel = String(entry.channel || 'dshns-store')
-  const spec = entry.package ? `${entry.package}@${entry.ref}` : null
+  /**
+   * What the channel is asked to install.
+   *
+   * A built-in plugin (`inRepo: true`) is a directory in *this* repository, so its spec is an
+   * absolute `file:` path — that is the one form the Harness' CLI accepts for a package that is not
+   * being fetched from anywhere, and it is the same form `scripts\install-profile-plugin.ps1` uses.
+   * Everything else is a published package at a pinned reference.
+   *
+   * The path is built from the entry's own `directory` field rather than from its id, because the two
+   * are different strings on purpose: `dshns.health-scheduler` is the plugin id and
+   * `app/plugins/health-scheduler` is where the code is. The repository root is four levels up from
+   * this file (`app/extensions/mega/plugins/`), and the path is written with forward slashes because
+   * that is what the spec is parsed as.
+   */
+  const inRepoSpec = entry.inRepo === true && entry.directory
+    ? `file:${path.join(root || path.join(__dirname, '..', '..', '..', '..'), 'app', 'plugins', entry.directory).replace(/\\/g, '/')}`
+    : null
+  const spec = inRepoSpec || (entry.package ? `${entry.package}@${entry.ref}` : null)
   if (channel === 'unresolved') {
     return { ok: false, channel, reason: entry.reason || `${entry.id} has no installation channel yet` }
   }
@@ -406,6 +599,20 @@ async function installBundled(entry = {}, { harnessAdd = null, store = null, pro
     try {
       const outcome = await harnessAdd({ profile, package: spec })
       if (outcome?.ok === false) return { ok: false, channel, reason: outcome.reason || 'the Harness refused the plugin' }
+      // The CLI's exit code is the installer, not the proof: the installed package is read back and
+      // adapted before the install is called a success.
+      if (typeof verify === 'function') {
+        let checked = null
+        try {
+          checked = await verify({ id: entry.id, channel, profile, package: spec, packageName: entry.package, ref: entry.ref })
+        } catch (error) {
+          return { ok: false, channel, reason: `the installed copy could not be verified: ${String(error?.message || error)}` }
+        }
+        if (checked && checked.ok === false) {
+          return { ok: false, channel, reason: checked.reason || 'the installed copy was refused by the adapter layer', verify: checked }
+        }
+        return { ok: true, channel, profile, package: spec, version: entry.ref, verify: checked || null }
+      }
       return { ok: true, channel, profile, package: spec, version: entry.ref }
     } catch (error) {
       return { ok: false, channel, reason: String(error?.message || error) }
@@ -468,8 +675,14 @@ module.exports = {
   BUNDLED_STATE,
   BUNDLED_FALLBACK,
   BUNDLED_CHANNELS,
+  BUILT_IN_ROLES,
+  builtInEntries,
+  communityEntries,
   installBundled,
   removeBundled,
   sameReference,
+  sameVersionReference,
+  resolveProfileDependencyVersion,
+  entryForPackage,
   normalizeReference
 }

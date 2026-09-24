@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "results": [
+    {
+      "id": "N1",
+      "failure": "An unref'd restart timer let the supervisor exit.",
+      "lineage": [
+        "791773d",
+        "9417ca8"
+      ],
+      "consequence": "The entry point owns a keep-alive while library timers remain non-blocking."
+    },
+    {
+      "id": "N2",
+      "failure": "A crash before handshake could cancel a required restart.",
+      "lineage": [
+        "9417ca8"
+      ],
+      "consequence": "Handshake death and steady-state death use distinct transitions."
+    },
+    {
+      "id": "N3",
+      "failure": "Readiness waiting could outlive a dead child.",
+      "lineage": [
+        "9417ca8"
+      ],
+      "consequence": "Child exit cancels readiness waiting."
+    },
+    {
+      "id": "N4",
+      "failure": "Runtime-discovered capabilities could widen permission surface.",
+      "lineage": [
+        "db5ebab"
+      ],
+      "consequence": "Capabilities are declared and allow-listed before launch."
+    },
+    {
+      "id": "N5",
+      "failure": "Weighted pressure made restart unreachable.",
+      "lineage": [
+        "16d722c"
+      ],
+      "consequence": "Severe signals and restart authority are modeled separately."
+    },
+    {
+      "id": "N6",
+      "failure": "Epoch-zero cooldown and reads mutated health state.",
+      "lineage": [
+        "16d722c"
+      ],
+      "consequence": "Reads are side-effect free and cooldown handles zero timestamps."
+    },
+    {
+      "id": "N7",
+      "failure": "Cordis parser and service mismatches broke adaptation.",
+      "lineage": [
+        "d44d835"
+      ],
+      "consequence": "Controlled providers and degraded browser halves are reported honestly."
+    },
+    {
+      "id": "N8",
+      "failure": "Broad route reservation and handler errors returned HTTP 200.",
+      "lineage": [
+        "bridge tests"
+      ],
+      "consequence": "Exact route ownership and error-status propagation are required."
+    },
+    {
+      "id": "N9",
+      "failure": "Activation failure was overwritten, refusal counted twice, and native main ignored.",
+      "lineage": [
+        "adapter and install tests"
+      ],
+      "consequence": "One terminal result per stage and tested native entry resolution."
+    },
+    {
+      "id": "N10",
+      "failure": "Installer reported Plugin Market failure after materialization succeeded.",
+      "lineage": [
+        "412ec64"
+      ],
+      "consequence": "Materialized package and profile state outrank stale transient output."
+    },
+    {
+      "id": "N11",
+      "failure": "Project tests wrote to C drive and left a host process.",
+      "lineage": [
+        "277ef17",
+        "be743a7"
+      ],
+      "consequence": "Explicit D roots plus post-test process and storage gates."
+    },
+    {
+      "id": "N12",
+      "failure": "Phase C reached only 1.189x against a 1.2x threshold.",
+      "lineage": [
+        "9cecd68",
+        "0bbd32e"
+      ],
+      "consequence": "Identical validations are batched; the threshold and workload remain unchanged."
+    },
+    {
+      "id": "N13",
+      "failure": "A soak report passed while its top summary exit code was 2.",
+      "lineage": [
+        "67b741a"
+      ],
+      "consequence": "Immutable run directories and consistency checking fail closed."
+    },
+    {
+      "id": "N14",
+      "failure": "Junction-based Plugin Market isolation returned zero rows.",
+      "lineage": [
+        "task5 UI evidence"
+      ],
+      "consequence": "The rejected experiment is retained and canonical identity is implemented directly."
+    },
+    {
+      "id": "N15",
+      "failure": "A CDP target existed before documentElement.",
+      "lineage": [
+        "be743a7"
+      ],
+      "consequence": "UI acceptance waits for a renderer document."
+    },
+    {
+      "id": "N16",
+      "failure": "Qualification depended on prebuilt D:\\test-DSH samples.",
+      "lineage": [
+        "be743a7"
+      ],
+      "consequence": "Pinned upstream fixtures are freshly installed and built per run."
+    },
+    {
+      "id": "N17",
+      "failure": "Stale companion PID masked a live launch.",
+      "lineage": [
+        "f03cc37"
+      ],
+      "consequence": "Prefer live launch during PID hand-off."
+    },
+    {
+      "id": "N18",
+      "failure": "Windows TEMP short-name alias contradicted a literal path assertion.",
+      "lineage": [
+        "e32d55d"
+      ],
+      "consequence": "Canonical ancestor plus case-preserved missing tail."
+    },
+    {
+      "id": "N19",
+      "failure": "Crash ledger preceded the relaunched application's PID evidence.",
+      "lineage": [
+        "80ffe0e"
+      ],
+      "consequence": "Wait for distinct live PID within unchanged budget."
+    },
+    {
+      "id": "N20",
+      "failure": "Failed continuity verification still executed recovery and erased intent.",
+      "lineage": [
+        "f90660b"
+      ],
+      "consequence": "Refuse execution and retain durable intent on failed verification."
+    },
+    {
+      "id": "N21",
+      "failure": "Direct instance tests inherited caller TEMP and the C-drive audit missed dshns names.",
+      "lineage": [
+        "artifacts/qualification/STORAGE_AUDIT_FOLLOWUP.md"
+      ],
+      "consequence": "Use repository-volume test roots and include instance names in the real audit; preserve historical failed audit and moved scratch."
+    },
+    {
+      "id": "N22",
+      "failure": "Stationary pointermove events turned orb clicks into drags and suppressed panel expansion.",
+      "lineage": [
+        "artifacts/qualification/ORB_POINTER_FOLLOWUP.md"
+      ],
+      "consequence": "Measure from pointer-down coordinates and apply a bounded drag threshold; verify real click, expansion and detail feedback."
+    },
+    {
+      "id": "N23",
+      "failure": "A generic billing timezone label implied that a browser-local scheduling input used Asia/Shanghai.",
+      "lineage": [
+        "artifacts/qualification/TIMEZONE_LABEL_FOLLOWUP.md"
+      ],
+      "consequence": "Identify local input time separately from model billing timezone in both task forms without changing scheduling semantics."
+    },
+    {
+      "id": "N24",
+      "failure": "Source junctions concealed required contract/status files omitted from built-in plugin packages; fresh installation passed smoke but failed real launch.",
+      "lineage": [
+        "artifacts/qualification/PACKAGING_FOLLOWUP.md"
+      ],
+      "consequence": "Include runtime files in package allowlists and test actual packed/extracted packages without source access during installer smoke and full qualification."
+    },
+    {
+      "id": "N25",
+      "failure": "A concurrent qualification UI occupied3099, invalidating a unit test's free-port precondition and its nested storage test.",
+      "lineage": [
+        "artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md"
+      ],
+      "consequence": "Reserve machine-test ports and serialize qualification UI; preserve the failed full run rather than substituting a focused rerun."
+    },
+    {
+      "id": "N26",
+      "failure": "Native-picker acceptance used broad window titles and delayed global keystrokes, sending a fixture path into another qualification conversation.",
+      "lineage": [
+        "artifacts/qualification/NATIVE_PICKER_SAFETY_FOLLOWUP.md"
+      ],
+      "consequence": "Remove global input; require targeted native interaction and actual installation evidence, with no fallback success certificate."
+    },
+    {
+      "id": "N27",
+      "failure": "Real native input invalidated a later visible-dock precondition; descendant control blur was miscounted as renderer focus loss.",
+      "lineage": [
+        "artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md"
+      ],
+      "consequence": "Restore and assert the actual surface precondition, scope focus observations to their claimed target, preserve failed full qualification."
+    },
+    {
+      "id": "N28",
+      "failure": "Repeated Electron observation created new adapters and native Debugger listeners were not removed on detach.",
+      "lineage": [
+        "artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md"
+      ],
+      "consequence": "Own one current-view adapter, remove native listeners on release, invalidate bootstrap on connection loss; never raise the listener limit to hide growth."
+    },
+    {
+      "id": "N29",
+      "failure": "Paper claim IDs differed between Markdown and JSON; conceptual paths and generic artifact labels misattributed measurements to an untested commit.",
+      "lineage": [
+        "artifacts/qualification/PAPER_PROVENANCE_FOLLOWUP.md"
+      ],
+      "consequence": "Validate canonical claim identities, real source/test paths and hash-bound historical run/SHA/child verdicts; preserve failed UI evidence and separate code SHA from evidence commit."
+    },
+    {
+      "id": "N30",
+      "failure": "An arbitrary desktop window made the real UIA test depend on a foreign provider; root-first plus Subtree duplicated the root ref and displaced a distinct child.",
+      "lineage": ["artifacts/qualification/UIA_OWNED_WINDOW_FOLLOWUP.md"],
+      "consequence": "Use an owned real provider with unchanged search budget and stronger descendant/uniqueness assertions; search Descendants after the root check. Preserve two full-run timeouts; exact historical external target was not recorded."
+    },
+    {
+      "id": "N31",
+      "failure": "Primary-window closure left Desktop and companion alive; subsequent native crash evidence was confounded by an external launcher leaving ELECTRON_RUN_AS_NODE present but empty.",
+      "lineage": ["artifacts/qualification/DESKTOP_CLOSE_FOLLOWUP.md"],
+      "consequence": "Own primary closure explicitly through existing detach/quit teardown, stop rejected-instance initialization, and separate product defects from instrumentation failures. Bounded construction diagnostics do not certify a fresh final Journey."
+    },
+    {
+      "id": "N32",
+      "failure": "Control Center dropped native orb ownership, making the official view render an additional in-UI ball alongside System Orb.",
+      "lineage": ["artifacts/qualification/ORB_OWNERSHIP_FOLLOWUP.md"],
+      "consequence": "Preserve ownership through the actual builder and serialized view boundary; distinguish a proven propagation defect from unproven native input failure and rerun immutable-candidate qualification."
+    },
+    {
+      "id": "N33",
+      "failure": "Real UI service enable was refused: positional/object host contracts, stale host accessors, dropped confirmation/value fields and lost nested refusal reasons broke the management chain.",
+      "lineage": ["artifacts/qualification/SERVICE_ACTION_FOLLOWUP.md"],
+      "consequence": "Test shipped adapters against real host state/config and actual bridge envelopes; preserve explicit confirmation, concrete failures and raw results. Fresh17 later exposed the remaining nested key/value and positional setter defects repaired in545462a; see artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md. Construction regression is not renewed immutable-candidate visual qualification."
+    },
+    {
+      "id": "N34",
+      "failure": "Desktop reopen successfully attached to a live Runtime while an earlier free-port resolver overwrote its authoritative port and ownership record.",
+      "lineage": ["1f901d0", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Distinguish live identity from TCP availability and stale metadata. Verify actual IPC before allocation; preserve Host authority and custom isolated paths. Not evidence of duplicate Runtime execution."
+    },
+    {
+      "id": "N35",
+      "failure": "A successful diagnostics acknowledgement discarded the actual returned service report, leaving the operator without diagnostic content.",
+      "lineage": ["42b48b9", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Preserve the result across the store boundary and render bounded literal data, pending and refusal beside the requested service. React stand-in coverage is not renewed visual acceptance."
+    },
+    {
+      "id": "N36",
+      "failure": "Null restart timestamps became epoch1970; finite values beyond the Date range threw instead of preserving an unavailable timestamp.",
+      "lineage": ["4a823ae", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Retain absence and valid zero as different facts, validate actual Date range, and never invent restart history from coercion."
+    },
+    {
+      "id": "N37",
+      "failure": "PureAlien disabled the Mega extension but an independent integrated-dock flag still created a dead reserved rail.",
+      "lineage": ["e9d8232", "artifacts/qualification/FRESH17_VISUAL_FOLLOWUP.md"],
+      "consequence": "Apply the existing disable authority before dock creation. Keep profile-plugin ownership separate; full fallback acceptance still needs real startup evidence."
+    },
+    {
+      "id": "N38",
+      "failure": "A successful advanced-policy write rebuilt the plugin manager and silently discarded an explicit Health Scheduler enable decision; store-installed defaults could likewise erase explicit disable.",
+      "lineage": ["08900a8", "artifacts/qualification/HEALTH_LIFECYCLE_FOLLOWUP.md"],
+      "consequence": "Persist lifecycle intent at the existing configuration boundary, preserve default-off fresh profiles, and refuse invalid writes before changing live state. Eight actual-host/filesystem regressions and full unit regression passed; renewed frozen-candidate cleanroom and visual qualification remain required. Earlier machine PASS did not certify the defective user journey."
+    },
+    {
+      "id": "N39",
+      "failure": "Health retained load-time optional restart-control unavailability after the provider registered; real policy Apply left enabled/loaded Health DEGRADED while Restart Supervisor was loaded.",
+      "lineage": ["b3fec70", "artifacts/qualification/HEALTH_CAPABILITY_REFRESH_FOLLOWUP.md"],
+      "consequence": "Refresh the existing optional authority resolver at status, diagnostics, sampling and request boundaries. Preserve provider removal and zero restart requests under low pressure; do not widen authority or make the dependency mandatory. Focused RED/GREEN evidence does not replace renewed candidate qualification and actual GUI acceptance."
+    },
+    {
+      "id": "N40",
+      "failure": "Real UI saved interval16000 but Health still sampled at15000; real host regression also found saved Restart budget2 left its engine at3. Manager configuration did not reach constructor-time engines.",
+      "lineage": ["27eea59", "artifacts/qualification/EFFECTIVE_POLICY_FOLLOWUP.md"],
+      "consequence": "Pass each owner's resolved policy through the existing mounted factory path, normalize the public Health interval alias, and assert actual engine configuration after rebuild/reopen. Focused regression is not cleanroom or final user acceptance; preserve all failures."
+    },
+    {
+      "id": "N41",
+      "failure": "The architecture gate required a no-argument Health factory after effective-policy wiring was repaired, rejecting correct configuration and accepting a return to ignored defaults.",
+      "lineage": ["5cec025", "artifacts/qualification/ARCHITECTURE_POLICY_GATE_FOLLOWUP.md"],
+      "consequence": "Execute the actual gate against valid wiring and controlled missing/default/swapped-policy mutations. Preserve the failed full run; require both existing factories and their owner configuration rather than weakening the check to symbol presence."
+    }
+  ]
+}

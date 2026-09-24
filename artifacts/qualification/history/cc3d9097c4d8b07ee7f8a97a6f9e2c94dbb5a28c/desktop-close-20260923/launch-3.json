@@ -1,0 +1,13 @@
+{
+  "pid": 25708,
+  "startedAt": "2026-09-23T09:38:56.5932850Z",
+  "attempt": "3",
+  "systemOrb": false,
+  "userData": "D:\\Hns-Cleanroom-Qualification-13\\visual-journey-cc3d909\\user-data",
+  "home": "D:\\Hns-Cleanroom-Qualification-13\\repo\\data",
+  "runtime": "D:\\Hns-Cleanroom-Qualification-13\\runtime-data",
+  "port": "32100",
+  "apiKeyConfigured": true,
+  "observerPreload": false,
+  "remoteDebugging": false
+}

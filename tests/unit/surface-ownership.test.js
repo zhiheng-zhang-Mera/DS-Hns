@@ -94,7 +94,10 @@ test('the appearance vocabulary crosses the boundary, and nothing else does', ()
   for (const file of filesUnder('app')) {
     if (!/\.(cjs|js|html|css)$/.test(file)) continue
     if (isOwner(file)) continue
-    if (/--dsh-/.test(read(file))) users.push(file)
+    // The appearance *tokens* (`--dsh-surface-*`, `--dsh-wallpaper-*`). The prefix alone is not the
+    // vocabulary: `--dsh-home` is an installer flag a command line parses, and reading it as a token
+    // would make this check about spelling rather than about who owns the appearance surface.
+    if (/--dsh-(?:surface|wallpaper)-/.test(read(file))) users.push(file)
   }
   assert.deepEqual(users, [], `only the appearance boundary may speak the token vocabulary: ${users.join(', ')}`)
   // The boundary itself is what defines the names, and the layer document consumes the four picture tokens.

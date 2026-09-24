@@ -330,6 +330,37 @@ function unifyLifecycle(input = {}) {
     }
   }
 
+  /**
+   * The plugin's **own** diagnostics, when it publishes any, kept beside the standardised set.
+   *
+   * The two answer different questions and are owned by different layers. `diagnostics()` above is the
+   * platform's: runtime, health, errors, permissions — the same fields for every plugin, and async
+   * because a health check is. A domain plugin usually has a second, **synchronous** answer of its own
+   * (the health monitor's pressure and trend, the restart supervisor's budget and companion), and that
+   * is what a management surface draws. Merging them would lose which half the platform guarantees;
+   * dropping the second one would leave the panel's rows for those plugins empty. So it travels as its
+   * own hook, and a plugin that throws here is a fault against a *read* rather than against the plugin.
+   */
+  function domainDiagnostics() {
+    if (typeof descriptor.diagnostics !== 'function') return null
+    try {
+      const answer = descriptor.diagnostics()
+      /**
+       * A promise is not a domain report.
+       *
+       * Some plugins implement `diagnostics()` asynchronously (they await a probe). A service record is
+       * serialised by an IPC reply and by the governance bridge, and a promise inside it arrives on the
+       * other side as `{}` — so an async answer is reported as *no synchronous domain report*, which is
+       * true, rather than as an empty one, which is a lie the panels would then draw.
+       */
+      if (answer && typeof answer.then === 'function') return null
+      return answer && typeof answer === 'object' ? answer : null
+    } catch (error) {
+      const entry = errors.report(error, 'diagnostics', ADAPTER_FAULT_CODES.THREW, { hook: 'diagnostics' })
+      return { error: entry.reason }
+    }
+  }
+
   const unified = {
     // The standard manifest travels unchanged: the adapter already had it validated against the
     // platform's own contract, and re-deriving it here would be a second source of truth.
@@ -341,14 +372,24 @@ function unifyLifecycle(input = {}) {
     runtimeInfo,
     errorReport,
     diagnostics,
+    /**
+     * The plugin's own diagnostics, as its own hook.
+     *
+     * It is listed here so the loop below does not overwrite it: `diagnostics` above is the
+     * platform's standard answer and it wins that name, which means the descriptor's own
+     * `diagnostics` would otherwise be silently replaced by it — a plugin would publish a report
+     * nobody could reach.
+     */
+    domainDiagnostics,
     /** The lifecycle state machine, for tests and for the panel. */
     lifecycleState: () => live.state,
     LIFECYCLE_STATES
   }
 
-  // Anything else the adapter attached (a compat descriptor's own surface, a plugin's own
-  // diagnostics) is preserved rather than dropped: this wrapper adds the standard interfaces, it
-  // does not replace what the adapter produced.
+  // Anything else the adapter attached (a compat descriptor's own surface, a bridge handle) is
+  // preserved rather than dropped: this wrapper adds the standard interfaces, it does not replace
+  // what the adapter produced. The one name it does own is `diagnostics`, because that is the
+  // platform's interface; the plugin's own report travels as `domainDiagnostics` above.
   for (const [key, value] of Object.entries(descriptor)) {
     if (key in unified) continue
     unified[key] = value

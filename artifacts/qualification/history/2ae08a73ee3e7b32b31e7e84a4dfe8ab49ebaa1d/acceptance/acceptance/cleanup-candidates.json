@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-09-17T08:30:33.705Z",
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499",
+  "method": "read-only audit plus the reference scan described in dead-code-report.json",
+  "A_confirmed_duplicate": [
+    {
+      "id": "floating-ball",
+      "capability": "the on-screen floating ball",
+      "instances": [
+        "app/plugins/mega-core/lib/client.js (shell.overlay, the default)",
+        "app/extensions/mega/system-orb.cjs + ui/orb.js (a separate always-on-top window, opt-in via DSH_SYSTEM_ORB=1)"
+      ],
+      "singleSourceOfTruth": "the official shell.overlay ball for the in-app surface; the system window stays the only implementation of the *system-wide* overlay",
+      "resolution": "neither is deleted: the host publishes which one is running (controlCenter().orb.mode) and the in-UI ball renders nothing when the system window owns it, so exactly one ball and one state is drawn"
+    },
+    {
+      "id": "task-targets",
+      "capability": "parking and resuming the sub-worker and the engineering runtime",
+      "instances": [
+        "inline in app/desktop-main.cjs (the scheduled machine restart)",
+        "what the restart supervisor would have needed for an application restart"
+      ],
+      "singleSourceOfTruth": "app/reboot/targets.cjs",
+      "resolution": "merged: one adapter per target, driven by both restart paths"
+    },
+    {
+      "id": "action-vocabulary",
+      "capability": "the closed set of actions a management surface may ask for",
+      "instances": [
+        "app/plugins/mega-core/lib/view.js SERVICE_ACTIONS",
+        "app/core/governance-bridge.cjs BRIDGE_ACTIONS",
+        "app/extensions/mega/index.cjs SERVICE_ACTIONS"
+      ],
+      "singleSourceOfTruth": "app/core/contracts/service-actions.cjs",
+      "resolution": "merged: the host publishes the vocabulary in the snapshot and the bridge accepts exactly it; the view keeps a fallback copy for a bridge too old to publish one"
+    },
+    {
+      "id": "restart-record",
+      "capability": "the record of what a restart did",
+      "instances": [
+        "the supervisor journal (app/plugins/restart-supervisor/companion.journal.jsonl)",
+        "budget history",
+        "the plugin request ring"
+      ],
+      "singleSourceOfTruth": "app/plugins/restart-supervisor/status.cjs (restart_status.json) for the *outcome*; the journal and the request ring stay the append-only logs they are",
+      "resolution": "the formal record was added and the logs kept: one is the answer, the others are the evidence, and they are written from the same stages"
+    }
+  ],
+  "B_superseded": [
+    {
+      "id": "in-process-only-restart",
+      "path": "the restart lifecycle used to be reachable only through the plugin",
+      "supersededBy": "the out-of-process companion (app/plugins/restart-supervisor/companion/main.cjs), with the in-process path kept as the fallback for a deployment that supplies its own executor",
+      "action": "kept deliberately: the fallback is a documented path, not dead code"
+    }
+  ],
+  "C_orphan": [],
+  "D_hidden_but_intended": [
+    {
+      "id": "advanced-policy",
+      "path": "plugin-host.cjs ADVANCED_SCHEMA (38 keys) + pluginServices.setAdvanced",
+      "was": "reached the governance snapshot and no renderer read it; the setter had no caller",
+      "action": "rendered in the official Settings page with an inline editor, and written through the host validator via set-advanced"
+    },
+    {
+      "id": "product-recovery-actions",
+      "path": "app/plugins/mega-core/lib/client.js view.actions",
+      "was": "drawn with id=null and refused by the bridge (\"an action needs an id\")",
+      "action": "product-level actions are accepted without an id and fan out over the modules that answer"
+    },
+    {
+      "id": "human-gate-count",
+      "path": "view.js pending / control-center sections",
+      "was": "read governance.pending, which nothing produced: a permanent zero",
+      "action": "the scheduler publishes activeQueue.waitingHuman / deferred and the Control Center republishes them"
+    },
+    {
+      "id": "plugin-permissions-and-held-reason",
+      "path": "plugin-host.cjs record.permissions, health diagnostics explanation.held / maintenance",
+      "was": "computed and drawn by nothing",
+      "action": "carried into the service view and drawn in the service row"
+    }
+  ],
+  "E_compatibility_recovery_migration": [
+    {
+      "path": "app/reboot/*",
+      "reason": "the machine-level tier: the only thing that may schedule an operating-system shutdown, and the resume path a reboot drives"
+    },
+    {
+      "path": "app/extensions/mega/system-orb.cjs + ui/orb.*",
+      "reason": "the opt-in system-wide ball; not superseded by the in-app one, which cannot float over other applications"
+    },
+    {
+      "path": "app/extensions/mega/updater/update-runner.js",
+      "reason": "the release path: relaunches once after replacing the installed harness"
+    },
+    {
+      "path": "app/plugins/mounted/index.cjs dshns.watchdog",
+      "reason": "a stall *reporter*; asserted not to hold anything that can stop a process"
+    },
+    {
+      "path": "app/plugins/restart-supervisor/companion.journal.jsonl + budget history",
+      "reason": "the append-only evidence behind the formal record"
+    },
+    {
+      "path": "resume-intent.json / resume-history/",
+      "reason": "migration between runs: the record of what a restart parked, and what happened to it"
+    }
+  ],
+  "F_uncertain": [
+    {
+      "path": "app/plugins/acceleration/*",
+      "reason": "shipped and mounted, but its callers are the shell hooks; a removal decision needs a product review rather than a reference count"
+    },
+    {
+      "path": "app/frontend-mode/*",
+      "reason": "the native frontend adapter; reachable only on a non-default launch mode"
+    }
+  ]
+}

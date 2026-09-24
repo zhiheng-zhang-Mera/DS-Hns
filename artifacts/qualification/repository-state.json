@@ -1,0 +1,33 @@
+{
+  "schema": "hns-final-qualification-repository-state/v1",
+  "capturedAt": "2026-09-22T07:10:00+10:00",
+  "remote": "https://github.com/zhiheng-zhang-Mera/DS-Hns.git",
+  "main": {
+    "sha": "59d816b734bea1c20ff2fbd6244395fc715304fe",
+    "protected": false,
+    "rulesets": []
+  },
+  "integrationRc": {
+    "branch": "dev/hns-integration-visual-rc1",
+    "sha": "2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d",
+    "tree": "b0fc5fef0075568a42047a92e09938219e403239",
+    "aheadOfMain": 32,
+    "behindMain": 0,
+    "changedFiles": 153,
+    "ci": "NOT_RUN_BRANCH_NOT_IN_PUSH_TRIGGER"
+  },
+  "finalQualificationBranch": "dev/hns-final-qualification-rc2",
+  "candidateAncestors": [
+    { "branch": "better-install", "sha": "a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6", "isAncestor": true },
+    { "branch": "target-standby", "sha": "5efa302acd381d57d44bc87bbdc36f80a21dda9a", "isAncestor": true },
+    { "branch": "try-auto", "sha": "432cf431f2b40843ab3ec5287ffd7e5296cb6626", "isAncestor": true },
+    { "branch": "dev/runtime-ui-separation-v1", "sha": "923f5293a2ada553cb7f91a4bc1b54e750dfe7c3", "isAncestor": true }
+  ],
+  "openPullRequests": [],
+  "latestMainCi": {
+    "runId": 35078946779,
+    "conclusion": "success",
+    "sha": "59d816b734bea1c20ff2fbd6244395fc715304fe"
+  },
+  "ruling": "Do not merge or cherry-pick any historical candidate branch again."
+}

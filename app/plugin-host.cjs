@@ -45,6 +45,7 @@ const { createAdapterFramework } = require('./core/plugin-adapters/index.cjs')
 const { createNativeHnsAdapter } = require('./core/plugin-adapters/adapters/native-hns.cjs')
 const { createCordisAdapter } = require('./core/plugin-adapters/adapters/cordis.cjs')
 const { createCordisDshAdapter } = require('./core/plugin-adapters/adapters/cordis-dsh.cjs')
+const { createHarnessProfileAdapter } = require('./core/plugin-adapters/adapters/harness-profile.cjs')
 const { createProcessPluginAdapter } = require('./core/plugin-adapters/adapters/process.cjs')
 const { PARALLEL_MODES, MODE_POLICY } = require('./plugins/acceleration/parallel-executor/index.cjs')
 const { mountedPlugins } = require('./plugins/mounted/index.cjs')
@@ -87,7 +88,14 @@ const PLUGIN_GROUPS = Object.freeze({
   // Health sampling and pressure scoring are an observability concern first: the plugin watches the
   // machine and the runtime and reports. Its maintenance window and its restart *request* are
   // downstream of that reading, not a separate capability of their own.
-  'dshns.health-scheduler': 'Observability'
+  'dshns.health-scheduler': 'Observability',
+  /**
+   * The restart authority sits in **Execution**, beside the shell runtime and the task supervisor,
+   * and that is a statement rather than a convenience: it is the component that runs the product's
+   * lifecycle, not one that observes it. `dshns.health-scheduler` above it decides; this one acts,
+   * and a panel that grouped them together would blur the line the pair exists to keep.
+   */
+  'dshns.restart-supervisor': 'Execution'
 })
 
 const GROUP_ORDER = Object.freeze(['Execution', 'Autonomy', 'Coding', 'Performance', 'Observability'])
@@ -117,6 +125,92 @@ const EXECUTION_SCHEMA = Object.freeze({
   autoScaling: { type: 'boolean', default: true, owner: 'dshns.high-performance', label: 'Automatic worker scaling' },
   advancedFim: { type: 'boolean', default: true, owner: 'dshns.high-performance', label: 'Advanced FIM editing' }
 })
+
+/**
+ * Write one value at a dotted path, creating the intermediate objects.
+ *
+ * The one rule that matters: a segment that already holds something which is not an object is
+ * *replaced* by an object rather than merged into, because "set `budget.maxRestarts`" against a
+ * `budget` that is the number `3` has one sensible answer and it is not a crash.
+ */
+function setPath(target, key, value) {
+  const parts = String(key).split('.')
+  let cursor = target
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const part = parts[index]
+    if (!cursor[part] || typeof cursor[part] !== 'object' || Array.isArray(cursor[part])) cursor[part] = {}
+    cursor = cursor[part]
+  }
+  cursor[parts[parts.length - 1]] = value
+  return target
+}
+
+/**
+ * The **advanced** settings the Control Center may change: the two long-hosting plugins' own policy.
+ *
+ * They are dotted paths into the configuration the plugins already read, and every one of them is a
+ * bound the plugin enforces rather than a display value: the thresholds the monitor escalates on, the
+ * sampling interval, the hysteresis exit width, the cooldowns, the maintenance window and its two
+ * deadlines, and — for the supervisor — the restart budget, the cooldown and backoff, the heartbeat
+ * timeouts, the graceful and forced stop budgets and the readiness retry budget.
+ *
+ * The owners are the plugin ids, so a write lands in `config/plugins/dshns.health-scheduler.json` or
+ * `config/plugins/dshns.restart-supervisor.json` and is read back by the plugin's own merge. Nothing
+ * here is validated twice: `checkValue` is the host's one validator, and a value it refuses is
+ * refused with its reason rather than clamped silently.
+ */
+const ADVANCED_SCHEMA = Object.freeze({
+  // ---- dshns.health-scheduler ----
+  intervalMs: { type: 'number', min: 1_000, max: 600_000, owner: 'dshns.health-scheduler', label: 'Sampling interval (ms)' },
+  'thresholds.throttle.enter': { type: 'number', min: 1, max: 100, owner: 'dshns.health-scheduler', label: 'Throttle threshold' },
+  'thresholds.throttle.exit': { type: 'number', min: 0, max: 100, owner: 'dshns.health-scheduler', label: 'Throttle exit (hysteresis)' },
+  'thresholds.pause.enter': { type: 'number', min: 1, max: 100, owner: 'dshns.health-scheduler', label: 'Pause threshold' },
+  'thresholds.pause.exit': { type: 'number', min: 0, max: 100, owner: 'dshns.health-scheduler', label: 'Pause exit (hysteresis)' },
+  'thresholds.restart.enter': { type: 'number', min: 1, max: 100, owner: 'dshns.health-scheduler', label: 'Restart threshold' },
+  'thresholds.restart.exit': { type: 'number', min: 0, max: 100, owner: 'dshns.health-scheduler', label: 'Restart exit (hysteresis)' },
+  'cooldowns.restartMs': { type: 'number', min: 60_000, max: 86_400_000, owner: 'dshns.health-scheduler', label: 'Restart request cooldown (ms)' },
+  'cooldowns.actionMs': { type: 'number', min: 0, max: 86_400_000, owner: 'dshns.health-scheduler', label: 'Action cooldown (ms)' },
+  'restartRequiresSustainedMs': { type: 'number', min: 0, max: 86_400_000, owner: 'dshns.health-scheduler', label: 'Sustained pressure a restart requires (ms)' },
+  'maintenance.enabled': { type: 'boolean', owner: 'dshns.health-scheduler', label: 'Maintenance window' },
+  'maintenance.windowStart': { type: 'string', enum: hourClockValues(), owner: 'dshns.health-scheduler', label: 'Maintenance window start' },
+  'maintenance.windowEnd': { type: 'string', enum: hourClockValues(), owner: 'dshns.health-scheduler', label: 'Maintenance window end' },
+  'maintenance.maxDeferMs': { type: 'number', min: 60_000, max: 604_800_000, owner: 'dshns.health-scheduler', label: 'Maximum defer (ms)' },
+  'maintenance.deadlineMs': { type: 'number', min: 60_000, max: 2_592_000_000, owner: 'dshns.health-scheduler', label: 'Maintenance deadline (ms)' },
+  'model.debounceSamples': { type: 'number', min: 1, max: 10, owner: 'dshns.health-scheduler', label: 'Debounce samples' },
+  'model.unknownCoverageBelow': { type: 'number', min: 0, max: 100, owner: 'dshns.health-scheduler', label: 'Coverage floor for UNKNOWN (%)' },
+  'model.unknownConfidenceBelow': { type: 'number', min: 0, max: 1, owner: 'dshns.health-scheduler', label: 'Provider-confidence floor for UNKNOWN' },
+  // ---- dshns.restart-supervisor ----
+  'budget.maxRestarts': { type: 'number', min: 0, max: 50, owner: 'dshns.restart-supervisor', label: 'Restart budget' },
+  'budget.windowMs': { type: 'number', min: 60_000, max: 86_400_000, owner: 'dshns.restart-supervisor', label: 'Restart budget window (ms)' },
+  'budget.cooldownMs': { type: 'number', min: 0, max: 86_400_000, owner: 'dshns.restart-supervisor', label: 'Restart cooldown (ms)' },
+  'budget.backoffMs': { type: 'number', min: 0, max: 86_400_000, owner: 'dshns.restart-supervisor', label: 'Restart backoff (ms)' },
+  'budget.backoffMaxMs': { type: 'number', min: 0, max: 86_400_000, owner: 'dshns.restart-supervisor', label: 'Restart backoff ceiling (ms)' },
+  'crashLoop.degradedAt': { type: 'number', min: 1, max: 50, owner: 'dshns.restart-supervisor', label: 'Failures before DEGRADED' },
+  'crashLoop.safeModeAt': { type: 'number', min: 1, max: 50, owner: 'dshns.restart-supervisor', label: 'Failures before SAFE_MODE' },
+  'crashLoop.safeModeOnLoop': { type: 'boolean', owner: 'dshns.restart-supervisor', label: 'Enter safe mode on a crash loop' },
+  'heartbeat.intervalMs': { type: 'number', min: 500, max: 300_000, owner: 'dshns.restart-supervisor', label: 'Heartbeat interval (ms)' },
+  'heartbeat.timeoutMs': { type: 'number', min: 1_000, max: 600_000, owner: 'dshns.restart-supervisor', label: 'Heartbeat stale timeout (ms)' },
+  'heartbeat.livenessTimeoutMs': { type: 'number', min: 1_000, max: 600_000, owner: 'dshns.restart-supervisor', label: 'Process liveness timeout (ms)' },
+  'heartbeat.forcedAfterMs': { type: 'number', min: 1_000, max: 3_600_000, owner: 'dshns.restart-supervisor', label: 'Forced restart after (ms)' },
+  'heartbeat.gracefulRecoveryMs': { type: 'number', min: 0, max: 3_600_000, owner: 'dshns.restart-supervisor', label: 'Graceful recovery window (ms)' },
+  'lifecycle.gracefulTimeoutMs': { type: 'number', min: 1_000, max: 600_000, owner: 'dshns.restart-supervisor', label: 'Graceful stop budget (ms)' },
+  'lifecycle.forcedTimeoutMs': { type: 'number', min: 1_000, max: 600_000, owner: 'dshns.restart-supervisor', label: 'Forced stop budget (ms)' },
+  'lifecycle.boundaryTimeoutMs': { type: 'number', min: 1_000, max: 3_600_000, owner: 'dshns.restart-supervisor', label: 'Safe-boundary wait (ms)' },
+  'readiness.timeoutMs': { type: 'number', min: 1_000, max: 1_800_000, owner: 'dshns.restart-supervisor', label: 'Readiness budget (ms)' },
+  'readiness.maxAttempts': { type: 'number', min: 1, max: 60, owner: 'dshns.restart-supervisor', label: 'Readiness attempts per gate' },
+  'readiness.backoffMs': { type: 'number', min: 0, max: 300_000, owner: 'dshns.restart-supervisor', label: 'Readiness retry backoff (ms)' },
+  'companion.enabled': { type: 'boolean', owner: 'dshns.restart-supervisor', label: 'Out-of-process companion' }
+})
+
+/** `HH:MM` on the hour and half hour: what a maintenance window is chosen from. */
+function hourClockValues() {
+  const values = []
+  for (let hour = 0; hour < 24; hour += 1) {
+    values.push(`${String(hour).padStart(2, '0')}:00`)
+    values.push(`${String(hour).padStart(2, '0')}:30`)
+  }
+  return values
+}
 
 /**
  * Turn the shipped `plugins` block of `config/app.json` into the shape this host wants.
@@ -186,6 +280,14 @@ function createPluginHost(options = {}) {
   const reason = typeof options.reason === 'function' ? options.reason : () => 'the plugin runtime is disabled'
   const defaults = options.defaults && typeof options.defaults === 'object' ? options.defaults : {}
   const profile = options.profile && typeof options.profile === 'object' ? options.profile : {}
+  /**
+   * Core's task-continuity hooks, when the shell supplied them.
+   *
+   * They travel to the shipped plugins that declare a need for them (the restart supervisor) and to
+   * nothing else. The host does not implement them: parking and resuming a task is Core's, and a
+   * second implementation here would be a second answer to "what was interrupted".
+   */
+  const continuity = options.continuity && typeof options.continuity === 'object' ? options.continuity : null
 
   const bus = createEventBus({ now })
   const registry = createCapabilityRegistry({ now, bus })
@@ -242,6 +344,25 @@ function createPluginHost(options = {}) {
     nodeExe: options.nodeExe,
     timeoutMs: options.compatTimeoutMs,
     log: (event) => log(`compat ${JSON.stringify(event).slice(0, 200)}`)
+  }))
+  /**
+   * The plugins that belong to a **Harness profile** rather than to this host: the community client
+   * plugins DS-Hns offers at install time (`@dsh-market/plugin`, `dsh-plugin-wallpaper-engine`).
+   *
+   * It is registered above the bridged community adapter on purpose. `dshns.cordis-dsh` *runs* a
+   * community bundle's host half in a mediated child process, which is the right answer for a plugin
+   * this product hosts — and the wrong answer for one the Harness is already composing out of the
+   * profile it boots, because that would be a second instance of it. This adapter only reads the
+   * installed package and reports the format, the peers and the browser half; `load()` starts nothing.
+   *
+   * Same roots as the bridged adapter: a profile plugin's `peerDependencies` are the host's to
+   * provide, and the harness's own install is a root by default.
+   */
+  adapters.register(createHarnessProfileAdapter({
+    roots: Array.isArray(options.peerRoots) && options.peerRoots.length
+      ? options.peerRoots
+      : [path.join(__dirname, 'node_modules')],
+    log: (event) => log(`harness-profile ${JSON.stringify(event).slice(0, 200)}`)
   }))
 
   /**
@@ -411,9 +532,24 @@ function createPluginHost(options = {}) {
     return [...shippedArtifacts(), ...(await installedArtifacts())]
   }
 
-  /** The product's own plugin sets, as artifacts for the framework to adapt. */
+  /**
+   * The product's own plugin sets, as artifacts for the framework to adapt.
+   *
+   * The shell's **continuity layer** is handed to the mounted set here, and only to it: the restart
+   * supervisor is the plugin that asks "what is running, park it, continue it", and the answer is
+   * Core's own (`app/core/task-continuity.cjs`), not something a plugin may implement for itself. A
+   * store-installed plugin is never given it — a third-party plugin that could park the product's
+   * tasks would be a plugin that can stop a user's work.
+   */
   function shippedArtifacts() {
-    return [...mountedPlugins(), ...accelerationPlugins()].map((plugin) => ({
+    const host = continuity && typeof continuity === 'object' ? { ...continuity } : null
+    // These engines resolve policy at construction, before load(context).
+    // Rebuild them from the same owner-specific layers the manager publishes.
+    return [...mountedPlugins({
+      host, nodeExe: options.nodeExe, stateDir: options.restartSupervisorStateDir,
+      healthConfig: config.forPlugin('dshns.health-scheduler').resolved,
+      restartConfig: config.forPlugin('dshns.restart-supervisor').resolved
+    }), ...accelerationPlugins()].map((plugin) => ({
       module: plugin,
       source: 'the shipped plugin set',
       shipped: true
@@ -523,7 +659,11 @@ function createPluginHost(options = {}) {
         // outranks a manifest's `default_enabled: false`: without this, a store plugin that ships
         // switched off (every compatibility-mode plugin does) would be mounted and never loaded —
         // enabled in the panel and not running, with nothing saying why.
-        enabled: fromStore ? true : (typeof resolved.resolved.enabled === 'boolean' ? resolved.resolved.enabled : undefined),
+        // A later explicit lifecycle choice in plugin config outranks store
+        // installation too; otherwise a disabled store plugin reappears on rebuild.
+        enabled: resolved.sources.enabled === 'plugin-config' && typeof resolved.resolved.enabled === 'boolean'
+          ? resolved.resolved.enabled
+          : fromStore ? true : (typeof resolved.resolved.enabled === 'boolean' ? resolved.resolved.enabled : undefined),
         config: resolved.resolved
       }
     }
@@ -752,6 +892,26 @@ function createPluginHost(options = {}) {
     if (!manager) return { ok: false, error: 'the plugin runtime could not be built', code: 'PLUGIN_RUNTIME_UNAVAILABLE' }
     if (!manager.has(id)) return { ok: false, error: `no plugin ${id}`, code: 'PLUGIN_NOT_FOUND' }
     const enabled = input.enabled !== false
+    // Lifecycle choices must survive configure() rebuilding the manager and
+    // subsequent desktop launches. Preserve the plugin's other settings, and
+    // refuse unreadable/unwritable configuration before changing live state.
+    const file = config.fileFor(id)
+    let current = {}
+    try {
+      if (fs.existsSync(file)) {
+        current = JSON.parse(fs.readFileSync(file, 'utf8'))
+        if (!current || typeof current !== 'object' || Array.isArray(current)) throw new Error('plugin config must be an object')
+      }
+    } catch (error) {
+      return { ok: false, code: 'CONFIG_UNREADABLE', error: `cannot read ${file}: ${error.message}` }
+    }
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, `${JSON.stringify({ ...current, enabled }, null, 2)}\n`, 'utf8')
+    } catch (error) {
+      return { ok: false, code: 'CONFIG_UNWRITABLE', error: `cannot write ${file}: ${error.message}` }
+    }
+    config.refresh()
     const outcome = enabled ? manager.enable(id) : await manager.disable(id)
     if (outcome.ok) {
       const loaded = enabled ? await manager.load(id) : { ok: true, already: true }
@@ -843,18 +1003,31 @@ function createPluginHost(options = {}) {
    * out-of-range value is refused with a reason rather than written. What is written goes
    * into the owning plugin's config file, and the world is rebuilt so the runtime and the
    * panel cannot disagree about what is set.
+   *
+   * A key may be **dotted** (`thresholds.throttle.enter`, `budget.maxRestarts`,
+   * `maintenance.windowStart`), which is how the two long-hosting plugins' advanced settings are
+   * addressed: their configuration is a small tree — thresholds with an enter and an exit, a
+   * maintenance window with a start and an end, a restart budget with a window and a backoff — and
+   * flattening it into one level of keys would be this host inventing a second shape for values the
+   * plugins already read. A dotted write goes into the same file, at the same depth, so what the
+   * panel sets is what `mergeConfig` in the plugin reads.
+   *
+   * The rebuild is what makes a change *take*: the plugins resolve their configuration at
+   * construction, so a write without a reload would be a value stored in a file that nothing reads —
+   * which is worse than refusing it.
    */
   async function configure(input = {}) {
     const off = disabled()
     if (off) return off
     const patch = input.settings && typeof input.settings === 'object' ? input.settings : input
-    const unknown = Object.keys(patch).filter((key) => !Object.prototype.hasOwnProperty.call(EXECUTION_SCHEMA, key))
-    if (unknown.length) return { ok: false, code: 'UNKNOWN_SETTING', error: `unknown setting(s): ${unknown.join(', ')}`, known: Object.keys(EXECUTION_SCHEMA) }
+    const schema = { ...EXECUTION_SCHEMA, ...ADVANCED_SCHEMA }
+    const unknown = Object.keys(patch).filter((key) => !Object.prototype.hasOwnProperty.call(schema, key))
+    if (unknown.length) return { ok: false, code: 'UNKNOWN_SETTING', error: `unknown setting(s): ${unknown.join(', ')}`, known: Object.keys(schema) }
     const accepted = {}
     const rejected = []
     const owners = new Set()
     for (const [key, raw] of Object.entries(patch)) {
-      const rule = EXECUTION_SCHEMA[key]
+      const rule = schema[key]
       const checked = config.checkValue(raw, rule)
       if (!checked.ok) {
         rejected.push({ key, value: raw, reason: checked.reason })
@@ -879,7 +1052,11 @@ function createPluginHost(options = {}) {
         return { ok: false, code: 'CONFIG_UNREADABLE', error: `cannot read ${file}: ${error && error.message ? error.message : error}` }
       }
       const block = { ...current }
-      for (const [key, value] of Object.entries(accepted)) if (EXECUTION_SCHEMA[key].owner === owner) block[key] = value
+      for (const [key, value] of Object.entries(accepted)) {
+        if (schema[key].owner !== owner) continue
+        if (key.includes('.')) setPath(block, key, value)
+        else block[key] = value
+      }
       try {
         fs.mkdirSync(path.dirname(file), { recursive: true })
         fs.writeFileSync(file, `${JSON.stringify(block, null, 2)}\n`, 'utf8')
@@ -1047,6 +1224,96 @@ function createPluginHost(options = {}) {
     }
   }
 
+  /**
+   * One plugin as a **service record** — everything a management surface needs, from the sources that
+   * own each fact.
+   *
+   * The plugin manager knows the four states, the capabilities and the fault; the adapter record
+   * knows which format it arrived in; the plugin's own `domainDiagnostics()` knows what it is doing
+   * right now. This merges them once so three surfaces (the official UI's settings section, the Mega
+   * panel and the governance bridge) do not each invent their own join — and so a fact that is
+   * missing is reported as missing rather than as healthy.
+   *
+   * `domainDiagnostics()` is read rather than the platform's standardised `diagnostics()`, and the
+   * difference matters: the standard one is **async** (it runs a health check) and describes the
+   * plugin's *lifecycle*, while the domain one is synchronous and describes the plugin's *subject* —
+   * the monitor's pressure and trend, the supervisor's budget and companion. A service record has to
+   * be a plain object: a panel, an IPC reply and the governance bridge all serialise it, and a
+   * Promise in it would arrive as `{}`.
+   *
+   * It is called defensively: it is plugin code, and a plugin whose diagnostics throw must still
+   * appear in the list with the fault named. That is the same per-plugin fault isolation the adapter
+   * framework applies at load time, applied to the read path.
+   */
+  function serviceRecordOf(id) {
+    const wanted = String(id)
+    // `list()` is the host's own report (`{ ok, plugins, ... }`), not the manager's flat array: the
+    // host's shape is the one that carries the standard sections a management surface reads.
+    const described = list()
+    const plugins = Array.isArray(described) ? described : (described && Array.isArray(described.plugins) ? described.plugins : [])
+    const record = plugins.find((entry) => entry.id === wanted) || null
+    if (!record) return { ok: false, id: wanted, reason: `${wanted} is not part of the plugin runtime` }
+    const managed = manager ? manager.entry(wanted) : null
+    let diagnostics = null
+    let diagnosticsError = null
+    try {
+      const candidate = managed && managed.plugin ? managed.plugin : null
+      if (candidate && typeof candidate.domainDiagnostics === 'function') {
+        diagnostics = candidate.domainDiagnostics()
+      } else if (candidate && typeof candidate.diagnostics === 'function') {
+        // A plugin that only has the standard hook is still read — but only when it answers with a
+        // value: a promise here would be serialised as an empty object, which is worse than `null`.
+        const answer = candidate.diagnostics()
+        diagnostics = answer && typeof answer.then === 'function' ? null : answer
+      }
+    } catch (error) {
+      diagnosticsError = String(error && error.message ? error.message : error)
+    }
+    /**
+     * The health answer, from the layer that owns it.
+     *
+     * `list()` publishes only the status *word* (`entry.health` is a string there, or null), while the
+     * manager's own record holds the whole answer — status, reason, latency and the detail block a
+     * panel reads (`heartbeat`, `fallback`). Reading the word and calling it the record produced a
+     * health object with `status: undefined`, which every tone function then treated as "not
+     * degraded", and a supervisor with no companion drew as merely unhealthy instead of degraded with
+     * its reason. So the object is taken from the manager, and the word is the fallback for a plugin
+     * whose record the manager no longer keeps (one unloaded between the two reads).
+     */
+    const managedHealth = managed && managed.health && typeof managed.health === 'object' ? managed.health : null
+    const listedHealth = record.health
+    const health = managedHealth || (typeof listedHealth === 'string' ? { status: listedHealth } : (listedHealth && typeof listedHealth === 'object' ? listedHealth : null))
+    const detail = health && health.detail ? health.detail : {}
+    return {
+      ok: true,
+      id: record.id,
+      name: record.name,
+      version: record.version,
+      apiVersion: record.apiVersion,
+      /** The four separate facts, never collapsed into one "on/off". */
+      installed: record.installed === true,
+      enabled: record.enabled === true,
+      loaded: record.loaded === true,
+      healthy: record.healthy,
+      health: health ? { status: health.status, reason: health.reason || null, at: health.at || null } : null,
+      /** The heartbeat, when the plugin reports one. Absent is `null`, which is never "fine". */
+      heartbeat: detail.heartbeat || (diagnostics && diagnostics.heartbeat ? diagnostics.heartbeat : null),
+      lastError: record.fault
+        ? { code: record.fault.code, reason: record.fault.reason, at: record.fault.at || null }
+        : (diagnosticsError ? { code: 'DIAGNOSTICS_THREW', reason: diagnosticsError } : null),
+      capabilities: { provides: record.provides.slice(), requires: record.requires.slice() },
+      fallback: detail.fallback || null,
+      adapter: record.adapter || null,
+      permissions: record.permissions || null,
+      runtime: record.runtime || null,
+      lifecycle: record.lifecycle || null,
+      /** Whatever the plugin itself publishes, verbatim: the surfaces read, they do not interpret. */
+      diagnostics: diagnostics || null,
+      /** The bounded history a panel draws, not a live handle. */
+      recentFaults: managed && Array.isArray(managed.faults) ? managed.faults.slice(-5).map((fault) => ({ code: fault.code, reason: fault.reason, at: fault.at || null })) : []
+    }
+  }
+
   /** Stop everything this host owns. Called on shell teardown. */
   async function dispose(why = 'shell teardown') {
     try {
@@ -1073,6 +1340,7 @@ function createPluginHost(options = {}) {
   return {
     PLUGIN_CHANNELS: ['plugins:status', 'plugins:list', 'plugins:describe', 'plugins:enable', 'plugins:reload', 'plugins:health', 'plugins:refresh', 'plugins:compat-setup', 'plugins:compat-apply', 'plugins:capabilities', 'plugins:execution', 'plugins:configure', 'plugins:lock'],
     EXECUTION_SCHEMA,
+    ADVANCED_SCHEMA,
     PLUGIN_GROUPS,
     ensure,
     status,
@@ -1092,6 +1360,123 @@ function createPluginHost(options = {}) {
      * follows.
      */
     adapters: () => adapters.describe(),
+    /**
+     * One plugin as a **service record** — everything a management surface needs, from the sources
+     * that own each fact.
+     *
+     * The plugin manager knows the four states, the capabilities and the fault; the adapter record
+     * knows which format it arrived in; and the plugin's own `domainDiagnostics()` knows what it is
+     * doing right now. This merges them once so three surfaces (the official UI's settings section,
+     * the Mega panel and the governance bridge) do not each invent their own join — and so a fact
+     * that is missing is reported as missing rather than as healthy.
+     *
+     * `domainDiagnostics()` is read rather than the platform's async, standardised `diagnostics()`:
+     * a service record is serialised by all three surfaces, so it has to be a plain object rather
+     * than a Promise, and the fields a panel draws are the plugin's own (see `serviceRecordOf`).
+     */
+    serviceReport: (id) => {
+      try {
+        return serviceRecordOf(id)
+      } catch (error) {
+        return { ok: false, id: String(id), reason: String(error && error.message ? error.message : error) }
+      }
+    },
+    /**
+     * The plugin world as **service records**, in one call.
+     *
+     * With no ids it answers for **every** plugin in the runtime, not for the two built-ins: the official
+     * page is the surface every user has, and a roster that showed two of twenty-five plugins would make
+     * the rest invisible exactly where they matter most. The two the requirement names are simply the
+     * first two, and `serviceRecordOf` keeps their state apart like any other plugin's.
+     */
+    serviceReports: (ids) => {
+      const all = list()
+      const plugins = Array.isArray(all) ? all : (all && Array.isArray(all.plugins) ? all.plugins : [])
+      const wanted = Array.isArray(ids) && ids.length
+        ? ids.map(String)
+        : (plugins.length ? plugins.map((entry) => entry.id) : ['dshns.health-scheduler', 'dshns.restart-supervisor'])
+      return wanted.map((id) => {
+        try {
+          return serviceRecordOf(id)
+        } catch (error) {
+          return { ok: false, id, reason: String(error && error.message ? error.message : error) }
+        }
+      })
+    },
+    /**
+     * The formal `restart_status`, as its own read.
+     *
+     * It is deliberately not only a field inside the supervisor's service record: "when did this
+     * machine last restart, why, and what came back?" is the question a person asks a *product*, and a
+     * surface that had to know which plugin owns it would be a surface that cannot show it when that
+     * plugin is the thing that failed. The answer is read from the same record the official page draws,
+     * and from the file that survives the process.
+     */
+    restartStatus: () => {
+      try {
+        const record = serviceRecordOf('dshns.restart-supervisor')
+        const status = record && record.diagnostics ? record.diagnostics.restartStatus : null
+        if (status) return status
+        return {
+          status: 'restart_status',
+          phase: 'UNKNOWN',
+          inFlight: false,
+          reason: record && record.reason ? record.reason : 'the restart supervisor is not in this runtime',
+          summary: 'no restart status is available',
+          history: [],
+          historyCount: 0
+        }
+      } catch (error) {
+        return { status: 'restart_status', phase: 'UNKNOWN', inFlight: false, reason: String(error && error.message ? error.message : error), history: [], historyCount: 0 }
+      }
+    },
+    /**
+     * Start the out-of-process halves a plugin asks for **at boot**, and only at boot.
+     *
+     * The restart supervisor's companion is deliberately not started when its plugin loads: loading a
+     * plugin is not a reason to fork a process, and a suite that mounts the shipped set would fork one
+     * per mount. So the shell calls this once, from the boot sequence, and it asks the plugin that has
+     * somewhere to run to start it — a plugin without one answers `skipped`, which is not an error.
+     */
+    startCompanions: () => {
+      const started = []
+      if (!manager) return { ok: true, built: false, started, note: 'the plugin runtime has not been built' }
+      for (const record of manager.list()) {
+        const plugin = manager.entry(record.id)
+        const candidate = plugin && plugin.plugin ? plugin.plugin : null
+        if (!candidate || typeof candidate.ensureCompanion !== 'function') continue
+        try {
+          started.push({ id: record.id, ...candidate.ensureCompanion({ force: true }) })
+        } catch (error) {
+          started.push({ id: record.id, ok: false, reason: String(error && error.message ? error.message : error) })
+        }
+      }
+      return { ok: true, built: true, started }
+    },
+    /**
+     * Tell the out-of-process halves to stand down, because the product is leaving on purpose.
+     *
+     * This is the other half of `startCompanions`, and it is what keeps a supervisor from mistaking a
+     * normal exit for a crash: the companion watches a process table, and "the pid went away" reads the
+     * same either way. The plugin that owns the state directory writes the note; the shell only relays
+     * the fact that this is an exit and not a failure. A companion that is not running answers
+     * `skipped`, and a plugin without one is not asked.
+     */
+    stopCompanions: (reason = 'the application is exiting normally') => {
+      const stopped = []
+      if (!manager) return { ok: true, built: false, stopped, note: 'the plugin runtime has not been built' }
+      for (const record of manager.list()) {
+        const plugin = manager.entry(record.id)
+        const candidate = plugin && plugin.plugin ? plugin.plugin : null
+        if (!candidate || typeof candidate.stopCompanion !== 'function') continue
+        try {
+          stopped.push({ id: record.id, ...candidate.stopCompanion(reason) })
+        } catch (error) {
+          stopped.push({ id: record.id, ok: false, reason: String(error && error.message ? error.message : error) })
+        }
+      }
+      return { ok: true, built: true, stopped }
+    },
     execution,
     configure,
     lockfile,
@@ -1117,4 +1502,4 @@ function createPluginHost(options = {}) {
   }
 }
 
-module.exports = { createPluginHost, executionDefaults, EXECUTION_SCHEMA, PLUGIN_GROUPS, GROUP_ORDER }
+module.exports = { createPluginHost, executionDefaults, EXECUTION_SCHEMA, ADVANCED_SCHEMA, PLUGIN_GROUPS, GROUP_ORDER }

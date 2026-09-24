@@ -27,6 +27,8 @@ function Get-NodeMajor([string]$nodeExe) {
 function Test-CompatibleNode([string]$nodeExe) {
   if (-not $nodeExe) { return $false }
   if (-not (Test-Path -LiteralPath $nodeExe)) { return $false }
+  $npmCmd = Join-Path (Split-Path -Parent $nodeExe) 'npm.cmd'
+  if (-not (Test-Path -LiteralPath $npmCmd)) { return $false }
   return ((Get-NodeMajor $nodeExe) -ge $minMajor)
 }
 

@@ -38,26 +38,29 @@ function readJson(name, fallback) {
 
 const paths = readJson('paths.json', {})
 const app = readJson('app.json', {})
+const DSH_HOME = path.resolve(process.env.DSH_HOME || paths.DSH_HOME || path.join(ROOT, 'data'))
+const RUNTIME_ROOT = path.resolve(process.env.DSH_RUNTIME_ROOT || ROOT)
+const TEMP_ROOT = path.resolve(process.env.DSH_TEMP_ROOT || paths.TEMP || path.join(RUNTIME_ROOT, 'cache', 'temp'))
 
 const PATHS = Object.freeze({
   ROOT,
   APP: paths.APP || path.join(ROOT, 'app'),
   CONFIG: CONFIG_DIR,
   RUNTIME: paths.RUNTIME || path.join(ROOT, 'runtime'),
-  DSH_HOME: paths.DSH_HOME || path.join(ROOT, 'data'),
-  CACHE: paths.CACHE || path.join(ROOT, 'cache'),
-  TEMP: paths.TEMP || path.join(ROOT, 'cache', 'temp'),
-  DOWNLOADS: paths.DOWNLOADS || path.join(ROOT, 'cache', 'downloads'),
-  LOGS: paths.LOGS || path.join(ROOT, 'logs'),
-  DATA: paths.DATA || path.join(ROOT, 'data'),
+  DSH_HOME,
+  CACHE: process.env.DSH_CACHE_ROOT || paths.CACHE || path.join(RUNTIME_ROOT, 'cache'),
+  TEMP: TEMP_ROOT,
+  DOWNLOADS: paths.DOWNLOADS || path.join(RUNTIME_ROOT, 'cache', 'downloads'),
+  LOGS: paths.LOGS || path.join(RUNTIME_ROOT, 'logs'),
+  DATA: DSH_HOME,
   TOOLS: paths.TOOLS || path.join(ROOT, 'tools'),
-  WORKSPACE: paths.WORKSPACE || path.join(ROOT, 'workspace'),
-  SESSIONS: paths.SESSIONS || path.join(ROOT, 'data', 'sessions'),
-  TASK_HISTORY: paths.TASK_HISTORY || path.join(ROOT, 'data', 'task-history'),
-  PRICING: paths.PRICING || path.join(ROOT, 'data', 'pricing'),
-  STATE: paths.STATE || path.join(ROOT, 'data', 'state'),
+  WORKSPACE: paths.WORKSPACE || path.join(RUNTIME_ROOT, 'workspace'),
+  SESSIONS: paths.SESSIONS || path.join(DSH_HOME, 'sessions'),
+  TASK_HISTORY: paths.TASK_HISTORY || path.join(DSH_HOME, 'task-history'),
+  PRICING: paths.PRICING || path.join(DSH_HOME, 'pricing'),
+  STATE: paths.STATE || path.join(DSH_HOME, 'state'),
   SOUNDS: paths.SOUNDS || path.join(ROOT, 'assets', 'sounds'),
-  USER_SOUNDS: paths.USER_SOUNDS || path.join(ROOT, 'data', 'sounds'),
+  USER_SOUNDS: paths.USER_SOUNDS || path.join(DSH_HOME, 'sounds'),
   // Generated launcher icon directory. The source asset is always the
   // repository-root icon.jpg; ds-harness.ico inside this directory is a build
   // artifact produced by scripts\ensure-icon.ps1 and never edited by hand.

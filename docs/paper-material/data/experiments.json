@@ -1,0 +1,524 @@
+{
+  "schemaVersion": 2,
+  "experiments": [
+    {
+      "id": "E-PHASE-C",
+      "goal": "Reduce accepted-patch latency for the same six validation files.",
+      "host": "Alien Windows host",
+      "commit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+      "workload": "six unchanged validation files",
+      "baseline": "six validation processes; seven total process starts",
+      "treatment": "one batched validation process; two total process starts",
+      "metric": "baseline_ms / optimized_ms",
+      "threshold": 1.2,
+      "rawResults": [
+        {
+          "baselineMs": 17198,
+          "optimizedMs": 9141,
+          "ratio": 1.881
+        },
+        {
+          "baselineMs": 17218,
+          "optimizedMs": 9184,
+          "ratio": 1.875
+        },
+        {
+          "baselineMs": 17381,
+          "optimizedMs": 9248,
+          "ratio": 1.879
+        }
+      ],
+      "aggregate": {
+        "min": 1.875,
+        "median": 1.879,
+        "max": 1.881,
+        "populationVariance": 0.0000062222
+      },
+      "repeatCount": 3,
+      "status": "PASS",
+      "artifact": "artifacts/qualification/task4-phase-c-summary.json",
+      "limitations": [
+        "Host and process-start sensitive."
+      ],
+      "hypothesis": "Reduce accepted-patch latency for the same six validation files.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "platform": "win32/x64"
+      },
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "variance": 0.0000062222,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/combined-acceptance.cjs --phase c --out <new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidenceCommit": "0bbd32e"
+    },
+    {
+      "id": "E-COMBINED",
+      "goal": "Exercise engineering acceptance phases A-D.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "repository-defined combined acceptance",
+      "metric": "checks passed",
+      "threshold": "all checks pass",
+      "aggregate": {
+        "checks": 52,
+        "failures": 0
+      },
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/combined-acceptance.json",
+      "limitations": [
+        "Contains synthetic and model-simulation components.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Exercise engineering acceptance phases A-D.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "repository-defined combined acceptance",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/combined-acceptance.cjs --out <new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "combined-acceptance",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "cdb55ed9a5fc69a9b84b3c7ad136d1363f955d7bc01472bbbc88bd0c19d9b792"
+      }
+    },
+    {
+      "id": "E-CU-LONG",
+      "goal": "Exercise sustained Computer Use state transitions.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "injected controller and runtime events",
+      "metric": "failures",
+      "threshold": 0,
+      "aggregate": {
+        "checks": 96,
+        "failures": 0
+      },
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/computer-use-longrun.json",
+      "limitations": [
+        "Not a human desktop session.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Exercise sustained Computer Use state transitions.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "injected controller and runtime events",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/computer-use-longrun-acceptance.cjs --out <new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "computer-use-longrun",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "beb086b95c90b36c1ece59afd730c7303564d37074e9f207f103c01b75814dfe"
+      }
+    },
+    {
+      "id": "E-CHAOS",
+      "goal": "Test bounded recovery under eight injected faults.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "kill, timeout, network loss, restart and interruption",
+      "metric": "scenario checks",
+      "threshold": "all pass",
+      "aggregate": {
+        "checks": 65,
+        "failures": 0
+      },
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/longhost-chaos.json",
+      "limitations": [
+        "Reboot path is simulated.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Test bounded recovery under eight injected faults.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "kill, timeout, network loss, restart and interruption",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/longhost-chaos.cjs --out=<new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "longhost-chaos",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "c7c9d8119deccd8c8eb70235c1236518db17dd4613317693f1055a0da4e13371"
+      }
+    },
+    {
+      "id": "E-SOAK",
+      "goal": "Test scheduler and recovery over 6/12/24-hour virtual horizons.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "virtual-clock horizons",
+      "metric": "failures",
+      "threshold": 0,
+      "aggregate": {
+        "checks": 120,
+        "failures": 0
+      },
+      "repeatCount": 1,
+      "status": "PASS_SYNTHETIC_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/synthetic-soak.json",
+      "limitations": [
+        "Synthetic virtual time is not wall-clock evidence.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Test scheduler and recovery over 6/12/24-hour virtual horizons.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "virtual-clock horizons",
+      "rawResults": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/longhost-soak.cjs --out=<new-report.json>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "synthetic-soak",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "5b9a723a4f40b7bc93c64aeb49d2968fc0ac8f5494a419d5e90dd9a92f163765"
+      },
+      "horizonsHours": [
+        6,
+        12,
+        24
+      ]
+    },
+    {
+      "id": "E-INSTALL",
+      "goal": "Exercise unified installation formats and refusal paths.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "repository, native, process, refusal and lifecycle fixtures",
+      "metric": "checks",
+      "threshold": "all pass",
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/install-pipeline.json",
+      "limitations": [
+        "Requires network access for pinned source fetches.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Exercise unified installation formats and refusal paths.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "repository, native, process, refusal and lifecycle fixtures",
+      "rawResults": null,
+      "aggregate": {
+        "checks": 46,
+        "failures": 0
+      },
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/install-pipeline-acceptance.cjs --json --samples <fresh-fixtures/samples> --companion-repo <fresh-fixtures/dsh-restart>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "install-pipeline",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "4f6387b76f68959dc7931d682b23bc7ab8989a36c6f3574884e19ebed0964dd2"
+      }
+    },
+    {
+      "id": "E-CORDIS",
+      "goal": "Test Cordis adaptation without plugin-specific adapter code.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "two pinned published bundles and one generated stranger",
+      "metric": "routes, lifecycle and teardown",
+      "threshold": "all pass",
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/cordis-adapter.json",
+      "limitations": [
+        "Browser halves are not served.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Test Cordis adaptation without plugin-specific adapter code.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "two pinned published bundles and one generated stranger",
+      "rawResults": null,
+      "aggregate": {
+        "checks": 66,
+        "failures": 0
+      },
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/cordis-adapter-acceptance.cjs --json --samples <fresh-fixtures/samples>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "cordis-adapter",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "d8f16356c42fd10de86794cb1f711182ee1217dbd0d516678ca6c36d120553b5"
+      }
+    },
+    {
+      "id": "E-PROCESS",
+      "goal": "Test an external supervisor behind the JSONL bridge.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "real supervisor with stand-in watched app",
+      "metric": "bounded restart and safe mode",
+      "threshold": "all pass",
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/process-adapter.json",
+      "limitations": [
+        "Watched application is a stand-in.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Test an external supervisor behind the JSONL bridge.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "real supervisor with stand-in watched app",
+      "rawResults": null,
+      "aggregate": {
+        "checks": 33,
+        "failures": 0
+      },
+      "variance": null,
+      "failureMode": "Observed PID-readiness race in run 2026-09-22T21-20-24-182Z-c820a927; repaired by 80ffe0e.",
+      "reproductionCommand": "node scripts/process-adapter-acceptance.cjs --json --companion-repo <fresh-fixtures/dsh-restart>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "process-adapter",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "ba999402b13ee62e23bb916118f02d75f048a2d71ea19e6f7080a4b5a4607480"
+      }
+    },
+    {
+      "id": "E-UI",
+      "goal": "Exercise the visible Electron operator journey.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "renderer, skills, GitHub, theme, orb and official-page input",
+      "metric": "mandatory interaction checks",
+      "threshold": "all pass",
+      "repeatCount": 1,
+      "status": "FAIL_HISTORICAL",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/electron-ui-acceptance.json",
+      "limitations": [
+        "Not accessibility certification.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Exercise the visible Electron operator journey.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "renderer, skills, GitHub, theme, orb and official-page input",
+      "rawResults": null,
+      "aggregate": {
+        "checks": 130,
+        "failures": 3
+      },
+      "variance": null,
+      "failureMode": "127/130 passed; native-picker return collapsed dock before wallpaper precondition and descendant blur was misattributed (N27).",
+      "reproductionCommand": "node scripts/acceptance.mjs --root <checkout> --port 3091 --cdp 9331 --user-data-dir <fresh-userData> --data-dir <fresh-data> --report <new-report.json> --skills --github",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "electron-ui-acceptance",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "4ff003835e2c3f6e916a99651a1a543ae6720ab88313395b0aedf4366a411cb4"
+      }
+    },
+    {
+      "id": "E-QUAL",
+      "goal": "Reject mixed-run or contradictory qualification evidence.",
+      "host": "Alien Windows host",
+      "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "workload": "immutable run with child reports",
+      "metric": "consistency errors",
+      "threshold": 0,
+      "repeatCount": 1,
+      "status": "PASS_HISTORICAL_CHILD_ONLY",
+      "artifact": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/evidence-consistency.json",
+      "limitations": [
+        "Project-specific evidence schema.",
+        "Historical child evidence from an overall failed immutable run; not final candidate qualification."
+      ],
+      "hypothesis": "Reject mixed-run or contradictory qualification evidence.",
+      "softwareVersions": {
+        "node": "v24.14.1",
+        "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "powershell": "powershell.exe"
+      },
+      "softwareVersionsSource": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+      "baseline": null,
+      "treatment": "immutable run with child reports",
+      "rawResults": null,
+      "aggregate": {
+        "checks": 1,
+        "failures": 0
+      },
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": "node scripts/qualification-runner.cjs --out-root <fresh-evidence-root>",
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS",
+      "evidence": {
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+        "runPassed": false,
+        "childId": "evidence-consistency",
+        "summary": "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/qualification-summary.json",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "reportSha256": "80630c37709d7c183b9690b441eb7eb7b939594e9f33b126028519a0bf77e572"
+      }
+    },
+    {
+      "id": "E-REBOOT",
+      "goal": "Verify exact-once recovery after a real Windows reboot.",
+      "host": "Alien Windows host",
+      "commit": null,
+      "workload": "durable unfinished task across OS reboot",
+      "metric": "exact-once resume",
+      "threshold": "all pass",
+      "repeatCount": 0,
+      "status": "NOT_RUN",
+      "artifact": "artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json",
+      "limitations": [
+        "Requires host policy and guaranteed post-boot continuation."
+      ],
+      "hypothesis": "Verify exact-once recovery after a real Windows reboot.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "durable unfinished task across OS reboot",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": null,
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-24H",
+      "goal": "Measure real wall-clock stability for 24 hours.",
+      "host": "Alien Windows host",
+      "commit": null,
+      "workload": "continuous real-time health, resource and continuity probes",
+      "metric": "guardrail violations",
+      "threshold": 0,
+      "repeatCount": 0,
+      "status": "NOT_RUN",
+      "artifact": "artifacts/qualification/REALTIME_24H_SOAK.json",
+      "limitations": [
+        "Synthetic soak is not a substitute."
+      ],
+      "hypothesis": "Measure real wall-clock stability for 24 hours.",
+      "softwareVersions": null,
+      "softwareVersionsSource": "Read the specific immutable run toolchain and fixture report; no version inferred from current PATH.",
+      "baseline": null,
+      "treatment": "continuous real-time health, resource and continuity probes",
+      "rawResults": null,
+      "aggregate": null,
+      "variance": null,
+      "failureMode": null,
+      "reproductionCommand": null,
+      "missingValueMeaning": "null means NOT_RECORDED or NOT_RUN, never zero or PASS"
+    },
+    {
+      "id": "E-CLEANROOM",
+      "goal": "Verify installation from fresh remote clone without reused dependencies or mutable state",
+      "hypothesis": "Declared bootstrap and plugin channels produce a usable isolated installation",
+      "host": "Alien Windows host",
+      "softwareVersions": null,
+      "commit": null,
+      "workload": "fresh clone, Standard installation, full qualification, real Electron visual journey",
+      "baseline": null,
+      "treatment": "empty D-drive checkout and caches",
+      "metric": "mandatory failures",
+      "threshold": 0,
+      "rawResults": null,
+      "aggregate": null,
+      "repeatCount": 0,
+      "variance": null,
+      "failureMode": null,
+      "status": "PENDING_FINAL_CANDIDATE",
+      "reproductionCommand": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install.ps1 -Mode Standard -NoLaunch -NoShortcuts -ApiKeyMode Later -InstallMarket -InstallWallpaper; then node scripts/qualification-runner.cjs --out-root <fresh-evidence-root>",
+      "artifact": "Resolve final cleanroom summary from artifacts/qualification/FINAL_EVIDENCE_INDEX.json",
+      "limitations": [
+        "Each candidate run is separate; an older cleanroom PASS does not qualify a later source revision."
+      ]
+    }
+  ]
+}

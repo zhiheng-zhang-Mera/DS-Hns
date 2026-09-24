@@ -7,19 +7,26 @@ const { spawnSync } = require('node:child_process')
  * Runtime ownership records.
  *
  * The shell owns more than one managed child now:
- *   harness     -> runtime/dsh-process.json          (the managed DSH web server)
- *   sub-worker  -> runtime/sub-worker-process.json   (the optional executor)
+ *   harness       -> runtime/dsh-process.json          (the managed DSH web server)
+ *   sub-worker    -> runtime/sub-worker-process.json   (the optional executor)
+ *   runtime-host  -> runtime/runtime-host-process.json (the standalone Runtime Host)
  *
  * The harness record keeps its original path AND its original field names
  * (`version`, `root`, `dshEntry`, `childPid`, `parentPid`, `startedAt`) so an
  * older build, a script, or a human reading the file still understands it. The
  * generic `type` field is additive, and `migrateOwnership` normalizes records
  * written by earlier versions.
+ *
+ * `runtime-host` is the newest and the most important one for lifecycle: the
+ * Runtime Host is *not* a child of the Electron shell, it is a peer that outlives
+ * it, so its record exists to answer "is a Runtime already alive for this
+ * instance?" and to let a stale one be reaped — never to tie the Runtime's
+ * lifetime to a parent PID.
  */
-
 const OWNERSHIP_TYPES = Object.freeze({
   harness: 'dsh-process.json',
-  'sub-worker': 'sub-worker-process.json'
+  'sub-worker': 'sub-worker-process.json',
+  'runtime-host': 'runtime-host-process.json'
 })
 
 function normalizeType(type) {
@@ -145,9 +152,16 @@ function clearOwnership({ root, type = 'harness', childPid } = {}) {
  * Normalize ownership records written by an older build. The legacy harness
  * format is already accepted, so this only rewrites when fields are missing or
  * the file used an older shape, and it reports exactly what it changed.
+ *
+ * A record is rewritten **only** when its shape is wrong. The `type` check is
+ * against a stringified value rather than the raw one so a record missing its
+ * `type` — which is how every record written before the field existed looks — is
+ * normalized instead of being silently left alone.
  */
 function migrateOwnership({ root, log = () => {} } = {}) {
   const migrated = []
+  /** Fields the writer owns; everything else in a record is the caller's and is preserved. */
+  const WRITER_FIELDS = new Set(['version', 'type', 'root', 'dshEntry', 'entry', 'childPid', 'parentPid', 'startedAt'])
   for (const type of Object.keys(OWNERSHIP_TYPES)) {
     const file = ownershipPathFor(root, type)
     if (!fs.existsSync(file)) continue
@@ -163,15 +177,22 @@ function migrateOwnership({ root, log = () => {} } = {}) {
       migrated.push({ type, action: 'dropped-pidless' })
       continue
     }
-    const needsRewrite = owned.version !== 1 || owned.type !== type || Number(owned.childPid) !== childPid
+    const needsRewrite = owned.version !== 1 || String(owned.type || '') !== type || Number(owned.childPid) !== childPid
     if (!needsRewrite) continue
+    // Per-type extras (the Runtime Host's `instanceId`/`ipcEndpoint`, the worker's
+    // `workerId`) are the whole reason a record is worth more than a PID, so they
+    // are carried across rather than dropped.
+    const extra = {}
+    for (const [key, value] of Object.entries(owned)) {
+      if (!WRITER_FIELDS.has(key) && value !== undefined) extra[key] = value
+    }
     const rewritten = writeOwnership({
       root,
       type,
       entry: owned.entry || owned.dshEntry || null,
       pid: childPid,
       parentPid: Number(owned.parentPid) || 0,
-      workerId: owned.workerId
+      ...extra
     })
     if (rewritten) migrated.push({ type, action: 'normalized', childPid })
   }

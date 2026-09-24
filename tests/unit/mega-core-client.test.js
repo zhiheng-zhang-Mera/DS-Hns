@@ -443,6 +443,81 @@ test('the bundle is the shape the module loader materialises, and it requires on
   assert.equal(/require\((['"])(?!react|@deepseek-ai\/dsh-client-ui-primitives)/.test(source), false, 'the client half required something the platform table does not seed')
 })
 
+test('diagnostics displays the returned report at its service instead of discarding it for an acknowledgement', async () => {
+  const id = 'dshns.health-scheduler'
+  const view = fixtureView()
+  view.services = [id, 'dshns.restart-supervisor'].map(serviceId => ({
+    id: serviceId, name: serviceId, state: 'LOADED', enabled: true, loaded: true,
+    installed: true, healthy: true, actions: ['diagnostics'], capabilities: { provides: [] }
+  }))
+  const report = { id, ok: true, diagnostics: { samples: 19, label: '<script>literal report</script>' } }
+  const mounted = await mount({ fetchImpl: fakeFetch({ view, action: {
+    ok: true, action: 'diagnostics', id, result: { ok: true, action: 'diagnostics', id, result: report }
+  } }) })
+  await mounted.store.act('diagnostics', id)
+  const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+  const target = find(rendered.tree, element => element.props['data-hns-service'] === id)[0]
+  assert.match(strings(target).join(' '), /"samples": 19/)
+  assert.match(strings(target).join(' '), /<script>literal report<\/script>/)
+  assert.equal(find(target, element => element.props.dangerouslySetInnerHTML).length, 0)
+  const other = find(rendered.tree, element => element.props['data-hns-service'] === 'dshns.restart-supervisor')[0]
+  assert.doesNotMatch(strings(other).join(' '), /literal report/)
+})
+
+test('diagnostics exposes pending and refusal beside the requested service', async () => {
+  const id = 'dshns.health-scheduler'
+  const view = fixtureView()
+  view.services = [{ id, state: 'LOADED', actions: ['diagnostics'] }]
+  let resolveAction
+  const mounted = await mount({ fetchImpl: async url => url === '/mega-core/action'
+    ? new Promise(resolve => { resolveAction = resolve }) : answer(200, view) })
+  const request = mounted.store.act('diagnostics', id)
+  try {
+    const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+    const row = find(rendered.tree, element => element.props['data-hns-service'] === id)[0]
+    assert.match(strings(row).join(' '), /Loading diagnostics/)
+  } finally {
+    resolveAction(answer(409, { ok: false, reason: 'diagnostic unavailable now' }))
+    await request
+  }
+  const refused = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+  const row = find(refused.tree, element => element.props['data-hns-service'] === id)[0]
+  assert.match(strings(row).join(' '), /diagnostic unavailable now/)
+  assert.doesNotMatch(strings(row).join(' '), /Loading diagnostics/)
+})
+
+test('a large diagnostic report is visibly truncated and a missing report is not a success certificate', async () => {
+  const id = 'dshns.health-scheduler'
+  const view = fixtureView()
+  view.services = [{ id, state: 'LOADED', actions: ['diagnostics'] }]
+  for (const [result, expected] of [
+    [{ ok: true, result: { detail: 'x'.repeat(20000) } }, /truncated/],
+    [null, /No diagnostic report returned/]
+  ]) {
+    const mounted = await mount({ fetchImpl: fakeFetch({ view, action: { ok: true, result } }) })
+    await mounted.store.act('diagnostics', id)
+    const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+    const row = find(rendered.tree, element => element.props['data-hns-service'] === id)[0]
+    const content = strings(row).join(' ')
+    assert.match(content, expected)
+    assert.ok(content.length < 17000, 'unbounded diagnostic text in service row')
+  }
+})
+
+test('bundled protection state is labeled separately from installed and loaded plugin state', async () => {
+  const view = fixtureView()
+  view.modules = [{ id: 'bundled:dsh-health-scheduler', state: 'DISABLED', actions: [] }]
+  view.services = [{ id: 'dshns.health-scheduler', state: 'LOADED', installed: true, enabled: true, loaded: true, actions: [] }]
+  const mounted = await mount({ fetchImpl: fakeFetch({ view }) })
+  const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+  const content = strings(rendered.tree).join(' ')
+  assert.match(content, /Protection modules/)
+  assert.match(content, /installation protection, not plugin load state/)
+  assert.match(content, /bundled:dsh-health-scheduler — DISABLED/)
+  assert.doesNotMatch(content, /⚠ bundled:dsh-health-scheduler/)
+  assert.match(content, /dshns.health-scheduler — LOADED/)
+})
+
 test('the bundle parses as a classic script, the way a combo is delivered', () => {
   /**
    * The loader serves application bundles as one concatenated, classic script: our file is parsed by the
@@ -476,6 +551,30 @@ test('apply claims three official slots: the ball, the page, and the conversatio
   mounted.effects[0]()
   assert.deepEqual(mounted.cleared, [1])
   assert.equal(mounted.listeners.has('visibilitychange'), false, 'the visibility listener outlived the plugin')
+})
+
+test('stationary pointer events and small hand jitter do not turn an orb click into a drag', async () => {
+  for (const delta of [0, 1, 2]) {
+    const mounted = await mount()
+    const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+    const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+    ball.props.onPointerDown({ button: 0, clientX: 122, clientY: 222, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 100, top: 200 }) } })
+    ball.props.onPointerMove({ clientX: 122 + delta, clientY: 222 })
+    ball.props.onPointerUp()
+    const opened = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+    assert.match(strings(opened.tree).join(' | '), /价格 · Price/, `a ${delta}px move swallowed the click`)
+  }
+})
+
+test('a deliberate pointer drag does not open the orb panel', async () => {
+  const mounted = await mount()
+  const orb = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  const ball = find(orb.tree, (element) => element.type === 'button' && element.props['data-hns-mega-orb'] === 'on')[0]
+  ball.props.onPointerDown({ button: 0, clientX: 122, clientY: 222, preventDefault() {}, currentTarget: { getBoundingClientRect: () => ({ left: 100, top: 200 }) } })
+  ball.props.onPointerMove({ clientX: 102, clientY: 202 })
+  ball.props.onPointerUp()
+  const after = mounted.shim.render(mounted.orbComponent, { store: mounted.store }, mounted.orbState)
+  assert.doesNotMatch(strings(after.tree).join(' | '), /价格 · Price/)
 })
 
 test('the ball opens on every category, all shut, each with its own headline', async () => {
@@ -652,6 +751,8 @@ test('the ball\'s own panel offers the new-task entry, first, and it opens the b
   assert.equal(find(rendered.tree, (element) => element.props['data-primitive'] === 'modal').length, 0, 'the ball opened the header\'s centred sub-page');
   assert.match(said, /要执行的内容/, 'the ball\'s form has no prompt');
   assert.match(said, /发送时间/, 'the ball\'s form opened without its schedule');
+  assert.match(said, /发送时间（本机时间）/, 'local schedule input must identify its time basis');
+  assert.match(said, /计费时区 Asia\/Shanghai/, 'price timezone must not imply the input timezone');
   // The dashboard is not drawn under the form: one column, one surface.
   assert.equal(find(rendered.tree, (element) => element.props['data-hns-mega-category']).length, 0, 'the dashboard is still drawn under the form');
 
@@ -887,7 +988,8 @@ test('the page renders §4.4 governance on its own card, and its actions go thro
   assert.equal(rendered.tree.props.style.background, 'rgba(14,16,20,.97)')
   assert.equal(rendered.tree.props.style.color, '#ededed')
 
-  // Every action the page offers is one governance accepts, and asking is a POST of `{ action, id }`.
+  // Every action the page offers is one governance accepts, and asking is a POST of the action, its id —
+  // `null` for a product-level action, which is what made these buttons real — and the confirmation flag.
   const buttons = find(rendered.tree, (element) => element.type === 'button')
   const labels = buttons.map((element) => strings(element).join(''))
   assert.ok(labels.includes('retry'), `no action button reached the page: ${labels.join(', ')}`)
@@ -895,7 +997,7 @@ test('the page renders §4.4 governance on its own card, and its actions go thro
   await tick()
   const action = mounted.fetchImpl.calls.find((call) => call.url === '/mega-core/action')
   assert.ok(action, 'the action never left the page')
-  assert.deepEqual(JSON.parse(action.init.body), { action: 'retry', id: null })
+  assert.deepEqual(JSON.parse(action.init.body), { action: 'retry', id: null, confirm: false })
 })
 
 test('a hidden document is not polled, and becoming visible again polls immediately', async () => {
@@ -1040,7 +1142,8 @@ test('the header action opens a centred sub-page whose composer is the input and
   assert.ok(schedule, 'the dialog has no schedule section');
   assert.match(said, /定时设置/);
   assert.match(said, /发送时间/);
-  assert.match(said, /时区 Asia\/Shanghai/);
+  assert.match(said, /发送时间（本机时间）/, 'local schedule input must identify its time basis');
+  assert.match(said, /计费时区 Asia\/Shanghai/, 'price timezone must not imply the input timezone');
   assert.match(said, /峰价时段 09:00-12:00, 14:00-18:00/);
   assert.match(said, /3 分钟后/);
   const timeField = find(task.rendered.tree, (element) => element.props['data-hns-mega-task-time'] === 'on')[0];
@@ -1223,4 +1326,90 @@ test('a plugin without React draws nothing instead of breaking the page it was i
   assert.equal(typeof dispose, 'function')
   assert.deepEqual(injected, [], 'a plugin with no renderer registered a section anyway')
   assert.deepEqual(effects, [], 'a plugin with no renderer started polling')
+})
+
+/**
+ * The whole path the requirement is about, end to end and with nothing hand-made in the middle.
+ *
+ * The official page's built-in-service block is the only place the two plugins are *managed* from, so it
+ * is not enough that each link can be described: a **real** plugin host is built here, its own service
+ * records are handed to the **real** view model, and the **real** page is rendered from that view. If
+ * the record's two halves ever stop agreeing — the four states, the diagnostics block, the capability
+ * list, the actions — this is the test that says so, and it is the only one that would.
+ */
+test('the official page lists the two built-in services, from the plugin host\'s own records', async () => {
+  const os = require('node:os')
+  const { pathToFileURL } = require('node:url')
+  const { createPluginHost } = require('../../app/plugin-host.cjs')
+  const { buildMegaView } = await import(pathToFileURL(path.join(ROOT, 'app', 'plugins', 'mega-core', 'lib', 'view.js')).href)
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-service-page-'))
+  const host = createPluginHost({
+    root: ROOT,
+    configDir: path.join(dir, 'plugins'),
+    lockFile: path.join(dir, 'dshns-lock.yaml'),
+    log: () => {}
+  })
+  try {
+    const built = await host.ensure()
+    assert.notEqual(built.ok, false, `the plugin runtime did not build: ${built.error || ''}`)
+    // The monitor ships disabled (sampling is a decision a user makes), and this test is about what the
+    // page draws once it is enabled — the way a person enables it from that page.
+    const enabled = await host.setEnabled({ id: 'dshns.health-scheduler', enabled: true })
+    assert.equal(enabled.ok, true, JSON.stringify(enabled))
+
+    const records = host.serviceReports()
+    /**
+     * The roster is the **whole runtime**, not the two built-ins.
+     *
+     * A default that answered for two plugins made the other two dozen invisible on the one surface every
+     * user has; the two the requirement names are simply the ones this test then goes on to check.
+     */
+    assert.ok(records.length >= 2, `the service roster must cover the runtime, got ${records.length}`)
+    const ids = records.map((record) => record.id).sort()
+    assert.ok(ids.includes('dshns.health-scheduler'), `the monitor is missing from the roster: ${ids.join(', ')}`)
+    assert.ok(ids.includes('dshns.restart-supervisor'))
+    for (const record of records) {
+      assert.equal(record.ok, true, `${record.id} has no service record`)
+      // The four states are separate facts, and a panel that collapsed them would be the defect this
+      // assertion exists for.
+      for (const field of ['installed', 'enabled', 'loaded']) {
+        assert.equal(typeof record[field], 'boolean', `${record.id}.${field} is not a separate fact`)
+      }
+      assert.ok(Object.prototype.hasOwnProperty.call(record, 'healthy'))
+      assert.ok(Array.isArray(record.capabilities.provides))
+    }
+    const supervisor = records.find((record) => record.id === 'dshns.restart-supervisor')
+    assert.deepEqual(supervisor.capabilities.provides, ['restart-control'])
+    assert.ok(supervisor.diagnostics && supervisor.diagnostics.budget, 'the supervisor publishes no diagnostics for the page')
+
+    // The view model, from those records and nothing else.
+    const view = buildMegaView({ governance: { ok: true, services: records } })
+    assert.equal(view.services.length, records.length, 'the view must carry the whole roster the host published')
+    const supervisorView = view.services.find((service) => service.id === 'dshns.restart-supervisor')
+    assert.equal(supervisorView.state, 'DEGRADED', `the supervisor with no companion must be DEGRADED, got ${supervisorView.state}`)
+    assert.ok(supervisorView.restart && supervisorView.restart.budget, 'the supervisor\'s restart block is missing from the view')
+    // The supervisor-only operations are offered there, and nowhere else.
+    assert.ok(supervisorView.actions.includes('manual-restart (confirm)'), supervisorView.actions.join(', '))
+    assert.ok(supervisorView.actions.includes('reset-budget (confirm)'), supervisorView.actions.join(', '))
+    const monitorView = view.services.find((service) => service.id === 'dshns.health-scheduler')
+    assert.equal(monitorView.actions.some((action) => action.startsWith('manual-restart')), false, 'the monitor was offered an application restart')
+
+    // ...and the page, rendered from that view.
+    const mounted = await mount({ fetchImpl: fakeFetch({ view }) })
+    const rendered = mounted.shim.render(mounted.pageComponent, { store: mounted.store, close: () => {} })
+    const rows = find(rendered.tree, (element) => element.props['data-hns-service'])
+    const rowIds = rows.map((row) => row.props['data-hns-service'])
+    assert.equal(rowIds.length, records.length, 'every plugin in the roster must have a row')
+    assert.ok(rowIds.includes('dshns.restart-supervisor') && rowIds.includes('dshns.health-scheduler'), `the two built-ins are missing: ${rowIds.join(', ')}`)
+    const said = strings(rendered.tree).join(' | ')
+    assert.match(said, /Built-in services/)
+    assert.match(said, /installed yes/)
+    assert.match(said, /provides: restart-control/)
+    assert.match(said, /restarts \d+\/3/, 'the supervisor\'s budget is not on the page')
+    assert.match(said, /manual-restart/, 'the supervisor\'s own operation is not offered')
+  } finally {
+    await host.dispose('test teardown')
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
 })

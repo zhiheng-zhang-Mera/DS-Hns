@@ -1,0 +1,366 @@
+{
+  "harness": "ui-acceptance",
+  "at": "2026-09-17T08:30:08.104Z",
+  "state": "D:\\dsh-acc3\\data\\state",
+  "bridge": {
+    "host": "127.0.0.1",
+    "port": 57193,
+    "pid": 31664,
+    "startedAt": "2026-09-17T08:30:05.250Z"
+  },
+  "checks": [
+    {
+      "label": "DS-Hns wrote a governance bridge discovery file",
+      "ok": true,
+      "detail": "D:\\dsh-acc3\\data\\state\\governance-bridge.json"
+    },
+    {
+      "label": "the bridge answered the governance snapshot",
+      "ok": true,
+      "detail": "HTTP 200"
+    },
+    {
+      "label": "the snapshot is the product’s own",
+      "ok": true,
+      "detail": "ok=true"
+    },
+    {
+      "label": "the official page has a service roster",
+      "ok": true,
+      "detail": "28 service(s)"
+    },
+    {
+      "label": "the health scheduler is in the roster",
+      "ok": true,
+      "detail": "dshns.acceptance-gate, dshns.checkpoint, dshns.command-cache, dshns.computer-use, dshns.context-cache, dshns.dirty-context, dshns.failure-recovery, dshns.git-operator, dshns.health-scheduler, dshns.high-performance, dshns.incremental-validation, dshns.long-term-worker, dshns.model-runtime, dshns.parallel-executor, dshns.patch-first, dshns.persistent-tools, dshns.reasoning-governor, dshns.repo-map, dshns.resource-manager, dshns.restart-supervisor, dshns.session-keeper, dshns.shell-runtime, dshns.task-supervisor, dshns.telemetry, dshns.tool-batcher, dshns.ui-stability, dshns.watchdog, dshns.workspace-isolation"
+    },
+    {
+      "label": "the restart supervisor is in the roster",
+      "ok": true,
+      "detail": "dshns.acceptance-gate, dshns.checkpoint, dshns.command-cache, dshns.computer-use, dshns.context-cache, dshns.dirty-context, dshns.failure-recovery, dshns.git-operator, dshns.health-scheduler, dshns.high-performance, dshns.incremental-validation, dshns.long-term-worker, dshns.model-runtime, dshns.parallel-executor, dshns.patch-first, dshns.persistent-tools, dshns.reasoning-governor, dshns.repo-map, dshns.resource-manager, dshns.restart-supervisor, dshns.session-keeper, dshns.shell-runtime, dshns.task-supervisor, dshns.telemetry, dshns.tool-batcher, dshns.ui-stability, dshns.watchdog, dshns.workspace-isolation"
+    },
+    {
+      "label": "dshns.acceptance-gate: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.acceptance-gate: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.checkpoint: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.checkpoint: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.command-cache: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.command-cache: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.computer-use: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.computer-use: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.computer-use: a not-healthy service states why",
+      "ok": true,
+      "detail": "{\"status\":\"degraded\",\"reason\":\"no host runtime was attached, so GUI work is unavailable in this process\",\"at\":1789633804819}"
+    },
+    {
+      "label": "dshns.context-cache: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.context-cache: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.dirty-context: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.dirty-context: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.failure-recovery: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.failure-recovery: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.git-operator: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.git-operator: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.health-scheduler: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.health-scheduler: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.high-performance: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.high-performance: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.incremental-validation: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.incremental-validation: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.long-term-worker: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.long-term-worker: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.model-runtime: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.model-runtime: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.parallel-executor: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.parallel-executor: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.patch-first: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.patch-first: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.persistent-tools: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.persistent-tools: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.reasoning-governor: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.reasoning-governor: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.repo-map: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.repo-map: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.resource-manager: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.resource-manager: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.restart-supervisor: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.restart-supervisor: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.restart-supervisor: a not-healthy service states why",
+      "ok": true,
+      "detail": "{\"status\":\"degraded\",\"reason\":\"no out-of-process companion is running (no companion pid file), so a hung application could not be recovered by it\",\"at\":1789633804819}"
+    },
+    {
+      "label": "dshns.session-keeper: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.session-keeper: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.shell-runtime: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.shell-runtime: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.task-supervisor: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.task-supervisor: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.telemetry: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.telemetry: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.tool-batcher: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.tool-batcher: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.ui-stability: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.ui-stability: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.watchdog: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.watchdog: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.workspace-isolation: the four states are separate facts",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "dshns.workspace-isolation: the official page gets a row",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "label": "the restart record is on the page",
+      "ok": true,
+      "detail": "\"IDLE\""
+    },
+    {
+      "label": "the action vocabulary reached the page",
+      "ok": true,
+      "detail": "8 action(s)"
+    },
+    {
+      "label": "the advanced policy reached the page",
+      "ok": true,
+      "detail": "38 key(s)"
+    },
+    {
+      "label": "exactly one floating ball is described",
+      "ok": true,
+      "detail": "{\"mode\":\"in-ui\"}"
+    },
+    {
+      "label": "the ball decision is the host’s, so the page cannot draw a second one",
+      "ok": true,
+      "detail": "{\"mode\":\"in-ui\"}"
+    },
+    {
+      "label": "the human-gate count is published",
+      "ok": true,
+      "detail": "pending=0"
+    }
+  ],
+  "failures": 0,
+  "passed": true,
+  "reason": null
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "hns-final-evidence-index/v1",
+  "candidateRef": "dev/hns-final-qualification-rc2",
+  "productionRef": "hns-production-v1",
+  "identityRule": "Resolve the exact candidate SHA and tree from each immutable qualification-summary.json. After release, git rev-parse hns-production-v1 and git rev-parse main must resolve the same qualified tree.",
+  "authoritativeEvidence": [
+    {
+      "id": "local-final-qualification",
+      "root": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs",
+      "selection": "latest PASS run whose gitSha equals the final candidate SHA",
+      "required": true
+    },
+    {
+      "id": "cleanroom-final-qualification",
+      "root": "D:\\Hns-Cleanroom-Qualification-12\\test-artifacts\\qualification-runs",
+      "selection": "PASS run from the fresh remote clone whose gitSha equals the final candidate SHA",
+      "required": true
+    },
+    {
+      "id": "phase-c-repeats",
+      "path": "artifacts/qualification/task4-phase-c-summary.json",
+      "required": true
+    },
+    {
+      "id": "construction-visual-acceptance",
+      "path": "artifacts/qualification/task5-ui-acceptance.json",
+      "required": true,
+      "scope": "real-input construction evidence; final cleanroom visual evidence is reported separately"
+    },
+    {
+      "id": "real-reboot",
+      "path": "artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json",
+      "required": false,
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "realtime-24h-soak",
+      "path": "artifacts/qualification/REALTIME_24H_SOAK.json",
+      "required": false,
+      "status": "NOT_RUN"
+    },
+    {
+      "id": "paper-material",
+      "path": "docs/paper-material/PAPER_MATERIAL_INDEX.md",
+      "required": true
+    }
+  ],
+  "forbiddenCompositions": [
+    "results from different runIds combined as one qualification",
+    "synthetic soak labelled as real wall-clock soak",
+    "process or Electron restart labelled as Windows reboot",
+    "a candidate SHA inferred from a branch name without reading the run summary"
+  ]
+}

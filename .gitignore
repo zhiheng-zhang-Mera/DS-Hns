@@ -7,7 +7,16 @@ data/*
 data/pricing/*
 !data/pricing/official-pricing.json
 
+# The *workspace* runtime directory is generated state: ownership records,
+# downloaded portable Node, worker scratch. `app/runtime/` is the opposite — it is
+# the Runtime Host's source code and must be committed. The bare `runtime/`
+# pattern matches a directory of that name at *any* depth, so the code directory
+# is re-included explicitly; without this the whole Runtime/UI separation is
+# untracked and a fresh clone would be missing it.
 runtime/
+!app/runtime/
+app/runtime/*
+!app/runtime/**
 cache/
 downloads/
 logs/
@@ -35,3 +44,8 @@ Desktop.ini
 
 # ===== Test scratch =====
 tests/out/
+# The restart supervisor derives its state directory from the working directory when nobody names one,
+# so a suite run straight from `tests\` (or from `app\`) would otherwise leave a heartbeat behind in the
+# checkout. `scripts\test-all.ps1` points the variable at a scratch directory; these two are the net.
+tests/data/
+app/data/

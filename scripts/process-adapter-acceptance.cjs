@@ -49,7 +49,7 @@ function arg(name, fallback) {
 }
 
 const JSON_OUT = process.argv.includes('--json')
-const COMPANION_REPO = path.resolve(arg('companion-repo', 'D:/test-DSH/dsh-restart'))
+const COMPANION_REPO = path.resolve(arg('companion-repo', path.join(process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts'), 'qualification-fixtures', 'dsh-restart')))
 const SUPERVISOR_ENTRY = path.join(COMPANION_REPO, 'bin', 'supervisor.mjs')
 const COMPANION_SOURCE = path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')
 
@@ -226,12 +226,20 @@ async function main() {
   } catch (error) {
     check('the application could be stopped', false, String(error && error.message ? error.message : error))
   }
-  const relaunched = await until(async () => {
+  let crashObserved = null
+  await until(async () => {
     const status = await control.status()
     if (!status.ok) return null
-    return status.result.uncleanStarts > uncleanBefore ? status.result : null
+    if (status.result.uncleanStarts > uncleanBefore) crashObserved = status.result
+    // The supervisor records the crash before the spawned application executes
+    // its first instruction. Observe the application's own readiness evidence
+    // within the same budget before checking recovery or killing its companion.
+    const pids = fs.readFileSync(pidsFile, 'utf8').trim().split('\n').filter(Boolean)
+    const newPid = Number(pids[pids.length - 1])
+    return crashObserved && pids.length >= 2 && newPid !== watchedPid && processAlive(newPid)
+      ? status.result : null
   }, 20000, 200)
-  check('the supervisor noticed the application leave', Boolean(relaunched), relaunched ? `phase=${relaunched.phase} unclean=${relaunched.uncleanStarts}` : 'no unclean start recorded')
+  check('the supervisor noticed the application leave', Boolean(crashObserved), crashObserved ? `phase=${crashObserved.phase} unclean=${crashObserved.uncleanStarts}` : 'no unclean start recorded')
   const pidsAfter = fs.readFileSync(pidsFile, 'utf8').trim().split('\n').filter(Boolean)
   check('the companion brought the application back', pidsAfter.length >= 2, `pids recorded: ${pidsAfter.length}`)
   const relaunchedPid = Number(pidsAfter[pidsAfter.length - 1])

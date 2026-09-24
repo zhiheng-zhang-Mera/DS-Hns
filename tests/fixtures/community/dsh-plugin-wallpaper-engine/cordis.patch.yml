@@ -1,0 +1,8 @@
+# dsh-plugin-wallpaper-engine bundle patch (test fixture).
+#
+# The shape the detector and the structure reader look for: one additive `insert` row, no `remove`
+# and no `replace`, and the row name matching the package the profile declares.
+
+- insert:
+    - id: wallpaper-engine
+      name: 'dsh-plugin-wallpaper-engine'

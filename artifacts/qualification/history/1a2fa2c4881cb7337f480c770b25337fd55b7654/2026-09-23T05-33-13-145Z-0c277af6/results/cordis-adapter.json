@@ -1,0 +1,29 @@
+{
+  "id": "cordis-adapter",
+  "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+  "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+  "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+  "branch": "dev/hns-final-qualification-rc2",
+  "mandatory": true,
+  "startedAt": "2026-09-23T05:54:53.184Z",
+  "completedAt": "2026-09-23T05:55:03.303Z",
+  "command": [
+    "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+    "D:\\Hns-Final-Qualification\\repo\\scripts\\cordis-adapter-acceptance.cjs",
+    "--json",
+    "--samples",
+    "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\samples"
+  ],
+  "exitCode": 0,
+  "passed": true,
+  "checks": 66,
+  "failures": 0,
+  "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\cordis-adapter.json",
+  "rawEvidence": {
+    "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\cordis-adapter.stdout.txt",
+    "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\cordis-adapter.stderr.txt"
+  },
+  "spawnError": null,
+  "processExitCode": 0,
+  "reportError": null
+}

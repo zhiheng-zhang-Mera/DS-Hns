@@ -1,0 +1,248 @@
+{
+  "ok": true,
+  "checks": 46,
+  "failures": 0,
+  "ms": 2825,
+  "notes": [
+    "fetched from GitHub"
+  ],
+  "results": [
+    {
+      "name": "the repository produced a plan",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the plan names an adapter",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "the plan names a run mode",
+      "ok": true,
+      "detail": "runtime=isolated-process/process-boundary"
+    },
+    {
+      "name": "the plan lists permissions",
+      "ok": true,
+      "detail": "[\"config.read\",\"fs.read\",\"network\",\"ui.render\"]"
+    },
+    {
+      "name": "the plan carries a risk level",
+      "ok": true,
+      "detail": "high (score 13)"
+    },
+    {
+      "name": "the plan states the degradation",
+      "ok": true,
+      "detail": "no degradation is declared for this plugin"
+    },
+    {
+      "name": "the plan is installable",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "it installs through the pipeline",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "it has a record with provenance",
+      "ok": true,
+      "detail": "zhu1090093659/dsh-web#packages/dsh-market"
+    },
+    {
+      "name": "the manager has it, unloaded",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the native plugin produced a plan",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "it was adapted by the native adapter",
+      "ok": true,
+      "detail": "adapter=dshns.native type=dshns.declared"
+    },
+    {
+      "name": "the plan names an in-process run mode",
+      "ok": true,
+      "detail": "in-process"
+    },
+    {
+      "name": "the plan carries a risk level",
+      "ok": true,
+      "detail": "medium (score 10)"
+    },
+    {
+      "name": "it installs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "it enables and loads through the manager",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the record and the manager agree on the four states",
+      "ok": true,
+      "detail": "{\"installed\":true,\"enabled\":true,\"loaded\":true,\"healthy\":null,\"fault\":null}"
+    },
+    {
+      "name": "the process plugin produced a plan",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "it was adapted by the process adapter",
+      "ok": true,
+      "detail": "adapter=dshns.process"
+    },
+    {
+      "name": "the plan names a managed-process run mode",
+      "ok": true,
+      "detail": "managed-process"
+    },
+    {
+      "name": "the plan carries the permission risk",
+      "ok": true,
+      "detail": "high (score 17)"
+    },
+    {
+      "name": "the plan names the capability it provides",
+      "ok": true,
+      "detail": "[\"restart-control\"]"
+    },
+    {
+      "name": "it installs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "it loads, starting the background program",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the capability it declared is resolvable",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the plan reports a refusal",
+      "ok": true,
+      "detail": "refuse"
+    },
+    {
+      "name": "the refusal names the reason",
+      "ok": true,
+      "detail": "no detector recognised this artifact"
+    },
+    {
+      "name": "the refusal carries the evidence",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "installing it is refused",
+      "ok": true,
+      "detail": "INSTALL_UNDETECTED"
+    },
+    {
+      "name": "nothing was installed",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "no plugin object was produced",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "pinning records the version",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the pin is on the record",
+      "ok": true,
+      "detail": "1.0.0"
+    },
+    {
+      "name": "a pinned plugin refuses to update",
+      "ok": true,
+      "detail": "dshns.health-scheduler is pinned to 1.0.0; unpin it before updating"
+    },
+    {
+      "name": "unpinning works",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "an update to the same version is a no-op",
+      "ok": true,
+      "detail": "\"1.0.0\""
+    },
+    {
+      "name": "a rollback with only one version is refused",
+      "ok": true,
+      "detail": "dshns.health-scheduler has only ever been installed at 1.0.0"
+    },
+    {
+      "name": "quarantine unloads and records",
+      "ok": true,
+      "detail": "acceptance: simulated repeated failure"
+    },
+    {
+      "name": "a quarantined plugin is not mounted",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "a quarantined plugin refuses to reinstall",
+      "ok": true,
+      "detail": "dshns.health-scheduler is quarantined (acceptance: simulated repeated failure); release it before installing"
+    },
+    {
+      "name": "releasing works",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "uninstall removes it from the manager",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "uninstall forgets the record",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "uninstall keeps the files",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\repo\\app\\plugins\\health-scheduler"
+    },
+    {
+      "name": "the pipeline names no particular plugin",
+      "ok": true,
+      "detail": "scanned 2 modules"
+    },
+    {
+      "name": "the pipeline reaches the manager only through an adapted plugin",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "qualification": {
+    "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+    "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+    "branch": "dev/hns-final-qualification-rc2",
+    "gate": "install-pipeline"
+  }
+}
