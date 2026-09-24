@@ -46,3 +46,17 @@ Remote refs were refreshed at candidate `1a2fa2c`;340commits are reachable, vers
 | `1a2fa2c` | targeted native input replaces broad-title global keystrokes | actual operator input plus catalog/disk evidence; no fallback PASS |
 
 The subsequently observed UI-precondition and Debugger-listener failures are documented in `artifacts/qualification/POST_PICKER_UI_FOLLOWUP.md` and `artifacts/qualification/ELECTRON_LISTENER_FOLLOWUP.md` and in negative entriesN27/N28. Repairs are independently committed as `65121f1` (dock/focus preconditions) and `2d76ca3` (native listener lifecycle). Reading their actual diffs extends the cutoff to342reachable commits at `2d76ca3`; their stable patch IDs are recorded separately from the earlier340commit snapshot. The first listener repair's failed full regression is retained, followed by1930pass/0fail/2definedskip and a real dirty/UI-only131/131 diagnostic, not final qualification.
+
+## Final-qualification follow-up snapshot (2026-09-24)
+
+At the `dafd3bf` candidate, `git rev-list --all --count` returned 364 reachable commits. The 24 commits after `1a2fa2c` were read in order with `git log` and their changed-file summaries. This is a fixed historical snapshot, not a claim about future production merge commits. The two repairs above are included in the 24, not added again.
+
+| Logical follow-up | Commits | Evidence and limitation |
+|---|---|---|
+| Desktop input, close and reconnect | `65121f1`, `1068527`, `997345f`, `1f901d0`, `e9d8232` | Post-picker focus, detached Runtime on window close, exact-instance reopen and PureAlien dock disable. Original native stderr is retained; these are not real reboot data. |
+| Computer Use ownership and diagnostics | `2d76ca3`, `cc3d909`, `7fef904` | Debugger listener lifecycle, owned UIA roots and CI failure retention; owned fixtures do not establish universal desktop compatibility. |
+| Orb and service boundary | `491c4fd`, `174318d`, `42b48b9`, `fe436c2`, `dafd3bf` | Orb ownership/hover geometry, service-action contracts and named health routing. The `dafd3bf` clean-room Journey later observed native Orb click, expansion and panel feedback; private account captures are not public artifacts. |
+| Health, restart and policy lifecycle | `545462a`, `4a823ae`, `ce0bb20`, `9821066`, `27eea59`, `5cec025`, `d67ecd0` | Policy propagation, epoch-zero distinction, lifecycle intent, refreshed restart authority, effective settings and stronger factory verification. Tests are bounded engineering evidence, not a real reboot. |
+| Provenance repairs | `658fa17`, `5afb25c`, `08900a8`, `b3fec70` | Native-input and Fresh17 failures retained, immutable claims bound, and lifecycle rebuild failure added as a negative result; documentation commits are not independent runtime contributions. |
+
+The current candidate's fresh qualification and three Phase C repeats are outside this historical commit-count snapshot and must be cataloged by their own run IDs and SHA. Real 24-hour and reboot results remain separate from synthetic evidence.

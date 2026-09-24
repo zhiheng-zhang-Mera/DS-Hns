@@ -20,6 +20,19 @@
     ],
     "scope": "Actual repair diffs reviewed; excludes this metadata commit and future release commits."
   },
+  "finalQualificationFollowup": {
+    "snapshotDate": "2026-09-24",
+    "head": "dafd3bfff8db30f2aaf094e4a15ed41a2c1f9ce6",
+    "reachableCommitCount": 364,
+    "base": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "additionalCommits": [
+      "65121f1", "2d76ca3", "658fa17", "5afb25c", "cc3d909", "1068527",
+      "997345f", "491c4fd", "174318d", "1f901d0", "545462a", "4a823ae",
+      "42b48b9", "e9d8232", "ce0bb20", "7fef904", "08900a8", "9821066",
+      "b3fec70", "27eea59", "5cec025", "d67ecd0", "fe436c2", "dafd3bf"
+    ],
+    "scope": "All refs reachable at the dafd3bf qualification candidate; later evidence-document and production commits are excluded. The twenty-four commits are grouped by logical repair and evidence role in 01-COMMIT-TIMELINE.md, not counted as twenty-four research contributions."
+  },
   "patchEquivalentGroups": [
     {"logicalChange": "capability-gated plugin adapter", "commits": ["22b3261", "db5ebab"], "patchId": "def35337e01da733c0cf71c27cfa7044e123902d"},
     {"logicalChange": "Cordis adapter integration", "commits": ["7969807", "d44d835"], "patchId": "159b5d64731e6283a7f134d5dc950dbaa4506c64"},
