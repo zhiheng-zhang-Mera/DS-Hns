@@ -1,0 +1,54 @@
+{
+  "schema": "hns-final-ui-issue-inventory/v1",
+  "candidateSha": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
+  "candidateTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+  "qualificationRunId": "2026-09-24T06-54-31-334Z-09571b4b",
+  "sourceSnapshot": "RC1 issues captured 2026-09-22 plus final candidate observations through 2026-09-24",
+  "resolved": [
+    {"id":"RC1-UIA-001","severity":"P1","status":"FIXED","evidence":"tests/unit/computer-use-drivers.test.js; all-unit-tests PASS"},
+    {"id":"RC1-RESTART-001","severity":"P1","status":"FIXED","evidence":"tests/unit/restart-supervisor-authority.test.js; health-restart-continuity PASS"},
+    {"id":"RC1-TEMP-001","severity":"P1","status":"FIXED","evidence":"tests/unit/runtime-temp-root.test.js; D-drive post-test audit PASS"},
+    {"id":"RC1-INSTALL-002","severity":"P1","status":"FIXED","evidence":"Standard install log and exact-candidate 131/131 Electron UI run"},
+    {"id":"RC1-GATE-001","severity":"P1","status":"FIXED","evidence":"combined acceptance 52/52, primary Phase C 1.897x; three additional same-SHA repeats all >=1.2x"},
+    {"id":"RC1-STORAGE-001","severity":"P1","status":"FIXED","evidence":"post-test audit reports zero project process leaks and zero detected C-drive project writes"},
+    {"id":"RC1-PLUGIN-001","severity":"P2","status":"FIXED","evidence":"full unit suite and final visible Plugin Market journey"},
+    {"id":"RC1-UI-002","severity":"P2","status":"FIXED","evidence":"canonical identity regression plus visible four-row unique installed view"},
+    {"id":"RC1-UI-003","severity":"P2","status":"FIXED","evidence":"optional Computer Use host absence is explicit and Core is stated unaffected"},
+    {"id":"RC1-UI-004","severity":"P3","status":"FIXED_WITH_REAL_INPUT","evidence":"actual System Orb click -> expansion -> visible panel -> account-section interaction feedback"},
+    {"id":"FQ-SUPERVISOR-001","severity":"P2","status":"FIXED","evidence":"restart supervisor authority regression and exact-SHA full mandatory run PASS"}
+  ],
+  "open": [
+    {
+      "id":"FQ-UI-DOCK-OVERLAP-001",
+      "severity":"P2",
+      "status":"OPEN",
+      "trigger":"Fresh profile with DSH_MEGA_INTEGRATED_DOCK=1 and expanded dock",
+      "observed":"The dock covers most of the first-run beta disclosure Continue control; an exposed left portion remained clickable. The default hidden-dock startup was not implicated.",
+      "rootCause":"The official DSH page is the BrowserWindow's own full-width document rather than a separately bounded child view; the reserved officialWidth cannot constrain its centered modal.",
+      "decision":"Not repaired in this RC. A safe correction requires a bounded official-surface layout change and requalification; a CSS or pixel-offset patch would not establish correct behavior.",
+      "evidence":"D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md"
+    }
+  ],
+  "unconfirmedObservations": [
+    {
+      "id":"FQ-UI-SCHEDULER-COPY-001",
+      "severity":"UNCONFIRMED",
+      "status":"NEEDS_TRIAGE",
+      "observed":"Scheduler verification copy said `重启后生效` while Scheduler was already LOADED.",
+      "decision":"No matching source-level string or proven behavior mismatch was established; copy was not changed speculatively.",
+      "evidence":"D:\\HnsQ24\\journey-dafd3bf\\JOURNEY_DAFD3BF.md"
+    },
+    {
+      "id":"FQ-PLUGIN-AGGREGATE-001",
+      "severity":"UNCLASSIFIED",
+      "status":"NEEDS_DIAGNOSIS",
+      "observed":"One aggregate Mega health view showed 27 loaded, 1 unhealthy, and 1 off; the unhealthy identity was not established by retained evidence.",
+      "decision":"Do not claim every installed plugin is healthy; identify the module on a future targeted review.",
+      "evidence":"Visible journey observation; no current failure is attributed to a named plugin."
+    }
+  ],
+  "openP1": 0,
+  "openP2": 1,
+  "openP3": 0,
+  "unconfirmedCount": 2
+}
