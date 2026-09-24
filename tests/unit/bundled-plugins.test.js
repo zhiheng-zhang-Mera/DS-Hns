@@ -386,3 +386,35 @@ test('a pin goes through the channel its entry names', () => {
   assert.match(index, /function harnessProfile\(\)/)
   assert.match(index, /1000|120_000/, 'the Harness CLI call is bounded')
 })
+
+test('Harness plugin commands use the Node executable injected into the extension context', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  const start = index.indexOf('function runHarnessPluginCli(args)')
+  const end = index.indexOf('\n}\n', start) + 2
+  const runner = index.slice(start, end)
+
+  assert.ok(start >= 0 && end > start, 'the Harness plugin CLI runner is present')
+  assert.match(runner, /ctx\?\.nodeExe \|\| process\.env\.DSH_NODE \|\| 'node'/)
+  assert.doesNotMatch(runner, /resolveNodeExe\(\)/, 'the Mega extension does not call a main-process-local helper')
+})
+
+test('Harness plugin commands resolve the CLI entry from the application package root', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  const start = index.indexOf('function runHarnessPluginCli(args)')
+  const end = index.indexOf('\n}\n', start) + 2
+  const runner = index.slice(start, end)
+
+  assert.match(runner, /const dshEntry = path\.join\(PATHS\.APP, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin\.js'\)/)
+  assert.match(runner, /spawnSync\(nodeExe, \[dshEntry, \.\.\.args\]/)
+  assert.doesNotMatch(runner, /\bDSH_ENTRY\b/, 'DSH_ENTRY belongs to desktop-main, not this module scope')
+})
+
+test('Harness plugin commands use the extension context project root as their working directory', () => {
+  const index = read('app/extensions/mega/index.cjs')
+  const start = index.indexOf('function runHarnessPluginCli(args)')
+  const end = index.indexOf('\n}\n', start) + 2
+  const runner = index.slice(start, end)
+
+  assert.match(runner, /cwd:\s*PATHS\.ROOT/)
+  assert.doesNotMatch(runner, /cwd:\s*ROOT\b/, 'ROOT is not defined in the Mega extension module')
+})

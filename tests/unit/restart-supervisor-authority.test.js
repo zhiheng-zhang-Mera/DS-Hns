@@ -136,6 +136,17 @@ test('there is exactly one restart executor: the supervisor, in process or as it
   assert.deepEqual(capability.CAPABILITIES['restart-control'].providers, ['dshns.restart-supervisor'])
 })
 
+test('a supervised relaunch ignores the stop request that caused the previous process to exit', () => {
+  const shell = read('app/desktop-main.cjs')
+  const start = shell.indexOf('function watchSupervisorStopRequest()')
+  const end = shell.indexOf('\nasync function startRestartSupervisor()', start)
+  const watcher = shell.slice(start, end)
+
+  assert.ok(start >= 0 && end > start, 'the shell stop-request watcher is present')
+  assert.match(watcher, /let handledAt = Date\.now\(\)/)
+  assert.match(watcher, /at <= handledAt/)
+})
+
 /**
  * The three paths that are *not* the application restart authority, each asserted for what it is.
  *
@@ -839,7 +850,8 @@ test('the restart companion uses the portable Node executable supplied by the de
     assert.match(pluginHost, /mountedPlugins\(\{\s*host, nodeExe: options\.nodeExe, stateDir: options\.restartSupervisorStateDir,/)
     assert.match(mounted, /restartSupervisorPlugin\(\{ host, nodeExe, stateDir, config: options\.restartConfig \}\)/)
     assert.match(shell, /nodeExe: safeNodeExe\(\)/)
-    assert.match(shell, /restartSupervisorStateDir: path\.join\(ROOT, 'data', 'state', 'restart-supervisor'\)/)
+    assert.match(shell, /restartSupervisorStateDir:\s*process\.env\.DSHNS_SUPERVISOR_STATE_DIR/)
+    assert.doesNotMatch(shell, /restartSupervisorStateDir:\s*path\.join\(ROOT, 'data', 'state', 'restart-supervisor'\)/)
   } finally {
     childProcess.spawn = originalSpawn
     area.dispose()

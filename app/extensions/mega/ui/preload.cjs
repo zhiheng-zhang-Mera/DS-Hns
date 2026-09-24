@@ -216,8 +216,8 @@ contextBridge.exposeInMainWorld('megaTools', {
    * Harness build is the one the product knows how to drive.
    */
   compatibility: () => ipcRenderer.invoke('mega:compatibility'),
-  // In integrated mode the rail should always remain reachable, so "hide"
-  // degrades to collapse instead of removing the whole in-window view.
+  // The integrated shell may hide the entire dock view; the tray, plugin
+  // manager, and Ctrl+Shift+M toggle are the re-entry points while it is hidden.
   hideDock: () => setDockExpanded(false),
   onChanged: (callback) => ipcRenderer.on('mega:changed', () => callback()),
   /**

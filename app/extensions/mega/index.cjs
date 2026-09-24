@@ -164,6 +164,7 @@ let dockWindow = null
 let playerWindow = null
 let tray = null
 let shortcutHandler = null
+let shortcutWebContents = null
 let updater = null
 let restartTimer = null
 let started = false
@@ -2483,9 +2484,10 @@ function bundledEntry(id) {
  */
 function runHarnessPluginCli(args) {
   try {
-    const nodeExe = resolveNodeExe()
-    const result = require('node:child_process').spawnSync(nodeExe, [DSH_ENTRY, ...args], {
-      cwd: ROOT,
+    const nodeExe = ctx?.nodeExe || process.env.DSH_NODE || 'node'
+    const dshEntry = path.join(PATHS.APP, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
+    const result = require('node:child_process').spawnSync(nodeExe, [dshEntry, ...args], {
+      cwd: PATHS.ROOT,
       encoding: 'utf8',
       timeout: 120_000,
       windowsHide: true,
@@ -3510,7 +3512,12 @@ function registerThemeIpc(engine) {
         input: 'unavailable',
         reason: 'wallpaper_layer_unavailable'
       },
-      official_bounds: overlayState.officialBounds || null,
+      // The integrated official renderer is a protected sibling WebContentsView,
+      // not part of the legacy theme-surface manager. Report its bounds directly
+      // from the shell-owned adapter so callers never mistake "legacy surfaces
+      // unavailable" for "official renderer absent".
+      official_bounds: officialSurfaceTarget.bounds() || null,
+      dock_bounds: ctx?.dockAdapter?.bounds?.() || null,
       plans
     }
   }))
@@ -3731,7 +3738,8 @@ async function start(context) {
       toggleDock({ focus: true })
     }
   }
-  ctx.mainWindow.webContents.on('before-input-event', shortcutHandler)
+  shortcutWebContents = ctx.officialWebContents || ctx.mainWindow.webContents
+  shortcutWebContents.on('before-input-event', shortcutHandler)
   bindMainWindow()
   // The dock is off by default (see `dockAutoStart`): it is created when it is asked for, not at boot.
   if (dockAutoStart()) createDock()
@@ -3905,9 +3913,10 @@ function stop() {
   }
   notificationService.setCreateNotification(null)
   notificationService.setOnClick(null)
-  if (ctx?.mainWindow && shortcutHandler && !ctx.mainWindow.isDestroyed()) {
-    ctx.mainWindow.webContents.removeListener('before-input-event', shortcutHandler)
+  if (shortcutWebContents && shortcutHandler && !shortcutWebContents.isDestroyed()) {
+    shortcutWebContents.removeListener('before-input-event', shortcutHandler)
   }
+  shortcutWebContents = null
   unbindMainWindow()
   for (const channel of CHANNELS) {
     try { ctx?.electron?.ipcMain?.removeHandler(channel) } catch {}

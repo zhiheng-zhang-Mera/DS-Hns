@@ -354,6 +354,145 @@ test('the dock starts below the official header, and the whole dock moves togeth
 
   // Both backends use it, which is the point of a shared function: the rail and the panel are one
   // view, and a second opinion about the top would break the seam between them.
-  assert.match(main, /megaDockView\.setBounds\(dockBounds\(\{ x: officialWidth, width: dockWidth, height, inset: dockTopInset\(\) \}\)\)/, 'the integrated dock still starts at the top of the window')
+  assert.match(main, /megaDockView\.setBounds\(integratedLayout\.dockBounds\)/, 'the integrated dock does not use the disjoint side-by-side rectangle')
   assert.match(index, /const bounds = dockBounds\(\{ x, width, height, inset: dockTopInset\(\) \}\)/, 'the legacy dock still starts at the top of the window')
+})
+
+test('integrated dock layout reserves a readable official viewport and refuses overlap', () => {
+  const { computeIntegratedLayout } = require(path.join(ROOT, 'app', 'extensions', 'mega', 'dock', 'integrated-layout.cjs'))
+  const options = {
+    contentHeight: 800,
+    dockShown: true,
+    expanded: true,
+    requestedDockWidth: 560,
+    officialMinWidth: 1032,
+    dockMinWidth: 440,
+    dockMaxWidth: 720,
+    collapsedDockWidth: 48
+  }
+
+  const exactFit = computeIntegratedLayout({ ...options, contentWidth: 1472 })
+  assert.deepEqual(exactFit, {
+    officialBounds: { x: 0, y: 0, width: 1032, height: 800 },
+    dockBounds: { x: 1032, y: 0, width: 440, height: 800 },
+    dockVisible: true,
+    expansionBlocked: false
+  })
+
+  const preferredWidth = computeIntegratedLayout({ ...options, contentWidth: 1592 })
+  assert.equal(preferredWidth.officialBounds.width, 1032)
+  assert.equal(preferredWidth.dockBounds.width, 560)
+  assert.equal(preferredWidth.dockBounds.x, preferredWidth.officialBounds.width)
+
+  const collapsed = computeIntegratedLayout({ ...options, contentWidth: 1472, expanded: false })
+  assert.equal(collapsed.officialBounds.width, 1424)
+  assert.equal(collapsed.dockBounds.width, 48)
+  assert.equal(collapsed.dockVisible, true)
+
+  const hidden = computeIntegratedLayout({ ...options, contentWidth: 1472, dockShown: false })
+  assert.equal(hidden.officialBounds.width, 1472)
+  assert.equal(hidden.dockVisible, false)
+  assert.equal(hidden.dockBounds.width, 0)
+
+  const tooNarrow = computeIntegratedLayout({ ...options, contentWidth: 1471 })
+  assert.equal(tooNarrow.officialBounds.width, 1471)
+  assert.equal(tooNarrow.dockVisible, false)
+  assert.equal(tooNarrow.expansionBlocked, true)
+  assert.equal(tooNarrow.dockBounds.width, 0)
+})
+
+test('integrated official rendering stays a child surface while shell IPC stays on the window', () => {
+  const main = read('app/desktop-main.cjs')
+  const officialStart = main.indexOf('async function createOfficialHarnessView')
+  const officialEnd = main.indexOf('/** Is the official UI', officialStart)
+  const officialFactory = main.slice(officialStart, officialEnd)
+  const layoutStart = main.indexOf('function layoutIntegratedViews()')
+  const layoutEnd = main.indexOf('/**\n * The main window\'s content box', layoutStart)
+  const layout = main.slice(layoutStart, layoutEnd)
+  const watcherStart = main.indexOf('function watchOfficialUseToCollapseDock()')
+  const watcherEnd = main.indexOf('function destroyIntegratedViews()', watcherStart)
+  const watcher = main.slice(watcherStart, watcherEnd)
+  const surfacesStart = main.indexOf('async function createOfficialSurfaces()')
+  const surfacesEnd = main.indexOf('/**\n * The wallpaper layer', surfacesStart)
+  const surfaces = main.slice(surfacesStart, surfacesEnd)
+  const extensionStart = main.indexOf('async function startExtensions(')
+  const extensionEnd = main.indexOf('function createWindow()', extensionStart)
+  const extensionBoot = main.slice(extensionStart, extensionEnd)
+
+  assert.match(officialFactory, /return createOfficialHarnessChildView\(readyUrl\)/)
+  assert.match(layout, /computeIntegratedLayout\(/)
+  assert.match(layout, /officialView\.setBounds\(integratedLayout\.officialBounds\)/)
+  assert.match(layout, /megaDockView\.setBounds\(integratedLayout\.dockBounds\)/)
+  assert.match(layout, /megaDockView\.setVisible\(integratedLayout\.dockVisible\)/)
+  assert.match(layout, /if \(integratedLayout\.expansionBlocked\) reportDockWidthConstraint\(contentWidth\)/)
+  assert.match(watcher, /const contents = activeAgentSurface\(\)/)
+  assert.match(extensionBoot, /officialWebContents:\s*activeAgentSurface\(\)/)
+  assert.match(surfaces, /return createWallpaperLayer\(\)/)
+  assert.doesNotMatch(surfaces, /createOfficialSurfaceViews\(/)
+  assert.match(main, /ipcMain\.on\('mega-shell:dock-state'/)
+  assert.match(read('app/extensions/mega/index.cjs'), /ctx\.mainWindow\.webContents\.send\('mega-shell:dock-state'/)
+})
+
+test('integrated composition uses BaseWindow and attaches the loaded official view above the shell', () => {
+  const main = read('app/desktop-main.cjs')
+  const windowStart = main.indexOf('function createWindow()')
+  const dockTargetStart = main.indexOf('/**\n * The dock target', windowStart)
+  const createWindow = main.slice(windowStart, dockTargetStart)
+  const officialStart = main.indexOf('async function createOfficialHarnessChildView(')
+  const officialEnd = main.indexOf('/* ---------------------------------------------------------------------------\n * The official frontend.', officialStart)
+  const officialFactory = main.slice(officialStart, officialEnd)
+
+  assert.ok(/const \{[^}]*\bBaseWindow\b[^}]*\} = require\('electron'\)/.test(main), 'the integrated window host does not import BaseWindow')
+  assert.ok(/INTEGRATED_MEGA_DOCK\s*\?\s*BaseWindow\s*:\s*BrowserWindow/.test(createWindow), 'the integrated path still uses BrowserWindow')
+  assert.ok(/shellView\s*=\s*new WebContentsView\(/.test(createWindow), 'the BaseWindow has no explicit shell view')
+  assert.ok(/mainWindow\.webContents\s*=\s*shellView\.webContents/.test(createWindow), 'the shell webContents compatibility surface is missing')
+  assert.ok(/await nextOfficialView\.webContents\.loadURL\(readyUrl\)/.test(officialFactory), 'the official page is not loaded before attachment')
+  assert.ok(
+    officialFactory.indexOf('await nextOfficialView.webContents.loadURL(readyUrl)') <
+      officialFactory.indexOf('mainWindow.contentView.addChildView(officialView)'),
+    'the not-yet-painted official child is attached over the readable startup skeleton'
+  )
+  assert.ok(/officialView\.setVisible\(true\)/.test(officialFactory), 'the loaded official view is not explicitly made visible')
+  assert.ok(/page-title-updated[\s\S]*?mainWindow\.setTitle/.test(main), 'the integrated native title is not kept in sync with the official renderer')
+})
+
+test('the Control Center remains inside the dock detail flex item', () => {
+  const dock = read('app/extensions/mega/ui/dock.html')
+  const detailStart = dock.indexOf('<main id="detail">')
+  const detailEnd = dock.indexOf('</main>', detailStart)
+  const controlCenter = dock.indexOf('<section class="panel control-panel" id="controlPanel">')
+
+  assert.ok(detailStart >= 0 && detailEnd > detailStart, 'the dock detail region is missing')
+  assert.ok(controlCenter > detailStart && controlCenter < detailEnd, 'the Control Center is outside the flex detail region and steals dock width')
+})
+
+test('Mega keyboard shortcuts observe the official renderer, not the shell view', () => {
+  const mega = read('app/extensions/mega/index.cjs')
+  assert.ok(/shortcutWebContents\s*=\s*ctx\.officialWebContents\s*\|\|\s*ctx\.mainWindow\.webContents/.test(mega), 'the shortcut source is not the official renderer')
+  assert.ok(/shortcutWebContents\.on\('before-input-event', shortcutHandler\)/.test(mega), 'the shortcut listener is missing')
+  assert.ok(/shortcutWebContents\.removeListener\('before-input-event', shortcutHandler\)/.test(mega), 'the shortcut listener is not detached')
+})
+
+test('an explicit expanded-dock request that cannot fit is rejected and reported', () => {
+  const main = read('app/desktop-main.cjs')
+  const rejectStart = main.indexOf('function rejectIntegratedDockExpansion(')
+  const rejectEnd = main.indexOf('function applyIntegratedDockState(', rejectStart)
+  const reject = main.slice(rejectStart, rejectEnd)
+  const noticeStart = main.indexOf('function reportDockWidthConstraint(')
+  const noticeEnd = main.indexOf('function layoutIntegratedViews(', noticeStart)
+  const notice = main.slice(noticeStart, noticeEnd)
+
+  assert.notEqual(rejectStart, -1, 'the shell has no narrow-window refusal path')
+  assert.match(reject, /reportDockWidthConstraint\(contentWidth, \{ showNotice: true \}\)/)
+  assert.match(reject, /extensionManager\?\.setDockExpanded\?\.\(false, \{ persist: true, focus: false \}\)/)
+  assert.match(reject, /return false/)
+  assert.match(notice, /OFFICIAL_VIEW_MIN_WIDTH \+ MEGA_DOCK_MIN_WIDTH/)
+  assert.match(notice, /dialog\.showMessageBox\(mainWindow/)
+  assert.match(notice, /current content width/)
+  assert.match(notice, /required width/)
+
+  const applyStart = rejectEnd
+  const applyEnd = main.indexOf('/**\n * Put the dock on screen', applyStart)
+  const apply = main.slice(applyStart, applyEnd)
+  assert.match(apply, /payload\.expanded === true[\s\S]{0,300}rejectIntegratedDockExpansion\(contentWidth\)/)
 })
