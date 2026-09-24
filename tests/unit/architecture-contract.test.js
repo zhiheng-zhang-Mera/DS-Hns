@@ -290,3 +290,21 @@ test('owned stale DSH recovery runs before the Harness is asked to start', () =>
   assert.match(runtime, /isExpectedDshProcess/)
   assert.match(runtime, /taskkill\.exe/)
 })
+
+test('hidden integrated dock reserves no strip and creates no wallpaper notch', () => {
+  const { computeIntegratedLayout } = require(path.join(ROOT, 'app', 'extensions', 'mega', 'dock', 'integrated-layout.cjs'))
+  const hidden = computeIntegratedLayout({
+    contentWidth: 1472,
+    contentHeight: 900,
+    dockShown: false,
+    expanded: false
+  })
+  assert.equal(hidden.dockVisible, false)
+  assert.equal(hidden.dockBounds.width, 0)
+  assert.equal(hidden.officialBounds.width, 1472)
+
+  const verifier = fs.readFileSync(path.join(ROOT, 'scripts', 'verify.ps1'), 'utf8')
+  assert.match(verifier, /integrated-layout\.cjs/, 'the architecture gate must inspect the current layout helper')
+  assert.ok(verifier.includes(String.raw`return layout\.dockVisible \? \{ x: layout\.dockBounds\.x, y: layout\.dockBounds\.y \} : null`),
+    'the architecture gate must verify the wallpaper notch is visibility-gated')
+})
