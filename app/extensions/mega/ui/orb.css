@@ -76,6 +76,7 @@ html, body {
 
 #panel {
   position: absolute;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   border-radius: 12px;

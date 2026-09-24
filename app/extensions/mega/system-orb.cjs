@@ -368,6 +368,20 @@ function createSystemOrb({
 
   /** The renderer says whether the cursor is on the ball or the panel. */
   function setInteractive(value) {
+    // A Windows ignore-mouse style change can emit mouseleave while the cursor
+    // remains on the ball. Do not remove its native hit target in that case.
+    // Verify the drawn circle, not the transparent window margin; unavailable
+    // cursor evidence keeps the original fail-open-to-the-desktop behavior.
+    if (value !== true && hovering && live() && position) {
+      try {
+        const cursor = screen?.getCursorScreenPoint?.()
+        const radius = ballSize / 2
+        if (Number.isFinite(cursor?.x) && Number.isFinite(cursor?.y) &&
+            Math.hypot(cursor.x - position.x - radius, cursor.y - position.y - radius) < radius) {
+          return syncInteractive()
+        }
+      } catch { /* do not latch input when the native cursor cannot be read */ }
+    }
     hovering = value === true
     return syncInteractive()
   }
