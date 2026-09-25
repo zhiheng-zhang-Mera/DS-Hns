@@ -128,3 +128,16 @@ test('using the official UI collapses the dock without stealing the caret', () =
   // No script is injected into the official renderer to observe clicks.
   assert.equal(/executeJavaScript|insertCSS/.test(shell), false, 'the official renderer must not be scripted')
 })
+
+test('official-surface focus defers dock reflow until the originating click or key event has settled', () => {
+  const shell = read('app/desktop-main.cjs')
+  const start = shell.indexOf('function watchOfficialUseToCollapseDock()')
+  const end = shell.indexOf('function destroyIntegratedViews()', start)
+  const watcher = shell.slice(start, end)
+
+  assert.match(watcher, /const deferCollapse = \(because\) =>/)
+  assert.match(watcher, /setTimeout\(\(\) => \{[\s\S]*collapse\(because\)/)
+  assert.match(watcher, /contents\.isFocused\(\)/)
+  assert.match(watcher, /deferCollapse\('the official page took focus'\)/)
+  assert.match(watcher, /deferCollapse\('a key was pressed into the official page'\)/)
+})

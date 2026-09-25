@@ -560,17 +560,23 @@ function createRestartCompanion(input = {}) {
    * the stop file). One iteration is: absorb the beat, decide, and act — restart, or wait.
    */
   async function watch(options = {}) {
-    const intervalMs = Number.isFinite(options.intervalMs) ? options.intervalMs : Math.max(1_000, Math.floor(config.heartbeat.intervalMs / 2))
+    const configuredIntervalMs = Math.max(1_000, Math.floor(config.heartbeat.intervalMs / 2))
+    const intervalMs = Number.isFinite(options.intervalMs) && options.intervalMs > 0 ? options.intervalMs : configuredIntervalMs
     const maxIterations = Number.isFinite(options.iterations) ? options.iterations : Infinity
+    const retainFullTrace = Number.isFinite(maxIterations)
     let iterations = 0
     const trace = []
+    const recordTrace = (entry) => {
+      trace.push(entry)
+      if (!retainFullTrace && trace.length > 100) trace.shift()
+    }
     let probe = typeof options.probe === 'function' ? options.probe : null
 
     while (iterations < maxIterations) {
       iterations += 1
       if (stopping || stopRequested()) {
         state = SUPERVISOR_STATES.IDLE
-        trace.push({ iteration: iterations, verdict: 'stopped', detail: 'the companion was asked to stand down' })
+        recordTrace({ iteration: iterations, verdict: 'stopped', detail: 'the companion was asked to stand down' })
         break
       }
       // A test drives the world through `probe`; production reads the OS and the heartbeat file.
@@ -585,10 +591,10 @@ function createRestartCompanion(input = {}) {
        */
       const delegated = pendingRequest({ now: now() })
       if (delegated.pending) {
-        trace.push({ iteration: iterations, verdict: 'delegated', reasonCode: delegated.request.reasonCode, detail: delegated.request.reasonSummary || null, at: now() })
+        recordTrace({ iteration: iterations, verdict: 'delegated', reasonCode: delegated.request.reasonCode, detail: delegated.request.reasonSummary || null, at: now() })
         const outcome = await requestRestart(delegated.request.reasonCode || RESTART_REASONS.MANUAL, delegated.request.reasonSummary || 'requested through restart-control')
         clearRequest()
-        trace.push({ iteration: iterations, verdict: outcome.ok === true ? 'delegated-restarted' : 'delegated-refused', code: outcome.code || null, reason: outcome.reason || null })
+        recordTrace({ iteration: iterations, verdict: outcome.ok === true ? 'delegated-restarted' : 'delegated-refused', code: outcome.code || null, reason: outcome.reason || null })
         if (iterations < maxIterations) await wait(intervalMs)
         continue
       }
@@ -617,7 +623,7 @@ function createRestartCompanion(input = {}) {
 
       if (report.action === 'none' && !gone && exitCode === null) {
         state = SUPERVISOR_STATES.MONITORING
-        trace.push({ iteration: iterations, verdict: 'healthy', detail: report.reason })
+        recordTrace({ iteration: iterations, verdict: 'healthy', detail: report.reason })
       } else {
         const reasonCode = gone
           ? (exitCode !== null && exitCode !== 0 ? RESTART_REASONS.PROCESS_EXITED : RESTART_REASONS.CRASH_RECOVERY)
@@ -627,12 +633,12 @@ function createRestartCompanion(input = {}) {
         const summary = gone
           ? `the application left (${exitCode === null ? 'no exit code observed' : `exit ${exitCode}`})`
           : report.reason
-        trace.push({ iteration: iterations, verdict: report.action === 'none' ? 'gone' : report.action, reasonCode, detail: summary, at: now() })
+        recordTrace({ iteration: iterations, verdict: report.action === 'none' ? 'gone' : report.action, reasonCode, detail: summary, at: now() })
         if (state === SUPERVISOR_STATES.SAFE_MODE) {
-          trace.push({ iteration: iterations, verdict: 'safe-mode', detail: 'no automatic restart will be attempted; a person has to reset the budget' })
+          recordTrace({ iteration: iterations, verdict: 'safe-mode', detail: 'no automatic restart will be attempted; a person has to reset the budget' })
         } else {
           const outcome = await requestRestart(reasonCode, summary)
-          trace.push({ iteration: iterations, verdict: outcome.ok === true ? 'restarted' : 'refused', code: outcome.code || null, reason: outcome.reason || null })
+          recordTrace({ iteration: iterations, verdict: outcome.ok === true ? 'restarted' : 'refused', code: outcome.code || null, reason: outcome.reason || null })
           if (outcome.ok !== true && !gone) heartbeat.reset()
         }
       }

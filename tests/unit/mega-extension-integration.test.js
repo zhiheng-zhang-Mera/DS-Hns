@@ -52,6 +52,7 @@ function fakeElectron(handlers) {
         on: () => {},
         once: () => {},
         removeListener: () => {},
+        isDestroyed: () => this.destroyed,
         isLoading: () => false
       }
     }

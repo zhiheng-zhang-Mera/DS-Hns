@@ -144,13 +144,16 @@ test('the exit path always reclaims the worker before the Harness is stopped', (
    * check cannot be satisfied by simply renaming the call.
    */
   const workerAt = teardown.indexOf('stopSubWorkerOnExit')
-  const harnessStopAt = (() => {
+  const runtimeReleaseAt = (() => {
     const direct = teardown.indexOf('stopHarness()')
     if (direct >= 0) return direct
-    return teardown.indexOf('stopHarnessInProcess()')
+    const inProcess = teardown.indexOf('stopHarnessInProcess()')
+    if (inProcess >= 0) return inProcess
+    return teardown.indexOf('runtimeClient.detach()')
   })()
   assert.ok(workerAt >= 0, 'the worker is no longer reclaimed on exit')
-  assert.ok(workerAt < harnessStopAt, 'AC-10 ordering: the worker must be reclaimed before the Harness is released')
+  assert.ok(runtimeReleaseAt >= 0, 'the exit path no longer releases its Runtime connection')
+  assert.ok(workerAt < runtimeReleaseAt, 'AC-10 ordering: the worker must be reclaimed before the Runtime connection is released')
   // The detach is what the exit path actually does with the Runtime.
   assert.match(teardown, /runtimeClient\.detach\(\)/)
   const stopWorker = main.slice(main.indexOf('function stopSubWorkerOnExit'), main.indexOf('function registerSubWorkerIpc'))
@@ -160,7 +163,8 @@ test('the exit path always reclaims the worker before the Harness is stopped', (
   // step is individually guarded.
   assert.equal(/await\b/.test(stopWorker), false, 'the exit path never awaits the worker')
   assert.ok((stopWorker.match(/try \{/g) || []).length >= 2)
-  const forceExit = main.slice(main.indexOf('function forceExit'), main.indexOf('function integratedDockWidth'))
+  const forceMatch = main.match(/function forceExit\([^)]*\) \{([\s\S]*?)^\}/m)
+  const forceExit = forceMatch ? forceMatch[1] : ''
   assert.equal(/throw\b/.test(forceExit), false)
   assert.match(forceExit, /app\.exit\(0\)/)
 })
