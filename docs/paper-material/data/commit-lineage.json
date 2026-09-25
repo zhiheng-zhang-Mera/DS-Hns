@@ -79,6 +79,7 @@
     "branchHeads": [
       {"name":"better-install","sha":"a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6","status":"ALREADY_INCLUDED","basis":"reviewed head is already in the historical released ancestry"},
       {"name":"target-standby","sha":"5efa302acd381d57d44bc87bbdc36f80a21dda9a","status":"ALREADY_INCLUDED","basis":"reviewed head is already in the historical released ancestry"},
+      {"name":"codex/hns-final-evidence-docs","sha":"fb008fb100364f67e12eddd4850254e4c19e9663","status":"ALREADY_INCLUDED","basis":"documentation-only PR #3 head is an ancestor of fetched main 8b912286; no product-source contribution or re-merge needed"},
       {"name":"try-auto","sha":"432cf431f2b40843ab3ec5287ffd7e5296cb6626","status":"INCLUDE","basis":"reviewed contribution remains in the qualified history"},
       {"name":"dev/runtime-ui-separation-v1","sha":"923f5293a2ada553cb7f91a4bc1b54e750dfe7c3","status":"INCLUDE","basis":"reviewed contribution remains in the qualified history"},
       {"name":"dev/hns-integration-visual-rc1","sha":"2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d","status":"ALREADY_INCLUDED","basis":"reviewed head is included in current candidate ancestry"},
@@ -87,6 +88,34 @@
     "supersededBranches": [],
     "excludedBranches": [],
     "scope": "Branch choices reflect reviewed commit/diff and ancestry evidence, not branch existence. The snapshot does not assert a new research contribution count or production release. The prior productionBaselineSnapshot remains unchanged."
+  },
+  "repositoryHistorySnapshot": {
+    "snapshotDate": "2026-09-25",
+    "head": "d4d2e8757c7660a6130050cc718debf79c1ea252",
+    "baseline": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "reachableCommitCount": 379,
+    "additionalCommitCount": 13,
+    "additionalMergeCommitCount": 2,
+    "additionalNonMergeCommitCount": 11,
+    "additionalStablePatchIdsUnique": 11,
+    "patchEquivalentToPriorHistory": 0,
+    "commitsAfterProductionBaseline": [
+      {"sha":"b7cf73860d7af53e8da33cf58285043dacd78cac","kind":"DOCUMENTATION_EVIDENCE","patchId":"e29dbabb4134b9cafd20f53aa77d07c1cc7d212d"},
+      {"sha":"f869173321e1485d80404349493c9f38d9e97f9f","kind":"DOCUMENTATION_EVIDENCE","patchId":"fb478a20cba1c4c2a9293d012de0f04f544c07f0"},
+      {"sha":"a34dcafe589509d2d59d69c7e795616b5748546c","kind":"DOCUMENTATION_EVIDENCE","patchId":"e9372ebc51e29d85579d62dcd4e92027db2440a5"},
+      {"sha":"fb008fb100364f67e12eddd4850254e4c19e9663","kind":"DOCUMENTATION_EVIDENCE","patchId":"3410c0c27168786da668f87ef6048d75119568d4"},
+      {"sha":"8b91228628e9168cabd545f26f1320ba141561e0","kind":"MERGE","patchId":null},
+      {"sha":"f4885b7639b8fb302819e77f1aa68f12576bf07c","kind":"RESTART_WATCH_REPAIR","patchId":"ade14d4e8475b4782108fe28b015f6482468381c"},
+      {"sha":"d36c490153e17d410efaad8ce879f8135bb8a135","kind":"MERGE","patchId":null},
+      {"sha":"337169d37da13d2f843d3b9e6201d414a2962059","kind":"INTEGRATED_DOCK_LAYOUT_REPAIR","patchId":"dc24210c8ae61f1552a3352487bd50142cc53c0e"},
+      {"sha":"4ddb717f326ab85982cd35376d691841c5fc06de","kind":"DOCK_LAYOUT_CONTRACT_TEST","patchId":"6eff349b43bda6c473cf35a290eded46310e41e9"},
+      {"sha":"73d3332a341f478d17079d2915c5389f1ed0bff1","kind":"COLD_INSTALL_NODE_ORDERING_REPAIR","patchId":"f49fcd0e75ef8616b0bed8c464e2de8941c59463"},
+      {"sha":"61506b3d14802498a6c7fa5a463c655f76ea14a8","kind":"HOST_CAPABILITY_JSON_REPAIR","patchId":"d2e09b677292731de8526202746f6581b16a306a"},
+      {"sha":"4ef9c0df149a6cecf1eaa17e50cee4b22271b810","kind":"REQUIRED_PLUGIN_INSTALLER_FAIL_CLOSED","patchId":"c2643fe0101360d3879a80ccdbc2c62641f73fd52"},
+      {"sha":"d4d2e8757c7660a6130050cc718debf79c1ea252","kind":"DOCUMENTATION_EVIDENCE","patchId":"d0db3a91b03c347f5a2af34be79fb2b84a61b46e"}
+    ],
+    "verification": "After fetching all remotes/tags, git rev-list --all --count returned 379; git cherry against 5dcde767 returned 11 unique non-merge patches and no equivalent patch in the prior reachable history.",
+    "scope": "Fixed history cutoff before the present report refresh. Counts reachable commits including documentation and merge commits; non-merge patch records are not automatically research contributions. The prior 366-commit productionBaselineSnapshot remains unchanged."
   },
   "notes": [
     "Patch-equivalent commits count once as a logical change.",

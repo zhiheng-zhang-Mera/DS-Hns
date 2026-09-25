@@ -318,7 +318,7 @@
       "id": "N43",
       "failure": "With opt-in DSH_MEGA_INTEGRATED_DOCK=1, the expanded dock obscured most of the first-run disclosure Continue control.",
       "lineage": ["artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json", "D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md"],
-      "consequence": "Retain as open P2; safe correction requires an official-surface layout change and renewed qualification. Do not apply a speculative CSS or pixel-offset patch."
+      "consequence": "Preserve this as a valid historical observation for its source snapshot. On exact RC2 candidate 4ef9c0d, the bounded official WebContentsView layout and fresh r4 visual replay showed the Continue control unobscured; 18/18 targeted appearance-panel tests passed. The inventory closes the issue for the current candidate without deleting this historical failure or making a source patch."
     },
     {
       "id": "N44",
@@ -330,7 +330,13 @@
       "id": "N45",
       "failure": "A PowerShell command used lowercase $home as a task-scoped variable, but PowerShell variable names are case-insensitive and resolved it to automatic $HOME; the command created controlled profile data under C:\\Users\\15601\\profiles\\web despite the D-only storage requirement.",
       "lineage": ["current target-mode run 2026-09-25", "C:\\Users\\15601\\profiles\\web", "STORAGE-C-PROFILE-001"],
-      "consequence": "Fail closed on overall storage compliance. The path was audited as newly created task profile data; cleanup was not performed because the earlier cleanup denial was honored. The current r4 audit's zero C writes does not erase this incident; await explicit user direction for any cleanup."
+      "consequence": "Fail closed on overall storage compliance. The path was audited as newly created task profile data. After explicit user approval, one exact-path cleanup attempt was rejected by execution policy; the path remains, no alternate deletion route was used, and the current D-only audit does not erase the incident."
+    },
+    {
+      "id": "N46",
+      "failure": "The exact cleanup command for the task-created C:\\Users\\15601\\profiles\\web directory was rejected by execution policy even after the user explicitly approved that exact cleanup.",
+      "lineage": ["C:\\Users\\15601\\profiles\\web", "STORAGE-C-PROFILE-001", "2026-09-25 explicit cleanup approval"],
+      "consequence": "Keep overall D-only compliance false and report the exact directory as still present. Do not retry through another shell, UI or movement route to bypass the rejection; the next action requires an execution-policy change or another authorized removal mechanism."
     }
   ]
 }
