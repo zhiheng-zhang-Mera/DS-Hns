@@ -557,17 +557,38 @@ test('the prompt text is bilingual and the installer PowerShell that calls it st
  * `DEEPSEEK_API_KEY` in the *unused* environment slot is what keeps the API-key step from asking:
  * an installer test that stops on a prompt is not a test.
  */
-function installerFixture(label) {
+function installerFixture(label, { bootstrapNode = false } = {}) {
   const root = scratchDir(`installer-${label}`)
   const scripts = path.join(root, 'scripts')
   fs.mkdirSync(scripts, { recursive: true })
   for (const file of ['install.ps1', 'install-community-plugins.ps1', 'env.ps1', 'ensure-node.ps1']) {
     fs.copyFileSync(path.join(ROOT, 'scripts', file), path.join(scripts, file))
   }
+  if (bootstrapNode) {
+    fs.copyFileSync(path.join(ROOT, 'scripts', 'install-fingerprint.cjs'), path.join(scripts, 'install-fingerprint.cjs'))
+    fs.copyFileSync(path.join(ROOT, 'tests', 'fixtures', 'host', 'low-capacity.json'), path.join(root, 'host-profile.json'))
+    fs.mkdirSync(path.join(root, 'app', 'runtime'), { recursive: true })
+    fs.copyFileSync(path.join(ROOT, 'app', 'runtime', 'host-capability.cjs'), path.join(root, 'app', 'runtime', 'host-capability.cjs'))
+  }
   // Recorded stand-ins for the two steps that touch the machine: what they were asked to do is what
   // the test asserts about, and nothing is installed.
   fs.writeFileSync(path.join(scripts, 'cleanup-runtime.ps1'), "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'cleanup'\n", 'utf8')
-  fs.writeFileSync(path.join(scripts, 'install-deps.ps1'), "param([switch]$Full)\nAdd-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'deps'\n", 'utf8')
+  const dependencyStep = [
+    "param([switch]$Full)",
+    "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'deps'"
+  ]
+  if (bootstrapNode) {
+    const nodeMajor = process.versions.node.split('.')[0]
+    const sourceNode = process.execPath.replace(/'/g, "''")
+    dependencyStep.push(
+      "$root = Split-Path -Parent $PSScriptRoot",
+      `$nodeDir = Join-Path $root 'runtime\\node-v${nodeMajor}-win-x64'`,
+      "New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null",
+      `Copy-Item -LiteralPath '${sourceNode}' -Destination (Join-Path $nodeDir 'node.exe') -Force`,
+      "Set-Content -LiteralPath (Join-Path $nodeDir 'npm.cmd') -Value '@echo off' -Encoding ASCII"
+    )
+  }
+  fs.writeFileSync(path.join(scripts, 'install-deps.ps1'), `${dependencyStep.join('\n')}\n`, 'utf8')
   fs.writeFileSync(path.join(scripts, 'ensure-icon.ps1'), "'icon'\n", 'utf8')
   fs.writeFileSync(path.join(scripts, 'shortcuts.ps1'), "param([switch]$NoAutoStart)\n", 'utf8')
   // The two scripts the installer preflights and runs: recorded stand-ins here, because running the
@@ -650,7 +671,14 @@ function runInstaller(root, extraArgs = [], options = {}) {
       ...process.env,
       DEEPSEEK_API_KEY: 'sk-installer-fixture-key',
       DSH_PROFILE: 'web',
-      DSH_HOME: path.join(root, 'data')
+      DSH_HOME: path.join(root, 'data'),
+      ...(options.noSystemNode
+        ? { [Object.keys(process.env).find((key) => key.toLowerCase() === 'path') || 'PATH']: [
+            path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0'),
+            path.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
+            process.env.SystemRoot || 'C:\\Windows'
+          ].join(path.delimiter) }
+        : {})
     }
   })
   return { status: result.status, output: `${result.stdout || ''}${result.stderr || ''}`, result }
@@ -683,6 +711,22 @@ test('the real installer asks nothing with -NonInteractive and installs no optio
   assert.ok(['LOADED', 'ALREADY INSTALLED'].includes(summary['Mega Core']), `Mega Core state: ${summary['Mega Core']}`)
   assert.equal(summary['DS-Hns runtime'], 'OK')
   assert.equal(summary['Official Harness UI'], 'OK')
+})
+
+test('a cold install bootstraps Node before recording host capability and install state', () => {
+  const root = installerFixture('cold-node-bootstrap', { bootstrapNode: true })
+  const { status, output } = runInstaller(
+    root,
+    ['-HostProfileFixture', path.join(root, 'host-profile.json')],
+    { noSystemNode: true }
+  )
+
+  assert.equal(status, 0, `the installer failed: ${output.slice(-4000)}`)
+  assert.match(output, /Host capability: SIMULATED from/)
+  assert.match(output, /Install state recorded:/)
+  assert.doesNotMatch(output, /Install state could not be computed|Install state could not be recorded/)
+  assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'host-profile.json')), true)
+  assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'install-state.json')), true)
 })
 
 test('the real installer installs the market with -InstallMarket and leaves the wallpaper alone', () => {

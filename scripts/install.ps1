@@ -328,7 +328,7 @@ $electronExe = Join-Path $ROOT 'app\node_modules\electron\dist\electron.exe'
 $megaCoreDir = Join-Path $ROOT 'app\plugins\mega-core'
 $installState = $null
 $installStateFile = Join-Path $dshHome 'state\install-state.json'
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ((Test-Path -LiteralPath $fingerprintScript) -and $node) {
   try {
     $installStateJson = & $node @($fingerprintScript, 'describe', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
     $installState = ($installStateJson | Select-Object -Last 1) | ConvertFrom-Json
@@ -336,7 +336,40 @@ if (Test-Path -LiteralPath $fingerprintScript) {
     Write-Warning "Install state could not be computed; this run will do the full work: $($_.Exception.Message)"
     $installState = $null
   }
+} elseif (Test-Path -LiteralPath $fingerprintScript) {
+  Write-Host 'Install state lookup deferred until the dependency step bootstraps Node.'
 }
+
+Write-Step '2/9 Resolve/reuse dependencies'
+$dependencyScript = Join-Path $PSScriptRoot 'install-deps.ps1'
+
+# The fast path, before any work is done.
+#
+# `install-deps.ps1` already reuses a version-matched tree internally, but it gets there by resolving
+# Node, reading both package manifests and probing four paths -- and, when the state says nothing
+# changed, the *answer is already known*. So the state is consulted first, and only a run that cannot
+# prove reuse falls through to the script.
+#
+# The proof is deliberately conservative: the lockfile hash, the manifest hash, the Node build, the
+# expected versions, and the existence of `lib/bin.js`, `electron/install.js` and `electron.exe`. A
+# missing file fails the check, so the fast path can never skip a repair that is actually needed.
+$depsReuse = $false
+if ($installState -and $installState.decisions -and $installState.decisions.dependencies) {
+  $depsReuse = [bool]$installState.decisions.dependencies.reuse
+}
+if ($depsReuse) {
+  Write-Host "  reuse: $($installState.decisions.dependencies.reason)"
+  Write-Host '  dsh and Electron are installed, version-matched and present; npm will not run.'
+} else {
+  if ($installState -and $installState.decisions -and $installState.decisions.dependencies) {
+    Write-Host "  reinstall: $($installState.decisions.dependencies.reason)"
+  }
+  & $dependencyScript -Full
+}
+
+# Dependency resolution owns Node bootstrap. Resolve again in this scope before using Node for
+# host calibration or the final install-state write; a child PowerShell script cannot update `$node`.
+$node = Resolve-InstallerNode
 
 # Host capability, measured rather than assumed. It is printed as information and cached for the
 # Runtime to use; nothing below fails an installation because this machine is slow. See
@@ -347,15 +380,17 @@ if ($HostProfileFixture) {
   # A simulated host. The profile is read, classified and cached by the same code a
   # measured one goes through, so the policy under test is the real policy.
   $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
-  try {
-    $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
-    Write-Host "Host capability: SIMULATED from $fixturePath"
-  } catch {
-    Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
-    $hostProfile = $null
+  if ($node) {
+    try {
+      $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+      Write-Host "Host capability: SIMULATED from $fixturePath"
+    } catch {
+      Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
+      $hostProfile = $null
+    }
   }
 }
-if (-not $hostProfile) {
+if (-not $hostProfile -and $node) {
   $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
   if (Test-Path -LiteralPath $capabilityScript) {
     try {
@@ -386,33 +421,6 @@ if ($hostProfile) {
   } catch {
     Write-Warning "The host capability profile could not be cached: $($_.Exception.Message)"
   }
-}
-
-Write-Step '2/9 Resolve/reuse dependencies'
-$dependencyScript = Join-Path $PSScriptRoot 'install-deps.ps1'
-
-# The fast path, before any work is done.
-#
-# `install-deps.ps1` already reuses a version-matched tree internally, but it gets there by resolving
-# Node, reading both package manifests and probing four paths -- and, when the state says nothing
-# changed, the *answer is already known*. So the state is consulted first, and only a run that cannot
-# prove reuse falls through to the script.
-#
-# The proof is deliberately conservative: the lockfile hash, the manifest hash, the Node build, the
-# expected versions, and the existence of `lib/bin.js`, `electron/install.js` and `electron.exe`. A
-# missing file fails the check, so the fast path can never skip a repair that is actually needed.
-$depsReuse = $false
-if ($installState -and $installState.decisions -and $installState.decisions.dependencies) {
-  $depsReuse = [bool]$installState.decisions.dependencies.reuse
-}
-if ($depsReuse) {
-  Write-Host "  reuse: $($installState.decisions.dependencies.reason)"
-  Write-Host '  dsh and Electron are installed, version-matched and present; npm will not run.'
-} else {
-  if ($installState -and $installState.decisions -and $installState.decisions.dependencies) {
-    Write-Host "  reinstall: $($installState.decisions.dependencies.reason)"
-  }
-  & $dependencyScript -Full
 }
 
 Write-Step '3/9 Resolve DeepSeek API key'
