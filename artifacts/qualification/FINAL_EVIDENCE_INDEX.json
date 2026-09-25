@@ -2,15 +2,15 @@
   "schema": "hns-final-evidence-index/v2",
   "qualification": {
     "candidateBranch": "dev/hns-final-qualification-rc2",
-    "candidateSha": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
-    "candidateTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
-    "runId": "2026-09-24T06-54-31-334Z-09571b4b",
-    "runRoot": "D:\\HQR\\qualification-runs\\2026-09-24T06-54-31-334Z-09571b4b",
-    "runSummarySha256": "b0c76898e96cfc6ef1076913114892786090e7c9b2842b63a026943f42f94a99",
-    "runArtifactIndexSha256": "8679cd6a04935de4113672c657cdd108c131300c490bdaadb2969780e5e987ea",
+    "candidateSha": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+    "candidateTree": "816f513c98e40831f0e81f8567e72e6fd01adcd4",
+    "runId": "2026-09-25T04-37-57-947Z-f4caf3b3",
+    "runRoot": "D:\\qf\\qualification-4ef9c0d-r4\\qualification\\qualification-runs\\2026-09-25T04-37-57-947Z-f4caf3b3",
+    "runSummarySha256": "fefb637055430b9446a0b5cecd87f6aec07b3cd4161f8fe5049460513fbbf557",
+    "runArtifactIndexSha256": "76efc1454e514cca2fb4d6d8181017240b047800ee1bfec82be01affc514aa47",
     "mandatoryGates": 17,
     "mandatoryFailures": 0,
-    "freshRemoteClone": "D:\\HnsQ24\\qualification-rerun-63eabc9\\clean-room"
+    "freshRemoteClone": "D:\\Hns-Cleanroom-Qualification-20260925-4ef9c0d-r2\\repo"
   },
   "release": {
     "pullRequest": "https://github.com/zhiheng-zhang-Mera/DS-Hns/pull/2",
@@ -25,6 +25,15 @@
     "docsOnlyFollowup": true
   },
   "artifacts": [
+    {"id":"rc2-qualification-summary","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/qualification-summary.json","sha256":"fefb637055430b9446a0b5cecd87f6aec07b3cd4161f8fe5049460513fbbf557","scope":"exact source candidate 4ef9c0d; 17/17 gates, one immutable run"},
+    {"id":"rc2-run-artifact-index","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/artifact-index.json","sha256":"76efc1454e514cca2fb4d6d8181017240b047800ee1bfec82be01affc514aa47","scope":"hash index for the same immutable run"},
+    {"id":"rc2-electron-ui","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/electron-ui-acceptance.json","sha256":"b28dad51ca15f1f66390ee0e562278d7435075fba799618cc04ff30e6f58cf4d","result":"134/134; native picker operator input separately observed"},
+    {"id":"rc2-post-test-audit","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/post-test-audit.json","sha256":"dcd74c129902de8537801bae9bf06f9d5dd21d5ff5229f27ef4099e6daf19a648","result":"current run: 0 candidate process leaks, 0 detected C project writes; does not erase the earlier task-controlled C profile incident"},
+    {"id":"rc2-evidence-consistency","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/evidence-consistency.json","sha256":"80630c37709d7c183b9690b441eb7eb7b939594e9f33b126028519a0bf77e572","result":"1/1"},
+    {"id":"rc2-standard-cold-install","path":"D:/qf/cleanroom-4ef9c0d-r2/standard-cold-install.transcript.txt","sha256":"cb880d86c3be993497b65ff57eea84775d66582f4f0f717842b2bd9fdc9d1a0e","result":"fresh clone Standard install PASS; 532 packages; app launch separately accepted"},
+    {"id":"rc2-visible-journey","path":"artifacts/qualification/RC2_VISIBLE_JOURNEY.md","kind":"direct visible Computer Use observations","scope":"partial; no provider request; exact source SHA; D-only screenshots"},
+    {"id":"rc2-workbench-screenshot","path":"D:/qf/manual-journey-4ef9c0d/08-workbench-after-plugin-search.jpg","sha256":"c1480437dc38c048e50b583f33cf2fec93846338cdeed26c110f287a6d25c82d","scope":"selected workspace after UI settings inspection"},
+    {"id":"rc2-mega-dock-screenshot","path":"D:/qf/manual-journey-4ef9c0d/09-mega-dock-open-after-shortcut.jpg","sha256":"ffad38ca77717cb268781caac201c5429e2028a9adfee51418f38038df8f6a1f","scope":"visible integrated Mega and official workbench"},
     {"id":"qualification-summary","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/qualification-summary.json","sha256":"b0c76898e96cfc6ef1076913114892786090e7c9b2842b63a026943f42f94a99","scope":"one immutable candidate run"},
     {"id":"run-artifact-index","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/artifact-index.json","sha256":"8679cd6a04935de4113672c657cdd108c131300c490bdaadb2969780e5e987ea","scope":"hashes for every file in the run"},
     {"id":"unit-test-stdout","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/raw/all-unit-tests.stdout.txt","sha256":"d39684f59e96f63a77ab93dcd93e26e4bdd2762e3b19965562e81c4dc6418174","result":"2002 passed, 0 failed, 2 defined optional skips"},
@@ -57,11 +66,11 @@
     "claims":7,
     "boundedSupportedEngineeringClaims":6,
     "unsupportedComparatorClaims":1,
-    "experiments":17,
+    "experiments":19,
     "metrics":11,
-    "negativeResults":43,
+    "negativeResults":45,
     "releaseReachableCommits":366,
-    "status":"COMPLETE_WITH_LIMITATIONS"
+    "status":"COMPLETE_WITH_LIMITATIONS; current qualification terminal status HNS_FINALIZATION_BLOCKED"
   },
   "compositionRules": [
     "Do not combine different runIds as a single qualification.",
@@ -69,6 +78,8 @@
     "Do not label an Electron/process restart as a real Windows reboot.",
     "Do not infer candidate identity from branch name instead of immutable summary.",
     "Do not publish private account screenshots.",
-    "Do not treat the documentation follow-up as a source-code change or move the production tag."
+    "Do not treat the documentation follow-up as a source-code change or move the production tag.",
+    "The passing r4 current-run C-write audit does not erase the earlier task-controlled C:\\Users\\15601\\profiles\\web write; overall D-only compliance remains false.",
+    "Current 4ef9c0d candidate is not merged/tagged; historical 63eabc9 production snapshot remains distinct."
   ]
 }

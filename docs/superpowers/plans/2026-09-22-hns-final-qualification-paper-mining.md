@@ -133,10 +133,10 @@
 - Consumes: RC2 candidate SHA/tree and Tasks 2-6 gates.
 - Produces: one internally consistent local qualification run.
 
-- [ ] Run syntax, all units, architecture, installer/adapter/plugin/health/restart/continuity, Computer Use long-run, chaos, synthetic soak, combined acceptance, leak, storage, and evidence gates.
-- [ ] Explain every repository-defined skip and fail on unexpected skips.
+- [x] Run syntax, all units, architecture, installer/adapter/plugin/health/restart/continuity, Computer Use long-run, chaos, synthetic soak, combined acceptance, leak, storage, and evidence gates. r4 exact-candidate run `2026-09-25T04-37-57-947Z-f4caf3b3`: 17/17 mandatory gates, 0 failures.
+- [x] Explain every repository-defined skip and fail on unexpected skips. The only two skips are declared sample-dependent optional plugin samples; both were absent.
 - [ ] Launch isolated Electron; visually re-run official fallback, plugins, persistence, error isolation, long observation, and orb click -> expansion -> feedback.
-- [ ] Fix newly reproduced defects with separate RED -> GREEN loops and rerun affected/full gates.
+- [x] Fix the required-plugin installer fail-open defect with focused RED/GREEN regression and rerun the full r4 qualification matrix. No UI/source rewrite was made.
 
 ### Task 8: Clean-room qualification
 
@@ -147,9 +147,9 @@
 - Consumes: pushed RC2 branch.
 - Produces: fresh-clone/bootstrap/dependency/profile/plugin/Electron/qualification results with no reused state.
 
-- [ ] Verify the clean-room root is absent/empty and clone RC2 from remote.
-- [ ] Bootstrap with repository-declared npm/lockfile and D-drive roots only.
-- [ ] Execute the complete mandatory matrix and real launch from blank state.
+- [x] Verify the clean-room root is absent/empty and clone RC2 from remote.
+- [x] Bootstrap with repository-declared npm/lockfile and D-drive roots only.
+- [x] Execute the complete mandatory matrix and real launch from blank state. Machine matrix passed 17/17 and fresh-clone Electron was visibly launched; end-to-end provider Journey remains explicitly partial.
 - [ ] Import only signed run metadata/evidence references, never caches or live state.
 
 ### Task 9: Enhanced real-host qualification

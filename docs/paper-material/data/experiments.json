@@ -621,6 +621,46 @@
       "status": "PASS_PRODUCT_CODE_EQUIVALENT",
       "artifact": "artifacts/qualification/FINAL_JOURNEY_EVIDENCE.md",
       "limitations": ["Commit differs from the exact candidate by documentation-only changes; app, scripts and tests have no diff.","Private account screenshots were not published.","The opt-in integrated dock first-run disclosure overlap remains open P2."]
+    },
+    {
+      "id": "E-RC2-QUALIFICATION",
+      "goal": "Qualify the exact RC2 source candidate after the required-plugin installer fix",
+      "host": "Mera-Alianware Windows 10.0.26200 x64",
+      "softwareVersions": {"node":"v24.14.1","npm":"11.11.0","electron":"43.4.0"},
+      "commit": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+      "workload": "17 mandatory gates from one immutable fresh-clone run on D:",
+      "baseline": null,
+      "treatment": "repository-declared Standard cold install and isolated production-like Electron runtime",
+      "metric": "mandatory failures",
+      "threshold": 0,
+      "rawResults": {"runId":"2026-09-25T04-37-57-947Z-f4caf3b3","gitTree":"816f513c98e40831f0e81f8567e72e6fd01adcd4","mandatoryGates":17,"mandatoryFailures":0,"unitTests":2029,"unitPass":2027,"unitFail":0,"unitSkipped":2,"electronUiChecks":134},
+      "aggregate": {"mandatoryGates":17,"passed":17,"failed":0},
+      "repeatCount": 1,
+      "variance": null,
+      "failureMode": null,
+      "status": "PASS",
+      "artifact": "artifacts/qualification/FINAL_HNS_QUALIFICATION_REPORT.json",
+      "limitations": ["Machine PASS does not clear the earlier controlled C-drive profile write.","First-run integrated-dock P2 remains open; real provider journey, reboot and 24-hour wall-clock soak are NOT_RUN.","This exact candidate was not merged or tagged."]
+    },
+    {
+      "id": "E-RC2-VISIBLE-JOURNEY",
+      "goal": "Visually inspect the exact candidate workbench, native workspace selection, restart persistence and opt-in integrated dock",
+      "host": "Mera-Alianware Windows desktop",
+      "softwareVersions": {"node":"v24.14.1","electron":"43.4.0"},
+      "commit": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+      "workload": "Codex Computer Use screenshot, visible reading/clicking, D-drive native picker, app restart and Ctrl+Shift+M dock toggle",
+      "baseline": null,
+      "treatment": "isolated D-rooted userData and runtimeData; settings were inspected without mutation",
+      "metric": "journey completion state",
+      "threshold": "full provider journey required for full acceptance",
+      "rawResults": {"workspaceSelected":"D:\\qf\\manual-journey-4ef9c0d\\workspace","workspaceRestoredAfterRestart":true,"megaDockOpenedCollapsedAndReopened":true,"pluginSettingsSearch":{"Health Scheduler":"0 matching entries","Plugin Market":"0 matching entries"},"providerRequest":"NOT_RUN","freshProfileDisclosure":"NOT_RUN"},
+      "aggregate": {"workspacePicker":true,"restartPersistence":true,"megaDockVisible":true,"providerJourney":null},
+      "repeatCount": 1,
+      "variance": null,
+      "failureMode": "The app-wide provider prompt/response journey was not run; the existing fresh-profile dock disclosure P2 was not replayed.",
+      "status": "PARTIAL_NOT_FULL_ACCEPTANCE",
+      "artifact": "artifacts/qualification/RC2_VISIBLE_JOURNEY.md",
+      "limitations": ["No provider request was sent.","The plugin Settings catalog is not the installer/runtime inventory.","No independent QA was delegated, per user instruction."]
     }
   ]
 }

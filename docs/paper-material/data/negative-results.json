@@ -319,6 +319,18 @@
       "failure": "With opt-in DSH_MEGA_INTEGRATED_DOCK=1, the expanded dock obscured most of the first-run disclosure Continue control.",
       "lineage": ["artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json", "D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md"],
       "consequence": "Retain as open P2; safe correction requires an official-surface layout change and renewed qualification. Do not apply a speculative CSS or pixel-offset patch."
+    },
+    {
+      "id": "N44",
+      "failure": "The r3 full qualification run passed 16/17 gates but timed out Electron UI acceptance because the D-rooted temporary USERPROFILE lacked a Desktop and the native directory picker received no operator selection before its timeout.",
+      "lineage": ["D:\\qf\\qualification-4ef9c0d-r3", "D:\\qf\\visual-qualification-r3\\05-picker-timeout.jpg", "retained run 2026-09-25T04-05-20-450Z-3cf7d60d"],
+      "consequence": "Retain the immutable failed attempt; the run is not a source-defect finding. r4 added D-rooted profile folders and targeted operator picker input, then passed 17/17. Do not replace or combine the runs."
+    },
+    {
+      "id": "N45",
+      "failure": "A PowerShell command used lowercase $home as a task-scoped variable, but PowerShell variable names are case-insensitive and resolved it to automatic $HOME; the command created controlled profile data under C:\\Users\\15601\\profiles\\web despite the D-only storage requirement.",
+      "lineage": ["current target-mode run 2026-09-25", "C:\\Users\\15601\\profiles\\web", "STORAGE-C-PROFILE-001"],
+      "consequence": "Fail closed on overall storage compliance. The path was audited as newly created task profile data; cleanup was not performed because the earlier cleanup denial was honored. The current r4 audit's zero C writes does not erase this incident; await explicit user direction for any cleanup."
     }
   ]
 }

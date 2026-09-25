@@ -67,6 +67,27 @@
     "excludedBranches": [],
     "scope": "Reachable commit count covers the fully fetched project refs at the qualified product baseline. Report-only commits created after tagging are administrative and are excluded from research-contribution counts; merge commits and patch-equivalent changes are not separate contributions."
   },
+  "rc2FinalizationSnapshot": {
+    "snapshotDate": "2026-09-25",
+    "candidateBranch": "dev/hns-final-qualification-rc2",
+    "candidateSha": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+    "candidateTree": "816f513c98e40831f0e81f8567e72e6fd01adcd4",
+    "qualificationRunId": "2026-09-25T04-37-57-947Z-f4caf3b3",
+    "mandatoryGates": 17,
+    "mandatoryFailures": 0,
+    "terminalStatus": "HNS_FINALIZATION_BLOCKED",
+    "branchHeads": [
+      {"name":"better-install","sha":"a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6","status":"ALREADY_INCLUDED","basis":"reviewed head is already in the historical released ancestry"},
+      {"name":"target-standby","sha":"5efa302acd381d57d44bc87bbdc36f80a21dda9a","status":"ALREADY_INCLUDED","basis":"reviewed head is already in the historical released ancestry"},
+      {"name":"try-auto","sha":"432cf431f2b40843ab3ec5287ffd7e5296cb6626","status":"INCLUDE","basis":"reviewed contribution remains in the qualified history"},
+      {"name":"dev/runtime-ui-separation-v1","sha":"923f5293a2ada553cb7f91a4bc1b54e750dfe7c3","status":"INCLUDE","basis":"reviewed contribution remains in the qualified history"},
+      {"name":"dev/hns-integration-visual-rc1","sha":"2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d","status":"ALREADY_INCLUDED","basis":"reviewed head is included in current candidate ancestry"},
+      {"name":"dev/hns-final-qualification-rc2","sha":"4ef9c0df149a6cecf1eaa17e50cee4b22271b810","status":"INCLUDE","basis":"reviewed installer fail-closed source fix; exact candidate passed 17/17 machine gates; unmerged/untagged"}
+    ],
+    "supersededBranches": [],
+    "excludedBranches": [],
+    "scope": "Branch choices reflect reviewed commit/diff and ancestry evidence, not branch existence. The snapshot does not assert a new research contribution count or production release. The prior productionBaselineSnapshot remains unchanged."
+  },
   "notes": [
     "Patch-equivalent commits count once as a logical change.",
     "Merge commits and preserved history are not additional research contributions."

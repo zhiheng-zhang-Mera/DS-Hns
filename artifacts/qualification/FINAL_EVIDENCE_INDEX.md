@@ -1,5 +1,26 @@
 # Final evidence index
 
+## Current target-mode RC2 snapshot — 2026-09-25
+
+Current terminal status: `HNS_FINALIZATION_BLOCKED`. Exact source candidate `4ef9c0df149a6cecf1eaa17e50cee4b22271b810` / tree `816f513c98e40831f0e81f8567e72e6fd01adcd4`, branch `dev/hns-final-qualification-rc2`. It is not merged or tagged. PR #5 remains open to `main`; source-code CI run `36089577284` succeeded at this candidate. `main` remained `8b91228628e9168cabd545f26f1320ba141561e0`; the existing `hns-production-v1` tag object/target remained `2d4aeeda945b410d3e35ad82b456f7b74de922fc` / `5dcde767020161f6f6c7a5fc3330bccaca1d14a3`.
+
+| Evidence | Path | SHA-256 / result |
+|---|---|---|
+| Immutable qualification summary | `D:\qf\qualification-4ef9c0d-r4\qualification\qualification-runs\2026-09-25T04-37-57-947Z-f4caf3b3\qualification-summary.json` | `fefb637055430b9446a0b5cecd87f6aec07b3cd4161f8fe5049460513fbbf557`; 17/17 mandatory gates, 0 failures |
+| Run artifact index | `D:\qf\qualification-4ef9c0d-r4\qualification\qualification-runs\2026-09-25T04-37-57-947Z-f4caf3b3\artifact-index.json` | `76efc1454e514cca2fb4d6d8181017240b047800ee1bfec82be01affc514aa47` |
+| Fresh Standard install | `D:\qf\cleanroom-4ef9c0d-r2\standard-cold-install.transcript.txt` | `cb880d86c3be993497b65ff57eea84775d66582f4f0f717842b2bd9fdc9d1a0e`; 532 packages; Standard install PASS, `-NoLaunch` |
+| Electron UI child | `D:\qf\qualification-4ef9c0d-r4\qualification\qualification-runs\2026-09-25T04-37-57-947Z-f4caf3b3\reports\electron-ui-acceptance.json` | `b28dad51ca15f1f66390ee0e562278d7435075fba799618cc04ff30e6f58cf4d`; 134/134 |
+| Current-run post-test audit | `D:\qf\qualification-4ef9c0d-r4\qualification\qualification-runs\2026-09-25T04-37-57-947Z-f4caf3b3\reports\post-test-audit.json` | `dcd74c129902de8537801bae9bf06f9d5dd21d5ff5229f27ef4099e6daf19a648`; 0 candidate leaks, 0 C project writes in that run |
+| Direct visible journey | `artifacts/qualification/RC2_VISIBLE_JOURNEY.md` | `PARTIAL_NOT_FULL_ACCEPTANCE`; no provider request, no fresh-profile disclosure replay |
+| Workbench screenshot | `D:\qf\manual-journey-4ef9c0d\08-workbench-after-plugin-search.jpg` | `c1480437dc38c048e50b583f33cf2fec93846338cdeed26c110f287a6d25c82d` |
+| Integrated Mega screenshot | `D:\qf\manual-journey-4ef9c0d\09-mega-dock-open-after-shortcut.jpg` | `ffad38ca77717cb268781caac201c5429e2028a9adfee51418f38038df8f6a1f` |
+
+The current-run post-test audit is scoped to the r4 run and does not erase `STORAGE-C-PROFILE-001`: earlier in this task, the controlled profile path `C:\Users\15601\profiles\web` was created due PowerShell's case-insensitive `$HOME` name collision. It was audited as newly created task data and was not cleaned up after the prior cleanup denial. Overall D-only storage compliance is therefore `false`, despite all current RC roots/artifacts being under D:.
+
+Additional blockers and unrun limits: open P2 `FQ-UI-DOCK-OVERLAP-001`; no real provider prompt; fresh-profile integrated-dock first-run disclosure retest `NOT_RUN`; real reboot and exact-candidate 24-hour wall-clock run `NOT_RUN`; no independent reviewer; no merge or production-tag mutation. See `FINAL_HNS_QUALIFICATION_REPORT.md` and the current machine-readable report for exact boundaries. The paper catalog contains 19 experiment/acceptance rows and 45 negative results, including r3 picker timeout and the C-path incident.
+
+The remainder of this file retains the previous `63eabc9` release evidence as a historical snapshot. It is not current RC2 evidence.
+
 The machine-readable evidence map is [`FINAL_EVIDENCE_INDEX.json`](FINAL_EVIDENCE_INDEX.json). Candidate identity is `63eabc9a9341abd2e612bf603e3ce340eaa2cc57` / tree `8e6884e6b25bb3989509bd9d623dca4c0abb2bf1`. PR #2 merged it as `5dcde767020161f6f6c7a5fc3330bccaca1d14a3`, preserving exactly the qualified tree; `hns-production-v1` points to that merge commit. The report/paper follow-up is documentation-only and does not move the production tag.
 
 ## Candidate run artifacts
@@ -54,4 +75,4 @@ Codex Computer Use used the real visible Electron window and native Windows pick
 
 Candidate checkout, run artifacts, npm cache, TEMP, runtimeData, userData, and test roots were placed on D:. Post-merge clone/install/cache/temp/runtime/userData/test outputs were also under `D:\HQR\post-merge-5dcde76`. The named-project C-write gate passed with zero detected writes; `C:\Users\15601\.npmrc` was read-only configuration input. This audit is scoped to project-shaped writes and does not claim zero ordinary OS writes. The active observer PID 13896 is a separate prior-SHA process with a mismatched declared root; it is not candidate acceptance evidence and was not stopped.
 
-The [paper-material index](../../docs/paper-material/PAPER_MATERIAL_INDEX.md) links the 366-commit release snapshot, branch disposition, bounded claims, 17 experiments, 11 metrics, and 43 negative results. Historical failures and unsupported comparator claims remain visible.
+The [paper-material index](../../docs/paper-material/PAPER_MATERIAL_INDEX.md) links the historical 366-commit release snapshot, separate current RC2 branch/run disposition, bounded claims, 19 experiments/acceptance rows, 11 metrics, and 45 negative results. Historical failures and unsupported comparator claims remain visible.

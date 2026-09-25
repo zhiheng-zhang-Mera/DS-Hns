@@ -1,8 +1,38 @@
 # DS-Hns final qualification report
 
-**Final status: `HNS_PRODUCTION_BASELINE_ESTABLISHED`**
+**Current target-mode status: `HNS_FINALIZATION_BLOCKED`**
 
-This status means the mandatory engineering release gates below passed and the qualified product tree was merged and tagged. It does not mean that the open optional-dock P2 is fixed, that reboot/24-hour enhanced qualification ran, or that the project has comparative, novelty, accessibility, cross-platform, or universal-production evidence.
+The current RC candidate's 17 mandatory machine gates passed, but finalization is blocked by an earlier task-controlled profile write under `C:\Users\15601\profiles\web`, the still-open first-run integrated-dock P2, and incomplete full provider-Journey acceptance. The RC candidate was not merged or tagged. The previously published `hns-production-v1` snapshot remains a separate historical record and is unchanged.
+
+## Current RC2 finalization (2026-09-25)
+
+- Branch: `dev/hns-final-qualification-rc2`; exact source candidate `4ef9c0df149a6cecf1eaa17e50cee4b22271b810`; tree `816f513c98e40831f0e81f8567e72e6fd01adcd4`.
+- Source delta: `4ef9c0d fix installer failure on missing required plugins`, limited to `scripts/install.ps1` and `tests/unit/installer-optional-plugins.test.js`. It fixes required-plugin installer fail-open behavior; no UI rewrite was made.
+- Branch choices were based on commit/diff/ancestry review, not branch existence: `better-install` and `target-standby` = `ALREADY_INCLUDED`; `try-auto`, `dev/runtime-ui-separation-v1`, and current reviewed RC2 source = `INCLUDE`; `dev/hns-integration-visual-rc1` = `ALREADY_INCLUDED`; `SUPERSEDED` = none; `EXCLUDE` = none among reviewed heads. Exact SHAs/bases are in the machine-readable report.
+- Run `2026-09-25T04-37-57-947Z-f4caf3b3` was from fresh clone `D:\Hns-Cleanroom-Qualification-20260925-4ef9c0d-r2\repo`, SHA/tree exact, 17/17 mandatory gates, 0 mandatory failures. Unit tests: 2,029 total; 2,027 pass, 0 fail, 2 defined optional sample skips. UI harness: 134/134. Synthetic soak: 120/120; real reboot and real 24-hour soak remain `NOT_RUN`.
+- Production-like package: fresh Standard install from repository-declared Node `v24.14.1` / npm `11.11.0`, 532 packages, installer `-NoLaunch`; official Electron runtime then launched separately. This is not a signed MSI claim.
+- Combined acceptance: 52/52; primary Phase C was 17,565 ms baseline / 9,378 ms optimized (1.873x), same-host engineering measurement, not provider latency or comparative research evidence.
+- Current remote PR #5 targets `main` and remains open. CI run `36089577284` passed at exact source SHA `4ef9c0d`. Current `main` SHA `8b91228628e9168cabd545f26f1320ba141561e0` and `hns-production-v1` tag object/peeled target (`2d4aeeda…` / `5dcde767…`) were not changed by this work.
+
+## Current visual/UI audit and journey
+
+Codex Computer Use directly launched and visually inspected the exact candidate Electron app, read visible screens, clicked through the native D-drive folder picker, inspected Settings without changing values, and restarted the same isolated `DSH_USER_DATA_DIR`. The `workspace` selection reappeared after restart. With `DSH_MEGA_INTEGRATED_DOCK=1`, the integrated Mega dock appeared beside the still-visible official composer; its collapse control hid it, and `Ctrl+Shift+M` visibly reopened it. Screenshots are retained on D: with SHA-256 in [`RC2_VISIBLE_JOURNEY.md`](RC2_VISIBLE_JOURNEY.md).
+
+This direct journey is `PARTIAL_NOT_FULL_ACCEPTANCE`: Settings search showed no `Health Scheduler` or `Plugin Market` matching rows (not evidence those runtime components are absent), and the visible dock aggregate showed 27 loaded, 1 unhealthy, 1 off without identifying the unhealthy plugin. No provider request was sent; the environment held only a placeholder key. A real-provider response/persistence journey and a fresh-profile first-run dock disclosure replay are `NOT_RUN`. No independent QA or other agent was used, as instructed.
+
+## Current blockers and storage
+
+- `STORAGE-C-PROFILE-001` (open blocker): task-controlled profile data was created under `C:\Users\15601\profiles\web` after PowerShell's case-insensitive automatic `$HOME` variable shadowed a lowercase `$home`. The newly created path was audited; cleanup was not performed because the earlier cleanup denial was honored. All current RC checkout, npm/cache, TEMP, userData, runtimeData, workspace, build/install, screenshot, and test evidence roots were on D:, but the overall D-only requirement is not compliant until the C incident is explicitly resolved.
+- `FQ-UI-DOCK-OVERLAP-001` remains an open P2. It concerns the opt-in expanded dock on a fresh profile and the first-run Continue control. This manual reused-profile session does not supersede the prior reproduction; no speculative offset/CSS patch was made. The inventory still has 0 open P1, 1 open P2, and 2 unconfirmed observations (`FQ-UI-SCHEDULER-COPY-001`, `FQ-PLUGIN-AGGREGATE-001`).
+- No real provider call, fresh-profile first-run dock retest, real Windows reboot, real 24-hour wall-clock soak, independent review, merge, or production-tag mutation was performed.
+- Full run summary SHA-256: `fefb637055430b9446a0b5cecd87f6aec07b3cd4161f8fe5049460513fbbf557`; run artifact-index SHA-256: `76efc1454e514cca2fb4d6d8181017240b047800ee1bfec82be01affc514aa47`. The current run's scoped post-test audit found 0 process leaks and 0 C project writes; this does not erase the separately recorded earlier C profile incident.
+- Paper corpus now has 7 claim rows (6 bounded supported engineering claims, 1 explicitly unsupported comparator), 19 experiment/acceptance rows, 11 metrics, and 45 negative results. These are catalog counts, not independent samples or research contributions; novelty remains unsupported.
+
+---
+
+The following retained release sections describe the prior `63eabc9` candidate and tag snapshot only; they are not qualification evidence for current RC candidate `4ef9c0d`.
+
+### Qualified and released identity (historical snapshot)
 
 ## Qualified and released identity
 
