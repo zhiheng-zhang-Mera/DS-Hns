@@ -495,6 +495,7 @@ $script:BuiltInPluginStates = [ordered]@{
   'dshns.health-scheduler' = 'NOT INSTALLED'
   'dshns.restart-supervisor' = 'NOT INSTALLED'
 }
+$script:RequiredBuiltInPluginFailure = $false
 # What the *runtime* says about them, which is a different question from what the profile holds: the
 # registration check fills this in (registered, mounted, or listed in the official UI), and the
 # completion summary reports it rather than only the file-level state.
@@ -539,21 +540,39 @@ try {
   $bundledExit = $LASTEXITCODE
   foreach ($line in $bundledLines) { if ($line.Trim() -and -not $line.Trim().StartsWith('{')) { Write-Host "  $($line.Trim())" } }
   $bundledJson = ($bundledLines | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+  $bundledReportValid = $false
   if ($bundledJson) {
     try {
       $bundledReport = $bundledJson | ConvertFrom-Json
+      $bundledReportValid = $null -ne $bundledReport.results
       foreach ($result in @($bundledReport.results)) {
         $id = [string]$result.id
-        if (-not $id) { continue }
+        if (-not $id -or -not $script:BuiltInPluginStates.Contains($id)) { continue }
         $script:BuiltInPluginStates[$id] = if ($result.state -eq 'installed') { 'INSTALLED' } elseif ($result.state -eq 'already-installed') { 'ALREADY INSTALLED' } else { 'FAILED' }
+        if ($script:BuiltInPluginStates[$id] -eq 'FAILED') {
+          $script:RequiredBuiltInPluginFailure = $true
+        }
         if ($result.state -eq 'failed' -or $result.state -eq 'missing') { Write-Warning "$id is not in the Harness profile: $($result.reason)" }
       }
     } catch {
+      $script:RequiredBuiltInPluginFailure = $true
       Write-Warning "The built-in plugin report could not be read: $($_.Exception.Message)"
     }
-  } elseif ($bundledExit -ne 0) {
-    Write-Warning 'The built-in plugin installer produced no report; the plugins may not be in the profile.'
+  }
+  if (-not $bundledReportValid) {
+    $script:RequiredBuiltInPluginFailure = $true
+    Write-Warning 'The built-in plugin installer produced no valid report; the required plugins are not verified.'
     foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  }
+  if ($bundledExit -ne 0) {
+    $script:RequiredBuiltInPluginFailure = $true
+    if ($bundledReportValid) { Write-Warning "The built-in plugin installer exited $bundledExit; required plugin installation failed." }
+  }
+  foreach ($id in @($script:BuiltInPluginStates.Keys)) {
+    if ($script:BuiltInPluginStates[$id] -notin @('INSTALLED', 'ALREADY INSTALLED')) {
+      $script:RequiredBuiltInPluginFailure = $true
+      $script:BuiltInPluginStates[$id] = 'FAILED'
+    }
   }
 
   # The proof that matters: the runtime registers what the profile now carries.
@@ -626,6 +645,7 @@ try {
   }
 } catch {
   $script:MegaCoreState = 'FAILED'
+  $script:RequiredBuiltInPluginFailure = $true
   foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
   Write-Warning "Signing the shipped plugins into the profile failed, installation continues: $($_.Exception.Message)"
 }
@@ -929,8 +949,13 @@ if ($NoShortcuts) {
   }
 }
 
-Write-Step '9/9 Complete'
-Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Step '9/9 Incomplete'
+  Write-Host 'DS-Harness installation is incomplete: a required built-in plugin failed or could not be verified.' -ForegroundColor Red
+} else {
+  Write-Step '9/9 Complete'
+  Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+}
 if ($systemKey) {
   Write-Host "API: system environment ($($systemKey.Name), $($systemKey.Scope))"
 } elseif ($env:DEEPSEEK_API_KEY) {
@@ -1042,7 +1067,9 @@ Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
 # Written last, and only when every step above succeeded: a state file written after a partial install
 # would claim work that did not happen. The next run reads it and skips what has not changed, which is
 # what makes a warm reinstall cheap instead of a repeat of the first one.
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Host 'Install state not recorded: required built-in plugins did not pass installation verification.' -ForegroundColor Yellow
+} elseif (Test-Path -LiteralPath $fingerprintScript) {
   try {
     $writeResult = & $node @($fingerprintScript, 'write', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
     $written = ($writeResult | Select-Object -Last 1) | ConvertFrom-Json
@@ -1064,9 +1091,13 @@ if (Test-Path -LiteralPath $fingerprintScript) {
   }
 }
 
-if (-not $NoLaunch) {
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Host 'Launch skipped because required built-in plugins did not pass installation verification.' -ForegroundColor Yellow
+} elseif (-not $NoLaunch) {
   Write-Host 'Launching DS-Harness...'
   Start-Process -FilePath (Join-Path $ROOT 'Start-DeepSeek-Harness.cmd') -WorkingDirectory $ROOT
 } else {
   Write-Host 'Launch skipped by -NoLaunch.'
 }
+
+if ($script:RequiredBuiltInPluginFailure) { exit 1 }

@@ -557,7 +557,7 @@ test('the prompt text is bilingual and the installer PowerShell that calls it st
  * `DEEPSEEK_API_KEY` in the *unused* environment slot is what keeps the API-key step from asking:
  * an installer test that stops on a prompt is not a test.
  */
-function installerFixture(label, { bootstrapNode = false } = {}) {
+function installerFixture(label, { bootstrapNode = false, healthSchedulerInstallFails = false } = {}) {
   const root = scratchDir(`installer-${label}`)
   const scripts = path.join(root, 'scripts')
   fs.mkdirSync(scripts, { recursive: true })
@@ -598,12 +598,19 @@ function installerFixture(label, { bootstrapNode = false } = {}) {
   // The built-in plugins have their own installer, and the real one would sign two plugins into a
   // profile this fixture does not have. It is recorded here, and it answers with the report the real
   // one answers with, because the installer's own behaviour around that report is what is asserted.
+  const bundledReport = {
+    ok: !healthSchedulerInstallFails,
+    results: [
+      { id: 'dshns.health-scheduler', state: healthSchedulerInstallFails ? 'failed' : 'already-installed', reason: healthSchedulerInstallFails ? 'test permission denied' : null },
+      { id: 'dshns.restart-supervisor', state: 'already-installed', reason: null }
+    ]
+  }
   fs.writeFileSync(
     path.join(scripts, 'install-bundled-plugins.ps1'),
-    "param([switch]$Repair, [switch]$Uninstall, [switch]$List, [switch]$Json)\n" +
-      "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'bundled'\n" +
-      "if ($Json) { Write-Output '{\"ok\":true,\"results\":[{\"id\":\"dshns.health-scheduler\",\"state\":\"already-installed\"},{\"id\":\"dshns.restart-supervisor\",\"state\":\"already-installed\"}]}' }\n" +
-      "exit 0\n",
+    `param([switch]$Repair, [switch]$Uninstall, [switch]$List, [switch]$Json)\n` +
+      `Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'bundled'\n` +
+      `if ($Json) { Write-Output '${JSON.stringify(bundledReport)}' }\n` +
+      `exit ${healthSchedulerInstallFails ? 1 : 0}\n`,
     'utf8'
   )
 
@@ -723,6 +730,17 @@ test('a cold install records measured host capability and install state after bo
   assert.doesNotMatch(output, /Install state could not be computed|Install state could not be recorded/)
   assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'host-profile.json')), true)
   assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'install-state.json')), true)
+})
+
+test('a missing required built-in plugin makes the installer fail without recording a complete state', () => {
+  const root = installerFixture('required-builtin-failure', { bootstrapNode: true, healthSchedulerInstallFails: true })
+  const { status, output } = runInstaller(root, [], { noSystemNode: true })
+
+  assert.equal(status, 1, `a required built-in plugin failure was reported as a successful install: ${output.slice(-4000)}`)
+  assert.match(output, /Health Scheduler\s+\.+\s+FAILED/)
+  assert.match(output, /installation is incomplete.*required built-in plugin/i)
+  assert.doesNotMatch(output, /DS-Harness installation is complete|Install state recorded:/)
+  assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'install-state.json')), false)
 })
 
 test('the real installer installs the market with -InstallMarket and leaves the wallpaper alone', () => {
