@@ -9,8 +9,8 @@
     {"id":"process_leaks","definition":"live Node or Electron commands naming the checkout after gates","unit":"count","source":"post-test audit","boundary":"unrelated processes excluded"},
     {"id":"c_drive_writes","definition":"project-shaped LocalAppData entries modified after run start","unit":"count","source":"post-test audit","boundary":"named project entries only"},
     {"id":"evidence_consistency_errors","definition":"identity, time, verdict, total or path contradictions","unit":"count","source":"E-QUAL","boundary":"structural consistency only"},
-    {"id":"ui_journey_checks","definition":"renderer and interaction assertions","unit":"count","source":"E-UI","boundary":"not a usability or accessibility score"},
-    {"id":"phase_c_rc2_improvement","definition":"baseline elapsed divided by optimized elapsed across three sequential final-candidate repeats of the unchanged Phase C workload","unit":"ratio","source":"E-PHASE-C-RC2","boundary":"single Windows host; declared model-latency constant, not a provider call"},
-    {"id":"mandatory_qualification_failures","definition":"number of failed mandatory gates in one immutable final qualification run","unit":"count","source":"E-FINAL-QUALIFICATION","boundary":"engineering release gate, not research validity"}
+    {"id":"ui_journey_checks","definition":"renderer and interaction assertions; exact current RC2 acceptance recorded 134/134","unit":"count","source":"E-RC2-QUALIFICATION","boundary":"not a usability or accessibility score"},
+    {"id":"phase_c_rc2_improvement","definition":"baseline elapsed divided by optimized elapsed across three sequential repeats of the unchanged Phase C workload on exact candidate 4ef9c0d","unit":"ratio","source":"E-PHASE-C-RC2-CURRENT","boundary":"single Windows host; declared model-latency constant, not a provider call"},
+    {"id":"mandatory_qualification_failures","definition":"number of failed mandatory gates in one immutable exact-RC2 qualification run","unit":"count","source":"E-RC2-QUALIFICATION","boundary":"engineering release gate, not research validity"}
   ]
 }

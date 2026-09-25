@@ -337,6 +337,12 @@
       "failure": "The exact cleanup command for the task-created C:\\Users\\15601\\profiles\\web directory was rejected by execution policy even after the user explicitly approved that exact cleanup.",
       "lineage": ["C:\\Users\\15601\\profiles\\web", "STORAGE-C-PROFILE-001", "2026-09-25 explicit cleanup approval"],
       "consequence": "Keep overall D-only compliance false and report the exact directory as still present. Do not retry through another shell, UI or movement route to bypass the rejection; the next action requires an execution-policy change or another authorized removal mechanism."
+    },
+    {
+      "id": "N47",
+      "failure": "An unsupported --help argument executed the combined-acceptance script's default A-E workflow while inherited TEMP/TMP still pointed at C:\\Users\\15601\\AppData\\Local\\Temp; createFixture() used os.tmpdir() and created scratch there.",
+      "lineage": ["current target-mode run 2026-09-25", "STORAGE-C-COMBINED-ACCEPTANCE-TEMP-001", "D:\\Hns-Cleanroom-Qualification-20260925-4ef9c0d-r2\\repo\\runtime\\acceptance\\combined-acceptance.json", "ce9856b380eec58846295b31fb31ab6d70dc19072bea7416ad010c66e802eba5"],
+      "consequence": "Keep overall D-only compliance false even though normal fixture teardown removed the scratch and a read-only follow-up found no matching directories. Exclude this 52/52 run from D-only qualification; avoid unsupported runner flags and set/assert D-rooted TEMP/TMP before invoking acceptance."
     }
   ]
 }
