@@ -394,8 +394,9 @@ if (-not $hostProfile -and $node) {
   $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
   if (Test-Path -LiteralPath $capabilityScript) {
     try {
-      $hostProfile = (& $node @($capabilityScript, 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+      $hostProfile = (& $node @($capabilityScript, '--json', 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
     } catch {
+      Write-Warning "The host capability profile could not be measured; installation will continue without its cached measurements: $($_.Exception.Message)"
       $hostProfile = $null
     }
   }

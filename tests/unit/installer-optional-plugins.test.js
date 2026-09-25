@@ -566,9 +566,8 @@ function installerFixture(label, { bootstrapNode = false } = {}) {
   }
   if (bootstrapNode) {
     fs.copyFileSync(path.join(ROOT, 'scripts', 'install-fingerprint.cjs'), path.join(scripts, 'install-fingerprint.cjs'))
-    fs.copyFileSync(path.join(ROOT, 'tests', 'fixtures', 'host', 'low-capacity.json'), path.join(root, 'host-profile.json'))
-    fs.mkdirSync(path.join(root, 'app', 'runtime'), { recursive: true })
-    fs.copyFileSync(path.join(ROOT, 'app', 'runtime', 'host-capability.cjs'), path.join(root, 'app', 'runtime', 'host-capability.cjs'))
+    fs.cpSync(path.join(ROOT, 'app', 'runtime'), path.join(root, 'app', 'runtime'), { recursive: true })
+    fs.copyFileSync(path.join(ROOT, 'app', 'runtime-process.cjs'), path.join(root, 'app', 'runtime-process.cjs'))
   }
   // Recorded stand-ins for the two steps that touch the machine: what they were asked to do is what
   // the test asserts about, and nothing is installed.
@@ -713,16 +712,13 @@ test('the real installer asks nothing with -NonInteractive and installs no optio
   assert.equal(summary['Official Harness UI'], 'OK')
 })
 
-test('a cold install bootstraps Node before recording host capability and install state', () => {
+test('a cold install records measured host capability and install state after bootstrapping Node', () => {
   const root = installerFixture('cold-node-bootstrap', { bootstrapNode: true })
-  const { status, output } = runInstaller(
-    root,
-    ['-HostProfileFixture', path.join(root, 'host-profile.json')],
-    { noSystemNode: true }
-  )
+  const { status, output } = runInstaller(root, [], { noSystemNode: true })
 
   assert.equal(status, 0, `the installer failed: ${output.slice(-4000)}`)
-  assert.match(output, /Host capability: SIMULATED from/)
+  assert.match(output, /Host capability: (?:LOW_CAPACITY|CONSERVATIVE|BALANCED|CAPABLE|HIGH_CAPACITY) /)
+  assert.doesNotMatch(output, /host capability profile could not be measured/i)
   assert.match(output, /Install state recorded:/)
   assert.doesNotMatch(output, /Install state could not be computed|Install state could not be recorded/)
   assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'host-profile.json')), true)
