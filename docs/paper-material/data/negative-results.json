@@ -349,6 +349,12 @@
       "failure": "The in-progress real wall-clock observer used Stopwatch.GetElapsedTime, which is unavailable in Windows PowerShell 5.1. Its elapsedSeconds sample field consequently serialized as 0 instead of elapsed time.",
       "lineage": ["D:\\qf\\realwallclock-4ef9c0d-20260925\\real-wallclock-samples.jsonl", "Windows PowerShell 5.1.26100.9444 method availability check", "2026-09-25 continuation audit"],
       "consequence": "Do not use the elapsedSeconds field or its derived distinct/min/max values. Compute observed duration from the preserved ISO-8601 atUtc timestamps; the observer termination condition and final observedWallClockHours use DateTimeOffset arithmetic. Keep the run partial until the 24-hour interval and terminal audit finish."
+    },
+    {
+      "id": "N49",
+      "failure": "Computer Use recovery launched the clean-room electron.exe without its application-directory argument. Electron opened the bundled default_app.asar shell and updated the pre-existing shared C:\\Users\\15601\\AppData\\Roaming\\Electron profile.",
+      "lineage": ["current target-mode run 2026-09-25", "STORAGE-C-ELECTRON-DEFAULT-001", "C:\\Users\\15601\\AppData\\Roaming\\Electron", "artifacts/qualification/FINAL_HNS_QUALIFICATION_REPORT.json#storageCompliance.cDriveAdditionalWriteIncident"],
+      "consequence": "Keep global D-only storage compliance false. The visible default-app shell was closed, but shared pre-existing profile data was preserved and not cleaned up. Do not launch bare electron.exe again; future Computer Use recovery must target the exact returned candidate application/window and its configured D-rooted app directories."
     }
   ]
 }

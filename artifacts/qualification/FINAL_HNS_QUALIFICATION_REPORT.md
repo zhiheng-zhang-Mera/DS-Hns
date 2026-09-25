@@ -31,7 +31,11 @@ Codex Computer Use directly launched and visually inspected the exact candidate 
 
 The direct journey remains `PARTIAL_NOT_FULL_ACCEPTANCE`: Settings search showed no `Health Scheduler` or `Plugin Market` matching rows (not evidence those runtime components are absent), and the reused-profile dock aggregate showed 27 loaded, 1 unhealthy, 1 off without identifying the unhealthy plugin. The fresh-profile disclosure replay passes for the exact candidate. Two visible live requests and same-process conversation navigation restoration passed. A third bounded task/checkpoint UI flow visibly persisted and read back one small result/checkpoint pair; session navigation restored its cards. Long-task continuity, post-prompt process restart, provider failure/retry, plugin workflows, and full journey remain `NOT_RUN`. No independent QA or other agent was used, as instructed.
 
-The exact-candidate wall-clock observer began at `2026-09-25T06:59:04.9297139Z` under `D:\qf\realwallclock-4ef9c0d-20260925`, with a one-minute cadence. At the latest continuation audit (`2026-09-25T11:34:04.8947518Z`) it had 276 samples over 4:34:59.965 by timestamp subtraction; maximum sample gap was 60.024 seconds, and no runtime-down, Electron-detached, Harness-not-ready, or status-error samples were observed. The latest process count was 8 and the observed count peak was 14; working set ranged from 733,114,368 to 1,392,148,480 bytes, private bytes from 665,014,272 to 1,077,383,168 bytes, and handles from 3,413 to 5,671. Peaks include transient test/UI processes and are not attributable solely to DS-Hns. **Telemetry limitation:** every `elapsedSeconds` field is 0 because this Windows PowerShell 5.1 observer called unavailable `.NET Stopwatch.GetElapsedTime`; derive time only from ISO-8601 sample timestamps. The observer's actual stop condition uses `DateTimeOffset`. Two provider UI requests and one short task were not instrumented/correlated to samples. No long task, restart-persistence sweep, provider retry, plugin fault/recovery injection, reboot, or internal event-loop drift was measured. This remains partial, not 24-hour or full-soak acceptance.
+A fourth bounded task phase was resumed in a **new conversation** in the same live candidate process. Codex Computer Use visibly read the second conversation's result, opened the session-2 Markdown in the app's side preview, and observed the checkpoint/report checks and narrow scope statement. Independent read-only disk verification found checkpoint `COMPLETE` with `next_step: null`, the prior report still has exactly four named phase rows, and the new session-2 note contains the observed pre-resume `PAUSED_FOR_RESUME` values. Hashes and exact limits are in [`RC2_TASK_CHECKPOINT_JOURNEY_FOLLOWUP.md`](RC2_TASK_CHECKPOINT_JOURNEY_FOLLOWUP.md). This raises only file-based cross-conversation continuity to a bounded pass; the candidate process was not restarted and provider identity remains unverified.
+
+The exact-candidate wall-clock observer began at `2026-09-25T06:59:04.9297139Z` under `D:\qf\realwallclock-4ef9c0d-20260925`, with a one-minute cadence. At the earlier continuation audit (`2026-09-25T11:34:04.8947518Z`) it had 276 samples over 4:34:59.965 by timestamp subtraction; this is a historical report snapshot. A later audit at `2026-09-25T12:32:04.8994615Z` found 334 samples over 19,979.969748 seconds (5.55 hours), maximum sample gap 60.024453 seconds, and no runtime-down, Electron-detached, Harness-not-ready, or status-error samples. The latest process count was 8 and the observed count peak was 14; working set ranged from 733,114,368 to 1,392,148,480 bytes, private bytes from 665,014,272 to 1,077,383,168 bytes, and handles from 3,413 to 5,671. Peaks include transient test/UI processes and are not attributable solely to DS-Hns. **Telemetry limitation:** every `elapsedSeconds` field is 0 because this Windows PowerShell 5.1 observer called unavailable `.NET Stopwatch.GetElapsedTime`; derive time only from ISO-8601 sample timestamps. The observer's actual stop condition uses `DateTimeOffset`. Two provider UI requests and two short task/checkpoint journeys were not instrumented/correlated to samples. No long task, restart-persistence sweep, provider retry, plugin fault/recovery injection, reboot, or internal event-loop drift was measured. This remains partial, not 24-hour or full-soak acceptance.
+
+Continuation audit at `2026-09-25T12:32:04.8994615Z` found observer PID 45664 still running. The cross-conversation checkpoint journey completed while the same candidate process remained live; it does not substitute for task persistence across process restart.
 
 ## Current blockers and storage
 
@@ -42,8 +46,66 @@ The exact-candidate wall-clock observer began at `2026-09-25T06:59:04.9297139Z` 
 - `FQ-UI-DOCK-OVERLAP-001` is closed for the current candidate as `VERIFIED_CURRENT_CANDIDATE_NO_REPRODUCTION`: its older reproduction is retained in N43, while exact-candidate source/tests and the fresh r4 visible replay show a bounded official surface and unobscured Continue control. No code change or broad UI rewrite was needed. The inventory has 0 open P1/P2/P3 and 2 unconfirmed observations (`FQ-UI-SCHEDULER-COPY-001`, `FQ-PLUGIN-AGGREGATE-001`).
 - Two bounded provider requests and one bounded task/checkpoint UI flow passed with same-process navigation restore. Full provider/task/recovery acceptance, long-task continuity, provider failure/retry, plugin workflow, and post-prompt process-restart persistence remain incomplete/`NOT_RUN`. Real Windows reboot remains `NOT_RUN` because the shipped resume bootstrap requires a C-profile autostart write outside the established D-only boundary; this is a D-only prerequisite limitation, not a global host-policy claim. The exact-candidate real wall-clock observation is `IN_PROGRESS_PARTIAL`, not accepted as a full 24-hour/task soak yet. No independent review, merge, or production-tag mutation was performed.
 - Full run summary SHA-256: `fefb637055430b9446a0b5cecd87f6aec07b3cd4161f8fe5049460513fbbf557`; run artifact-index SHA-256: `76efc1454e514cca2fb4d6d8181017240b047800ee1bfec82be01affc514aa47`. The immutable r4 run's scoped post-test audit found 0 process leaks and 0 C project writes; three separately observed task-controlled C incidents remain open and are not erased by that narrower audit.
-- Paper corpus now has 7 claim rows (6 bounded supported engineering claims, 1 explicitly unsupported comparator), 23 experiment/acceptance rows, 11 metrics, and 48 negative results. The preserved fixed history cutoff is 379 reachable commits at `d4d2e87`; the reviewed report-history extension at `e30d196` contains 381 reachable commits, 15 beyond the unchanged 366-commit production baseline (2 merges and 13 patch-distinct non-merges, including two documentation-only refreshes). These are catalog/history counts, not independent samples or research contributions; novelty remains unsupported.
+- Paper corpus now has 7 claim rows (6 bounded supported engineering claims, 1 explicitly unsupported comparator), 23 experiment/acceptance rows, 11 metrics, and 49 negative results. N49 records the shared Electron default-profile write that was already listed in this report but previously missing from the negative-result catalog. The preserved fixed history cutoff is 379 reachable commits at `d4d2e87`; the reviewed report-history extension at `e30d196` contains 381 reachable commits, 15 beyond the unchanged 366-commit production baseline (2 merges and 13 patch-distinct non-merges, including two documentation-only refreshes). These are catalog/history counts, not independent samples or research contributions; novelty remains unsupported.
 - Qualification/run artifacts are SHA-256 hash-indexed; no digital signature is claimed. The owner specification requires consistent provenance and hashes, not a cryptographic signature.
+
+## Structured blocker register
+
+Each open blocker below records the observed fact, cause, code-fixability, why it remains open, exact evidence, and next executable action. A code fix that prevents recurrence does not erase a historical storage event.
+
+### `STORAGE-C-PROFILE-001`
+
+- **Observed fact:** `C:\Users\15601\profiles\web` remains with 11 files, 6 directories, and 3 junctions into another D-drive workspace. One exact-path cleanup attempt after explicit approval was rejected by execution policy.
+- **Root cause:** PowerShell's case-insensitive automatic `$HOME` shadowed a lowercase task-scoped `$home`, so profile data landed on C:.
+- **Code-fixable:** No for the historical write or policy-rejected cleanup; the variable-collision cause is understood, but the incident cannot be cleared by a product-code change.
+- **Why it remains:** the OS rejected the one exact-path removal and the target contains junctions; no alternate shell/UI/move route was attempted. Overall D-only compliance is false.
+- **Exact evidence:** `storageCompliance.cDriveControlledWriteIncident` in this report; `docs/paper-material/data/negative-results.json` N45–N46; C path above.
+- **Next executable action:** the host execution-policy owner must provide an authorized removal mechanism or policy change. Then re-inventory that exact path and its junctions before any exact-target cleanup; do not route around the rejection.
+
+### `STORAGE-C-ELECTRON-DEFAULT-001`
+
+- **Observed fact:** raw candidate `electron.exe` opened `default_app.asar` as PID 52872 and updated the pre-existing shared `C:\Users\15601\AppData\Roaming\Electron` profile. The visible shell was closed; shared files were preserved.
+- **Root cause:** UI recovery launched the Electron binary without its app-directory argument, so Chromium selected its default C-profile userData.
+- **Code-fixable:** No for the historical writes or safe cleanup; this was a launch-procedure error, not a product-code change.
+- **Why it remains:** the directory predates this run and contains unrelated/shared data, so deleting or restoring it would be unsafe. Global D-only compliance remains false.
+- **Exact evidence:** `storageCompliance.cDriveAdditionalWriteIncident` in this report; `docs/paper-material/data/negative-results.json` N49; shared path above.
+- **Next executable action:** retain the shared data and do not launch bare Electron again. Any future recovery must select the exact app/window from the visible app list and use its configured D-rooted app directories.
+
+### `STORAGE-C-COMBINED-ACCEPTANCE-TEMP-001`
+
+- **Observed fact:** the unintended default combined run created fixture scratch under inherited `C:\Users\15601\AppData\Local\Temp`; normal teardown removed it, but the historical C write remains.
+- **Root cause:** an unsupported `--help` argument fell through to the A–E default and the process inherited C-rooted TEMP/TMP; the fixture uses `os.tmpdir()`.
+- **Code-fixable:** recurrence is fixed by commit `965ca61` (help returns before side effects; unknown flags fail fast). The historical incident is not code-remediable.
+- **Why it remains:** teardown/no-residue does not negate the recorded C write; that 52/52 run is excluded from D-only qualification.
+- **Exact evidence:** `storageCompliance.cDriveCombinedAcceptanceTempIncident`; `runtime/acceptance/combined-acceptance.json` SHA-256 `ce9856b380eec58846295b31fb31ab6d70dc19072bea7416ad010c66e802eba5`; `docs/paper-material/data/negative-results.json` N47.
+- **Next executable action:** only if rerunning full A–E, set and assert D-rooted `TEMP`/`TMP` before process launch; retain the old report as excluded historical evidence.
+
+### `REAL_PROVIDER_FULL_JOURNEY_INCOMPLETE`
+
+- **Observed fact:** two bounded visible provider requests, one same-process checkpoint task, and a separate-conversation file-checkpoint resume passed. Process-restart persistence, provider failure/retry, plugin workflow/fault recovery, and long-task continuity remain `NOT_RUN`.
+- **Root cause:** prior runs exercised successful short tasks and file state, not the missing failure/restart scenarios; the 24-hour observer does not attribute app tasks or provider calls.
+- **Code-fixable:** No source defect is currently identified; this is an acceptance-evidence gap.
+- **Why it remains:** the exact app process remains attached to the active observer; no restart or injected provider/plugin fault has been run.
+- **Exact evidence:** `RC2_TASK_CHECKPOINT_JOURNEY_FOLLOWUP.md`; D-drive files `rc2-task-resume.md`, `rc2-task-resume.checkpoint.json`, and `rc2-task-resume-session-2.md`; current Journey limitations in this report.
+- **Next executable action:** after the observer's terminal sample/audit, run separate exact-candidate UI cases for multi-step task persistence across app restart, controlled provider failure/retry, and plugin fault/recovery, using D-only state and visible evidence. Keep each case `NOT_RUN` until executed.
+
+### `REAL_REBOOT_NOT_RUN`
+
+- **Observed fact:** no Windows reboot was performed; `REAL_REBOOT_ACCEPTANCE.json` remains `NOT_RUN`.
+- **Root cause:** the shipped automatic-resume bootstrap writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; its Startup alternative is inside the C-drive user profile. Neither is an established D-only mechanism.
+- **Code-fixable:** No within the current D-only boundary; a compliant host-managed mechanism or an explicit exception for the named C-profile write is required.
+- **Why it remains:** no registry/Startup mutation or reboot was made, and no global host-policy prohibition is inferred.
+- **Exact evidence:** `artifacts/qualification/REAL_REBOOT_ACCEPTANCE.md` and `.json`; `enhancedQualification.realWindowsReboot` in this report.
+- **Next executable action:** establish a host-managed D-compliant startup/resumption mechanism, or obtain explicit authorization for the exact C-profile autostart write; then run the durable checkpoint/reboot/exactly-once ceremony.
+
+### `REALTIME_24H_SOAK_IN_PROGRESS_PARTIAL`
+
+- **Observed fact:** exact-candidate observer PID 45664 has 342 samples from `2026-09-25T06:59:04.9297139Z` through `2026-09-25T12:40:04.8911002Z` (20,459.961386 seconds / 5.6833 hours by timestamps); no runtime-down, Electron-detached, Harness-not-ready, or status-error samples were recorded. It has not reached 24 hours. `elapsedSeconds` fields are all zero.
+- **Root cause:** the observer's Windows PowerShell 5.1 runtime lacks `Stopwatch.GetElapsedTime`; its interval stop logic independently uses `DateTimeOffset`, and ISO timestamps remain usable.
+- **Code-fixable:** the telemetry formatter is fixable for a future run, but the current observer instance cannot be retrofitted; do not restart or replace it mid-window.
+- **Why it remains:** only 5.6833 hours are observed at this snapshot, and full task/provider/plugin soak, event-loop drift, and terminal audits are not covered by this liveness observer.
+- **Exact evidence:** `D:\qf\realwallclock-4ef9c0d-20260925\real-wall-clock-samples.jsonl`; current snapshot in `continuation.realWallClock` in the JSON report; N48 in `docs/paper-material/data/negative-results.json`.
+- **Next executable action:** leave PID 45664 untouched through its 24-hour stop boundary (`2026-09-26T06:59:04Z`), then independently verify the final sample and terminal process/storage audit using ISO-8601 timestamps. Report only liveness/resources as measured; run missing task/fault recovery cases separately.
 
 ---
 
@@ -121,7 +183,7 @@ That journey observed: native System Orb click and expansion; visible panel/acco
 - Historical P2 `FQ-UI-DOCK-OVERLAP-001` reproduced on prior candidate `63eabc9`: with opt-in `DSH_MEGA_INTEGRATED_DOCK=1` and expanded dock, the dock covered most of the first-run disclosure Continue control, though an exposed portion remained clickable. Exact current candidate `4ef9c0d` was rechecked in a fresh profile and did not reproduce it; the current issue inventory has no open P1/P2/P3.
 - Two observations remain unconfirmed/unclassified: Scheduler copy said “重启后生效” while loaded, with no proven state mismatch; an aggregate health view showed one unnamed unhealthy plugin. Neither is reported as a confirmed product defect, and the report does not claim all plugins are healthy.
 - Real Windows reboot: `NOT_RUN`. The D-only post-boot continuation prerequisite was not established; no C-profile autostart write or reboot was performed. This is not a claim of a global host-policy prohibition.
-- Historical `63eabc9` exact-candidate real 24-hour wall-clock run: `NOT_RUN`; its prior-SHA observer is not accepted for current RC2. Current candidate `4ef9c0d` has a separate real observer `IN_PROGRESS_PARTIAL` (276 samples through `2026-09-25T11:34:04.8947518Z`; elapsed time is derived from timestamps because the per-sample elapsed field is invalid); it has not completed 24 hours or the required task/recovery scenarios. Synthetic soak remains separately labelled.
+- Historical `63eabc9` exact-candidate real 24-hour wall-clock run: `NOT_RUN`; its prior-SHA observer is not accepted for current RC2. Current candidate `4ef9c0d` has a separate real observer `IN_PROGRESS_PARTIAL` (latest audit: 342 samples through `2026-09-25T12:40:04.8911002Z`; elapsed time is derived from timestamps because the per-sample elapsed field is invalid); it has not completed 24 hours or the required task/recovery scenarios. Synthetic soak remains separately labelled.
 - No comparative reliability, novelty, accessibility certification, cross-platform behavior, signed installer, universal production suitability, or live-provider theme-generation claim is made.
 
 ## Storage compliance
