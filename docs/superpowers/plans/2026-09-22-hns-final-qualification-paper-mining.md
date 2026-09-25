@@ -135,7 +135,7 @@
 
 - [x] Run syntax, all units, architecture, installer/adapter/plugin/health/restart/continuity, Computer Use long-run, chaos, synthetic soak, combined acceptance, leak, storage, and evidence gates. r4 exact-candidate run `2026-09-25T04-37-57-947Z-f4caf3b3`: 17/17 mandatory gates, 0 failures.
 - [x] Explain every repository-defined skip and fail on unexpected skips. The only two skips are declared sample-dependent optional plugin samples; both were absent.
-- [ ] Launch isolated Electron; visually re-run official fallback, plugins, persistence, error isolation, long observation, and orb click -> expansion -> feedback.
+- [ ] Complete the full visible journey across official fallback, plugins, persistence, error isolation, provider task, long observation, and Orb feedback. A bounded exact-candidate visual subjourney is complete: fresh disclosure plus expanded dock, visible Continue click, System Orb status/Refresh clicks, D-rooted screenshots, and 18/18 targeted appearance tests; provider/persistence journey and the remaining checkpoints are not covered by that subjourney.
 - [x] Fix the required-plugin installer fail-open defect with focused RED/GREEN regression and rerun the full r4 qualification matrix. No UI/source rewrite was made.
 
 ### Task 8: Clean-room qualification
@@ -150,7 +150,7 @@
 - [x] Verify the clean-room root is absent/empty and clone RC2 from remote.
 - [x] Bootstrap with repository-declared npm/lockfile and D-drive roots only.
 - [x] Execute the complete mandatory matrix and real launch from blank state. Machine matrix passed 17/17 and fresh-clone Electron was visibly launched; end-to-end provider Journey remains explicitly partial.
-- [ ] Import only signed run metadata/evidence references, never caches or live state.
+- [x] Keep only SHA-256-hash-bound run metadata/evidence references; no caches or live state were imported. These artifacts are unsigned; the owner specification requires provenance/hash consistency but does not require a cryptographic signature. (Ruling and residual risk recorded in the progress ledger.)
 
 ### Task 9: Enhanced real-host qualification
 
@@ -160,10 +160,10 @@
 **Interfaces:**
 - Produces: real-host evidence clearly distinguished from synthetic/stand-in evidence.
 
-- [ ] Determine whether the Codex host/session can safely reboot and automatically resume this exact task; if not, record `REAL_REBOOT_NOT_RUN_BY_HOST_POLICY`.
+- [x] Determine whether the exact task can safely reboot and automatically resume: the D-only auto-resume prerequisite is unmet because the shipped bootstrap writes HKCU Run or C-profile Startup; record `D_ONLY_AUTOMATIC_RESUMPTION_PREREQUISITE_UNMET`, do not reboot, and do not infer a global host ban.
 - [ ] If safe, execute the durable checkpoint/reboot/resume ceremony and prove exactly-once continuation.
-- [ ] Determine whether an uninterrupted 24h task can legally complete; if not, record NOT_RUN and continue.
-- [ ] If safe, run real wall-clock telemetry and bounded fault/reconnect scenarios for 24h.
+- [x] Check whether continuous observation can be attempted: AC power is connected and AC sleep timeout is 0; this does not guarantee task/session continuity.
+- [ ] Complete the exact-candidate 24h real wall-clock observation and bounded fault/reconnect scenarios. A liveness/resource-only observer is in progress; provider/task continuity and plugin recovery have not been exercised.
 
 ### Task 10: Publish RC2, PR, CI, and conditional baseline
 
@@ -187,12 +187,12 @@
 - Consumes: `git log/show/diff/merge-base/tag`, patch-id lineages, committed tests/evidence.
 - Produces: deduplicated logical change lineage, claims, experiments, metrics, negative results, provenance, figures/tables, paper split, and primary outline.
 
-- [ ] Enumerate every commit/ref and compute patch-id-assisted logical lineages.
-- [ ] Reconstruct the required architectural phases with representative SHAs and negative results.
-- [ ] Build claim-evidence and experiment catalogs; mark unsupported claims rather than deleting them.
-- [ ] Create Mermaid/Graphviz-friendly figure sources and performance/failure data.
-- [ ] Create all numbered documents and machine-readable datasets, then validate links/JSON.
-- [ ] Commit the paper-material corpus independently of qualification verdicts.
+- [x] Enumerate fetched refs at fixed cutoff `d4d2e8757c7660a6130050cc718debf79c1ea252` (379 reachable commits) and inspect all 13 commits after the 366-commit release cutoff; two are merges and the 11 non-merge patches have distinct stable patch-ids.
+- [x] Reconstruct the required architectural phases with representative SHAs and negative results in `02-ARCHITECTURE-EVOLUTION.md` and `06-NEGATIVE-RESULTS.md`.
+- [x] Build claim-evidence and experiment catalogs; retain unsupported claims explicitly in `03-CONTRIBUTION-CLAIMS.md`, `04-CLAIM-EVIDENCE-MATRIX.md`, and the machine-readable datasets.
+- [x] Create Mermaid figure sources and performance/failure data in `11-FIGURE-PLAN.md`, `data/metrics.json`, and `data/experiments.json`; keep limitations beside the evidence.
+- [x] Verify all numbered documents 01–20 and machine-readable datasets are present; paper-material link/JSON validator passes.
+- [x] Commit the paper-material corpus independently of qualification verdicts (`d020472`).
 
 ### Task 12: Final evidence index and status
 
@@ -203,6 +203,6 @@
 - Consumes: exact tested/merged SHAs, current-run evidence, PR/CI/tag status, paper corpus.
 - Produces: one fail-closed final status.
 
-- [ ] Generate reports distinguishing pass/fail/NOT_RUN, synthetic/real/mock, tested/merged commit.
+- [x] Generate reports distinguishing pass/fail/NOT_RUN, synthetic/real/mock, tested/merged commit. Current verdict is `HNS_FINALIZATION_BLOCKED`.
 - [ ] Verify repository cleanliness, remote SHA, process/storage audits, JSON validity, and evidence consistency.
-- [ ] Emit only `HNS_PRODUCTION_BASELINE_ESTABLISHED` when every mandatory condition and merge/tag relation is proven; otherwise emit `HNS_FINALIZATION_BLOCKED` with executable blockers.
+- [x] Emit only `HNS_PRODUCTION_BASELINE_ESTABLISHED` when every mandatory condition and merge/tag relation is proven; otherwise emit `HNS_FINALIZATION_BLOCKED` with executable blockers. Current report is blocked, with no merge/tag claim.

@@ -12,6 +12,16 @@
     "mandatoryFailures": 0,
     "freshRemoteClone": "D:\\Hns-Cleanroom-Qualification-20260925-4ef9c0d-r2\\repo"
   },
+  "rc2Finalization": {
+    "branch": "dev/hns-final-qualification-rc2",
+    "candidateSha": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+    "sourceCiRun": 36089577284,
+    "sourceCiConclusion": "success",
+    "pullRequest": {"number":5,"base":"main","state":"OPEN"},
+    "mainShaAtSnapshot": "8b91228628e9168cabd545f26f1320ba141561e0",
+    "mergePerformed": false,
+    "productionTagMutation": "NOT_PERFORMED"
+  },
   "release": {
     "pullRequest": "https://github.com/zhiheng-zhang-Mera/DS-Hns/pull/2",
     "mergeSha": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
@@ -31,9 +41,17 @@
     {"id":"rc2-post-test-audit","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/post-test-audit.json","sha256":"dcd74c129902de8537801bae9bf06f9d5dd21d5ff5229f27ef4099e6daf19a648","result":"current run: 0 candidate process leaks, 0 detected C project writes; does not erase the earlier task-controlled C profile incident"},
     {"id":"rc2-evidence-consistency","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/evidence-consistency.json","sha256":"80630c37709d7c183b9690b441eb7eb7b939594e9f33b126028519a0bf77e572","result":"1/1"},
     {"id":"rc2-standard-cold-install","path":"D:/qf/cleanroom-4ef9c0d-r2/standard-cold-install.transcript.txt","sha256":"cb880d86c3be993497b65ff57eea84775d66582f4f0f717842b2bd9fdc9d1a0e","result":"fresh clone Standard install PASS; 532 packages; app launch separately accepted"},
-    {"id":"rc2-visible-journey","path":"artifacts/qualification/RC2_VISIBLE_JOURNEY.md","kind":"direct visible Computer Use observations","scope":"partial; no provider request; exact source SHA; D-only screenshots"},
+    {"id":"rc2-visible-journey","path":"artifacts/qualification/RC2_VISIBLE_JOURNEY.md","kind":"direct visible Computer Use observations","scope":"partial; exact source SHA; includes one generic provider smoke and same-process navigation restore, not a full Journey"},
+    {"id":"rc2-provider-smoke-screenshot","path":"D:/qf/rc2-current-candidate-visual-journey-4ef9c0d-20260925/01-provider-response-restored-session.jpg","sha256":"30649c3245655fc3db0f8b7b446e5261653268833fb9cd92d5a20157550ddcf2","scope":"exact-candidate live DeepSeek arithmetic response 1109, visibly restored after same-process conversation navigation"},
     {"id":"rc2-workbench-screenshot","path":"D:/qf/manual-journey-4ef9c0d/08-workbench-after-plugin-search.jpg","sha256":"c1480437dc38c048e50b583f33cf2fec93846338cdeed26c110f287a6d25c82d","scope":"selected workspace after UI settings inspection"},
     {"id":"rc2-mega-dock-screenshot","path":"D:/qf/manual-journey-4ef9c0d/09-mega-dock-open-after-shortcut.jpg","sha256":"ffad38ca77717cb268781caac201c5429e2028a9adfee51418f38038df8f6a1f","scope":"visible integrated Mega and official workbench"},
+    {"id":"rc2-r4-first-run-expanded-dock","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/01-first-run-expanded-dock.jpg","sha256":"2590f19b634248c2e1f8f58025c7fbfb87d5daaff112a8ab46433580674b3170a","scope":"Codex Computer Use; exact candidate; fresh disclosure and expanded dock visible; Continue unobscured"},
+    {"id":"rc2-r4-after-continue","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/02-workbench-after-continue.jpg","sha256":"658122a29f044d814ab2a0c185faec3fa930ecbb0b8a97a8d744b1da940f1cd2","scope":"Codex Computer Use; fresh workbench after real Continue click"},
+    {"id":"rc2-r4-system-orb-open-main","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/04-system-orb-open-0.jpg","sha256":"eebca668229b17ecfd9cd1aa523d7a48427638fd1c4854568607de3e3723b47b","scope":"actual System Orb click and expanded status panel"},
+    {"id":"rc2-r4-system-orb-panel","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/04-system-orb-open-1.jpg","sha256":"761fb0673b12fd11004c1cb37dd32994edb06ac9463e64af51afb20b88dbda6be","scope":"direct System Orb status panel capture; optional host warnings preserved"},
+    {"id":"rc2-r4-system-orb-refresh","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/05-system-orb-after-refresh.jpg","sha256":"09442ce1401857139ce190b8f666f5c0147ef8c6ea652b252de4afd3c461d741","scope":"visible Refresh click feedback; exact candidate"},
+    {"id":"rc2-r4-appearance-panel-test","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/reports/appearance-panel-test.stdout.txt","sha256":"e92601dbb6e893d97da98cb3e7848b1856e7545976a882d1044aa0418ac5bc1","scope":"node --test tests/unit/appearance-panel.test.js; exact source SHA; 18 passed, 0 failed"},
+    {"id":"rc2-exact-candidate-wallclock-observer-in-progress","path":"D:/qf/realwallclock-4ef9c0d-20260925/real-wallclock-samples.jsonl","kind":"mutable in-progress real host liveness/resource samples","scope":"one-minute sampling; provider/task attribution is not instrumented; separate one-shot UI smoke is uncorrelated; plugin-fault coverage NOT_RUN; do not treat as terminal 24-hour acceptance","status":"IN_PROGRESS_PARTIAL"},
     {"id":"qualification-summary","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/qualification-summary.json","sha256":"b0c76898e96cfc6ef1076913114892786090e7c9b2842b63a026943f42f94a99","scope":"one immutable candidate run"},
     {"id":"run-artifact-index","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/artifact-index.json","sha256":"8679cd6a04935de4113672c657cdd108c131300c490bdaadb2969780e5e987ea","scope":"hashes for every file in the run"},
     {"id":"unit-test-stdout","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/raw/all-unit-tests.stdout.txt","sha256":"d39684f59e96f63a77ab93dcd93e26e4bdd2762e3b19965562e81c4dc6418174","result":"2002 passed, 0 failed, 2 defined optional skips"},
@@ -46,12 +64,12 @@
     {"id":"visible-journey-report","path":"artifacts/qualification/FINAL_JOURNEY_EVIDENCE.md","sha256":"3491c067228e8f270157660001de4bb6de322c5972c46f11495b2c902159b6d3","scope":"Codex Computer Use; product-code-equivalent commit dafd3bf; app/scripts/tests identical"},
     {"id":"visible-journey-source","path":"D:/HnsQ24/journey-dafd3bf/JOURNEY_DAFD3BF.md","sha256":"01127ca4c34781b1efe8aaa09d43b5eb48b976f12add48ca4ac39a3067b54d9e","scope":"visual reading/clicking; private account screenshots excluded"},
     {"id":"journey-screenshot","path":"D:/HnsQ24/journey-dafd3bf/conversation-reopened-main.jpg","sha256":"922bc094dc75502580b8e9bf716e37e00c28fcc00bdff5bba9ed9cea2a8be0d7","scope":"locally retained screenshot of reopened conversation; no private account image published"},
-    {"id":"issue-inventory","path":"artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json","sha256":"6c4040a2ef50074b7307bfeba5b8abe7e06a5b3a9ea9e885849820d84cc3e880","result":"0 open P1; 1 open P2; 2 unconfirmed observations"},
-    {"id":"open-p2-triage","path":"D:/HnsQ24/journey-dafd3bf/OPT_IN_DOCK_P2_TRIAGE.md","sha256":"c7346f3d8b58fc408edfa30b3bf29ce820be0f769e4e2b1e89fbd9c1049f7515","status":"OPEN_P2"},
+    {"id":"issue-inventory","path":"artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json","sha256":"b08f9724253c0d1011d1d25a3946c48939b24e052900f5cc0b8e7d42fe79169b","result":"0 open P1/P2/P3; prior dock overlap verified not reproduced on exact current candidate; 2 unconfirmed observations"},
+    {"id":"historical-open-p2-triage-63eabc9","path":"D:/HnsQ24/journey-dafd3bf/OPT_IN_DOCK_P2_TRIAGE.md","sha256":"c7346f3d8b58fc408edfa30b3bf29ce820be0f769e4e2b1e89fbd9c1049f7515","status":"HISTORICAL_OPEN_P2_NOT_CURRENT","scope":"prior source snapshot 63eabc9; current 4ef9c0d candidate replay did not reproduce the overlap"},
     {"id":"post-merge-smoke","path":"D:/HQR/post-merge-5dcde76/POST_MERGE_SMOKE.json","sha256":"ca4e92f71b93703371a32116014323f534a3df6d13b993a9ace044a807395972","result":"fresh main clone; 284/284 syntax; 32/32 targeted tests"},
     {"id":"post-merge-syntax-log","path":"D:/HQR/post-merge-5dcde76/post-merge-syntax.log","sha256":"cecd9cd5885175cf71f5fbd3aceb204f7a4e1db028bf0f726885f040fde3258f","result":"284 files, 0 failures"},
     {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","sha256":"30985a55cad20213087bb2daaa641c57e15c15648491bfa2428defb1aaf5b9d8","status":"NOT_RUN"},
-    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","sha256":"8cd0d83d337b4967c9aef59cb8bb2abf813342bdfb39045e163d3b7294b7a641","status":"NOT_RUN"}
+    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","status":"IN_PROGRESS_PARTIAL","scope":"exact candidate 4ef9c0d; 71 samples over 4,199.962 seconds at 2026-09-25T08:09:04.8920572Z; liveness/resources only; separate one-shot UI smoke is not correlated to observer telemetry; no terminal 24-hour/task/recovery acceptance"}
   ],
   "storage": {
     "controlledWorkspaceAndRuntimeRoots": "D:",
@@ -59,17 +77,24 @@
     "detectedProjectWritesOnC": 0,
     "scopeLimit": "named/project-shaped write audit, not all Windows system writes",
     "readOnlyConfigOnC": "C:/Users/15601/.npmrc",
-    "activeUnacceptedObserverPid": 13896
+    "activeUnacceptedObserverPid": 13896,
+    "currentExactCandidateObserverPid": 45664,
+    "currentObserverEvidenceRoot": "D:/qf/realwallclock-4ef9c0d-20260925",
+    "providerSmokeEvidenceRoot": "D:/qf/rc2-current-candidate-visual-journey-4ef9c0d-20260925",
+    "cControlledProfileCleanup": "attempted after explicit user approval; rejected by execution policy; path still present",
+    "overallControlledStorageCompliant": false
   },
   "paperCorpus": {
     "index":"docs/paper-material/PAPER_MATERIAL_INDEX.md",
     "claims":7,
     "boundedSupportedEngineeringClaims":6,
     "unsupportedComparatorClaims":1,
-    "experiments":19,
+    "experiments":20,
     "metrics":11,
-    "negativeResults":45,
+    "negativeResults":46,
     "releaseReachableCommits":366,
+    "repositoryHistorySnapshotHead":"d4d2e8757c7660a6130050cc718debf79c1ea252",
+    "repositoryHistoryReachableCommits":379,
     "status":"COMPLETE_WITH_LIMITATIONS; current qualification terminal status HNS_FINALIZATION_BLOCKED"
   },
   "compositionRules": [
@@ -79,7 +104,10 @@
     "Do not infer candidate identity from branch name instead of immutable summary.",
     "Do not publish private account screenshots.",
     "Do not treat the documentation follow-up as a source-code change or move the production tag.",
-    "The passing r4 current-run C-write audit does not erase the earlier task-controlled C:\\Users\\15601\\profiles\\web write; overall D-only compliance remains false.",
+    "The passing r4 current-run C-write audit and the current D-only wall-clock observer do not erase the earlier task-controlled C:\\Users\\15601\\profiles\\web write; the exact cleanup attempt was rejected by execution policy, so overall D-only compliance remains false.",
+    "The current wall-clock observer is mutable/in progress and covers real host/runtime liveness/resources only; it is not full task/provider/plugin-recovery soak evidence and must not be treated as complete until terminal audit.",
+    "A single live arithmetic provider response and same-process session navigation restore do not establish full task/checkpoint continuity or process-restart persistence.",
+    "The integrated-dock overlap remains a valid historical 63eabc9 negative observation, but exact candidate 4ef9c0d visually showed the Continue control unobscured and targeted appearance-panel tests passed 18/18; current open P2 count is zero.",
     "Current 4ef9c0d candidate is not merged/tagged; historical 63eabc9 production snapshot remains distinct."
   ]
 }

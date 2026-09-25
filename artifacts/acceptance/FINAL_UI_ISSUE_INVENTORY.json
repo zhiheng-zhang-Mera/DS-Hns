@@ -1,9 +1,9 @@
 {
   "schema": "hns-final-ui-issue-inventory/v1",
-  "candidateSha": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
-  "candidateTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
-  "qualificationRunId": "2026-09-24T06-54-31-334Z-09571b4b",
-  "sourceSnapshot": "RC1 issues captured 2026-09-22 plus final candidate observations through 2026-09-24",
+  "candidateSha": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+  "candidateTree": "816f513c98e40831f0e81f8567e72e6fd01adcd4",
+  "qualificationRunId": "2026-09-25T04-37-57-947Z-f4caf3b3",
+  "sourceSnapshot": "RC1 issues captured 2026-09-22 plus exact RC2 candidate observations through 2026-09-25",
   "resolved": [
     {"id":"RC1-UIA-001","severity":"P1","status":"FIXED","evidence":"tests/unit/computer-use-drivers.test.js; all-unit-tests PASS"},
     {"id":"RC1-RESTART-001","severity":"P1","status":"FIXED","evidence":"tests/unit/restart-supervisor-authority.test.js; health-restart-continuity PASS"},
@@ -15,20 +15,10 @@
     {"id":"RC1-UI-002","severity":"P2","status":"FIXED","evidence":"canonical identity regression plus visible four-row unique installed view"},
     {"id":"RC1-UI-003","severity":"P2","status":"FIXED","evidence":"optional Computer Use host absence is explicit and Core is stated unaffected"},
     {"id":"RC1-UI-004","severity":"P3","status":"FIXED_WITH_REAL_INPUT","evidence":"actual System Orb click -> expansion -> visible panel -> account-section interaction feedback"},
-    {"id":"FQ-SUPERVISOR-001","severity":"P2","status":"FIXED","evidence":"restart supervisor authority regression and exact-SHA full mandatory run PASS"}
+    {"id":"FQ-SUPERVISOR-001","severity":"P2","status":"FIXED","evidence":"restart supervisor authority regression and exact-SHA full mandatory run PASS"},
+    {"id":"FQ-UI-DOCK-OVERLAP-001","severity":"P2","status":"VERIFIED_CURRENT_CANDIDATE_NO_REPRODUCTION","evidence":"Exact candidate 4ef9c0d: 18/18 appearance-panel unit tests; fresh r4 first-run disclosure with expanded dock remained unobscured and Continue was visibly clicked; D:\\qf\\fresh-dock-probe-4ef9c0d-20260925-r4\\screenshots\\01-first-run-expanded-dock.jpg (SHA256 2590F19B634248C2E1F8F58025C7BFB87D5DAAFF112A8AB46433580674B3170A) and 02-workbench-after-continue.jpg. Historical reproduction is preserved in N43 and D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md; no source change was required for this candidate."}
   ],
-  "open": [
-    {
-      "id":"FQ-UI-DOCK-OVERLAP-001",
-      "severity":"P2",
-      "status":"OPEN",
-      "trigger":"Fresh profile with DSH_MEGA_INTEGRATED_DOCK=1 and expanded dock",
-      "observed":"The dock covers most of the first-run beta disclosure Continue control; an exposed left portion remained clickable. The default hidden-dock startup was not implicated.",
-      "rootCause":"The official DSH page is the BrowserWindow's own full-width document rather than a separately bounded child view; the reserved officialWidth cannot constrain its centered modal.",
-      "decision":"Not repaired in this RC. A safe correction requires a bounded official-surface layout change and requalification; a CSS or pixel-offset patch would not establish correct behavior.",
-      "evidence":"D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md"
-    }
-  ],
+  "open": [],
   "unconfirmedObservations": [
     {
       "id":"FQ-UI-SCHEDULER-COPY-001",
@@ -48,7 +38,7 @@
     }
   ],
   "openP1": 0,
-  "openP2": 1,
+  "openP2": 0,
   "openP3": 0,
   "unconfirmedCount": 2
 }
