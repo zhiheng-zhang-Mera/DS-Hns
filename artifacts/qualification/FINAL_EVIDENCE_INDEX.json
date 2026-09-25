@@ -41,8 +41,10 @@
     {"id":"rc2-post-test-audit","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/post-test-audit.json","sha256":"dcd74c129902de8537801bae9bf06f9d5dd21d5ff5229f27ef4099e6daf19a648","result":"current run: 0 candidate process leaks, 0 detected C project writes; does not erase the earlier task-controlled C profile incident"},
     {"id":"rc2-evidence-consistency","path":"D:/qf/qualification-4ef9c0d-r4/qualification/qualification-runs/2026-09-25T04-37-57-947Z-f4caf3b3/reports/evidence-consistency.json","sha256":"80630c37709d7c183b9690b441eb7eb7b939594e9f33b126028519a0bf77e572","result":"1/1"},
     {"id":"rc2-standard-cold-install","path":"D:/qf/cleanroom-4ef9c0d-r2/standard-cold-install.transcript.txt","sha256":"cb880d86c3be993497b65ff57eea84775d66582f4f0f717842b2bd9fdc9d1a0e","result":"fresh clone Standard install PASS; 532 packages; app launch separately accepted"},
-    {"id":"rc2-visible-journey","path":"artifacts/qualification/RC2_VISIBLE_JOURNEY.md","kind":"direct visible Computer Use observations","scope":"partial; exact source SHA; includes one generic provider smoke and same-process navigation restore, not a full Journey"},
+    {"id":"rc2-visible-journey","path":"artifacts/qualification/RC2_VISIBLE_JOURNEY.md","kind":"direct visible Computer Use observations","scope":"partial; exact source SHA; includes two bounded non-sensitive provider prompts and same-process navigation restore, not a full Journey"},
     {"id":"rc2-provider-smoke-screenshot","path":"D:/qf/rc2-current-candidate-visual-journey-4ef9c0d-20260925/01-provider-response-restored-session.jpg","sha256":"30649c3245655fc3db0f8b7b446e5261653268833fb9cd92d5a20157550ddcf2","scope":"exact-candidate live DeepSeek arithmetic response 1109, visibly restored after same-process conversation navigation"},
+    {"id":"rc2-provider-ui-sidebar-followup-screenshot","path":"D:/qf/manual-journey-4ef9c0d/10-provider-ui-roundtrip-sidebar.jpg","sha256":"2744b7891aa448fa8e1181c7bc1cf2c6c9bffa5b898b18dc94cc50d3344c2457","scope":"exact-candidate visible DeepSeek exact-text response, restored session, and D-rooted Files panel; not process-restart or full-task acceptance"},
+    {"id":"rc2-provider-trace-screenshot","path":"D:/qf/manual-journey-4ef9c0d/11-provider-trace-visible.jpg","sha256":"8a4c3f97dc2ebeb12899078eff8f97e8d2e41a2d93c736aa066b0681e7a6cc4a","scope":"Codex Computer Use visible Trace tab for exact-text request; user/context/request/assistant rows; supplementary trace rendering only"},
     {"id":"rc2-workbench-screenshot","path":"D:/qf/manual-journey-4ef9c0d/08-workbench-after-plugin-search.jpg","sha256":"c1480437dc38c048e50b583f33cf2fec93846338cdeed26c110f287a6d25c82d","scope":"selected workspace after UI settings inspection"},
     {"id":"rc2-mega-dock-screenshot","path":"D:/qf/manual-journey-4ef9c0d/09-mega-dock-open-after-shortcut.jpg","sha256":"ffad38ca77717cb268781caac201c5429e2028a9adfee51418f38038df8f6a1f","scope":"visible integrated Mega and official workbench"},
     {"id":"rc2-r4-first-run-expanded-dock","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/01-first-run-expanded-dock.jpg","sha256":"2590f19b634248c2e1f8f58025c7fbfb87d5daaff112a8ab46433580674b3170a","scope":"Codex Computer Use; exact candidate; fresh disclosure and expanded dock visible; Continue unobscured"},
@@ -51,7 +53,7 @@
     {"id":"rc2-r4-system-orb-panel","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/04-system-orb-open-1.jpg","sha256":"761fb0673b12fd11004c1cb37dd32994edb06ac9463e64af51afb20b88dbda6be","scope":"direct System Orb status panel capture; optional host warnings preserved"},
     {"id":"rc2-r4-system-orb-refresh","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/screenshots/05-system-orb-after-refresh.jpg","sha256":"09442ce1401857139ce190b8f666f5c0147ef8c6ea652b252de4afd3c461d741","scope":"visible Refresh click feedback; exact candidate"},
     {"id":"rc2-r4-appearance-panel-test","path":"D:/qf/fresh-dock-probe-4ef9c0d-20260925-r4/reports/appearance-panel-test.stdout.txt","sha256":"e92601dbb6e893d97da98cb3e7848b1856e7545976a882d1044aa0418ac5bc1","scope":"node --test tests/unit/appearance-panel.test.js; exact source SHA; 18 passed, 0 failed"},
-    {"id":"rc2-exact-candidate-wallclock-observer-in-progress","path":"D:/qf/realwallclock-4ef9c0d-20260925/real-wallclock-samples.jsonl","kind":"mutable in-progress real host liveness/resource samples","scope":"one-minute sampling; provider/task attribution is not instrumented; separate one-shot UI smoke is uncorrelated; plugin-fault coverage NOT_RUN; do not treat as terminal 24-hour acceptance","status":"IN_PROGRESS_PARTIAL"},
+    {"id":"rc2-exact-candidate-wallclock-observer-in-progress","path":"D:/qf/realwallclock-4ef9c0d-20260925/real-wallclock-samples.jsonl","kind":"mutable in-progress real host liveness/resource samples","scope":"168 samples over 10,020.009 seconds at 2026-09-25T09:46:04.8986324Z; provider/task attribution is not instrumented; two visible UI smokes are uncorrelated; plugin-fault coverage NOT_RUN; process peak includes closed Computer Use default-Electron shell; not terminal 24-hour acceptance","status":"IN_PROGRESS_PARTIAL"},
     {"id":"qualification-summary","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/qualification-summary.json","sha256":"b0c76898e96cfc6ef1076913114892786090e7c9b2842b63a026943f42f94a99","scope":"one immutable candidate run"},
     {"id":"run-artifact-index","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/artifact-index.json","sha256":"8679cd6a04935de4113672c657cdd108c131300c490bdaadb2969780e5e987ea","scope":"hashes for every file in the run"},
     {"id":"unit-test-stdout","path":"D:/HQR/qualification-runs/2026-09-24T06-54-31-334Z-09571b4b/raw/all-unit-tests.stdout.txt","sha256":"d39684f59e96f63a77ab93dcd93e26e4bdd2762e3b19965562e81c4dc6418174","result":"2002 passed, 0 failed, 2 defined optional skips"},
@@ -69,12 +71,23 @@
     {"id":"post-merge-smoke","path":"D:/HQR/post-merge-5dcde76/POST_MERGE_SMOKE.json","sha256":"ca4e92f71b93703371a32116014323f534a3df6d13b993a9ace044a807395972","result":"fresh main clone; 284/284 syntax; 32/32 targeted tests"},
     {"id":"post-merge-syntax-log","path":"D:/HQR/post-merge-5dcde76/post-merge-syntax.log","sha256":"cecd9cd5885175cf71f5fbd3aceb204f7a4e1db028bf0f726885f040fde3258f","result":"284 files, 0 failures"},
     {"id":"real-reboot","path":"artifacts/qualification/REAL_REBOOT_ACCEPTANCE.json","sha256":"30985a55cad20213087bb2daaa641c57e15c15648491bfa2428defb1aaf5b9d8","status":"NOT_RUN"},
-    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","status":"IN_PROGRESS_PARTIAL","scope":"exact candidate 4ef9c0d; 71 samples over 4,199.962 seconds at 2026-09-25T08:09:04.8920572Z; liveness/resources only; separate one-shot UI smoke is not correlated to observer telemetry; no terminal 24-hour/task/recovery acceptance"}
+    {"id":"real-24h","path":"artifacts/qualification/REALTIME_24H_SOAK.json","status":"IN_PROGRESS_PARTIAL","scope":"exact candidate 4ef9c0d; 168 samples over 10,020.009 seconds at 2026-09-25T09:46:04.8986324Z; liveness/resources only; two UI smokes are not correlated to observer telemetry; no terminal 24-hour/task/recovery acceptance"}
   ],
+  "latestQualificationContinuation": {
+    "asOfUtc": "2026-09-25T09:46:04.8986324Z",
+    "candidateSha": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+    "providerUiSmokes": 2,
+    "providerJourneyStatus": "PARTIAL_NOT_FULL_ACCEPTANCE",
+    "realWallClock": {"status":"IN_PROGRESS_PARTIAL","sampleCount":168,"elapsedSeconds":10020.009,"runtimeDown":0,"electronDetached":0,"harnessNotReady":0,"statusErrors":0,"processCountLatest":8,"processCountPeak":12,"peakIncludesClosedComputerUseElectronShell":true,"maxSampleGapSeconds":60.014,"latestWorkingSetBytes":741052416,"latestPrivateBytes":769998848,"latestHandles":3452},
+    "newStorageIncident": "STORAGE-C-ELECTRON-DEFAULT-001",
+    "terminalStatus": "HNS_FINALIZATION_BLOCKED"
+  },
   "storage": {
     "controlledWorkspaceAndRuntimeRoots": "D:",
     "postMergeRoots": "D:/HQR/post-merge-5dcde76",
-    "detectedProjectWritesOnC": 0,
+    "detectedProjectWritesOnC": 2,
+    "r4MachineGateDetectedProjectWritesOnC": 0,
+    "openCStorageIncidents": ["STORAGE-C-PROFILE-001: C:/Users/15601/profiles/web; exact cleanup rejected by execution policy", "STORAGE-C-ELECTRON-DEFAULT-001: shared C:/Users/15601/AppData/Roaming/Electron files updated by bare Electron default-app shell; window closed, data preserved"],
     "scopeLimit": "named/project-shaped write audit, not all Windows system writes",
     "readOnlyConfigOnC": "C:/Users/15601/.npmrc",
     "activeUnacceptedObserverPid": 13896,
@@ -93,8 +106,10 @@
     "metrics":11,
     "negativeResults":46,
     "releaseReachableCommits":366,
-    "repositoryHistorySnapshotHead":"d4d2e8757c7660a6130050cc718debf79c1ea252",
-    "repositoryHistoryReachableCommits":379,
+    "priorRepositoryHistorySnapshotHead":"d4d2e8757c7660a6130050cc718debf79c1ea252",
+    "priorRepositoryHistoryReachableCommits":379,
+    "repositoryHistorySnapshotHead":"e30d196faf4a77ab97c00f048e55cc742276af45",
+    "repositoryHistoryReachableCommits":381,
     "status":"COMPLETE_WITH_LIMITATIONS; current qualification terminal status HNS_FINALIZATION_BLOCKED"
   },
   "compositionRules": [
@@ -106,7 +121,8 @@
     "Do not treat the documentation follow-up as a source-code change or move the production tag.",
     "The passing r4 current-run C-write audit and the current D-only wall-clock observer do not erase the earlier task-controlled C:\\Users\\15601\\profiles\\web write; the exact cleanup attempt was rejected by execution policy, so overall D-only compliance remains false.",
     "The current wall-clock observer is mutable/in progress and covers real host/runtime liveness/resources only; it is not full task/provider/plugin-recovery soak evidence and must not be treated as complete until terminal audit.",
-    "A single live arithmetic provider response and same-process session navigation restore do not establish full task/checkpoint continuity or process-restart persistence.",
+    "Two bounded live provider responses and same-process session navigation restore do not establish full task/checkpoint continuity, provider failure/retry, plugin workflows, or process-restart persistence.",
+    "Do not launch the candidate electron.exe without its application-directory argument and D-root overrides; the bare Electron default-app shell touched the existing shared C profile, so overall D-only storage compliance remains false.",
     "The integrated-dock overlap remains a valid historical 63eabc9 negative observation, but exact candidate 4ef9c0d visually showed the Continue control unobscured and targeted appearance-panel tests passed 18/18; current open P2 count is zero.",
     "Current 4ef9c0d candidate is not merged/tagged; historical 63eabc9 production snapshot remains distinct."
   ]

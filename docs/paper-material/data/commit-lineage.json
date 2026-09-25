@@ -117,6 +117,25 @@
     "verification": "After fetching all remotes/tags, git rev-list --all --count returned 379; git cherry against 5dcde767 returned 11 unique non-merge patches and no equivalent patch in the prior reachable history.",
     "scope": "Fixed history cutoff before the present report refresh. Counts reachable commits including documentation and merge commits; non-merge patch records are not automatically research contributions. The prior 366-commit productionBaselineSnapshot remains unchanged."
   },
+  "latestHistoryExtension": {
+    "snapshotDate": "2026-09-25",
+    "head": "e30d196faf4a77ab97c00f048e55cc742276af45",
+    "priorSnapshotHead": "d4d2e8757c7660a6130050cc718debf79c1ea252",
+    "baseline": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "reachableCommitCount": 381,
+    "commitsSincePriorSnapshot": 2,
+    "additionalCommitCountSinceProductionBaseline": 15,
+    "additionalMergeCommitCountSinceProductionBaseline": 2,
+    "additionalNonMergeCommitCountSinceProductionBaseline": 13,
+    "additionalStablePatchIdsUniqueSinceProductionBaseline": 13,
+    "patchEquivalentToPriorHistory": 0,
+    "commitsSincePriorSnapshotDetails": [
+      {"sha":"d0204722c0c3bad8c55b9d412388c0e6be04dc07","kind":"DOCUMENTATION_PAPER_EVIDENCE_REFRESH","patchId":"fd6203425afd8b1eb67ea200cc4579316afcac6d"},
+      {"sha":"e30d196faf4a77ab97c00f048e55cc742276af45","kind":"DOCUMENTATION_QUALIFICATION_EVIDENCE_REFRESH","patchId":"6284c59615352a4ba9489c8b734310994ae83bf0"}
+    ],
+    "verification": "At e30d196, git rev-list --all --count returned 381; git cherry against production merge 5dcde767 returned 13 non-merge commits, all patch-distinct (+), plus two merge commits in the 15-commit delta.",
+    "scope": "These two commits were inspected with git show and change documentation/evidence only. They extend repository-history provenance, not the product contribution count. The d4d2e87 fixed snapshot remains preserved above."
+  },
   "notes": [
     "Patch-equivalent commits count once as a logical change.",
     "Merge commits and preserved history are not additional research contributions."

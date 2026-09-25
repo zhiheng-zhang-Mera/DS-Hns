@@ -2,7 +2,7 @@
 
 Status: `PARTIAL_NOT_FULL_ACCEPTANCE`
 
-This is a direct Codex Computer Use observation of the exact source candidate `4ef9c0df149a6cecf1eaa17e50cee4b22271b810` (`816f513c98e40831f0e81f8567e72e6fd01adcd4`) from the fresh clean-room clone. A later same-candidate session completed one live arithmetic provider smoke and same-process conversation navigation/reopen; this is still not a complete user-journey pass.
+This is a direct Codex Computer Use observation of the exact source candidate `4ef9c0df149a6cecf1eaa17e50cee4b22271b810` (`816f513c98e40831f0e81f8567e72e6fd01adcd4`) from the fresh clean-room clone. Later same-candidate sessions completed two bounded live provider UI smokes and same-process conversation navigation/reopen; the exact-text exchange was also inspected in the visible Trace tab. This is still not a complete user-journey pass.
 
 ## Observed journey
 
@@ -54,3 +54,21 @@ This follow-up used the visible clean-room candidate window (`D:\Hns-Cleanroom-Q
 | `D:\qf\rc2-current-candidate-visual-journey-4ef9c0d-20260925\01-provider-response-restored-session.jpg` | `30649C3245655FC3DB0F8B7B446E5261653268833FB9CD92D5A20157550DDCF2` | Exact-candidate conversation after navigating away and reopening it; the prompt and `1109` response are visible. |
 
 The r4 dock/Orb replay remains a distinct visual sub-experiment and did not include a provider request. Neither it nor this one-shot smoke diagnoses the unnamed unhealthy plugin in the older reused-profile aggregate or constitutes independent QA. The overall journey remains `PARTIAL_NOT_FULL_ACCEPTANCE`.
+
+## Additional exact-candidate provider and file-sidebar follow-up — 2026-09-25
+
+On the exact clean-room candidate window, Settings → Models visibly showed the DeepSeek provider configured; no key was opened or changed. Settings → Plugins showed 28 session plugins and 156 global plugins; Agent presets showed Standard mode as current. These are visual inventory observations, not proof that every plugin is healthy.
+
+A new conversation was created and the non-sensitive prompt `Reply with exactly this text: DS-Hns provider UI acceptance passed.` was sent through the visible `DeepSeek-V41-Flash` High model. The UI returned exactly `DS-Hns provider UI acceptance passed.` and displayed a one-second duration. I navigated to the earlier `Compute 37 × 29 + 36` session and back; both visible conversations retained their own prompt/answer in the same process. I opened the right-side Files panel and confirmed the visible path was `D:\qf\manual-journey-4ef9c0d\workspace`, shown as empty. This is a second bounded live provider request and same-process navigation restoration only; no process restart, durable checkpoint, long task, provider failure/retry, or plugin fault/recovery was exercised.
+
+| Image | SHA-256 | What it shows |
+|---|---|---|
+| `D:\qf\manual-journey-4ef9c0d\10-provider-ui-roundtrip-sidebar.jpg` | `2744B7891AA448FA8E1181C7BC1CF2C6C9BFFA5B898B18DC94CC50D3344C2457` | Exact requested provider response restored in its session, with the right-side file panel visibly pointing to the D-rooted isolated workspace. |
+
+### Computer Use launch side effect — preserved, not cleaned
+
+During window recovery, launching the repository's raw `electron.exe` without the required application-directory argument opened Electron's bundled `default_app.asar` page instead of another DS-Hns instance. The shell was visibly closed. Its executable-path cohort was PID 52872 (Computer Use parent PID 16060) with three Electron children, and the default profile was `C:\Users\15601\AppData\Roaming\Electron`. That C directory pre-existed and contains unrelated/shared Electron data, but files under it received new writes during this shell's lifetime (latest observed timestamps around 2026-09-25 08:47 UTC). No cleanup was attempted. This is an additional D-only storage incident; the actual DS-Hns window continued using the D-rooted candidate configuration. Avoid launching Electron without the app path and D-root overrides.
+
+## Visible trace-tab follow-up — 2026-09-25
+
+Using Codex Computer Use on the exact-candidate app window, I opened the visible `轨迹` (Trace) tab and visually read the timeline for the exact-text provider request. The visible rows showed the user prompt, the runtime-context snapshot naming the D-rooted session workspace, request #1, and the assistant's exact response `DS-Hns provider UI acceptance passed.`. This verifies that this bounded exchange is represented in the operator trace surface; it does not establish a tool call, long task, durable checkpoint, failure/retry, or plugin workflow. The screenshot is retained at `D:\qf\manual-journey-4ef9c0d\11-provider-trace-visible.jpg`, SHA-256 `8a4c3f97dc2ebeb12899078eff8f97e8d2e41a2d93c736aa066b0681e7a6cc4a`.
