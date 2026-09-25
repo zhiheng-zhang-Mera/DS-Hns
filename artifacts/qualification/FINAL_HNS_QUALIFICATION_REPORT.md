@@ -37,6 +37,8 @@ The exact-candidate wall-clock observer began at `2026-09-25T06:59:04.9297139Z` 
 
 Continuation audit at `2026-09-25T12:32:04.8994615Z` found observer PID 45664 still running. The cross-conversation checkpoint journey completed while the same candidate process remained live; it does not substitute for task persistence across process restart.
 
+The evidence update was committed and pushed as `27ffeefa47a4bdc94a3a75a6fdd9e63b1929a7b6`. GitHub Actions run `36137095007` passed all gates on that exact head (syntax, unit/architecture, theme, Computer Use, runtime, plugin, and combined acceptance). This commit changes qualification/paper evidence only; product code head remains `965ca619a2fa32d927af922e13103403e8cfe0a4`. PR #5 remains open to `main`; this update did not merge or move the production tag.
+
 ## Current blockers and storage
 
 - `STORAGE-C-ELECTRON-DEFAULT-001` (open blocker): the raw clean-room `electron.exe` was invoked by Computer Use without the required app-directory argument while recovering the target window. It opened the bundled `default_app.asar` welcome page as PID 52872 (parent Computer Use PID 16060) and defaulted to `C:\Users\15601\AppData\Roaming\Electron`; the process had three Electron children and visibly displayed the default profile. The shared C directory pre-existed, but its files were written during the shell's lifetime (latest observed writes around `2026-09-25T08:47:48Z`). The shell was closed by its visible window control. No cleanup was attempted because the directory contains pre-existing shared/unrelated Electron data. This is a separate failed D-only audit event; the actual DS-Hns product window continued using the D-rooted configuration. Do not launch bare Electron again.
