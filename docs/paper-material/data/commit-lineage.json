@@ -136,6 +136,22 @@
     "verification": "At e30d196, git rev-list --all --count returned 381; git cherry against production merge 5dcde767 returned 13 non-merge commits, all patch-distinct (+), plus two merge commits in the 15-commit delta.",
     "scope": "These two commits were inspected with git show and change documentation/evidence only. They extend repository-history provenance, not the product contribution count. The d4d2e87 fixed snapshot remains preserved above."
   },
+  "postCutoffTargetModeAudit": {
+    "snapshotDate": "2026-09-25",
+    "auditHead": "965ca619a2fa32d927af922e13103403e8cfe0a4",
+    "branch": "dev/hns-final-qualification-rc2",
+    "reachableCommitCountAtAuditHead": 384,
+    "fixedPriorHistoryHead": "e30d196faf4a77ab97c00f048e55cc742276af45",
+    "fixedPriorReachableCommitCount": 381,
+    "commitsSinceFixedHistoryHead": 3,
+    "commits": [
+      {"sha":"f59f0f1d1aa84ec409d63eaaa9b07b56c0783068","kind":"DOCUMENTATION_EVIDENCE_REFRESH","patchId":"cafa3dd2700a84757c7ac4323a476fbef4305880","researchContribution":false},
+      {"sha":"7918812302e6173f7377f0575394d842526f0aa3","kind":"DOCUMENTATION_QUALIFICATION_EVIDENCE_REFRESH","patchId":"e41c58076d957879acc3ca91fb8a98fbffba5158","researchContribution":false},
+      {"sha":"965ca619a2fa32d927af922e13103403e8cfe0a4","kind":"ACCEPTANCE_CLI_FAIL_FAST_AND_REGRESSION_TESTS","patchId":"083101ac7fcbbeb2e7361f186407046e4877fd69","files":["scripts/combined-acceptance.cjs","tests/unit/combined-acceptance-cli.test.js"],"applicationSourceChanged":false,"researchContribution":false}
+    ],
+    "reportPublicationBoundary": "The documentation-only report/paper publication after auditHead is not included in this measured fixed extension; it does not change product source, research claims, main, or production tag.",
+    "scope": "Post-cutoff engineering/evidence provenance only; preserve the historical 381-commit snapshot and do not inflate research contribution counts."
+  },
   "notes": [
     "Patch-equivalent commits count once as a logical change.",
     "Merge commits and preserved history are not additional research contributions."

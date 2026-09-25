@@ -342,7 +342,13 @@
       "id": "N47",
       "failure": "An unsupported --help argument executed the combined-acceptance script's default A-E workflow while inherited TEMP/TMP still pointed at C:\\Users\\15601\\AppData\\Local\\Temp; createFixture() used os.tmpdir() and created scratch there.",
       "lineage": ["current target-mode run 2026-09-25", "STORAGE-C-COMBINED-ACCEPTANCE-TEMP-001", "D:\\Hns-Cleanroom-Qualification-20260925-4ef9c0d-r2\\repo\\runtime\\acceptance\\combined-acceptance.json", "ce9856b380eec58846295b31fb31ab6d70dc19072bea7416ad010c66e802eba5"],
-      "consequence": "Keep overall D-only compliance false even though normal fixture teardown removed the scratch and a read-only follow-up found no matching directories. Exclude this 52/52 run from D-only qualification; avoid unsupported runner flags and set/assert D-rooted TEMP/TMP before invoking acceptance."
+      "consequence": "Keep overall D-only compliance false even though normal fixture teardown removed the scratch and a read-only follow-up found no matching directories. Exclude this 52/52 run from D-only qualification. Commit 965ca61 now returns help before side effects and rejects unsupported flags; callers must still set/assert D-rooted TEMP/TMP before valid full acceptance execution."
+    },
+    {
+      "id": "N48",
+      "failure": "The in-progress real wall-clock observer used Stopwatch.GetElapsedTime, which is unavailable in Windows PowerShell 5.1. Its elapsedSeconds sample field consequently serialized as 0 instead of elapsed time.",
+      "lineage": ["D:\\qf\\realwallclock-4ef9c0d-20260925\\real-wallclock-samples.jsonl", "Windows PowerShell 5.1.26100.9444 method availability check", "2026-09-25 continuation audit"],
+      "consequence": "Do not use the elapsedSeconds field or its derived distinct/min/max values. Compute observed duration from the preserved ISO-8601 atUtc timestamps; the observer termination condition and final observedWallClockHours use DateTimeOffset arithmetic. Keep the run partial until the 24-hour interval and terminal audit finish."
     }
   ]
 }
