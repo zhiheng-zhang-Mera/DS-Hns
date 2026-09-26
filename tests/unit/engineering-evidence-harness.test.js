@@ -107,6 +107,14 @@ test('the E0 command entry point is import-safe and exposes the runner without l
   assert.equal(typeof e0Cli.runE0, 'function')
 })
 
+test('the FINAL W0 CLI freezes the harness SHA alongside the implementation SHA', () => {
+  const cliPath = path.resolve(__dirname, '..', '..', 'scripts', 'engineering-recovery-evidence.cjs')
+  const source = fs.readFileSync(cliPath, 'utf8')
+  const batchCall = source.match(/const batch = evidence\.createBatch\(\{([\s\S]*?)\n\s*\}\)/)
+  assert.ok(batchCall, 'FINAL W0 CLI must create a frozen evidence batch')
+  assert.match(batchCall[1], /harnessSha:\s*implementationShaText/)
+})
+
 test('the E0 syntax gate passes only when every declared source file was checked', () => {
   const common = { id: 'syntax', exitCode: 0, durationMs: 10, logSha256: 'a'.repeat(64) }
   assert.equal(e0.makeGateRecord({ ...common, output: 'checked 277/277 files' }).status, 'PASS')

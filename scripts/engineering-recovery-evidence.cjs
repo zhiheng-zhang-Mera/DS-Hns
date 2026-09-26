@@ -328,6 +328,7 @@ async function runW0Fault04(options) {
     phase,
     seed: options.seed,
     implementationSha: implementationShaText,
+    harnessSha: implementationShaText,
     sourceRef,
     ...(e0Gate ? { e0Gate } : {})
   })
