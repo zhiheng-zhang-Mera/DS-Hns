@@ -9,9 +9,9 @@ name: verify
 # top of this (scripts\acceptance.mjs, see its header for usage).
 on:
   push:
-    branches: [main, merging, better-install, Theme-Cover, computer-use, long-term-work, test-reboot]
+    branches: [main, merging, better-install, Theme-Cover, computer-use, long-term-work, test-reboot, dev/crash-resume-recovery-v1]
   pull_request:
-    branches: [main, merging, better-install, Theme-Cover, computer-use, long-term-work]
+    branches: [main, merging, better-install, Theme-Cover, computer-use, long-term-work, dev/crash-resume-recovery-v1]
 
 jobs:
   verify:
@@ -262,6 +262,37 @@ jobs:
           $git = Get-Content app/engineering/git.cjs -Raw
           if ($git -notmatch 'FORBIDDEN_COMMANDS') { Write-Error 'the git controller does not guard destructive commands'; exit 1 }
           Write-Host "engineering runtime, adapters and test matrix present and covered by the syntax gate"
+
+      - name: Engineering recovery evidence gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'scripts/engineering-recovery-evidence.cjs',
+            'scripts/lib/engineering-recovery-evidence.cjs',
+            'tests/evidence/engineering-recovery/schema-v1.json',
+            'tests/evidence/engineering-recovery/fault-catalog.json',
+            'tests/evidence/engineering-recovery/workloads.json',
+            'tests/fixtures/engineering-recovery/episode-worker.cjs',
+            'tests/fixtures/engineering-recovery/workloads/w0.test.cjs',
+            'tests/fixtures/engineering-recovery/workloads/w1.test.cjs',
+            'tests/fixtures/engineering-recovery/workloads/w2.test.cjs',
+            'tests/fixtures/engineering-recovery/workloads/w3.test.cjs',
+            'tests/fixtures/engineering-recovery/workloads/w4.test.cjs',
+            'tests/unit/engineering-evidence-harness.test.js'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing recovery evidence files: $($missing -join ', ')"; exit 1 }
+          foreach ($file in $required) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($name in @('engineering-recovery-evidence.cjs', 'engineering-evidence-harness.test.js', 'episode-worker.cjs', 'w0.test.cjs', 'w1.test.cjs', 'w2.test.cjs', 'w3.test.cjs', 'w4.test.cjs')) {
+            if ($check -notmatch [regex]::Escape($name)) { Write-Error "syntax gate does not cover $name"; exit 1 }
+          }
+          Get-Content tests/evidence/engineering-recovery/schema-v1.json -Raw | ConvertFrom-Json | Out-Null
+          Get-Content tests/evidence/engineering-recovery/fault-catalog.json -Raw | ConvertFrom-Json | Out-Null
+          Get-Content tests/evidence/engineering-recovery/workloads.json -Raw | ConvertFrom-Json | Out-Null
+          Write-Host "recovery evidence schema, catalog, workloads, harness and fixtures are present and covered"
 
       # The plugin runtime (Update-Plan/accleration.md) is the platform every
       # feature is mounted through. Its core, its contracts and its test matrix are

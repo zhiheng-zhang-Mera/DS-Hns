@@ -156,6 +156,17 @@ const EXTRA_FILES = [
   path.join(ROOT, 'tests', 'unit', 'engineering-host-resume.test.js'),
   path.join(ROOT, 'tests', 'unit', 'engineering-recovery-schema.test.js'),
   path.join(ROOT, 'tests', 'unit', 'engineering-recovery-store.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-evidence-harness.test.js'),
+  // The ICSE evidence harness and its executable workload fixtures are external
+  // test tooling, but they still need the same syntax gate as shipped sources.
+  path.join(ROOT, 'scripts', 'engineering-recovery-evidence.cjs'),
+  path.join(ROOT, 'scripts', 'lib', 'engineering-recovery-evidence.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'episode-worker.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w0.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w1.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w2.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w3.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w4.test.cjs'),
   // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
   // checked like any other program the repository ships.
   path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')

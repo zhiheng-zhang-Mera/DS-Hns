@@ -100,7 +100,8 @@ try {
     'engineering-cross-volume-cleanup.test.js',
     'engineering-host-resume.test.js',
     'engineering-recovery-schema.test.js',
-    'engineering-recovery-store.test.js'
+    'engineering-recovery-store.test.js',
+    'engineering-evidence-harness.test.js'
   )
   # The plugin runtime core (Update-Plan/accleration.md): the platform every plugin
   # is mounted through, asserted here for the same reason as the others.
