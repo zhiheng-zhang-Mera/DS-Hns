@@ -159,7 +159,9 @@ const EXTRA_FILES = [
   path.join(ROOT, 'tests', 'unit', 'engineering-evidence-harness.test.js'),
   // The ICSE evidence harness and its executable workload fixtures are external
   // test tooling, but they still need the same syntax gate as shipped sources.
+  path.join(ROOT, 'scripts', 'engineering-recovery-e0.cjs'),
   path.join(ROOT, 'scripts', 'engineering-recovery-evidence.cjs'),
+  path.join(ROOT, 'scripts', 'lib', 'engineering-recovery-e0.cjs'),
   path.join(ROOT, 'scripts', 'lib', 'engineering-recovery-evidence.cjs'),
   path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'episode-worker.cjs'),
   path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w0.test.cjs'),

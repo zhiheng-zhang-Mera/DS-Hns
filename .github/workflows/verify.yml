@@ -267,7 +267,9 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
+            'scripts/engineering-recovery-e0.cjs',
             'scripts/engineering-recovery-evidence.cjs',
+            'scripts/lib/engineering-recovery-e0.cjs',
             'scripts/lib/engineering-recovery-evidence.cjs',
             'tests/evidence/engineering-recovery/schema-v1.json',
             'tests/evidence/engineering-recovery/fault-catalog.json',
@@ -286,7 +288,7 @@ jobs:
             if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
           }
           $check = Get-Content scripts/check-syntax.cjs -Raw
-          foreach ($name in @('engineering-recovery-evidence.cjs', 'engineering-evidence-harness.test.js', 'episode-worker.cjs', 'w0.test.cjs', 'w1.test.cjs', 'w2.test.cjs', 'w3.test.cjs', 'w4.test.cjs')) {
+          foreach ($name in @('engineering-recovery-e0.cjs', 'engineering-recovery-evidence.cjs', 'engineering-evidence-harness.test.js', 'episode-worker.cjs', 'w0.test.cjs', 'w1.test.cjs', 'w2.test.cjs', 'w3.test.cjs', 'w4.test.cjs')) {
             if ($check -notmatch [regex]::Escape($name)) { Write-Error "syntax gate does not cover $name"; exit 1 }
           }
           Get-Content tests/evidence/engineering-recovery/schema-v1.json -Raw | ConvertFrom-Json | Out-Null

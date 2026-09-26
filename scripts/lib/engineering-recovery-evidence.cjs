@@ -385,15 +385,27 @@ function createBatch(input = {}) {
   const phase = ['DIAGNOSTIC', 'PILOT', 'FINAL'].includes(input.phase) ? input.phase : null
   if (!phase) throw new Error('phase must be DIAGNOSTIC, PILOT, or FINAL')
   const parent = requireDVolume(input.root)
+  const implementationSha = /^[a-f0-9]{40}$/i.test(String(input.implementationSha || '')) ? String(input.implementationSha).toLowerCase() : null
+  const harnessSha = /^[a-f0-9]{40}$/i.test(String(input.harnessSha || '')) ? String(input.harnessSha).toLowerCase() : null
+  const sourceRef = typeof input.sourceRef === 'string' && /^[A-Za-z0-9._/-]{1,160}$/.test(input.sourceRef) && !input.sourceRef.includes('..') ? input.sourceRef : null
+  const e0Gate = input.e0Gate || null
+  if (phase === 'FINAL') {
+    const requiredGateIds = ['syntax', 'full-unit', 'focused-recovery', 'test-all']
+    const gatesComplete = isRecord(e0Gate) && Array.isArray(e0Gate.gates) &&
+      requiredGateIds.every((id) => e0Gate.gates.some((gate) => gate && gate.id === id && gate.status === 'PASS' && gate.exitCode === 0))
+    if (!implementationSha || !harnessSha || !sourceRef || !e0Gate ||
+      !validateEvidenceDocument('e0Gate', e0Gate).ok || e0Gate.passed !== true ||
+      e0Gate.implementationSha !== implementationSha || e0Gate.branch !== sourceRef || !gatesComplete) {
+      throw Object.assign(new Error('FINAL batch requires a matching passing E0 gate for the exact implementation SHA and branch'), { code: 'FINAL_E0_GATE_REQUIRED' })
+    }
+  }
+  const e0GateSha256 = e0Gate ? sha256(`${JSON.stringify(e0Gate, null, 2)}\n`) : null
   const batchDir = path.join(parent, batchId)
   fs.mkdirSync(batchDir, { recursive: false })
   fs.mkdirSync(path.join(batchDir, 'runs'), { recursive: false })
   fs.mkdirSync(path.join(batchDir, 'derived'), { recursive: false })
   const catalog = loadFaultCatalog()
   const workloads = loadWorkloads()
-  const implementationSha = /^[a-f0-9]{40}$/i.test(String(input.implementationSha || '')) ? String(input.implementationSha).toLowerCase() : null
-  const harnessSha = /^[a-f0-9]{40}$/i.test(String(input.harnessSha || '')) ? String(input.harnessSha).toLowerCase() : null
-  const sourceRef = typeof input.sourceRef === 'string' && /^[A-Za-z0-9._/-]{1,160}$/.test(input.sourceRef) && !input.sourceRef.includes('..') ? input.sourceRef : null
   const createdAt = new Date().toISOString()
   const manifest = {
     schemaVersion: SCHEMA_VERSION,
@@ -411,6 +423,7 @@ function createBatch(input = {}) {
     workloadVersion: workloads.workloadVersion,
     workloadDefinitionsSha256: workloads.sha256,
     pilotRunsExcludedFromFinalAggregates: phase === 'PILOT',
+    e0GateSha256,
     runs: []
   }
   const freezeDocument = {
@@ -428,6 +441,7 @@ function createBatch(input = {}) {
     workloadVersion: workloads.workloadVersion,
     workloadDefinitionsSha256: workloads.sha256,
     pilotRunsExcludedFromFinalAggregates: phase === 'PILOT',
+    e0GateSha256,
     frozenAt: createdAt
   }
   if (!validateEvidenceDocument('evidenceFreeze', freezeDocument).ok || !validateEvidenceDocument('batchManifest', manifest).ok) {
@@ -435,6 +449,7 @@ function createBatch(input = {}) {
   }
   writeJsonAtomic(path.join(batchDir, 'evidence-freeze.json'), freezeDocument)
   writeJsonAtomic(path.join(batchDir, 'batch-manifest.json'), manifest)
+  if (e0Gate) writeJsonAtomic(path.join(batchDir, 'e0-gate.json'), e0Gate)
   return { batchId, phase, seed: manifest.seed, batchDir, manifest }
 }
 
@@ -820,9 +835,20 @@ function batchRawIntegrity(batchDir, manifest) {
       !isRecord(freeze) || freeze.batchId !== manifest.batchId || freeze.phase !== manifest.phase || freeze.seed !== manifest.seed ||
       freeze.implementationSha !== manifest.implementationSha || freeze.harnessSha !== manifest.harnessSha ||
       freeze.evidenceSchemaSha256 !== manifest.evidenceSchemaSha256 || freeze.faultCatalogSha256 !== manifest.faultCatalogSha256 ||
-      freeze.workloadDefinitionsSha256 !== manifest.workloadDefinitionsSha256 || !validDigest(manifest.evidenceSchemaSha256) ||
+      freeze.workloadDefinitionsSha256 !== manifest.workloadDefinitionsSha256 || freeze.e0GateSha256 !== manifest.e0GateSha256 || !validDigest(manifest.evidenceSchemaSha256) ||
       !validDigest(manifest.sourceSpecSha256) || !validDigest(manifest.faultCatalogSha256) || !validDigest(manifest.workloadDefinitionsSha256)) {
       return { ok: false, code: 'BATCH_SCHEMA_INVALID', reason: 'batch manifest or evidence freeze is invalid' }
+    }
+    const e0GatePath = path.join(batchDir, 'e0-gate.json')
+    if (manifest.phase === 'FINAL') {
+      const e0Gate = readJson(e0GatePath)
+      if (!validateEvidenceDocument('e0Gate', e0Gate).ok || e0Gate.passed !== true ||
+        e0Gate.implementationSha !== manifest.implementationSha || e0Gate.branch !== manifest.sourceRef ||
+        sha256File(e0GatePath) !== manifest.e0GateSha256) {
+        return { ok: false, code: 'BATCH_E0_GATE_INVALID', reason: 'final batch E0 evidence does not match the frozen implementation identity' }
+      }
+    } else if (manifest.e0GateSha256 !== null || fs.existsSync(e0GatePath)) {
+      return { ok: false, code: 'BATCH_E0_GATE_INVALID', reason: 'non-final batch unexpectedly carries final E0 evidence' }
     }
     const ids = manifest.runs.map((entry) => entry && safeId(entry.runId, 'runId'))
     if (new Set(ids).size !== ids.length || ids.some((id) => !id)) return { ok: false, code: 'BATCH_RUN_INDEX_INVALID', reason: 'batch run IDs are missing or duplicated' }
@@ -834,6 +860,7 @@ function batchRawIntegrity(batchDir, manifest) {
 
 function writeBatchChecksums(batchDir, manifest) {
   const files = ['evidence-freeze.json', 'batch-manifest.json']
+  if (manifest.phase === 'FINAL') files.push('e0-gate.json')
   for (const item of manifest.runs) files.push(`runs/${safeId(item.runId, 'runId')}/SHA256SUMS.txt`)
   for (const name of fs.readdirSync(path.join(batchDir, 'derived')).sort()) {
     const target = path.join(batchDir, 'derived', name)
@@ -852,6 +879,7 @@ function verifyBatchIntegrity(batchOrDir) {
     const sumsPath = path.join(batchDir, 'SHA256SUMS.txt')
     if (!fs.existsSync(sumsPath)) return { ok: false, code: 'BATCH_CHECKSUMS_MISSING', reason: 'batch checksum manifest is missing' }
     const expected = new Set(['evidence-freeze.json', 'batch-manifest.json'])
+    if (manifest.phase === 'FINAL') expected.add('e0-gate.json')
     for (const runId of raw.runIds) expected.add(`runs/${runId}/SHA256SUMS.txt`)
     for (const name of fs.readdirSync(path.join(batchDir, 'derived'))) {
       if (fs.statSync(path.join(batchDir, 'derived', name)).isFile()) expected.add(`derived/${name}`)

@@ -7,6 +7,7 @@ const os = require('node:os')
 const path = require('node:path')
 
 const evidence = require('../../scripts/lib/engineering-recovery-evidence.cjs')
+const e0 = require('../../scripts/lib/engineering-recovery-e0.cjs')
 
 function tempDir() {
   const root = os.tmpdir()
@@ -59,6 +60,43 @@ function passingEvents(run, ids = {}) {
   return { batchId, runId, episodeId }
 }
 
+function passingE0Gate(implementationSha, branch = 'dev/crash-resume-recovery-v1') {
+  const startedAt = new Date().toISOString()
+  return {
+    schemaVersion: 1,
+    runId: 'E0-fixture-001',
+    branch,
+    implementationSha,
+    runtime: 'node-test-fixture',
+    os: 'Windows test fixture',
+    tempVolume: 'D:',
+    startedAt,
+    finishedAt: startedAt,
+    gates: ['syntax', 'full-unit', 'focused-recovery', 'test-all'].map((id, index) => ({
+      id,
+      status: 'PASS',
+      exitCode: 0,
+      durationMs: index + 1,
+      logSha256: String(index + 1).repeat(64),
+      tests: id === 'syntax' ? null : 1886,
+      passed: id === 'syntax' ? null : 1884,
+      failed: id === 'syntax' ? null : 0,
+      skipped: id === 'syntax' ? null : 2
+    })),
+    passed: true
+  }
+}
+
+test('E0 test summaries distinguish a complete green TAP run from missing or failed counts', () => {
+  assert.deepEqual(e0.summarizeTestOutput('ℹ tests 12\nℹ pass 10\nℹ fail 0\nℹ skipped 2\n'), {
+    tests: 12, passed: 10, failed: 0, skipped: 2
+  })
+  assert.deepEqual(e0.summarizeTestOutput('# tests 3\n# pass 2\n# fail 1\n'), {
+    tests: 3, passed: 2, failed: 1, skipped: 0
+  })
+  assert.equal(e0.summarizeTestOutput('checked 276/276 files').tests, null)
+})
+
 test('the frozen catalog is contiguous, unique and leaves reboot-only cases explicitly gated', () => {
   const catalog = evidence.loadFaultCatalog()
   assert.equal(catalog.schemaVersion, 1)
@@ -66,6 +104,48 @@ test('the frozen catalog is contiguous, unique and leaves reboot-only cases expl
   assert.deepEqual(catalog.faults.map((entry) => entry.id), Array.from({ length: 89 }, (_, index) => index + 1))
   assert.equal(catalog.faults.filter((entry) => entry.executionMode === 'maintenance-window').length, 6)
   assert.match(catalog.sha256, /^[a-f0-9]{64}$/)
+})
+
+test('a FINAL batch cannot be created without a matching passing E0 gate', () => {
+  const root = tempDir()
+  try {
+    const batchDir = path.join(root, 'E2-without-e0')
+    assert.throws(() => evidence.createBatch({
+      root,
+      batchId: 'E2-without-e0',
+      phase: 'FINAL',
+      seed: 7,
+      implementationSha: 'a'.repeat(40),
+      harnessSha: 'a'.repeat(40),
+      sourceRef: 'dev/crash-resume-recovery-v1'
+    }), /passing E0 gate/)
+    assert.equal(fs.existsSync(batchDir), false, 'a rejected final batch must leave no partial directory')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a FINAL batch freezes and checksums its exact passing E0 evidence', () => {
+  const root = tempDir()
+  const commit = 'b'.repeat(40)
+  try {
+    const gate = passingE0Gate(commit)
+    const batch = evidence.createBatch({
+      root, batchId: 'E2-e0-bound', phase: 'FINAL', seed: 11,
+      implementationSha: commit, harnessSha: commit,
+      sourceRef: 'dev/crash-resume-recovery-v1', e0Gate: gate
+    })
+    const gatePath = path.join(batch.batchDir, 'e0-gate.json')
+    const manifest = JSON.parse(fs.readFileSync(path.join(batch.batchDir, 'batch-manifest.json'), 'utf8'))
+    const freeze = JSON.parse(fs.readFileSync(path.join(batch.batchDir, 'evidence-freeze.json'), 'utf8'))
+    assert.equal(evidence.validateEvidenceDocument('e0Gate', gate).ok, true)
+    assert.equal(manifest.e0GateSha256, evidence.sha256File(gatePath))
+    assert.equal(freeze.e0GateSha256, manifest.e0GateSha256)
+    const diskGate = JSON.parse(fs.readFileSync(gatePath, 'utf8'))
+    assert.deepEqual(diskGate, gate)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('workload definitions preserve W0-W4 scope and hashes', () => {
@@ -269,7 +349,9 @@ test('evidence harness source and fixtures are covered by syntax, test and featu
   const testGate = fs.readFileSync(path.join(root, 'scripts', 'test-all.ps1'), 'utf8')
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'verify.yml'), 'utf8')
   for (const file of [
+    'scripts/engineering-recovery-e0.cjs',
     'scripts/engineering-recovery-evidence.cjs',
+    'scripts/lib/engineering-recovery-e0.cjs',
     'scripts/lib/engineering-recovery-evidence.cjs',
     'tests/fixtures/engineering-recovery/episode-worker.cjs',
     'tests/fixtures/engineering-recovery/workloads/w0.test.cjs',
@@ -285,4 +367,5 @@ test('evidence harness source and fixtures are covered by syntax, test and featu
   assert.match(workflow, /dev\/crash-resume-recovery-v1/)
   assert.match(workflow, /Engineering recovery evidence gate/)
   assert.match(workflow, /engineering-evidence-harness\.test\.js/)
+  assert.match(workflow, /engineering-recovery-e0\.cjs/)
 })

@@ -9,7 +9,8 @@
     {"$ref": "#/$defs/runManifest"},
     {"$ref": "#/$defs/event"},
     {"$ref": "#/$defs/result"},
-    {"$ref": "#/$defs/oracleDocument"}
+    {"$ref": "#/$defs/oracleDocument"},
+    {"$ref": "#/$defs/e0Gate"}
   ],
   "$defs": {
     "cursor": {
@@ -204,7 +205,7 @@
     },
     "evidenceFreeze": {
       "type": "object",
-      "required": ["schemaVersion", "batchId", "phase", "seed", "implementationSha", "harnessSha", "sourceRef", "sourceSpecSha256", "evidenceSchemaSha256", "faultCatalogVersion", "faultCatalogSha256", "workloadVersion", "workloadDefinitionsSha256", "pilotRunsExcludedFromFinalAggregates", "frozenAt"],
+      "required": ["schemaVersion", "batchId", "phase", "seed", "implementationSha", "harnessSha", "sourceRef", "sourceSpecSha256", "evidenceSchemaSha256", "faultCatalogVersion", "faultCatalogSha256", "workloadVersion", "workloadDefinitionsSha256", "pilotRunsExcludedFromFinalAggregates", "e0GateSha256", "frozenAt"],
       "properties": {
         "schemaVersion": {"const": 1},
         "batchId": {"type": "string", "maxLength": 128},
@@ -220,6 +221,7 @@
         "workloadVersion": {"type": "string", "maxLength": 64},
         "workloadDefinitionsSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "pilotRunsExcludedFromFinalAggregates": {"type": "boolean"},
+        "e0GateSha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
         "frozenAt": {"type": "string", "format": "date-time"}
       },
       "additionalProperties": false
@@ -239,7 +241,7 @@
     },
     "batchManifest": {
       "type": "object",
-      "required": ["schemaVersion", "batchId", "phase", "seed", "createdAt", "implementationSha", "harnessSha", "sourceRef", "evidenceSchemaSha256", "sourceSpecSha256", "faultCatalogVersion", "faultCatalogSha256", "workloadVersion", "workloadDefinitionsSha256", "pilotRunsExcludedFromFinalAggregates", "runs"],
+      "required": ["schemaVersion", "batchId", "phase", "seed", "createdAt", "implementationSha", "harnessSha", "sourceRef", "evidenceSchemaSha256", "sourceSpecSha256", "faultCatalogVersion", "faultCatalogSha256", "workloadVersion", "workloadDefinitionsSha256", "pilotRunsExcludedFromFinalAggregates", "e0GateSha256", "runs"],
       "properties": {
         "schemaVersion": {"const": 1},
         "batchId": {"type": "string", "maxLength": 128},
@@ -256,7 +258,42 @@
         "workloadVersion": {"type": "string", "maxLength": 64},
         "workloadDefinitionsSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "pilotRunsExcludedFromFinalAggregates": {"type": "boolean"},
+        "e0GateSha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
         "runs": {"type": "array", "items": {"$ref": "#/$defs/batchRun"}}
+      },
+      "additionalProperties": false
+    },
+    "e0GateRecord": {
+      "type": "object",
+      "required": ["id", "status", "exitCode", "durationMs", "logSha256"],
+      "properties": {
+        "id": {"enum": ["syntax", "full-unit", "focused-recovery", "test-all"]},
+        "status": {"enum": ["PASS", "FAIL"]},
+        "exitCode": {"type": "integer"},
+        "durationMs": {"type": "number", "minimum": 0},
+        "logSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "tests": {"type": ["integer", "null"], "minimum": 0},
+        "passed": {"type": ["integer", "null"], "minimum": 0},
+        "failed": {"type": ["integer", "null"], "minimum": 0},
+        "skipped": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "e0Gate": {
+      "type": "object",
+      "required": ["schemaVersion", "runId", "branch", "implementationSha", "runtime", "os", "tempVolume", "startedAt", "finishedAt", "gates", "passed"],
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "runId": {"type": "string", "maxLength": 128},
+        "branch": {"type": "string", "maxLength": 128},
+        "implementationSha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+        "runtime": {"type": "string", "maxLength": 64},
+        "os": {"type": "string", "maxLength": 160},
+        "tempVolume": {"const": "D:"},
+        "startedAt": {"type": "string", "format": "date-time"},
+        "finishedAt": {"type": "string", "format": "date-time"},
+        "gates": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/e0GateRecord"}},
+        "passed": {"type": "boolean"}
       },
       "additionalProperties": false
     }
