@@ -9,7 +9,13 @@ const path = require('node:path')
 const evidence = require('../../scripts/lib/engineering-recovery-evidence.cjs')
 
 function tempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'engineering-evidence-'))
+  const root = os.tmpdir()
+  if (process.platform === 'win32' && path.parse(root).root.toLowerCase() !== 'd:\\') {
+    // CI has no user-selected D: drive. This explicit exception applies only to
+    // disposable unit fixtures; the executable evidence runner remains D:-only.
+    process.env.HNS_EVIDENCE_TEST_ALLOW_NON_D = '1'
+  }
+  return fs.mkdtempSync(path.join(root, 'engineering-evidence-'))
 }
 
 function passingEvents(run, ids = {}) {

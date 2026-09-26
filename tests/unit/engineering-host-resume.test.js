@@ -19,7 +19,9 @@ const ROOT = path.resolve(__dirname, '..', '..')
 const OWNER = { instanceId: 'test-runtime', pid: 7501, processIdentity: 'test-process-start' }
 
 function tempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'eng-host-resume-'))
+  const fixtureRoot = path.join(ROOT, 'runtime', 'engineering', 'test-fixtures')
+  fs.mkdirSync(fixtureRoot, { recursive: true })
+  return fs.mkdtempSync(path.join(fixtureRoot, 'eng-host-resume-'))
 }
 
 function makeStores(root) {

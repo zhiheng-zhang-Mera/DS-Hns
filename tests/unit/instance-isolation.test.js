@@ -269,12 +269,12 @@ test('the repository checkout resolves to a real, instance-specific layout', () 
   assert.equal(resolved.isolated, false)
 })
 
-test('a root that does not exist yet keeps the caller spelling the filesystem will use', () => {
+test('a root that does not exist yet keeps its caller tail under the canonical existing ancestor', () => {
   const dir = scratch()
   const mixed = path.join(dir, 'MixedCaseRoot-ABC', 'checkout')
   const resolved = instance.describeInstance({ root: mixed, dshHome: path.join(dir, 'data') })
-  // Lower-casing a path and then opening it works on a case-insensitive volume and
-  // silently fails on a case-sensitive one, so the spelling must survive.
-  assert.equal(resolved.root, mixed)
+  // The existing prefix is normalized by the filesystem (which may turn an
+  // 8.3 alias into its long name); missing segments keep the caller's spelling.
+  assert.equal(resolved.root, path.join(instance.resolveRoot(dir), 'MixedCaseRoot-ABC', 'checkout'))
   assert.equal(fs.existsSync(dir), true)
 })

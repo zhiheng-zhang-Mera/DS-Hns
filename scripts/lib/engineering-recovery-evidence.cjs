@@ -282,7 +282,9 @@ function requireDVolume(target, label = 'evidence root') {
   const value = path.resolve(String(target || ''))
   const root = path.parse(value).root
   if (process.platform === 'win32') {
-    if (!/^d:\\$/i.test(root)) throw Object.assign(new Error(`${label} must be on D:`), { code: 'EVIDENCE_ROOT_NOT_D' })
+    if (!/^d:\\$/i.test(root) && process.env.HNS_EVIDENCE_TEST_ALLOW_NON_D !== '1') {
+      throw Object.assign(new Error(`${label} must be on D:`), { code: 'EVIDENCE_ROOT_NOT_D' })
+    }
   } else if (process.env.HNS_EVIDENCE_TEST_ALLOW_NON_D !== '1') {
     throw Object.assign(new Error(`${label} must be on the configured D: volume`), { code: 'EVIDENCE_ROOT_NOT_D' })
   }
