@@ -75,11 +75,26 @@ function createMutationLog(options = {}) {
   const owned = new Set()
   const mutations = []
   let sequence = 0
+  const onChange = typeof options.onChange === 'function' ? options.onChange : null
 
   function record(entry) {
-    mutations.push(entry)
+    const existing = mutations.findIndex((candidate) => candidate.id === entry.id)
+    if (existing < 0) mutations.push(entry)
+    else mutations[existing] = entry
     if (mutations.length > ringSize) mutations.splice(0, mutations.length - ringSize)
     return entry
+  }
+
+  function notifyChange(entry, phase) {
+    if (!onChange) return { ok: true }
+    try {
+      const result = onChange(JSON.parse(JSON.stringify(entry)), phase)
+      return result && result.ok === false
+        ? { ok: false, reason: String(result.reason || 'the mutation journal did not persist') }
+        : { ok: true }
+    } catch (error) {
+      return { ok: false, reason: String(error && error.message ? error.message : error) }
+    }
   }
 
   /** Is this path inside the repository the episode was given? */
@@ -144,6 +159,29 @@ function createMutationLog(options = {}) {
       dryRun: input.dryRun === true
     }
 
+    const encoding = input.encoding || 'utf8'
+    entry.encoding = encoding
+    switch (kind) {
+      case MUTATION_KINDS.WRITE:
+      case MUTATION_KINDS.CREATE: {
+        const content = input.content === undefined || input.content === null ? '' : String(input.content)
+        const bytes = Buffer.from(content, encoding)
+        entry.intended = { bytes: bytes.length, hash: hashContent(bytes) }
+        break
+      }
+      case MUTATION_KINDS.DELETE:
+        entry.intended = { absent: true }
+        break
+      case MUTATION_KINDS.MKDIR:
+        entry.intended = { directory: true }
+        break
+      case MUTATION_KINDS.MOVE:
+        entry.intended = input.to ? { movedTo: path.resolve(String(input.to)) } : null
+        break
+      default:
+        entry.intended = null
+    }
+
     if (!target) {
       entry.result = MUTATION_RESULTS.FAILED
       entry.verification = { ok: false, reason: 'the mutation names no path' }
@@ -157,23 +195,31 @@ function createMutationLog(options = {}) {
     }
     if (entry.dryRun) return record(entry)
 
+    // Persist the intended postcondition before touching disk. If the process is
+    // killed during the operation, a new runtime can compare this hash/path intent
+    // with the world and reconcile it instead of blindly repeating the write.
+    record(entry)
+    const journaled = notifyChange(entry, 'before')
+    if (!journaled.ok) {
+      entry.result = MUTATION_RESULTS.FAILED
+      entry.verification = { ok: false, reason: `the mutation was not applied because its intent could not be checkpointed: ${journaled.reason}` }
+      return record(entry)
+    }
+
     try {
       switch (kind) {
         case MUTATION_KINDS.WRITE:
         case MUTATION_KINDS.CREATE: {
           const content = input.content === undefined || input.content === null ? '' : String(input.content)
           fs.mkdirSync(path.dirname(target), { recursive: true })
-          fs.writeFileSync(target, content, input.encoding || 'utf8')
-          entry.intended = { bytes: Buffer.byteLength(content, input.encoding || 'utf8'), hash: hashContent(Buffer.from(content, input.encoding || 'utf8')) }
+          fs.writeFileSync(target, content, encoding)
           break
         }
         case MUTATION_KINDS.DELETE: {
-          entry.intended = { absent: true }
           fs.rmSync(target, { recursive: input.recursive === true, force: true })
           break
         }
         case MUTATION_KINDS.MKDIR: {
-          entry.intended = { directory: true }
           fs.mkdirSync(target, { recursive: true })
           break
         }
@@ -188,7 +234,6 @@ function createMutationLog(options = {}) {
           }
           fs.mkdirSync(path.dirname(destination), { recursive: true })
           fs.renameSync(target, destination)
-          entry.intended = { movedTo: destination }
           break
         }
         default:
@@ -216,7 +261,10 @@ function createMutationLog(options = {}) {
       entry.result = MUTATION_RESULTS.FAILED
     }
     entry.durationMs = now() - startedAt
-    return record(entry)
+    record(entry)
+    const settled = notifyChange(entry, 'after')
+    if (!settled.ok) entry.journalWarning = settled.reason
+    return entry
   }
 
   /**
@@ -276,8 +324,17 @@ function createMutationLog(options = {}) {
    */
   function resume(entry) {
     if (!entry) return { verdict: 'retry', verified: false, reason: 'no mutation to resume' }
+    const tracked = mutations.find((candidate) => candidate.id === entry.id) || entry
     const observed = verify(entry)
     if (observed.ok) {
+      tracked.result = MUTATION_RESULTS.ALREADY_COMPLETE
+      tracked.verification = observed
+      tracked.after = tracked.kind === MUTATION_KINDS.MOVE ? hashFile(tracked.to) : hashFile(tracked.path)
+      owned.add(path.resolve(tracked.path))
+      if (tracked.to) owned.add(path.resolve(tracked.to))
+      record(tracked)
+      const journaled = notifyChange(tracked, 'after')
+      if (!journaled.ok) tracked.journalWarning = journaled.reason
       return { verdict: MUTATION_RESULTS.ALREADY_COMPLETE, verified: true, reason: `the effect is already on disk: ${observed.reason}`, observed }
     }
     if (entry.kind === MUTATION_KINDS.WRITE || entry.kind === MUTATION_KINDS.CREATE) {
@@ -303,6 +360,34 @@ function createMutationLog(options = {}) {
   /** Mutations whose result was never settled: the resume candidates. */
   function pending() {
     return mutations.filter((entry) => entry.result === MUTATION_RESULTS.PENDING)
+  }
+
+  /** Restore a checkpointed mutation journal without applying any operation. */
+  function restore(entries) {
+    if (!Array.isArray(entries)) return { ok: false, code: 'MUTATION_JOURNAL_INVALID', reason: 'saved mutations must be an array' }
+    const restored = []
+    const seen = new Set()
+    const validKinds = new Set(Object.values(MUTATION_KINDS))
+    const validResults = new Set(Object.values(MUTATION_RESULTS))
+    for (const entry of entries) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+        typeof entry.id !== 'string' || !/^m[1-9]\d*$/.test(entry.id) || seen.has(entry.id) ||
+        !validKinds.has(entry.kind) || typeof entry.path !== 'string' || !path.isAbsolute(entry.path) ||
+        !validResults.has(entry.result)) {
+        return { ok: false, code: 'MUTATION_JOURNAL_INVALID', reason: 'a saved mutation entry is malformed or duplicated' }
+      }
+      seen.add(entry.id)
+      restored.push(JSON.parse(JSON.stringify(entry)))
+    }
+    for (const entry of restored) {
+      record(entry)
+      sequence = Math.max(sequence, Number(entry.id.slice(1)))
+      if (entry.result === MUTATION_RESULTS.APPLIED || entry.result === MUTATION_RESULTS.ALREADY_COMPLETE) {
+        owned.add(path.resolve(entry.path))
+        if (entry.to) owned.add(path.resolve(entry.to))
+      }
+    }
+    return { ok: true, restored: restored.length }
   }
 
   /** Files the episode changed, relative to the workspace when one is known. */
@@ -339,6 +424,7 @@ function createMutationLog(options = {}) {
     apply,
     verify,
     resume,
+    restore,
     all,
     applied,
     pending,

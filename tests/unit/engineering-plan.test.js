@@ -13,7 +13,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const plan = require('../../app/engineering/plan.cjs')
-const { buildPlan, nextStep, advance, PLAN_KINDS, PLAN_KIND_LIST } = plan
+const { buildPlan, restorePlan, nextStep, advance, PLAN_KINDS, PLAN_KIND_LIST } = plan
 const { OPERATIONS } = require('../../app/engineering/discovery.cjs')
 
 /** A discovery record with every operation the templates can ask for. */
@@ -318,6 +318,37 @@ test('nextStep returns the cursor step and skips the steps already complete', ()
   assert.equal(built.markedComplete(built.steps[2].id).ok, true)
   advance(built, built.steps[1].id, { ok: true })
   assert.equal(nextStep(built).id, built.steps[3].id, 'a step already complete is never executed twice')
+})
+
+test('restorePlan restores the exact serialized steps and starts after the verified prefix', () => {
+  const original = buildPlan({
+    goal: 'continue the episode',
+    discovery: discoveryWith({}),
+    inputs: { steps: [{ kind: 'inspect' }, { kind: 'report' }] }
+  })
+  const serialized = {
+    version: 1,
+    id: original.id,
+    goal: original.goal,
+    intent: original.intent,
+    createdAt: original.createdAt,
+    steps: original.steps.map((step) => ({ ...step })),
+    budget: { ...original.budget },
+    reasons: original.reasons.slice()
+  }
+  const cursor = {
+    nextStepIndex: 1,
+    lastVerifiedStepId: original.steps[0].id,
+    verifiedStepIds: [original.steps[0].id],
+    skippedStepIds: []
+  }
+
+  const restored = restorePlan({ plan: serialized, cursor })
+  assert.equal(restored.ok, true, restored.reason)
+  assert.deepEqual(restored.plan.steps, serialized.steps)
+  assert.equal(restored.plan.cursor, 1)
+  assert.equal(nextStep(restored.plan).id, original.steps[1].id)
+  assert.deepEqual(restored.plan.verifiedStepIds(), [original.steps[0].id])
 })
 
 test('the cursor refuses to advance a step that is not the current one', () => {

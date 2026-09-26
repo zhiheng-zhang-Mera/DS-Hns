@@ -33,6 +33,7 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const repository = require('./repository.cjs')
+const { validateRecoveryDescriptor } = require('./recovery-schema.cjs')
 
 /** The checkpoint format's version: a reader that does not know it must refuse. */
 const CHECKPOINT_VERSION = 2
@@ -611,6 +612,12 @@ function createCheckpointStore(options = {}) {
           }
         }
       : null
+    if (recovery) {
+      const validation = validateRecoveryDescriptor(recovery, { episodeId })
+      if (!validation.ok) {
+        return { ok: false, path: null, bytes: 0, reason: validation.reason, code: validation.code }
+      }
+    }
     const record = {
       version: CHECKPOINT_VERSION,
       episodeId,

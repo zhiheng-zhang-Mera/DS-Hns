@@ -671,6 +671,43 @@ function buildPlan(input = {}) {
     return steps.find((candidate) => candidate.id === stepId) || null
   }
 
+  function verifiedStepIds() {
+    return steps.filter((step) => {
+      const saved = completionById.get(step.id)
+      return Boolean(saved && saved.outcome && saved.outcome.ok === true)
+    }).map((step) => step.id)
+  }
+
+  function skippedStepIds() {
+    return optionalFailures.map((entry) => entry.id)
+  }
+
+  function restoreState(snapshot, cursor) {
+    if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.steps) || !cursor || typeof cursor !== 'object') {
+      return { ok: false, reason: 'a serialized plan and recovery cursor are required' }
+    }
+    steps.splice(0, steps.length, ...snapshot.steps.map((step) => JSON.parse(JSON.stringify(step))))
+    plan.id = String(snapshot.id)
+    plan.goal = String(snapshot.goal)
+    plan.intent = String(snapshot.intent)
+    plan.createdAt = snapshot.createdAt
+    budget.maxSteps = snapshot.budget.maxSteps
+    reasons.splice(0, reasons.length, ...snapshot.reasons)
+    for (const stepId of cursor.verifiedStepIds) {
+      const result = markedComplete(stepId)
+      if (!result.ok) return result
+      const saved = completionById.get(stepId)
+      saved.outcome = { ok: true, resumed: true }
+    }
+    for (const stepId of cursor.skippedStepIds) {
+      const step = steps.find((candidate) => candidate.id === stepId)
+      if (!step || step.optional !== true) return { ok: false, reason: `only an optional step may be restored as skipped: ${stepId}` }
+      optionalFailures.push({ id: stepId, kind: step.kind, reason: 'restored from a checkpointed optional skip', at: now() })
+    }
+    plan.cursor = cursor.nextStepIndex
+    return { ok: true, plan }
+  }
+
   /** The recorded completion of one step, or null. */
   function outcomeOf(stepId) {
     return completionById.get(stepId) || null
@@ -719,6 +756,9 @@ function buildPlan(input = {}) {
     optionalFailed,
     stepById,
     outcomeOf,
+    verifiedStepIds,
+    skippedStepIds,
+    restoreState,
     progress,
     evidence,
     expectsMet,
@@ -755,6 +795,62 @@ function nextStep(plan) {
   return plan.nextStep()
 }
 
+/** Rehydrate the exact saved plan without re-discovery or command normalization. */
+function restorePlan(input = {}) {
+  const snapshot = input.plan
+  const cursor = input.cursor
+  if (!snapshot || typeof snapshot !== 'object' || snapshot.version !== 1 ||
+    typeof snapshot.id !== 'string' || !snapshot.id || typeof snapshot.goal !== 'string' ||
+    typeof snapshot.intent !== 'string' || !Number.isFinite(snapshot.createdAt) ||
+    !Array.isArray(snapshot.steps) || snapshot.steps.length > 1000 ||
+    !snapshot.budget || !Number.isInteger(snapshot.budget.maxSteps) || snapshot.budget.maxSteps < snapshot.steps.length ||
+    !Array.isArray(snapshot.reasons) || snapshot.reasons.some((reason) => typeof reason !== 'string')) {
+    return { ok: false, code: 'PLAN_INVALID', reason: 'the saved plan is not a supported complete plan descriptor' }
+  }
+  if (!cursor || typeof cursor !== 'object' || !Number.isInteger(cursor.nextStepIndex) ||
+    cursor.nextStepIndex < 0 || cursor.nextStepIndex > snapshot.steps.length ||
+    !Array.isArray(cursor.verifiedStepIds) || !Array.isArray(cursor.skippedStepIds)) {
+    return { ok: false, code: 'CURSOR_INVALID', reason: 'the saved plan cursor is malformed' }
+  }
+
+  const ids = new Set()
+  for (const step of snapshot.steps) {
+    if (!step || typeof step !== 'object' || typeof step.id !== 'string' || !step.id || ids.has(step.id) ||
+      !PLAN_KIND_LIST.includes(step.kind) ||
+      (step.args !== undefined && (!Array.isArray(step.args) || step.args.some((arg) => typeof arg !== 'string')))) {
+      return { ok: false, code: 'PLAN_STEP_INVALID', reason: 'a saved step is malformed or uses an unsupported kind' }
+    }
+    ids.add(step.id)
+  }
+  for (const field of ['verifiedStepIds', 'skippedStepIds']) {
+    const values = cursor[field]
+    if (values.some((id) => typeof id !== 'string' || !ids.has(id)) || new Set(values).size !== values.length) {
+      return { ok: false, code: 'CURSOR_INVALID', reason: `${field} contains an unknown or duplicate step id` }
+    }
+  }
+  const verified = new Set(cursor.verifiedStepIds)
+  const skipped = new Set(cursor.skippedStepIds)
+  if ([...verified].some((id) => skipped.has(id))) return { ok: false, code: 'CURSOR_INVALID', reason: 'a saved step cannot be both verified and skipped' }
+  let safeNext = 0
+  while (safeNext < snapshot.steps.length) {
+    const id = snapshot.steps[safeNext].id
+    if (!verified.has(id) && !skipped.has(id)) break
+    safeNext += 1
+  }
+  if (cursor.nextStepIndex !== safeNext) return { ok: false, code: 'CURSOR_UNVERIFIED', reason: 'the saved cursor skips a step without verified evidence' }
+  const last = cursor.lastVerifiedStepId
+  const expectedLast = snapshot.steps.slice(0, safeNext).map((step) => step.id).reverse().find((id) => verified.has(id)) || null
+  if (last !== expectedLast) {
+    return { ok: false, code: 'CURSOR_INVALID', reason: 'lastVerifiedStepId does not name a verified step before the cursor' }
+  }
+  if (cursor.skippedStepIds.some((id) => snapshot.steps.find((step) => step.id === id).optional !== true)) {
+    return { ok: false, code: 'CURSOR_INVALID', reason: 'only optional steps may be restored as skipped' }
+  }
+
+  const plan = buildPlan({ goal: '', inputs: { steps: [] }, maxSteps: snapshot.budget.maxSteps })
+  return plan.restoreState(snapshot, cursor)
+}
+
 /**
  * Settle the plan's current step with its outcome.
  *
@@ -778,6 +874,7 @@ module.exports = {
   DEFAULT_MAX_STEPS,
   DEFAULT_TIMEOUT_MS,
   buildPlan,
+  restorePlan,
   nextStep,
   advance,
   normalizeStep,

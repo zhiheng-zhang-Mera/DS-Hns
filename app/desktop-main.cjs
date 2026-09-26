@@ -1567,20 +1567,23 @@ function ensureReboot() {
           return { running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
         },
         suspend: async () => {
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          const cancelled = engineeringHost.cancel({ reason: 'a scheduled restart is waiting for a parkable phase' })
+          if (!engineeringEnabled()) return { ok: false, reason: 'the engineering runtime is disabled in this build' }
+          const host = ensureEngineeringHost()
+          const cancelled = host.cancel({ reason: 'a scheduled restart is waiting for a parkable phase', preserveForResume: true })
           if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
-          return { ok: true, detail: 'the episode stopped at a step boundary and checkpointed' }
+          const report = await host.settled()
+          return { ok: true, detail: report && report.result === 'CANCELLED' ? 'the same episode stopped at a safe boundary and retained an ACTIVE recovery checkpoint' : 'the episode reached a terminal or parkable checkpoint' }
         },
         resume: async (intent) => {
-          const request = intent && intent.targetState && intent.targetState.request
-          if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-          if (!request || !request.workspace || !request.goal) {
-            return { ok: false, reason: 'the episode was not recorded with a repository and a goal, so it cannot be resumed automatically' }
+          if (!engineeringEnabled()) return { ok: false, reason: 'the engineering runtime is disabled in this build' }
+          const host = ensureEngineeringHost()
+          const episodeId = intent && intent.targetState && intent.targetState.episode
+          const resumed = await host.resume({ episodeId, trigger: 'planned_restart' })
+          if (resumed && resumed.ok === false) return { ok: false, reason: resumed.error || resumed.reason || 'the episode could not be resumed', code: resumed.code }
+          return {
+            ok: true,
+            detail: resumed.resumed ? `the same episode resumed from checkpoint ${resumed.checkpointSeq}` : 'the episode was already terminal; no work needed resuming'
           }
-          const started = engineeringHost.run({ workspace: request.workspace, goal: request.goal, reason: 'continuing after a scheduled restart' })
-          if (started && started.ok === false) return { ok: false, reason: started.error || 'the episode could not be restarted' }
-          return { ok: true, detail: 'the episode resumed from its last checkpoint' }
         }
       }
     }
@@ -2825,9 +2828,18 @@ app.whenReady().then(async () => {
     // one that followed a planned restart, the suspended task continues here.
     registerRebootIpc()
     startRebootTicker()
-    startup.defer('workspace-restored', () => ensureReboot().resumeOnStartup())
+    startup.defer('workspace-restored', async () => {
+      const planned = await ensureReboot().resumeOnStartup()
+      const plannedEngineering = planned && planned.intent && planned.intent.target && planned.intent.target.kind === 'engineering'
+      if (plannedEngineering) return planned
+      if (!engineeringEnabled()) return planned
+      const crashRecovery = await ensureEngineeringHost().resumeLatest({ trigger: 'unclean_exit' })
+      if (crashRecovery && crashRecovery.resumed) logLine(`engineering automatic recovery accepted: ${JSON.stringify(crashRecovery)}`)
+      else if (crashRecovery && crashRecovery.code !== 'NO_ACTIVE_EPISODE') logLine(`engineering automatic recovery refused: ${JSON.stringify(crashRecovery)}`)
+      return { planned, crashRecovery }
+    })
       .then((outcome) => {
-        if (outcome?.value?.resumed || outcome?.value?.reports?.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.value.reports)}`)
+        if (outcome?.value?.planned?.resumed || outcome?.value?.planned?.reports?.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.value.planned.reports)}`)
       })
       // No `.catch`: `defer` answers, it does not reject — a failed resume is already reported as its
       // own phase, and a second error path here would be a second story about one event.

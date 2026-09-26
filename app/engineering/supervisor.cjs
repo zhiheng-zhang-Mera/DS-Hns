@@ -34,7 +34,6 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const crypto = require('node:crypto')
 
 const { EPISODE_PHASES, createEpisodeStateMachine } = require('./episode.cjs')
 const repository = require('./repository.cjs')
@@ -43,15 +42,17 @@ const { createMutationLog, MUTATION_KINDS } = require('./mutation.cjs')
 const { classify, createRepairTracker, FAILURE_CLASSES } = require('./failure.cjs')
 const { createProcessSupervisor, PROCESS_CLASS } = require('./process.cjs')
 const { createScheduler, deadlineState } = require('./scheduler.cjs')
-const { buildPlan, nextStep, advance, PLAN_KINDS } = require('./plan.cjs')
+const { buildPlan, restorePlan, nextStep, advance, PLAN_KINDS } = require('./plan.cjs')
 const { createVerifier, VERIFICATION_LEVELS } = require('./verifier.cjs')
 const { createGitController, DEFAULT_GIT_POLICY } = require('./git.cjs')
 const { createResultValidator, collectLeaks, workspaceStillValid } = require('./result.cjs')
 const { createEpisodeContext } = require('./context.cjs')
 const { createCheckpointStore, verifyResume } = require('./checkpoint.cjs')
 const { createRecoveryStore, RECOVERY_STATES } = require('./recovery-store.cjs')
+const { computePlanDigest, validateRecoveryDescriptor, EXECUTOR_COMPATIBILITY, RECOVERY_PLAN_VERSION } = require('./recovery-schema.cjs')
 const { createWorkspaceLock } = require('./locking.cjs')
 const { resolveAutonomy, createEngineeringAutonomy } = require('./autonomy.cjs')
+const { hashContent } = require('./mutation.cjs')
 
 /** The statuses one plan step can end in. */
 const STEP_OUTCOMES = Object.freeze({
@@ -73,7 +74,6 @@ const EPISODE_DEFAULTS = Object.freeze({
   maxParkedMs: 10 * 60_000
 })
 
-const EXECUTOR_COMPATIBILITY = 'engineering-v1'
 const RECOVERY_CONTRACT_FIELDS = Object.freeze([
   'autonomyEnabled', 'autonomyLimits', 'commands', 'deadlineMs', 'focus', 'hypothesis',
   'keepProcesses', 'lockWorkspace', 'maxHypotheses', 'maxRepairRounds', 'maxSteps',
@@ -107,25 +107,11 @@ function sanitizedRecoveryContract(contract) {
   return output
 }
 
-function canonicalize(value) {
-  if (Array.isArray(value)) return value.map(canonicalize)
-  if (!value || typeof value !== 'object') return value
-  const output = {}
-  for (const key of Object.keys(value).sort()) {
-    if (value[key] !== undefined && typeof value[key] !== 'function') output[key] = canonicalize(value[key])
-  }
-  return output
-}
-
-function planDigest(plan) {
-  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(plan)), 'utf8').digest('hex')}`
-}
-
 function recoveryPlan(plan) {
   if (!plan) return null
   const snapshot = plan.toJSON()
   return {
-    version: 1,
+    version: RECOVERY_PLAN_VERSION,
     id: snapshot.id,
     goal: snapshot.goal,
     intent: snapshot.intent,
@@ -138,10 +124,8 @@ function recoveryPlan(plan) {
 
 function recoveryCursor(plan) {
   if (!plan) return { nextStepIndex: 0, lastVerifiedStepId: null, verifiedStepIds: [], skippedStepIds: [] }
-  const verified = new Set(plan.completed
-    .filter((entry) => entry && entry.outcome && entry.outcome.ok === true)
-    .map((entry) => entry.id))
-  const skipped = new Set(plan.optionalFailures.map((entry) => entry.id))
+  const verified = new Set(plan.verifiedStepIds())
+  const skipped = new Set(plan.skippedStepIds())
   let nextStepIndex = 0
   while (nextStepIndex < plan.steps.length) {
     const stepId = plan.steps[nextStepIndex].id
@@ -248,6 +232,7 @@ function createEngineeringSupervisor(input = {}) {
   let stallLevel = 0
   let status = 'idle'
   let report = null
+  let recoveryClaimAcquired = input.recoveryClaimAcquired === true
   let lastProgressAt = null
   let lastActionAt = null
   let lastVerifiedEffectAt = null
@@ -286,8 +271,9 @@ function createEngineeringSupervisor(input = {}) {
    * instructions and capture the baseline.
    */
   function initialize() {
-    startedAt = now()
-    deadline = startedAt + budget.deadlineMs
+    const savedRecovery = input.recoveryCheckpoint && input.recoveryCheckpoint.recovery
+    startedAt = savedRecovery ? savedRecovery.request.startedAt : now()
+    deadline = savedRecovery ? savedRecovery.request.deadlineAt : startedAt + budget.deadlineMs
     context.setLive({ goal: input.goal, phase: EPISODE_PHASES.INITIALIZING })
 
     const verified = repository.verifyWorkspace(input.workspace, { requireGit: contract.requireGit === true })
@@ -307,7 +293,15 @@ function createEngineeringSupervisor(input = {}) {
 
     // The baseline: what was already dirty belongs to the user and is off limits.
     const preExisting = [...snapshot.git.modified, ...snapshot.git.staged, ...snapshot.git.untracked, ...snapshot.git.conflicted]
-    mutations = createMutationLog({ now, protectedFiles: preExisting.map((file) => path.join(workspace, file)) })
+    mutations = createMutationLog({
+      now,
+      protectedFiles: preExisting.map((file) => path.join(workspace, file)),
+      onChange: (entry, phase) => checkpoint(`mutation-${phase}:${entry.id}`)
+    })
+    if (input.recoveryCheckpoint) {
+      const restored = mutations.restore(input.recoveryCheckpoint.verifiedMutations || [])
+      if (!restored.ok) return { ok: false, reason: restored.reason || restored.code }
+    }
     git = createGitController({ root: workspace, policy: { ...DEFAULT_GIT_POLICY, ...(input.policy || {}) }, now })
     verifier = createVerifier({ supervisor, workspace, discovery: { commands }, now })
 
@@ -326,13 +320,27 @@ function createEngineeringSupervisor(input = {}) {
 
     // A crash-resume: if a checkpoint exists for this episode, say what it holds so
     // the caller can decide to resume instead of restarting.
-    const checkpoint = checkpoints.latest(episodeId)
-    return { ok: true, resumedFrom: checkpoint ? checkpoint.at : null, baseline: { head: snapshot.git.head, branch: snapshot.git.branch, dirtyFiles: preExisting } }
+    const existingCheckpoint = checkpoints.latest(episodeId)
+    return { ok: true, resumedFrom: existingCheckpoint ? existingCheckpoint.at : null, baseline: { head: snapshot.git.head, branch: snapshot.git.branch, dirtyFiles: preExisting } }
   }
 
   /** Build the bounded plan from the goal, the discovery and the contract. */
   function makePlan() {
     transition(EPISODE_PHASES.PLANNING, { reason: 'baseline captured' })
+    if (input.recoveryCheckpoint) {
+      const restored = restorePlan({
+        plan: input.recoveryCheckpoint.recovery.plan,
+        cursor: input.recoveryCheckpoint.recovery.cursor,
+        now
+      })
+      if (!restored.ok) {
+        log({ type: 'recovery-plan-restore-failed', code: restored.code, reason: restored.reason })
+        return null
+      }
+      plan = restored.plan
+      context.recordDecision({ kind: 'resume-plan', detail: { cursor: plan.cursor, steps: plan.steps.length }, result: 'restored the verified plan prefix' })
+      return plan
+    }
     plan = buildPlan({
       goal: input.goal,
       discovery: { commands },
@@ -502,6 +510,16 @@ function createEngineeringSupervisor(input = {}) {
     const refused = []
     for (const file of patch.files) {
       const target = path.isAbsolute(file.path) ? file.path : path.join(workspace, file.path)
+      const wantedHash = hashContent(Buffer.from(file.content === undefined ? '' : String(file.content), 'utf8'))
+      const settledMutation = mutations.all().slice().reverse().find((entry) =>
+        entry.step === step.id && entry.path === target &&
+        (entry.result === 'applied' || entry.result === 'already_complete') &&
+        (file.delete === true ? entry.kind === MUTATION_KINDS.DELETE && !fs.existsSync(target)
+          : entry.kind !== MUTATION_KINDS.DELETE && entry.intended && entry.intended.hash === wantedHash))
+      if (settledMutation) {
+        applied.push({ path: settledMutation.relative, hash: settledMutation.after, result: 'already_complete' })
+        continue
+      }
       const mutation = mutations.apply({
         kind: file.delete === true ? MUTATION_KINDS.DELETE : (fs.existsSync(target) ? MUTATION_KINDS.WRITE : MUTATION_KINDS.CREATE),
         path: target,
@@ -639,10 +657,11 @@ function createEngineeringSupervisor(input = {}) {
   function checkpoint(reason) {
     try {
       const serializedPlan = recoveryPlan(plan)
+      const preserveActiveAfterCancel = status === 'cancelled' && typeof input.preserveRecoveryOnCancel === 'function' && input.preserveRecoveryOnCancel() === true
       const lifecycleState = reason === 'completed' || status === 'completed'
         ? RECOVERY_STATES.COMPLETED
         : (reason === 'cancelled' || status === 'cancelled'
-            ? RECOVERY_STATES.CANCELLED
+            ? (preserveActiveAfterCancel ? RECOVERY_STATES.ACTIVE : RECOVERY_STATES.CANCELLED)
             : (reason === 'blocked' || reason === 'failed' || status === 'blocked' || status === 'failed'
                 ? RECOVERY_STATES.RECOVERY_BLOCKED
                 : RECOVERY_STATES.ACTIVE))
@@ -673,7 +692,7 @@ function createEngineeringSupervisor(input = {}) {
             contract: sanitizedRecoveryContract(contract)
           },
           plan: serializedPlan,
-          planDigest: serializedPlan ? planDigest(serializedPlan) : null,
+          planDigest: serializedPlan ? computePlanDigest(serializedPlan) : null,
           cursor: recoveryCursor(plan),
           fingerprint: snapshot ? snapshot.fingerprint : null,
           verifiedMutationIds: mutations ? mutations.applied().map((entry) => entry.id) : [],
@@ -687,8 +706,24 @@ function createEngineeringSupervisor(input = {}) {
       })
       if (!saved.ok) return saved
       const indexed = recoveryStore.recordCheckpoint({ episodeId, checkpointPath: saved.path })
-      if (!indexed.ok) log({ type: 'recovery-index-update-failed', episode: episodeId, code: indexed.code, reason: indexed.reason })
-      return { ...saved, recoveryIndex: indexed }
+      if (!indexed.ok) {
+        log({ type: 'recovery-index-update-failed', episode: episodeId, code: indexed.code, reason: indexed.reason })
+        return { ...saved, recoveryIndex: indexed, ok: false, code: indexed.code, reason: indexed.reason }
+      }
+      const latest = checkpoints.latest(episodeId)
+      if (!recoveryClaimAcquired && input.recoveryOwner && latest && latest.recovery && latest.recovery.lifecycleState === RECOVERY_STATES.ACTIVE) {
+        const claimed = recoveryStore.acquireClaim({
+          episodeId,
+          checkpointSeq: latest.recovery.cursor.checkpointSeq,
+          owner: input.recoveryOwner
+        })
+        if (!claimed.ok) {
+          log({ type: 'recovery-claim-refused', episode: episodeId, code: claimed.code, reason: claimed.reason })
+          return { ...saved, recoveryIndex: indexed, ok: false, code: claimed.code, reason: claimed.reason }
+        }
+        recoveryClaimAcquired = true
+      }
+      return { ...saved, recoveryIndex: indexed, recovery: latest && latest.recovery ? latest.recovery : null }
     } catch (error) {
       log({ type: 'checkpoint-failed', reason: String(error && error.message ? error.message : error) })
       return { ok: false, reason: String(error && error.message ? error.message : error) }
@@ -785,8 +820,68 @@ function createEngineeringSupervisor(input = {}) {
       return report
     }
 
-    makePlan()
-    checkpoint('planned')
+    const builtPlan = makePlan()
+    if (!builtPlan) {
+      finishedAt = now()
+      status = 'blocked'
+      lock.release()
+      report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: ['the saved execution plan could not be restored safely'], checks: [] })
+      return report
+    }
+    if (input.recoveryCheckpoint) {
+      const descriptor = validateRecoveryDescriptor(input.recoveryCheckpoint.recovery, {
+        episodeId,
+        executorCompatibility: EXECUTOR_COMPATIBILITY
+      })
+      if (!descriptor.ok) {
+        finishedAt = now()
+        status = 'blocked'
+        lock.release()
+        report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [`${descriptor.code}: ${descriptor.reason}`], checks: [] })
+        return report
+      }
+      const resumeVerdict = verifyResume({
+        checkpoint: input.recoveryCheckpoint,
+        workspace,
+        fingerprint: snapshot ? snapshot.fingerprint : null,
+        mutationLog: mutations,
+        processes: input.processes,
+        processExists: input.processExists
+      })
+      if (!resumeVerdict.ok) {
+        finishedAt = now()
+        status = 'blocked'
+        machine.force(EPISODE_PHASES.BLOCKED, resumeVerdict.reasons.join('; '))
+        supervisor.dispose('recovery gate refused')
+        checkpoint('blocked')
+        lock.release()
+        report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: resumeVerdict.reasons, checks: [] })
+        return report
+      }
+      for (const step of plan.steps) {
+        if (step.kind !== PLAN_KINDS.PATCH) continue
+        const entries = mutations.all().filter((entry) => entry.step === step.id)
+        if (entries.length && entries.every((entry) => entry.result === 'applied' || entry.result === 'already_complete')) {
+          plan.markedComplete(step.id)
+        }
+      }
+    }
+    const plannedCheckpoint = checkpoint('planned')
+    if (!plannedCheckpoint.ok || !plannedCheckpoint.recoveryIndex?.ok) {
+      finishedAt = now()
+      status = 'blocked'
+      machine.force(EPISODE_PHASES.BLOCKED, plannedCheckpoint.reason || 'the durable recovery checkpoint or claim could not be established')
+      lock.release()
+      report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [plannedCheckpoint.reason || 'the durable recovery checkpoint or claim could not be established'], checks: [] })
+      return report
+    }
+    if (input.recoveryCheckpoint && typeof input.onAccepted === 'function') {
+      try {
+        input.onAccepted({ episode: episodeId, checkpointSeq: plannedCheckpoint.recovery?.cursor?.checkpointSeq || null, cursor: plannedCheckpoint.recovery?.cursor || null })
+      } catch (error) {
+        log({ type: 'recovery-accept-callback-failed', episode: episodeId, reason: String(error && error.message ? error.message : error) })
+      }
+    }
 
     let repairMode = false
     /**
@@ -831,7 +926,14 @@ function createEngineeringSupervisor(input = {}) {
       const outcome = await runStep(step)
       const record = advance(plan, step.id, { ok: outcome.outcome === STEP_OUTCOMES.SUCCESS, reason: outcome.reason, evidence: outcome.evidence })
       if (!record.ok) log({ type: 'plan-advance-refused', step: step.id, reason: record.reason })
-      checkpoint(`step:${step.id}`)
+      const stepCheckpoint = checkpoint(`step:${step.id}`)
+      if (!stepCheckpoint.ok || !stepCheckpoint.recoveryIndex?.ok) {
+        const reason = stepCheckpoint.reason || 'the verified step cursor could not be durably checkpointed'
+        failures.push({ step: step.id, class: 'RECOVERY_CHECKPOINT', signature: `checkpoint:${step.id}`, reason, at: now() })
+        status = 'blocked'
+        machine.force(EPISODE_PHASES.BLOCKED, reason)
+        break
+      }
 
       if (outcome.outcome === STEP_OUTCOMES.SUCCESS) {
         context.setLive({ currentError: null })
@@ -1040,7 +1142,7 @@ function createEngineeringSupervisor(input = {}) {
     verifyResume(checkpoint) {
       return verifyResume({
         checkpoint,
-        workspace: workspaceStillValid(workspace || input.workspace),
+        workspace: workspace || input.workspace,
         fingerprint: snapshot ? snapshot.fingerprint : null,
         resumeMutation: (entry) => (mutations ? mutations.resume(entry) : { verdict: 'retry', verified: false, reason: 'no mutation log' })
       })

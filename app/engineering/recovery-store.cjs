@@ -9,6 +9,7 @@
 const crypto = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
+const { validateRecoveryDescriptor } = require('./recovery-schema.cjs')
 
 const RECOVERY_INDEX_VERSION = 1
 const RECOVERY_STATES = Object.freeze({
@@ -194,14 +195,22 @@ function createRecoveryStore(options = {}) {
       return errorResult('CHECKPOINT_INVALID', error && error.message ? error.message : error)
     }
     const episodeId = safeEpisodeId(checkpoint && checkpoint.episodeId)
-    const descriptor = checkpoint && checkpoint.recovery
+    let descriptor = checkpoint && checkpoint.recovery
     const sequence = descriptor && descriptor.cursor && descriptor.cursor.checkpointSeq
     if (!checkpoint || checkpoint.version !== 2 || !episodeId ||
       !descriptor || descriptor.version !== 1 || descriptor.episodeId !== episodeId ||
       !Number.isSafeInteger(sequence) || sequence < 1) {
       return errorResult('CHECKPOINT_INVALID', 'the checkpoint does not contain a compatible recovery descriptor')
     }
-    return { ok: true, checkpoint, episodeId, descriptor, sequence, canonicalFile }
+    let lifecycleDiagnostic = null
+    const validation = validateRecoveryDescriptor(descriptor, { episodeId })
+    if (!validation.ok) {
+      lifecycleDiagnostic = `${validation.code}: ${validation.reason}`
+      descriptor = { ...descriptor, lifecycleState: RECOVERY_STATES.RECOVERY_BLOCKED, blockedReason: lifecycleDiagnostic }
+    } else {
+      descriptor = validation.descriptor
+    }
+    return { ok: true, checkpoint, episodeId, descriptor, sequence, canonicalFile, lifecycleDiagnostic }
   }
 
   function recordCheckpoint(input = {}) {
@@ -213,7 +222,7 @@ function createRecoveryStore(options = {}) {
 
     const candidate = readCheckpointFile(input.checkpointPath)
     if (!candidate.ok) return candidate
-    const { checkpoint, descriptor, sequence, canonicalFile } = candidate
+    const { checkpoint, descriptor, sequence, canonicalFile, lifecycleDiagnostic } = candidate
     if (candidate.episodeId !== episodeId) return errorResult('CHECKPOINT_INVALID', 'the checkpoint episode does not match the requested episode')
 
     try {
@@ -228,22 +237,21 @@ function createRecoveryStore(options = {}) {
       if (prior && sequence === prior.latestCheckpointSeq && prior.latestCheckpointFile !== path.basename(canonicalFile)) {
         return errorResult('CHECKPOINT_SEQUENCE_CONFLICT', 'two checkpoint files claim the same episode sequence')
       }
-      const lifecycleMarker = descriptor.lifecycleState
-      const lifecycleSupported = lifecycleMarker === undefined || Object.values(RECOVERY_STATES).includes(lifecycleMarker)
-      const lifecycleState = lifecycleSupported
-        ? (lifecycleMarker || RECOVERY_STATES.ACTIVE)
-        : RECOVERY_STATES.RECOVERY_BLOCKED
-      const blockedReason = lifecycleSupported
-        ? (lifecycleState === RECOVERY_STATES.RECOVERY_BLOCKED && descriptor.blockedReason ? String(descriptor.blockedReason) : null)
-        : `unsupported checkpoint lifecycle state: ${String(lifecycleMarker)}`
+      const lifecycleState = descriptor.lifecycleState || RECOVERY_STATES.ACTIVE
+      const blockedReason = lifecycleDiagnostic || (lifecycleState === RECOVERY_STATES.RECOVERY_BLOCKED && descriptor.blockedReason ? String(descriptor.blockedReason) : null)
+      if (prior && prior.state === RECOVERY_STATES.RECOVERY_BLOCKED && lifecycleState === RECOVERY_STATES.ACTIVE &&
+        (descriptor.repairAuthorized !== true || sequence <= prior.latestCheckpointSeq)) {
+        return errorResult('BLOCKED_EPISODE_REQUIRES_REPAIR', 'a blocked episode needs an explicit repair marker and a newer checkpoint before it can become active')
+      }
+      const progressed = Boolean(prior && sequence > prior.latestCheckpointSeq)
       const entry = {
         episodeId,
         state: lifecycleState,
         updatedAt: now(),
         latestCheckpointSeq: sequence,
         latestCheckpointFile: path.basename(canonicalFile),
-        recoveryAttempts: prior ? prior.recoveryAttempts : 0,
-        lastOutcome: prior ? prior.lastOutcome : null,
+        recoveryAttempts: progressed ? 0 : (prior ? prior.recoveryAttempts : 0),
+        lastOutcome: progressed ? 'newer_valid_checkpoint_written' : (prior ? prior.lastOutcome : null),
         workRoot: descriptor.workRoot || null,
         cleanupDebtSummary: { total: Array.isArray(descriptor.crossVolumeTemp) ? descriptor.crossVolumeTemp.filter((entry_) => entry_ && entry_.cleanupState === 'DELETE_PENDING').length : 0 },
         blockedReason,
@@ -254,6 +262,51 @@ function createRecoveryStore(options = {}) {
       index.episodes[episodeId] = entry
       writeIndex(index)
       return { ok: true, entry: JSON.parse(JSON.stringify(entry)) }
+    } catch (error) {
+      return errorResult(error && error.code === 'RECOVERY_INDEX_CORRUPT' ? error.code : 'STORAGE_ERROR', error && error.message ? error.message : error)
+    }
+  }
+
+  function beginRecoveryAttempt(input = {}) {
+    const episodeId = safeEpisodeId(input.episodeId)
+    const maxAttempts = Number.isSafeInteger(input.maxAttempts) && input.maxAttempts > 0 ? input.maxAttempts : 3
+    if (!episodeId) return errorResult('EPISODE_REQUIRED', 'a valid episode id is required')
+    try {
+      const entry = get(episodeId)
+      if (!entry || entry.state !== RECOVERY_STATES.ACTIVE) {
+        return errorResult('EPISODE_NOT_RESUMABLE', 'only an active episode may start an automatic recovery attempt')
+      }
+      if (entry.recoveryAttempts >= maxAttempts) {
+        entry.state = RECOVERY_STATES.RECOVERY_BLOCKED
+        entry.blockedReason = `${maxAttempts} consecutive automatic recovery attempts failed`
+        entry.lastOutcome = 'automatic_recovery_attempt_limit_exhausted'
+        entry.updatedAt = now()
+        saveEntry(episodeId, entry)
+        return { ...errorResult('RECOVERY_ATTEMPTS_EXHAUSTED', entry.blockedReason), entry: get(episodeId) }
+      }
+      entry.recoveryAttempts += 1
+      entry.lastOutcome = 'automatic_recovery_attempt_started'
+      entry.updatedAt = now()
+      const saved = saveEntry(episodeId, entry)
+      return { ok: true, entry: saved, attempt: saved.recoveryAttempts, maxAttempts }
+    } catch (error) {
+      return errorResult(error && error.code === 'RECOVERY_INDEX_CORRUPT' ? error.code : 'STORAGE_ERROR', error && error.message ? error.message : error)
+    }
+  }
+
+  function blockEpisode(input = {}) {
+    const episodeId = safeEpisodeId(input.episodeId)
+    if (!episodeId) return errorResult('EPISODE_REQUIRED', 'a valid episode id is required')
+    const reason = String(input.reason || input.code || 'recovery validation refused')
+    try {
+      const entry = get(episodeId)
+      if (!entry) return errorResult('EPISODE_NOT_FOUND', 'the recovery episode is not indexed')
+      if (TERMINAL_STATES.has(entry.state)) return errorResult('EPISODE_TERMINAL', 'a terminal episode cannot be changed to blocked')
+      entry.state = RECOVERY_STATES.RECOVERY_BLOCKED
+      entry.blockedReason = reason
+      entry.lastOutcome = String(input.code || 'recovery_validation_blocked')
+      entry.updatedAt = now()
+      return { ok: true, entry: saveEntry(episodeId, entry) }
     } catch (error) {
       return errorResult(error && error.code === 'RECOVERY_INDEX_CORRUPT' ? error.code : 'STORAGE_ERROR', error && error.message ? error.message : error)
     }
@@ -277,7 +330,12 @@ function createRecoveryStore(options = {}) {
       }
       names = fs.readdirSync(checkpointDir).filter((name) => name.toLowerCase().endsWith('.json'))
     } catch (error) {
-      if (error && error.code === 'ENOENT') names = []
+      if (error && error.code === 'ENOENT') {
+        if (Object.keys(priorIndex.episodes).length) {
+          return errorResult('CHECKPOINT_ROOT_MISSING', 'the configured checkpoint directory is temporarily missing; the recovery index was left untouched')
+        }
+        names = []
+      }
       else return errorResult('STORAGE_ERROR', error && error.message ? error.message : error)
     }
 
@@ -300,9 +358,7 @@ function createRecoveryStore(options = {}) {
       const prior = priorIndex.episodes[episodeId] || null
       const recovery = selected && selected.descriptor
       const markerState = recovery && recovery.lifecycleState
-      const oldTerminal = prior && prior.latestCheckpointSeq === latestSequence && TERMINAL_STATES.has(prior.state)
-        ? prior.state
-        : null
+      const oldTerminal = prior && TERMINAL_STATES.has(prior.state) ? prior.state : null
       let state = selected && Object.values(RECOVERY_STATES).includes(markerState)
         ? markerState
         : RECOVERY_STATES.ACTIVE
@@ -330,14 +386,21 @@ function createRecoveryStore(options = {}) {
           : null
       )
       const descriptor = selected ? selected.descriptor : latestCandidates[0].descriptor
+      const newerCheckpoint = Boolean(prior && latestSequence > prior.latestCheckpointSeq)
+      const authorizedRepair = newerCheckpoint && recovery && recovery.repairAuthorized === true
+      const priorBlocked = prior && prior.state === RECOVERY_STATES.RECOVERY_BLOCKED && state === RECOVERY_STATES.ACTIVE && !authorizedRepair
+      if (priorBlocked) {
+        state = RECOVERY_STATES.RECOVERY_BLOCKED
+        blockedReason = prior.blockedReason || 'the prior recovery block requires an explicit repair-authorized checkpoint'
+      }
       const entry = {
         episodeId,
         state,
         updatedAt: at,
         latestCheckpointSeq: latestSequence,
         latestCheckpointFile: selected ? path.basename(selected.canonicalFile) : null,
-        recoveryAttempts: prior && Number.isSafeInteger(prior.recoveryAttempts) && prior.recoveryAttempts >= 0 ? prior.recoveryAttempts : 0,
-        lastOutcome: prior && prior.lastOutcome ? prior.lastOutcome : null,
+        recoveryAttempts: newerCheckpoint ? 0 : (prior && Number.isSafeInteger(prior.recoveryAttempts) && prior.recoveryAttempts >= 0 ? prior.recoveryAttempts : 0),
+        lastOutcome: newerCheckpoint ? 'newer_valid_checkpoint_written' : (prior && prior.lastOutcome ? prior.lastOutcome : null),
         workRoot: descriptor.workRoot || null,
         cleanupDebtSummary: { total: Array.isArray(descriptor.crossVolumeTemp) ? descriptor.crossVolumeTemp.filter((item) => item && item.cleanupState === 'DELETE_PENDING').length : 0 },
         blockedReason,
@@ -347,6 +410,23 @@ function createRecoveryStore(options = {}) {
       }
       if (owner) ownerFields(entry, owner)
       repaired[episodeId] = entry
+    }
+
+    for (const [episodeId, prior] of Object.entries(priorIndex.episodes)) {
+      if (Object.prototype.hasOwnProperty.call(repaired, episodeId)) continue
+      const priorState = Object.values(RECOVERY_STATES).includes(prior && prior.state) ? prior.state : RECOVERY_STATES.RECOVERY_BLOCKED
+      const state = TERMINAL_STATES.has(priorState) ? priorState : RECOVERY_STATES.RECOVERY_BLOCKED
+      repaired[episodeId] = {
+        ...prior,
+        state,
+        updatedAt: at,
+        blockedReason: TERMINAL_STATES.has(state)
+          ? (prior.blockedReason || null)
+          : (prior.blockedReason || 'no valid checkpoint remains for this indexed episode'),
+        ownerInstanceId: null,
+        ownerPid: null,
+        ownerProcessIdentity: null
+      }
     }
 
     try {
@@ -482,6 +562,8 @@ function createRecoveryStore(options = {}) {
     get,
     recordCheckpoint,
     reconcileIndex,
+    beginRecoveryAttempt,
+    blockEpisode,
     acquireClaim,
     releaseClaim
   }

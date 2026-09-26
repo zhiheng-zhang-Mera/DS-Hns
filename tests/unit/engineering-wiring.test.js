@@ -26,6 +26,11 @@ test('the shell owns the engineering host and registers its IPC surface', () => 
   assert.match(shell, /const ENGINEERING_CHANNELS = \[/)
   assert.match(shell, /function ensureEngineeringHost\(/)
   assert.match(shell, /function registerEngineeringIpc\(/)
+  assert.match(shell, /ensureEngineeringHost\(\)\.resumeLatest\(\{ trigger: 'unclean_exit' \}\)/)
+  assert.match(shell, /host\.resume\(\{ episodeId, trigger: 'planned_restart' \}\)/)
+  assert.match(shell, /preserveForResume: true/)
+  assert.match(shell, /await host\.settled\(\)/)
+  assert.doesNotMatch(shell, /engineeringHost\.run\(\{ workspace: request\.workspace/)
   assert.match(shell, /function disposeEngineeringOnExit\(/)
   assert.match(shell, /function engineeringEnabled\(/)
   for (const channel of [
@@ -200,6 +205,88 @@ test('the supervisor persists a replay-safe recovery descriptor and indexes each
     })
     assert.equal(store.get(report.episode).state, 'RECOVERY_BLOCKED')
     assert.equal(store.get(report.episode).latestCheckpointSeq, latest.recovery.cursor.checkpointSeq)
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('the supervisor resumes the exact saved plan after its contiguous verified prefix', async () => {
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-resume-plan-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
+  const episodeId = 'resume-plan-fixture'
+  const goal = 'resume the verified plan'
+  try {
+    const { buildPlan } = require('../../app/engineering/plan.cjs')
+    const { computePlanDigest } = require('../../app/engineering/recovery-schema.cjs')
+    const { createCheckpointStore } = require('../../app/engineering/checkpoint.cjs')
+    const repository = require('../../app/engineering/repository.cjs')
+    const now = Date.now()
+    const deadlineMs = 60_000
+    const contract = { commands: {}, steps: [{ kind: 'report' }, { kind: 'report' }], lockWorkspace: false, tests: [] }
+    const built = buildPlan({ goal, contract, inputs: { steps: contract.steps }, discovery: { commands: {} } })
+    const savedPlan = {
+      version: 1,
+      id: built.id,
+      goal: built.goal,
+      intent: built.intent,
+      createdAt: built.createdAt,
+      steps: built.steps.map((step) => ({ ...step })),
+      budget: { ...built.budget },
+      reasons: built.reasons.slice()
+    }
+    const cursor = {
+      nextStepIndex: 1,
+      lastVerifiedStepId: savedPlan.steps[0].id,
+      verifiedStepIds: [savedPlan.steps[0].id],
+      skippedStepIds: [],
+      checkpointSeq: 1
+    }
+    const recovery = {
+      version: 1,
+      episodeId,
+      request: { workspace: ROOT, goal, startedAt: now - 1_000, deadlineAt: now - 1_000 + deadlineMs, contract },
+      plan: savedPlan,
+      planDigest: computePlanDigest(savedPlan),
+      cursor,
+      fingerprint: repository.snapshot({ root: ROOT }).fingerprint,
+      verifiedMutationIds: [],
+      unresolvedMutationIds: [],
+      executorCompatibility: 'engineering-v1',
+      workRoot: path.parse(checkpointRoot).root,
+      crossVolumeTemp: [],
+      lifecycleState: 'ACTIVE'
+    }
+    const checkpoints = createCheckpointStore({ dir: checkpointRoot })
+    const saved = checkpoints.save({
+      episodeId,
+      goal,
+      workspace: ROOT,
+      fingerprint: recovery.fingerprint,
+      plan: { id: savedPlan.id, cursor: 1, steps: savedPlan.steps },
+      cursor: 1,
+      recovery
+    })
+    assert.equal(saved.ok, true, saved.reason)
+    const checkpoint = checkpoints.latest(episodeId)
+    const actionEvents = []
+    const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
+    const supervisor = createEngineeringSupervisor({
+      episodeId,
+      workspace: ROOT,
+      goal,
+      deadlineMs,
+      contract,
+      checkpointRoot,
+      recoveryCheckpoint: checkpoint,
+      log: (event) => { if (event.type === 'action') actionEvents.push(event) }
+    })
+    const report = await supervisor.run()
+
+    assert.deepEqual(actionEvents.map((event) => event.step), [savedPlan.steps[1].id], JSON.stringify({ result: report.result, reasons: report.validation && report.validation.reasons, phases: report.phases }))
+    const latest = supervisor.checkpoints.latest(episodeId)
+    assert.equal(latest.recovery.request.startedAt, recovery.request.startedAt)
+    assert.equal(latest.recovery.request.deadlineAt, recovery.request.deadlineAt)
+    assert.equal(latest.recovery.cursor.nextStepIndex, 2)
   } finally {
     fs.rmSync(holder, { recursive: true, force: true })
   }
