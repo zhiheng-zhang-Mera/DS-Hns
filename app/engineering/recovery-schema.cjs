@@ -9,6 +9,9 @@ const RECOVERY_DESCRIPTOR_VERSION = 1
 const RECOVERY_PLAN_VERSION = 1
 const EXECUTOR_COMPATIBILITY = 'engineering-v1'
 const RECOVERY_STATES = Object.freeze(['ACTIVE', 'RECOVERY_BLOCKED', 'COMPLETED', 'CANCELLED'])
+const CROSS_VOLUME_TYPES = new Set(['file', 'directory'])
+const CROSS_VOLUME_PURPOSES = new Set(['clone', 'copy', 'unpack', 'build', 'cache', 'test', 'log', 'download', 'tool-scratch', 'other'])
+const CROSS_VOLUME_CLEANUP_STATES = new Set(['ACTIVE', 'DELETE_PENDING', 'DELETED', 'CLEANUP_BLOCKED'])
 const STEP_ID = /^[A-Za-z0-9][A-Za-z0-9:._#-]{0,255}$/
 const EPISODE_ID_MAX = 512
 
@@ -18,6 +21,37 @@ function isRecord(value) {
 
 function isAbsolutePath(value) {
   return typeof value === 'string' && (path.isAbsolute(value) || path.win32.isAbsolute(value))
+}
+
+function canonicalPathKey(value) {
+  const pathApi = path.win32.isAbsolute(value) ? path.win32 : path
+  const resolved = pathApi.normalize(value)
+  return pathApi === path.win32 ? resolved.toLowerCase() : resolved
+}
+
+function volumeKey(value) {
+  const pathApi = path.win32.isAbsolute(value) ? path.win32 : path
+  return pathApi.parse(pathApi.resolve(value)).root.toLowerCase()
+}
+
+function validCrossVolumeEntry(entry, episodeId, workRoot) {
+  if (!isRecord(entry) || entry.episodeId !== episodeId || !isAbsolutePath(entry.path) ||
+    !isAbsolutePath(entry.canonicalPath) || canonicalPathKey(entry.path) !== canonicalPathKey(entry.canonicalPath) ||
+    !isAbsolutePath(entry.workRoot) || canonicalPathKey(entry.workRoot) !== canonicalPathKey(workRoot) ||
+    typeof entry.workRootIdentity !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(entry.workRootIdentity) ||
+    !CROSS_VOLUME_TYPES.has(entry.type) || !CROSS_VOLUME_PURPOSES.has(entry.purposeClass) || entry.createdByEpisode !== true ||
+    !Number.isFinite(entry.registeredAt) || entry.registeredAt < 0 || !CROSS_VOLUME_CLEANUP_STATES.has(entry.cleanupState) ||
+    volumeKey(entry.path) === volumeKey(workRoot)) return false
+  if (entry.type === 'directory') {
+    const pathApi = path.win32.isAbsolute(entry.path) ? path.win32 : path
+    if (!isAbsolutePath(entry.markerPath) || canonicalPathKey(entry.markerPath) !== canonicalPathKey(pathApi.join(entry.canonicalPath, '.dshns-episode-owner.json'))) return false
+  } else if (!/^sha256:[a-f0-9]{64}$/.test(entry.contentDigest || '') || entry.markerPath !== undefined) {
+    return false
+  }
+  for (const field of ['cleanupError', 'cleanupReason']) {
+    if (entry[field] !== undefined && entry[field] !== null && typeof entry[field] !== 'string') return false
+  }
+  return true
 }
 
 function canonicalize(value) {
@@ -139,6 +173,19 @@ function validateRecoveryDescriptor(input, options = {}) {
   if (!isAbsolutePath(input.workRoot)) return fail('WORK_ROOT_INVALID', 'the selected work root must be an absolute path')
   if (!Array.isArray(input.crossVolumeTemp)) return fail('CROSS_VOLUME_REGISTRY_INVALID', 'crossVolumeTemp must be an array')
   if (input.crossVolumeTemp.length > 1000) return fail('CROSS_VOLUME_REGISTRY_INVALID', 'crossVolumeTemp exceeds the supported entry limit')
+  const registeredPaths = new Set()
+  for (const entry of input.crossVolumeTemp) {
+    if (!validCrossVolumeEntry(entry, input.episodeId, input.workRoot)) {
+      return fail('CROSS_VOLUME_REGISTRY_INVALID', 'a cross-volume registration is incomplete, mismatched, or unsafe')
+    }
+    const key = canonicalPathKey(entry.path)
+    if (registeredPaths.has(key)) return fail('CROSS_VOLUME_REGISTRY_INVALID', 'crossVolumeTemp must not register the same canonical path twice')
+    registeredPaths.add(key)
+  }
+  if (input.cleanupTerminalState !== undefined &&
+    (!['COMPLETED', 'CANCELLED'].includes(input.cleanupTerminalState) || !['ACTIVE', 'RECOVERY_BLOCKED'].includes(input.lifecycleState))) {
+    return fail('CLEANUP_TERMINAL_STATE_INVALID', 'a pending cleanup terminal state must be COMPLETED or CANCELLED on an active or cleanup-blocked episode')
+  }
   if (!RECOVERY_STATES.includes(input.lifecycleState === undefined ? 'ACTIVE' : input.lifecycleState)) {
     return fail('LIFECYCLE_STATE_UNSUPPORTED', `lifecycle state ${String(input.lifecycleState)} is not supported`)
   }

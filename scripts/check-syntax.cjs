@@ -151,6 +151,11 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'installer-community-acceptance.cjs'),
   // The stand-in Harness CLI the installer suites drive the real installation channel with.
   path.join(ROOT, 'tests', 'helpers', 'harness-cli-stub.cjs'),
+  // Engineering crash-recovery contracts, durable cleanup, and startup acceptance tests.
+  path.join(ROOT, 'tests', 'unit', 'engineering-cross-volume-cleanup.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-host-resume.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-recovery-schema.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-recovery-store.test.js'),
   // The companion the process acceptance runs. It is a fixture, but it is executed, so it is
   // checked like any other program the repository ships.
   path.join(ROOT, 'tests', 'fixtures', 'process', 'restart-companion.mjs')

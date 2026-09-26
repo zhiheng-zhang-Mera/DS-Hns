@@ -91,3 +91,35 @@ test('an expired original deadline and an unknown lifecycle state are rejected',
   const unknown = descriptor({ lifecycleState: 'RESUMING' })
   assert.equal(validateRecoveryDescriptor(unknown).code, 'LIFECYCLE_STATE_UNSUPPORTED')
 })
+
+test('cross-volume cleanup registrations are bound to episode, work volume, type and state', () => {
+  const workRoot = path.parse(process.cwd()).root
+  const scratchRoot = workRoot.toLowerCase().startsWith('d:') ? 'C:\\DS-Hns-Temp\\ep\\scratch' : 'D:\\DS-Hns-Temp\\ep\\scratch'
+  const workRootIdentity = `sha256:${'a'.repeat(64)}`
+  const valid = {
+    path: scratchRoot,
+    canonicalPath: scratchRoot,
+    episodeId: 'ep',
+    workRoot,
+    workRootIdentity,
+    type: 'directory',
+    purposeClass: 'build',
+    createdByEpisode: true,
+    registeredAt: 1_700_000_000_000,
+    cleanupState: 'ACTIVE',
+    markerPath: path.win32.join(scratchRoot, '.dshns-episode-owner.json')
+  }
+  assert.equal(validateRecoveryDescriptor(descriptor({ workRoot, crossVolumeTemp: [valid] })).ok, true)
+
+  const wrongEpisode = { ...valid, episodeId: 'other' }
+  assert.equal(validateRecoveryDescriptor(descriptor({ workRoot, crossVolumeTemp: [wrongEpisode] })).code, 'CROSS_VOLUME_REGISTRY_INVALID')
+
+  const wrongVolume = { ...valid, path: path.win32.join(workRoot, 'scratch'), canonicalPath: path.win32.join(workRoot, 'scratch'), markerPath: path.win32.join(workRoot, 'scratch', '.dshns-episode-owner.json') }
+  assert.equal(validateRecoveryDescriptor(descriptor({ workRoot, crossVolumeTemp: [wrongVolume] })).code, 'CROSS_VOLUME_REGISTRY_INVALID')
+
+  const malformedFile = { ...valid, type: 'file', markerPath: undefined }
+  assert.equal(validateRecoveryDescriptor(descriptor({ workRoot, crossVolumeTemp: [malformedFile] })).code, 'CROSS_VOLUME_REGISTRY_INVALID')
+
+  assert.equal(validateRecoveryDescriptor(descriptor({ workRoot, cleanupTerminalState: 'COMPLETED' })).ok, true)
+  assert.equal(validateRecoveryDescriptor(descriptor({ workRoot, lifecycleState: 'COMPLETED', cleanupTerminalState: 'COMPLETED' })).code, 'CLEANUP_TERMINAL_STATE_INVALID')
+})

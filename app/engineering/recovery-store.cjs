@@ -20,6 +20,30 @@ const RECOVERY_STATES = Object.freeze({
 })
 const TERMINAL_STATES = new Set([RECOVERY_STATES.COMPLETED, RECOVERY_STATES.CANCELLED])
 
+function cleanupDebtCount(entries) {
+  return Array.isArray(entries)
+    ? entries.filter((entry) => entry && ['DELETE_PENDING', 'CLEANUP_BLOCKED'].includes(entry.cleanupState)).length
+    : 0
+}
+
+function renameIndexWithBoundedRetry(source, target) {
+  const waitCell = new Int32Array(new SharedArrayBuffer(4))
+  let lastError = null
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      fs.renameSync(source, target)
+      return
+    } catch (error) {
+      lastError = error
+      if (!error || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt === 3) throw error
+      // Windows scanners/indexers can briefly hold the old index open. Keep the
+      // previous durable index intact and retry only this atomic replacement.
+      Atomics.wait(waitCell, 0, 0, 10 * (attempt + 1))
+    }
+  }
+  throw lastError || new Error('recovery index replacement failed')
+}
+
 function safeEpisodeId(value) {
   const episodeId = value === undefined || value === null ? '' : String(value).trim()
   return episodeId && episodeId.length <= 512 ? episodeId : null
@@ -98,7 +122,7 @@ function createRecoveryStore(options = {}) {
       fs.writeFileSync(fd, JSON.stringify(index), 'utf8')
       fs.closeSync(fd)
       fd = null
-      fs.renameSync(temp, indexFile)
+      renameIndexWithBoundedRetry(temp, indexFile)
     } catch (error) {
       if (fd !== null) {
         try { fs.closeSync(fd) } catch {}
@@ -253,7 +277,7 @@ function createRecoveryStore(options = {}) {
         recoveryAttempts: progressed ? 0 : (prior ? prior.recoveryAttempts : 0),
         lastOutcome: progressed ? 'newer_valid_checkpoint_written' : (prior ? prior.lastOutcome : null),
         workRoot: descriptor.workRoot || null,
-        cleanupDebtSummary: { total: Array.isArray(descriptor.crossVolumeTemp) ? descriptor.crossVolumeTemp.filter((entry_) => entry_ && entry_.cleanupState === 'DELETE_PENDING').length : 0 },
+        cleanupDebtSummary: { total: cleanupDebtCount(descriptor.crossVolumeTemp) },
         blockedReason,
         ownerInstanceId: prior ? prior.ownerInstanceId : null,
         ownerPid: prior ? prior.ownerPid : null,
@@ -402,7 +426,7 @@ function createRecoveryStore(options = {}) {
         recoveryAttempts: newerCheckpoint ? 0 : (prior && Number.isSafeInteger(prior.recoveryAttempts) && prior.recoveryAttempts >= 0 ? prior.recoveryAttempts : 0),
         lastOutcome: newerCheckpoint ? 'newer_valid_checkpoint_written' : (prior && prior.lastOutcome ? prior.lastOutcome : null),
         workRoot: descriptor.workRoot || null,
-        cleanupDebtSummary: { total: Array.isArray(descriptor.crossVolumeTemp) ? descriptor.crossVolumeTemp.filter((item) => item && item.cleanupState === 'DELETE_PENDING').length : 0 },
+        cleanupDebtSummary: { total: cleanupDebtCount(descriptor.crossVolumeTemp) },
         blockedReason,
         ownerInstanceId: null,
         ownerPid: null,

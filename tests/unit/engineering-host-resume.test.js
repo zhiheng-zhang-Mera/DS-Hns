@@ -2,6 +2,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const crypto = require('node:crypto')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -9,6 +10,7 @@ const path = require('node:path')
 const { createEngineeringHost } = require('../../app/engineering-host.cjs')
 const { createCheckpointStore } = require('../../app/engineering/checkpoint.cjs')
 const { createRecoveryStore } = require('../../app/engineering/recovery-store.cjs')
+const { createCrossVolumeTempRegistry } = require('../../app/engineering/cross-volume-cleanup.cjs')
 const { buildPlan } = require('../../app/engineering/plan.cjs')
 const { computePlanDigest } = require('../../app/engineering/recovery-schema.cjs')
 const repository = require('../../app/engineering/repository.cjs')
@@ -65,8 +67,9 @@ function makeActiveCheckpoint({ checkpointRoot, checkpoints }, options = {}) {
     unresolvedMutationIds: [],
     executorCompatibility: options.executorCompatibility || 'engineering-v1',
     workRoot: path.parse(checkpointRoot).root,
-    crossVolumeTemp: [],
-    lifecycleState: 'ACTIVE'
+    crossVolumeTemp: options.crossVolumeTemp || [],
+    lifecycleState: options.lifecycleState || 'ACTIVE',
+    ...(options.cleanupTerminalState ? { cleanupTerminalState: options.cleanupTerminalState } : {})
   }
   const saved = checkpoints.save({
     episodeId,
@@ -171,6 +174,7 @@ test('a descriptor compatibility failure counts only after claim acquisition and
 
 test('a planned boundary stop retains an ACTIVE checkpoint and releases the live claim', async () => {
   const holder = tempDir()
+  const scratch = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp', `codex-cross-volume-planned-${process.pid}-${crypto.randomUUID()}`)
   const stores = makeStores(holder)
   const host = createEngineeringHost({
     checkpointRoot: stores.checkpointRoot,
@@ -190,6 +194,8 @@ test('a planned boundary stop retains an ACTIVE checkpoint and releases the live
     const beforeCancel = stores.recovery.get(started.episode)
     assert.equal(beforeCancel.state, 'ACTIVE')
     assert.equal(beforeCancel.ownerInstanceId, OWNER.instanceId, 'fresh episodes acquire the same durable claim used by recovery')
+    const scratchCreated = host.supervisor.crossVolumeTemp.createTaskDirectory({ path: scratch, purposeClass: 'test' })
+    assert.equal(scratchCreated.ok, true, JSON.stringify(scratchCreated))
 
     assert.equal(host.cancel({ reason: 'planned restart', preserveForResume: true }).cancelled, true)
     const report = await host.settled()
@@ -197,8 +203,129 @@ test('a planned boundary stop retains an ACTIVE checkpoint and releases the live
     assert.equal(stores.checkpoints.latest(started.episode).recovery.lifecycleState, 'ACTIVE')
     assert.equal(stores.recovery.get(started.episode).state, 'ACTIVE')
     assert.equal(stores.recovery.get(started.episode).ownerInstanceId, null)
+    assert.equal(fs.existsSync(scratch), true, 'a resumable planned boundary must preserve scratch')
   } finally {
     host.dispose('test teardown')
+    if (fs.existsSync(scratch)) fs.rmSync(scratch, { recursive: true, force: true })
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('explicit terminal cancellation cleans only the registered off-volume root', async () => {
+  const holder = tempDir()
+  const stores = makeStores(holder)
+  const scratch = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp', `codex-cross-volume-cancel-${process.pid}-${crypto.randomUUID()}`)
+  let sentinel = null
+  const host = createEngineeringHost({
+    checkpointRoot: stores.checkpointRoot,
+    recoveryRoot: path.dirname(stores.checkpointRoot),
+    checkpoints: stores.checkpoints,
+    recoveryStore: stores.recovery,
+    recoveryOwner: OWNER
+  })
+  try {
+    const started = host.run({
+      workspace: ROOT,
+      goal: 'terminal cancellation cleanup',
+      deadlineMs: 60_000,
+      contract: { commands: {}, steps: Array.from({ length: 8 }, () => ({ kind: 'report' })), lockWorkspace: false, tests: [] }
+    })
+    assert.equal(started.ok, true)
+    assert.equal(host.supervisor.crossVolumeTemp.createTaskDirectory({ path: scratch, purposeClass: 'test' }).ok, true)
+    const sentinelParent = path.dirname(scratch)
+    sentinel = path.join(sentinelParent, `codex-cross-volume-cancel-sentinel-${process.pid}-${crypto.randomUUID()}.txt`)
+    fs.writeFileSync(sentinel, 'unowned sentinel', 'utf8')
+
+    assert.equal(host.cancel({ reason: 'abandon episode' }).cancelled, true)
+    const report = await host.settled()
+    assert.equal(report.result, 'CANCELLED')
+    assert.equal(fs.existsSync(scratch), false)
+    assert.equal(fs.readFileSync(sentinel, 'utf8'), 'unowned sentinel')
+    fs.unlinkSync(sentinel)
+    assert.equal(stores.checkpoints.latest(started.episode).recovery.lifecycleState, 'CANCELLED')
+  } finally {
+    host.dispose('test teardown')
+    if (fs.existsSync(scratch)) fs.rmSync(scratch, { recursive: true, force: true })
+    if (sentinel && fs.existsSync(sentinel)) fs.unlinkSync(sentinel)
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('safe startup retries durable terminal cleanup debt before recovery selection', async () => {
+  const holder = tempDir()
+  const stores = makeStores(holder)
+  const workRoot = path.parse(stores.checkpointRoot).root
+  const offVolumeTemp = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp')
+  const scratch = path.join(offVolumeTemp, `codex-cross-volume-host-${process.pid}-${crypto.randomUUID()}`)
+  const registry = createCrossVolumeTempRegistry({ episodeId: 'startup-cleanup-fixture', workRoot })
+  try {
+    assert.equal(registry.createTaskDirectory({ path: scratch, purposeClass: 'build' }).ok, true)
+    assert.equal(registry.createRegisteredFile({ path: path.join(scratch, 'artifact.tmp'), purposeClass: 'build', content: 'owned' }).ok, true)
+    const fixture = makeActiveCheckpoint(stores, {
+      episodeId: 'startup-cleanup-fixture',
+      crossVolumeTemp: registry.list().map((entry) => ({ ...entry, cleanupState: 'DELETE_PENDING' })),
+      lifecycleState: 'ACTIVE',
+      cleanupTerminalState: 'COMPLETED'
+    })
+    const indexed = stores.recovery.recordCheckpoint({ episodeId: fixture.episodeId, checkpointPath: fixture.checkpointPath })
+    assert.equal(indexed.ok, true, JSON.stringify(indexed))
+    assert.equal(indexed.entry.cleanupDebtSummary.total, 2)
+
+    const host = createEngineeringHost({
+      checkpointRoot: stores.checkpointRoot,
+      recoveryRoot: path.dirname(stores.checkpointRoot),
+      checkpoints: stores.checkpoints,
+      recoveryStore: stores.recovery,
+      recoveryOwner: OWNER
+    })
+    const result = await host.resume({ episodeId: fixture.episodeId, trigger: 'startup' })
+    assert.equal(result.ok, true)
+    assert.equal(result.resumed, false)
+    assert.equal(result.code, 'EPISODE_TERMINAL')
+    assert.equal(fs.existsSync(scratch), false)
+    assert.equal(stores.recovery.get(fixture.episodeId).state, 'COMPLETED')
+    assert.equal(stores.recovery.get(fixture.episodeId).cleanupDebtSummary.total, 0)
+    assert.equal(stores.checkpoints.latest(fixture.episodeId).recovery.cleanupTerminalState, undefined)
+  } finally {
+    if (fs.existsSync(scratch)) fs.rmSync(scratch, { recursive: true, force: true })
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('unsafe startup cleanup stays blocked and preserves the exact residual path', async () => {
+  const holder = tempDir()
+  const stores = makeStores(holder)
+  const workRoot = path.parse(stores.checkpointRoot).root
+  const offVolumeTemp = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp')
+  const scratch = path.join(offVolumeTemp, `codex-cross-volume-blocked-${process.pid}-${crypto.randomUUID()}`)
+  const registry = createCrossVolumeTempRegistry({ episodeId: 'startup-cleanup-blocked-fixture', workRoot })
+  try {
+    assert.equal(registry.createTaskDirectory({ path: scratch, purposeClass: 'build' }).ok, true)
+    fs.writeFileSync(path.join(scratch, '.dshns-episode-owner.json'), JSON.stringify({ episodeId: 'foreign', workRootIdentity: 'sha256:wrong' }), 'utf8')
+    const fixture = makeActiveCheckpoint(stores, {
+      episodeId: 'startup-cleanup-blocked-fixture',
+      crossVolumeTemp: registry.list().map((entry) => ({ ...entry, cleanupState: 'DELETE_PENDING' })),
+      lifecycleState: 'ACTIVE',
+      cleanupTerminalState: 'COMPLETED'
+    })
+    const indexed = stores.recovery.recordCheckpoint({ episodeId: fixture.episodeId, checkpointPath: fixture.checkpointPath })
+    assert.equal(indexed.ok, true, JSON.stringify(indexed))
+    const host = createEngineeringHost({
+      checkpointRoot: stores.checkpointRoot,
+      recoveryRoot: path.dirname(stores.checkpointRoot),
+      checkpoints: stores.checkpoints,
+      recoveryStore: stores.recovery,
+      recoveryOwner: OWNER
+    })
+
+    const result = await host.resume({ episodeId: fixture.episodeId, trigger: 'startup' })
+    assert.equal(result.ok, false)
+    assert.equal(stores.recovery.get(fixture.episodeId).state, 'RECOVERY_BLOCKED')
+    assert.equal(stores.recovery.get(fixture.episodeId).cleanupDebtSummary.total, 1)
+    assert.equal(stores.checkpoints.latest(fixture.episodeId).recovery.crossVolumeTemp[0].cleanupState, 'CLEANUP_BLOCKED')
+    assert.equal(fs.existsSync(scratch), true)
+  } finally {
+    if (fs.existsSync(scratch)) fs.rmSync(scratch, { recursive: true, force: true })
     fs.rmSync(holder, { recursive: true, force: true })
   }
 })

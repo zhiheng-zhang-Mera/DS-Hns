@@ -62,6 +62,40 @@ test('the engineering public API exposes a durable recovery-store factory', () =
   )
 })
 
+test('the recovery index retries bounded Windows rename contention without removing the previous index', () => {
+  const root = tempDir()
+  const indexFile = path.join(root, 'recovery-index.json')
+  const originalRename = fs.renameSync
+  let injected = 2
+  let attempts = 0
+  try {
+    const { checkpointDir, saved } = recordCheckpoint(root)
+    const store = makeStore({ root, checkpointDir })
+    assert.equal(store.recordCheckpoint({ episodeId: 'ep', checkpointPath: saved.path }).ok, true)
+    const originalIndex = fs.readFileSync(indexFile, 'utf8')
+    fs.renameSync = function (source, target) {
+      if (path.resolve(String(target)) === path.resolve(indexFile)) {
+        attempts += 1
+        if (injected > 0) {
+          injected -= 1
+          const error = new Error('injected transient Windows sharing violation')
+          error.code = 'EPERM'
+          throw error
+        }
+      }
+      return originalRename.call(fs, source, target)
+    }
+
+    const rebuilt = store.reconcileIndex()
+    assert.equal(rebuilt.ok, true, JSON.stringify(rebuilt))
+    assert.equal(attempts, 3)
+    assert.equal(JSON.parse(fs.readFileSync(indexFile, 'utf8')).episodes.ep.state, 'ACTIVE')
+  } finally {
+    fs.renameSync = originalRename
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('a written recovery checkpoint is indexed as ACTIVE using its persisted sequence and filename', () => {
   const root = tempDir()
   try {

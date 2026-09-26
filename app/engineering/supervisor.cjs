@@ -50,6 +50,7 @@ const { createEpisodeContext } = require('./context.cjs')
 const { createCheckpointStore, verifyResume } = require('./checkpoint.cjs')
 const { createRecoveryStore, RECOVERY_STATES } = require('./recovery-store.cjs')
 const { computePlanDigest, validateRecoveryDescriptor, EXECUTOR_COMPATIBILITY, RECOVERY_PLAN_VERSION } = require('./recovery-schema.cjs')
+const { createCrossVolumeTempRegistry } = require('./cross-volume-cleanup.cjs')
 const { createWorkspaceLock } = require('./locking.cjs')
 const { resolveAutonomy, createEngineeringAutonomy } = require('./autonomy.cjs')
 const { hashContent } = require('./mutation.cjs')
@@ -237,6 +238,27 @@ function createEngineeringSupervisor(input = {}) {
   let lastActionAt = null
   let lastVerifiedEffectAt = null
   let noOpCount = 0
+  let cleanupInProgress = false
+  let cleanupTerminalState = input.recoveryCheckpoint && input.recoveryCheckpoint.recovery
+    ? input.recoveryCheckpoint.recovery.cleanupTerminalState || null
+    : null
+  let cleanupResult = null
+  const savedRecovery = input.recoveryCheckpoint && input.recoveryCheckpoint.recovery
+  const workRoot = input.workRoot || (savedRecovery && savedRecovery.workRoot) || path.parse(checkpoints.dir).root
+  const crossVolumeTemp = createCrossVolumeTempRegistry({
+    episodeId,
+    workRoot,
+    entries: savedRecovery && Array.isArray(savedRecovery.crossVolumeTemp)
+      ? savedRecovery.crossVolumeTemp
+      : (Array.isArray(input.crossVolumeTemp) ? input.crossVolumeTemp : []),
+    now,
+    onChange: () => {
+      const saved = checkpoint('cross-volume-registry')
+      if (!saved.ok || !saved.recoveryIndex?.ok) {
+        throw new Error(saved.reason || 'cross-volume cleanup state was not durably checkpointed')
+      }
+    }
+  })
 
   /** One event, counted, and never a source of progress by itself. */
   function noteProgress(kind, detail = {}) {
@@ -658,13 +680,15 @@ function createEngineeringSupervisor(input = {}) {
     try {
       const serializedPlan = recoveryPlan(plan)
       const preserveActiveAfterCancel = status === 'cancelled' && typeof input.preserveRecoveryOnCancel === 'function' && input.preserveRecoveryOnCancel() === true
-      const lifecycleState = reason === 'completed' || status === 'completed'
-        ? RECOVERY_STATES.COMPLETED
-        : (reason === 'cancelled' || status === 'cancelled'
-            ? (preserveActiveAfterCancel ? RECOVERY_STATES.ACTIVE : RECOVERY_STATES.CANCELLED)
-            : (reason === 'blocked' || reason === 'failed' || status === 'blocked' || status === 'failed'
-                ? RECOVERY_STATES.RECOVERY_BLOCKED
-                : RECOVERY_STATES.ACTIVE))
+      const lifecycleState = cleanupInProgress
+        ? RECOVERY_STATES.ACTIVE
+        : (reason === 'completed' || status === 'completed'
+            ? RECOVERY_STATES.COMPLETED
+            : (reason === 'cancelled' || status === 'cancelled'
+                ? (preserveActiveAfterCancel ? RECOVERY_STATES.ACTIVE : RECOVERY_STATES.CANCELLED)
+                : (reason === 'blocked' || reason === 'failed' || status === 'blocked' || status === 'failed'
+                    ? RECOVERY_STATES.RECOVERY_BLOCKED
+                    : RECOVERY_STATES.ACTIVE)))
       const blockedReason = lifecycleState === RECOVERY_STATES.RECOVERY_BLOCKED
         ? (failures.length ? String(failures[failures.length - 1].reason || failures[failures.length - 1].class || 'the episode did not reach a verified completion') : String(reason || 'the episode did not reach a verified completion'))
         : null
@@ -698,10 +722,11 @@ function createEngineeringSupervisor(input = {}) {
           verifiedMutationIds: mutations ? mutations.applied().map((entry) => entry.id) : [],
           unresolvedMutationIds: mutations ? mutations.pending().map((entry) => entry.id) : [],
           executorCompatibility: EXECUTOR_COMPATIBILITY,
-          workRoot: input.workRoot ? path.resolve(String(input.workRoot)) : path.parse(checkpoints.dir).root,
-          crossVolumeTemp: Array.isArray(input.crossVolumeTemp) ? input.crossVolumeTemp : [],
+          workRoot,
+          crossVolumeTemp: crossVolumeTemp.list(),
           lifecycleState,
-          blockedReason
+          blockedReason,
+          ...(cleanupTerminalState ? { cleanupTerminalState } : {})
         }
       })
       if (!saved.ok) return saved
@@ -753,6 +778,7 @@ function createEngineeringSupervisor(input = {}) {
       stallLevel,
       remainingWarnings: (verdict.reasons || []).slice(),
       validation: verdict,
+      cleanup: cleanupResult,
       git: git ? { policy: git.policy, commands: git.commands().length, refusals: git.refusals().length } : null,
       ownedProcessesCleaned: supervisor.ownedCount(),
       checkpoints: checkpoints.list(episodeId).length,
@@ -1019,6 +1045,26 @@ function createEngineeringSupervisor(input = {}) {
         finishedAt = now()
         status = 'cancelled'
         supervisor.dispose('episode cancelled')
+        const preserve = typeof input.preserveRecoveryOnCancel === 'function' && input.preserveRecoveryOnCancel() === true
+        if (preserve) {
+          cleanupResult = { ok: true, skipped: true, reason: 'resumable cancellation preserves scratch', deleted: [], residuals: [] }
+        } else {
+          cleanupTerminalState = RECOVERY_STATES.CANCELLED
+          cleanupInProgress = true
+          cleanupResult = crossVolumeTemp.cleanupTerminal({ terminal: true, reason: 'cancelled' })
+          cleanupInProgress = false
+          if (!cleanupResult.ok) {
+            const cleanupReason = `CLEANUP_BLOCKED: ${cleanupResult.residuals.map((entry) => entry.path).join(', ')}`
+            cleanupTerminalState = RECOVERY_STATES.CANCELLED
+            status = 'blocked'
+            failures.push({ class: 'CLEANUP_BLOCKED', signature: 'cross-volume-cleanup', reason: cleanupReason, at: now() })
+            machine.force(EPISODE_PHASES.BLOCKED, cleanupReason)
+            checkpoint('blocked')
+            report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [cleanupReason], checks: [] })
+            return report
+          }
+          cleanupTerminalState = null
+        }
         checkpoint('cancelled')
         report = buildReport({ verdict: 'CANCELLED', ok: false, reasons: ['the caller cancelled the episode'], checks: [] })
         return report
@@ -1047,6 +1093,21 @@ function createEngineeringSupervisor(input = {}) {
 
       const verdict = resultValidator.validate(validationInput())
       if (verdict.ok) {
+        cleanupTerminalState = RECOVERY_STATES.COMPLETED
+        cleanupInProgress = true
+        cleanupResult = crossVolumeTemp.cleanupTerminal({ terminal: true, reason: 'completed' })
+        cleanupInProgress = false
+        if (!cleanupResult.ok) {
+          const cleanupReason = `CLEANUP_BLOCKED: ${cleanupResult.residuals.map((entry) => entry.path).join(', ')}`
+          cleanupTerminalState = RECOVERY_STATES.COMPLETED
+          finishedAt = now()
+          status = 'blocked'
+          failures.push({ class: 'CLEANUP_BLOCKED', signature: 'cross-volume-cleanup', reason: cleanupReason, at: now() })
+          machine.force(EPISODE_PHASES.BLOCKED, cleanupReason)
+          report = buildReport({ verdict: 'BLOCKED', ok: false, reasons: [cleanupReason], checks: [] })
+          break
+        }
+        cleanupTerminalState = null
         finishedAt = now()
         machine.force(EPISODE_PHASES.COMPLETED, 'the result validator accepted the evidence')
         status = 'completed'
@@ -1115,6 +1176,7 @@ function createEngineeringSupervisor(input = {}) {
     supervisor,
     checkpoints,
     recoveryStore,
+    crossVolumeTemp,
     /** The live phase. */
     get phase() {
       return machine.phase
