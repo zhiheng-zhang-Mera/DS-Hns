@@ -111,6 +111,80 @@ test('the checkpoint directory defaults under the root option instead of a hardc
   }
 })
 
+test('recovery checkpoints preserve the full recovery descriptor and assign the first sequence', () => {
+  const dir = tempDir()
+  try {
+    const descriptor = {
+      version: 1,
+      episodeId: 'ep',
+      request: {
+        workspace: 'D:\\work\\fixture',
+        goal: 'continue from the next safe step',
+        startedAt: 1_700_000_000_000,
+        deadlineAt: 1_700_086_400_000,
+        contract: { maxSteps: 8 }
+      },
+      plan: {
+        version: 1,
+        steps: [{ id: 'step-1', kind: 'test', command: 'node --test' }]
+      },
+      planDigest: 'sha256:fixture-digest',
+      cursor: { nextStepIndex: 0, lastVerifiedStepId: null },
+      executorCompatibility: 'engineering-v1',
+      workRoot: 'D:\\work',
+      crossVolumeTemp: []
+    }
+    const store = createCheckpointStore({ dir, now: () => 1_700_000_000_000 })
+    const saved = store.save({
+      episodeId: 'ep',
+      goal: descriptor.request.goal,
+      workspace: descriptor.request.workspace,
+      plan: descriptor.plan.steps,
+      cursor: { step: 'step-1', index: 0 },
+      recovery: descriptor
+    })
+    assert.equal(saved.ok, true)
+
+    const checkpoint = store.latest('ep')
+    assert.deepEqual(checkpoint && checkpoint.recovery, {
+      ...descriptor,
+      cursor: { ...descriptor.cursor, checkpointSeq: 1 }
+    }, 'the complete recovery contract must survive the atomic checkpoint write')
+    assert.equal(checkpoint.version, 2, 'the checkpoint schema changes once to carry recovery state')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the latest recovery checkpoint follows checkpointSeq when the wall clock moves backward', () => {
+  const dir = tempDir()
+  try {
+    let at = 1_700_000_000_000
+    const store = createCheckpointStore({ dir, now: () => at })
+    const recovery = (nextStepIndex) => ({
+      version: 1,
+      episodeId: 'ep',
+      request: { workspace: 'D:\\work\\fixture', goal: 'resume safely', startedAt: 1_700_000_000_000, deadlineAt: 1_700_086_400_000, contract: {} },
+      plan: { version: 1, steps: [{ id: 'step-1' }, { id: 'step-2' }] },
+      planDigest: 'sha256:fixture-digest',
+      cursor: { nextStepIndex, lastVerifiedStepId: nextStepIndex ? 'step-1' : null },
+      executorCompatibility: 'engineering-v1',
+      workRoot: 'D:\\work',
+      crossVolumeTemp: []
+    })
+
+    assert.equal(store.save({ episodeId: 'ep', recovery: recovery(0) }).ok, true)
+    at -= 60_000
+    assert.equal(store.save({ episodeId: 'ep', recovery: recovery(1) }).ok, true)
+
+    const latest = store.latest('ep')
+    assert.equal(latest.recovery.cursor.checkpointSeq, 2, 'logical checkpoint order must not depend on a clock correction')
+    assert.equal(latest.recovery.cursor.nextStepIndex, 1, 'the newest verified next-safe cursor must be restored')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('a corrupt checkpoint is skipped and latest() still returns the newest good one', () => {
   const dir = tempDir()
   try {
