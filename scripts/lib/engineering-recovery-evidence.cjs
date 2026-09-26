@@ -8,6 +8,7 @@ const os = require('node:os')
 const path = require('node:path')
 
 const SCHEMA_VERSION = 1
+const EXECUTABLE_FAULT_IDS = Object.freeze([4])
 const ROOT = path.resolve(__dirname, '..', '..')
 const EVIDENCE_DATA = path.join(ROOT, 'tests', 'evidence', 'engineering-recovery')
 const FAULT_CATALOG_FILE = path.join(EVIDENCE_DATA, 'fault-catalog.json')
@@ -162,6 +163,27 @@ function validateEvidenceDocument(kind, document) {
   } catch (error) {
     return { ok: false, code: 'EVIDENCE_SCHEMA_UNAVAILABLE', errors: [String(error && error.message ? error.message : error)] }
   }
+}
+
+function passesE0Gate(document) {
+  if (!isRecord(document) || document.passed !== true || !validateEvidenceDocument('e0Gate', document).ok) return false
+  const required = ['syntax', 'full-unit', 'focused-recovery', 'test-all']
+  if (!Array.isArray(document.gates) || document.gates.length !== required.length) return false
+  const byId = new Map(document.gates.map((gate) => [gate.id, gate]))
+  if (byId.size !== required.length || required.some((id) => !byId.has(id))) return false
+  return required.every((id) => {
+    const gate = byId.get(id)
+    if (gate.status !== 'PASS' || gate.exitCode !== 0) return false
+    if (id === 'syntax') {
+      return Number.isInteger(gate.checkedFiles) && gate.checkedFiles > 0 &&
+        gate.totalFiles === gate.checkedFiles && gate.tests === null &&
+        gate.passed === null && gate.failed === null && gate.skipped === null
+    }
+    return Number.isInteger(gate.tests) && gate.tests > 0 &&
+      Number.isInteger(gate.passed) && Number.isInteger(gate.failed) && Number.isInteger(gate.skipped) &&
+      gate.failed === 0 && gate.passed + gate.skipped === gate.tests &&
+      gate.checkedFiles === null && gate.totalFiles === null
+  })
 }
 
 function validateRunManifest(manifest) {
@@ -390,12 +412,8 @@ function createBatch(input = {}) {
   const sourceRef = typeof input.sourceRef === 'string' && /^[A-Za-z0-9._/-]{1,160}$/.test(input.sourceRef) && !input.sourceRef.includes('..') ? input.sourceRef : null
   const e0Gate = input.e0Gate || null
   if (phase === 'FINAL') {
-    const requiredGateIds = ['syntax', 'full-unit', 'focused-recovery', 'test-all']
-    const gatesComplete = isRecord(e0Gate) && Array.isArray(e0Gate.gates) &&
-      requiredGateIds.every((id) => e0Gate.gates.some((gate) => gate && gate.id === id && gate.status === 'PASS' && gate.exitCode === 0))
     if (!implementationSha || !harnessSha || !sourceRef || !e0Gate ||
-      !validateEvidenceDocument('e0Gate', e0Gate).ok || e0Gate.passed !== true ||
-      e0Gate.implementationSha !== implementationSha || e0Gate.branch !== sourceRef || !gatesComplete) {
+      !passesE0Gate(e0Gate) || e0Gate.implementationSha !== implementationSha || e0Gate.branch !== sourceRef) {
       throw Object.assign(new Error('FINAL batch requires a matching passing E0 gate for the exact implementation SHA and branch'), { code: 'FINAL_E0_GATE_REQUIRED' })
     }
   }
@@ -842,7 +860,7 @@ function batchRawIntegrity(batchDir, manifest) {
     const e0GatePath = path.join(batchDir, 'e0-gate.json')
     if (manifest.phase === 'FINAL') {
       const e0Gate = readJson(e0GatePath)
-      if (!validateEvidenceDocument('e0Gate', e0Gate).ok || e0Gate.passed !== true ||
+      if (!passesE0Gate(e0Gate) ||
         e0Gate.implementationSha !== manifest.implementationSha || e0Gate.branch !== manifest.sourceRef ||
         sha256File(e0GatePath) !== manifest.e0GateSha256) {
         return { ok: false, code: 'BATCH_E0_GATE_INVALID', reason: 'final batch E0 evidence does not match the frozen implementation identity' }
@@ -886,7 +904,7 @@ function verifyBatchIntegrity(batchOrDir) {
     }
     const checks = new Map()
     for (const row of fs.readFileSync(sumsPath, 'utf8').trim().split(/\r?\n/).filter(Boolean)) {
-      const match = /^([a-f0-9]{64})  ((?:derived|runs)\/[A-Za-z0-9._/-]+|evidence-freeze\.json|batch-manifest\.json)$/.exec(row)
+      const match = /^([a-f0-9]{64})  ((?:derived|runs)\/[A-Za-z0-9._/-]+|evidence-freeze\.json|e0-gate\.json|batch-manifest\.json)$/.exec(row)
       if (!match || !expected.has(match[2]) || checks.has(match[2])) return { ok: false, code: 'BATCH_CHECKSUM_INVALID', reason: 'batch checksum manifest has an invalid or duplicate path' }
       checks.set(match[2], match[1])
     }
@@ -921,6 +939,313 @@ function writeCsv(file, headers, records) {
   fs.writeFileSync(file, `${lines.join('\n')}\n`, 'utf8')
 }
 
+function wilson95(successes, total) {
+  if (!Number.isInteger(successes) || !Number.isInteger(total) || total <= 0 || successes < 0 || successes > total) return null
+  const z = 1.959963984540054
+  const p = successes / total
+  const z2 = z * z
+  const denominator = 1 + z2 / total
+  const center = (p + z2 / (2 * total)) / denominator
+  const margin = (z / denominator) * Math.sqrt((p * (1 - p) / total) + (z2 / (4 * total * total)))
+  return { low: Math.max(0, center - margin), high: Math.min(1, center + margin) }
+}
+
+function quantile(sortedValues, probability) {
+  if (sortedValues.length === 0) return null
+  const index = (sortedValues.length - 1) * probability
+  const lower = Math.floor(index)
+  const upper = Math.ceil(index)
+  const fraction = index - lower
+  return sortedValues[lower] + ((sortedValues[upper] - sortedValues[lower]) * fraction)
+}
+
+function summarizeLatency(values) {
+  const sorted = values.filter((value) => Number.isFinite(value) && value >= 0).sort((left, right) => left - right)
+  if (sorted.length === 0) return { n: 0, median: null, q1: null, q3: null, iqr: null, p95: null }
+  const q1 = quantile(sorted, 0.25)
+  const q3 = quantile(sorted, 0.75)
+  return { n: sorted.length, median: quantile(sorted, 0.5), q1, q3, iqr: q3 - q1, p95: quantile(sorted, 0.95) }
+}
+
+function summarizeOracles(runs) {
+  return ORACLE_IDS.map((id) => {
+    const values = runs
+      .filter((run) => run.classification !== 'INVALID')
+      .map((run) => run.oracle && run.oracle[id])
+      .filter((oracle) => oracle && oracle.applicable === true && typeof oracle.pass === 'boolean')
+    const successes = values.filter((oracle) => oracle.pass).length
+    return { id, observed: values.length, passed: successes, failed: values.length - successes, wilson95: wilson95(successes, values.length) }
+  })
+}
+
+function faultCoverageFor(manifest, catalog, runs) {
+  const byFault = new Map()
+  for (const run of runs) {
+    const list = byFault.get(run.faultId) || []
+    list.push(run)
+    byFault.set(run.faultId, list)
+  }
+  return catalog.faults.map((fault) => {
+    const found = byFault.get(fault.id) || []
+    if (manifest.phase === 'PILOT') {
+      return {
+        faultId: fault.id, family: fault.family, expectedOutcome: fault.expectedOutcome,
+        executionMode: fault.executionMode, observations: found.length,
+        status: found.length ? 'PILOT_ONLY_EXCLUDED' : 'NOT_RUN_PILOT_SCOPE',
+        reason: found.length ? 'calibration observation is excluded from every final aggregate' : 'fault was not selected for this calibration batch'
+      }
+    }
+    if (found.length) {
+      const accepted = found.some((run) => run.classification === 'PASS' || run.classification === 'EXPECTED_BLOCK')
+      return {
+        faultId: fault.id, family: fault.family, expectedOutcome: fault.expectedOutcome,
+        executionMode: fault.executionMode, observations: found.length,
+        status: accepted ? 'OBSERVED' : 'ATTEMPTED_NOT_ACCEPTED',
+        reason: accepted ? `final raw observation recorded as ${found.find((run) => run.classification === 'PASS' || run.classification === 'EXPECTED_BLOCK').classification}` : `final attempt(s) ${found.map((run) => `${run.runId}:${run.classification}`).join(', ')} did not meet the expected outcome`
+      }
+    }
+    if (fault.executionMode === 'maintenance-window') {
+      return {
+        faultId: fault.id, family: fault.family, expectedOutcome: fault.expectedOutcome,
+        executionMode: fault.executionMode, observations: 0, status: 'NOT_RUN_MAINTENANCE_WINDOW',
+        reason: 'real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched'
+      }
+    }
+    if (EXECUTABLE_FAULT_IDS.includes(fault.id)) {
+      return {
+        faultId: fault.id, family: fault.family, expectedOutcome: fault.expectedOutcome,
+        executionMode: fault.executionMode, observations: 0, status: 'NOT_RUN_IMPLEMENTED_FAULT',
+        reason: 'this frozen harness has an executable adapter for this fault, but no E2 observation was recorded in the batch'
+      }
+    }
+    return {
+      faultId: fault.id, family: fault.family, expectedOutcome: fault.expectedOutcome,
+      executionMode: fault.executionMode, observations: 0, status: 'NOT_RUN_NO_ADAPTER',
+      reason: 'the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration'
+    }
+  })
+}
+
+function evaluateAcceptance({ batchDir, manifest, analysis, coverage, runs, integrity }) {
+  const gatePath = path.join(batchDir, 'e0-gate.json')
+  const gate = readJson(gatePath)
+  const a1 = validateEvidenceDocument('e0Gate', gate).ok && gate.passed === true &&
+    gate.implementationSha === manifest.implementationSha && gate.branch === manifest.sourceRef &&
+    sha256File(gatePath) === manifest.e0GateSha256
+  const oracleStats = summarizeOracles(runs)
+  const safetyIds = ['O1_progress_preservation', 'O2_no_verified_replay', 'O3_no_duplicate_effect', 'O4_cursor_monotonic', 'O6_single_execution_owner']
+  const safetyFailures = oracleStats.filter((entry) => safetyIds.includes(entry.id)).reduce((sum, entry) => sum + entry.failed, 0)
+  const failClosedCases = oracleStats.find((entry) => entry.id === 'O5_fail_closed_correct')
+  const a2 = safetyFailures > 0 || analysis.counts.FAIL > 0
+    ? { status: 'FAIL', reason: `${safetyFailures} applicable O1-O4/O6 violations or ${analysis.counts.FAIL} failing run(s) were observed` }
+    : failClosedCases.observed === 0
+      ? { status: 'NOT_READY', reason: 'no intentionally unsafe fail-closed scenario exercised O5; zero observed violations is not evidence for untested cases' }
+      : { status: 'PASS', reason: 'all applicable observed safety oracles passed with no invalid or failing run' }
+  const missingExecutable = coverage.filter((entry) => EXECUTABLE_FAULT_IDS.includes(entry.faultId) && entry.status !== 'OBSERVED')
+  const unreasoned = coverage.filter((entry) => entry.observations === 0 && !entry.reason)
+  const a3 = missingExecutable.length || unreasoned.length
+    ? { status: 'NOT_READY', reason: `${missingExecutable.length} implemented safe fault ID(s) lack an accepted E2 observation; ${unreasoned.length} unrun catalog row(s) lack a reason` }
+    : { status: 'PASS', reason: 'every executable safe fault ID has an accepted E2 observation and every other catalog row carries an explicit scope/maintenance reason' }
+  const a7MapComplete = analysis.rawRunIds.length === manifest.runs.length &&
+    analysis.rawRunIds.every((runId, index) => runId === manifest.runs[index].runId)
+  const a7 = integrity.ok && analysis.invalidRuns === 0 && a7MapComplete
+    ? { status: 'PASS', reason: 'raw runs and derived IDs verified; checksum manifest covers freeze, E0, raw-run checksum files and analysis tables' }
+    : { status: 'FAIL', reason: `integrity=${integrity.ok}; invalidRuns=${analysis.invalidRuns}; derivedToRawMapComplete=${a7MapComplete}` }
+  return {
+    A1: a1
+      ? { status: 'PASS', reason: 'the E0 gate is checksummed and matches the exact tested branch and implementation SHA' }
+      : { status: 'FAIL', reason: 'the frozen E0 gate does not validate against the batch branch/ref, implementation SHA, or checksum' },
+    A2: a2,
+    A3: a3,
+    A4: { status: 'NOT_RUN', reason: 'E3 eight-scenario × ten-seed × W1/W2/W3 robustness matrix was not run' },
+    A5: { status: 'NOT_RUN', reason: 'E5 minimum 20-observation cross-volume terminal-cleanup campaign was not run' },
+    A6: { status: 'NOT_RUN', reason: 'E6 real reboot repetitions were not run; no separately confirmed safe maintenance window was supplied' },
+    A7: a7,
+    A8: { status: 'PASS', reason: 'the report separates simulated/real process/reboot evidence, records NOT_RUN reasons, and limits claims to exercised configurations' },
+    oracleStats
+  }
+}
+
+function displayNumber(value, digits = 2) {
+  return Number.isFinite(value) ? value.toFixed(digits) : 'NOT_RUN'
+}
+
+function makeFinalReport({ batchDir, manifest, analysis, runs, coverage, integrity }) {
+  const e0 = readJson(path.join(batchDir, 'e0-gate.json'))
+  const acceptance = evaluateAcceptance({ batchDir, manifest, analysis, coverage, runs, integrity })
+  const gates = Object.entries(acceptance).filter(([key]) => /^A[1-8]$/.test(key))
+  const finalStatus = gates.every(([, value]) => value.status === 'PASS') ? 'ACCEPTED_FOR_EVALUATED_SCOPE' : 'HNS_INTEGRATION_RC_NOT_READY'
+  const oracleRows = acceptance.oracleStats.map((entry) => {
+    const interval = entry.wilson95 ? `[${displayNumber(entry.wilson95.low * 100, 1)}%, ${displayNumber(entry.wilson95.high * 100, 1)}%]` : 'NOT_RUN (N=0)'
+    return `| ${entry.id} | ${entry.passed}/${entry.observed} | ${entry.failed} | ${interval} |`
+  })
+  const e0Rows = e0.gates.map((gate) => {
+    const evidenceCount = gate.id === 'syntax'
+      ? `${gate.checkedFiles}/${gate.totalFiles} source files checked`
+      : `${gate.passed}/${gate.tests} passed; ${gate.failed} failed; ${gate.skipped} skipped`
+    return `| ${gate.id} | ${gate.status} | ${evidenceCount} | ${gate.durationMs} | ${gate.logSha256} |`
+  })
+  const rq1 = runs.map((run) => [
+    run.runId, run.faultId, run.classification, run.lostVerifiedSteps,
+    run.verifiedMutationReplayCount, run.duplicateEffectCount,
+    oracleLabel(run, 'O4_cursor_monotonic'), oracleLabel(run, 'O5_fail_closed_correct'),
+    oracleLabel(run, 'O6_single_execution_owner')
+  ])
+  const rq2 = runs.map((run) => [
+    run.runId, run.faultId, run.faultToCandidateMs, run.faultToResumeAcceptedMs,
+    run.faultToFirstNewCheckpointMs, run.stepsReexecuted, run.verifiedStepsPreserved
+  ])
+  const rq3 = runs.map((run) => [
+    run.runId, run.faultId, run.workloadId, run.classification,
+    oracleLabel(run, 'O7_cleanup_safety'), oracleLabel(run, 'O8_cleanup_completeness'),
+    oracleLabel(run, 'O9_reboot_autonomy')
+  ])
+  const metricRows = [
+    ['fault to resume accepted (ms)', summarizeLatency(runs.map((run) => run.faultToResumeAcceptedMs))],
+    ['fault to first newer checkpoint (ms)', summarizeLatency(runs.map((run) => run.faultToFirstNewCheckpointMs))],
+    ['steps re-executed', summarizeLatency(runs.map((run) => run.stepsReexecuted))],
+    ['verified steps preserved', summarizeLatency(runs.map((run) => run.verifiedStepsPreserved))]
+  ]
+  const sumsPath = path.join(batchDir, 'SHA256SUMS.txt')
+  const batchChecksum = sha256File(sumsPath)
+  const invalidRows = runs.filter((run) => run.classification === 'INVALID').map((run) => `| ${run.runId} | INVALID | ${escapeCell(run.invalidReason)} |`)
+  const failRows = runs.filter((run) => run.classification === 'FAIL').map((run) => `| ${run.runId} | FAIL | ${escapeCell(run.actualOutcome || 'failed oracle/outcome')} |`)
+  const lines = [
+    '# FINAL_EVIDENCE_REPORT',
+    '',
+    `Final status: ${finalStatus}.`,
+    '',
+    '## Frozen identities',
+    '',
+    '- Branch/ref: ' + manifest.sourceRef,
+    '- Implementation SHA: ' + manifest.implementationSha,
+    '- Harness SHA: ' + manifest.harnessSha,
+    '- Evidence schema SHA-256: ' + manifest.evidenceSchemaSha256,
+    '- Fault catalog SHA-256: ' + manifest.faultCatalogSha256,
+    '- Workload definitions SHA-256: ' + manifest.workloadDefinitionsSha256,
+    `- Bound E0 gate SHA-256: ${manifest.e0GateSha256} (${e0.gates.length} gates; ${e0.passed ? 'PASS' : 'FAIL'})`,
+    '- E0 gate/log evidence root: ' + path.join(ROOT, 'runtime', 'engineering', 'evidence', 'recovery', e0.runId),
+    `- Batch ID/phase/seed: ${manifest.batchId} / ${manifest.phase} / ${manifest.seed}`,
+    '- Raw evidence root: ' + batchDir,
+    `- Batch SHA256SUMS.txt SHA-256: ${batchChecksum} (report excluded from this manifest to avoid self-reference; report is reproducible from the checksummed artifacts)`,
+    '',
+    '## E0–E7 run counts',
+    '',
+    '| Stage | Status | Runs/evidence | Scope note |',
+    '|---|---|---:|---|',
+    `| E0 | ${e0.passed ? 'PASS' : 'FAIL'} | ${e0.gates.length} gates | bound to this exact implementation SHA |`,
+    '| E1 | PILOT_EXCLUDED | 0 final runs | calibration artifacts reside outside this final batch and are excluded |',
+    `| E2 | ${runs.length ? 'OBSERVED' : 'NOT_RUN'} | ${runs.length} | W0 executable fault catalog observations in this batch |`,
+    '| E3 | NOT_RUN | 0 | repeated stratified robustness matrix |',
+    '| E4 | NOT_RUN | 0 pairs | paired replay-from-start baseline |',
+    '| E5 | NOT_RUN | 0 | cross-volume terminal-cleanup campaign |',
+    '| E6 | NOT_RUN | 0 | real Windows reboot; no safe maintenance window was confirmed |',
+    '| E7 | NOT_RUN | 0 | sealed-run reproducibility replays |',
+    '',
+    '### E0 gate detail',
+    '',
+    '| Gate | Status | Counts | Duration ms | Log SHA-256 |',
+    '|---|---|---|---:|---|',
+    ...e0Rows,
+    '',
+    '## Acceptance gates A1–A8',
+    '',
+    '| Gate | Status | Evidence/reason |',
+    '|---|---|---|',
+    ...gates.map(([id, value]) => `| ${id} | ${value.status} | ${escapeCell(value.reason)} |`),
+    '',
+    '## Correctness invariant counts',
+    '',
+    '| Oracle | Passed / applicable N | Violations | Wilson 95% CI |',
+    '|---|---:|---:|---|',
+    ...oracleRows,
+    '',
+    'N=0 means NOT_RUN, not zero defects. O5 requires intentionally unsafe fail-closed observations; it is not inferred from successful resume runs.',
+    '',
+    '## RQ1 — correctness / progress / single owner',
+    '',
+    '| Run | Fault | Class | Lost verified steps | Verified replay | Duplicate effects | O4 | O5 | O6 |',
+    '|---|---:|---|---:|---:|---:|---|---|---|',
+    ...(rq1.length ? rq1.map((row) => `| ${row.map(displayValue).join(' | ')} |`) : ['| No final observations | — | — | — | — | — | — | — | — |']),
+    '',
+    '## RQ2 — recovery efficiency / work preservation',
+    '',
+    '| Run | Fault | Fault→candidate ms | Fault→resume accepted ms | Fault→new checkpoint ms | Steps re-executed | Verified steps preserved |',
+    '|---|---:|---:|---:|---:|---:|---:|',
+    ...(rq2.length ? rq2.map((row) => `| ${row.map(displayValue).join(' | ')} |`) : ['| No final observations | — | — | — | — | — | — |']),
+    '',
+    '## RQ3 — robustness / cleanup / reboot boundary',
+    '',
+    '| Run | Fault | Workload | Class | O7 cleanup safety | O8 cleanup completeness | O9 reboot autonomy |',
+    '|---|---:|---|---|---|---|---|',
+    ...(rq3.length ? rq3.map((row) => `| ${row.map(displayValue).join(' | ')} |`) : ['| No final observations | — | — | — | — | — | — |']),
+    '',
+    '## Latency and work-preservation summaries',
+    '',
+    '| Metric | N | Median | Q1 | Q3 | IQR | P95 |',
+    '|---|---:|---:|---:|---:|---:|---:|',
+    ...metricRows.map(([name, summary]) => `| ${name} | ${summary.n} | ${displayNumber(summary.median)} | ${displayNumber(summary.q1)} | ${displayNumber(summary.q3)} | ${displayNumber(summary.iqr)} | ${displayNumber(summary.p95)} |`),
+    '',
+    '## E4 paired replay-from-start analysis',
+    '',
+    'E4 paired baseline: NOT_RUN; N=0 matched pairs; paired-difference bootstrap 95% CI = NOT_RUN. No replay baseline was fabricated.',
+    '',
+    '## Cross-volume cleanup (E5)',
+    '',
+    `E5 status: NOT_RUN; final cleanup observations=${runs.filter((run) => run.faultId >= 79 && run.faultId <= 89).length}; preserved-sentinel comparisons and cross-volume residual claims are not available for this batch.`,
+    '',
+    '## Real reboot evidence (E6)',
+    '',
+    'E6 NOT_RUN. No real reboot was triggered because no separately confirmed safe maintenance window was supplied. No OS account/sign-in credentials or schedules were changed. Adapter simulation is not represented as a reboot observation.',
+    '',
+    '## FAIL, INVALID and NOT_RUN inventory',
+    '',
+    `- Final classifications: PASS=${analysis.counts.PASS}, EXPECTED_BLOCK=${analysis.counts.EXPECTED_BLOCK}, FAIL=${analysis.counts.FAIL}, INVALID=${analysis.counts.INVALID}.`,
+    `- NOT_RUN catalog IDs: ${coverage.filter((entry) => entry.observations === 0).length}/${coverage.length}. Each row and reason is listed below.`,
+    '| Fault ID | Status | Observations | Reason |',
+    '|---:|---|---:|---|',
+    ...coverage.map((entry) => `| ${entry.faultId} | ${entry.status} | ${entry.observations} | ${escapeCell(entry.reason)} |`),
+    '',
+    '| Run ID | Status | Reason |',
+    '|---|---|---|',
+    ...(failRows.length ? failRows : ['| — | FAIL | none observed |']),
+    ...(invalidRows.length ? invalidRows : ['| — | INVALID | none observed |']),
+    '',
+    '## Threats to validity and claim boundaries',
+    '',
+    '- The final process evidence in this batch is limited to the executable, exact-handle W0 fault #4 adapter and the tested Windows/Node host profile; one observation does not establish a failure rate.',
+    '- Catalog entries marked NOT_RUN_NO_ADAPTER are declarations without an executable harness adapter at this freeze; they contribute no coverage denominator and no robustness claim.',
+    '- E3–E7 populations are absent. No paired baseline, multi-volume terminal cleanup campaign, reproducibility replay, provider observation, or real OS reboot result is claimed.',
+    '- Controlled owned-process termination is distinct from random host crashes, power loss, OS restart, provider failure, and reboot scheduling.',
+    '- Seeds make injected choices reproducible, not Windows scheduling or external provider behavior deterministic.',
+    '- Exactly-once guarantees do not extend to non-idempotent external effects that cannot be observed or reconciled.',
+    '- Cross-volume cleanup claims apply only to paths/volumes actually exercised; unattended sign-in behavior remains OS-owned and untested here.',
+    '',
+    '## Reproduction and integrity',
+    '',
+    '- Re-derive from immutable raw runs through the exported deriveBatch(batchDir) entry point in scripts/lib/engineering-recovery-evidence.cjs; derivation verifies raw checksums before producing tables.',
+    `- Verify batch artifacts with the evidence library verifyBatchIntegrity; the last observed verification result was ${integrity.ok ? 'PASS' : 'FAIL'} with ${integrity.artifacts ? integrity.artifacts.length : 0} checksummed artifacts.`,
+    '- Raw runs remain immutable under the batch `runs/` directory; pilot/diagnostic material is not mixed into the FINAL batch.',
+    '',
+    `Highest status: ${finalStatus}. This is an evidence result for the evaluated scope, not a product-release or production-readiness claim.`
+  ]
+  return { text: `${lines.join('\n')}\n`, acceptance, finalStatus }
+}
+
+function displayValue(value) {
+  return value === null || value === undefined || value === '' ? 'NOT_RECORDED' : String(value)
+}
+
+function oracleLabel(run, id) {
+  const oracle = run.oracle && run.oracle[id]
+  if (!oracle || oracle.applicable !== true || typeof oracle.pass !== 'boolean') return 'NOT_APPLICABLE'
+  return oracle.pass ? 'PASS' : 'FAIL'
+}
+
+function escapeCell(value) {
+  return String(value === null || value === undefined ? '' : value).replace(/[|\r\n]/g, ' ')
+}
+
 function deriveBatch(batchOrDir) {
   const batchDir = requireDVolume(typeof batchOrDir === 'string' ? batchOrDir : batchOrDir.batchDir, 'batch directory')
   const manifest = readJson(path.join(batchDir, 'batch-manifest.json'))
@@ -948,23 +1273,11 @@ function deriveBatch(batchOrDir) {
   const counts = { PASS: 0, EXPECTED_BLOCK: 0, FAIL: 0, INVALID: 0 }
   for (const run of runs) counts[counts[run.classification] === undefined ? 'INVALID' : run.classification] += 1
   const catalog = loadFaultCatalog()
-  const runByFault = new Map()
-  for (const run of runs) {
-    const list = runByFault.get(run.faultId) || []
-    list.push(run)
-    runByFault.set(run.faultId, list)
-  }
-  const coverage = catalog.faults.map((fault) => {
-    const found = runByFault.get(fault.id) || []
-    const status = found.length
-      ? (found.some((run) => run.classification === 'PASS' || run.classification === 'EXPECTED_BLOCK') ? 'OBSERVED' : 'ATTEMPTED_NOT_ACCEPTED')
-      : (fault.executionMode === 'maintenance-window' ? 'NOT_RUN_MAINTENANCE_WINDOW' : 'NOT_RUN')
-    return { faultId: fault.id, family: fault.family, expectedOutcome: fault.expectedOutcome, executionMode: fault.executionMode, observations: found.length, status }
-  })
+  const coverage = faultCoverageFor(manifest, catalog, runs)
   const derivedDir = path.join(batchDir, 'derived')
   fs.mkdirSync(derivedDir, { recursive: true })
   writeCsv(path.join(derivedDir, 'runs.csv'), ['runId', 'faultId', 'workloadId', 'classification', 'expectedOutcome', 'actualOutcome', 'lostVerifiedSteps', 'verifiedMutationReplayCount', 'duplicateEffectCount', 'faultToResumeAcceptedMs', 'faultToFirstNewCheckpointMs', 'offWorkVolumeResidualCount'], runs)
-  writeCsv(path.join(derivedDir, 'fault-coverage.csv'), ['faultId', 'family', 'expectedOutcome', 'executionMode', 'observations', 'status'], coverage)
+  writeCsv(path.join(derivedDir, 'fault-coverage.csv'), ['faultId', 'family', 'expectedOutcome', 'executionMode', 'observations', 'status', 'reason'], coverage)
   writeCsv(path.join(derivedDir, 'rq1-correctness.csv'), ['runId', 'faultId', 'classification', 'lostVerifiedSteps', 'verifiedMutationReplayCount', 'duplicateEffectCount', 'O4_cursor_monotonic', 'O5_fail_closed_correct', 'O6_single_execution_owner'], runs)
   writeCsv(path.join(derivedDir, 'rq2-efficiency.csv'), ['runId', 'faultId', 'faultToCandidateMs', 'faultToResumeAcceptedMs', 'faultToFirstNewCheckpointMs', 'stepsReexecuted', 'verifiedStepsPreserved'], runs)
   writeCsv(path.join(derivedDir, 'rq3-robustness.csv'), ['runId', 'faultId', 'workloadId', 'classification', 'O7_cleanup_safety', 'O8_cleanup_completeness', 'O9_reboot_autonomy'], runs)
@@ -979,30 +1292,69 @@ function deriveBatch(batchOrDir) {
     invalidRuns,
     counts,
     faultCatalogSha256: catalog.sha256,
-    faultCoverage: { total: coverage.length, observed: coverage.filter((entry) => entry.status === 'OBSERVED').length, notRun: coverage.filter((entry) => entry.status.startsWith('NOT_RUN')).length },
+    faultCoverage: {
+      total: coverage.length,
+      observed: coverage.filter((entry) => entry.status === 'OBSERVED').length,
+      notRun: coverage.filter((entry) => entry.status.startsWith('NOT_RUN')).length,
+      notRunByStatus: Object.fromEntries([...new Set(coverage.filter((entry) => entry.observations === 0).map((entry) => entry.status))].sort().map((status) => [status, coverage.filter((entry) => entry.status === status).length]))
+    },
     rawRunIds: runs.map((run) => run.runId),
-    acceptanceStatus: manifest.phase === 'FINAL' && invalidRuns === 0 && counts.FAIL === 0 ? 'REQUIRES_A1_A8_REVIEW' : 'NOT_READY'
+    oracleStats: summarizeOracles(runs),
+    acceptanceGates: null,
+    acceptanceStatus: 'HNS_INTEGRATION_RC_NOT_READY'
   }
-  writeJsonAtomic(path.join(derivedDir, 'analysis.json'), analysis)
-  const report = [
-    `# Recovery evidence analysis — ${manifest.batchId}`,
-    '',
-    `Phase: ${manifest.phase}; seed: ${manifest.seed}; runs: ${runs.length}.`,
-    `Classifications: PASS ${counts.PASS}, EXPECTED_BLOCK ${counts.EXPECTED_BLOCK}, FAIL ${counts.FAIL}, INVALID ${counts.INVALID}.`,
-    `Fault coverage: ${analysis.faultCoverage.observed}/${coverage.length} observed; ${analysis.faultCoverage.notRun} not run.`,
-    `Status: ${analysis.acceptanceStatus}.`,
-    '',
-    'All tables are derived from checksummed raw runs. Missing observations remain NOT_RUN; maintenance-window cases are not inferred from adapter simulations.'
-  ].join('\n')
-  fs.writeFileSync(path.join(derivedDir, 'analysis.md'), `${report}\n`, 'utf8')
+  const writeAnalysisFiles = () => {
+    writeJsonAtomic(path.join(derivedDir, 'analysis.json'), analysis)
+    const gateLines = analysis.acceptanceGates
+      ? Object.entries(analysis.acceptanceGates).map(([id, value]) => `- ${id}: ${value.status} — ${value.reason}`)
+      : ['- Acceptance gates are not evaluated for this non-final batch.']
+    const report = [
+      `# Recovery evidence analysis — ${manifest.batchId}`,
+      '',
+      `Phase: ${manifest.phase}; seed: ${manifest.seed}; runs: ${runs.length}.`,
+      `Classifications: PASS ${counts.PASS}, EXPECTED_BLOCK ${counts.EXPECTED_BLOCK}, FAIL ${counts.FAIL}, INVALID ${counts.INVALID}.`,
+      `Fault coverage: ${analysis.faultCoverage.observed}/${coverage.length} final observations; ${analysis.faultCoverage.notRun} NOT_RUN.`,
+      `Status: ${analysis.acceptanceStatus}.`,
+      '',
+      ...gateLines,
+      '',
+      'All tables derive from checksummed raw runs. Missing observations retain explicit NOT_RUN reasons; pilot data remains excluded from final aggregates.'
+    ].join('\n')
+    fs.writeFileSync(path.join(derivedDir, 'analysis.md'), `${report}\n`, 'utf8')
+  }
+  writeAnalysisFiles()
   writeBatchChecksums(batchDir, manifest)
-  const integrity = verifyBatchIntegrity(batchDir)
+  let integrity = verifyBatchIntegrity(batchDir)
+  if (manifest.phase === 'FINAL') {
+    let acceptance = evaluateAcceptance({ batchDir, manifest, analysis, coverage, runs, integrity })
+    analysis.acceptanceGates = Object.fromEntries(Object.entries(acceptance).filter(([key]) => /^A[1-8]$/.test(key)))
+    analysis.acceptanceStatus = Object.values(analysis.acceptanceGates).every((gate) => gate.status === 'PASS')
+      ? 'ACCEPTED_FOR_EVALUATED_SCOPE'
+      : 'HNS_INTEGRATION_RC_NOT_READY'
+    writeAnalysisFiles()
+    writeBatchChecksums(batchDir, manifest)
+    integrity = verifyBatchIntegrity(batchDir)
+    if (!integrity.ok && analysis.acceptanceGates.A7.status === 'PASS') {
+      analysis.acceptanceGates.A7 = { status: 'FAIL', reason: `final batch integrity verification failed: ${integrity.code}` }
+      analysis.acceptanceStatus = 'HNS_INTEGRATION_RC_NOT_READY'
+      writeAnalysisFiles()
+      writeBatchChecksums(batchDir, manifest)
+      integrity = verifyBatchIntegrity(batchDir)
+    }
+    const finalReport = makeFinalReport({ batchDir, manifest, analysis, runs, coverage, integrity })
+    fs.writeFileSync(path.join(batchDir, 'FINAL_EVIDENCE_REPORT.md'), finalReport.text, 'utf8')
+    // The report embeds the SHA-256 of this manifest, so it is regenerated from and
+    // validated against the sealed inputs rather than self-listed in the manifest.
+    integrity = verifyBatchIntegrity(batchDir)
+  }
   return { ok: invalidRuns === 0 && integrity.ok, analysis, invalidRuns, runs, integrity }
 }
 
 module.exports = {
   SCHEMA_VERSION,
+  EXECUTABLE_FAULT_IDS,
   validateEvidenceDocument,
+  passesE0Gate,
   RAW_RUN_FILES,
   createBatch,
   createRun,

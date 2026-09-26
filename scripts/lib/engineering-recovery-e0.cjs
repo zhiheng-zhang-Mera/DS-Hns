@@ -21,24 +21,30 @@ const FOCUSED_SUITES = [
 
 function summarizeTestOutput(output) {
   const value = String(output || '')
+  const filesMatch = value.match(/(?:^|\n)\s*checked\s+(\d+)\/(\d+)\s+files\s*$/im)
   const read = (name) => {
     const match = value.match(new RegExp(`(?:^|\\n)\\s*[#ℹ]\\s*${name}\\s+(\\d+)(?:\\s|$)`, 'm'))
     return match ? Number(match[1]) : null
   }
   const tests = read('tests')
-  if (tests === null) return { tests: null, passed: null, failed: null, skipped: null }
+  const checkedFiles = filesMatch ? Number(filesMatch[1]) : null
+  const totalFiles = filesMatch ? Number(filesMatch[2]) : null
+  if (tests === null) return { tests: null, passed: null, failed: null, skipped: null, checkedFiles, totalFiles }
   return {
     tests,
     passed: read('pass'),
     failed: read('fail'),
-    skipped: read('skipped') ?? 0
+    skipped: read('skipped') ?? 0,
+    checkedFiles,
+    totalFiles
   }
 }
 
 function makeGateRecord({ id, exitCode, durationMs, logSha256, output }) {
   const counts = summarizeTestOutput(output)
   const syntaxOnly = id === 'syntax'
-  const validTestSummary = syntaxOnly || (
+  const validTestSummary = (syntaxOnly && counts.checkedFiles !== null && counts.totalFiles > 0 && counts.checkedFiles === counts.totalFiles) || (
+    !syntaxOnly &&
     counts.tests !== null && counts.passed !== null && counts.failed !== null &&
     counts.failed === 0 && counts.passed + counts.skipped === counts.tests
   )
@@ -48,6 +54,8 @@ function makeGateRecord({ id, exitCode, durationMs, logSha256, output }) {
     exitCode: Number.isInteger(exitCode) ? exitCode : 1,
     durationMs: Math.max(0, Number(durationMs) || 0),
     logSha256,
+    checkedFiles: counts.checkedFiles,
+    totalFiles: counts.totalFiles,
     tests: counts.tests,
     passed: counts.passed,
     failed: counts.failed,

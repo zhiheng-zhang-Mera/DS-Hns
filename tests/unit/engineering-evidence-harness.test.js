@@ -2,12 +2,14 @@
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const { spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 
 const evidence = require('../../scripts/lib/engineering-recovery-evidence.cjs')
 const e0 = require('../../scripts/lib/engineering-recovery-e0.cjs')
+const e0Cli = require('../../scripts/engineering-recovery-e0.cjs')
 
 function tempDir() {
   const root = os.tmpdir()
@@ -78,6 +80,8 @@ function passingE0Gate(implementationSha, branch = 'dev/crash-resume-recovery-v1
       exitCode: 0,
       durationMs: index + 1,
       logSha256: String(index + 1).repeat(64),
+      checkedFiles: id === 'syntax' ? 277 : null,
+      totalFiles: id === 'syntax' ? 277 : null,
       tests: id === 'syntax' ? null : 1886,
       passed: id === 'syntax' ? null : 1884,
       failed: id === 'syntax' ? null : 0,
@@ -89,12 +93,24 @@ function passingE0Gate(implementationSha, branch = 'dev/crash-resume-recovery-v1
 
 test('E0 test summaries distinguish a complete green TAP run from missing or failed counts', () => {
   assert.deepEqual(e0.summarizeTestOutput('ℹ tests 12\nℹ pass 10\nℹ fail 0\nℹ skipped 2\n'), {
-    tests: 12, passed: 10, failed: 0, skipped: 2
+    tests: 12, passed: 10, failed: 0, skipped: 2, checkedFiles: null, totalFiles: null
   })
   assert.deepEqual(e0.summarizeTestOutput('# tests 3\n# pass 2\n# fail 1\n'), {
-    tests: 3, passed: 2, failed: 1, skipped: 0
+    tests: 3, passed: 2, failed: 1, skipped: 0, checkedFiles: null, totalFiles: null
   })
-  assert.equal(e0.summarizeTestOutput('checked 276/276 files').tests, null)
+  assert.deepEqual(e0.summarizeTestOutput('checked 277/277 files'), {
+    tests: null, passed: null, failed: null, skipped: null, checkedFiles: 277, totalFiles: 277
+  })
+})
+
+test('the E0 command entry point is import-safe and exposes the runner without launching gates', () => {
+  assert.equal(typeof e0Cli.runE0, 'function')
+})
+
+test('the E0 syntax gate passes only when every declared source file was checked', () => {
+  const common = { id: 'syntax', exitCode: 0, durationMs: 10, logSha256: 'a'.repeat(64) }
+  assert.equal(e0.makeGateRecord({ ...common, output: 'checked 277/277 files' }).status, 'PASS')
+  assert.equal(e0.makeGateRecord({ ...common, output: 'checked 276/277 files' }).status, 'FAIL')
 })
 
 test('the frozen catalog is contiguous, unique and leaves reboot-only cases explicitly gated', () => {
@@ -143,6 +159,74 @@ test('a FINAL batch freezes and checksums its exact passing E0 evidence', () => 
     assert.equal(freeze.e0GateSha256, manifest.e0GateSha256)
     const diskGate = JSON.parse(fs.readFileSync(gatePath, 'utf8'))
     assert.deepEqual(diskGate, gate)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a FINAL batch rejects a syntax gate whose checked-file count is incomplete', () => {
+  const root = tempDir()
+  const commit = 'd'.repeat(40)
+  const gate = passingE0Gate(commit)
+  gate.gates[0].checkedFiles = 276
+  try {
+    assert.equal(evidence.passesE0Gate(gate), false)
+    assert.throws(() => evidence.createBatch({
+      root, batchId: 'E2-bad-e0-count', phase: 'FINAL', seed: 13,
+      implementationSha: commit, harnessSha: commit,
+      sourceRef: 'dev/crash-resume-recovery-v1', e0Gate: gate
+    }), /passing E0 gate/)
+    assert.equal(fs.existsSync(path.join(root, 'E2-bad-e0-count')), false)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('the FINAL W0 fault-04 CLI refuses to create a batch when E0 evidence is absent', () => {
+  const root = path.resolve(__dirname, '..', '..')
+  const batchId = `E2-no-e0-${process.pid}`
+  const batchDir = path.join(root, 'runtime', 'engineering', 'evidence', 'recovery', batchId)
+  const cli = path.join(root, 'scripts', 'engineering-recovery-evidence.cjs')
+  const result = spawnSync(process.execPath, [
+    cli, '--mode', 'final-w0-fault04', '--seed', '19', '--batch-id', batchId
+  ], { cwd: root, encoding: 'utf8', windowsHide: true, env: process.env })
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /FINAL_E0_GATE_REQUIRED/)
+  assert.equal(fs.existsSync(batchDir), false)
+})
+
+test('FINAL analysis records conservative gate states, per-fault NOT_RUN reasons and batch identity', () => {
+  const root = tempDir()
+  try {
+    const commit = 'c'.repeat(40)
+    const batch = evidence.createBatch({
+      root, batchId: 'E2-report-no-observations', phase: 'FINAL', seed: 29,
+      implementationSha: commit, harnessSha: commit,
+      sourceRef: 'dev/crash-resume-recovery-v1', e0Gate: passingE0Gate(commit)
+    })
+    const result = evidence.deriveBatch(batch.batchDir)
+    assert.equal(result.ok, true, JSON.stringify(result))
+    assert.equal(result.analysis.acceptanceStatus, 'HNS_INTEGRATION_RC_NOT_READY')
+    assert.equal(result.analysis.faultCoverage.notRun, 89)
+    assert.deepEqual(result.analysis.faultCoverage.notRunByStatus, {
+      NOT_RUN_IMPLEMENTED_FAULT: 1,
+      NOT_RUN_MAINTENANCE_WINDOW: 6,
+      NOT_RUN_NO_ADAPTER: 82
+    })
+    const coverage = fs.readFileSync(path.join(batch.batchDir, 'derived', 'fault-coverage.csv'), 'utf8')
+    assert.match(coverage, /NOT_RUN_IMPLEMENTED_FAULT/)
+    assert.match(coverage, /NOT_RUN_MAINTENANCE_WINDOW/)
+    assert.match(coverage, /NOT_RUN_NO_ADAPTER/)
+    const report = fs.readFileSync(path.join(batch.batchDir, 'FINAL_EVIDENCE_REPORT.md'), 'utf8')
+    assert.match(report, /\| A1 \| PASS \|/)
+    assert.match(report, /\| A2 \| NOT_READY \|/)
+    assert.match(report, /\| A6 \| NOT_RUN \|/)
+    assert.match(report, /\| syntax \| PASS \| 277\/277 source files checked \|/)
+    assert.match(report, /\| full-unit \| PASS \| 1884\/1886 passed; 0 failed; 2 skipped \|/)
+    assert.match(report, /E4 paired baseline: NOT_RUN; N=0/)
+    assert.match(report, /Batch SHA256SUMS\.txt SHA-256: [a-f0-9]{64}/)
+    assert.ok(report.includes(evidence.sha256File(path.join(batch.batchDir, 'SHA256SUMS.txt'))))
+    assert.equal(evidence.verifyBatchIntegrity(batch.batchDir).ok, true)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

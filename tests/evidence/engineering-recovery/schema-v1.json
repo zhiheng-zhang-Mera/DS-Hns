@@ -265,13 +265,15 @@
     },
     "e0GateRecord": {
       "type": "object",
-      "required": ["id", "status", "exitCode", "durationMs", "logSha256"],
+      "required": ["id", "status", "exitCode", "durationMs", "logSha256", "checkedFiles", "totalFiles", "tests", "passed", "failed", "skipped"],
       "properties": {
         "id": {"enum": ["syntax", "full-unit", "focused-recovery", "test-all"]},
         "status": {"enum": ["PASS", "FAIL"]},
         "exitCode": {"type": "integer"},
         "durationMs": {"type": "number", "minimum": 0},
         "logSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "checkedFiles": {"type": ["integer", "null"], "minimum": 0},
+        "totalFiles": {"type": ["integer", "null"], "minimum": 0},
         "tests": {"type": ["integer", "null"], "minimum": 0},
         "passed": {"type": ["integer", "null"], "minimum": 0},
         "failed": {"type": ["integer", "null"], "minimum": 0},

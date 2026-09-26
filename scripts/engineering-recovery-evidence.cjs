@@ -11,7 +11,8 @@ const CANDIDATE_ROOT = path.join(ROOT, 'runtime', 'engineering', 'evidence', 'ca
 const WORKER = path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'episode-worker.cjs')
 const WORKLOAD_TEST = path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w0.test.cjs')
 const CHECKPOINTS_RELATIVE = path.join('runtime', 'engineering', 'recovery', 'checkpoints')
-const RUN_ID = 'E1-W0-fault04'
+const PILOT_RUN_ID = 'E1-W0-fault04'
+const FINAL_RUN_ID = 'E2-W0-fault04'
 
 const evidence = require('./lib/engineering-recovery-evidence.cjs')
 const { createCheckpointStore } = require('../app/engineering/checkpoint.cjs')
@@ -19,20 +20,25 @@ const { createRecoveryStore } = require('../app/engineering/recovery-store.cjs')
 const { probeProcessOwner } = require('../app/engineering/process-identity.cjs')
 
 function parseArgs(argv) {
-  const output = { mode: null, seed: null, batchId: null }
+  const output = { mode: null, seed: null, batchId: null, e0Gate: null }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (!['--mode', '--seed', '--batch-id'].includes(arg)) throw new Error(`unsupported argument: ${arg}`)
+    if (!['--mode', '--seed', '--batch-id', '--e0-gate'].includes(arg)) throw new Error(`unsupported argument: ${arg}`)
     const value = argv[index + 1]
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${arg}`)
     output[arg.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value
     index += 1
   }
-  if (output.mode !== 'pilot') throw new Error('this stage supports only --mode pilot')
+  if (!['pilot', 'final-w0-fault04'].includes(output.mode)) throw new Error('unsupported evidence mode')
+  if (output.mode === 'final-w0-fault04' && !output.e0Gate) {
+    throw Object.assign(new Error('--e0-gate is required for FINAL mode'), { code: 'FINAL_E0_GATE_REQUIRED' })
+  }
+  if (output.mode === 'pilot' && output.e0Gate) throw new Error('--e0-gate is valid only for FINAL mode')
   const seed = Number(output.seed)
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) throw new Error('--seed must be an unsigned 32-bit integer')
   output.seed = seed
-  output.batchId = output.batchId || `E1-W0-pilot-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
+  const prefix = output.mode === 'pilot' ? 'E1-W0-pilot' : 'E2-W0-final'
+  output.batchId = output.batchId || `${prefix}-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
   return output
 }
 
@@ -51,6 +57,25 @@ function mkdirD(target) {
   const absolute = assertDPath(target, 'generated directory')
   fs.mkdirSync(absolute, { recursive: true })
   return absolute
+}
+
+function loadPassingE0Gate(file, branch, implementationSha) {
+  let gate
+  try {
+    const lexicalPath = assertDPath(file, 'E0 gate')
+    const realPath = assertDPath(fs.realpathSync(lexicalPath), 'E0 gate target')
+    gate = JSON.parse(fs.readFileSync(realPath, 'utf8'))
+  } catch (error) {
+    throw Object.assign(new Error('the requested D: E0 gate cannot be read'), { code: 'FINAL_E0_GATE_UNAVAILABLE' })
+  }
+  const schema = evidence.validateEvidenceDocument('e0Gate', gate)
+  if (!schema.ok || !evidence.passesE0Gate(gate)) {
+    throw Object.assign(new Error('E0 gate is not a complete passing repository gate'), { code: 'FINAL_E0_GATE_INVALID' })
+  }
+  if (gate.branch !== branch || gate.implementationSha !== implementationSha.toLowerCase()) {
+    throw Object.assign(new Error('E0 gate branch or implementation SHA differs from this checkout'), { code: 'FINAL_E0_GATE_IDENTITY_MISMATCH' })
+  }
+  return gate
 }
 
 function git(candidateRoot, args) {
@@ -275,7 +300,12 @@ function waitForExit(child, timeoutMs = 20_000) {
   })
 }
 
-async function runPilot(options) {
+async function runW0Fault04(options) {
+  const runId = options.mode === 'pilot' ? PILOT_RUN_ID : FINAL_RUN_ID
+  const phase = options.mode === 'pilot' ? 'PILOT' : 'FINAL'
+  const taskTemp = mkdirD(path.join(ROOT, 'runtime', 'engineering', 'test-fixtures', 'tmp'))
+  process.env.TEMP = taskTemp
+  process.env.TMP = taskTemp
   mkdirD(EVIDENCE_ROOT)
   const catalog = evidence.loadFaultCatalog()
   evidence.loadWorkloads()
@@ -287,17 +317,23 @@ async function runPilot(options) {
   if (sourceRefResult.error || sourceRefResult.status !== 0 || !String(sourceRefResult.stdout || '').trim()) {
     throw Object.assign(new Error('cannot identify the tested branch/ref'), { code: 'IMPLEMENTATION_REF_UNAVAILABLE' })
   }
+  const sourceRef = sourceRefResult.stdout.trim()
+  const implementationShaText = implementation.stdout.trim().toLowerCase()
+  const e0Gate = phase === 'FINAL'
+    ? loadPassingE0Gate(options.e0Gate, sourceRef, implementationShaText)
+    : null
   const batch = evidence.createBatch({
     root: EVIDENCE_ROOT,
     batchId: options.batchId,
-    phase: 'PILOT',
+    phase,
     seed: options.seed,
-    implementationSha: implementation.stdout.trim(),
-    sourceRef: sourceRefResult.stdout.trim()
+    implementationSha: implementationShaText,
+    sourceRef,
+    ...(e0Gate ? { e0Gate } : {})
   })
   let run = null
-  const { candidateRoot } = createCandidate(RUN_ID)
-  const config = workerConfig(candidateRoot, batch.batchDir, RUN_ID)
+  const { candidateRoot } = createCandidate(runId)
+  const config = workerConfig(candidateRoot, batch.batchDir, runId)
   fs.mkdirSync(config.checkpointRoot, { recursive: true })
   fs.mkdirSync(config.recoveryRoot, { recursive: true })
   const stores = createControllerStores(config)
@@ -314,7 +350,7 @@ async function runPilot(options) {
     const accepted = await waitForMessage(activeWorker.child, activeWorker.queue, (message) => message.kind === 'episode_accepted' || message.kind === 'worker_error')
     if (accepted.kind !== 'episode_accepted') throw new Error(`fresh episode failed before acceptance (${accepted.code})`)
     run = evidence.createRun(batch, {
-      runId: RUN_ID,
+      runId,
       runOrdinal: 1,
       seed: options.seed,
       implementationSha: batch.manifest.implementationSha,
@@ -324,7 +360,7 @@ async function runPilot(options) {
       episodeId: accepted.episodeId,
       recoveryConfiguration: { attempts: 3, executorCompatibility: 'engineering-v1', hostApi: 'createEngineeringHost' }
     })
-    append({ type: 'episode_started', candidateId: RUN_ID })
+    append({ type: 'episode_started', candidateId: runId })
     append({ type: 'fault_armed', faultId: 4 })
     append({ type: 'sentinel_observed', phase: 'before', pathId: 'candidate-baseline', sha256: evidence.sha256File(path.join(candidateRoot, '.git', 'HEAD')) })
     const crashBoundary = await waitForMessage(activeWorker.child, activeWorker.queue, (message) => ['crash_boundary', 'worker_error', 'episode_settled'].includes(message.kind))
@@ -356,7 +392,7 @@ async function runPilot(options) {
     }
     append({
       type: 'relaunch_started',
-      candidateId: RUN_ID
+      candidateId: runId
     })
     append({
       type: 'recovery_candidate_detected',
@@ -397,7 +433,7 @@ async function runPilot(options) {
     if (!integrity.ok) throw new Error(`raw evidence integrity failed (${integrity.code})`)
     const derived = evidence.deriveBatch(batch.batchDir)
     if (!derived.ok) throw new Error('derived analysis rejected the raw pilot run')
-    const removed = removeOwnedCandidate(candidateRoot, RUN_ID)
+    const removed = removeOwnedCandidate(candidateRoot, runId)
     if (!removed) throw new Error('owned D: candidate workspace remains after cleanup')
     process.stdout.write(`${JSON.stringify({ status: result.classification, batchDir: batch.batchDir, runDir: run.runDir, checkpointSeqBefore: result.checkpointSeqBeforeFault, checkpointSeqAfter: result.checkpointSeqAfterRecovery, oracles: result.oracle, cleanup: 'candidate_removed' })}\n`)
     return result.classification === 'PASS' ? 0 : 1
@@ -408,20 +444,20 @@ async function runPilot(options) {
     }
     if (run && !terminal && !fs.existsSync(path.join(run.runDir, 'SHA256SUMS.txt'))) {
       try {
-        append({ type: 'run_stopped', actualOutcome: error.code || 'PILOT_ERROR' })
-        evidence.finalizeRun(run, { testStopReason: error.code || 'pilot_error', invalidReason: 'pilot did not reach its acceptance boundary' })
+        append({ type: 'run_stopped', actualOutcome: error.code || 'EVIDENCE_RUN_FAILED' })
+        evidence.finalizeRun(run, { testStopReason: error.code || 'evidence_run_failed', invalidReason: `${phase.toLowerCase()} did not reach its acceptance boundary` })
         evidence.deriveBatch(batch.batchDir)
       } catch {}
     }
-    try { removeOwnedCandidate(candidateRoot, RUN_ID) } catch {}
-    process.stderr.write(`${error && error.code ? error.code : 'PILOT_FAILED'}${error && error.message ? `: ${error.message}` : ''}\n`)
+    try { removeOwnedCandidate(candidateRoot, runId) } catch {}
+    process.stderr.write(`${error && error.code ? error.code : 'EVIDENCE_RUN_FAILED'}${error && error.message ? `: ${error.message}` : ''}\n`)
     return 1
   }
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
-  const exitCode = await runPilot(options)
+  const exitCode = await runW0Fault04(options)
   process.exitCode = exitCode
 }
 
