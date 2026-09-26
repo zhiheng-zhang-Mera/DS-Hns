@@ -144,6 +144,67 @@ test('the host accepts, reports and cancels an episode, and refuses a second one
   host.dispose('test teardown')
 })
 
+test('an injected checkpointRoot is treated as the exact checkpoint directory', () => {
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoint-root-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
+  try {
+    const { createCheckpointStore } = require('../../app/engineering/checkpoint.cjs')
+    const store = createCheckpointStore({ dir: checkpointRoot })
+    const saved = store.save({ episodeId: 'root-probe', goal: 'probe' })
+    assert.equal(saved.ok, true)
+
+    const host = createEngineeringHost({ checkpointRoot })
+    const listed = host.checkpoints({ episodeId: 'root-probe' })
+    assert.equal(listed.ok, true)
+    assert.equal(listed.checkpoints.length, 1, 'the host and supervisor must use the configured directory directly')
+    assert.equal(listed.checkpoints[0].path, saved.path)
+    host.dispose('test teardown')
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('the supervisor persists a replay-safe recovery descriptor and indexes each saved checkpoint', async () => {
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-recovery-supervisor-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
+  try {
+    const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
+    const supervisor = createEngineeringSupervisor({
+      workspace: ROOT,
+      goal: 'persist the next safe step',
+      checkpointRoot,
+      deadlineMs: 60_000,
+      contract: { commands: {}, steps: [{ kind: 'report' }], lockWorkspace: false, tests: [] },
+      log: () => {}
+    })
+    const report = await supervisor.run()
+    const latest = supervisor.checkpoints.latest(report.episode)
+    const recovery = latest && latest.recovery
+
+    assert.ok(recovery, 'the final persisted checkpoint must contain the cross-process recovery descriptor')
+    assert.equal(recovery.version, 1)
+    assert.equal(recovery.episodeId, report.episode)
+    assert.equal(recovery.request.workspace, ROOT)
+    assert.equal(recovery.request.goal, 'persist the next safe step')
+    assert.equal(recovery.request.deadlineAt - recovery.request.startedAt, 60_000)
+    assert.equal(recovery.plan.version, 1)
+    assert.equal(recovery.plan.steps.length, 1)
+    assert.match(recovery.planDigest, /^sha256:[a-f0-9]{64}$/)
+    assert.equal(recovery.cursor.nextStepIndex, 1)
+    assert.equal(recovery.cursor.lastVerifiedStepId, recovery.plan.steps[0].id)
+    assert.equal(recovery.lifecycleState, 'RECOVERY_BLOCKED', 'a refused final result is retained but not blindly resumed')
+
+    const store = require('../../app/engineering/recovery-store.cjs').createRecoveryStore({
+      root: path.dirname(checkpointRoot),
+      checkpointDir: checkpointRoot
+    })
+    assert.equal(store.get(report.episode).state, 'RECOVERY_BLOCKED')
+    assert.equal(store.get(report.episode).latestCheckpointSeq, latest.recovery.cursor.checkpointSeq)
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
 /**
  * A missing workspace must not be created by the act of locking it.
  *

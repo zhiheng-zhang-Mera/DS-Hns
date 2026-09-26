@@ -185,6 +185,27 @@ test('the latest recovery checkpoint follows checkpointSeq when the wall clock m
   }
 })
 
+test('retention prunes old recovery sequences, never the newest sequence after a clock rollback', () => {
+  const dir = tempDir()
+  try {
+    let at = 1_700_000_000_000
+    const store = createCheckpointStore({ dir, maxFiles: 2, now: () => at })
+    const recovery = { version: 1, episodeId: 'ep', cursor: { nextStepIndex: 0 } }
+    store.save({ episodeId: 'ep', recovery })
+    at += 1_000
+    store.save({ episodeId: 'ep', recovery })
+    at -= 10_000
+    const newest = store.save({ episodeId: 'ep', recovery })
+
+    assert.equal(newest.ok, true)
+    assert.equal(store.list('ep').length, 2)
+    assert.equal(store.latest('ep').recovery.cursor.checkpointSeq, 3)
+    assert.equal(store.list('ep').some((entry) => entry.path === newest.path), true)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('a corrupt checkpoint is skipped and latest() still returns the newest good one', () => {
   const dir = tempDir()
   try {

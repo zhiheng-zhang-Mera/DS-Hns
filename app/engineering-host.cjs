@@ -138,7 +138,7 @@ function createEngineeringHost(options = {}) {
     if (!episodeId) return { ok: false, error: 'an episode id is required', code: 'EPISODE_REQUIRED' }
     try {
       const { createCheckpointStore } = require('./engineering/checkpoint.cjs')
-      const store = createCheckpointStore({ root: checkpointRoot, now })
+      const store = createCheckpointStore({ dir: checkpointRoot || undefined, now })
       return { ok: true, checkpoints: store.list(episodeId) }
     } catch (error) {
       return { ok: false, error: String(error && error.message ? error.message : error) }

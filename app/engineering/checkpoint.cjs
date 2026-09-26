@@ -532,9 +532,26 @@ function createCheckpointStore(options = {}) {
       const parsed = parseName(name)
       if (!parsed) continue
       if (wanted !== null && parsed.episode !== wanted) continue
-      found.push({ file: name, path: path.join(dir, name), episode: parsed.episode, at: parsed.at, sequence: parsed.sequence, bytes: fileBytes(path.join(dir, name)) })
+      const checkpointPath = path.join(dir, name)
+      const record = readCheckpoint(checkpointPath)
+      found.push({
+        file: name,
+        path: checkpointPath,
+        episode: parsed.episode,
+        at: parsed.at,
+        sequence: parsed.sequence,
+        recoverySeq: recoverySequence(record),
+        bytes: fileBytes(checkpointPath)
+      })
     }
-    found.sort((a, b) => a.at - b.at || a.sequence - b.sequence || a.file.localeCompare(b.file))
+    found.sort((a, b) => {
+      if (a.recoverySeq !== null && b.recoverySeq !== null) {
+        return a.recoverySeq - b.recoverySeq || a.at - b.at || a.sequence - b.sequence || a.file.localeCompare(b.file)
+      }
+      if (a.recoverySeq !== null) return 1
+      if (b.recoverySeq !== null) return -1
+      return a.at - b.at || a.sequence - b.sequence || a.file.localeCompare(b.file)
+    })
     return found
   }
 
@@ -542,7 +559,7 @@ function createCheckpointStore(options = {}) {
   function latestRecoverySequence(episodeId) {
     let highest = 0
     for (const entry of files(episodeId)) {
-      const current = recoverySequence(readCheckpoint(entry.path))
+      const current = entry.recoverySeq
       if (current !== null) highest = Math.max(highest, current)
     }
     return highest
