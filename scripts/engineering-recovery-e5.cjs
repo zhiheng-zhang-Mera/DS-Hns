@@ -26,7 +26,8 @@ function parseArgs(argv) {
     throw new Error('--seed must be an unsigned 32-bit integer')
   }
   if (!options.e0Gate) throw Object.assign(new Error('--e0-gate is required for E5 FINAL mode'), { code: 'FINAL_E0_GATE_REQUIRED' })
-  options.batchId = options.batchId || `E5-W2-final-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`
+  if (!options.batchId) throw Object.assign(new Error('--batch-id must name an existing FINAL batch containing the W0 fault-04 observation'), { code: 'E5_FINAL_BATCH_REQUIRED' })
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(options.batchId)) throw new Error('--batch-id must be a bounded filename-safe identifier')
   return options
 }
 
@@ -49,6 +50,44 @@ function readPassingE0(file, sourceRef, implementationSha) {
   return gate
 }
 
+function loadExistingFinalBatch({ batchId, batchDir, sourceRef, implementationSha, e0Gate }) {
+  const manifestPath = path.join(batchDir, 'batch-manifest.json')
+  const freezePath = path.join(batchDir, 'evidence-freeze.json')
+  const e0GatePath = path.join(batchDir, 'e0-gate.json')
+  if (![manifestPath, freezePath, e0GatePath].every((file) => fs.existsSync(file))) {
+    throw Object.assign(new Error('the requested FINAL batch is missing its frozen manifest or E0 gate'), { code: 'E5_FINAL_BATCH_UNAVAILABLE' })
+  }
+  let manifest
+  let freeze
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    freeze = JSON.parse(fs.readFileSync(freezePath, 'utf8'))
+  } catch (error) {
+    throw Object.assign(new Error(`the requested FINAL batch metadata is unreadable: ${error.message}`), { code: 'E5_FINAL_BATCH_INVALID' })
+  }
+  const expectedGateSha = evidence.sha256(`${JSON.stringify(e0Gate, null, 2)}\n`)
+  const identityMatches = manifest.batchId === batchId && manifest.phase === 'FINAL' &&
+    manifest.implementationSha === implementationSha && manifest.harnessSha === implementationSha &&
+    manifest.sourceRef === sourceRef && manifest.e0GateSha256 === expectedGateSha &&
+    freeze.batchId === batchId && freeze.phase === 'FINAL' && freeze.implementationSha === implementationSha &&
+    freeze.harnessSha === implementationSha && freeze.sourceRef === sourceRef && freeze.e0GateSha256 === expectedGateSha &&
+    evidence.validateEvidenceDocument('batchManifest', manifest).ok &&
+    evidence.validateEvidenceDocument('evidenceFreeze', freeze).ok
+  if (!identityMatches) {
+    throw Object.assign(new Error('the requested FINAL batch does not match this branch, code/harness SHA, or E0 gate'), { code: 'E5_FINAL_BATCH_IDENTITY_MISMATCH' })
+  }
+  const hasW0Fault04 = manifest.runs.some((run) => run.workloadId === 'W0' && run.faultId === 4)
+  const existingE5 = manifest.runs.some((run) => /^E5-W2-fault/.test(run.runId))
+  if (!hasW0Fault04 || existingE5) {
+    throw Object.assign(new Error('the FINAL batch must contain a W0 fault-04 run and no earlier E5 campaign runs'), { code: 'E5_FINAL_BATCH_SCOPE_INVALID' })
+  }
+  const integrity = evidence.verifyBatchIntegrity(batchDir)
+  if (!integrity.ok) {
+    throw Object.assign(new Error(`the existing FINAL batch failed integrity verification (${integrity.code})`), { code: 'E5_FINAL_BATCH_INTEGRITY_FAILED' })
+  }
+  return { batchId, phase: manifest.phase, seed: manifest.seed, batchDir, manifest }
+}
+
 async function runE5(options, worktreeRoot = ROOT) {
   if (!options || !Number.isSafeInteger(options.seed) || !options.e0Gate) throw new Error('runE5 requires a parsed seed and E0 gate path')
   evidenceCli.assertCleanWorktree(worktreeRoot)
@@ -58,17 +97,8 @@ async function runE5(options, worktreeRoot = ROOT) {
   const e0Gate = readPassingE0(options.e0Gate, sourceRef, implementationSha)
   const scratchRoot = os.tmpdir()
   const volumes = validateE5Environment(scratchRoot)
-  fs.mkdirSync(EVIDENCE_ROOT, { recursive: true })
-  const batch = evidence.createBatch({
-    root: EVIDENCE_ROOT,
-    batchId: options.batchId,
-    phase: 'FINAL',
-    seed: options.seed,
-    implementationSha,
-    harnessSha: implementationSha,
-    sourceRef,
-    e0Gate
-  })
+  const batchDir = path.join(EVIDENCE_ROOT, options.batchId)
+  const batch = loadExistingFinalBatch({ batchId: options.batchId, batchDir, sourceRef, implementationSha, e0Gate })
   const dedicatedTemp = path.join(batch.batchDir, 'harness-temp')
   fs.mkdirSync(dedicatedTemp, { recursive: true })
   process.env.TEMP = dedicatedTemp
@@ -78,6 +108,7 @@ async function runE5(options, worktreeRoot = ROOT) {
     batch,
     seed: options.seed,
     scratchRoot,
+    runOrdinalOffset: batch.manifest.runs.length,
     onProgress(result, completed, total) {
       process.stdout.write(`${JSON.stringify({ completed, total, runId: result.runId, faultId: result.faultId, classification: result.classification, ...(result.reason ? { reason: result.reason } : {}) })}\n`)
     }
@@ -108,4 +139,4 @@ if (require.main === module) {
   })
 }
 
-module.exports = { parseArgs, readPassingE0, runE5 }
+module.exports = { parseArgs, readPassingE0, loadExistingFinalBatch, runE5 }

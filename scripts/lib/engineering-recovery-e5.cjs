@@ -203,7 +203,7 @@ async function runE5Observation(batch, planEntry, options = {}) {
   try {
     run = evidence.createRun(batch, {
       runId,
-      runOrdinal: ordinal,
+      runOrdinal: (Number.isInteger(options.runOrdinalOffset) ? options.runOrdinalOffset : 0) + ordinal,
       seed,
       implementationSha: batch.manifest.implementationSha,
       workloadId: 'W2',
@@ -372,9 +372,15 @@ async function runE5Observation(batch, planEntry, options = {}) {
 
 async function runE5Campaign(options = {}) {
   const plan = buildE5Plan(options.seed)
+  const runOrdinalOffset = Number.isInteger(options.runOrdinalOffset)
+    ? options.runOrdinalOffset
+    : options.batch && options.batch.manifest && Array.isArray(options.batch.manifest.runs)
+      ? options.batch.manifest.runs.length
+      : 0
+  const observationOptions = { ...options, runOrdinalOffset }
   const results = []
   for (const entry of plan) {
-    const result = await runE5Observation(options.batch, entry, options)
+    const result = await runE5Observation(options.batch, entry, observationOptions)
     results.push(result)
     if (typeof options.onProgress === 'function') options.onProgress(result, results.length, plan.length)
   }
