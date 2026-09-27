@@ -10,9 +10,10 @@ const { spawn, spawnSync } = require('node:child_process')
 
 const { createCrossVolumeTempRegistry } = require('../../app/engineering/cross-volume-cleanup.cjs')
 const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
+const { createOffVolumeTempRoot } = require('./helpers/off-volume-temp.cjs')
 
 const WORK_ROOT = path.resolve(__dirname, '..', '..')
-const OFF_VOLUME_TEMP = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp')
+const OFF_VOLUME_TEMP = createOffVolumeTempRoot(WORK_ROOT)
 
 test('a Windows volume-GUID alias is accepted as the same non-reparse work root', (t) => {
   if (process.platform !== 'win32' || !fs.existsSync('D:\\')) return t.skip('Windows D: is unavailable')

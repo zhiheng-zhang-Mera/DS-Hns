@@ -14,8 +14,10 @@ const { createCrossVolumeTempRegistry } = require('../../app/engineering/cross-v
 const { buildPlan } = require('../../app/engineering/plan.cjs')
 const { computePlanDigest } = require('../../app/engineering/recovery-schema.cjs')
 const repository = require('../../app/engineering/repository.cjs')
+const { createOffVolumeTempRoot } = require('./helpers/off-volume-temp.cjs')
 
 const ROOT = path.resolve(__dirname, '..', '..')
+const OFF_VOLUME_TEMP = createOffVolumeTempRoot(ROOT)
 const OWNER = { instanceId: 'test-runtime', pid: 7501, processIdentity: 'test-process-start' }
 
 function tempDir() {
@@ -176,7 +178,7 @@ test('a descriptor compatibility failure counts only after claim acquisition and
 
 test('a planned boundary stop retains an ACTIVE checkpoint and releases the live claim', async () => {
   const holder = tempDir()
-  const scratch = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp', `codex-cross-volume-planned-${process.pid}-${crypto.randomUUID()}`)
+  const scratch = path.join(OFF_VOLUME_TEMP, `codex-cross-volume-planned-${process.pid}-${crypto.randomUUID()}`)
   const stores = makeStores(holder)
   const host = createEngineeringHost({
     checkpointRoot: stores.checkpointRoot,
@@ -216,7 +218,7 @@ test('a planned boundary stop retains an ACTIVE checkpoint and releases the live
 test('explicit terminal cancellation cleans only the registered off-volume root', async () => {
   const holder = tempDir()
   const stores = makeStores(holder)
-  const scratch = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp', `codex-cross-volume-cancel-${process.pid}-${crypto.randomUUID()}`)
+  const scratch = path.join(OFF_VOLUME_TEMP, `codex-cross-volume-cancel-${process.pid}-${crypto.randomUUID()}`)
   let sentinel = null
   const host = createEngineeringHost({
     checkpointRoot: stores.checkpointRoot,
@@ -257,8 +259,7 @@ test('safe startup retries durable terminal cleanup debt before recovery selecti
   const holder = tempDir()
   const stores = makeStores(holder)
   const workRoot = path.parse(stores.checkpointRoot).root
-  const offVolumeTemp = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp')
-  const scratch = path.join(offVolumeTemp, `codex-cross-volume-host-${process.pid}-${crypto.randomUUID()}`)
+  const scratch = path.join(OFF_VOLUME_TEMP, `codex-cross-volume-host-${process.pid}-${crypto.randomUUID()}`)
   const registry = createCrossVolumeTempRegistry({ episodeId: 'startup-cleanup-fixture', workRoot })
   try {
     assert.equal(registry.createTaskDirectory({ path: scratch, purposeClass: 'build' }).ok, true)
@@ -298,8 +299,7 @@ test('unsafe startup cleanup stays blocked and preserves the exact residual path
   const holder = tempDir()
   const stores = makeStores(holder)
   const workRoot = path.parse(stores.checkpointRoot).root
-  const offVolumeTemp = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp')
-  const scratch = path.join(offVolumeTemp, `codex-cross-volume-blocked-${process.pid}-${crypto.randomUUID()}`)
+  const scratch = path.join(OFF_VOLUME_TEMP, `codex-cross-volume-blocked-${process.pid}-${crypto.randomUUID()}`)
   const registry = createCrossVolumeTempRegistry({ episodeId: 'startup-cleanup-blocked-fixture', workRoot })
   try {
     assert.equal(registry.createTaskDirectory({ path: scratch, purposeClass: 'build' }).ok, true)
