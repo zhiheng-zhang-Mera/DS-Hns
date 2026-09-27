@@ -1304,6 +1304,13 @@ function oracleLabel(run, id) {
   return oracle.pass ? 'PASS' : 'FAIL'
 }
 
+function withOracleLabels(run, ids) {
+  return {
+    ...run,
+    ...Object.fromEntries(ids.map((id) => [id, oracleLabel(run, id)]))
+  }
+}
+
 function escapeCell(value) {
   return String(value === null || value === undefined ? '' : value).replace(/[|\r\n]/g, ' ')
 }
@@ -1340,11 +1347,11 @@ function deriveBatch(batchOrDir) {
   fs.mkdirSync(derivedDir, { recursive: true })
   writeCsv(path.join(derivedDir, 'runs.csv'), ['runId', 'faultId', 'workloadId', 'classification', 'expectedOutcome', 'actualOutcome', 'lostVerifiedSteps', 'verifiedMutationReplayCount', 'duplicateEffectCount', 'faultToResumeAcceptedMs', 'faultToFirstNewCheckpointMs', 'offWorkVolumeResidualCount'], runs)
   writeCsv(path.join(derivedDir, 'fault-coverage.csv'), ['faultId', 'family', 'expectedOutcome', 'executionMode', 'observations', 'status', 'reason'], coverage)
-  writeCsv(path.join(derivedDir, 'rq1-correctness.csv'), ['runId', 'faultId', 'classification', 'lostVerifiedSteps', 'verifiedMutationReplayCount', 'duplicateEffectCount', 'O4_cursor_monotonic', 'O5_fail_closed_correct', 'O6_single_execution_owner'], runs)
+  writeCsv(path.join(derivedDir, 'rq1-correctness.csv'), ['runId', 'faultId', 'classification', 'lostVerifiedSteps', 'verifiedMutationReplayCount', 'duplicateEffectCount', 'O4_cursor_monotonic', 'O5_fail_closed_correct', 'O6_single_execution_owner'], runs.map((run) => withOracleLabels(run, ['O4_cursor_monotonic', 'O5_fail_closed_correct', 'O6_single_execution_owner'])))
   writeCsv(path.join(derivedDir, 'rq2-efficiency.csv'), ['runId', 'faultId', 'faultToCandidateMs', 'faultToResumeAcceptedMs', 'faultToFirstNewCheckpointMs', 'stepsReexecuted', 'verifiedStepsPreserved'], runs)
-  writeCsv(path.join(derivedDir, 'rq3-robustness.csv'), ['runId', 'faultId', 'workloadId', 'classification', 'O7_cleanup_safety', 'O8_cleanup_completeness', 'O9_reboot_autonomy'], runs)
-  writeCsv(path.join(derivedDir, 'reboot.csv'), ['runId', 'faultId', 'classification', 'sameWindowsAccount', 'manualCredentialPromptObserved', 'O9_reboot_autonomy'], runs.filter((run) => run.faultId >= 73 && run.faultId <= 78))
-  writeCsv(path.join(derivedDir, 'cleanup.csv'), ['runId', 'faultId', 'classification', 'offWorkVolumeTempCreatedCount', 'offWorkVolumeTempDeletedCount', 'offWorkVolumeResidualCount', 'O7_cleanup_safety', 'O8_cleanup_completeness'], runs.filter((run) => run.faultId >= 79 && run.faultId <= 89))
+  writeCsv(path.join(derivedDir, 'rq3-robustness.csv'), ['runId', 'faultId', 'workloadId', 'classification', 'O7_cleanup_safety', 'O8_cleanup_completeness', 'O9_reboot_autonomy'], runs.map((run) => withOracleLabels(run, ['O7_cleanup_safety', 'O8_cleanup_completeness', 'O9_reboot_autonomy'])))
+  writeCsv(path.join(derivedDir, 'reboot.csv'), ['runId', 'faultId', 'classification', 'sameWindowsAccount', 'manualCredentialPromptObserved', 'O9_reboot_autonomy'], runs.filter((run) => run.faultId >= 73 && run.faultId <= 78).map((run) => withOracleLabels(run, ['O9_reboot_autonomy'])))
+  writeCsv(path.join(derivedDir, 'cleanup.csv'), ['runId', 'faultId', 'classification', 'offWorkVolumeTempCreatedCount', 'offWorkVolumeTempDeletedCount', 'offWorkVolumeResidualCount', 'O7_cleanup_safety', 'O8_cleanup_completeness'], runs.filter((run) => run.faultId >= 79 && run.faultId <= 89).map((run) => withOracleLabels(run, ['O7_cleanup_safety', 'O8_cleanup_completeness'])))
   const analysis = {
     schemaVersion: SCHEMA_VERSION,
     batchId: manifest.batchId,

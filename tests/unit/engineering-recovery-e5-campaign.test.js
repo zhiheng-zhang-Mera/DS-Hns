@@ -2,8 +2,12 @@
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
 
-const { buildE5Plan, E5_SCENARIOS } = require('../../scripts/lib/engineering-recovery-e5.cjs')
+const evidence = require('../../scripts/lib/engineering-recovery-evidence.cjs')
+const { buildE5Plan, E5_SCENARIOS, runE5Observation, validateE5Environment } = require('../../scripts/lib/engineering-recovery-e5.cjs')
 const e5Cli = require('../../scripts/engineering-recovery-e5.cjs')
 
 test('E5 FINAL command parsing requires an explicit seed and E0 gate', () => {
@@ -34,4 +38,33 @@ test('E5 run order is seed-randomized while the scenario population remains fixe
   assert.notDeepEqual(first.map((entry) => entry.faultId), second.map((entry) => entry.faultId))
   assert.deepEqual([...first.map((entry) => entry.faultId)].sort((a, b) => a - b),
     [...second.map((entry) => entry.faultId)].sort((a, b) => a - b))
+})
+
+test('E5 records registered children deleted before an expected parent cleanup block', async (t) => {
+  let volumes
+  try {
+    volumes = validateE5Environment(os.tmpdir())
+  } catch (error) {
+    return t.skip(`cross-volume campaign volumes are unavailable: ${error.code || error.message}`)
+  }
+  assert.equal(volumes.workVolume, 'D:')
+  const fixtureRoot = path.join(path.resolve(__dirname, '../..'), 'runtime', 'engineering', 'test-fixtures', 'tmp')
+  fs.mkdirSync(fixtureRoot, { recursive: true })
+  const root = fs.mkdtempSync(path.join(fixtureRoot, 'e5-delete-ledger-'))
+  try {
+    const seed = 833
+    const batch = evidence.createBatch({ root, batchId: 'E5-delete-ledger-fixture', phase: 'PILOT', seed })
+    const planEntry = buildE5Plan(seed).find((entry) => entry.faultId === 83)
+    const result = await runE5Observation(batch, planEntry, { scratchRoot: os.tmpdir() })
+    assert.equal(result.classification, 'EXPECTED_BLOCK')
+
+    const runDir = path.join(batch.batchDir, 'runs', planEntry.runId)
+    const resultJson = JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8'))
+    assert.equal(resultJson.offWorkVolumeTempCreatedCount, 2)
+    assert.equal(resultJson.offWorkVolumeTempDeletedCount, 2, 'the registered file deleted before the directory block must be recorded')
+    assert.equal(resultJson.offWorkVolumeResidualCount, 0)
+    assert.equal(evidence.verifyRunIntegrity(runDir).ok, true)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 })

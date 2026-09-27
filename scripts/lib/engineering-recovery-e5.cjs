@@ -271,6 +271,7 @@ async function runE5Observation(batch, planEntry, options = {}) {
     safeAppend(run, { type: 'cleanup_started' })
     let firstCleanup = registry.cleanupTerminal({ terminal: true, reason: kind })
     firstCleanupCodes = (firstCleanup.residuals || []).map((entry) => entry.code)
+    appendDeleted(run, initialEntries, ids, firstCleanup.deleted || [])
     if (faultId === 87 && invalidReason) {
       classification = 'INVALID'
     } else if (faultId === 84) {
@@ -315,7 +316,6 @@ async function runE5Observation(batch, planEntry, options = {}) {
         classification = 'FAIL'
       }
     } else {
-      appendDeleted(run, initialEntries, ids, firstCleanup.deleted || [])
       cleanupResiduals = firstCleanup.residuals || []
       safeAppend(run, { type: 'cleanup_verified', residualCount: cleanupResiduals.length })
       safeAppend(run, { type: 'episode_completed' })

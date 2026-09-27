@@ -453,6 +453,32 @@ test('A5 accepts only a complete 20-run cleanup matrix with the required fault c
     assert.equal(derived.analysis.acceptanceGates.A5.status, 'PASS', derived.analysis.acceptanceGates.A5.reason)
     assert.match(derived.analysis.acceptanceGates.A5.reason, /20 accepted W2 observations/)
     assert.equal(derived.analysis.acceptanceStatus, 'HNS_INTEGRATION_RC_NOT_READY', 'A5 alone must not imply full-scope acceptance')
+
+    for (const filename of ['cleanup.csv', 'rq3-robustness.csv']) {
+      const [headerLine, ...rows] = fs.readFileSync(path.join(batch.batchDir, 'derived', filename), 'utf8').trim().split(/\r?\n/)
+      const headers = headerLine.split(',')
+      const safetyIndex = headers.indexOf('O7_cleanup_safety')
+      const completenessIndex = headers.indexOf('O8_cleanup_completeness')
+      assert.notEqual(safetyIndex, -1, `${filename} should export O7`)
+      assert.notEqual(completenessIndex, -1, `${filename} should export O8`)
+      assert.equal(rows.length, 20)
+      for (const row of rows) {
+        const fields = row.split(',')
+        assert.equal(fields[safetyIndex], 'PASS', `${filename} should export the O7 observation`)
+        assert.equal(fields[completenessIndex], 'PASS', `${filename} should export the O8 observation`)
+        if (filename === 'rq3-robustness.csv') {
+          const rebootIndex = headers.indexOf('O9_reboot_autonomy')
+          assert.notEqual(fields[rebootIndex], '', `${filename} should distinguish NOT_APPLICABLE from a blank export`)
+        }
+      }
+    }
+    const [rq1Header, ...rq1Rows] = fs.readFileSync(path.join(batch.batchDir, 'derived', 'rq1-correctness.csv'), 'utf8').trim().split(/\r?\n/)
+    const rq1Headers = rq1Header.split(',')
+    for (const id of ['O4_cursor_monotonic', 'O5_fail_closed_correct', 'O6_single_execution_owner']) {
+      const index = rq1Headers.indexOf(id)
+      assert.notEqual(index, -1)
+      assert.ok(rq1Rows.every((row) => row.split(',')[index] !== ''), `rq1-correctness.csv should export ${id}`)
+    }
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
