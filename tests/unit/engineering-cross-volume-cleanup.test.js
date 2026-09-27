@@ -6,6 +6,7 @@ const crypto = require('node:crypto')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
+const { spawn } = require('node:child_process')
 
 const { createCrossVolumeTempRegistry } = require('../../app/engineering/cross-volume-cleanup.cjs')
 const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
@@ -137,6 +138,65 @@ test('a symlink/reparse entry inside a registered root blocks recursive deletion
   } finally {
     if (fs.existsSync(root)) fs.rmSync(root, { recursive: true, force: true })
     if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true })
+  }
+})
+
+test('a locked registered child preserves its parent marker and cleanup debt retries after the handle closes', async (t) => {
+  if (process.platform !== 'win32') return t.skip('the file-share lock adapter is Windows-specific')
+  const root = externalPath('locked-parent')
+  const helper = externalPath('lock-helper', '.ps1')
+  const ready = `${helper}.ready`
+  const store = registry(`cleanup-lock-${process.pid}-${crypto.randomUUID()}`)
+  let child = null
+  try {
+    assert.equal(store.createTaskDirectory({ path: root, purposeClass: 'test' }).ok, true)
+    const target = path.join(root, 'locked.tmp')
+    assert.equal(store.createRegisteredFile({ path: target, purposeClass: 'test', content: 'locked task file' }).ok, true)
+    const marker = path.join(root, '.dshns-episode-owner.json')
+    const markerBytes = fs.readFileSync(marker)
+    const script = [
+      'param([string]$Target, [string]$Ready, [int]$HoldMs)',
+      '$stream = [System.IO.File]::Open($Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)',
+      '[System.IO.File]::WriteAllText($Ready, "ready")',
+      'Start-Sleep -Milliseconds $HoldMs',
+      '$stream.Dispose()'
+    ].join('\r\n') + '\r\n'
+    fs.writeFileSync(helper, script, { flag: 'wx' })
+    const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+    child = spawn(powershell, ['-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-File', helper, '-Target', target, '-Ready', ready, '-HoldMs', '1500'], {
+      windowsHide: true,
+      stdio: 'ignore'
+    })
+    await new Promise((resolve, reject) => {
+      const deadline = Date.now() + 8_000
+      const poll = () => {
+        if (fs.existsSync(ready)) return resolve()
+        if (child.exitCode !== null || child.signalCode !== null) return reject(new Error('lock helper exited before acquiring the file'))
+        if (Date.now() > deadline) return reject(new Error('lock helper did not acquire the file before the deadline'))
+        setTimeout(poll, 25)
+      }
+      poll()
+    })
+
+    const blocked = store.cleanupTerminal({ terminal: true, reason: 'locked-file-test' })
+    assert.equal(blocked.ok, false)
+    assert.equal(fs.existsSync(marker), true, 'a failed recursive delete must preserve the owner marker')
+    assert.deepEqual(fs.readFileSync(marker), markerBytes)
+    assert.equal(fs.existsSync(target), true)
+
+    if (child.exitCode === null && child.signalCode === null) await new Promise((resolve) => child.once('exit', resolve))
+    const retried = store.retryCleanupDebt()
+    assert.equal(retried.ok, true, JSON.stringify(retried))
+    assert.equal(retried.residuals.length, 0)
+    assert.equal(fs.existsSync(root), false)
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      const exited = new Promise((resolve) => child.once('exit', resolve))
+      child.kill()
+      await exited
+    }
+    for (const file of [helper, ready]) if (fs.existsSync(file)) fs.unlinkSync(file)
+    if (fs.existsSync(root)) fs.rmSync(root, { recursive: true, force: true })
   }
 })
 

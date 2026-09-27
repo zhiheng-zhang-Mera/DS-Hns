@@ -311,7 +311,13 @@ function createCrossVolumeTempRegistry(input = {}) {
     if (options.terminal !== true) return { ok: true, skipped: true, reason: 'episode is not terminal', deleted: [], residuals: [] }
     const deleted = []
     const residuals = []
-    for (let index = 0; index < entries.length; index += 1) {
+    const cleanupOrder = entries.map((entry, index) => ({
+      entry,
+      index,
+      depth: normalizedPath(entry.path).split(path.sep).filter(Boolean).length
+    })).sort((left, right) => right.depth - left.depth || left.index - right.index)
+    for (const item of cleanupOrder) {
+      const index = item.index
       const current = entries[index]
       if (current.cleanupState === 'DELETED') continue
       const pending = { ...current, cleanupState: 'DELETE_PENDING' }
@@ -329,6 +335,13 @@ function createCrossVolumeTempRegistry(input = {}) {
           // Re-check every ancestor after intent is durable and immediately before deletion.
           assertNoReparseAncestors(current.path)
           if (current.type === 'directory') {
+            const unresolvedChildren = entries.filter((entry) => entry.cleanupState !== 'DELETED' &&
+              !samePath(entry.path, current.path) && isWithin(current.path, entry.path))
+            if (unresolvedChildren.length) {
+              throw Object.assign(new Error(`registered child cleanup is unresolved: ${unresolvedChildren.map((entry) => entry.path).join(', ')}`), {
+                code: 'TEMP_REGISTERED_CHILD_PENDING'
+              })
+            }
             if (fs.existsSync(current.path)) fs.rmSync(verifyDirectory(current), { recursive: true, force: false, maxRetries: 0 })
           } else if (current.type === 'file') {
             if (fs.existsSync(current.path)) fs.unlinkSync(verifyFile(current))
@@ -340,7 +353,7 @@ function createCrossVolumeTempRegistry(input = {}) {
           break
         } catch (error) {
           failure = error
-          if (error && ['TEMP_MARKER_MISMATCH', 'TEMP_PATH_REPARSE_BOUNDARY', 'TEMP_PATH_NONCANONICAL', 'TEMP_ENTRY_TYPE_MISMATCH', 'TEMP_FILE_CONTENT_MISMATCH', 'TEMP_UNREGISTERED_CHILD', 'CROSS_VOLUME_REGISTRY_INVALID'].includes(error.code)) break
+          if (error && ['TEMP_MARKER_MISMATCH', 'TEMP_PATH_REPARSE_BOUNDARY', 'TEMP_PATH_NONCANONICAL', 'TEMP_ENTRY_TYPE_MISMATCH', 'TEMP_FILE_CONTENT_MISMATCH', 'TEMP_UNREGISTERED_CHILD', 'TEMP_REGISTERED_CHILD_PENDING', 'CROSS_VOLUME_REGISTRY_INVALID'].includes(error.code)) break
         }
       }
 

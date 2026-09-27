@@ -284,6 +284,180 @@ test('FINAL analysis records conservative gate states, per-fault NOT_RUN reasons
   }
 })
 
+test('cleanup-only FINAL runs classify from filesystem cleanup observations without inventing a resume', () => {
+  const root = tempDir()
+  const commit = 'a'.repeat(40)
+  try {
+    const batch = evidence.createBatch({
+      root,
+      batchId: 'E5-cleanup-classification',
+      phase: 'FINAL',
+      seed: 8100,
+      implementationSha: commit,
+      harnessSha: commit,
+      sourceRef: 'dev/crash-resume-recovery-v1',
+      e0Gate: passingE0Gate(commit)
+    })
+    const run = evidence.createRun(batch, {
+      runId: 'E5-cleanup-success-01',
+      episodeId: 'E5-cleanup-success-episode-01',
+      runOrdinal: 1,
+      seed: 8100,
+      implementationSha: commit,
+      workloadId: 'W2',
+      faultId: 80,
+      expectedOutcome: 'PRESERVE_SOURCE_AND_CLEAN_DERIVATIVE',
+      taskScratchVolumes: ['C:']
+    })
+    const hash = 'b'.repeat(64)
+    const events = [
+      { type: 'episode_started' },
+      { type: 'fault_armed', faultId: 80 },
+      { type: 'fault_injected', faultId: 80 },
+      { type: 'cross_volume_temp_registered', pathId: 'scratch-root-1', entryType: 'directory' },
+      { type: 'sentinel_observed', phase: 'before', pathId: 'source-sentinel-1', sha256: hash },
+      { type: 'cleanup_started' },
+      { type: 'cleanup_entry_deleted', pathId: 'scratch-root-1' },
+      { type: 'cleanup_verified', residualCount: 0 },
+      { type: 'episode_completed' },
+      { type: 'sentinel_observed', phase: 'after', pathId: 'source-sentinel-1', sha256: hash },
+      { type: 'product_result_observed', actualOutcome: 'CLEANUP_COMPLETED', result: 'cleanup completed; zero residuals' }
+    ]
+    for (const event of events) assert.equal(run.appendEvent(event).ok, true, JSON.stringify(event))
+
+    const result = evidence.finalizeRun(run)
+    assert.equal(result.classification, 'PASS')
+    assert.equal(result.actualOutcome, 'CLEANUP_COMPLETED')
+    assert.equal(result.resumeSucceeded, false)
+    assert.equal(result.offWorkVolumeResidualCount, 0)
+    assert.equal(result.oracle.O7_cleanup_safety, true)
+    assert.equal(result.oracle.O8_cleanup_completeness, true)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('cleanup-only FINAL runs preserve expected blocks as non-PASS evidence', () => {
+  const root = tempDir()
+  const commit = 'c'.repeat(40)
+  try {
+    const batch = evidence.createBatch({
+      root,
+      batchId: 'E5-cleanup-block-classification',
+      phase: 'FINAL',
+      seed: 8600,
+      implementationSha: commit,
+      harnessSha: commit,
+      sourceRef: 'dev/crash-resume-recovery-v1',
+      e0Gate: passingE0Gate(commit)
+    })
+    const run = evidence.createRun(batch, {
+      runId: 'E5-cleanup-blocked-01',
+      episodeId: 'E5-cleanup-blocked-episode-01',
+      runOrdinal: 1,
+      seed: 8600,
+      implementationSha: commit,
+      workloadId: 'W2',
+      faultId: 86,
+      expectedOutcome: 'CLEANUP_BLOCKED_PRESERVE_PATH',
+      expectedBlockCode: 'TEMP_MARKER_MISMATCH',
+      taskScratchVolumes: ['C:']
+    })
+    const hash = 'd'.repeat(64)
+    const events = [
+      { type: 'episode_started' },
+      { type: 'fault_armed', faultId: 86 },
+      { type: 'fault_injected', faultId: 86 },
+      { type: 'cross_volume_temp_registered', pathId: 'scratch-root-1', entryType: 'directory' },
+      { type: 'sentinel_observed', phase: 'before', pathId: 'source-sentinel-1', sha256: hash },
+      { type: 'cleanup_started' },
+      { type: 'recovery_blocked', code: 'TEMP_MARKER_MISMATCH' },
+      { type: 'cleanup_verified', residualCount: 1 },
+      { type: 'product_result_observed', actualOutcome: 'CLEANUP_BLOCKED', result: 'cleanup refused mismatched ownership marker' },
+      { type: 'cleanup_retry', reason: 'the test corrected the owned marker before cleanup-debt retry' },
+      { type: 'cleanup_entry_deleted', pathId: 'scratch-root-1' },
+      { type: 'cleanup_verified', residualCount: 0 },
+      { type: 'episode_completed' },
+      { type: 'sentinel_observed', phase: 'after', pathId: 'source-sentinel-1', sha256: hash },
+    ]
+    for (const event of events) assert.equal(run.appendEvent(event).ok, true, JSON.stringify(event))
+
+    const result = evidence.finalizeRun(run)
+    assert.equal(result.classification, 'EXPECTED_BLOCK')
+    assert.equal(result.actualOutcome, 'CLEANUP_BLOCKED')
+    assert.equal(result.oracle.O5_fail_closed_correct, true)
+    assert.equal(result.oracle.O7_cleanup_safety, true)
+    assert.equal(result.oracle.O8_cleanup_completeness, true)
+    assert.equal(result.offWorkVolumeResidualCount, 0, 'result.json must report the final cleanup-debt retry observation')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('A5 accepts only a complete 20-run cleanup matrix with the required fault coverage and volume binding', () => {
+  const root = tempDir()
+  const commit = 'e'.repeat(40)
+  try {
+    const batch = evidence.createBatch({
+      root,
+      batchId: 'E5-cleanup-a5-matrix',
+      phase: 'FINAL',
+      seed: 8000,
+      implementationSha: commit,
+      harnessSha: commit,
+      sourceRef: 'dev/crash-resume-recovery-v1',
+      e0Gate: passingE0Gate(commit)
+    })
+    const requiredFaults = [80, 81, 82, 83, 84, 85, 86, 87]
+    const blockedFaults = new Set([83, 84, 86, 87])
+    for (let index = 0; index < 20; index += 1) {
+      const faultId = requiredFaults[index] || 80
+      const blocked = blockedFaults.has(faultId)
+      const run = evidence.createRun(batch, {
+        runId: `E5-cleanup-matrix-${String(index + 1).padStart(2, '0')}`,
+        episodeId: `E5-cleanup-matrix-episode-${String(index + 1).padStart(2, '0')}`,
+        runOrdinal: index + 1,
+        seed: 8000 + index,
+        implementationSha: commit,
+        workloadId: 'W2',
+        faultId,
+        expectedOutcome: blocked ? 'CLEANUP_BLOCKED_EXPECTED_CASE' : undefined,
+        taskScratchVolumes: ['C:'],
+        storageVolumeRoles: ['work:D', 'scratch:C']
+      })
+      const events = [
+        { type: 'episode_started' },
+        { type: 'fault_armed', faultId },
+        { type: 'fault_injected', faultId },
+        { type: 'cross_volume_temp_registered', pathId: 'scratch-root-1', entryType: 'directory' },
+        { type: 'sentinel_observed', phase: 'before', pathId: 'source-sentinel-1', sha256: 'f'.repeat(64) },
+        { type: 'cleanup_started' },
+        ...(blocked ? [{ type: 'recovery_blocked', code: 'EXPECTED_CLEANUP_BLOCK' }] : [{ type: 'cleanup_entry_deleted', pathId: 'scratch-root-1' }]),
+        { type: 'cleanup_verified', residualCount: blocked ? 1 : 0 },
+        ...(blocked ? [
+          { type: 'cleanup_retry', reason: 'the injected cleanup obstruction was removed' },
+          { type: 'cleanup_entry_deleted', pathId: 'scratch-root-1' },
+          { type: 'cleanup_verified', residualCount: 0 }
+        ] : []),
+        { type: 'episode_completed' },
+        { type: 'sentinel_observed', phase: 'after', pathId: 'source-sentinel-1', sha256: 'f'.repeat(64) },
+        { type: 'product_result_observed', actualOutcome: blocked ? 'CLEANUP_BLOCKED' : 'CLEANUP_COMPLETED', result: blocked ? 'expected blocked case' : 'zero residuals' }
+      ]
+      for (const event of events) assert.equal(run.appendEvent(event).ok, true, JSON.stringify(event))
+      const result = evidence.finalizeRun(run)
+      assert.equal(result.classification, blocked ? 'EXPECTED_BLOCK' : 'PASS')
+    }
+
+    const derived = evidence.deriveBatch(batch.batchDir)
+    assert.equal(derived.ok, true)
+    assert.equal(derived.analysis.acceptanceGates.A5.status, 'PASS', derived.analysis.acceptanceGates.A5.reason)
+    assert.match(derived.analysis.acceptanceGates.A5.reason, /20 accepted W2 observations/)
+    assert.equal(derived.analysis.acceptanceStatus, 'HNS_INTEGRATION_RC_NOT_READY', 'A5 alone must not imply full-scope acceptance')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('workload definitions preserve W0-W4 scope and hashes', () => {
   const workloads = evidence.loadWorkloads()
   assert.deepEqual(workloads.workloads.map((entry) => entry.id), ['W0', 'W1', 'W2', 'W3', 'W4'])

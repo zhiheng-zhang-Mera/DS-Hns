@@ -187,23 +187,36 @@ function passesE0Gate(document) {
 }
 
 function validateRunManifest(manifest) {
-  if (!isRecord(manifest) || manifest.schemaVersion !== SCHEMA_VERSION || !safeId(manifest.batchId, 'batchId') ||
-    !safeId(manifest.runId, 'runId') || !safeId(manifest.episodeId, 'episodeId') || !Number.isInteger(manifest.runOrdinal) || manifest.runOrdinal < 1 ||
-    !Number.isInteger(manifest.seed) || manifest.seed < 0 || manifest.seed > 0xffffffff ||
-    !['DIAGNOSTIC', 'PILOT', 'FINAL'].includes(manifest.classificationPhase) ||
-    !validDigest(manifest.workloadSha256) || !validDigest(manifest.faultCatalogSha256) ||
-    !validDigest(manifest.evidenceSchemaSha256) || !validDigest(manifest.sourceSpecSha256) ||
-    !validDigest(manifest.recoveryConfigurationSha256) || !Array.isArray(manifest.workloadStepIds) ||
-    manifest.workloadStepIds.length < 1 || new Set(manifest.workloadStepIds).size !== manifest.workloadStepIds.length ||
-    !manifest.workloadStepIds.every((id) => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9:._#-]{0,255}$/.test(id)) ||
-    manifest.faultId < 1 || manifest.faultId > 89 || !Number.isInteger(manifest.faultId) ||
-    !['adapter-simulated', 'controlled-owned-process', 'maintenance-window'].includes(manifest.executionMode) ||
-    manifest.selectedWorkVolume !== 'D:' || !Array.isArray(manifest.storageVolumeRoles) || !manifest.storageVolumeRoles.includes('work:D') ||
-    !Array.isArray(manifest.taskScratchVolumes) || !manifest.taskScratchVolumes.every((volume) => /^[A-Z]:$/.test(volume)) ||
-    typeof manifest.candidateRoot !== 'string' || path.isAbsolute(manifest.candidateRoot) || path.win32.isAbsolute(manifest.candidateRoot) ||
-    manifest.candidateRoot.split(/[\\/]/).includes('..') || !Number.isFinite(Date.parse(manifest.startedAt))) {
-    return { ok: false, code: 'RUN_MANIFEST_INVALID' }
+  if (!isRecord(manifest)) return { ok: false, code: 'RUN_MANIFEST_INVALID', errors: ['manifest must be an object'] }
+  const invalid = []
+  try {
+    safeId(manifest.batchId, 'batchId')
+    safeId(manifest.runId, 'runId')
+    safeId(manifest.episodeId, 'episodeId')
+  } catch (error) {
+    invalid.push(error.message)
   }
+  if (manifest.schemaVersion !== SCHEMA_VERSION) invalid.push('schemaVersion is unsupported')
+  if (!Number.isInteger(manifest.runOrdinal) || manifest.runOrdinal < 1) invalid.push('runOrdinal must be a positive integer')
+  if (!Number.isInteger(manifest.seed) || manifest.seed < 0 || manifest.seed > 0xffffffff) invalid.push('seed is outside the unsigned 32-bit range')
+  if (!['DIAGNOSTIC', 'PILOT', 'FINAL'].includes(manifest.classificationPhase)) invalid.push('classificationPhase is unsupported')
+  for (const field of ['workloadSha256', 'faultCatalogSha256', 'evidenceSchemaSha256', 'sourceSpecSha256', 'recoveryConfigurationSha256']) {
+    if (!validDigest(manifest[field])) invalid.push(`${field} is not a SHA-256 digest`)
+  }
+  if (!Array.isArray(manifest.workloadStepIds) || manifest.workloadStepIds.length < 1 ||
+    new Set(manifest.workloadStepIds).size !== manifest.workloadStepIds.length ||
+    !manifest.workloadStepIds.every((id) => typeof id === 'string' && /^[A-Za-z0-9][A-Za-z0-9:._#-]{0,255}$/.test(id))) {
+    invalid.push('workloadStepIds is empty, duplicated, or contains an invalid identifier')
+  }
+  if (!Number.isInteger(manifest.faultId) || manifest.faultId < 1 || manifest.faultId > 89) invalid.push('faultId is outside the frozen 1–89 catalog')
+  if (!['adapter-simulated', 'controlled-owned-process', 'maintenance-window'].includes(manifest.executionMode)) invalid.push('executionMode is unsupported')
+  if (manifest.selectedWorkVolume !== 'D:') invalid.push('selectedWorkVolume must remain D:')
+  if (!Array.isArray(manifest.storageVolumeRoles) || !manifest.storageVolumeRoles.includes('work:D')) invalid.push('storageVolumeRoles must include work:D')
+  if (!Array.isArray(manifest.taskScratchVolumes) || !manifest.taskScratchVolumes.every((volume) => /^[A-Z]:$/.test(volume))) invalid.push('taskScratchVolumes must contain only volume labels')
+  if (typeof manifest.candidateRoot !== 'string' || path.isAbsolute(manifest.candidateRoot) || path.win32.isAbsolute(manifest.candidateRoot) ||
+    manifest.candidateRoot.split(/[\\/]/).includes('..')) invalid.push('candidateRoot must be a bounded relative path')
+  if (!Number.isFinite(Date.parse(manifest.startedAt))) invalid.push('startedAt must be a parseable timestamp')
+  if (invalid.length) return { ok: false, code: 'RUN_MANIFEST_INVALID', errors: invalid }
   for (const field of ['implementationSha', 'harnessSha']) {
     if (manifest[field] !== null && manifest[field] !== undefined && !/^[a-f0-9]{40}$/i.test(manifest[field])) return { ok: false, code: 'RUN_MANIFEST_INVALID' }
     if (manifest.classificationPhase === 'FINAL' && !/^[a-f0-9]{40}$/i.test(String(manifest[field] || ''))) return { ok: false, code: 'RUN_SHA_REQUIRED' }
@@ -515,8 +528,8 @@ function createRun(batch, input = {}) {
     hostProfileId: input.hostProfileId || profile.hostProfileId,
     logicalCpuCount: profile.logicalCpuCount,
     memoryBucketGb: profile.memoryBucketGb,
-    storageVolumeRoles: ['work:D'],
-    selectedWorkVolume: 'D:',
+    storageVolumeRoles: Array.isArray(input.storageVolumeRoles) ? input.storageVolumeRoles.slice() : ['work:D'],
+    selectedWorkVolume: input.selectedWorkVolume || 'D:',
     taskScratchVolumes: Array.isArray(input.taskScratchVolumes) ? input.taskScratchVolumes : ['D:'],
     candidateRoot: `candidate/${runId}`,
     recoveryConfigurationSha256: sha256(stableStringify(input.recoveryConfiguration || { attempts: 3, executorCompatibility: 'engineering-v1' })),
@@ -524,7 +537,10 @@ function createRun(batch, input = {}) {
     startedAt: new Date().toISOString()
   }
   const manifestCheck = validateRunManifest(manifest)
-  if (!manifestCheck.ok) throw Object.assign(new Error('new run manifest does not satisfy evidence schema v1'), { code: manifestCheck.code })
+  if (!manifestCheck.ok) {
+    const detail = Array.isArray(manifestCheck.errors) && manifestCheck.errors.length ? `: ${manifestCheck.errors.join('; ')}` : ''
+    throw Object.assign(new Error(`new run manifest does not satisfy evidence schema v1 (${manifestCheck.code})${detail}`), { code: manifestCheck.code })
+  }
   writeJsonAtomic(path.join(runDir, 'manifest.json'), manifest)
   const startNs = process.hrtime.bigint()
   let eventSeq = 0
@@ -674,8 +690,8 @@ function deriveOracles(manifest, events) {
   const sentinelAfter = new Map(sentinelEvents.filter((event) => event.phase === 'after').map((event) => [event.pathId, event.sha256]))
   const changedSentinels = [...sentinelBefore].filter(([pathId, hash]) => sentinelAfter.get(pathId) !== hash).map(([pathId]) => pathId)
   const crossVolumeApplicable = registrations.length > 0 || manifest.workloadId === 'W2' || (manifest.faultId >= 79 && manifest.faultId <= 89)
-  const cleanupVerified = events.find((event) => event.type === 'cleanup_verified') || null
-  const terminalEvent = events.find((event) => event.type === 'episode_completed' || event.type === 'recovery_blocked') || null
+  const cleanupVerified = events.filter((event) => event.type === 'cleanup_verified').at(-1) || null
+  const terminalEvent = events.filter((event) => event.type === 'episode_completed' || event.type === 'recovery_blocked').at(-1) || null
 
   const rebootApplicable = manifest.workloadId === 'W4' || (manifest.faultId >= 73 && manifest.faultId <= 78)
   const session = events.find((event) => event.type === 'windows_session_restored') || null
@@ -718,15 +734,22 @@ function makeResult(manifest, events, derived, options = {}) {
   const candidate = events.find((event) => event.type === 'recovery_candidate_detected') || null
   const firstCheckpoint = events.find((event) => event.type === 'first_post_resume_checkpoint') || null
   const cleanupStart = events.find((event) => event.type === 'cleanup_started') || null
-  const cleanupEnd = events.find((event) => event.type === 'cleanup_verified') || null
+  const cleanupEnd = events.filter((event) => event.type === 'cleanup_verified').at(-1) || null
+  const cleanupOnly = manifest.faultId >= 79 && manifest.faultId <= 89 && !events.some((event) => event.type === 'resume_accepted')
   const applicable = Object.values(derived.oracle).filter((item) => item.applicable)
   const safetyPass = applicable.every((item) => item.pass === true)
   const expectedBlocked = String(manifest.expectedOutcome || '').startsWith('BLOCKED') || String(manifest.expectedOutcome || '').startsWith('CLEANUP_BLOCKED')
   const resumeSucceeded = Boolean(resume && productResult && productResult.actualOutcome === 'RESUME_ACCEPTED')
+  const cleanupSucceeded = Boolean(cleanupOnly && productResult && productResult.actualOutcome === 'CLEANUP_COMPLETED' &&
+    derived.oracle.O7_cleanup_safety.pass === true && derived.oracle.O8_cleanup_completeness.pass === true)
+  const cleanupExpectedBlock = Boolean(cleanupOnly && productResult && productResult.actualOutcome === 'CLEANUP_BLOCKED' &&
+    derived.oracle.O5_fail_closed_correct.pass === true && derived.oracle.O7_cleanup_safety.pass === true)
   let classification
   if (options.invalidReason) classification = 'INVALID'
-  else if (expectedBlocked && blocked && productResult && productResult.actualOutcome === 'RESUME_REFUSED' &&
+  else if (expectedBlocked && blocked && productResult &&
+    (productResult.actualOutcome === 'RESUME_REFUSED' || cleanupExpectedBlock && productResult.actualOutcome === 'CLEANUP_BLOCKED') &&
     derived.oracle.O5_fail_closed_correct.pass === true && safetyPass) classification = 'EXPECTED_BLOCK'
+  else if (cleanupSucceeded && safetyPass) classification = 'PASS'
   else if (resumeSucceeded && safetyPass && derived.oracle.O1_progress_preservation.pass && derived.oracle.O2_no_verified_replay.pass && derived.oracle.O3_no_duplicate_effect.pass) classification = 'PASS'
   else classification = 'FAIL'
   const allCheckpoints = events.filter((event) => event.type === 'checkpoint_observed')
@@ -746,7 +769,7 @@ function makeResult(manifest, events, derived, options = {}) {
     actualOutcome: productResult
       ? productResult.actualOutcome
       : productResults.length > 1 ? 'MULTIPLE_PRODUCT_RESULTS' : 'NO_PRODUCT_RESULT_OBSERVED',
-    eligibleResume: !expectedBlocked,
+    eligibleResume: !expectedBlocked && !cleanupOnly,
     resumeSucceeded,
     resumeProofReached: Boolean(resume && firstCheckpoint && last.checkpointSeq >= firstCheckpoint.checkpointSeq),
     blockedReason: blocked ? blocked.code || blocked.reason || null : null,
@@ -1051,6 +1074,30 @@ function evaluateAcceptance({ batchDir, manifest, analysis, coverage, runs, inte
   const a3 = missingExecutable.length || unreasoned.length
     ? { status: 'NOT_READY', reason: `${missingExecutable.length} implemented safe fault ID(s) lack an accepted E2 observation; ${unreasoned.length} unrun catalog row(s) lack a reason` }
     : { status: 'PASS', reason: 'every executable safe fault ID has an accepted E2 observation and every other catalog row carries an explicit scope/maintenance reason' }
+  const e5Runs = runs.filter((run) => run.faultId >= 80 && run.faultId <= 87)
+  const e5RequiredFaultIds = [80, 81, 82, 83, 84, 85, 86, 87]
+  const e5MissingFaultIds = e5RequiredFaultIds.filter((faultId) => !e5Runs.some((run) => run.faultId === faultId))
+  const e5RejectedRuns = e5Runs.filter((run) => {
+    const safety = run.oracle.O7_cleanup_safety
+    const complete = run.oracle.O8_cleanup_completeness
+    const failClosed = run.oracle.O5_fail_closed_correct
+    if (!['PASS', 'EXPECTED_BLOCK'].includes(run.classification) || !safety || safety.applicable !== true || safety.pass !== true) return true
+    if (!complete || complete.applicable !== true || complete.pass !== true || run.offWorkVolumeResidualCount !== 0) return true
+    if (run.classification === 'PASS') return false
+    return !failClosed || failClosed.applicable !== true || failClosed.pass !== true
+  })
+  const e5StorageBound = e5Runs.length > 0 && e5Runs.every((run) => {
+    const runManifest = readJson(path.join(batchDir, 'runs', run.runId, 'manifest.json'))
+    const events = readEvents(path.join(batchDir, 'runs', run.runId, 'events.jsonl'), runManifest)
+    return runManifest.workloadId === 'W2' && runManifest.selectedWorkVolume === 'D:' &&
+      runManifest.storageVolumeRoles.includes('work:D') && runManifest.storageVolumeRoles.includes('scratch:C') &&
+      runManifest.taskScratchVolumes.includes('C:') && events.some((event) => event.type === 'cross_volume_temp_registered')
+  })
+  const a5 = e5Runs.length === 0
+    ? { status: 'NOT_RUN', reason: 'E5 has no cross-volume cleanup observations in this final batch' }
+    : e5Runs.length >= 20 && e5MissingFaultIds.length === 0 && e5RejectedRuns.length === 0 && e5StorageBound
+      ? { status: 'PASS', reason: `E5 recorded ${e5Runs.length} accepted W2 observations covering fault IDs 80–87; O7/O8 cleanup evidence and D:-work/C:-scratch identities were verified` }
+      : { status: 'NOT_READY', reason: `E5 has ${e5Runs.length}/20 accepted observations; missing required fault IDs [${e5MissingFaultIds.join(',')}], rejected observations=${e5RejectedRuns.length}, D:/C: binding=${e5StorageBound}` }
   const a7MapComplete = analysis.rawRunIds.length === manifest.runs.length &&
     analysis.rawRunIds.every((runId, index) => runId === manifest.runs[index].runId)
   const a7 = integrity.ok && analysis.invalidRuns === 0 && a7MapComplete
@@ -1063,7 +1110,7 @@ function evaluateAcceptance({ batchDir, manifest, analysis, coverage, runs, inte
     A2: a2,
     A3: a3,
     A4: { status: 'NOT_RUN', reason: 'E3 eight-scenario × ten-seed × W1/W2/W3 robustness matrix was not run' },
-    A5: { status: 'NOT_RUN', reason: 'E5 minimum 20-observation cross-volume terminal-cleanup campaign was not run' },
+    A5: a5,
     A6: { status: 'NOT_RUN', reason: 'E6 real reboot repetitions were not run; no separately confirmed safe maintenance window was supplied' },
     A7: a7,
     A8: { status: 'PASS', reason: 'the report separates simulated/real process/reboot evidence, records NOT_RUN reasons, and limits claims to exercised configurations' },
@@ -1080,6 +1127,12 @@ function makeFinalReport({ batchDir, manifest, analysis, runs, coverage, integri
   const acceptance = evaluateAcceptance({ batchDir, manifest, analysis, coverage, runs, integrity })
   const gates = Object.entries(acceptance).filter(([key]) => /^A[1-8]$/.test(key))
   const finalStatus = gates.every(([, value]) => value.status === 'PASS') ? 'ACCEPTED_FOR_EVALUATED_SCOPE' : 'HNS_INTEGRATION_RC_NOT_READY'
+  const e2Runs = runs.filter((run) => run.faultId >= 1 && run.faultId <= 72)
+  const e5Runs = runs.filter((run) => run.faultId >= 80 && run.faultId <= 87)
+  const e5ScenarioRows = [80, 81, 82, 83, 84, 85, 86, 87].map((faultId) => {
+    const observations = e5Runs.filter((run) => run.faultId === faultId)
+    return `| ${faultId} | ${observations.length} | ${observations.filter((run) => run.classification === 'PASS').length} | ${observations.filter((run) => run.classification === 'EXPECTED_BLOCK').length} | ${observations.filter((run) => !['PASS', 'EXPECTED_BLOCK'].includes(run.classification)).length} |`
+  })
   const oracleRows = acceptance.oracleStats.map((entry) => {
     const interval = entry.wilson95 ? `[${displayNumber(entry.wilson95.low * 100, 1)}%, ${displayNumber(entry.wilson95.high * 100, 1)}%]` : 'NOT_RUN (N=0)'
     return `| ${entry.id} | ${entry.passed}/${entry.observed} | ${entry.failed} | ${interval} |`
@@ -1140,10 +1193,10 @@ function makeFinalReport({ batchDir, manifest, analysis, runs, coverage, integri
     '|---|---|---:|---|',
     `| E0 | ${e0.passed ? 'PASS' : 'FAIL'} | ${e0.gates.length} gates | bound to this exact implementation SHA |`,
     '| E1 | PILOT_EXCLUDED | 0 final runs | calibration artifacts reside outside this final batch and are excluded |',
-    `| E2 | ${runs.length ? 'OBSERVED' : 'NOT_RUN'} | ${runs.length} | W0 executable fault catalog observations in this batch |`,
+    `| E2 | ${e2Runs.length ? 'OBSERVED' : 'NOT_RUN'} | ${e2Runs.length} | safe fault/recovery observations in this batch |`,
     '| E3 | NOT_RUN | 0 | repeated stratified robustness matrix |',
     '| E4 | NOT_RUN | 0 pairs | paired replay-from-start baseline |',
-    '| E5 | NOT_RUN | 0 | cross-volume terminal-cleanup campaign |',
+    `| E5 | ${acceptance.A5.status} | ${e5Runs.length} | cross-volume terminal-cleanup observations; see A5 scope and scenario counts |`,
     '| E6 | NOT_RUN | 0 | real Windows reboot; no safe maintenance window was confirmed |',
     '| E7 | NOT_RUN | 0 | sealed-run reproducibility replays |',
     '',
@@ -1197,7 +1250,11 @@ function makeFinalReport({ batchDir, manifest, analysis, runs, coverage, integri
     '',
     '## Cross-volume cleanup (E5)',
     '',
-    `E5 status: NOT_RUN; final cleanup observations=${runs.filter((run) => run.faultId >= 79 && run.faultId <= 89).length}; preserved-sentinel comparisons and cross-volume residual claims are not available for this batch.`,
+    `E5 status: ${acceptance.A5.status}; observations=${e5Runs.length}; ${escapeCell(acceptance.A5.reason)}.`,
+    '',
+    '| Fault ID | Observations | PASS | EXPECTED_BLOCK | FAIL/INVALID |',
+    '|---:|---:|---:|---:|---:|',
+    ...e5ScenarioRows,
     '',
     '## Real reboot evidence (E6)',
     '',
