@@ -434,6 +434,7 @@ function launchShell() {
     ...process.env,
     DSH_ROOT: OPTIONS.root,
     DSH_HOME: OPTIONS.dataDir,
+    DSH_LOG_DIR: path.join(OPTIONS.dataDir, 'logs'),
     DSH_HARNESS_PORT: String(OPTIONS.port),
     DSH_MEGA_INTEGRATED_DOCK: '1',
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || 'sk-acceptance-placeholder',
@@ -525,6 +526,58 @@ async function run() {
   let dock = null
   let official = null
   let harnessReady = false
+  const expandViaRail = async () => dock.page.poll(`
+    const rail = document.getElementById('railToggle')
+    if (rail && !document.body.classList.contains('expanded')) rail.click()
+    const detail = document.getElementById('detail')
+    const viewportWidth = Math.round(window.innerWidth)
+    const detailWidth = detail ? Math.round(detail.getBoundingClientRect().width) : 0
+    return document.body.classList.contains('expanded') && viewportWidth >= 440 && detailWidth >= 400
+    ? { viewportWidth, detailWidth }
+    : null
+  `, { timeoutMs: 12_000 })
+  const reopenDockFromBridge = async () => {
+    let bridgeResult = null
+    let reopenError = null
+    try {
+      const alreadyExpanded = await dock.page.evaluate(`return document.body.classList.contains('expanded')`)
+      bridgeResult = alreadyExpanded
+        ? { mode: 'already-expanded', expanded: true }
+        : await dock.page.evaluate(`return window.megaTools.toggleDock()`)
+    } catch (error) {
+      reopenError = String(error?.message || error)
+    }
+    let rendered = null
+    if (!reopenError) {
+      try {
+        rendered = await dock.page.poll(`
+          const detail = document.getElementById('detail')
+          const detailWidth = detail ? Math.round(detail.getBoundingClientRect().width) : 0
+          return document.body.classList.contains('expanded') && Math.round(window.innerWidth) === 440 && detailWidth >= 400
+            ? { expanded: true, viewportWidth: Math.round(window.innerWidth), detailWidth }
+            : null
+        `, { timeoutMs: 12_000 })
+      } catch (error) {
+        reopenError = String(error?.message || error)
+      }
+    }
+    if (rendered) return { ...rendered, reopenBridgeResult: bridgeResult }
+    let rendererState = null
+    let rendererStateError = null
+    try {
+      rendererState = await dock.page.evaluate(`
+        const detail = document.getElementById('detail')
+        return {
+          expanded: document.body.classList.contains('expanded'),
+          viewportWidth: Math.round(window.innerWidth),
+          detailWidth: detail ? Math.round(detail.getBoundingClientRect().width) : 0
+        }
+      `)
+    } catch (error) {
+      rendererStateError = String(error?.message || error)
+    }
+    return { ...(rendererState || {}), reopenBridgeResult: bridgeResult, reopenError, rendererStateError }
+  }
   try {
     const deadline = Date.now() + 240_000
     while (Date.now() < deadline && !harnessReady) {
@@ -560,6 +613,53 @@ async function run() {
     const officialDocument = await waitForDocumentReady(official.page, 'official harness')
     check('the dock renderer document is ready', Boolean(dockDocument), JSON.stringify(dockDocument))
     check('the official harness renderer document is ready', Boolean(officialDocument), JSON.stringify(officialDocument))
+
+    // Ask the dock's own visible rail to expand before measuring. Startup state is
+    // asynchronous: the official renderer may be ready while the dock is still in
+    // its 48px collapsed rail, so a startup snapshot is not a geometry verdict.
+    const expandedDockAtStartup = await expandViaRail()
+
+    const nativeViewLayout = await dock.page.evaluate(`
+      return window.megaTools.theme.surfaces().then((state) => ({
+        officialBounds: state.official_bounds || null,
+        dockBounds: state.dock_bounds || null
+      }))
+    `)
+
+    // The integrated dock is a sibling WebContentsView, so the official renderer must
+    // receive only the window area to its left. A full-width renderer can report a
+    // centered first-run disclosure that is geometrically behind the dock even though
+    // its button remains inside the renderer's own viewport.
+    const startupLayout = await official.page.poll(`
+      const buttons = [...document.querySelectorAll('button,[role="button"]')]
+      const continueButton = buttons.find((button) => /^(继续|continue)$/i.test((button.innerText || button.textContent || '').trim()))
+      if (!continueButton || !document.body.innerText.includes('内测声明')) return null
+      const rect = continueButton.getBoundingClientRect()
+      return {
+        viewportWidth: window.innerWidth,
+        disclosureVisible: true,
+        continueBounds: { left: rect.left, right: rect.right, width: rect.width }
+      }
+    `, { timeoutMs: 15_000 })
+    const initialDockWidth = expandedDockAtStartup.viewportWidth
+    const officialBounds = nativeViewLayout.officialBounds
+    const dockBounds = nativeViewLayout.dockBounds
+    const officialRight = Number(officialBounds?.x) + Number(officialBounds?.width)
+    const dockRight = Number(dockBounds?.x) + Number(dockBounds?.width)
+    check(
+      'the native dock child begins at or beyond the official child right edge',
+      expandedDockAtStartup.detailWidth >= 400 && initialDockWidth === 440 &&
+        Number(officialBounds?.x) === 0 && Number(officialBounds?.width) >= 1032 &&
+        Number(dockBounds?.x) >= officialRight && Number(dockBounds?.width) === 440 &&
+        dockRight === 1472 && startupLayout.viewportWidth === Number(officialBounds?.width),
+      JSON.stringify({ ...startupLayout, dockWidth: initialDockWidth, dockDetailWidth: expandedDockAtStartup.detailWidth, nativeViewLayout })
+    )
+    check(
+      'the first-run Continue control fits within the reserved official viewport',
+      startupLayout.continueBounds.width > 0 && startupLayout.continueBounds.left >= 0 && startupLayout.continueBounds.right <= Number(officialBounds?.width),
+      JSON.stringify({ ...startupLayout, dockWidth: initialDockWidth, nativeViewLayout })
+    )
+
   } finally {
     // handled below; the shell must outlive this block
   }
@@ -613,20 +713,7 @@ async function run() {
     check('the theme panel is gone from the dock', !panels.themeList && !panels.themePrompt, JSON.stringify(panels))
     check('the dock loads no theme bridge', !panels.bridge)
 
-    // The dock boots collapsed (the rail) on a narrow window unless the run starts
-    // it expanded. The visual observation below is only meaningful once the product
-    // surface is actually laid out, so expand it through the dock's own control and
-    // prove the control works in both directions.
-    const expandViaRail = async () => dock.page.poll(`
-      const rail = document.getElementById('railToggle')
-      if (rail && !document.body.classList.contains('expanded')) rail.click()
-      return document.body.classList.contains('expanded') &&
-        document.getElementById('detail') &&
-        document.documentElement.getBoundingClientRect().width > 400
-        ? true
-        : null
-    `, { timeoutMs: 12_000 })
-
+    // Prove the visible dock control collapses and re-expands the actual surface.
     const startedExpanded = await dock.page.evaluate(`return document.body.classList.contains('expanded')`)
     let collapsed = null
     if (startedExpanded) {
@@ -642,7 +729,13 @@ async function run() {
       check('the dock collapses through its own control', collapsed.expanded === false, JSON.stringify(collapsed))
     }
     let dockExpanded = false
-    for (let attempt = 0; attempt < 3 && !dockExpanded; attempt += 1) {
+    if (collapsed?.expanded === false) {
+      try {
+        dockExpanded = await reopenDockFromBridge()
+      } catch {
+        dockExpanded = false
+      }
+    } else {
       try {
         dockExpanded = await expandViaRail()
       } catch {
@@ -653,11 +746,15 @@ async function run() {
       const detail = document.getElementById('detail')
       return {
         expanded: document.body.classList.contains('expanded'),
-        width: Math.round(document.documentElement.getBoundingClientRect().width),
+        width: Math.round(window.innerWidth),
         detailWidth: detail ? Math.round(detail.getBoundingClientRect().width) : 0
       }
     `)
-    check('the dock expands to full width through its own control', dockExpanded && expandedState.expanded && expandedState.width > 400, JSON.stringify(expandedState))
+    check(
+      'the dock reopens after collapse through its public toggle bridge',
+      dockExpanded?.expanded === true && expandedState.expanded && expandedState.width === 440 && expandedState.detailWidth >= 400,
+      JSON.stringify({ expandedState, reopen: dockExpanded })
+    )
 
     // --- the effect is live, and the theme engine cannot reach it ------------
     // Dragging a slider is the whole update path: the `input` event reaches the stylesheet on the
@@ -836,8 +933,12 @@ async function run() {
     // A real native picker returns focus to the official page, which correctly
     // collapses the dock. Restore the visible-dock precondition through the same
     // control used above before measuring its theme snapshot and wallpaper cut.
-    const themeDockExpanded = await expandViaRail()
-    check('the dock is expanded again before theme and wallpaper measurements', themeDockExpanded === true)
+    const themeDockExpanded = await reopenDockFromBridge()
+    check(
+      'the dock is expanded again before theme and wallpaper measurements',
+      themeDockExpanded?.expanded === true && themeDockExpanded?.viewportWidth === 440 && themeDockExpanded?.detailWidth >= 400,
+      JSON.stringify(themeDockExpanded)
+    )
     const themeFlow = await dock.page.evaluate(`
       const engine = window.megaTools.theme
       return engine.create({ prompt: '赛博全息 HUD，黑灰蓝，扫描线，人物不要抢屏' }).then((created) => {
@@ -897,6 +998,7 @@ async function run() {
         overlay: state.overlay,
         wallpaper: state.wallpaper,
         officialBounds: state.official_bounds,
+        dockBounds: state.dock_bounds,
         planSurfaces: ((state.plans || {}).surfaces) || [],
         planAssets: (state.plans || {}).assets || null,
         overlaySafety: ((state.plans || {}).overlay || {}).safety || null,
@@ -904,7 +1006,8 @@ async function run() {
       }))
     `)
     const surfaceById = Object.fromEntries((surfaces.surfaces || []).map((entry) => [entry.id, entry]))
-    const directOfficialPage = surfaces.shell?.available === false && surfaces.overlay?.available === false
+    const legacyThemeViewsAbsent = surfaces.shell?.available === false && surfaces.overlay?.available === false
+    const integratedOfficialChild = Number(surfaces.officialBounds?.width) > 0 && Number(surfaces.officialBounds?.height) > 0
     check(
       'the engine exposes exactly the four Theme Surfaces',
       Object.keys(surfaceById).sort().join(',') === 'hns_native,official_overlay,official_renderer,official_shell',
@@ -922,10 +1025,11 @@ async function run() {
       )
     }
 
-    // Since Work Mode moved the official renderer onto the BrowserWindow page, sibling theme views
-    // are intentionally absent. Their absence is a safety property: no overlay can intercept input.
-    check('the official renderer is the direct window page with no sibling shell view', directOfficialPage, JSON.stringify(surfaces.shell))
-    check('no legacy official overlay view is mounted above the direct page', directOfficialPage, JSON.stringify(surfaces.overlay))
+    // The official renderer is a protected BaseWindow child WebContentsView beside the shell and
+    // dock. The old theme shell/overlay views are intentionally absent: no overlay can intercept input.
+    check('the protected official renderer is a live native child view', integratedOfficialChild, JSON.stringify(surfaces.officialBounds))
+    check('the integrated official renderer has no legacy theme shell view', legacyThemeViewsAbsent, JSON.stringify(surfaces.shell))
+    check('no legacy official overlay view is mounted above the child renderer', legacyThemeViewsAbsent, JSON.stringify(surfaces.overlay))
     // The layer over the official page is a WINDOW, not a view, and the distinction is the whole
     // point: this build gives a view no input API at all, so a view up there is a real hit target —
     // which is how the official UI became unclickable while a wallpaper was set. The two things
@@ -944,7 +1048,7 @@ async function run() {
         && Number(surfaces.wallpaper?.notch?.x) > 0,
       JSON.stringify({ bounds: surfaces.wallpaper?.bounds || null, notch: surfaces.wallpaper?.notch || null })
     )
-    check('no legacy shell bounds are invented for the direct official page', directOfficialPage && surfaces.shell?.bounds == null, JSON.stringify(surfaces.shell?.bounds || null))
+    check('no legacy shell bounds are invented when its theme view is unavailable', legacyThemeViewsAbsent && surfaces.shell?.bounds == null, JSON.stringify(surfaces.shell?.bounds || null))
     check(
       'the protected official renderer was never painted by the theme system',
       surfaces.protectedSurface?.painted === false && (surfaces.protectedSurface?.injection_apis_used || []).length === 0,
@@ -956,7 +1060,7 @@ async function run() {
       JSON.stringify((surfaces.overlay?.degradation || []).slice(0, 4))
     )
     const paintedSurfaces = (surfaces.planSurfaces || []).filter((entry) => entry.writes).map((entry) => entry.surface)
-    check('an approved theme does not target unavailable sibling views', directOfficialPage && paintedSurfaces.length === 0, JSON.stringify(surfaces.planSurfaces))
+    check('an approved theme does not target unavailable legacy sibling views', legacyThemeViewsAbsent && paintedSurfaces.length === 0, JSON.stringify(surfaces.planSurfaces))
     // Read the dock once a generated theme is active: the dock is the surface this project no
     // longer skins, so the strongest statement is that an installed theme reached it not at all.
     const dockAfterApproval = await dock.page.evaluate(`
@@ -978,7 +1082,7 @@ async function run() {
       (surfaces.planSurfaces || []).every((entry) => entry.surface !== 'official_renderer' || entry.writes === false),
       JSON.stringify((surfaces.planSurfaces || []).filter((entry) => entry.surface === 'official_renderer'))
     )
-    if (!directOfficialPage && surfaces.overlaySafety) {
+    if (!legacyThemeViewsAbsent && surfaces.overlaySafety) {
       check(
         'the overlay passed every safety ceiling in the live run',
         surfaces.overlaySafety.ok === true,
@@ -993,9 +1097,9 @@ async function run() {
         )
       }
     } else {
-      check('no overlay safety result is claimed when no overlay exists', directOfficialPage && surfaces.overlaySafety === null, JSON.stringify(surfaces.overlaySafety))
+      check('no overlay safety result is claimed when no legacy overlay exists', legacyThemeViewsAbsent && surfaces.overlaySafety === null, JSON.stringify(surfaces.overlaySafety))
     }
-    check('no live overlay layout is claimed for the direct official page', directOfficialPage && surfaces.layout == null, JSON.stringify(surfaces.layout))
+    check('no live overlay layout is claimed without a legacy overlay view', legacyThemeViewsAbsent && surfaces.layout == null, JSON.stringify(surfaces.layout))
 
     // --- the overlay really passes input through (任务 3 / 任务 11) -----------
     //
@@ -1106,7 +1210,7 @@ async function run() {
           JSON.stringify(plan.assets.filter((entry) => !entry.disabled && !fs.existsSync(path.join(installedDir, entry.path))).map((entry) => entry.path))
         )
         const character = plan.assets.find((entry) => entry.kind === 'official_character')
-        check('the plan omits an official character when no safe official overlay exists', directOfficialPage && !character, JSON.stringify(plan.assets.map((entry) => entry.kind)))
+        check('the plan omits an official character when no safe official overlay exists', legacyThemeViewsAbsent && !character, JSON.stringify(plan.assets.map((entry) => entry.kind)))
         if (character && !character.disabled) {
           const file = path.join(installedDir, character.path)
           const verdict = inspectPngFile(file)
@@ -1303,7 +1407,7 @@ async function run() {
         }))
       `)
       check('deleting the active theme leaves no overlay plan behind', afterDelete.planSurfaces === null || afterDelete.overlayEnabled === false, JSON.stringify(afterDelete))
-      check('theme deletion leaves the direct official page without a legacy overlay', directOfficialPage && afterDelete.overlayBounds == null, JSON.stringify(afterDelete.overlayBounds))
+      check('theme deletion leaves the official child without a legacy overlay', legacyThemeViewsAbsent && afterDelete.overlayBounds == null, JSON.stringify(afterDelete.overlayBounds))
       check('the protected renderer stayed untouched across the deletion', afterDelete.protectedPainted === false, JSON.stringify(afterDelete))
       check(
         'no theme asset directory is left in the deleted theme package',

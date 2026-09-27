@@ -19,6 +19,11 @@ for (const integrated of [true, false]) {
     const calls = []
     const context = {
       BrowserWindow: class extends EventEmitter { constructor() { super(); this.webContents = {} } },
+      BaseWindow: class extends EventEmitter {
+        constructor() { super(); this.contentView = { addChildView() {} } }
+        getContentSize() { return [1424, 881] }
+      },
+      WebContentsView: class { constructor() { this.webContents = {} } setBounds() {} },
       INTEGRATED_MEGA_DOCK: integrated,
       bilingualTitle: (cn, en) => en,
       resolveAppIcon: () => undefined,
@@ -26,6 +31,7 @@ for (const integrated of [true, false]) {
       layoutIntegratedViews: () => {},
       shuttingDown: false,
       mainWindow: null,
+      shellView: null,
       megaDockView: { name: 'still-owned-dock' },
       officialView: { name: 'still-owned-official-view' },
       app: { quit() { calls.push('quit'); context.shuttingDown = true } }
@@ -42,9 +48,14 @@ test('primary close during explicit shutdown does not request recursive quit', (
   const calls = []
   const context = {
     BrowserWindow: class extends EventEmitter { constructor() { super(); this.webContents = {} } },
+    BaseWindow: class extends EventEmitter {
+      constructor() { super(); this.contentView = { addChildView() {} } }
+      getContentSize() { return [1424, 881] }
+    },
+    WebContentsView: class { constructor() { this.webContents = {} } setBounds() {} },
     INTEGRATED_MEGA_DOCK: true, bilingualTitle: (cn, en) => en,
     resolveAppIcon: () => undefined, configureOfficialWebContents: () => {},
-    layoutIntegratedViews: () => {}, shuttingDown: true, mainWindow: null,
+    layoutIntegratedViews: () => {}, shuttingDown: true, mainWindow: null, shellView: null,
     megaDockView: null, officialView: null, app: { quit: () => calls.push('quit') }
   }
   vm.createContext(context)

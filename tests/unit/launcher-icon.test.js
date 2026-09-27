@@ -83,11 +83,11 @@ test('installer runs the icon step before creating shortcuts and stays ASCII-onl
   assert.equal(/[^\x00-\x7F]/.test(ensure), false, 'ensure-icon.ps1 must stay ASCII-only')
 })
 
-test('Electron shell, tray and notifications read the same generated icon', () => {
+test('the legacy Electron shell and Mega tray resolve the generated icon', () => {
   const main = read('app/desktop-main.cjs')
   assert.match(main, /function resolveAppIcon/)
   assert.match(main, /path\.join\(ROOT, 'assets', 'icon', 'ds-harness\.ico'\)/)
-  assert.match(main, /icon: resolveAppIcon\(\)/)
+  assert.match(main, /if \(!INTEGRATED_MEGA_DOCK\) \{\s*windowOptions\.icon = resolveAppIcon\(\)/)
 
   const mega = read('app/extensions/mega/index.cjs')
   assert.match(mega, /path\.join\(PATHS\.ICON, 'ds-harness\.ico'\)/)

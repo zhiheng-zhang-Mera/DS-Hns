@@ -17,6 +17,7 @@ Check 'Mega hardware probe exists' (Test-Path "$ROOT\app\extensions\mega\schedul
 Check 'Official session delivery client exists' (Test-Path "$ROOT\app\extensions\mega\deepseek\official-session-client.js")
 Check 'Extension manager exists' (Test-Path "$ROOT\app\extensions\manager.cjs")
 $main = Get-Content "$ROOT\app\desktop-main.cjs" -Raw
+$integratedLayout = Get-Content "$ROOT\app\extensions\mega\dock\integrated-layout.cjs" -Raw
 $mega = Get-Content "$ROOT\app\extensions\mega\index.cjs" -Raw
 $scheduler = Get-Content "$ROOT\app\extensions\mega\scheduler\scheduler.js" -Raw
 $system = Get-Content "$ROOT\app\extensions\mega\scheduler\system.js" -Raw
@@ -347,7 +348,9 @@ Check 'The ball draws the dashboard and the page draws governance' (($orbClient 
 Check 'The system orb is opt-in, and torn down with the other windows' (($mega -match "if \(process\.env\.DSH_SYSTEM_ORB === '1'\) createSystemOrbWindow\(\)") -and ($mega -match 'if \(systemOrb\) systemOrb\.stop\(\)'))
 # ---- The old Mega dock is retired: off by default, back on request ----
 Check 'The old Mega dock does not start on screen' (($main -match "let megaDockShown = process\.env\.DSH_MEGA_DOCK === '1'") -and ($main -match "if \(megaDockShown\) await startup\.defer\('dock-ready'"))
-Check 'A hidden dock reserves no strip and no wallpaper notch' (($main -match 'megaDockShown\s*\r?\n?\s*\?\s*Math\.max\(MEGA_DOCK_COLLAPSED_WIDTH') -and ($main -match 'if \(!megaDockShown \|\| !megaDockView'))
+$wallpaperNotch = ($main -split 'function wallpaperNotch\(\)')[1]
+$wallpaperNotch = ($wallpaperNotch -split '\r?\n\}')[0]
+Check 'A hidden dock reserves no strip and no wallpaper notch' (($integratedLayout -match 'let dockWidth = 0') -and ($integratedLayout -match 'let dockVisible = false') -and ($wallpaperNotch -match 'computeIntegratedLayout\(') -and ($wallpaperNotch -match 'return layout\.dockVisible \? \{ x: layout\.dockBounds\.x, y: layout\.dockBounds\.y \} : null'))
 Check 'It comes back when it is asked for, creating the view if needed' (($main -match 'async function showIntegratedMegaDock') -and ($main -match 'if \(!megaDockView\) await createIntegratedMegaDock\(\)') -and ($mega -match 'if \(dockExpanded && !dockWindow && dockEnabled\(\)\) createDock\(\)'))
 Check 'The extension does not build its own dock at boot either' (($mega -match 'function dockAutoStart') -and ($mega -match 'if \(dockAutoStart\(\)\) createDock\(\)'))
 # ---- updater rollback transaction ----

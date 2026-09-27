@@ -3,11 +3,10 @@
  * DS-Harness desktop shell — Alien-derived canonical core.
  *
  * The official @deepseek-ai/dsh Web UI and optional Mega dock are rendered as
- * sibling WebContentsViews inside one native BrowserWindow when the integrated
- * dock is enabled. This keeps the official renderer untouched while reserving
- * real layout width for Mega instead of overlaying it.
+ * sibling WebContentsViews inside one native BaseWindow when the integrated dock
+ * is enabled. The legacy single-page path and auxiliary windows remain BrowserWindows.
  */
-const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification } = require('electron')
+const { app, BrowserWindow, BaseWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
@@ -18,14 +17,14 @@ const runtimeInstance = require('./runtime/instance.cjs')
 const { resolveCommandTemp } = require('./runtime/temp-root.cjs')
 const { createRuntimeClient } = require('./runtime/client.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
-const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
+const { SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 const { createStartupManager } = require('./startup.cjs')
 const { createProtectionLayer } = require('./extensions/mega/protection/index.cjs')
 const frontendMode = require('./frontend-mode/index.cjs')
 const { syncShippedPackage } = require('./harness-profile.cjs')
-// The dock's rectangle, including the band it yields to the official UI. Shared with the extension
-// so the integrated view and the legacy window cannot disagree about where the dock starts.
-const { dockBounds, dockTopInset } = require('./extensions/mega/dock/geometry.cjs')
+// The legacy dock window yields the official header band; the integrated dock is a disjoint
+// sibling view and uses this pure side-by-side layout contract instead.
+const { computeIntegratedLayout } = require('./extensions/mega/dock/integrated-layout.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -55,7 +54,9 @@ const MEGA_DOCK_COLLAPSED_WIDTH = 48
 const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
-const OFFICIAL_VIEW_MIN_WIDTH = 360
+// The pinned official UI layout collapses its sidebar below 1024 px. Keep an 8 px
+// margin so normal rounding and compositor measurements never cross that breakpoint.
+const OFFICIAL_VIEW_MIN_WIDTH = 1032
 
 /**
  * A bilingual title for an OS window or dialog.
@@ -101,6 +102,7 @@ function normalizeHarnessPort(value) {
 }
 
 let mainWindow = null
+let shellView = null
 let officialView = null
 let megaDockView = null
 let officialSurfaces = null
@@ -152,6 +154,7 @@ let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
  */
 let officialFocusArmedAt = Number.POSITIVE_INFINITY
 let megaDockCollapseInFlight = false
+let dockWidthNoticeOpen = false
 let harnessProcess = null
 /**
  * The connection to the DS-Hns Runtime.
@@ -418,12 +421,12 @@ if (!hasSingleInstanceLock) {
 }
 
 function logPath() {
-  return path.join(ROOT, 'logs', 'desktop-runtime.log')
+  return path.join(process.env.DSH_LOG_DIR || path.join(ROOT, 'logs'), 'desktop-runtime.log')
 }
 
 function logLine(message) {
   try {
-    fs.mkdirSync(path.join(ROOT, 'logs'), { recursive: true })
+    fs.mkdirSync(path.dirname(logPath()), { recursive: true })
     fs.appendFileSync(logPath(), `${new Date().toISOString()} ${String(message)}\n`, 'utf8')
   } catch {}
 }
@@ -1046,7 +1049,7 @@ function registerSubWorkerIpc() {
 function activeAgentSurface() {
   try {
     if (officialView && officialView.webContents) return officialView.webContents
-    if (mainWindow && !mainWindow.isDestroyed()) return mainWindow.webContents
+    if (!INTEGRATED_MEGA_DOCK && mainWindow && !mainWindow.isDestroyed()) return mainWindow.webContents
   } catch {
     /* a destroyed view is simply not an agent surface */
   }
@@ -1324,7 +1327,7 @@ function ensurePluginHost() {
     // A compatibility-mode plugin is activated in a separate process. It has to be *this*
     // deployment's node: a packaged application has no other one on the machine.
     nodeExe: safeNodeExe(),
-    restartSupervisorStateDir: path.join(ROOT, 'data', 'state', 'restart-supervisor')
+    restartSupervisorStateDir: process.env.DSHNS_SUPERVISOR_STATE_DIR
   })
   logLine(`plugin runtime ready (${PLUGIN_CHANNELS.length} channels; lock enforcement ${block.enforceLock === true ? 'on' : 'off'})`)
   return pluginHost
@@ -1368,7 +1371,10 @@ function pluginsEnabled() {
  */
 function watchSupervisorStopRequest() {
   const file = path.join(process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor'), 'app.stop-request.json')
-  let handledAt = 0
+  // A supervised relaunch reads this same state directory. Its predecessor's stop request is still
+  // on disk, so treating every positive timestamp as new would make the fresh process exit again.
+  // Only requests written after this process began watching may stop this instance.
+  let handledAt = Date.now()
   const timer = setInterval(() => {
     let request = null
     try {
@@ -1992,59 +1998,85 @@ function forceExit(source = 'shell') {
   app.exit(0)
 }
 
-function integratedDockWidth() {
-  return megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
+function reportDockWidthConstraint(contentWidth, { showNotice = false } = {}) {
+  const currentWidth = Math.max(0, Math.floor(Number(contentWidth) || 0))
+  const requiredWidth = OFFICIAL_VIEW_MIN_WIDTH + MEGA_DOCK_MIN_WIDTH
+  logLine(`dock expansion refused: current content width ${currentWidth}px; required width ${requiredWidth}px (official minimum ${OFFICIAL_VIEW_MIN_WIDTH}px + dock minimum ${MEGA_DOCK_MIN_WIDTH}px)`)
+  if (!showNotice || dockWidthNoticeOpen || !mainWindow || mainWindow.isDestroyed()) return false
+
+  dockWidthNoticeOpen = true
+  try {
+    Promise.resolve(dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      buttons: ['确定 / OK'],
+      defaultId: 0,
+      cancelId: 0,
+      title: bilingualTitle('窗口宽度不足', 'Window too narrow'),
+      message: `展开 Mega 控制台需要至少 ${requiredWidth}px 的窗口内容宽度。\nThe expanded Mega dock needs at least ${requiredWidth}px of window content width.`,
+      detail: `官方界面至少 ${OFFICIAL_VIEW_MIN_WIDTH}px，控制台至少 ${MEGA_DOCK_MIN_WIDTH}px；当前内容宽度 ${currentWidth}px。\nThe official view needs ${OFFICIAL_VIEW_MIN_WIDTH}px and the dock needs ${MEGA_DOCK_MIN_WIDTH}px; the current content width is ${currentWidth}px.`
+    })).catch((error) => {
+      logLine(`dock width notice failed: ${error?.message || error}`)
+    }).finally(() => {
+      dockWidthNoticeOpen = false
+    })
+    return true
+  } catch (error) {
+    dockWidthNoticeOpen = false
+    logLine(`dock width notice failed: ${error?.message || error}`)
+    return false
+  }
+}
+
+function rejectIntegratedDockExpansion(contentWidth) {
+  megaDockExpanded = false
+  reportDockWidthConstraint(contentWidth, { showNotice: true })
+  try {
+    const reset = extensionManager?.setDockExpanded?.(false, { persist: true, focus: false })
+    Promise.resolve(reset).catch((error) => logLine(`dock expansion state reset failed: ${error?.message || error}`))
+  } catch (error) {
+    logLine(`dock expansion state reset failed: ${error?.message || error}`)
+  }
+  layoutIntegratedViews()
+  return false
 }
 
 function layoutIntegratedViews() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return
   const [contentWidth, contentHeight] = mainWindow.getContentSize()
-  const maxDockWidth = Math.max(
-    MEGA_DOCK_COLLAPSED_WIDTH,
-    Math.min(MEGA_DOCK_MAX_WIDTH, Math.max(MEGA_DOCK_COLLAPSED_WIDTH, contentWidth - OFFICIAL_VIEW_MIN_WIDTH))
-  )
-  // A hidden dock takes no width at all: the official page (which is the window's own document) keeps the
-  // whole content box, and the wallpaper has no strip to cut out (`wallpaperNotch`).
-  const desiredDockWidth = megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
-  const dockWidth = megaDockShown
-    ? Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desiredDockWidth, maxDockWidth))
-    : 0
-  const officialWidth = Math.max(0, contentWidth - dockWidth)
-  const height = Math.max(1, contentHeight)
+  const integratedLayout = computeIntegratedLayout({
+    contentWidth,
+    contentHeight,
+    dockShown: megaDockShown,
+    expanded: megaDockExpanded,
+    requestedDockWidth: megaDockWidth,
+    officialMinWidth: OFFICIAL_VIEW_MIN_WIDTH,
+    dockMinWidth: MEGA_DOCK_MIN_WIDTH,
+    dockMaxWidth: MEGA_DOCK_MAX_WIDTH,
+    collapsedDockWidth: MEGA_DOCK_COLLAPSED_WIDTH
+  })
+  const { dockVisible, expansionBlocked } = integratedLayout
 
-  /**
-   * The official renderer and the dock share the window, and each has its own rectangle:
-   * the dock keeps a reserved strip on the right, and the official view fills the rest.
-   *
-   * A second frontend used to compete for that rectangle, moved outside the content area
-   * when it was inactive. It is gone: there is one frontend, so it sits where it belongs,
-   * and no layout decision can hide it.
-   */
-  const rect = { x: 0, y: 0, width: officialWidth, height }
+  if (shellView) shellView.setBounds({ x: 0, y: 0, width: contentWidth, height: contentHeight })
+  // The official renderer remains attached and visible in its own rectangle for the
+  // complete session. The dock is a sibling and can never cover the official viewport.
   if (officialView) {
-    officialView.setBounds(rect)
+    officialView.setBounds(integratedLayout.officialBounds)
   }
-  if (layoutIntegratedViews.lastKey !== `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`) {
-    layoutIntegratedViews.lastKey = `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`
-    logLine(`layout: content=${contentWidth}px official=${officialWidth}px dock=${dockWidth}px expanded=${megaDockExpanded}`)
+  if (layoutIntegratedViews.lastKey !== `${integratedLayout.officialBounds.width}x${integratedLayout.officialBounds.height}|dock=${integratedLayout.dockBounds.width}|shown=${integratedLayout.dockVisible}|expanded=${megaDockExpanded}|blocked=${integratedLayout.expansionBlocked}`) {
+    layoutIntegratedViews.lastKey = `${integratedLayout.officialBounds.width}x${integratedLayout.officialBounds.height}|dock=${integratedLayout.dockBounds.width}|shown=${integratedLayout.dockVisible}|expanded=${megaDockExpanded}|blocked=${integratedLayout.expansionBlocked}`
+    logLine(`layout: content=${contentWidth}px official=${integratedLayout.officialBounds.width}px dock=${integratedLayout.dockBounds.width}px shown=${integratedLayout.dockVisible} expanded=${megaDockExpanded} blocked=${integratedLayout.expansionBlocked}`)
+    if (integratedLayout.expansionBlocked) reportDockWidthConstraint(contentWidth)
   }
   if (megaDockView) {
     try {
-      megaDockView.setVisible(megaDockShown)
+      megaDockView.setVisible(integratedLayout.dockVisible)
     } catch (error) {
-      logLine(`the dock view could not be ${megaDockShown ? 'shown' : 'hidden'}: ${error?.message || error}`)
+      logLine(`the dock view could not be ${integratedLayout.dockVisible ? 'shown' : 'hidden'}: ${error?.message || error}`)
     }
-    // The dock yields the top band to the official UI (see `dock/geometry.cjs`): in this build the
-    // official page *is* the window's document, laid out against the full width, so it cannot know
-    // that a strip of its right edge is covered — and the conversation header's controls live in
-    // exactly that strip's top. Both the rail and the panel move together, because they are one
-    // view.
-    if (megaDockShown) megaDockView.setBounds(dockBounds({ x: officialWidth, width: dockWidth, height, inset: dockTopInset() }))
+    if (integratedLayout.dockVisible) megaDockView.setBounds(integratedLayout.dockBounds)
   }
-  // The official surfaces follow the official view bounds (Update-Plan 任务 3):
-  // the overlay tracks it exactly, the shell spans the window so its frame band
-  // is drawn on all four sides. Called on resize/maximize/restore/dock-toggle, and
-  // its failure can only degrade the surfaces, never the window.
+  // Retain the surface adapter's layout hook for an optional future surface manager;
+  // the production path below uses only the click-through wallpaper window.
   if (officialSurfaces) {
     try {
       officialSurfaces.applyLayout()
@@ -2086,8 +2118,20 @@ function contentBounds() {
 }
 
 function applyIntegratedDockState(payload = {}) {
-  if (!INTEGRATED_MEGA_DOCK) return
-  if (typeof payload.expanded === 'boolean') megaDockExpanded = payload.expanded
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  const candidate = Number(payload.expandedWidth ?? payload.width)
+  if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
+    megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
+  }
+  if (payload.expanded === true) {
+    const [contentWidth] = mainWindow.getContentSize()
+    if (contentWidth < OFFICIAL_VIEW_MIN_WIDTH + MEGA_DOCK_MIN_WIDTH) {
+      return rejectIntegratedDockExpansion(contentWidth)
+    }
+    megaDockExpanded = true
+  } else if (payload.expanded === false) {
+    megaDockExpanded = false
+  }
   /**
    * The extension's own state is the user's intent, so this is where a hidden dock comes back: an `expanded:
    * true` means somebody asked for the console (the tray, the plugin manager, the shortcut, or the dock's own
@@ -2098,11 +2142,8 @@ function applyIntegratedDockState(payload = {}) {
   // Collapsing hides the strip: with the dock retired there is no persistent rail to keep, and a collapsed
   // dock is exactly the "residual sidebar" this round removed. The next request brings it back.
   if (payload.expanded === false && megaDockShown) hideIntegratedMegaDock()
-  const candidate = Number(payload.expandedWidth ?? payload.width)
-  if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
-    megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
-  }
   layoutIntegratedViews()
+  return true
 }
 
 /**
@@ -2164,6 +2205,16 @@ function configureOfficialWebContents(contents) {
       shell.openExternal(url)
     }
   })
+  if (INTEGRATED_MEGA_DOCK) {
+    contents.on('page-title-updated', (event, title) => {
+      try {
+        event.preventDefault()
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(String(title || 'DS-Harness'))
+      } catch (error) {
+        logLine(`official title update failed: ${error?.message || error}`)
+      }
+    })
+  }
   contents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
 }
 
@@ -2182,7 +2233,9 @@ function configureOfficialWebContents(contents) {
 async function showStartupSkeleton() {
   if (!mainWindow || mainWindow.isDestroyed()) return false
   try {
-    await mainWindow.loadFile(path.join(__dirname, 'splash.html'))
+    const shellContents = shellView?.webContents || mainWindow.webContents
+    if (!shellContents || shellContents.isDestroyed()) return false
+    await shellContents.loadFile(path.join(__dirname, 'splash.html'))
   } catch (error) {
     logLine(`the startup skeleton could not be loaded (the official UI is unaffected): ${error?.message || error}`)
     return false
@@ -2198,49 +2251,51 @@ async function showStartupSkeleton() {
 
 async function createOfficialHarnessView(readyUrl) {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  /**
-   * The official Harness UI is the *window's own page*.
-   *
-   * It used to be a sibling `WebContentsView` next to the Daily view, toggled with
-   * `setVisible`. That does not hold up: the sibling is still drawn when it is
-   * meant to be hidden (so Work Mode showed the Daily interface), and a sibling
-   * that was hidden or moved out of the window comes back without a compositor
-   * surface (so Work Mode showed a blank page). The official UI is the one surface
-   * that must never be in doubt, so it uses the plain renderer a BrowserWindow
-   * gives us - the same path this product used before the integrated dock existed.
-   *
-   * Daily then floats *above* it as a child view, and switching is adding or
-   * removing that one view. The official page stays loaded throughout, so nothing
-   * about the Harness session is reset by a mode switch.
-   */
-  configureOfficialWebContents(mainWindow.webContents)
-  await mainWindow.loadURL(readyUrl)
-  return true
+  return createOfficialHarnessChildView(readyUrl)
 }
 
-/** Is the official UI the window's own page (always, in the integrated build)? */
+/** Is the official UI the BrowserWindow's own page rather than a child view? */
 function officialLivesInWindow() {
-  return INTEGRATED_MEGA_DOCK
+  return Boolean(!INTEGRATED_MEGA_DOCK && !officialView && mainWindow && !mainWindow.isDestroyed())
 }
 
 /**
- * Legacy official-view path: only used when the integrated dock is disabled and
- * the window has its own content for something else.
+ * Load the untouched official renderer before attaching it above the startup shell.
+ * BaseWindow is the integrated host because a BrowserWindow's own page is not a
+ * sibling in contentView and can obscure otherwise-visible child views.
  */
 async function createOfficialHarnessChildView(readyUrl) {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
   if (!officialView) {
-    officialView = new WebContentsView({
+    if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+      logLine('Official renderer unavailable: WebContentsView/contentView not supported by this Electron build')
+      return false
+    }
+    const nextOfficialView = new WebContentsView({
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true
       }
     })
-    configureOfficialWebContents(officialView.webContents)
+    configureOfficialWebContents(nextOfficialView.webContents)
+    try {
+      // Keep the startup shell visible while the remote UI is loading; attaching
+      // an unpainted child first would replace that useful progress surface with blank.
+      await nextOfficialView.webContents.loadURL(readyUrl)
+    } catch (error) {
+      try { if (!nextOfficialView.webContents.isDestroyed()) nextOfficialView.webContents.close() } catch {}
+      throw error
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      try { if (!nextOfficialView.webContents.isDestroyed()) nextOfficialView.webContents.close() } catch {}
+      return false
+    }
+    officialView = nextOfficialView
     mainWindow.contentView.addChildView(officialView)
+    officialView.setVisible(true)
+    layoutIntegratedViews()
   }
-  layoutIntegratedViews()
-  await officialView.webContents.loadURL(readyUrl)
   return true
 }
 
@@ -2253,12 +2308,8 @@ async function createOfficialHarnessChildView(readyUrl) {
  * ------------------------------------------------------------------------- */
 
 /**
- * Show the official frontend.
- *
- * Called once the window's page has loaded: the official UI is the window's own page in
- * the integrated build, so showing it is about the dock's width rather than about a view's
- * visibility. It is idempotent, and it re-applies the layout for the reason the old switch
- * did — Chromium can keep a stale viewport for a view resized while unloaded.
+ * Re-apply the official child-view layout after its page has loaded. The child remains
+ * attached and visible; only its bounds change when the dock takes or releases a column.
  */
 function showOfficialFrontend() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
@@ -2342,44 +2393,9 @@ function registerFrontendIpc() {
  */
 async function createOfficialSurfaces() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  if (!officialView) {
-    // The official UI is the window's own page, so there is no protected sibling to draw a frame
-    // around and no theme surface to paint: the shell and the theme's own overlay stay unbuilt.
-    //
-    // What is still created here is the **wallpaper** — and it is a click-through *window* rather
-    // than the view this used to be, because a view above the page cannot be made input-transparent
-    // in this Electron build and would eat every click on the official UI.
-    return createWallpaperLayer()
-  }
-  if (officialSurfaces) return true
-  officialSurfaces = createOfficialSurfaceViews({
-    getWindow: () => mainWindow,
-    getOfficialView: () => officialView,
-    getWindowSize: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : null),
-    getDockWidth: () => integratedDockWidth(),
-    log: (message) => logLine(`[surface] ${message}`),
-    electron: { WebContentsView }
-  })
-  try {
-    officialSurfaces.createShell()
-    // 任务 1: the official Overlay is DEPRECATED and is not created by default.
-    // Work Mode must be untouched official UI, so nothing is stacked above it
-    // unless an operator explicitly asks for the legacy architecture.
-    if (OFFICIAL_OVERLAY_ENABLED) {
-      officialSurfaces.createOverlay()
-      logLine('official_overlay attached for the user wallpaper (input-transparent, script-free); it takes no theme effect')
-    } else {
-      logLine('official_overlay turned off for this run (DSH_OFFICIAL_OVERLAY=0); the wallpaper cannot be drawn over the official UI')
-    }
-    officialSurfaces.applyLayout()
-    logLine(`official_shell view attached (visual-only, input passthrough); overlay=${OFFICIAL_OVERLAY_ENABLED ? 'wallpaper' : 'disabled'}`)
-    return true
-  } catch (error) {
-    logLine(`official surfaces failed to attach; the official renderer keeps running unthemed: ${error?.stack || error}`)
-    try { officialSurfaces.destroy() } catch {}
-    officialSurfaces = null
-    return false
-  }
+  // The protected official renderer is a child view now. Preserve the current
+  // click-through wallpaper window instead of stacking any additional view on it.
+  return createWallpaperLayer()
 }
 
 /**
@@ -2463,13 +2479,20 @@ function createWallpaperLayer() {
  * dock there is nothing to cut.
  */
 function wallpaperNotch() {
-  // No dock on screen, no strip to cut: the picture covers the whole window (and only the strip the dock
-  // actually occupies is ever cut, which is the rule this function has always followed).
-  if (!megaDockShown || !megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
-  const [contentWidth] = mainWindow.getContentSize()
-  const width = Math.max(1, Number(contentWidth) || 0)
-  const dockWidth = Math.max(1, Math.min(integratedDockWidth(), width))
-  return { x: Math.max(0, width - dockWidth), y: dockTopInset() }
+  if (!megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
+  const [contentWidth, contentHeight] = mainWindow.getContentSize()
+  const layout = computeIntegratedLayout({
+    contentWidth,
+    contentHeight,
+    dockShown: megaDockShown,
+    expanded: megaDockExpanded,
+    requestedDockWidth: megaDockWidth,
+    officialMinWidth: OFFICIAL_VIEW_MIN_WIDTH,
+    dockMinWidth: MEGA_DOCK_MIN_WIDTH,
+    dockMaxWidth: MEGA_DOCK_MAX_WIDTH,
+    collapsedDockWidth: MEGA_DOCK_COLLAPSED_WIDTH
+  })
+  return layout.dockVisible ? { x: layout.dockBounds.x, y: layout.dockBounds.y } : null
 }
 
 async function createIntegratedMegaDock() {
@@ -2537,7 +2560,7 @@ async function createIntegratedMegaDock() {
  */
 function watchOfficialUseToCollapseDock() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  const contents = mainWindow.webContents
+  const contents = activeAgentSurface()
   if (!contents || contents.hnsDockCollapseWatch === true) return false
   contents.hnsDockCollapseWatch = true
 
@@ -2558,10 +2581,27 @@ function watchOfficialUseToCollapseDock() {
     return true
   }
 
+  /**
+   * The main-process focus event can arrive between native mouse-down and the renderer's click
+   * handler. Reflowing the sibling views in that gap moves the target under the pointer and loses
+   * the click. Let the originating input dispatch first, then collapse only if the official page
+   * still owns focus.
+   */
+  let collapseAfterInput = null
+  const deferCollapse = (because) => {
+    if (collapseAfterInput) return false
+    collapseAfterInput = setTimeout(() => {
+      collapseAfterInput = null
+      if (typeof contents.isFocused === 'function' && !contents.isFocused()) return
+      collapse(because)
+    }, 200)
+    return true
+  }
+
   contents.on('focus', () => {
     // A focus event during boot is the window being shown, not the user turning away.
     if (Date.now() < officialFocusArmedAt) return
-    collapse('the official page took focus')
+    deferCollapse('the official page took focus')
   })
 
   contents.on('before-input-event', (_event, input) => {
@@ -2569,7 +2609,7 @@ function watchOfficialUseToCollapseDock() {
     // A modifier alone is not an intent to type; a shortcut like Ctrl+C is not either.
     if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(input.key)) return
     if (input.control || input.meta || input.alt) return
-    collapse('a key was pressed into the official page')
+    deferCollapse('a key was pressed into the official page')
   })
   return true
 }
@@ -2587,7 +2627,7 @@ function destroyIntegratedViews() {
     logLine(`wallpaper layer teardown failed: ${error?.message || error}`)
   }
   wallpaperLayer = null
-  for (const view of [megaDockView, officialView]) {
+  for (const view of [megaDockView, officialView, shellView]) {
     if (!view) continue
     try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
     try {
@@ -2596,27 +2636,48 @@ function destroyIntegratedViews() {
   }
   megaDockView = null
   officialView = null
+  shellView = null
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const WindowClass = INTEGRATED_MEGA_DOCK ? BaseWindow : BrowserWindow
+  const windowOptions = {
     width: INTEGRATED_MEGA_DOCK ? 1488 : 1440,
     height: 920,
     minWidth: 980,
     minHeight: 640,
     title: bilingualTitle('DS-Harness 工作台', 'DS-Harness Workbench'),
-    icon: resolveAppIcon(),
     backgroundColor: '#f7f8fa',
-    autoHideMenuBar: true,
-    show: false,
-    webPreferences: {
+    show: false
+  }
+  if (!INTEGRATED_MEGA_DOCK) {
+    windowOptions.icon = resolveAppIcon()
+    windowOptions.autoHideMenuBar = true
+    windowOptions.webPreferences = {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true
     }
-  })
+  }
+  mainWindow = new WindowClass(windowOptions)
 
-  if (!INTEGRATED_MEGA_DOCK) configureOfficialWebContents(mainWindow.webContents)
+  if (INTEGRATED_MEGA_DOCK) {
+    shellView = new WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
+      }
+    })
+    mainWindow.contentView.addChildView(shellView)
+    const [width, height] = mainWindow.getContentSize()
+    shellView.setBounds({ x: 0, y: 0, width, height })
+    // Keep the existing shell webContents API for IPC/extension consumers; the
+    // official interactive surface remains the separate child returned above.
+    mainWindow.webContents = shellView.webContents
+  } else {
+    configureOfficialWebContents(mainWindow.webContents)
+  }
 
   mainWindow.on('resize', layoutIntegratedViews)
   mainWindow.on('maximize', layoutIntegratedViews)
@@ -2824,7 +2885,7 @@ async function startExtensions(nodeExe) {
       root: ROOT,
       nodeExe,
       mainWindow,
-      officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
+      officialWebContents: activeAgentSurface(),
       dockAdapter,
       // The two official surfaces. The extension paints them with the same theme
       // payload it paints the dock with; it never receives the official webContents,

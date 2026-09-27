@@ -557,17 +557,37 @@ test('the prompt text is bilingual and the installer PowerShell that calls it st
  * `DEEPSEEK_API_KEY` in the *unused* environment slot is what keeps the API-key step from asking:
  * an installer test that stops on a prompt is not a test.
  */
-function installerFixture(label) {
+function installerFixture(label, { bootstrapNode = false, healthSchedulerInstallFails = false } = {}) {
   const root = scratchDir(`installer-${label}`)
   const scripts = path.join(root, 'scripts')
   fs.mkdirSync(scripts, { recursive: true })
   for (const file of ['install.ps1', 'install-community-plugins.ps1', 'env.ps1', 'ensure-node.ps1']) {
     fs.copyFileSync(path.join(ROOT, 'scripts', file), path.join(scripts, file))
   }
+  if (bootstrapNode) {
+    fs.copyFileSync(path.join(ROOT, 'scripts', 'install-fingerprint.cjs'), path.join(scripts, 'install-fingerprint.cjs'))
+    fs.cpSync(path.join(ROOT, 'app', 'runtime'), path.join(root, 'app', 'runtime'), { recursive: true })
+    fs.copyFileSync(path.join(ROOT, 'app', 'runtime-process.cjs'), path.join(root, 'app', 'runtime-process.cjs'))
+  }
   // Recorded stand-ins for the two steps that touch the machine: what they were asked to do is what
   // the test asserts about, and nothing is installed.
   fs.writeFileSync(path.join(scripts, 'cleanup-runtime.ps1'), "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'cleanup'\n", 'utf8')
-  fs.writeFileSync(path.join(scripts, 'install-deps.ps1'), "param([switch]$Full)\nAdd-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'deps'\n", 'utf8')
+  const dependencyStep = [
+    "param([switch]$Full)",
+    "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'deps'"
+  ]
+  if (bootstrapNode) {
+    const nodeMajor = process.versions.node.split('.')[0]
+    const sourceNode = process.execPath.replace(/'/g, "''")
+    dependencyStep.push(
+      "$root = Split-Path -Parent $PSScriptRoot",
+      `$nodeDir = Join-Path $root 'runtime\\node-v${nodeMajor}-win-x64'`,
+      "New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null",
+      `Copy-Item -LiteralPath '${sourceNode}' -Destination (Join-Path $nodeDir 'node.exe') -Force`,
+      "Set-Content -LiteralPath (Join-Path $nodeDir 'npm.cmd') -Value '@echo off' -Encoding ASCII"
+    )
+  }
+  fs.writeFileSync(path.join(scripts, 'install-deps.ps1'), `${dependencyStep.join('\n')}\n`, 'utf8')
   fs.writeFileSync(path.join(scripts, 'ensure-icon.ps1'), "'icon'\n", 'utf8')
   fs.writeFileSync(path.join(scripts, 'shortcuts.ps1'), "param([switch]$NoAutoStart)\n", 'utf8')
   // The two scripts the installer preflights and runs: recorded stand-ins here, because running the
@@ -578,12 +598,19 @@ function installerFixture(label) {
   // The built-in plugins have their own installer, and the real one would sign two plugins into a
   // profile this fixture does not have. It is recorded here, and it answers with the report the real
   // one answers with, because the installer's own behaviour around that report is what is asserted.
+  const bundledReport = {
+    ok: !healthSchedulerInstallFails,
+    results: [
+      { id: 'dshns.health-scheduler', state: healthSchedulerInstallFails ? 'failed' : 'already-installed', reason: healthSchedulerInstallFails ? 'test permission denied' : null },
+      { id: 'dshns.restart-supervisor', state: 'already-installed', reason: null }
+    ]
+  }
   fs.writeFileSync(
     path.join(scripts, 'install-bundled-plugins.ps1'),
-    "param([switch]$Repair, [switch]$Uninstall, [switch]$List, [switch]$Json)\n" +
-      "Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'bundled'\n" +
-      "if ($Json) { Write-Output '{\"ok\":true,\"results\":[{\"id\":\"dshns.health-scheduler\",\"state\":\"already-installed\"},{\"id\":\"dshns.restart-supervisor\",\"state\":\"already-installed\"}]}' }\n" +
-      "exit 0\n",
+    `param([switch]$Repair, [switch]$Uninstall, [switch]$List, [switch]$Json)\n` +
+      `Add-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'steps.log') -Value 'bundled'\n` +
+      `if ($Json) { Write-Output '${JSON.stringify(bundledReport)}' }\n` +
+      `exit ${healthSchedulerInstallFails ? 1 : 0}\n`,
     'utf8'
   )
 
@@ -650,7 +677,14 @@ function runInstaller(root, extraArgs = [], options = {}) {
       ...process.env,
       DEEPSEEK_API_KEY: 'sk-installer-fixture-key',
       DSH_PROFILE: 'web',
-      DSH_HOME: path.join(root, 'data')
+      DSH_HOME: path.join(root, 'data'),
+      ...(options.noSystemNode
+        ? { [Object.keys(process.env).find((key) => key.toLowerCase() === 'path') || 'PATH']: [
+            path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0'),
+            path.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
+            process.env.SystemRoot || 'C:\\Windows'
+          ].join(path.delimiter) }
+        : {})
     }
   })
   return { status: result.status, output: `${result.stdout || ''}${result.stderr || ''}`, result }
@@ -683,6 +717,30 @@ test('the real installer asks nothing with -NonInteractive and installs no optio
   assert.ok(['LOADED', 'ALREADY INSTALLED'].includes(summary['Mega Core']), `Mega Core state: ${summary['Mega Core']}`)
   assert.equal(summary['DS-Hns runtime'], 'OK')
   assert.equal(summary['Official Harness UI'], 'OK')
+})
+
+test('a cold install records measured host capability and install state after bootstrapping Node', () => {
+  const root = installerFixture('cold-node-bootstrap', { bootstrapNode: true })
+  const { status, output } = runInstaller(root, [], { noSystemNode: true })
+
+  assert.equal(status, 0, `the installer failed: ${output.slice(-4000)}`)
+  assert.match(output, /Host capability: (?:LOW_CAPACITY|CONSERVATIVE|BALANCED|CAPABLE|HIGH_CAPACITY) /)
+  assert.doesNotMatch(output, /host capability profile could not be measured/i)
+  assert.match(output, /Install state recorded:/)
+  assert.doesNotMatch(output, /Install state could not be computed|Install state could not be recorded/)
+  assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'host-profile.json')), true)
+  assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'install-state.json')), true)
+})
+
+test('a missing required built-in plugin makes the installer fail without recording a complete state', () => {
+  const root = installerFixture('required-builtin-failure', { bootstrapNode: true, healthSchedulerInstallFails: true })
+  const { status, output } = runInstaller(root, [], { noSystemNode: true })
+
+  assert.equal(status, 1, `a required built-in plugin failure was reported as a successful install: ${output.slice(-4000)}`)
+  assert.match(output, /Health Scheduler\s+\.+\s+FAILED/)
+  assert.match(output, /installation is incomplete.*required built-in plugin/i)
+  assert.doesNotMatch(output, /DS-Harness installation is complete|Install state recorded:/)
+  assert.equal(fs.existsSync(path.join(root, 'data', 'state', 'install-state.json')), false)
 })
 
 test('the real installer installs the market with -InstallMarket and leaves the wallpaper alone', () => {

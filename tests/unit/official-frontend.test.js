@@ -120,7 +120,8 @@ test('the removed files are gone and the remaining runtime has no mode', () => {
 
 test('the shell renders the official view and never hides it', () => {
   const shell = read('app/desktop-main.cjs')
-  assert.match(shell, /officialView = new WebContentsView/)
+  assert.match(shell, /const nextOfficialView = new WebContentsView/)
+  assert.match(shell, /officialView = nextOfficialView/)
   // The official view is shown, and nothing parks it: the native branch that used to
   // shadow it is gone, so there is exactly one frontend to look at.
   assert.match(shell, /showOfficialFrontend\(/)

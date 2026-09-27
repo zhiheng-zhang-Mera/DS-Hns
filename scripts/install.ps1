@@ -328,7 +328,7 @@ $electronExe = Join-Path $ROOT 'app\node_modules\electron\dist\electron.exe'
 $megaCoreDir = Join-Path $ROOT 'app\plugins\mega-core'
 $installState = $null
 $installStateFile = Join-Path $dshHome 'state\install-state.json'
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ((Test-Path -LiteralPath $fingerprintScript) -and $node) {
   try {
     $installStateJson = & $node @($fingerprintScript, 'describe', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
     $installState = ($installStateJson | Select-Object -Last 1) | ConvertFrom-Json
@@ -336,56 +336,8 @@ if (Test-Path -LiteralPath $fingerprintScript) {
     Write-Warning "Install state could not be computed; this run will do the full work: $($_.Exception.Message)"
     $installState = $null
   }
-}
-
-# Host capability, measured rather than assumed. It is printed as information and cached for the
-# Runtime to use; nothing below fails an installation because this machine is slow. See
-# app/runtime/host-capability.cjs for why a static machine table was rejected in favour of a short
-# calibration, and why the performance numbers are reporting rather than gating.
-$hostProfile = $null
-if ($HostProfileFixture) {
-  # A simulated host. The profile is read, classified and cached by the same code a
-  # measured one goes through, so the policy under test is the real policy.
-  $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
-  try {
-    $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
-    Write-Host "Host capability: SIMULATED from $fixturePath"
-  } catch {
-    Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
-    $hostProfile = $null
-  }
-}
-if (-not $hostProfile) {
-  $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
-  if (Test-Path -LiteralPath $capabilityScript) {
-    try {
-      $hostProfile = (& $node @($capabilityScript, 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
-    } catch {
-      $hostProfile = $null
-    }
-  }
-}
-if ($hostProfile) {
-  $capacity = $hostProfile.capacity.class
-  $cores = $hostProfile.cpu.logicalCores
-  $memoryMb = $hostProfile.memory.totalMB
-  Write-Host "Host capability: $capacity ($cores logical cores, ${memoryMb} MB RAM)."
-  Write-Host "  worker ceiling: $($hostProfile.workers.recommended) ($($hostProfile.workers.label) scaling)"
-  Write-Host "  measured node spawn p95: $($hostProfile.calibration.nodeSpawnP95Ms) ms"
-  if ($capacity -eq 'LOW_CAPACITY' -or $capacity -eq 'CONSERVATIVE') {
-    # Reported as a *policy*, not as an error: a small machine gets conservative defaults and the
-    # installation continues to completion.
-    Write-Host '  this host is treated as conservative: lower worker concurrency and longer timeouts.'
-  }
-  # Recorded for the Runtime, so the worker ceiling it uses is the one measured here rather than a
-  # default chosen on a faster machine.
-  try {
-    $profileFile = Join-Path $dshHome 'state\host-profile.json'
-    New-Item -ItemType Directory -Path (Split-Path -Parent $profileFile) -Force | Out-Null
-    $hostProfile | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $profileFile -Encoding UTF8
-  } catch {
-    Write-Warning "The host capability profile could not be cached: $($_.Exception.Message)"
-  }
+} elseif (Test-Path -LiteralPath $fingerprintScript) {
+  Write-Host 'Install state lookup deferred until the dependency step bootstraps Node.'
 }
 
 Write-Step '2/9 Resolve/reuse dependencies'
@@ -413,6 +365,63 @@ if ($depsReuse) {
     Write-Host "  reinstall: $($installState.decisions.dependencies.reason)"
   }
   & $dependencyScript -Full
+}
+
+# Dependency resolution owns Node bootstrap. Resolve again in this scope before using Node for
+# host calibration or the final install-state write; a child PowerShell script cannot update `$node`.
+$node = Resolve-InstallerNode
+
+# Host capability, measured rather than assumed. It is printed as information and cached for the
+# Runtime to use; nothing below fails an installation because this machine is slow. See
+# app/runtime/host-capability.cjs for why a static machine table was rejected in favour of a short
+# calibration, and why the performance numbers are reporting rather than gating.
+$hostProfile = $null
+if ($HostProfileFixture) {
+  # A simulated host. The profile is read, classified and cached by the same code a
+  # measured one goes through, so the policy under test is the real policy.
+  $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
+  if ($node) {
+    try {
+      $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+      Write-Host "Host capability: SIMULATED from $fixturePath"
+    } catch {
+      Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
+      $hostProfile = $null
+    }
+  }
+}
+if (-not $hostProfile -and $node) {
+  $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
+  if (Test-Path -LiteralPath $capabilityScript) {
+    try {
+      $hostProfile = (& $node @($capabilityScript, '--json', 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+    } catch {
+      Write-Warning "The host capability profile could not be measured; installation will continue without its cached measurements: $($_.Exception.Message)"
+      $hostProfile = $null
+    }
+  }
+}
+if ($hostProfile) {
+  $capacity = $hostProfile.capacity.class
+  $cores = $hostProfile.cpu.logicalCores
+  $memoryMb = $hostProfile.memory.totalMB
+  Write-Host "Host capability: $capacity ($cores logical cores, ${memoryMb} MB RAM)."
+  Write-Host "  worker ceiling: $($hostProfile.workers.recommended) ($($hostProfile.workers.label) scaling)"
+  Write-Host "  measured node spawn p95: $($hostProfile.calibration.nodeSpawnP95Ms) ms"
+  if ($capacity -eq 'LOW_CAPACITY' -or $capacity -eq 'CONSERVATIVE') {
+    # Reported as a *policy*, not as an error: a small machine gets conservative defaults and the
+    # installation continues to completion.
+    Write-Host '  this host is treated as conservative: lower worker concurrency and longer timeouts.'
+  }
+  # Recorded for the Runtime, so the worker ceiling it uses is the one measured here rather than a
+  # default chosen on a faster machine.
+  try {
+    $profileFile = Join-Path $dshHome 'state\host-profile.json'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $profileFile) -Force | Out-Null
+    $hostProfile | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $profileFile -Encoding UTF8
+  } catch {
+    Write-Warning "The host capability profile could not be cached: $($_.Exception.Message)"
+  }
 }
 
 Write-Step '3/9 Resolve DeepSeek API key'
@@ -486,6 +495,7 @@ $script:BuiltInPluginStates = [ordered]@{
   'dshns.health-scheduler' = 'NOT INSTALLED'
   'dshns.restart-supervisor' = 'NOT INSTALLED'
 }
+$script:RequiredBuiltInPluginFailure = $false
 # What the *runtime* says about them, which is a different question from what the profile holds: the
 # registration check fills this in (registered, mounted, or listed in the official UI), and the
 # completion summary reports it rather than only the file-level state.
@@ -530,21 +540,39 @@ try {
   $bundledExit = $LASTEXITCODE
   foreach ($line in $bundledLines) { if ($line.Trim() -and -not $line.Trim().StartsWith('{')) { Write-Host "  $($line.Trim())" } }
   $bundledJson = ($bundledLines | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+  $bundledReportValid = $false
   if ($bundledJson) {
     try {
       $bundledReport = $bundledJson | ConvertFrom-Json
+      $bundledReportValid = $null -ne $bundledReport.results
       foreach ($result in @($bundledReport.results)) {
         $id = [string]$result.id
-        if (-not $id) { continue }
+        if (-not $id -or -not $script:BuiltInPluginStates.Contains($id)) { continue }
         $script:BuiltInPluginStates[$id] = if ($result.state -eq 'installed') { 'INSTALLED' } elseif ($result.state -eq 'already-installed') { 'ALREADY INSTALLED' } else { 'FAILED' }
+        if ($script:BuiltInPluginStates[$id] -eq 'FAILED') {
+          $script:RequiredBuiltInPluginFailure = $true
+        }
         if ($result.state -eq 'failed' -or $result.state -eq 'missing') { Write-Warning "$id is not in the Harness profile: $($result.reason)" }
       }
     } catch {
+      $script:RequiredBuiltInPluginFailure = $true
       Write-Warning "The built-in plugin report could not be read: $($_.Exception.Message)"
     }
-  } elseif ($bundledExit -ne 0) {
-    Write-Warning 'The built-in plugin installer produced no report; the plugins may not be in the profile.'
+  }
+  if (-not $bundledReportValid) {
+    $script:RequiredBuiltInPluginFailure = $true
+    Write-Warning 'The built-in plugin installer produced no valid report; the required plugins are not verified.'
     foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  }
+  if ($bundledExit -ne 0) {
+    $script:RequiredBuiltInPluginFailure = $true
+    if ($bundledReportValid) { Write-Warning "The built-in plugin installer exited $bundledExit; required plugin installation failed." }
+  }
+  foreach ($id in @($script:BuiltInPluginStates.Keys)) {
+    if ($script:BuiltInPluginStates[$id] -notin @('INSTALLED', 'ALREADY INSTALLED')) {
+      $script:RequiredBuiltInPluginFailure = $true
+      $script:BuiltInPluginStates[$id] = 'FAILED'
+    }
   }
 
   # The proof that matters: the runtime registers what the profile now carries.
@@ -617,6 +645,7 @@ try {
   }
 } catch {
   $script:MegaCoreState = 'FAILED'
+  $script:RequiredBuiltInPluginFailure = $true
   foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
   Write-Warning "Signing the shipped plugins into the profile failed, installation continues: $($_.Exception.Message)"
 }
@@ -920,8 +949,13 @@ if ($NoShortcuts) {
   }
 }
 
-Write-Step '9/9 Complete'
-Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Step '9/9 Incomplete'
+  Write-Host 'DS-Harness installation is incomplete: a required built-in plugin failed or could not be verified.' -ForegroundColor Red
+} else {
+  Write-Step '9/9 Complete'
+  Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+}
 if ($systemKey) {
   Write-Host "API: system environment ($($systemKey.Name), $($systemKey.Scope))"
 } elseif ($env:DEEPSEEK_API_KEY) {
@@ -1033,7 +1067,9 @@ Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
 # Written last, and only when every step above succeeded: a state file written after a partial install
 # would claim work that did not happen. The next run reads it and skips what has not changed, which is
 # what makes a warm reinstall cheap instead of a repeat of the first one.
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Host 'Install state not recorded: required built-in plugins did not pass installation verification.' -ForegroundColor Yellow
+} elseif (Test-Path -LiteralPath $fingerprintScript) {
   try {
     $writeResult = & $node @($fingerprintScript, 'write', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
     $written = ($writeResult | Select-Object -Last 1) | ConvertFrom-Json
@@ -1055,9 +1091,13 @@ if (Test-Path -LiteralPath $fingerprintScript) {
   }
 }
 
-if (-not $NoLaunch) {
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Host 'Launch skipped because required built-in plugins did not pass installation verification.' -ForegroundColor Yellow
+} elseif (-not $NoLaunch) {
   Write-Host 'Launching DS-Harness...'
   Start-Process -FilePath (Join-Path $ROOT 'Start-DeepSeek-Harness.cmd') -WorkingDirectory $ROOT
 } else {
   Write-Host 'Launch skipped by -NoLaunch.'
 }
+
+if ($script:RequiredBuiltInPluginFailure) { exit 1 }

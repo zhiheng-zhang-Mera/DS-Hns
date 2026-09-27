@@ -936,13 +936,61 @@ function printReport(report) {
   process.stdout.write(lines.join('\n'))
 }
 
+const USAGE = [
+  'Usage: node scripts/combined-acceptance.cjs [--json] [--out <path>] [--phase <a,b,c,d,e>]',
+  '       node scripts/combined-acceptance.cjs --help',
+  'With no arguments, all acceptance phases A-E run.'
+].join('\n')
+
+class CliArgumentError extends Error {}
+
+function parseArguments(argv) {
+  const options = { help: false, asJson: false, outPath: null, wanted: ['a', 'b', 'c', 'd', 'e'] }
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index]
+    if (argument === '--help' || argument === '-h') return { ...options, help: true }
+    if (argument === '--json') {
+      options.asJson = true
+      continue
+    }
+    if (argument === '--out' || argument === '--phase') {
+      const value = argv[index + 1]
+      if (typeof value !== 'string' || value.length === 0 || value.startsWith('-')) {
+        throw new CliArgumentError(`missing value for ${argument}`)
+      }
+      index += 1
+      if (argument === '--out') options.outPath = value
+      else {
+        const phases = value.split(',').map((entry) => entry.trim().toLowerCase())
+        const invalid = phases.filter((phase) => !['a', 'b', 'c', 'd', 'e'].includes(phase))
+        if (invalid.length > 0) throw new CliArgumentError(`unknown phase: ${invalid.join(', ')}`)
+        options.wanted = phases
+      }
+      continue
+    }
+    throw new CliArgumentError(`unknown option: ${argument}`)
+  }
+
+  return options
+}
+
 async function main() {
-  const argv = process.argv.slice(2)
-  const asJson = argv.includes('--json')
-  const outIndex = argv.indexOf('--out')
-  const phasesIndex = argv.indexOf('--phase')
-  const wanted = phasesIndex === -1 ? ['a', 'b', 'c', 'd', 'e'] : String(argv[phasesIndex + 1] || '').split(',').map((entry) => entry.trim().toLowerCase())
-  const outPath = path.resolve(ROOT, outIndex === -1 ? path.join('runtime', 'acceptance', 'combined-acceptance.json') : argv[outIndex + 1])
+  let options
+  try {
+    options = parseArguments(process.argv.slice(2))
+  } catch (error) {
+    process.stderr.write(`Error: ${error.message}\n${USAGE}\n`)
+    return 2
+  }
+  if (options.help) {
+    process.stdout.write(`${USAGE}\n`)
+    return 0
+  }
+
+  const asJson = options.asJson
+  const wanted = options.wanted
+  const outPath = path.resolve(ROOT, options.outPath || path.join('runtime', 'acceptance', 'combined-acceptance.json'))
 
   const report = { at: new Date().toISOString(), node: process.version, platform: `${process.platform}/${process.arch}`, commit: null, checks: [] }
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })

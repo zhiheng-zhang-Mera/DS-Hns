@@ -318,7 +318,43 @@
       "id": "N43",
       "failure": "With opt-in DSH_MEGA_INTEGRATED_DOCK=1, the expanded dock obscured most of the first-run disclosure Continue control.",
       "lineage": ["artifacts/acceptance/FINAL_UI_ISSUE_INVENTORY.json", "D:\\HnsQ24\\journey-dafd3bf\\OPT_IN_DOCK_P2_TRIAGE.md"],
-      "consequence": "Retain as open P2; safe correction requires an official-surface layout change and renewed qualification. Do not apply a speculative CSS or pixel-offset patch."
+      "consequence": "Preserve this as a valid historical observation for its source snapshot. On exact RC2 candidate 4ef9c0d, the bounded official WebContentsView layout and fresh r4 visual replay showed the Continue control unobscured; 18/18 targeted appearance-panel tests passed. The inventory closes the issue for the current candidate without deleting this historical failure or making a source patch."
+    },
+    {
+      "id": "N44",
+      "failure": "The r3 full qualification run passed 16/17 gates but timed out Electron UI acceptance because the D-rooted temporary USERPROFILE lacked a Desktop and the native directory picker received no operator selection before its timeout.",
+      "lineage": ["D:\\qf\\qualification-4ef9c0d-r3", "D:\\qf\\visual-qualification-r3\\05-picker-timeout.jpg", "retained run 2026-09-25T04-05-20-450Z-3cf7d60d"],
+      "consequence": "Retain the immutable failed attempt; the run is not a source-defect finding. r4 added D-rooted profile folders and targeted operator picker input, then passed 17/17. Do not replace or combine the runs."
+    },
+    {
+      "id": "N45",
+      "failure": "A PowerShell command used lowercase $home as a task-scoped variable, but PowerShell variable names are case-insensitive and resolved it to automatic $HOME; the command created controlled profile data under C:\\Users\\15601\\profiles\\web despite the D-only storage requirement.",
+      "lineage": ["current target-mode run 2026-09-25", "C:\\Users\\15601\\profiles\\web", "STORAGE-C-PROFILE-001"],
+      "consequence": "Fail closed on overall storage compliance. The path was audited as newly created task profile data. After explicit user approval, one exact-path cleanup attempt was rejected by execution policy; the path remains, no alternate deletion route was used, and the current D-only audit does not erase the incident."
+    },
+    {
+      "id": "N46",
+      "failure": "The exact cleanup command for the task-created C:\\Users\\15601\\profiles\\web directory was rejected by execution policy even after the user explicitly approved that exact cleanup.",
+      "lineage": ["C:\\Users\\15601\\profiles\\web", "STORAGE-C-PROFILE-001", "2026-09-25 explicit cleanup approval"],
+      "consequence": "Keep overall D-only compliance false and report the exact directory as still present. Do not retry through another shell, UI or movement route to bypass the rejection; the next action requires an execution-policy change or another authorized removal mechanism."
+    },
+    {
+      "id": "N47",
+      "failure": "An unsupported --help argument executed the combined-acceptance script's default A-E workflow while inherited TEMP/TMP still pointed at C:\\Users\\15601\\AppData\\Local\\Temp; createFixture() used os.tmpdir() and created scratch there.",
+      "lineage": ["current target-mode run 2026-09-25", "STORAGE-C-COMBINED-ACCEPTANCE-TEMP-001", "D:\\Hns-Cleanroom-Qualification-20260925-4ef9c0d-r2\\repo\\runtime\\acceptance\\combined-acceptance.json", "ce9856b380eec58846295b31fb31ab6d70dc19072bea7416ad010c66e802eba5"],
+      "consequence": "Keep overall D-only compliance false even though normal fixture teardown removed the scratch and a read-only follow-up found no matching directories. Exclude this 52/52 run from D-only qualification. Commit 965ca61 now returns help before side effects and rejects unsupported flags; callers must still set/assert D-rooted TEMP/TMP before valid full acceptance execution."
+    },
+    {
+      "id": "N48",
+      "failure": "The in-progress real wall-clock observer used Stopwatch.GetElapsedTime, which is unavailable in Windows PowerShell 5.1. Its elapsedSeconds sample field consequently serialized as 0 instead of elapsed time.",
+      "lineage": ["D:\\qf\\realwallclock-4ef9c0d-20260925\\real-wallclock-samples.jsonl", "Windows PowerShell 5.1.26100.9444 method availability check", "2026-09-25 continuation audit"],
+      "consequence": "Do not use the elapsedSeconds field or its derived distinct/min/max values. Compute observed duration from the preserved ISO-8601 atUtc timestamps; the observer termination condition and final observedWallClockHours use DateTimeOffset arithmetic. Keep the run partial until the 24-hour interval and terminal audit finish."
+    },
+    {
+      "id": "N49",
+      "failure": "Computer Use recovery launched the clean-room electron.exe without its application-directory argument. Electron opened the bundled default_app.asar shell and updated the pre-existing shared C:\\Users\\15601\\AppData\\Roaming\\Electron profile.",
+      "lineage": ["current target-mode run 2026-09-25", "STORAGE-C-ELECTRON-DEFAULT-001", "C:\\Users\\15601\\AppData\\Roaming\\Electron", "artifacts/qualification/FINAL_HNS_QUALIFICATION_REPORT.json#storageCompliance.cDriveAdditionalWriteIncident"],
+      "consequence": "Keep global D-only storage compliance false. The visible default-app shell was closed, but shared pre-existing profile data was preserved and not cleaned up. Do not launch bare electron.exe again; future Computer Use recovery must target the exact returned candidate application/window and its configured D-rooted app directories."
     }
   ]
 }
