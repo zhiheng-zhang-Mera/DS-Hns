@@ -164,6 +164,9 @@ async function main() {
       process.exitCode = 2
       return
     }
+    // The controller has the real API response. Keep this exact worker alive
+    // while its awaited pre-action gate remains closed and the owner is checked.
+    holdForController()
     const report = await host.settled()
     emit({ kind: 'episode_settled', result: report && report.result ? String(report.result) : 'UNKNOWN' })
   }

@@ -724,10 +724,10 @@ function makeResult(manifest, events, derived, options = {}) {
   const expectedBlocked = String(manifest.expectedOutcome || '').startsWith('BLOCKED') || String(manifest.expectedOutcome || '').startsWith('CLEANUP_BLOCKED')
   const resumeSucceeded = Boolean(resume && productResult && productResult.actualOutcome === 'RESUME_ACCEPTED')
   let classification
-  if (expectedBlocked && blocked && productResult && productResult.actualOutcome === 'RESUME_REFUSED' &&
+  if (options.invalidReason) classification = 'INVALID'
+  else if (expectedBlocked && blocked && productResult && productResult.actualOutcome === 'RESUME_REFUSED' &&
     derived.oracle.O5_fail_closed_correct.pass === true && safetyPass) classification = 'EXPECTED_BLOCK'
   else if (resumeSucceeded && safetyPass && derived.oracle.O1_progress_preservation.pass && derived.oracle.O2_no_verified_replay.pass && derived.oracle.O3_no_duplicate_effect.pass) classification = 'PASS'
-  else if (options.invalidReason) classification = 'INVALID'
   else classification = 'FAIL'
   const allCheckpoints = events.filter((event) => event.type === 'checkpoint_observed')
   const first = allCheckpoints[0] || {}

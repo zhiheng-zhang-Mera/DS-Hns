@@ -396,6 +396,31 @@ test('result.json reports the observed resume API outcome while oracle.json stay
   }
 })
 
+test('an evidence-pipeline acceptance-boundary error remains INVALID even when partial oracle observations pass', () => {
+  const root = tempDir()
+  try {
+    const batch = evidence.createBatch({ root, batchId: 'E1-product-boundary-invalid', phase: 'PILOT', seed: 31 })
+    const run = evidence.createRun(batch, {
+      runId: 'run-product-boundary-invalid',
+      runOrdinal: 1,
+      seed: 31,
+      implementationSha: '3'.repeat(40),
+      workloadId: 'W0',
+      faultId: 4,
+      expectedOutcome: 'RESUME',
+      episodeId: 'episode-product-boundary-invalid'
+    })
+    passingEvents(run)
+    const result = evidence.finalizeRun(run, { invalidReason: 'controller failed after the proof boundary' })
+
+    assert.equal(result.classification, 'INVALID')
+    assert.equal(result.invalidReason, 'controller failed after the proof boundary')
+    assert.equal(result.oracle.O1_progress_preservation, true)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('independent oracles detect lost progress, replay, duplicate effects and unsafe cleanup', () => {
   const root = tempDir()
   try {
