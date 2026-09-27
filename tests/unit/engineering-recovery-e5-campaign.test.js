@@ -102,6 +102,31 @@ test('E5 run order is seed-randomized while the scenario population remains fixe
     [...second.map((entry) => entry.faultId)].sort((a, b) => a - b))
 })
 
+test('E5 rejects a scratch root whose path crosses a reparse point', (t) => {
+  if (process.platform !== 'win32' || !fs.existsSync('D:\\')) return t.skip('Windows D: is unavailable')
+  try {
+    validateE5Environment(os.tmpdir())
+  } catch (error) {
+    return t.skip(`the host temp root is not eligible for E5: ${error.code || error.message}`)
+  }
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'e5-reparse-root-'))
+  const target = path.join(holder, 'target')
+  const reparse = path.join(holder, 'reparse')
+  fs.mkdirSync(target)
+  try {
+    try {
+      fs.symlinkSync(target, reparse, 'junction')
+    } catch (error) {
+      if (['EPERM', 'EACCES', 'ENOTSUP'].includes(error.code)) return t.skip(`junction creation is unavailable: ${error.code}`)
+      throw error
+    }
+    assert.throws(() => validateE5Environment(reparse), (error) => error.code === 'E5_SCRATCH_PATH_UNSAFE')
+  } finally {
+    if (fs.existsSync(reparse)) fs.rmdirSync(reparse)
+    if (fs.existsSync(holder)) fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
 test('E5 records registered children deleted before an expected parent cleanup block', async (t) => {
   let volumes
   try {
@@ -129,7 +154,7 @@ test('E5 records registered children deleted before an expected parent cleanup b
     batch.manifest = JSON.parse(fs.readFileSync(path.join(batch.batchDir, 'batch-manifest.json'), 'utf8'))
     const planEntry = buildE5Plan(seed).find((entry) => entry.faultId === 83)
     const result = await runE5Observation(batch, planEntry, { scratchRoot: os.tmpdir(), runOrdinalOffset: batch.manifest.runs.length })
-    assert.equal(result.classification, 'EXPECTED_BLOCK')
+    assert.equal(result.classification, 'EXPECTED_BLOCK', JSON.stringify(result))
 
     const runDir = path.join(batch.batchDir, 'runs', planEntry.runId)
     const runManifest = JSON.parse(fs.readFileSync(path.join(runDir, 'manifest.json'), 'utf8'))

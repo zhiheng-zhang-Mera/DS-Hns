@@ -125,6 +125,27 @@ function makeLockHelper(candidateRoot) {
   return script
 }
 
+function assertPlainDirectoryPath(target) {
+  const absolute = path.resolve(target)
+  const root = path.parse(absolute).root
+  if (!root) throw Object.assign(new Error('scratch path has no canonical volume root'), { code: 'E5_SCRATCH_PATH_UNSAFE' })
+  let cursor = root
+  const segments = absolute.slice(root.length).split(path.sep).filter(Boolean)
+  for (const segment of segments) {
+    cursor = path.join(cursor, segment)
+    let stat
+    try {
+      stat = fs.lstatSync(cursor)
+    } catch (error) {
+      throw Object.assign(new Error(`scratch path cannot be checked safely: ${cursor}`), { code: 'E5_SCRATCH_VOLUME_UNAVAILABLE', cause: error })
+    }
+    if (stat.isSymbolicLink() || (Number.isInteger(stat.attributes) && (stat.attributes & 0x400) !== 0)) {
+      throw Object.assign(new Error(`scratch path crosses a reparse boundary: ${cursor}`), { code: 'E5_SCRATCH_PATH_UNSAFE' })
+    }
+    if (!stat.isDirectory()) throw Object.assign(new Error(`scratch path component is not a directory: ${cursor}`), { code: 'E5_SCRATCH_VOLUME_UNAVAILABLE' })
+  }
+}
+
 async function acquireLockedFile(candidateRoot, target) {
   if (process.platform !== 'win32') throw Object.assign(new Error('E5 locked-file adapter requires Windows'), { code: 'E5_LOCK_ADAPTER_UNAVAILABLE' })
   const windowsPowerShell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
@@ -154,6 +175,7 @@ function validateE5Environment(offVolumeRoot) {
   if (!scratchVolume || scratchVolume === workVolume || !fs.existsSync(scratchRoot)) {
     throw Object.assign(new Error('E5 requires an existing scratch root on a distinct volume'), { code: 'E5_SCRATCH_VOLUME_UNAVAILABLE' })
   }
+  assertPlainDirectoryPath(scratchRoot)
   return { workVolume: 'D:', scratchVolume: scratchVolume.slice(0, 2).toUpperCase() }
 }
 
