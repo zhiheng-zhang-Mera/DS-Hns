@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "batchId": "E2-E5-final-20260927-02",
+  "phase": "FINAL",
+  "seed": 20260928,
+  "createdAt": "2026-09-27T04:56:39.144Z",
+  "implementationSha": "64d2c396b7649452c0858e4915af17e6bbbb2368",
+  "harnessSha": "64d2c396b7649452c0858e4915af17e6bbbb2368",
+  "sourceRef": "dev/crash-resume-recovery-v1",
+  "evidenceSchemaSha256": "f9d0137fdaf1f740b747bc7b2548551dfac82643e9c82d33bb6a45f78687fb7f",
+  "sourceSpecSha256": "ea0e58cc7c0b39d5cb63735e8f08ec9a351a4d186d1d29efec7514095b84c703",
+  "faultCatalogVersion": "v5-1.0.0",
+  "faultCatalogSha256": "ff6a691d28244a9857eae686b8245b2a5602e4897b3521c5ae7f092faefcbd10",
+  "workloadVersion": "v5-1.0.0",
+  "workloadDefinitionsSha256": "f729069564ea32de6e061a3b36685c76bc3f872bbe78211fead943cfa8078264",
+  "pilotRunsExcludedFromFinalAggregates": false,
+  "e0GateSha256": "19e3dfc5f56ecc795caffdf385f7a0608ed0c34445b1aa1e6a4879848db370a9",
+  "runs": [
+    {
+      "runId": "E2-W0-fault04",
+      "runOrdinal": 1,
+      "classification": "PASS",
+      "faultId": 4,
+      "workloadId": "W0",
+      "sha256sumsSha256": "89c0e229e0a29987bad588c0fc1031b26778ea89f8b32e39160b9a7059963d1f"
+    },
+    {
+      "runId": "E5-W2-fault81-01",
+      "runOrdinal": 2,
+      "classification": "PASS",
+      "faultId": 81,
+      "workloadId": "W2",
+      "sha256sumsSha256": "45f1f98329624c93b8ef61d4a8667b9ee20e94440f3f3600ff25d8cfc4e32d5b"
+    },
+    {
+      "runId": "E5-W2-fault84-02",
+      "runOrdinal": 3,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 84,
+      "workloadId": "W2",
+      "sha256sumsSha256": "3877bf21b7c9598a925125c4e1bed14868896bb8e366a03214d00e158833f73a"
+    },
+    {
+      "runId": "E5-W2-fault85-03",
+      "runOrdinal": 4,
+      "classification": "PASS",
+      "faultId": 85,
+      "workloadId": "W2",
+      "sha256sumsSha256": "bd1dc4975311f3c4dcab3c3785c1fa120a35663967ffc021a532743c42a1cbe4"
+    },
+    {
+      "runId": "E5-W2-fault80-04",
+      "runOrdinal": 5,
+      "classification": "PASS",
+      "faultId": 80,
+      "workloadId": "W2",
+      "sha256sumsSha256": "d39f23011802c932eb4d2800b7622be4f82a55e2b81df6b3c31d04a25159658c"
+    },
+    {
+      "runId": "E5-W2-fault87-05",
+      "runOrdinal": 6,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 87,
+      "workloadId": "W2",
+      "sha256sumsSha256": "63d8c1b6f37a324410067f3c4016f5ad9706a6159d401cbd9b478e4146f7dbf3"
+    },
+    {
+      "runId": "E5-W2-fault83-06",
+      "runOrdinal": 7,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 83,
+      "workloadId": "W2",
+      "sha256sumsSha256": "ee7ff052d4119f48a3bfe83f3a45277b2e973e16bdd5b7511c0cf34988bdcead"
+    },
+    {
+      "runId": "E5-W2-fault83-07",
+      "runOrdinal": 8,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 83,
+      "workloadId": "W2",
+      "sha256sumsSha256": "a74779327e3f2fb534a289cf112b01119198ece0f06800cc2b9fe97ec2272def"
+    },
+    {
+      "runId": "E5-W2-fault82-08",
+      "runOrdinal": 9,
+      "classification": "PASS",
+      "faultId": 82,
+      "workloadId": "W2",
+      "sha256sumsSha256": "93a220b807e4ec780856e4353a09f7c6568e95bd432083cc8def724de58af55a"
+    },
+    {
+      "runId": "E5-W2-fault81-09",
+      "runOrdinal": 10,
+      "classification": "PASS",
+      "faultId": 81,
+      "workloadId": "W2",
+      "sha256sumsSha256": "6b583aae2d6457af713adf8148b147954bee92cf84d0eb2d791c09b8262977a6"
+    },
+    {
+      "runId": "E5-W2-fault86-10",
+      "runOrdinal": 11,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 86,
+      "workloadId": "W2",
+      "sha256sumsSha256": "a30e9b180d3f96cdaa66e86b4f2b90874c44c80221e0db6f30a3b0591b042529"
+    },
+    {
+      "runId": "E5-W2-fault86-11",
+      "runOrdinal": 12,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 86,
+      "workloadId": "W2",
+      "sha256sumsSha256": "0fa005e1478b504832fdc048c606fe2f7a43571b77e6408a2f7a997464685007"
+    },
+    {
+      "runId": "E5-W2-fault82-12",
+      "runOrdinal": 13,
+      "classification": "PASS",
+      "faultId": 82,
+      "workloadId": "W2",
+      "sha256sumsSha256": "4c021a8137b49877b4bda8b3cbb8a24b01244ba094117d7e5ab9e29995b7cbf2"
+    },
+    {
+      "runId": "E5-W2-fault80-13",
+      "runOrdinal": 14,
+      "classification": "PASS",
+      "faultId": 80,
+      "workloadId": "W2",
+      "sha256sumsSha256": "7be79f00423dafd2e12d9e266df55e6758636fdc986fbcf417eb99e7a452a4bb"
+    },
+    {
+      "runId": "E5-W2-fault82-14",
+      "runOrdinal": 15,
+      "classification": "PASS",
+      "faultId": 82,
+      "workloadId": "W2",
+      "sha256sumsSha256": "e06b324d85cf745f134bfd458944402fdf0fae7fd4e99294c153e7b36540ffba"
+    },
+    {
+      "runId": "E5-W2-fault83-15",
+      "runOrdinal": 16,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 83,
+      "workloadId": "W2",
+      "sha256sumsSha256": "464308ebcace340bfabb809384ca924fe901acea75639dacab5ed351a166fbc8"
+    },
+    {
+      "runId": "E5-W2-fault87-16",
+      "runOrdinal": 17,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 87,
+      "workloadId": "W2",
+      "sha256sumsSha256": "50bc76fbe248908110d7dc424d8e286f34c4f26e0357fbbd352452612e2090c3"
+    },
+    {
+      "runId": "E5-W2-fault84-17",
+      "runOrdinal": 18,
+      "classification": "EXPECTED_BLOCK",
+      "faultId": 84,
+      "workloadId": "W2",
+      "sha256sumsSha256": "1005735f7399a3e165e8256aa2839c640707849a7a878811831266da50df6614"
+    },
+    {
+      "runId": "E5-W2-fault85-18",
+      "runOrdinal": 19,
+      "classification": "PASS",
+      "faultId": 85,
+      "workloadId": "W2",
+      "sha256sumsSha256": "1a9be5bcae2d459bb471557e758d3eca19eaf30c81bfd769f2737ade5ee2e434"
+    },
+    {
+      "runId": "E5-W2-fault80-19",
+      "runOrdinal": 20,
+      "classification": "PASS",
+      "faultId": 80,
+      "workloadId": "W2",
+      "sha256sumsSha256": "9b9c2728f96bbe93ceb6328347c7626314af1c1e0a9affce2d19aa1373acabe1"
+    },
+    {
+      "runId": "E5-W2-fault81-20",
+      "runOrdinal": 21,
+      "classification": "PASS",
+      "faultId": 81,
+      "workloadId": "W2",
+      "sha256sumsSha256": "0ae18d08f27d47251537522cebe249d06c8e85ee5927628ad11294c78c0abe79"
+    }
+  ]
+}
