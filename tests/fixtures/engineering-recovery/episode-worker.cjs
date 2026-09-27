@@ -149,12 +149,21 @@ async function main() {
     })
   } else {
     const result = await host.resumeLatest({ trigger: 'unclean_exit' })
-    if (!result.ok || result.resumed !== true || result.accepted !== true) {
-      emit({ kind: 'resume_refused', code: result.code || 'RESUME_REFUSED' })
+    const accepted = result.ok === true && result.resumed === true && result.accepted === true
+    const resultCode = typeof result.code === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(result.code)
+      ? result.code
+      : null
+    emit({
+      kind: 'resume_returned',
+      actualOutcome: accepted ? 'RESUME_ACCEPTED' : 'RESUME_REFUSED',
+      result: `ok:${result.ok === true};resumed:${result.resumed === true};accepted:${result.accepted === true}${resultCode ? `;code:${resultCode}` : ''}`,
+      ...(Number.isSafeInteger(result.checkpointSeq) && result.checkpointSeq > 0 ? { checkpointSeq: result.checkpointSeq } : {})
+    })
+    if (!accepted) {
+      emit({ kind: 'resume_refused', code: resultCode || 'RESUME_REFUSED' })
       process.exitCode = 2
       return
     }
-    emit({ kind: 'resume_returned', episodeId: result.episode, checkpointSeq: result.checkpointSeq })
     const report = await host.settled()
     emit({ kind: 'episode_settled', result: report && report.result ? String(report.result) : 'UNKNOWN' })
   }

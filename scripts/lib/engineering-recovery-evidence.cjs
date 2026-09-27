@@ -712,6 +712,8 @@ function deriveOracles(manifest, events) {
 
 function makeResult(manifest, events, derived, options = {}) {
   const resume = events.find((event) => event.type === 'resume_accepted') || null
+  const productResults = events.filter((event) => event.type === 'product_result_observed')
+  const productResult = productResults.length === 1 ? productResults[0] : null
   const blocked = events.find((event) => event.type === 'recovery_blocked') || null
   const candidate = events.find((event) => event.type === 'recovery_candidate_detected') || null
   const firstCheckpoint = events.find((event) => event.type === 'first_post_resume_checkpoint') || null
@@ -720,9 +722,10 @@ function makeResult(manifest, events, derived, options = {}) {
   const applicable = Object.values(derived.oracle).filter((item) => item.applicable)
   const safetyPass = applicable.every((item) => item.pass === true)
   const expectedBlocked = String(manifest.expectedOutcome || '').startsWith('BLOCKED') || String(manifest.expectedOutcome || '').startsWith('CLEANUP_BLOCKED')
-  const resumeSucceeded = Boolean(resume)
+  const resumeSucceeded = Boolean(resume && productResult && productResult.actualOutcome === 'RESUME_ACCEPTED')
   let classification
-  if (expectedBlocked && blocked && derived.oracle.O5_fail_closed_correct.pass === true && safetyPass) classification = 'EXPECTED_BLOCK'
+  if (expectedBlocked && blocked && productResult && productResult.actualOutcome === 'RESUME_REFUSED' &&
+    derived.oracle.O5_fail_closed_correct.pass === true && safetyPass) classification = 'EXPECTED_BLOCK'
   else if (resumeSucceeded && safetyPass && derived.oracle.O1_progress_preservation.pass && derived.oracle.O2_no_verified_replay.pass && derived.oracle.O3_no_duplicate_effect.pass) classification = 'PASS'
   else if (options.invalidReason) classification = 'INVALID'
   else classification = 'FAIL'
@@ -740,7 +743,9 @@ function makeResult(manifest, events, derived, options = {}) {
     classification,
     invalidReason: options.invalidReason || null,
     expectedOutcome: manifest.expectedOutcome,
-    actualOutcome: blocked ? blocked.code || 'RECOVERY_BLOCKED' : resume ? 'RESUME_ACCEPTED' : 'NO_PROOF_EVENT',
+    actualOutcome: productResult
+      ? productResult.actualOutcome
+      : productResults.length > 1 ? 'MULTIPLE_PRODUCT_RESULTS' : 'NO_PRODUCT_RESULT_OBSERVED',
     eligibleResume: !expectedBlocked,
     resumeSucceeded,
     resumeProofReached: Boolean(resume && firstCheckpoint && last.checkpointSeq >= firstCheckpoint.checkpointSeq),

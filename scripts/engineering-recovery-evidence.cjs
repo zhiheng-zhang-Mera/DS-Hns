@@ -78,6 +78,22 @@ function loadPassingE0Gate(file, branch, implementationSha) {
   return gate
 }
 
+function assertCleanWorktree(root = ROOT) {
+  const result = spawnSync('git', ['status', '--porcelain=v1', '--untracked-files=all', '--ignore-submodules=none'], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 20_000,
+    windowsHide: true
+  })
+  if (result.error || result.status !== 0) {
+    throw Object.assign(new Error('cannot verify FINAL worktree cleanliness'), { code: 'FINAL_WORKTREE_STATUS_UNAVAILABLE' })
+  }
+  if (String(result.stdout || '').trim()) {
+    throw Object.assign(new Error('FINAL evidence requires a clean worktree'), { code: 'FINAL_WORKTREE_DIRTY' })
+  }
+  return true
+}
+
 function git(candidateRoot, args) {
   const result = spawnSync('git', args, { cwd: candidateRoot, encoding: 'utf8', timeout: 20_000, windowsHide: true })
   if (result.error || result.status !== 0) {
@@ -404,6 +420,20 @@ async function runW0Fault04(options) {
     })
 
     activeWorker = startWorker('resume', config)
+    const productResult = await waitForMessage(activeWorker.child, activeWorker.queue, (message) => ['resume_returned', 'worker_error'].includes(message.kind))
+    if (productResult.kind !== 'resume_returned') throw new Error(`resume API did not return an observable result (${productResult.code})`)
+    append({
+      type: 'product_result_observed',
+      actualOutcome: productResult.actualOutcome,
+      result: productResult.result,
+      ...(Number.isSafeInteger(productResult.checkpointSeq) && productResult.checkpointSeq > 0
+        ? { checkpointSeq: productResult.checkpointSeq }
+        : {})
+    })
+    if (productResult.actualOutcome !== 'RESUME_ACCEPTED') {
+      append({ type: 'recovery_blocked', code: 'RESUME_API_REFUSED' })
+      throw Object.assign(new Error('resume API returned without accepting the episode'), { code: 'RESUME_API_REFUSED' })
+    }
     const proof = await waitForMessage(activeWorker.child, activeWorker.queue, (message) => ['resume_proof', 'resume_refused', 'worker_error'].includes(message.kind))
     if (proof.kind !== 'resume_proof') {
       append({ type: 'recovery_blocked', code: proof.code || 'RESUME_PROOF_NOT_REACHED' })
@@ -458,11 +488,20 @@ async function runW0Fault04(options) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
-  const exitCode = await runW0Fault04(options)
+  const exitCode = await run(options)
   process.exitCode = exitCode
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error && error.code ? error.code : 'EVIDENCE_CLI_FAILED'}\n`)
-  process.exitCode = 1
-})
+async function run(options, worktreeRoot = ROOT) {
+  if (options.mode === 'final-w0-fault04') assertCleanWorktree(worktreeRoot)
+  return runW0Fault04(options)
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error && error.code ? error.code : 'EVIDENCE_CLI_FAILED'}\n`)
+    process.exitCode = 1
+  })
+}
+
+module.exports = { assertCleanWorktree, run }

@@ -10,6 +10,7 @@ const path = require('node:path')
 const evidence = require('../../scripts/lib/engineering-recovery-evidence.cjs')
 const e0 = require('../../scripts/lib/engineering-recovery-e0.cjs')
 const e0Cli = require('../../scripts/engineering-recovery-e0.cjs')
+const evidenceCli = require('../../scripts/engineering-recovery-evidence.cjs')
 
 function tempDir() {
   const root = os.tmpdir()
@@ -47,6 +48,12 @@ function passingEvents(run, ids = {}) {
     { type: 'recovery_claim_acquired', ownerId: 'owner-new', liveOwnerCount: 1 },
     { type: 'recovery_verified', checkpointSeq: 2, cursor: { nextStepIndex: 1, verifiedStepIds: [stepIds[0]], skippedStepIds: [] } },
     { type: 'resume_accepted', checkpointSeq: 2, cursor: { nextStepIndex: 1, verifiedStepIds: [stepIds[0]], skippedStepIds: [] } },
+    ...(ids.productResult === false ? [] : [{
+      type: 'product_result_observed',
+      actualOutcome: ids.productActualOutcome || 'RESUME_ACCEPTED',
+      result: ids.productResult || 'resumed=true;accepted=true',
+      checkpointSeq: 2
+    }]),
     { type: 'checkpoint_observed', checkpointSeq: 3, cursor: { nextStepIndex: 2, verifiedStepIds: [stepIds[0], stepIds[1]], skippedStepIds: [] }, verifiedStepIds: [stepIds[0], stepIds[1]], verifiedMutationIds: ['m1'] },
     { type: 'mutation_effect', mutationId: 'm1', effectId: `m1:${mutationHash}`, sha256: mutationHash, effect: 'present_after_resume', phase: 'after_resume' },
     { type: 'first_post_resume_checkpoint', checkpointSeq: 3, cursor: { nextStepIndex: 2, verifiedStepIds: [stepIds[0], stepIds[1]], skippedStepIds: [] } },
@@ -90,6 +97,43 @@ function passingE0Gate(implementationSha, branch = 'dev/crash-resume-recovery-v1
     passed: true
   }
 }
+
+function gitAt(cwd, args) {
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true })
+  assert.equal(result.status, 0, `git ${args.join(' ')} failed: ${result.stderr}`)
+  return result.stdout.trim()
+}
+
+test('FINAL preflight rejects modified, staged, and untracked files before evidence creation', async () => {
+  const root = tempDir()
+  try {
+    gitAt(root, ['init', '--quiet'])
+    gitAt(root, ['config', 'user.name', 'Evidence test'])
+    gitAt(root, ['config', 'user.email', 'evidence-test@invalid'])
+    const tracked = path.join(root, 'tracked.txt')
+    fs.writeFileSync(tracked, 'baseline\n')
+    gitAt(root, ['add', 'tracked.txt'])
+    gitAt(root, ['commit', '-m', 'baseline'])
+
+    assert.equal(typeof evidenceCli.run, 'function', 'evidence CLI must expose an import-safe run entry point')
+    assert.doesNotThrow(() => evidenceCli.assertCleanWorktree(root))
+
+    fs.writeFileSync(tracked, 'modified\n')
+    assert.throws(() => evidenceCli.assertCleanWorktree(root), { code: 'FINAL_WORKTREE_DIRTY' })
+    gitAt(root, ['add', 'tracked.txt'])
+    assert.throws(() => evidenceCli.assertCleanWorktree(root), { code: 'FINAL_WORKTREE_DIRTY' })
+    gitAt(root, ['reset', '--hard', 'HEAD'])
+
+    fs.writeFileSync(path.join(root, 'untracked.txt'), 'untracked\n')
+    await assert.rejects(
+      evidenceCli.run({ mode: 'final-w0-fault04' }, root),
+      { code: 'FINAL_WORKTREE_DIRTY' }
+    )
+    assert.equal(fs.existsSync(path.join(root, 'runtime', 'engineering', 'evidence', 'recovery')), false)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
 
 test('E0 test summaries distinguish a complete green TAP run from missing or failed counts', () => {
   assert.deepEqual(e0.summarizeTestOutput('ℹ tests 12\nℹ pass 10\nℹ fail 0\nℹ skipped 2\n'), {
@@ -288,6 +332,65 @@ test('run events are ordered and sealed artifacts verify before derived analysis
     assert.equal(evidence.verifyBatchIntegrity(batch.batchDir).ok, true)
     fs.appendFileSync(path.join(batch.batchDir, 'derived', 'runs.csv'), 'tampered\n', 'utf8')
     assert.equal(evidence.verifyBatchIntegrity(batch.batchDir).code, 'BATCH_CHECKSUM_MISMATCH')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a missing product resume return cannot be reported as a passing recovery', () => {
+  const root = tempDir()
+  try {
+    const batch = evidence.createBatch({ root, batchId: 'E1-product-missing', phase: 'PILOT', seed: 29 })
+    const run = evidence.createRun(batch, {
+      runId: 'run-product-missing',
+      runOrdinal: 1,
+      seed: 29,
+      implementationSha: '1'.repeat(40),
+      workloadId: 'W0',
+      faultId: 4,
+      expectedOutcome: 'RESUME',
+      episodeId: 'episode-product-missing'
+    })
+    passingEvents(run, { productResult: false })
+    const result = evidence.finalizeRun(run)
+    const oracle = JSON.parse(fs.readFileSync(path.join(run.runDir, 'oracle.json'), 'utf8')).oracle
+
+    assert.equal(result.actualOutcome, 'NO_PRODUCT_RESULT_OBSERVED')
+    assert.equal(result.classification, 'FAIL')
+    assert.equal(result.oracle.O1_progress_preservation, true)
+    assert.equal(oracle.O1_progress_preservation.pass, true, 'oracle.json remains independently derived from event evidence')
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('result.json reports the observed resume API outcome while oracle.json stays independently event-derived', () => {
+  const root = tempDir()
+  try {
+    const batch = evidence.createBatch({ root, batchId: 'E1-product-mismatch', phase: 'PILOT', seed: 30 })
+    const run = evidence.createRun(batch, {
+      runId: 'run-product-mismatch',
+      runOrdinal: 1,
+      seed: 30,
+      implementationSha: '2'.repeat(40),
+      workloadId: 'W0',
+      faultId: 4,
+      expectedOutcome: 'RESUME',
+      episodeId: 'episode-product-mismatch'
+    })
+    passingEvents(run, {
+      productActualOutcome: 'RESUME_REFUSED',
+      productResult: 'RECOVERY_EXECUTOR_REFUSED'
+    })
+    const result = evidence.finalizeRun(run)
+    const productObservation = evidence.readEvents(run.eventsPath).find((event) => event.type === 'product_result_observed')
+    const oracle = JSON.parse(fs.readFileSync(path.join(run.runDir, 'oracle.json'), 'utf8')).oracle
+
+    assert.equal(productObservation.actualOutcome, 'RESUME_REFUSED')
+    assert.equal(result.actualOutcome, productObservation.actualOutcome)
+    assert.equal(result.classification, 'FAIL')
+    assert.equal(result.oracle.O1_progress_preservation, true)
+    assert.equal(oracle.O1_progress_preservation.pass, true, 'product response must not be substituted into oracle derivation')
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
