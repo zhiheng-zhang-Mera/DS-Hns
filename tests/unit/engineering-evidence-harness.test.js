@@ -741,23 +741,29 @@ test('evidence harness source and fixtures are covered by syntax, test and featu
   const root = path.resolve(__dirname, '..', '..')
   const syntaxGate = fs.readFileSync(path.join(root, 'scripts', 'check-syntax.cjs'), 'utf8')
   const testGate = fs.readFileSync(path.join(root, 'scripts', 'test-all.ps1'), 'utf8')
+  const e0Runner = fs.readFileSync(path.join(root, 'scripts', 'lib', 'engineering-recovery-e0.cjs'), 'utf8')
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'verify.yml'), 'utf8')
   for (const file of [
     'scripts/engineering-recovery-e0.cjs',
     'scripts/engineering-recovery-evidence.cjs',
+    'scripts/engineering-recovery-e5.cjs',
     'scripts/lib/engineering-recovery-e0.cjs',
     'scripts/lib/engineering-recovery-evidence.cjs',
+    'scripts/lib/engineering-recovery-e5.cjs',
     'tests/fixtures/engineering-recovery/episode-worker.cjs',
     'tests/fixtures/engineering-recovery/workloads/w0.test.cjs',
     'tests/fixtures/engineering-recovery/workloads/w1.test.cjs',
     'tests/fixtures/engineering-recovery/workloads/w2.test.cjs',
     'tests/fixtures/engineering-recovery/workloads/w3.test.cjs',
-    'tests/fixtures/engineering-recovery/workloads/w4.test.cjs'
+    'tests/fixtures/engineering-recovery/workloads/w4.test.cjs',
+    'tests/unit/engineering-recovery-e5-campaign.test.js'
   ]) {
     const joinedPath = file.split('/').join("', '")
     assert.equal(syntaxGate.includes(`'${joinedPath}'`), true, `syntax gate should list ${file}`)
   }
   assert.match(testGate, /'engineering-evidence-harness\.test\.js'/)
+  assert.match(testGate, /'engineering-recovery-e5-campaign\.test\.js'/)
+  assert.match(e0Runner, /engineering-recovery-e5-campaign\.test\.js/)
   assert.match(workflow, /dev\/crash-resume-recovery-v1/)
   assert.match(workflow, /Engineering recovery evidence gate/)
   assert.match(workflow, /engineering-evidence-harness\.test\.js/)

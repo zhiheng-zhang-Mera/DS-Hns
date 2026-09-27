@@ -16,6 +16,7 @@ const FOCUSED_SUITES = [
   'tests/unit/engineering-cross-volume-cleanup.test.js',
   'tests/unit/engineering-recovery-store.test.js',
   'tests/unit/engineering-recovery-schema.test.js',
+  'tests/unit/engineering-recovery-e5-campaign.test.js',
   'tests/unit/engineering-evidence-harness.test.js'
 ]
 
