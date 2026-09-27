@@ -6,13 +6,27 @@ const crypto = require('node:crypto')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { spawn } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 
 const { createCrossVolumeTempRegistry } = require('../../app/engineering/cross-volume-cleanup.cjs')
 const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
 
 const WORK_ROOT = path.resolve(__dirname, '..', '..')
 const OFF_VOLUME_TEMP = path.join(process.env.LOCALAPPDATA || 'C:\\Users\\15601\\AppData\\Local', 'Temp')
+
+test('a Windows volume-GUID alias is accepted as the same non-reparse work root', (t) => {
+  if (process.platform !== 'win32' || !fs.existsSync('D:\\')) return t.skip('Windows D: is unavailable')
+  const mountvol = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'mountvol.exe')
+  const result = spawnSync(mountvol, ['D:\\', '/L'], { encoding: 'utf8', windowsHide: true })
+  if (result.error || result.status !== 0) return t.skip(`volume root lookup is unavailable: ${result.error?.code || result.status}`)
+  const volumeRoot = result.stdout.split(/\r?\n/).map((line) => line.trim()).find((line) => /^\\\\\?\\Volume\{[0-9a-f-]+\}\\$/i.test(line))
+  if (!volumeRoot) return t.skip('D: has no queryable volume GUID path')
+  const relative = path.relative('D:\\', WORK_ROOT)
+  const aliasWorkRoot = path.win32.join(volumeRoot, relative)
+  assert.equal(fs.statSync(aliasWorkRoot).isDirectory(), true)
+  const store = createCrossVolumeTempRegistry({ episodeId: 'volume-guid-alias', workRoot: aliasWorkRoot })
+  assert.equal(store.initializationError, null, JSON.stringify(store.initializationError))
+})
 
 function externalPath(label, extension = '') {
   return path.join(OFF_VOLUME_TEMP, `codex-cross-volume-${label}-${process.pid}-${crypto.randomUUID()}${extension}`)

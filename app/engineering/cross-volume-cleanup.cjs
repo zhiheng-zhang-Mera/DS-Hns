@@ -30,6 +30,17 @@ function samePath(left, right) {
   return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
 }
 
+function sameFilesystemObject(left, right) {
+  if (process.platform !== 'win32') return false
+  try {
+    const leftStat = fs.statSync(left, { bigint: true })
+    const rightStat = fs.statSync(right, { bigint: true })
+    return leftStat.ino !== 0n && leftStat.dev === rightStat.dev && leftStat.ino === rightStat.ino
+  } catch {
+    return false
+  }
+}
+
 function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex')
 }
@@ -64,8 +75,10 @@ function canonicalExistingPath(target) {
   assertNoReparseAncestors(absolute)
   if (!fs.existsSync(absolute)) return absolute
   const real = fs.realpathSync.native ? fs.realpathSync.native(absolute) : fs.realpathSync(absolute)
-  if (!samePath(absolute, real)) throw Object.assign(new Error('path does not resolve to its canonical spelling'), { code: 'TEMP_PATH_NONCANONICAL' })
-  return real
+  if (!samePath(absolute, real) && !sameFilesystemObject(absolute, real)) {
+    throw Object.assign(new Error('path does not resolve to the same canonical filesystem object'), { code: 'TEMP_PATH_NONCANONICAL' })
+  }
+  return samePath(absolute, real) ? real : absolute
 }
 
 function isWithin(root, candidate) {
