@@ -18,3 +18,7 @@
 *.ps1 text eol=lf
 *.html text eol=lf
 *.css text eol=lf
+
+# Published recovery evidence contains byte-level checksum manifests and CSVs.
+docs/evidence/engineering-recovery/candidate-64d2c39/*.txt text eol=lf
+docs/evidence/engineering-recovery/candidate-64d2c39/derived/*.csv text eol=lf
