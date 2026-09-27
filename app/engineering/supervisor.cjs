@@ -384,6 +384,9 @@ function createEngineeringSupervisor(input = {}) {
    */
   async function runStep(step) {
     noteAction({ step: step.id, kind: step.kind })
+    if (typeof input.beforeAction === 'function') {
+      await input.beforeAction({ episodeId, stepId: step.id, kind: step.kind })
+    }
     context.setLive({ planStep: { id: step.id, kind: step.kind, description: step.description } })
     const startedStepAt = now()
 

@@ -117,6 +117,7 @@ function createEngineeringHost(options = {}) {
       crossVolumeTemp: input.crossVolumeTemp,
       now,
       onAccepted: input.onAccepted,
+      beforeAction: options.beforeAction,
       preserveRecoveryOnCancel: () => preserveRecoveryOnCancel,
       log: (event) => log(`engineering ${event.type || 'event'}: ${JSON.stringify(event).slice(0, 400)}`),
       isCancelled: () => cancelled

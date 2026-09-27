@@ -64,27 +64,25 @@ async function main() {
         holdForController()
         return
       }
-
-      if (mode === 'resume' && line.includes('engineering action:') && line.includes('"kind":"focused-test"')) {
-        const latest = host.supervisor && host.supervisor.checkpoints.latest(host.id)
-        const summary = checkpointSummary(latest)
-        if (!summary) {
-          emit({ kind: 'worker_error', code: 'POST_RESUME_CHECKPOINT_MISSING' })
-          return
-        }
-        const stepMatch = /"step":"([^"\\]{1,128})"/.exec(line)
-        emit({
-          kind: 'resume_proof',
-          episodeId: host.id,
-          stepId: stepMatch ? stepMatch[1] : 'focused-test',
-          checkpoint: summary
-        })
-        // The action notification precedes command creation. Unwind at this exact
-        // test-only boundary so the resume API can return without starting a child.
-        throw Object.assign(new Error('controlled evidence stop at the first post-resume boundary'), {
-          code: 'EVIDENCE_PROOF_BOUNDARY_STOP'
-        })
+    },
+    beforeAction({ stepId, kind }) {
+      if (mode !== 'resume' || kind !== 'focused-test') return
+      const latest = host.supervisor && host.supervisor.checkpoints.latest(host.id)
+      const summary = checkpointSummary(latest)
+      if (!summary) {
+        emit({ kind: 'worker_error', code: 'POST_RESUME_CHECKPOINT_MISSING' })
+        throw new Error('post-resume checkpoint is unavailable')
       }
+      emit({
+        kind: 'resume_proof',
+        episodeId: host.id,
+        stepId,
+        checkpoint: summary
+      })
+      // Keep the exact worker and its recovery claim live while yielding the event
+      // loop so resumeLatest() can return. The controller kills this owned process
+      // before this gate opens or the command step can start.
+      return new Promise(() => {})
     }
   })
 
