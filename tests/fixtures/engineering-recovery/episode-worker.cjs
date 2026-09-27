@@ -79,9 +79,11 @@ async function main() {
           stepId: stepMatch ? stepMatch[1] : 'focused-test',
           checkpoint: summary
         })
-        // The action notification precedes command creation. Holding synchronously
-        // here lets the controller stop this exact worker before it starts a child.
-        holdForController()
+        // The action notification precedes command creation. Unwind at this exact
+        // test-only boundary so the resume API can return without starting a child.
+        throw Object.assign(new Error('controlled evidence stop at the first post-resume boundary'), {
+          code: 'EVIDENCE_PROOF_BOUNDARY_STOP'
+        })
       }
     }
   })
