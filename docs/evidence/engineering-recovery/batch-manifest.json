@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "batchId": "E2-W0-final-20260927-01",
+  "phase": "FINAL",
+  "seed": 20261001,
+  "createdAt": "2026-09-27T02:10:38.633Z",
+  "implementationSha": "7d2967c2534f05952a2ddaf7e1ab2db50914eab1",
+  "harnessSha": "7d2967c2534f05952a2ddaf7e1ab2db50914eab1",
+  "sourceRef": "dev/crash-resume-recovery-v1",
+  "evidenceSchemaSha256": "f9d0137fdaf1f740b747bc7b2548551dfac82643e9c82d33bb6a45f78687fb7f",
+  "sourceSpecSha256": "ea0e58cc7c0b39d5cb63735e8f08ec9a351a4d186d1d29efec7514095b84c703",
+  "faultCatalogVersion": "v5-1.0.0",
+  "faultCatalogSha256": "ff6a691d28244a9857eae686b8245b2a5602e4897b3521c5ae7f092faefcbd10",
+  "workloadVersion": "v5-1.0.0",
+  "workloadDefinitionsSha256": "f729069564ea32de6e061a3b36685c76bc3f872bbe78211fead943cfa8078264",
+  "pilotRunsExcludedFromFinalAggregates": false,
+  "e0GateSha256": "e34825abdfb43c0fefde3058e47ebdc1fc41bf8bc7093238b660a1c0133261f5",
+  "runs": [
+    {
+      "runId": "E2-W0-fault04",
+      "runOrdinal": 1,
+      "classification": "PASS",
+      "faultId": 4,
+      "workloadId": "W0",
+      "sha256sumsSha256": "b9f5de5cd2017cdd872a597dda7d4cfd4f6cd6ae96f048c1c32a52d9c69e2e55"
+    }
+  ]
+}
