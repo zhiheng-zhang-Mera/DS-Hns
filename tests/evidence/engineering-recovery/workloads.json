@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "workloadVersion": "v5-1.0.0",
+  "workloads": [
+    {
+      "id": "W0",
+      "name": "recovery micro-workload",
+      "purpose": "exhaustive safe fault-point coverage at minimum cost",
+      "steps": 10,
+      "verifiedMutations": 3,
+      "commandSteps": 2,
+      "networkRequired": false,
+      "template": "tests/fixtures/engineering-recovery/workloads/w0.test.cjs",
+      "stepIds": ["w0-report-before-a", "w0-report-before-b", "w0-three-file-mutation", "w0-focused-test", "w0-report-after", "w0-affected-test", "w0-report-after-tests", "w0-full-verify", "w0-report-final-a", "w0-report-final-b"],
+      "properties": ["deterministic local repository", "checkpoint after each safe boundary", "stable expected hashes and cursors"]
+    },
+    {
+      "id": "W1",
+      "name": "representative repository engineering workload",
+      "purpose": "multi-file engineering recovery with deterministic local verification",
+      "steps": 12,
+      "verifiedMutations": 5,
+      "commandSteps": 3,
+      "networkRequired": false,
+      "template": "tests/fixtures/engineering-recovery/workloads/w1.test.cjs",
+      "stepIds": ["w1-inspect-a", "w1-report-a", "w1-mutation-a", "w1-mutation-b", "w1-mutation-c", "w1-focused-test", "w1-mutation-d", "w1-mutation-e", "w1-affected-test", "w1-full-verify", "w1-report-audit", "w1-report-final"],
+      "properties": ["read-discover", "multi-file-edit", "test", "repair", "verify"]
+    },
+    {
+      "id": "W2",
+      "name": "cross-volume workload",
+      "purpose": "scratch portability, sentinel preservation, and terminal cleanup",
+      "steps": 8,
+      "verifiedMutations": 3,
+      "commandSteps": 2,
+      "networkRequired": false,
+      "template": "tests/fixtures/engineering-recovery/workloads/w2.test.cjs",
+      "stepIds": ["w2-read-sentinel", "w2-register-scratch", "w2-mutation-a", "w2-mutation-b", "w2-focused-test", "w2-recover", "w2-cleanup", "w2-verify-sentinel"],
+      "properties": ["D work root", "C disposable registered scratch", "source sentinel hash before and after"]
+    },
+    {
+      "id": "W3",
+      "name": "provider plugin IPC boundary workload",
+      "purpose": "deterministic adapter boundary modes without uncontrolled providers",
+      "steps": 6,
+      "verifiedMutations": 1,
+      "commandSteps": 2,
+      "networkRequired": false,
+      "template": "tests/fixtures/engineering-recovery/workloads/w3.test.cjs",
+      "stepIds": ["w3-configure-adapter", "w3-call-success", "w3-call-fault-mode", "w3-recover-boundary", "w3-verify-response", "w3-report-final"],
+      "adapterModes": ["success", "timeout", "disconnect", "malformed-response", "delayed-response"],
+      "properties": ["bounded payloads", "no real secrets", "predeclared outcome per adapter mode"]
+    },
+    {
+      "id": "W4",
+      "name": "controlled reboot workload",
+      "purpose": "same-account application relaunch after a verified checkpoint",
+      "steps": 5,
+      "verifiedMutations": 1,
+      "commandSteps": 1,
+      "networkRequired": false,
+      "template": "tests/fixtures/engineering-recovery/workloads/w4.test.cjs",
+      "stepIds": ["w4-prepare", "w4-checkpoint", "w4-reboot-window", "w4-resume-proof", "w4-report-final"],
+      "requiresMaintenanceWindow": true,
+      "requiresSameAccountAutologon": true,
+      "properties": ["no credential storage", "stop after first newer verified post-reboot checkpoint"]
+    }
+  ]
+}

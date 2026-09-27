@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "runId": "E0-20260927T014857685Z",
+  "branch": "dev/crash-resume-recovery-v1",
+  "implementationSha": "7d2967c2534f05952a2ddaf7e1ab2db50914eab1",
+  "runtime": "v24.19.0",
+  "os": "Windows_NT 10.0.26200 x64",
+  "tempVolume": "D:",
+  "startedAt": "2026-09-27T01:48:57.685Z",
+  "finishedAt": "2026-09-27T02:10:04.553Z",
+  "gates": [
+    {
+      "id": "syntax",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 268311,
+      "logSha256": "adcc2a2e3a339fb7c87bd2d8e85dfd5c8e1c92a1b99bc7b51d7acf9775367891",
+      "checkedFiles": 278,
+      "totalFiles": 278,
+      "tests": null,
+      "passed": null,
+      "failed": null,
+      "skipped": null
+    },
+    {
+      "id": "full-unit",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 467946,
+      "logSha256": "e74c884c581400b6b97ebba845bf715a2a1afa4b72d0eedd742a97ad433d085c",
+      "checkedFiles": null,
+      "totalFiles": null,
+      "tests": 1899,
+      "passed": 1897,
+      "failed": 0,
+      "skipped": 2
+    },
+    {
+      "id": "focused-recovery",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 24322,
+      "logSha256": "2f4e084f281f0b04b7353a6a8905fbf89b1c66395ca806001f599c0748055d8f",
+      "checkedFiles": null,
+      "totalFiles": null,
+      "tests": 93,
+      "passed": 93,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "id": "test-all",
+      "status": "PASS",
+      "exitCode": 0,
+      "durationMs": 505819,
+      "logSha256": "c183280ec77c7e76079bfe3fb53a028bba6c3ce5fb2dac0ef2abaebabb33475c",
+      "checkedFiles": null,
+      "totalFiles": null,
+      "tests": 1899,
+      "passed": 1897,
+      "failed": 0,
+      "skipped": 2
+    }
+  ],
+  "passed": true
+}

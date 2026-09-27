@@ -23,9 +23,16 @@ const exists = (relative) => fs.existsSync(path.join(ROOT, relative))
 
 test('the shell owns the engineering host and registers its IPC surface', () => {
   const shell = read('app/desktop-main.cjs')
+  const rebootTargets = read('app/reboot/targets.cjs')
   assert.match(shell, /const ENGINEERING_CHANNELS = \[/)
   assert.match(shell, /function ensureEngineeringHost\(/)
   assert.match(shell, /function registerEngineeringIpc\(/)
+  assert.match(shell, /ensureEngineeringHost\(\)\.resumeLatest\(\{ trigger: 'unclean_exit' \}\)/)
+  assert.match(shell, /targets: taskTargets\(\)/)
+  assert.match(rebootTargets, /engineeringHost\.resume\(\{ episodeId, trigger: 'planned_restart' \}\)/)
+  assert.match(rebootTargets, /preserveForResume: true/)
+  assert.match(rebootTargets, /await engineeringHost\.settled\(\)/)
+  assert.doesNotMatch(rebootTargets, /engineeringHost\.run\(\{ workspace: request\.workspace/)
   assert.match(shell, /function disposeEngineeringOnExit\(/)
   assert.match(shell, /function engineeringEnabled\(/)
   for (const channel of [
@@ -142,6 +149,149 @@ test('the host accepts, reports and cancels an episode, and refuses a second one
     fs.rmSync(holder, { recursive: true, force: true })
   }
   host.dispose('test teardown')
+})
+
+test('an injected checkpointRoot is treated as the exact checkpoint directory', () => {
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoint-root-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
+  try {
+    const { createCheckpointStore } = require('../../app/engineering/checkpoint.cjs')
+    const store = createCheckpointStore({ dir: checkpointRoot })
+    const saved = store.save({ episodeId: 'root-probe', goal: 'probe' })
+    assert.equal(saved.ok, true)
+
+    const host = createEngineeringHost({ checkpointRoot })
+    const listed = host.checkpoints({ episodeId: 'root-probe' })
+    assert.equal(listed.ok, true)
+    assert.equal(listed.checkpoints.length, 1, 'the host and supervisor must use the configured directory directly')
+    assert.equal(listed.checkpoints[0].path, saved.path)
+    host.dispose('test teardown')
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('the supervisor persists a replay-safe recovery descriptor and indexes each saved checkpoint', async () => {
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-recovery-supervisor-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
+  try {
+    const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
+    const supervisor = createEngineeringSupervisor({
+      workspace: ROOT,
+      goal: 'persist the next safe step',
+      checkpointRoot,
+      deadlineMs: 60_000,
+      contract: { commands: {}, steps: [{ kind: 'report' }], lockWorkspace: false, tests: [] },
+      log: () => {}
+    })
+    const report = await supervisor.run()
+    const latest = supervisor.checkpoints.latest(report.episode)
+    const recovery = latest && latest.recovery
+
+    assert.ok(recovery, 'the final persisted checkpoint must contain the cross-process recovery descriptor')
+    assert.equal(recovery.version, 1)
+    assert.equal(recovery.episodeId, report.episode)
+    assert.equal(recovery.request.workspace, ROOT)
+    assert.equal(recovery.request.goal, 'persist the next safe step')
+    assert.equal(recovery.request.deadlineAt - recovery.request.startedAt, 60_000)
+    assert.equal(recovery.plan.version, 1)
+    assert.equal(recovery.plan.steps.length, 1)
+    assert.match(recovery.planDigest, /^sha256:[a-f0-9]{64}$/)
+    assert.equal(recovery.cursor.nextStepIndex, 1)
+    assert.equal(recovery.cursor.lastVerifiedStepId, recovery.plan.steps[0].id)
+    assert.equal(recovery.lifecycleState, 'RECOVERY_BLOCKED', 'a refused final result is retained but not blindly resumed')
+
+    const store = require('../../app/engineering/recovery-store.cjs').createRecoveryStore({
+      root: path.dirname(checkpointRoot),
+      checkpointDir: checkpointRoot
+    })
+    assert.equal(store.get(report.episode).state, 'RECOVERY_BLOCKED')
+    assert.equal(store.get(report.episode).latestCheckpointSeq, latest.recovery.cursor.checkpointSeq)
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
+})
+
+test('the supervisor resumes the exact saved plan after its contiguous verified prefix', async () => {
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-resume-plan-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
+  const episodeId = 'resume-plan-fixture'
+  const goal = 'resume the verified plan'
+  try {
+    const { buildPlan } = require('../../app/engineering/plan.cjs')
+    const { computePlanDigest } = require('../../app/engineering/recovery-schema.cjs')
+    const { createCheckpointStore } = require('../../app/engineering/checkpoint.cjs')
+    const repository = require('../../app/engineering/repository.cjs')
+    const now = Date.now()
+    const deadlineMs = 60_000
+    const contract = { commands: {}, steps: [{ kind: 'report' }, { kind: 'report' }], lockWorkspace: false, tests: [] }
+    const built = buildPlan({ goal, contract, inputs: { steps: contract.steps }, discovery: { commands: {} } })
+    const savedPlan = {
+      version: 1,
+      id: built.id,
+      goal: built.goal,
+      intent: built.intent,
+      createdAt: built.createdAt,
+      steps: built.steps.map((step) => ({ ...step })),
+      budget: { ...built.budget },
+      reasons: built.reasons.slice()
+    }
+    const cursor = {
+      nextStepIndex: 1,
+      lastVerifiedStepId: savedPlan.steps[0].id,
+      verifiedStepIds: [savedPlan.steps[0].id],
+      skippedStepIds: [],
+      checkpointSeq: 1
+    }
+    const recovery = {
+      version: 1,
+      episodeId,
+      request: { workspace: ROOT, goal, startedAt: now - 1_000, deadlineAt: now - 1_000 + deadlineMs, contract },
+      plan: savedPlan,
+      planDigest: computePlanDigest(savedPlan),
+      cursor,
+      fingerprint: repository.snapshot({ root: ROOT }).fingerprint,
+      verifiedMutationIds: [],
+      unresolvedMutationIds: [],
+      executorCompatibility: 'engineering-v1',
+      workRoot: path.parse(checkpointRoot).root,
+      crossVolumeTemp: [],
+      lifecycleState: 'ACTIVE'
+    }
+    const checkpoints = createCheckpointStore({ dir: checkpointRoot })
+    const saved = checkpoints.save({
+      episodeId,
+      goal,
+      workspace: ROOT,
+      fingerprint: recovery.fingerprint,
+      plan: { id: savedPlan.id, cursor: 1, steps: savedPlan.steps },
+      cursor: 1,
+      recovery
+    })
+    assert.equal(saved.ok, true, saved.reason)
+    const checkpoint = checkpoints.latest(episodeId)
+    const actionEvents = []
+    const { createEngineeringSupervisor } = require('../../app/engineering/supervisor.cjs')
+    const supervisor = createEngineeringSupervisor({
+      episodeId,
+      workspace: ROOT,
+      goal,
+      deadlineMs,
+      contract,
+      checkpointRoot,
+      recoveryCheckpoint: checkpoint,
+      log: (event) => { if (event.type === 'action') actionEvents.push(event) }
+    })
+    const report = await supervisor.run()
+
+    assert.deepEqual(actionEvents.map((event) => event.step), [savedPlan.steps[1].id], JSON.stringify({ result: report.result, reasons: report.validation && report.validation.reasons, phases: report.phases }))
+    const latest = supervisor.checkpoints.latest(episodeId)
+    assert.equal(latest.recovery.request.startedAt, recovery.request.startedAt)
+    assert.equal(latest.recovery.request.deadlineAt, recovery.request.deadlineAt)
+    assert.equal(latest.recovery.cursor.nextStepIndex, 2)
+  } finally {
+    fs.rmSync(holder, { recursive: true, force: true })
+  }
 })
 
 /**

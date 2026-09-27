@@ -15,6 +15,7 @@ const {
 } = require('../../app/engineering/checkpoint.cjs')
 const repository = require('../../app/engineering/repository.cjs')
 const { createMutationLog, hashContent } = require('../../app/engineering/mutation.cjs')
+const { computePlanDigest } = require('../../app/engineering/recovery-schema.cjs')
 
 /**
  * Checkpoints and the resume gate.
@@ -53,6 +54,41 @@ function checkpointFiles(dir) {
     return fs.readdirSync(dir).filter((name) => name.endsWith('.json')).sort()
   } catch {
     return []
+  }
+}
+
+function makeRecoveryDescriptor(input = {}) {
+  const plan = input.plan || {
+    version: 1,
+    id: 'plan:1:contract',
+    goal: 'continue from the next safe step',
+    intent: 'contract',
+    createdAt: 1_700_000_000_000,
+    steps: [{ id: 'step-1', kind: 'test', command: 'node', args: ['--test'], source: 'contract' }],
+    budget: { maxSteps: 8 },
+    reasons: []
+  }
+  return {
+    version: 1,
+    episodeId: input.episodeId || 'ep',
+    request: {
+      workspace: path.resolve(process.cwd()),
+      goal: plan.goal,
+      startedAt: 1_700_000_000_000,
+      deadlineAt: 1_700_086_400_000,
+      contract: { maxSteps: 8 }
+    },
+    plan,
+    planDigest: computePlanDigest(plan),
+    cursor: { nextStepIndex: 0, lastVerifiedStepId: null, verifiedStepIds: [], skippedStepIds: [] },
+    fingerprint: { head: 'abc123' },
+    verifiedMutationIds: [],
+    unresolvedMutationIds: [],
+    executorCompatibility: 'engineering-v1',
+    workRoot: path.parse(process.cwd()).root,
+    crossVolumeTemp: [],
+    lifecycleState: 'ACTIVE',
+    ...input.overrides
   }
 }
 
@@ -108,6 +144,99 @@ test('the checkpoint directory defaults under the root option instead of a hardc
     assert.equal(explicit.maxFiles, 2)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('recovery checkpoints preserve the full recovery descriptor and assign the first sequence', () => {
+  const dir = tempDir()
+  try {
+    const descriptor = makeRecoveryDescriptor()
+    const store = createCheckpointStore({ dir, now: () => 1_700_000_000_000 })
+    const saved = store.save({
+      episodeId: 'ep',
+      goal: descriptor.request.goal,
+      workspace: descriptor.request.workspace,
+      plan: descriptor.plan.steps,
+      cursor: { step: 'step-1', index: 0 },
+      recovery: descriptor
+    })
+    assert.equal(saved.ok, true)
+
+    const checkpoint = store.latest('ep')
+    assert.deepEqual(checkpoint && checkpoint.recovery, {
+      ...descriptor,
+      cursor: { ...descriptor.cursor, checkpointSeq: 1 }
+    }, 'the complete recovery contract must survive the atomic checkpoint write')
+    assert.equal(checkpoint.version, 2, 'the checkpoint schema changes once to carry recovery state')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('checkpoint writes refuse a descriptor whose digest no longer matches its plan', () => {
+  const dir = tempDir()
+  try {
+    const descriptor = makeRecoveryDescriptor()
+    descriptor.plan.steps[0].kind = 'patch'
+    const store = createCheckpointStore({ dir })
+    const saved = store.save({ episodeId: 'ep', recovery: descriptor })
+    assert.equal(saved.ok, false)
+    assert.equal(saved.code, 'PLAN_DIGEST_MISMATCH')
+    assert.deepEqual(checkpointFiles(dir), [], 'an invalid replay descriptor must not become durable execution truth')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('the latest recovery checkpoint follows checkpointSeq when the wall clock moves backward', () => {
+  const dir = tempDir()
+  try {
+    let at = 1_700_000_000_000
+    const store = createCheckpointStore({ dir, now: () => at })
+    const steps = [{ id: 'step-1', kind: 'test', args: [], source: 'contract' }, { id: 'step-2', kind: 'test', args: [], source: 'contract' }]
+    const fullPlan = { version: 1, id: 'plan:2:contract', goal: 'resume safely', intent: 'contract', createdAt: at, steps, budget: { maxSteps: 4 }, reasons: [] }
+    const recovery = (nextStepIndex) => makeRecoveryDescriptor({
+      plan: fullPlan,
+      overrides: {
+        cursor: {
+          nextStepIndex,
+          lastVerifiedStepId: nextStepIndex ? 'step-1' : null,
+          verifiedStepIds: nextStepIndex ? ['step-1'] : [],
+          skippedStepIds: []
+        }
+      }
+    })
+
+    assert.equal(store.save({ episodeId: 'ep', recovery: recovery(0) }).ok, true)
+    at -= 60_000
+    assert.equal(store.save({ episodeId: 'ep', recovery: recovery(1) }).ok, true)
+
+    const latest = store.latest('ep')
+    assert.equal(latest.recovery.cursor.checkpointSeq, 2, 'logical checkpoint order must not depend on a clock correction')
+    assert.equal(latest.recovery.cursor.nextStepIndex, 1, 'the newest verified next-safe cursor must be restored')
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('retention prunes old recovery sequences, never the newest sequence after a clock rollback', () => {
+  const dir = tempDir()
+  try {
+    let at = 1_700_000_000_000
+    const store = createCheckpointStore({ dir, maxFiles: 2, now: () => at })
+    const recovery = makeRecoveryDescriptor()
+    store.save({ episodeId: 'ep', recovery })
+    at += 1_000
+    store.save({ episodeId: 'ep', recovery })
+    at -= 10_000
+    const newest = store.save({ episodeId: 'ep', recovery })
+
+    assert.equal(newest.ok, true)
+    assert.equal(store.list('ep').length, 2)
+    assert.equal(store.latest('ep').recovery.cursor.checkpointSeq, 3)
+    assert.equal(store.list('ep').some((entry) => entry.path === newest.path), true)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 

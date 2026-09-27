@@ -1,0 +1,90 @@
+faultId,family,expectedOutcome,executionMode,observations,status,reason
+1,process_host,NO_ACTIVE_EPISODE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+2,process_host,RESUME,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+3,process_host,RESUME,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+4,process_host,RESUME_NO_REPLAY,controlled-owned-process,1,OBSERVED,final raw observation recorded as PASS
+5,process_host,RESUME_FROM_PREVIOUS_SAFE_POINT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+6,process_host,RESUME_FROM_NEWEST_CHECKPOINT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+7,process_host,SINGLE_OWNER_CONTINUES,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+8,process_host,RESUME_OR_BLOCK_AMBIGUOUS,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+9,process_host,RESUME_OR_BLOCK_AMBIGUOUS,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+10,process_host,BLOCK_OR_SAFE_RETRY,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+11,process_host,RETRY_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+12,process_host,RESUME,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+13,process_host,RESUME_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+14,process_host,RESUME_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+15,checkpoint_store,BLOCKED_CHECKPOINT_WRITE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+16,checkpoint_store,BLOCKED_CHECKPOINT_WRITE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+17,checkpoint_store,FALLBACK_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+18,checkpoint_store,BLOCKED_INVALID_DESCRIPTOR,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+19,checkpoint_store,BLOCKED_PLAN_DIGEST,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+20,checkpoint_store,BLOCKED_UNSUPPORTED_VERSION,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+21,checkpoint_store,OLD_CHECKPOINT_REMAINS,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+22,checkpoint_store,NEW_CHECKPOINT_RECONCILED,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+23,checkpoint_store,RECONCILE_INDEX_FROM_CHECKPOINT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+24,checkpoint_store,RECONCILE_TO_NEWEST_SEQUENCE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+25,checkpoint_store,REBUILD_INDEX,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+26,checkpoint_store,REBUILD_INDEX,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+27,checkpoint_store,FALLBACK_TO_VALID_OLDER,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+28,checkpoint_store,SELECT_HIGHEST_VALID_SEQUENCE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+29,checkpoint_store,BLOCKED_DUPLICATE_SEQUENCE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+30,checkpoint_store,BLOCKED_STORAGE_UNAVAILABLE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+31,checkpoint_store,BLOCKED_STORAGE_UNAVAILABLE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+32,checkpoint_store,BOUNDED_RETRY_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+33,checkpoint_store,BOUNDED_RETRY_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+34,checkpoint_store,RETRY_AFTER_STORAGE_RESTORED,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+35,claim_startup,RECLAIM_AFTER_STALE_PROOF,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+36,claim_startup,RECLAIM_ONLY_AFTER_IDENTITY_PROOF,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+37,claim_startup,ATTACH_EXISTING_OWNER,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+38,claim_startup,SINGLE_OWNER,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+39,claim_startup,IDEMPOTENT_SINGLE_RESUME,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+40,claim_startup,STALE_CLAIM_RECLAIM,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+41,claim_startup,STALE_CLAIM_RECLAIM,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+42,claim_startup,RESUME_FROM_ACCEPTED_CURSOR,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+43,claim_startup,ATTACH_EXISTING_OWNER,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+44,claim_startup,RESUME_IF_STILL_VALID,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+45,claim_startup,RESUME_OR_BLOCK_PROVIDER_STEP,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+46,workspace_mutation,BLOCKED_WORKSPACE_MISSING,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+47,workspace_mutation,BLOCKED_WORKSPACE_DRIFT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+48,workspace_mutation,BLOCKED_WORKSPACE_DRIFT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+49,workspace_mutation,BLOCKED_WORKSPACE_DRIFT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+50,workspace_mutation,BLOCKED_MUTATION_CONFLICT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+51,workspace_mutation,RESUME_NO_REPLAY,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+52,workspace_mutation,RETRY_UNVERIFIED_MUTATION,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+53,workspace_mutation,RECONCILE_WITHOUT_DUPLICATE_EFFECT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+54,workspace_mutation,BLOCKED_AMBIGUOUS_EFFECT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+55,workspace_mutation,REATTACH_VERIFIED_OWNER,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+56,workspace_mutation,BLOCKED_PROCESS_IDENTITY,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+57,workspace_mutation,BLOCKED_EXECUTOR_COMPATIBILITY,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+58,workspace_mutation,BLOCKED_OR_FINAL_VERIFY_ONLY,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+59,provider_ipc,BOUNDED_RETRY_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+60,provider_ipc,BOUNDED_RETRY_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+61,provider_ipc,RESUME_AFTER_RECOVERY,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+62,provider_ipc,BLOCKED_CREDENTIALS_REQUIRED,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+63,provider_ipc,BLOCKED_INVALID_RESPONSE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+64,provider_ipc,BOUNDED_RETRY_OR_BLOCK,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+65,provider_ipc,RESUME_OR_BLOCK_AMBIGUOUS,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+66,provider_ipc,BLOCKED_INVALID_RESPONSE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+67,provider_ipc,RECONNECT_SINGLE_OWNER,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+68,provider_ipc,RECONCILE_ACCEPTED_ACTION,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+69,provider_ipc,IGNORE_STALE_RESPONSE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+70,provider_ipc,BOUNDED_RETRY_OR_CLEANUP_DEBT,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+71,provider_ipc,RETRY_AFTER_PERMISSION_RESTORED,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+72,provider_ipc,SELECT_BY_CHECKPOINT_SEQUENCE,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+73,reboot_startup,SAME_ACCOUNT_RESUME,maintenance-window,0,NOT_RUN_MAINTENANCE_WINDOW,real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched
+74,reboot_startup,IDEMPOTENT_STARTUP_RESUME,maintenance-window,0,NOT_RUN_MAINTENANCE_WINDOW,real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched
+75,reboot_startup,RESUME_OR_WAIT_PROVIDER,maintenance-window,0,NOT_RUN_MAINTENANCE_WINDOW,real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched
+76,reboot_startup,SAME_ACCOUNT_RESUME,maintenance-window,0,NOT_RUN_MAINTENANCE_WINDOW,real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched
+77,reboot_startup,SAME_ACCOUNT_RESUME,maintenance-window,0,NOT_RUN_MAINTENANCE_WINDOW,real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched
+78,reboot_startup,REBOOT_LOGIN_AUTOMATION_UNAVAILABLE,maintenance-window,0,NOT_RUN_MAINTENANCE_WINDOW,real Windows reboot is not attempted without a separately confirmed safe maintenance window; OS-owned sign-in remains untouched
+79,cross_volume,CLEANUP_OWNED_SCRATCH,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+80,cross_volume,PRESERVE_SOURCE_AND_CLEAN_DERIVATIVE,adapter-simulated,3,OBSERVED,final raw observation recorded as PASS
+81,cross_volume,REGENERATE_OR_REVALIDATE,adapter-simulated,3,OBSERVED,final raw observation recorded as PASS
+82,cross_volume,REUSE_AFTER_OWNERSHIP_VERIFICATION,adapter-simulated,3,OBSERVED,final raw observation recorded as PASS
+83,cross_volume,CLEANUP_BLOCKED_PRESERVE_FOREIGN_CHILD,adapter-simulated,3,OBSERVED,final raw observation recorded as EXPECTED_BLOCK
+84,cross_volume,BOUNDED_RETRY,adapter-simulated,2,OBSERVED,final raw observation recorded as EXPECTED_BLOCK
+85,cross_volume,RETRY_CLEANUP_DEBT,adapter-simulated,2,OBSERVED,final raw observation recorded as PASS
+86,cross_volume,CLEANUP_BLOCKED_PRESERVE_PATH,adapter-simulated,2,OBSERVED,final raw observation recorded as EXPECTED_BLOCK
+87,cross_volume,CLEANUP_BLOCKED_PRESERVE_TARGET,adapter-simulated,2,OBSERVED,final raw observation recorded as EXPECTED_BLOCK
+88,cross_volume,CLEANUP_BLOCKED_EXACT_RESIDUAL,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration
+89,cross_volume,CLEAN_COMPLETE_ZERO_RESIDUALS,adapter-simulated,0,NOT_RUN_NO_ADAPTER,the catalog entry has no executable adapter in this frozen harness; no observation is inferred from its declaration

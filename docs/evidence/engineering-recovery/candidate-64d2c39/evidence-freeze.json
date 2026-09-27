@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "batchId": "E2-E5-final-20260927-02",
+  "phase": "FINAL",
+  "seed": 20260928,
+  "implementationSha": "64d2c396b7649452c0858e4915af17e6bbbb2368",
+  "harnessSha": "64d2c396b7649452c0858e4915af17e6bbbb2368",
+  "sourceRef": "dev/crash-resume-recovery-v1",
+  "sourceSpecSha256": "ea0e58cc7c0b39d5cb63735e8f08ec9a351a4d186d1d29efec7514095b84c703",
+  "evidenceSchemaSha256": "f9d0137fdaf1f740b747bc7b2548551dfac82643e9c82d33bb6a45f78687fb7f",
+  "faultCatalogVersion": "v5-1.0.0",
+  "faultCatalogSha256": "ff6a691d28244a9857eae686b8245b2a5602e4897b3521c5ae7f092faefcbd10",
+  "workloadVersion": "v5-1.0.0",
+  "workloadDefinitionsSha256": "f729069564ea32de6e061a3b36685c76bc3f872bbe78211fead943cfa8078264",
+  "pilotRunsExcludedFromFinalAggregates": false,
+  "e0GateSha256": "19e3dfc5f56ecc795caffdf385f7a0608ed0c34445b1aa1e6a4879848db370a9",
+  "frozenAt": "2026-09-27T04:56:39.144Z"
+}

@@ -177,6 +177,31 @@ function fakeTargets(overrides = {}) {
   return { targets, calls }
 }
 
+test('a planned restart preserves and resumes the same engineering episode checkpoint', async () => {
+  const calls = []
+  const engineeringHost = {
+    status: () => ({ ok: true, running: true, episode: 'episode-v5', phase: 'IMPLEMENTING', request: { workspace: ROOT, goal: 'finish safely' } }),
+    cancel: (options) => { calls.push(['cancel', options]); return { ok: true, cancelled: true, episode: 'episode-v5' } },
+    settled: async () => { calls.push(['settled']); return { episode: 'episode-v5', result: 'CANCELLED' } },
+    resume: async (options) => { calls.push(['resume', options]); return { ok: true, resumed: true, episode: 'episode-v5', checkpointSeq: 11, acceptedCheckpointSeq: 11 } },
+    run: (request) => { calls.push(['run', request]); return { ok: true, episode: 'new-episode' } }
+  }
+  const target = createRebootTargets({ engineeringHost }).engineering
+
+  const parked = await target.suspend({ reason: 'planned machine restart' })
+  assert.equal(parked.ok, true)
+  assert.equal(calls[0][0], 'cancel')
+  assert.equal(calls[0][1].preserveForResume, true)
+  assert.equal(calls[1][0], 'settled', 'the restart waits for the episode boundary')
+
+  const resumed = await target.resume({ targetState: { episode: 'episode-v5', request: { workspace: ROOT, goal: 'finish safely' } } })
+  assert.deepEqual(calls[2], ['resume', { episodeId: 'episode-v5', trigger: 'planned_restart' }])
+  assert.equal(calls.some(([kind]) => kind === 'run'), false, 'recovery must not start a fresh episode')
+  assert.equal(resumed.ok, true)
+  assert.equal(resumed.episode, 'episode-v5')
+  assert.equal(resumed.from, 'checkpoint:11')
+})
+
 test('parking writes an intent that names what will have to be continued', async () => {
   const area = scratch('continuity-park')
   try {

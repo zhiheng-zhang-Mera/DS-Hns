@@ -93,7 +93,8 @@ test('autonomy continues only with new evidence, and never past its own bounds',
  */
 test('scenario A: a failing unit test is reproduced, repaired and verified with fresh evidence', async () => {
   const repo = createFixtureRepo({ prefix: 'eng-scenario-a-', dirty: true })
-  const checkpointRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-a-'))
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-a-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
   try {
     // The suite fails while `a - b` is in the file and passes once it is `a + b`.
     const scriptedSupervisor = createScriptedSupervisor({
@@ -146,7 +147,7 @@ test('scenario A: a failing unit test is reproduced, repaired and verified with 
     assert.equal(report.result, 'COMPLETED')
   } finally {
     removeFixtureRepo(repo)
-    fs.rmSync(checkpointRoot, { recursive: true, force: true })
+    fs.rmSync(holder, { recursive: true, force: true })
   }
 })
 
@@ -156,7 +157,8 @@ test('scenario A: a failing unit test is reproduced, repaired and verified with 
  */
 test('a repair that does not work is not retried blind, and the episode fails with evidence', async () => {
   const repo = createFixtureRepo({ prefix: 'eng-repair-loop-' })
-  const checkpointRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-loop-'))
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-loop-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
   try {
     const scriptedSupervisor = createScriptedSupervisor({
       script: (invocation) => {
@@ -197,14 +199,15 @@ test('a repair that does not work is not retried blind, and the episode fails wi
     assert.ok(report.validation.reasons.length >= 1, 'a failure must be reported with its reasons')
   } finally {
     removeFixtureRepo(repo)
-    fs.rmSync(checkpointRoot, { recursive: true, force: true })
+    fs.rmSync(holder, { recursive: true, force: true })
   }
 })
 
 /** Scenario J — the deadline band stops new work. */
 test('scenario J: a nearly expired episode does not start new work and reports what it has', async () => {
   const repo = createFixtureRepo({ prefix: 'eng-deadline-' })
-  const checkpointRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-deadline-'))
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-deadline-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
   try {
     let clock = 1_000_000
     const scriptedSupervisor = createScriptedSupervisor({ script: () => ({ exitCode: 0, stdout: '# pass 2\n' }) })
@@ -234,14 +237,15 @@ test('scenario J: a nearly expired episode does not start new work and reports w
     assert.ok(report.validation, 'the report must carry the validation verdict')
   } finally {
     removeFixtureRepo(repo)
-    fs.rmSync(checkpointRoot, { recursive: true, force: true })
+    fs.rmSync(holder, { recursive: true, force: true })
   }
 })
 
 /** The public entry point is the same loop. */
 test('the package entry point runs one episode and returns the report', async () => {
   const repo = createFixtureRepo({ prefix: 'eng-entry-', broken: false })
-  const checkpointRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-entry-'))
+  const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'eng-checkpoints-entry-'))
+  const checkpointRoot = path.join(holder, 'runtime', 'engineering', 'checkpoints')
   const engineering = require('../../app/engineering/index.cjs')
   try {
     const scriptedSupervisor = createScriptedSupervisor({ script: () => ({ exitCode: 0, stdout: '# pass 2\n# fail 0\n' }) })
@@ -270,6 +274,6 @@ test('the package entry point runs one episode and returns the report', async ()
     assert.ok(Buffer.byteLength(JSON.stringify(summary)) <= 8192)
   } finally {
     removeFixtureRepo(repo)
-    fs.rmSync(checkpointRoot, { recursive: true, force: true })
+    fs.rmSync(holder, { recursive: true, force: true })
   }
 })

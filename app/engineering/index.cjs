@@ -25,6 +25,8 @@ const { OPERATIONS, CONFIDENCE, defaultAdapters } = require('./adapters/index.cj
 const { verifyWorkspace, gitState, fingerprint, diffFingerprint } = require('./repository.cjs')
 const { detectProject, discoverCommands, discover } = require('./discovery.cjs')
 const { createCheckpointStore, verifyResume, truncateOutput, summarizeTestOutput } = require('./checkpoint.cjs')
+const { createRecoveryStore, RECOVERY_INDEX_VERSION, RECOVERY_STATES } = require('./recovery-store.cjs')
+const { computePlanDigest, validateRecoveryDescriptor, RECOVERY_DESCRIPTOR_VERSION, RECOVERY_PLAN_VERSION, EXECUTOR_COMPATIBILITY } = require('./recovery-schema.cjs')
 const { createResultValidator, collectLeaks } = require('./result.cjs')
 const { createMutationLog, MUTATION_RESULTS } = require('./mutation.cjs')
 const { createProcessSupervisor, PROCESS_CLASS, READINESS } = require('./process.cjs')
@@ -81,6 +83,14 @@ module.exports = {
   discoverCommands,
   discover,
   createCheckpointStore,
+  createRecoveryStore,
+  RECOVERY_INDEX_VERSION,
+  RECOVERY_STATES,
+  computePlanDigest,
+  validateRecoveryDescriptor,
+  RECOVERY_DESCRIPTOR_VERSION,
+  RECOVERY_PLAN_VERSION,
+  EXECUTOR_COMPATIBILITY,
   verifyResume,
   truncateOutput,
   summarizeTestOutput,

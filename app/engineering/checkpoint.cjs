@@ -33,9 +33,10 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const repository = require('./repository.cjs')
+const { validateRecoveryDescriptor } = require('./recovery-schema.cjs')
 
 /** The checkpoint format's version: a reader that does not know it must refuse. */
-const CHECKPOINT_VERSION = 1
+const CHECKPOINT_VERSION = 2
 
 /** How many checkpoints one episode keeps. */
 const DEFAULT_MAX_FILES = 5
@@ -475,6 +476,14 @@ function readCheckpoint(file) {
   }
 }
 
+/** A valid per-episode recovery sequence, or null for legacy/incomplete state. */
+function recoverySequence(checkpoint) {
+  const value = checkpoint && checkpoint.recovery && checkpoint.recovery.cursor
+    ? checkpoint.recovery.cursor.checkpointSeq
+    : null
+  return Number.isSafeInteger(value) && value > 0 ? value : null
+}
+
 /** A size in bytes, or 0 when it cannot be read. */
 function fileBytes(file) {
   try {
@@ -524,10 +533,37 @@ function createCheckpointStore(options = {}) {
       const parsed = parseName(name)
       if (!parsed) continue
       if (wanted !== null && parsed.episode !== wanted) continue
-      found.push({ file: name, path: path.join(dir, name), episode: parsed.episode, at: parsed.at, sequence: parsed.sequence, bytes: fileBytes(path.join(dir, name)) })
+      const checkpointPath = path.join(dir, name)
+      const record = readCheckpoint(checkpointPath)
+      found.push({
+        file: name,
+        path: checkpointPath,
+        episode: parsed.episode,
+        at: parsed.at,
+        sequence: parsed.sequence,
+        recoverySeq: recoverySequence(record),
+        bytes: fileBytes(checkpointPath)
+      })
     }
-    found.sort((a, b) => a.at - b.at || a.sequence - b.sequence || a.file.localeCompare(b.file))
+    found.sort((a, b) => {
+      if (a.recoverySeq !== null && b.recoverySeq !== null) {
+        return a.recoverySeq - b.recoverySeq || a.at - b.at || a.sequence - b.sequence || a.file.localeCompare(b.file)
+      }
+      if (a.recoverySeq !== null) return 1
+      if (b.recoverySeq !== null) return -1
+      return a.at - b.at || a.sequence - b.sequence || a.file.localeCompare(b.file)
+    })
     return found
+  }
+
+  /** Highest valid recovery sequence, independent of wall-clock timestamps. */
+  function latestRecoverySequence(episodeId) {
+    let highest = 0
+    for (const entry of files(episodeId)) {
+      const current = entry.recoverySeq
+      if (current !== null) highest = Math.max(highest, current)
+    }
+    return highest
   }
 
   /** Delete the oldest checkpoints until the episode keeps at most `maxFiles`. */
@@ -564,6 +600,24 @@ function createCheckpointStore(options = {}) {
   function save(input = {}) {
     const episodeId = input.episodeId === undefined || input.episodeId === null ? 'episode' : String(input.episodeId)
     const at = now()
+    const recovery = input.recovery && typeof input.recovery === 'object' && !Array.isArray(input.recovery)
+      ? {
+          ...input.recovery,
+          episodeId,
+          cursor: {
+            ...(input.recovery.cursor && typeof input.recovery.cursor === 'object' && !Array.isArray(input.recovery.cursor)
+              ? input.recovery.cursor
+              : {}),
+            checkpointSeq: latestRecoverySequence(episodeId) + 1
+          }
+        }
+      : null
+    if (recovery) {
+      const validation = validateRecoveryDescriptor(recovery, { episodeId })
+      if (!validation.ok) {
+        return { ok: false, path: null, bytes: 0, reason: validation.reason, code: validation.code }
+      }
+    }
     const record = {
       version: CHECKPOINT_VERSION,
       episodeId,
@@ -577,7 +631,8 @@ function createCheckpointStore(options = {}) {
       ownedProcesses: Array.isArray(input.ownedProcesses) ? input.ownedProcesses : [],
       lastFailure: input.lastFailure === undefined ? null : input.lastFailure,
       progress: input.progress === undefined ? null : input.progress,
-      phase: input.phase === undefined ? null : input.phase
+      phase: input.phase === undefined ? null : input.phase,
+      recovery
     }
     let target = null
     let temp = null
@@ -620,6 +675,21 @@ function createCheckpointStore(options = {}) {
    */
   function latest(episodeId) {
     const known = files(episodeId)
+    let newestRecovery = null
+    let newestRecoverySequence = 0
+    for (let index = known.length - 1; index >= 0; index -= 1) {
+      const parsed = readCheckpoint(known[index].path)
+      if (!parsed) continue
+      const currentSequence = recoverySequence(parsed)
+      if (currentSequence !== null && currentSequence > newestRecoverySequence) {
+        newestRecovery = parsed
+        newestRecoverySequence = currentSequence
+      }
+    }
+    if (newestRecovery) return newestRecovery
+
+    // Legacy checkpoints do not have a recovery sequence, so preserve their
+    // historical timestamp ordering for diagnosis and existing callers.
     for (let index = known.length - 1; index >= 0; index -= 1) {
       const parsed = readCheckpoint(known[index].path)
       if (parsed) return parsed

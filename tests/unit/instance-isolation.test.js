@@ -275,12 +275,11 @@ test('a root that does not exist yet canonicalizes its ancestor and preserves it
   const dir = scratch()
   const mixed = path.join(dir, 'MixedCaseRoot-ABC', 'checkout')
   const resolved = instance.describeInstance({ root: mixed, dshHome: path.join(dir, 'data') })
-  // Windows runners may expose TEMP through an 8.3 alias such as RUNNER~1 even
-  // though the filesystem reports the existing ancestor as `runneradmin`.
-  // Existing segments therefore take their canonical filesystem spelling while
-  // the not-yet-created tail must retain the caller's exact case.
+  // The existing prefix is normalized by the filesystem (which may turn an
+  // 8.3 alias into its long name); missing segments keep the caller's spelling.
   const canonicalDir = fs.realpathSync.native(dir)
   assert.equal(resolved.root, path.join(canonicalDir, 'MixedCaseRoot-ABC', 'checkout'))
+  assert.equal(resolved.root, path.join(instance.resolveRoot(dir), 'MixedCaseRoot-ABC', 'checkout'))
   assert.equal(path.relative(canonicalDir, resolved.root), path.join('MixedCaseRoot-ABC', 'checkout'))
   assert.equal(fs.existsSync(dir), true)
 })

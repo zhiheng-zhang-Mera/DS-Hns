@@ -3162,9 +3162,18 @@ app.whenReady().then(async () => {
     // one that followed a planned restart, the suspended task continues here.
     registerRebootIpc()
     startRebootTicker()
-    startup.defer('workspace-restored', () => ensureReboot().resumeOnStartup())
+    startup.defer('workspace-restored', async () => {
+      const planned = await ensureReboot().resumeOnStartup()
+      const plannedEngineering = planned && planned.intent && planned.intent.target && planned.intent.target.kind === 'engineering'
+      if (plannedEngineering) return planned
+      if (!engineeringEnabled()) return planned
+      const crashRecovery = await ensureEngineeringHost().resumeLatest({ trigger: 'unclean_exit' })
+      if (crashRecovery && crashRecovery.resumed) logLine(`engineering automatic recovery accepted: ${JSON.stringify(crashRecovery)}`)
+      else if (crashRecovery && crashRecovery.code !== 'NO_ACTIVE_EPISODE') logLine(`engineering automatic recovery refused: ${JSON.stringify(crashRecovery)}`)
+      return { planned, crashRecovery }
+    })
       .then((outcome) => {
-        if (outcome?.value?.resumed || outcome?.value?.reports?.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.value.reports)}`)
+        if (outcome?.value?.planned?.resumed || outcome?.value?.planned?.reports?.length) logLine(`reboot resume on startup: ${JSON.stringify(outcome.value.planned.reports)}`)
       })
       // No `.catch`: `defer` answers, it does not reject — a failed resume is already reported as its
       // own phase, and a second error path here would be a second story about one event.

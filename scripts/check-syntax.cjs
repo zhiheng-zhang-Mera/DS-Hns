@@ -163,6 +163,27 @@ const EXTRA_FILES = [
   path.join(ROOT, 'scripts', 'evidence-consistency.cjs'),
   // The stand-in Harness CLI the installer suites drive the real installation channel with.
   path.join(ROOT, 'tests', 'helpers', 'harness-cli-stub.cjs'),
+  // Engineering crash-recovery contracts, durable cleanup, and startup acceptance tests.
+  path.join(ROOT, 'tests', 'unit', 'engineering-cross-volume-cleanup.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-host-resume.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-recovery-schema.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-recovery-store.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-evidence-harness.test.js'),
+  path.join(ROOT, 'tests', 'unit', 'engineering-recovery-e5-campaign.test.js'),
+  // The ICSE evidence harness and its executable workload fixtures are external
+  // test tooling, but they still need the same syntax gate as shipped sources.
+  path.join(ROOT, 'scripts', 'engineering-recovery-e0.cjs'),
+  path.join(ROOT, 'scripts', 'engineering-recovery-evidence.cjs'),
+  path.join(ROOT, 'scripts', 'engineering-recovery-e5.cjs'),
+  path.join(ROOT, 'scripts', 'lib', 'engineering-recovery-e0.cjs'),
+  path.join(ROOT, 'scripts', 'lib', 'engineering-recovery-evidence.cjs'),
+  path.join(ROOT, 'scripts', 'lib', 'engineering-recovery-e5.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'episode-worker.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w0.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w1.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w2.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w3.test.cjs'),
+  path.join(ROOT, 'tests', 'fixtures', 'engineering-recovery', 'workloads', 'w4.test.cjs'),
   // The virtual clock the 6/12/24-hour synthetic soaks run on, and the soak harness itself. Both are
   // programs the CI step executes, so both are checked like any other program the repository ships.
   path.join(ROOT, 'tests', 'helpers', 'longhost-clock.cjs'),

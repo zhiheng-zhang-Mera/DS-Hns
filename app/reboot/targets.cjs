@@ -85,21 +85,39 @@ function createRebootTargets(input = {}) {
         if (!state || state.ok === false) return null
         return { target: 'engineering', running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
       },
-      suspend: async () => {
+      suspend: async (options = {}) => {
         if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-        const cancelled = engineeringHost.cancel({ reason: 'a restart is waiting for a parkable phase' })
+        const reason = options.reason || (options.plan && options.plan.id
+          ? `scheduled restart ${options.plan.id}`
+          : 'a restart is waiting for a parkable phase')
+        const cancelled = engineeringHost.cancel({ reason, preserveForResume: true })
         if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
-        return { ok: true, checkpoint: (cancelled && cancelled.checkpoint) || null, detail: 'the episode stopped at a step boundary and checkpointed' }
+        const report = await engineeringHost.settled()
+        return {
+          ok: true,
+          checkpoint: (cancelled && cancelled.checkpoint) || (report && report.checkpoint) || null,
+          detail: report && report.result === 'CANCELLED'
+            ? 'the same episode stopped at a safe boundary and retained an ACTIVE recovery checkpoint'
+            : 'the episode reached a terminal or parkable checkpoint'
+        }
       },
       resume: async (intent) => {
-        const request = intent && intent.targetState && intent.targetState.request
         if (!engineeringHost) return { ok: false, reason: 'the engineering runtime is not available in this build' }
-        if (!request || !request.workspace || !request.goal) {
-          return { ok: false, reason: 'the episode was not recorded with a repository and a goal, so it cannot be resumed automatically' }
+        if (typeof engineeringHost.resume !== 'function') {
+          return { ok: false, reason: 'the engineering runtime cannot resume a recorded episode' }
         }
-        const started = engineeringHost.run({ workspace: request.workspace, goal: request.goal, reason: 'continuing after a restart' })
-        if (started && started.ok === false) return { ok: false, reason: started.error || 'the episode could not be restarted' }
-        return { ok: true, episode: (started && started.episode) || null, from: `checkpoint:${request.workspace}`, detail: 'the episode resumed from its last checkpoint' }
+        const episodeId = intent && intent.targetState && intent.targetState.episode
+        const resumed = await engineeringHost.resume({ episodeId, trigger: 'planned_restart' })
+        if (resumed && resumed.ok === false) return { ok: false, reason: resumed.error || resumed.reason || 'the episode could not be resumed', code: resumed.code }
+        const checkpointSeq = resumed && (resumed.acceptedCheckpointSeq || resumed.checkpointSeq)
+        return {
+          ok: Boolean(resumed && resumed.ok !== false),
+          episode: (resumed && resumed.episode) || episodeId || null,
+          from: resumed && resumed.resumed && Number.isSafeInteger(checkpointSeq) ? `checkpoint:${checkpointSeq}` : null,
+          detail: resumed && resumed.resumed
+            ? `the same episode resumed from checkpoint ${checkpointSeq}`
+            : 'the episode was already terminal or no longer needed resuming'
+        }
       }
     }
   }

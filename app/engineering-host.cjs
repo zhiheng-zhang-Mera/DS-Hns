@@ -26,8 +26,12 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
+const crypto = require('node:crypto')
 
 const { EPISODE_PHASES } = require('./engineering/episode.cjs')
+const { createProcessOwner, probeProcessOwner } = require('./engineering/process-identity.cjs')
+const { validateRecoveryDescriptor, EXECUTOR_COMPATIBILITY } = require('./engineering/recovery-schema.cjs')
+const { createCrossVolumeTempRegistry } = require('./engineering/cross-volume-cleanup.cjs')
 
 /** The longest episode the UI may start without an explicit contract. */
 const MAX_UI_DEADLINE_MS = 24 * 60 * 60 * 1000
@@ -54,13 +58,100 @@ function createEngineeringHost(options = {}) {
   // The shipped policy is *closed*: a renderer cannot ask for a commit, a push or a
   // merge. Only the config file and an embedding host can open those doors.
   const policy = { allowCommit: false, allowPush: false, allowMerge: false, ...(defaults.git || {}), ...(options.policy || {}) }
+  const recoveryOwner = options.recoveryOwner || createProcessOwner({ instanceId: options.ownerInstanceId })
+  const isOwnerAlive = typeof options.isOwnerAlive === 'function' ? options.isOwnerAlive : probeProcessOwner
 
   let supervisor = null
   let activePromise = null
   let activeRequest = null
   let lastReport = null
   let cancelled = false
+  let preserveRecoveryOnCancel = false
   let startedAt = null
+  let lastRecoveryOutcome = null
+  let checkpointStoreRef = options.checkpoints || null
+  let recoveryStoreRef = options.recoveryStore || null
+
+  function stores() {
+    const { createCheckpointStore, createRecoveryStore } = require('./engineering/index.cjs')
+    if (!checkpointStoreRef) checkpointStoreRef = createCheckpointStore({ dir: checkpointRoot || undefined, now })
+    if (!recoveryStoreRef) {
+      recoveryStoreRef = createRecoveryStore({
+        root: options.recoveryRoot || path.dirname(checkpointStoreRef.dir),
+        checkpointDir: checkpointStoreRef.dir,
+        now,
+        isOwnerAlive
+      })
+    }
+    return { checkpoints: checkpointStoreRef, recovery: recoveryStoreRef }
+  }
+
+  function startExecution(input) {
+    const { createEngineeringSupervisor } = require('./engineering/supervisor.cjs')
+    const { checkpoints, recovery } = stores()
+    const episode = input.episodeId
+    cancelled = false
+    preserveRecoveryOnCancel = false
+    startedAt = input.recoveryCheckpoint ? input.recoveryCheckpoint.recovery.request.startedAt : now()
+    activeRequest = {
+      workspace: input.workspace,
+      goal: input.goal,
+      deadlineMs: input.deadlineMs,
+      contract: input.contract || null
+    }
+    supervisor = createEngineeringSupervisor({
+      episodeId: episode,
+      workspace: input.workspace,
+      goal: input.goal,
+      contract: input.contract || {},
+      deadlineMs: input.deadlineMs,
+      policy,
+      checkpointRoot,
+      checkpoints,
+      recoveryRoot: options.recoveryRoot,
+      recoveryStore: recovery,
+      recoveryOwner,
+      recoveryClaimAcquired: input.recoveryClaimAcquired === true,
+      recoveryCheckpoint: input.recoveryCheckpoint || null,
+      workRoot: input.workRoot,
+      crossVolumeTemp: input.crossVolumeTemp,
+      now,
+      onAccepted: input.onAccepted,
+      beforeAction: options.beforeAction,
+      preserveRecoveryOnCancel: () => preserveRecoveryOnCancel,
+      log: (event) => log(`engineering ${event.type || 'event'}: ${JSON.stringify(event).slice(0, 400)}`),
+      isCancelled: () => cancelled
+    })
+
+    const runningSupervisor = supervisor
+    const reportPromise = runningSupervisor.run()
+    activePromise = Promise.resolve(reportPromise)
+      .then((report) => {
+        lastReport = report
+        return report
+      })
+      .catch((error) => {
+        lastReport = {
+          episode,
+          goal: input.goal,
+          result: 'FAILED',
+          error: String(error && error.message ? error.message : error),
+          workspace: input.workspace,
+          phases: runningSupervisor.machine.history().map((entry) => entry.to)
+        }
+        log(`engineering episode ${episode} threw: ${error && error.stack ? error.stack : error}`)
+        return lastReport
+      })
+      .finally(() => {
+        const released = recovery.releaseClaim({ episodeId: episode, owner: recoveryOwner })
+        if (!released.ok && released.code !== 'CLAIM_NOT_OWNED') {
+          log(`engineering recovery claim release failed (${episode}): ${released.code || released.reason}`)
+        }
+        activePromise = null
+        activeRequest = null
+      })
+    return { episode, supervisor: runningSupervisor, promise: activePromise }
+  }
 
   function enabled() {
     if (!available()) return { ok: false, error: reason(), code: 'ENGINEERING_DISABLED' }
@@ -83,6 +174,7 @@ function createEngineeringHost(options = {}) {
       // The summary is the episode's own bounded one, not a second opinion.
       summary: supervisor && activePromise ? safe(() => supervisor.summarize()) : null,
       report: lastReport,
+      recovery: lastRecoveryOutcome,
       phases: Object.values(EPISODE_PHASES)
     }
   }
@@ -137,8 +229,7 @@ function createEngineeringHost(options = {}) {
     const episodeId = String(input.episodeId || '').trim()
     if (!episodeId) return { ok: false, error: 'an episode id is required', code: 'EPISODE_REQUIRED' }
     try {
-      const { createCheckpointStore } = require('./engineering/checkpoint.cjs')
-      const store = createCheckpointStore({ root: checkpointRoot, now })
+      const { checkpoints: store } = stores()
       return { ok: true, checkpoints: store.list(episodeId) }
     } catch (error) {
       return { ok: false, error: String(error && error.message ? error.message : error) }
@@ -170,66 +261,254 @@ function createEngineeringHost(options = {}) {
       ? Math.max(MIN_UI_DEADLINE_MS, Math.min(MAX_UI_DEADLINE_MS, Math.round(requested)))
       : MAX_UI_DEADLINE_MS
 
-    let createEngineeringSupervisor
     try {
-      ({ createEngineeringSupervisor } = require('./engineering/supervisor.cjs'))
-    } catch (error) {
-      return { ok: false, error: `the engineering runtime could not be loaded: ${error && error.message ? error.message : error}`, code: 'ENGINEERING_UNAVAILABLE' }
-    }
-
-    cancelled = false
-    startedAt = now()
-    activeRequest = { workspace, goal, deadlineMs, contract: input.contract && typeof input.contract === 'object' ? input.contract : null }
-    try {
-      supervisor = createEngineeringSupervisor({
+      const episode = `episode-${now()}-${crypto.randomUUID()}`
+      const requestContract = input.contract && typeof input.contract === 'object' ? input.contract : null
+      const started = startExecution({
+        episodeId: episode,
         workspace,
         goal,
-        contract: activeRequest.contract || {},
-        // The shipped limits and the closed git policy, so an episode's bounds are
-        // the deployment's and not the renderer's.
-        deadlineMs: Number.isFinite(defaults.deadlineMs) ? Math.min(deadlineMs, Number(defaults.deadlineMs)) : deadlineMs,
-        policy,
-        checkpointRoot,
-        now,
-        log: (event) => log(`engineering ${event.type || 'event'}: ${JSON.stringify(event).slice(0, 400)}`),
-        // Cooperative cancellation: the supervisor checks this at every step
-        // boundary, so a cancel never lands in the middle of a mutation.
-        isCancelled: () => cancelled
+        contract: requestContract || {},
+        deadlineMs: Number.isFinite(defaults.deadlineMs) ? Math.min(deadlineMs, Number(defaults.deadlineMs)) : deadlineMs
       })
+      log(`engineering episode ${started.episode} accepted for ${workspace}`)
+      return { ok: true, accepted: true, episode: started.episode, deadlineMs }
     } catch (error) {
       supervisor = null
       activeRequest = null
       startedAt = null
       return { ok: false, error: String(error && error.message ? error.message : error), code: 'ENGINEERING_UNAVAILABLE' }
     }
+  }
 
-    const episode = supervisor.id
-    log(`engineering episode ${episode} accepted for ${workspace}`)
-    // Deliberately not awaited: the renderer reads progress from `status()`, and
-    // awaiting would make the shell unable to process the cancel that stops it.
-    activePromise = Promise.resolve()
-      .then(() => supervisor.run())
-      .then((report) => {
-        lastReport = report
-        return report
-      })
-      .catch((error) => {
-        lastReport = {
-          episode,
-          goal,
-          result: 'FAILED',
-          error: String(error && error.message ? error.message : error),
-          workspace,
-          phases: supervisor ? supervisor.machine.history().map((entry) => entry.to) : []
+  function retryPendingTerminalCleanup(stores_, entries) {
+    const outcomes = []
+    const candidates = entries.filter((entry) => {
+      if (!entry) return false
+      const checkpoint = stores_.checkpoints.latest(entry.episodeId)
+      const terminalIntent = checkpoint && checkpoint.recovery && ['COMPLETED', 'CANCELLED'].includes(checkpoint.recovery.cleanupTerminalState)
+      return Boolean(terminalIntent || (entry.cleanupDebtSummary && entry.cleanupDebtSummary.total > 0))
+    })
+    const blockCleanupEpisode = (episodeId, code, reason_) => {
+      const blocked = stores_.recovery.blockEpisode({ episodeId, code, reason: reason_ })
+      return blocked.ok ? null : blocked.reason
+    }
+    for (const indexed of candidates) {
+      let current = stores_.checkpoints.latest(indexed.episodeId)
+      const descriptor = current && current.recovery
+      if (!descriptor || !['COMPLETED', 'CANCELLED'].includes(descriptor.cleanupTerminalState)) {
+        // Debt without a durable terminal intent is ambiguous; never infer permission to delete.
+        const blockError = blockCleanupEpisode(indexed.episodeId, 'CLEANUP_TERMINAL_INTENT_MISSING', 'cleanup debt has no durable terminal intent')
+        outcomes.push({ episode: indexed.episodeId, ok: false, code: 'CLEANUP_TERMINAL_INTENT_MISSING' })
+        if (blockError) outcomes[outcomes.length - 1].indexError = blockError
+        continue
+      }
+      const validation = validateRecoveryDescriptor(descriptor, { episodeId: indexed.episodeId, executorCompatibility: EXECUTOR_COMPATIBILITY })
+      if (!validation.ok) {
+        const blockError = blockCleanupEpisode(indexed.episodeId, validation.code, validation.reason)
+        outcomes.push({ episode: indexed.episodeId, ok: false, code: validation.code, reason: validation.reason, indexError: blockError })
+        continue
+      }
+
+      let persistenceError = null
+      const persistDescriptor = (recoveryPatch) => {
+        const recovery = { ...current.recovery, ...recoveryPatch }
+        const saved = stores_.checkpoints.save({
+          episodeId: current.episodeId,
+          goal: current.goal,
+          workspace: current.workspace,
+          fingerprint: current.fingerprint,
+          plan: current.plan,
+          cursor: current.cursor,
+          verifiedMutations: current.verifiedMutations,
+          ownedProcesses: current.ownedProcesses,
+          lastFailure: current.lastFailure,
+          progress: current.progress,
+          phase: current.phase,
+          recovery
+        })
+        if (!saved.ok) throw new Error(saved.reason || 'cleanup debt checkpoint write failed')
+        const indexedResult = stores_.recovery.recordCheckpoint({ episodeId: current.episodeId, checkpointPath: saved.path })
+        if (!indexedResult.ok) throw new Error(indexedResult.reason || 'cleanup debt recovery-index write failed')
+        current = stores_.checkpoints.latest(current.episodeId)
+      }
+      const registry = createCrossVolumeTempRegistry({
+        episodeId: indexed.episodeId,
+        workRoot: descriptor.workRoot,
+        entries: descriptor.crossVolumeTemp,
+        now,
+        onChange: (crossVolumeTemp) => {
+          try { persistDescriptor({ crossVolumeTemp }) } catch (error) {
+            persistenceError = error
+            throw error
+          }
         }
-        log(`engineering episode ${episode} threw: ${error && error.stack ? error.stack : error}`)
-        return lastReport
       })
-      .finally(() => {
-        activePromise = null
-        activeRequest = null
+      if (registry.initializationError) {
+        const blockError = blockCleanupEpisode(indexed.episodeId, registry.initializationError.code, registry.initializationError.reason)
+        outcomes.push({ episode: indexed.episodeId, ok: false, code: registry.initializationError.code, reason: registry.initializationError.reason, indexError: blockError })
+        continue
+      }
+
+      let cleanup
+      try {
+        cleanup = registry.retryCleanupDebt()
+        if (persistenceError) throw persistenceError
+        if (cleanup.ok) {
+          const terminalState = descriptor.cleanupTerminalState
+          const recovery = { ...current.recovery, lifecycleState: terminalState, cleanupTerminalState: undefined, blockedReason: undefined }
+          persistDescriptor(recovery)
+        } else {
+          const recovery = {
+            ...current.recovery,
+            lifecycleState: 'RECOVERY_BLOCKED',
+            blockedReason: `CLEANUP_BLOCKED: ${cleanup.residuals.map((item) => item.path).join(', ')}`
+          }
+          persistDescriptor(recovery)
+        }
+      } catch (error) {
+        const reason_ = String(error && error.message ? error.message : error)
+        const blockError = blockCleanupEpisode(indexed.episodeId, 'CLEANUP_DEBT_PERSIST_FAILED', reason_)
+        outcomes.push({ episode: indexed.episodeId, ok: false, code: 'CLEANUP_DEBT_PERSIST_FAILED', reason: reason_, cleanup, indexError: blockError })
+        continue
+      }
+      outcomes.push({ episode: indexed.episodeId, ok: cleanup.ok, code: cleanup.ok ? 'CLEANUP_RETRIED' : 'CLEANUP_BLOCKED', cleanup })
+    }
+    return { ok: true, outcomes }
+  }
+
+  async function resume(input = {}) {
+    const disabled = enabled()
+    if (disabled) return disabled
+    if (activePromise) return { ok: false, accepted: false, code: 'EPISODE_ACTIVE', episode: supervisor ? supervisor.id : null, error: 'an episode is already running' }
+    const trigger = ['unclean_exit', 'planned_restart', 'startup'].includes(input.trigger) ? input.trigger : 'unclean_exit'
+    const requestedEpisode = String(input.episodeId || '').trim()
+    let stores_
+    try {
+      stores_ = stores()
+    } catch (error) {
+      return { ok: false, accepted: false, code: 'RECOVERY_STORAGE_UNAVAILABLE', error: String(error && error.message ? error.message : error) }
+    }
+    let reconciled = stores_.recovery.reconcileIndex()
+    if (!reconciled.ok) {
+      lastRecoveryOutcome = { ok: false, trigger, code: reconciled.code || 'RECOVERY_INDEX_UNAVAILABLE', reason: reconciled.reason }
+      return { ok: false, accepted: false, ...lastRecoveryOutcome, error: reconciled.reason }
+    }
+    const cleanupRetries = retryPendingTerminalCleanup(stores_, reconciled.entries)
+    reconciled = stores_.recovery.reconcileIndex()
+    if (!reconciled.ok) {
+      lastRecoveryOutcome = { ok: false, trigger, code: reconciled.code || 'RECOVERY_INDEX_UNAVAILABLE', reason: reconciled.reason, cleanupRetries }
+      return { ok: false, accepted: false, ...lastRecoveryOutcome, error: reconciled.reason }
+    }
+    let entry = requestedEpisode ? stores_.recovery.get(requestedEpisode) : null
+    if (requestedEpisode && entry && (entry.state === 'COMPLETED' || entry.state === 'CANCELLED')) {
+      lastRecoveryOutcome = { ok: true, resumed: false, trigger, episode: requestedEpisode, code: 'EPISODE_TERMINAL' }
+      lastRecoveryOutcome.cleanupRetries = cleanupRetries.outcomes
+      return lastRecoveryOutcome
+    }
+    if (requestedEpisode && (!entry || entry.state !== 'ACTIVE')) {
+      const code = entry ? 'EPISODE_NOT_RESUMABLE' : 'EPISODE_NOT_FOUND'
+      const error = entry ? `episode state is ${entry.state}` : 'the requested episode is not indexed'
+      lastRecoveryOutcome = { ok: false, trigger, episode: requestedEpisode, code, reason: error, cleanupRetries: cleanupRetries.outcomes }
+      return { ok: false, accepted: false, ...lastRecoveryOutcome, error }
+    }
+    if (!requestedEpisode) {
+      const candidates = reconciled.entries.filter((candidate) => candidate.state === 'ACTIVE')
+      if (candidates.length === 0) {
+        lastRecoveryOutcome = { ok: true, resumed: false, trigger, code: 'NO_ACTIVE_EPISODE', cleanupRetries: cleanupRetries.outcomes }
+        return lastRecoveryOutcome
+      }
+      if (candidates.length > 1) {
+        lastRecoveryOutcome = { ok: false, resumed: false, trigger, code: 'AMBIGUOUS_RECOVERY_CANDIDATE', candidates: candidates.map((candidate) => candidate.episodeId), cleanupRetries: cleanupRetries.outcomes }
+        return { ...lastRecoveryOutcome, error: 'more than one active episode needs explicit recovery selection' }
+      }
+      entry = candidates[0]
+    }
+
+    const episodeId = entry.episodeId
+    const checkpoint = stores_.checkpoints.latest(episodeId)
+    const sequence = checkpoint && checkpoint.recovery && checkpoint.recovery.cursor && checkpoint.recovery.cursor.checkpointSeq
+    if (!checkpoint || entry.latestCheckpointSeq !== sequence) {
+      const code = 'CHECKPOINT_NOT_CURRENT'
+      const reason_ = 'the recovery index does not point at the newest valid checkpoint'
+      stores_.recovery.blockEpisode({ episodeId, code, reason: reason_ })
+      lastRecoveryOutcome = { ok: false, resumed: false, trigger, episode: episodeId, code, reason: reason_ }
+      return { ...lastRecoveryOutcome, error: reason_ }
+    }
+
+    const claimed = stores_.recovery.acquireClaim({ episodeId, checkpointSeq: sequence, owner: recoveryOwner })
+    if (!claimed.ok) {
+      lastRecoveryOutcome = { ok: false, resumed: false, trigger, episode: episodeId, code: claimed.code, reason: claimed.reason }
+      return { ...lastRecoveryOutcome, error: claimed.reason }
+    }
+    const attempt = stores_.recovery.beginRecoveryAttempt({ episodeId, maxAttempts: 3 })
+    if (!attempt.ok) {
+      stores_.recovery.releaseClaim({ episodeId, owner: recoveryOwner })
+      lastRecoveryOutcome = { ok: false, resumed: false, trigger, episode: episodeId, code: attempt.code, reason: attempt.reason }
+      return { ...lastRecoveryOutcome, error: attempt.reason }
+    }
+
+    const validation = validateRecoveryDescriptor(checkpoint.recovery, {
+      episodeId,
+      executorCompatibility: EXECUTOR_COMPATIBILITY
+    })
+    if (!validation.ok) {
+      stores_.recovery.blockEpisode({ episodeId, code: validation.code, reason: validation.reason })
+      stores_.recovery.releaseClaim({ episodeId, owner: recoveryOwner })
+      lastRecoveryOutcome = { ok: false, resumed: false, trigger, episode: episodeId, code: validation.code, reason: validation.reason }
+      return { ...lastRecoveryOutcome, error: validation.reason }
+    }
+
+    let acceptedResolve
+    const accepted = new Promise((resolve) => { acceptedResolve = resolve })
+    let started
+    try {
+      const { request } = validation.descriptor
+      started = startExecution({
+        episodeId,
+        workspace: request.workspace,
+        goal: request.goal,
+        contract: request.contract,
+        deadlineMs: request.deadlineAt - request.startedAt,
+        recoveryCheckpoint: checkpoint,
+        recoveryClaimAcquired: true,
+        onAccepted: acceptedResolve
       })
-    return { ok: true, accepted: true, episode, deadlineMs }
+    } catch (error) {
+      stores_.recovery.blockEpisode({ episodeId, code: 'RECOVERY_EXECUTOR_UNAVAILABLE', reason: String(error && error.message ? error.message : error) })
+      stores_.recovery.releaseClaim({ episodeId, owner: recoveryOwner })
+      lastRecoveryOutcome = { ok: false, resumed: false, trigger, episode: episodeId, code: 'RECOVERY_EXECUTOR_UNAVAILABLE', reason: String(error && error.message ? error.message : error) }
+      return { ...lastRecoveryOutcome, error: lastRecoveryOutcome.reason }
+    }
+
+    const outcome = await Promise.race([
+      accepted.then((value) => ({ kind: 'accepted', value })),
+      started.promise.then((report) => ({ kind: 'settled', report }))
+    ])
+    if (outcome.kind !== 'accepted') {
+      const report = outcome.report
+      const reason_ = report && report.validation && report.validation.reasons ? report.validation.reasons.join('; ') : `executor stopped before accepting recovery (${report && report.result ? report.result : 'unknown'})`
+      stores_.recovery.blockEpisode({ episodeId, code: 'RECOVERY_EXECUTOR_REFUSED', reason: reason_ })
+      lastRecoveryOutcome = { ok: false, resumed: false, trigger, episode: episodeId, code: 'RECOVERY_EXECUTOR_REFUSED', reason: reason_, report }
+      return { ...lastRecoveryOutcome, error: reason_ }
+    }
+    lastRecoveryOutcome = {
+      ok: true,
+      resumed: true,
+      accepted: true,
+      trigger,
+      episode: episodeId,
+      checkpointSeq: sequence,
+      acceptedCheckpointSeq: outcome.value.checkpointSeq,
+      cursor: checkpoint.recovery.cursor,
+      attempt: attempt.attempt,
+      cleanupRetries: cleanupRetries.outcomes
+    }
+    return lastRecoveryOutcome
+  }
+
+  function resumeLatest(input = {}) {
+    return resume({ ...input, episodeId: undefined })
   }
 
   /**
@@ -243,6 +522,7 @@ function createEngineeringHost(options = {}) {
     if (disabled) return disabled
     if (!activePromise || !supervisor) return { ok: true, cancelled: false, reason: 'no episode is running' }
     cancelled = true
+    preserveRecoveryOnCancel = input.preserveForResume === true
     const episode = supervisor.id
     log(`engineering episode ${episode} cancellation requested: ${input.reason || 'cancelled from the panel'}`)
     return { ok: true, cancelled: true, episode, reason: String(input.reason || 'cancelled from the panel') }
@@ -258,6 +538,7 @@ function createEngineeringHost(options = {}) {
   function dispose(reason_ = 'shell teardown') {
     if (supervisor && activePromise) {
       cancelled = true
+      preserveRecoveryOnCancel = true
       log(`engineering host disposing during an active episode (${reason_})`)
     }
     try {
@@ -265,8 +546,6 @@ function createEngineeringHost(options = {}) {
     } catch {
       /* nothing left to stop */
     }
-    activePromise = null
-    activeRequest = null
     return true
   }
 
@@ -276,6 +555,8 @@ function createEngineeringHost(options = {}) {
     describe,
     checkpoints,
     run,
+    resume,
+    resumeLatest,
     cancel,
     settled,
     dispose,
