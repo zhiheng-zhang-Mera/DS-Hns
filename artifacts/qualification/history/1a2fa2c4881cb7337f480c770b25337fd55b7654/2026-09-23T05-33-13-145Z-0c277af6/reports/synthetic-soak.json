@@ -1,0 +1,212 @@
+{
+  "harness": "longhost-soak",
+  "realtime": false,
+  "at": "2026-09-23T05:58:44.101Z",
+  "scenarios": [
+    {
+      "id": "soak-6h",
+      "horizonMs": 21600000,
+      "horizonHours": 6,
+      "cases": [
+        {
+          "id": "health-6h",
+          "title": "health scheduler over 6h of synthetic sampling",
+          "passed": true,
+          "checks": 8,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "1440 virtual steps, 1440 samples, pressures 7..75, actions NO_ACTION/PAUSE_NEW_WORK"
+          ]
+        },
+        {
+          "id": "health-6h",
+          "title": "health scheduler over 6h of synthetic sampling",
+          "passed": true,
+          "checks": 9,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "1440 virtual steps, 1440 samples, pressures 90..90, actions PAUSE_NEW_WORK/REQUEST_RESTART"
+          ]
+        },
+        {
+          "id": "budget-6h",
+          "title": "restart budget over 6h of a flapping application",
+          "passed": true,
+          "checks": 10,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "36 attempts, 4 allowed, 32 refused (RESTART_SAFE_MODE), max backoff 80000ms"
+          ]
+        },
+        {
+          "id": "heartbeat-6h",
+          "title": "heartbeat monitoring over 6h with periodic hangs",
+          "passed": true,
+          "checks": 9,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "4032 beats, 6 hangs, healthy 4062, graceful 55, forced 155, recover 0, last action none"
+          ]
+        },
+        {
+          "id": "maintenance-6h",
+          "title": "maintenance deferral over 6h",
+          "passed": true,
+          "checks": 4,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "360 deferrals, 0 allowed, 329 past the deadline; holders: pressure has been above 85 for 0ms, short of the | now is outside the maintenance window | the restart has waited 600000ms for the maintena | the restart has waited 660000ms for the maintena | the restart has waited 720000ms for the maintena | the restart has waited 780000ms for the maintena"
+          ]
+        }
+      ],
+      "passed": true,
+      "checks": 40,
+      "failures": 0
+    },
+    {
+      "id": "soak-12h",
+      "horizonMs": 43200000,
+      "horizonHours": 12,
+      "cases": [
+        {
+          "id": "health-12h",
+          "title": "health scheduler over 12h of synthetic sampling",
+          "passed": true,
+          "checks": 8,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "2880 virtual steps, 2880 samples, pressures 7..75, actions NO_ACTION/PAUSE_NEW_WORK"
+          ]
+        },
+        {
+          "id": "health-12h",
+          "title": "health scheduler over 12h of synthetic sampling",
+          "passed": true,
+          "checks": 9,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "2880 virtual steps, 2880 samples, pressures 90..90, actions PAUSE_NEW_WORK/REQUEST_RESTART"
+          ]
+        },
+        {
+          "id": "budget-12h",
+          "title": "restart budget over 12h of a flapping application",
+          "passed": true,
+          "checks": 10,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "72 attempts, 4 allowed, 68 refused (RESTART_SAFE_MODE), max backoff 80000ms"
+          ]
+        },
+        {
+          "id": "heartbeat-12h",
+          "title": "heartbeat monitoring over 12h with periodic hangs",
+          "passed": true,
+          "checks": 9,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "8352 beats, 6 hangs, healthy 8382, graceful 55, forced 155, recover 0, last action none"
+          ]
+        },
+        {
+          "id": "maintenance-12h",
+          "title": "maintenance deferral over 12h",
+          "passed": true,
+          "checks": 4,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "720 deferrals, 0 allowed, 689 past the deadline; holders: pressure has been above 85 for 0ms, short of the | now is outside the maintenance window | the restart has waited 600000ms for the maintena | the restart has waited 660000ms for the maintena | the restart has waited 720000ms for the maintena | the restart has waited 780000ms for the maintena"
+          ]
+        }
+      ],
+      "passed": true,
+      "checks": 40,
+      "failures": 0
+    },
+    {
+      "id": "soak-24h",
+      "horizonMs": 86400000,
+      "horizonHours": 24,
+      "cases": [
+        {
+          "id": "health-24h",
+          "title": "health scheduler over 24h of synthetic sampling",
+          "passed": true,
+          "checks": 8,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "5760 virtual steps, 5760 samples, pressures 7..75, actions NO_ACTION/PAUSE_NEW_WORK"
+          ]
+        },
+        {
+          "id": "health-24h",
+          "title": "health scheduler over 24h of synthetic sampling",
+          "passed": true,
+          "checks": 9,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "5760 virtual steps, 5760 samples, pressures 90..90, actions PAUSE_NEW_WORK/REQUEST_RESTART"
+          ]
+        },
+        {
+          "id": "budget-24h",
+          "title": "restart budget over 24h of a flapping application",
+          "passed": true,
+          "checks": 10,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "144 attempts, 4 allowed, 140 refused (RESTART_SAFE_MODE), max backoff 80000ms"
+          ]
+        },
+        {
+          "id": "heartbeat-24h",
+          "title": "heartbeat monitoring over 24h with periodic hangs",
+          "passed": true,
+          "checks": 9,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "16992 beats, 6 hangs, healthy 17022, graceful 55, forced 155, recover 0, last action none"
+          ]
+        },
+        {
+          "id": "maintenance-24h",
+          "title": "maintenance deferral over 24h",
+          "passed": true,
+          "checks": 4,
+          "failed": 0,
+          "failures": [],
+          "notes": [
+            "1439 deferrals, 1 allowed, 1349 past the deadline; holders: pressure has been above 85 for 0ms, short of the | now is outside the maintenance window | the restart has waited 600000ms for the maintena | the restart has waited 660000ms for the maintena | the restart has waited 720000ms for the maintena | the restart has waited 780000ms for the maintena"
+          ]
+        }
+      ],
+      "passed": true,
+      "checks": 40,
+      "failures": 0
+    }
+  ],
+  "checks": 120,
+  "failures": 0,
+  "passed": true,
+  "qualification": {
+    "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+    "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+    "branch": "dev/hns-final-qualification-rc2",
+    "gate": "synthetic-soak"
+  }
+}

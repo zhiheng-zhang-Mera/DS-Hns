@@ -1,0 +1,1365 @@
+{
+  "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+  "branch": "dev/hns-final-qualification-rc2",
+  "root": "D:\\Hns-Final-Qualification\\repo",
+  "port": "3091",
+  "skills": true,
+  "github": true,
+  "keep": false,
+  "at": "2026-09-23T05:58:28.718Z",
+  "total": 130,
+  "passed": 127,
+  "failed": 3,
+  "warnings": [
+    "AI model adapter disabled: the deterministic interpreter designed every theme in this run"
+  ],
+  "modules": {
+    "core": {
+      "passed": 56,
+      "failed": 2,
+      "checks": [
+        {
+          "name": "the harness listens on the alternate port",
+          "ok": true
+        },
+        {
+          "name": "the official harness renderer is attached",
+          "ok": true
+        },
+        {
+          "name": "the official harness renderer document is ready",
+          "ok": true
+        },
+        {
+          "name": "the glass layer published its numbers",
+          "ok": true
+        },
+        {
+          "name": "the pane is translucent, so the window material shows through",
+          "ok": true
+        },
+        {
+          "name": "dragging the blur slider moves the pane immediately",
+          "ok": true
+        },
+        {
+          "name": "the readout follows the drag",
+          "ok": true
+        },
+        {
+          "name": "releasing the slider persists the value through the shell",
+          "ok": true
+        },
+        {
+          "name": "switching back to Dark succeeds",
+          "ok": true
+        },
+        {
+          "name": "the official renderer is still a rendered page",
+          "ok": true
+        },
+        {
+          "name": "a real GitHub repository installs over the network",
+          "ok": true
+        },
+        {
+          "name": "the repository collection installs, not its starter scaffold",
+          "ok": true
+        },
+        {
+          "name": "bulk delete of the GitHub collection succeeds",
+          "ok": true
+        },
+        {
+          "name": "quick search answers from the catalog",
+          "ok": true
+        },
+        {
+          "name": "a local directory installs through the native picker",
+          "ok": true
+        },
+        {
+          "name": "a single delete succeeds",
+          "ok": true
+        },
+        {
+          "name": "a prompt creates a preview and does not install",
+          "ok": true
+        },
+        {
+          "name": "the acceptance run can set a wallpaper at all",
+          "ok": true
+        },
+        {
+          "name": "the official renderer is declared protected and unwritable",
+          "ok": true
+        },
+        {
+          "name": "the official shell is declared fully writable",
+          "ok": true
+        },
+        {
+          "name": "official_shell passes pointer/keyboard/scroll input through and never takes focus",
+          "ok": true
+        },
+        {
+          "name": "official_overlay passes pointer/keyboard/scroll input through and never takes focus",
+          "ok": true
+        },
+        {
+          "name": "the official renderer is the direct window page with no sibling shell view",
+          "ok": true
+        },
+        {
+          "name": "no legacy official overlay view is mounted above the direct page",
+          "ok": true
+        },
+        {
+          "name": "the wallpaper layer is a click-through window over the official page",
+          "ok": true
+        },
+        {
+          "name": "the wallpaper layer loaded its document",
+          "ok": true
+        },
+        {
+          "name": "no legacy shell bounds are invented for the direct official page",
+          "ok": true
+        },
+        {
+          "name": "no surface module degraded during this run",
+          "ok": true
+        },
+        {
+          "name": "the plan never writes the protected official renderer",
+          "ok": true
+        },
+        {
+          "name": "no overlay safety result is claimed when no overlay exists",
+          "ok": true
+        },
+        {
+          "name": "no live overlay layout is claimed for the direct official page",
+          "ok": true
+        },
+        {
+          "name": "a click lands on the official renderer with the wallpaper layer up",
+          "ok": true
+        },
+        {
+          "name": "the official renderer kept the click as a real click (the wallpaper layer did not swallow it)",
+          "ok": true
+        },
+        {
+          "name": "the wallpaper layer did not steal focus from the official renderer",
+          "ok": false
+        },
+        {
+          "name": "a keystroke reaches the official renderer while the wallpaper layer is on screen",
+          "ok": true
+        },
+        {
+          "name": "a scroll reaches the official renderer while the wallpaper layer is on screen",
+          "ok": true
+        },
+        {
+          "name": "the wallpaper layer never retained focus during keyboard or scroll input",
+          "ok": false
+        },
+        {
+          "name": "the acceptance run clears the wallpaper it set",
+          "ok": true
+        },
+        {
+          "name": "the asset plan lists every generated asset",
+          "ok": true
+        },
+        {
+          "name": "no asset is planned onto the protected official renderer",
+          "ok": true
+        },
+        {
+          "name": "every enabled asset exists on disk at the path the plan declares",
+          "ok": true
+        },
+        {
+          "name": "the plan omits an official character when no safe official overlay exists",
+          "ok": true
+        },
+        {
+          "name": "asset \"wallpaper\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "asset \"panel_texture\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "asset \"icon_set\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "asset \"frame_decoration\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "asset \"official_skin\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "asset \"official_overlay_texture\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "asset \"hud_decoration\" declares its target surface",
+          "ok": true
+        },
+        {
+          "name": "every planned asset records the prompt it was generated from",
+          "ok": true
+        },
+        {
+          "name": "the plan records how each asset was produced",
+          "ok": true
+        },
+        {
+          "name": "the revision reports what it changed",
+          "ok": true
+        },
+        {
+          "name": "the revision reports the parts it preserved",
+          "ok": true
+        },
+        {
+          "name": "the revision is scoped, not a full re-roll",
+          "ok": true
+        },
+        {
+          "name": "the revision count advanced",
+          "ok": true
+        },
+        {
+          "name": "a preview revision does not mutate live overlay safety state",
+          "ok": true
+        },
+        {
+          "name": "a discarded preview is removed",
+          "ok": true
+        },
+        {
+          "name": "the protected renderer stayed untouched across the deletion",
+          "ok": true
+        }
+      ]
+    },
+    "dock": {
+      "passed": 6,
+      "failed": 1,
+      "checks": [
+        {
+          "name": "the dock renderer is attached",
+          "ok": true
+        },
+        {
+          "name": "the dock renderer document is ready",
+          "ok": true
+        },
+        {
+          "name": "the dock boots frosted",
+          "ok": true
+        },
+        {
+          "name": "the dock collapses through its own control",
+          "ok": true
+        },
+        {
+          "name": "the dock expands to full width through its own control",
+          "ok": true
+        },
+        {
+          "name": "the wallpaper layer covers the window content box and cuts the dock out of the picture",
+          "ok": false
+        },
+        {
+          "name": "the observation still runs against the dock",
+          "ok": true
+        }
+      ]
+    },
+    "theme": {
+      "passed": 53,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "the dock carries no theme stylesheet",
+          "ok": true
+        },
+        {
+          "name": "the dock carries no active theme",
+          "ok": true
+        },
+        {
+          "name": "the Appearance panel is present",
+          "ok": true
+        },
+        {
+          "name": "the appearance module is attached to the dock",
+          "ok": true
+        },
+        {
+          "name": "the theme panel is gone from the dock",
+          "ok": true
+        },
+        {
+          "name": "the dock loads no theme bridge",
+          "ok": true
+        },
+        {
+          "name": "applying the Light system theme succeeds",
+          "ok": true
+        },
+        {
+          "name": "the dock kept its palette across the theme switch",
+          "ok": true
+        },
+        {
+          "name": "the dock received no theme stylesheet on the switch",
+          "ok": true
+        },
+        {
+          "name": "the dock received no theme identity on the switch",
+          "ok": true
+        },
+        {
+          "name": "the official renderer received no theme stylesheet",
+          "ok": true
+        },
+        {
+          "name": "the official renderer received no theme tokens",
+          "ok": true
+        },
+        {
+          "name": "the official renderer received no theme dataset",
+          "ok": true
+        },
+        {
+          "name": "the generated theme was approved and installed",
+          "ok": true
+        },
+        {
+          "name": "the engine exposes exactly the four Theme Surfaces",
+          "ok": true
+        },
+        {
+          "name": "the official overlay is declared visual-only",
+          "ok": true
+        },
+        {
+          "name": "the protected official renderer was never painted by the theme system",
+          "ok": true
+        },
+        {
+          "name": "an approved theme does not target unavailable sibling views",
+          "ok": true
+        },
+        {
+          "name": "the dock is still frosted glass with a generated theme installed",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries its asset plan",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries its surface plan",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries its overlay plan",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries the hns-preview.html preview",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries the official-shell-preview.html preview",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries the official-overlay-preview.html preview",
+          "ok": true
+        },
+        {
+          "name": "the installed theme carries the composite-preview.html preview",
+          "ok": true
+        },
+        {
+          "name": "the theme create reported its observation",
+          "ok": true
+        },
+        {
+          "name": "the theme design observed the UI visually",
+          "ok": true
+        },
+        {
+          "name": "the visual theme observation does not invent a dock region",
+          "ok": true
+        },
+        {
+          "name": "the observation captured the dock snapshot package",
+          "ok": true
+        },
+        {
+          "name": "the dock reports no slot geometry, because nothing themes it",
+          "ok": true
+        },
+        {
+          "name": "the snapshot directory holds a map file",
+          "ok": true
+        },
+        {
+          "name": "the snapshot package claims PNG files",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/dashboard.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/worker.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/process.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/hardware.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/log.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/skills.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot PNG snapshot/settings.png is a real image",
+          "ok": true
+        },
+        {
+          "name": "the snapshot package reports no capture problems",
+          "ok": true
+        },
+        {
+          "name": "a revision of a previewed theme succeeds",
+          "ok": true
+        },
+        {
+          "name": "a preview revision does not repaint the live theme before approval",
+          "ok": true
+        },
+        {
+          "name": "the generated theme package exists on disk",
+          "ok": true
+        },
+        {
+          "name": "the generated theme is listed and Dark is restored",
+          "ok": true
+        },
+        {
+          "name": "the generated theme can be deleted again",
+          "ok": true
+        },
+        {
+          "name": "the deleted theme package is gone from disk",
+          "ok": true
+        },
+        {
+          "name": "deleting the active theme leaves no overlay plan behind",
+          "ok": true
+        },
+        {
+          "name": "theme deletion leaves the direct official page without a legacy overlay",
+          "ok": true
+        },
+        {
+          "name": "no theme asset directory is left in the deleted theme package",
+          "ok": true
+        },
+        {
+          "name": "a protected system theme cannot be deleted",
+          "ok": true
+        },
+        {
+          "name": "every protected system theme refuses deletion",
+          "ok": true
+        },
+        {
+          "name": "the theme pipeline works without an AI designer",
+          "ok": true
+        }
+      ]
+    },
+    "skills": {
+      "passed": 11,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "the skills service answers through the dock bridge",
+          "ok": true
+        },
+        {
+          "name": "a bundled skill installs through the catalog channel",
+          "ok": true
+        },
+        {
+          "name": "the bundled skill exists on disk in harness format",
+          "ok": true
+        },
+        {
+          "name": "the installed skill carries valid frontmatter",
+          "ok": true
+        },
+        {
+          "name": "the starter scaffold is not among the installed skills",
+          "ok": true
+        },
+        {
+          "name": "a GitHub-installed skill is a directory bundle on disk",
+          "ok": true
+        },
+        {
+          "name": "the deleted skills are gone from disk",
+          "ok": true
+        },
+        {
+          "name": "the native-picked local skill is installed",
+          "ok": true
+        },
+        {
+          "name": "the locally installed skill exists on disk",
+          "ok": true
+        },
+        {
+          "name": "the deleted skill is gone from disk",
+          "ok": true
+        },
+        {
+          "name": "the skills list renders installed skills",
+          "ok": true
+        }
+      ]
+    },
+    "updater": {
+      "passed": 1,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "the updater rollback tests pass against the real runner",
+          "ok": true
+        }
+      ]
+    }
+  },
+  "updater": {
+    "ok": true,
+    "summary": "ℹ tests 8 · ℹ pass 8 · ℹ fail 0"
+  },
+  "checks": [
+    {
+      "name": "the harness listens on the alternate port",
+      "module": "core",
+      "ok": true,
+      "detail": "http://127.0.0.1:3091/"
+    },
+    {
+      "name": "the dock renderer is attached",
+      "module": "dock",
+      "ok": true,
+      "detail": "file:///D:/Hns-Final-Qualification/repo/app/extensions/mega/ui/dock.html"
+    },
+    {
+      "name": "the official harness renderer is attached",
+      "module": "core",
+      "ok": true,
+      "detail": "http://127.0.0.1:3091/"
+    },
+    {
+      "name": "the dock renderer document is ready",
+      "module": "dock",
+      "ok": true,
+      "detail": "{\"readyState\":\"complete\",\"href\":\"file:///D:/Hns-Final-Qualification/repo/app/extensions/mega/ui/dock.html\"}"
+    },
+    {
+      "name": "the official harness renderer document is ready",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"readyState\":\"complete\",\"href\":\"http://127.0.0.1:3091/\"}"
+    },
+    {
+      "name": "the dock boots frosted",
+      "module": "dock",
+      "ok": true,
+      "detail": "{\"glass\":\"on\",\"blur\":\"31px\",\"alpha\":\"18%\",\"base\":\"#0f1115\",\"sheet\":false,\"themeId\":null}"
+    },
+    {
+      "name": "the glass layer published its numbers",
+      "module": "core",
+      "ok": true,
+      "detail": "31px / 18%"
+    },
+    {
+      "name": "the dock carries no theme stylesheet",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the dock carries no active theme",
+      "module": "theme",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "name": "the pane is translucent, so the window material shows through",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"value\":\"rgba(0, 0, 0, 0)\",\"alpha\":0}"
+    },
+    {
+      "name": "the Appearance panel is present",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the appearance module is attached to the dock",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the theme panel is gone from the dock",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"appearance\":true,\"skills\":true,\"panelModule\":true,\"themeList\":false,\"themePrompt\":false,\"bridge\":false}"
+    },
+    {
+      "name": "the dock loads no theme bridge",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the dock collapses through its own control",
+      "module": "dock",
+      "ok": true,
+      "detail": "{\"expanded\":false,\"width\":0}"
+    },
+    {
+      "name": "the dock expands to full width through its own control",
+      "module": "dock",
+      "ok": true,
+      "detail": "{\"expanded\":true,\"width\":560,\"detailWidth\":135}"
+    },
+    {
+      "name": "dragging the blur slider moves the pane immediately",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"before\":\"31px\",\"after\":\"31px\",\"readout\":\"31\"}"
+    },
+    {
+      "name": "the readout follows the drag",
+      "module": "core",
+      "ok": true,
+      "detail": "31"
+    },
+    {
+      "name": "releasing the slider persists the value through the shell",
+      "module": "core",
+      "ok": true,
+      "detail": "31px"
+    },
+    {
+      "name": "applying the Light system theme succeeds",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the dock kept its palette across the theme switch",
+      "module": "theme",
+      "ok": true,
+      "detail": "rgba(0, 0, 0, 0) -> rgba(0, 0, 0, 0)"
+    },
+    {
+      "name": "the dock received no theme stylesheet on the switch",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the dock received no theme identity on the switch",
+      "module": "theme",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "name": "switching back to Dark succeeds",
+      "module": "core",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the official renderer received no theme stylesheet",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the official renderer received no theme tokens",
+      "module": "theme",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "the official renderer received no theme dataset",
+      "module": "theme",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "the official renderer is still a rendered page",
+      "module": "core",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the skills service answers through the dock bridge",
+      "module": "skills",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a bundled skill installs through the catalog channel",
+      "module": "skills",
+      "ok": true,
+      "detail": "{\"ok\":true,\"installed\":[\"commit-message\"],\"reason\":null}"
+    },
+    {
+      "name": "the bundled skill exists on disk in harness format",
+      "module": "skills",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data\\skills\\commit-message.md"
+    },
+    {
+      "name": "the installed skill carries valid frontmatter",
+      "module": "skills",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a real GitHub repository installs over the network",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"installed\":[\"skills-academy-guide\",\"skills-algorithmic-art\",\"skills-brand-guidelines\",\"skills-canvas-design\",\"skills-claude-api\",\"skills-discernment-nudge\",\"skills-doc-coauthoring\",\"skills-docx\",\"skills-frontend-design\",\"skills-internal-comms\",\"skills-mcp-builder\",\"skills-pdf\",\"skills-pp"
+    },
+    {
+      "name": "the repository collection installs, not its starter scaffold",
+      "module": "core",
+      "ok": true,
+      "detail": "19 skills: skills-academy-guide, skills-algorithmic-art, skills-brand-guidelines, skills-canvas-design"
+    },
+    {
+      "name": "the starter scaffold is not among the installed skills",
+      "module": "skills",
+      "ok": true,
+      "detail": "[\"skills-academy-guide\",\"skills-algorithmic-art\",\"skills-brand-guidelines\",\"skills-canvas-design\",\"skills-claude-api\",\"skills-discernment-nudge\",\"skills-doc-coauthoring\",\"skills-docx\",\"skills-frontend-design\",\"skills-internal-comms\",\"skills-mcp-builder\",\"skills-pdf\",\"skills-pptx\",\"skills-skill-creator\",\"skills-slack-gif-creator\",\"skills-theme-factory\",\"skills-web-artifacts-builder\",\"skills-webapp-testing\",\"skills-xlsx\"]"
+    },
+    {
+      "name": "a GitHub-installed skill is a directory bundle on disk",
+      "module": "skills",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data\\skills\\skills-academy-guide\\SKILL.md"
+    },
+    {
+      "name": "bulk delete of the GitHub collection succeeds",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"deleted\":19,\"failed\":0}"
+    },
+    {
+      "name": "the deleted skills are gone from disk",
+      "module": "skills",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "quick search answers from the catalog",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"offline\":1,\"status\":\"not-requested\"}"
+    },
+    {
+      "name": "a local directory installs through the native picker",
+      "module": "core",
+      "ok": true,
+      "detail": "1 -> 2"
+    },
+    {
+      "name": "the native-picked local skill is installed",
+      "module": "skills",
+      "ok": true,
+      "detail": "true"
+    },
+    {
+      "name": "the locally installed skill exists on disk",
+      "module": "skills",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a single delete succeeds",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"reason\":null}"
+    },
+    {
+      "name": "the deleted skill is gone from disk",
+      "module": "skills",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the skills list renders installed skills",
+      "module": "skills",
+      "ok": true,
+      "detail": "841 chars"
+    },
+    {
+      "name": "a prompt creates a preview and does not install",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"stage\":\"preview\",\"validationOk\":true,\"id\":\"hns.user.theme\",\"reason\":null,\"observation\":{\"visual\":true,\"degraded\":false,\"reason\":\"visual snapshot captured\",\"snapshotDir\":\"D:\\\\Hns-Final-Qualification\\\\test-artifacts\\\\qualification-runs\\\\2026-09-23T05-33-13-145Z-0c277af6\\\\runtime\\\\electron-data\\\\theme-workspace\\\\snapshot\",\"observedSlots\":{\"count\":0,\"ids\":[],\"boundingBoxes\":{}},\"captureProblems\":[],\"ui\":{\"viewport\":{\"x\":0,\"y\":0,\"width\":560,\"height\":805},\"window\":{\"width\":560,\"height\":805},\"hns_bounds\":{\"width\":560,\"height\":805},\"dock_bounds\":{\"width\":560,\"height\":805,\"expanded\":false},\"official_bounds\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":800},\"official_bounds_observed\":false,\"slot_geometry\":{},\"slot_count\":0,\"character_regions\":[],\"safe_region\":{\"x\":8,\"y\":8,\"width\":544,\"height\":789},\"critical_regions\":[{\"id\":\"input_region\",\"label\":\"input area\",\"x\":28,\"y\":660,\"width\":504,\"height\":113,\"source\":\"assumed\"},{\"id\":\"send_region\",\"label\":\"send button area\",\"x\":465,\"y\":660,\"width\":78,\"height\":113,\"source\":\"assumed\"},{\"id\":\"body_region\",\"label\":\"core body centre\",\"x\":28,\"y\":48,\"width\":504,\"height\":596,\"source\":\"assumed\"}],\"critical_observed\":false,\"degraded\":true,\"reason\":\"the official view bounds were not observed; the overlay viewport is an assumption\"}},\"snapshot\":{\"captured\":true,\"visual\":true,\"degraded\":false,\"reason\":\"visual snapshot captured\",\"dir\":\"D:\\\\Hns-Final-Qualification\\\\test-artifacts\\\\qualification-runs\\\\2026-09-23T05-33-13-145Z-0c277af6\\\\runtime\\\\electron-data\\\\theme-workspace\\\\snapshot\",\"pages\":[\"Main Dashboard\",\"Worker View\",\"Process View\",\"Hardware Monitor\",\"Log View\",\"Skills\",\"Settings\",\"Tray / Popup\",\"Official Harness UI\"],\"observedSlots\":{\"count\":0,\"ids\":[],\"boundingBoxes\":{}}}}"
+    },
+    {
+      "name": "the generated theme was approved and installed",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"ok\":true,\"stage\":\"preview\",\"validationOk\":true,\"id\":\"hns.user.theme\",\"reason\":null,\"observation\":{\"visual\":true,\"degraded\":false,\"reason\":\"visual snapshot captured\",\"snapshotDir\":\"D:\\\\Hns-Final-Qualification\\\\test-artifacts\\\\qualification-runs\\\\2026-09-23T05-33-13-145Z-0c277af6\\\\runtime\\\\electron-data\\\\theme-workspace\\\\snapshot\",\"observedSlots\":{\"count\":0,\"ids\":[],\"boundingBoxes\":{}},\"captureProblems\":[],\"ui\":{\"viewport\":{\"x\":0,\"y\":0,\"width\":560,\"height\":805},\"window\":{\"width\":560,\"height\":805},\"hns_bounds\":{\"width\":560,\"height\":805},\"dock_bounds\":{\"width\":560,\"height\":805,\"expanded\":false},\"official_bounds\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":800},\"official_bounds_observed\":false,\"slot_geometry\":{},\"slot_count\":0,\"character_regions\":[],\"safe_region\":{\"x\":8,\"y\":8,\"width\":544,\"height\":789},\"critical_regions\":[{\"id\":\"input_region\",\"label\":\"input area\",\"x\":28,\"y\":660,\"width\":504,\"height\":113,\"source\":\"assumed\"},{\"id\":\"send_region\",\"label\":\"send button area\",\"x\":465,\"y\":660,\"width\":78,\"height\":113,\"source\":\"assumed\"},{\"id\":\"body_region\",\"label\":\"core body centre\",\"x\":28,\"y\":48,\"width\":504,\"height\":596,\"source\":\"assumed\"}],\"critical_observed\":false,\"degraded\":true,\"reason\":\"the official view bounds were not observed; the overlay viewport is an assumption\"}},\"snapshot\":{\"captured\":true,\"visual\":true,\"degraded\":false,\"reason\":\"visual snapshot captured\",\"dir\":\"D:\\\\Hns-Final-Qualification\\\\test-artifacts\\\\qualification-runs\\\\2026-09-23T05-33-13-145Z-0c277af6\\\\runtime\\\\electron-data\\\\theme-workspace\\\\snapshot\",\"pages\":[\"Main Dashboard\",\"Worker View\",\"Process View\",\"Hardware Monitor\",\"Log View\",\"Skills\",\"Settings\",\"Tray / Popup\",\"Official Harness UI\"],\"observedSlots\":{\"count\":0,\"ids\":[],\"boundingBoxes\":{}}}}"
+    },
+    {
+      "name": "the acceptance run can set a wallpaper at all",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"file\":\"D:\\\\Hns-Final-Qualification\\\\repo\\\\assets\\\\icon\\\\ds-harness-256.png\",\"drawable\":true,\"reason\":null}"
+    },
+    {
+      "name": "the engine exposes exactly the four Theme Surfaces",
+      "module": "theme",
+      "ok": true,
+      "detail": "[{\"id\":\"hns_native\",\"permission\":\"full\",\"writable\":true,\"protected\":false,\"visualOnly\":false,\"input\":{\"pointer\":true,\"keyboard\":true,\"focus\":true,\"scroll\":true,\"passthrough\":false}},{\"id\":\"official_shell\",\"permission\":\"full\",\"writable\":true,\"protected\":false,\"visualOnly\":false,\"input\":{\"pointer\":false,\"keyboard\":false,\"focus\":false,\"scroll\":false,\"passthrough\":true}},{\"id\":\"official_overlay\",\"permission\":\"visual-only\",\"writable\":true,\"protected\":false,\"visualOnly\":true,\"input\":{\"pointer\":false,\"keyboard\":false,\"focus\":false,\"scroll\":false,\"passthrough\":true}},{\"id\":\"official_renderer\",\"permission\":\"protected\",\"writable\":false,\"protected\":true,\"visualOnly\":false,\"input\":{\"pointer\":true,\"keyboard\":true,\"focus\":true,\"scroll\":true,\"passthrough\":false}}]"
+    },
+    {
+      "name": "the official renderer is declared protected and unwritable",
+      "module": "core",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the official overlay is declared visual-only",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the official shell is declared fully writable",
+      "module": "core",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "official_shell passes pointer/keyboard/scroll input through and never takes focus",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"pointer\":false,\"keyboard\":false,\"focus\":false,\"scroll\":false,\"passthrough\":true}"
+    },
+    {
+      "name": "official_overlay passes pointer/keyboard/scroll input through and never takes focus",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"pointer\":false,\"keyboard\":false,\"focus\":false,\"scroll\":false,\"passthrough\":true}"
+    },
+    {
+      "name": "the official renderer is the direct window page with no sibling shell view",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"available\":false,\"reason\":\"official_renderer_is_window_page\"}"
+    },
+    {
+      "name": "no legacy official overlay view is mounted above the direct page",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"available\":false,\"reason\":\"official_renderer_is_window_page\"}"
+    },
+    {
+      "name": "the wallpaper layer is a click-through window over the official page",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"available\":true,\"enabled\":true,\"created\":true,\"ready\":true,\"visible\":true,\"input\":\"passthrough\",\"focusable\":false,\"bounds\":{\"x\":224,\"y\":87,\"width\":1472,\"height\":881},\"notch\":null,\"document\":\"D:\\\\Hns-Final-Qualification\\\\repo\\\\app\\\\extensions\\\\mega\\\\ui\\\\wallpaper-window.html\",\"problems\":[],\"events\":[{\"at\":\"2026-09-23T05:56:00.534Z\",\"event\":\"notch\",\"notch\":{\"x\":1424,\"y\":76}},{\"at\":\"2026-09-23T05:56:02.334Z\",\"event\":\"created\"},{\"at\":\"2026-09-23T05:56:02.338Z\",\"event\":\"paint\",\"drawable\":true},{\"at\":\"2026-09-23T05:56:02.347Z\",\"event\":\"notch\",\"notch\":{\"x\":912,\"y\":76}},{\"at\":\"2026-09-23T05:56:10.672Z\",\"event\":\"notch\",\"notch\":null},{\"at\":\"2026-09-23T05:56:12.088Z\",\"event\":\"notch\",\"notch\":{\"x\":912,\"y\":76}},{\"at\":\"2026-09-23T05:57:51.674Z\",\"event\":\"notch\",\"notch\":null},{\"at\":\"2026-09-23T05:57:54.572Z\",\"event\":\"paint\",\"drawable\":true}]}"
+    },
+    {
+      "name": "the wallpaper layer loaded its document",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"available\":true,\"enabled\":true,\"created\":true,\"ready\":true,\"visible\":true,\"input\":\"passthrough\",\"focusable\":false,\"bounds\":{\"x\":224,\"y\":87,\"width\":1472,\"height\":881},\"notch\":null,\"document\":\"D:\\\\Hns-Final-Qualification\\\\repo\\\\app\\\\extensions\\\\mega\\\\ui\\\\wallpaper-window.html\",\"problems\":[],\"events\":[{\"at\":\"2026-09-23T05:56:00.534Z\",\"event\":\"notch\",\"notch\":{\"x\":1424,\"y\":76}},{\"at\":\"2026-09-23T05:56:02.334Z\",\"event\":\"created\"},{\"at\":\"2026-09-23T05:56:02.338Z\",\"event\":\"paint\",\"drawable\":true},{\"at\":\"2026-09-23T05:56:02.347Z\",\"event\":\"notch\",\"notch\":{\"x\":912,\"y\":76}},{\"at\":\"2026-09-23T05:56:10.672Z\",\"event\":\"notch\",\"notch\":null},{\"at\":\"2026-09-23T05:56:12.088Z\",\"event\":\"notch\",\"notch\":{\"x\":912,\"y\":76}},{\"at\":\"2026-09-23T05:57:51.674Z\",\"event\":\"notch\",\"notch\":null},{\"at\":\"2026-09-23T05:57:54.572Z\",\"event\":\"paint\",\"drawable\":true}]}"
+    },
+    {
+      "name": "the wallpaper layer covers the window content box and cuts the dock out of the picture",
+      "module": "dock",
+      "ok": false,
+      "detail": "{\"bounds\":{\"x\":224,\"y\":87,\"width\":1472,\"height\":881},\"notch\":null}"
+    },
+    {
+      "name": "no legacy shell bounds are invented for the direct official page",
+      "module": "core",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "name": "the protected official renderer was never painted by the theme system",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"id\":\"official_renderer\",\"writable\":false,\"painted\":false,\"injection_apis_used\":[]}"
+    },
+    {
+      "name": "no surface module degraded during this run",
+      "module": "core",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "an approved theme does not target unavailable sibling views",
+      "module": "theme",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "the dock is still frosted glass with a generated theme installed",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"glass\":\"on\",\"sheet\":false,\"themeId\":null,\"background\":\"rgba(0, 0, 0, 0)\"}"
+    },
+    {
+      "name": "the plan never writes the protected official renderer",
+      "module": "core",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "no overlay safety result is claimed when no overlay exists",
+      "module": "core",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "name": "no live overlay layout is claimed for the direct official page",
+      "module": "core",
+      "ok": true,
+      "detail": "null"
+    },
+    {
+      "name": "a click lands on the official renderer with the wallpaper layer up",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"mousedown\":1,\"mouseup\":1,\"clicks\":1,\"blur\":1,\"focus\":0,\"wheel\":0,\"keydown\":0,\"focused\":true}"
+    },
+    {
+      "name": "the official renderer kept the click as a real click (the wallpaper layer did not swallow it)",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"mousedown\":1,\"mouseup\":1,\"clicks\":1,\"blur\":1,\"focus\":0,\"wheel\":0,\"keydown\":0,\"focused\":true}"
+    },
+    {
+      "name": "the wallpaper layer did not steal focus from the official renderer",
+      "module": "core",
+      "ok": false,
+      "detail": "{\"mousedown\":1,\"mouseup\":1,\"clicks\":1,\"blur\":1,\"focus\":0,\"wheel\":0,\"keydown\":0,\"focused\":true}"
+    },
+    {
+      "name": "a keystroke reaches the official renderer while the wallpaper layer is on screen",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"mousedown\":1,\"mouseup\":1,\"clicks\":1,\"blur\":1,\"focus\":0,\"wheel\":1,\"keydown\":1,\"focused\":true}"
+    },
+    {
+      "name": "a scroll reaches the official renderer while the wallpaper layer is on screen",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"mousedown\":1,\"mouseup\":1,\"clicks\":1,\"blur\":1,\"focus\":0,\"wheel\":1,\"keydown\":1,\"focused\":true}"
+    },
+    {
+      "name": "the wallpaper layer never retained focus during keyboard or scroll input",
+      "module": "core",
+      "ok": false,
+      "detail": "{\"mousedown\":1,\"mouseup\":1,\"clicks\":1,\"blur\":1,\"focus\":0,\"wheel\":1,\"keydown\":1,\"focused\":true}"
+    },
+    {
+      "name": "the acceptance run clears the wallpaper it set",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"file\":null,\"drawable\":false}"
+    },
+    {
+      "name": "the installed theme carries its asset plan",
+      "module": "theme",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data\\themes\\user\\hns.user.theme\\asset-plan.json"
+    },
+    {
+      "name": "the installed theme carries its surface plan",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the installed theme carries its overlay plan",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the installed theme carries the hns-preview.html preview",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the installed theme carries the official-shell-preview.html preview",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the installed theme carries the official-overlay-preview.html preview",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the installed theme carries the composite-preview.html preview",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the asset plan lists every generated asset",
+      "module": "core",
+      "ok": true,
+      "detail": "7 assets"
+    },
+    {
+      "name": "no asset is planned onto the protected official renderer",
+      "module": "core",
+      "ok": true,
+      "detail": "[\"hns_native\",\"official_shell\",\"official_overlay\"]"
+    },
+    {
+      "name": "every enabled asset exists on disk at the path the plan declares",
+      "module": "core",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "the plan omits an official character when no safe official overlay exists",
+      "module": "core",
+      "ok": true,
+      "detail": "[\"wallpaper\",\"panel_texture\",\"icon_set\",\"frame_decoration\",\"official_skin\",\"official_overlay_texture\",\"hud_decoration\"]"
+    },
+    {
+      "name": "asset \"wallpaper\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "wallpaper -> hns_native"
+    },
+    {
+      "name": "asset \"panel_texture\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "panel_texture -> hns_native"
+    },
+    {
+      "name": "asset \"icon_set\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "icon_set -> hns_native"
+    },
+    {
+      "name": "asset \"frame_decoration\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "frame_decoration -> official_shell"
+    },
+    {
+      "name": "asset \"official_skin\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "official_skin -> official_overlay"
+    },
+    {
+      "name": "asset \"official_overlay_texture\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "official_overlay_texture -> official_overlay"
+    },
+    {
+      "name": "asset \"hud_decoration\" declares its target surface",
+      "module": "core",
+      "ok": true,
+      "detail": "hud_decoration -> official_overlay"
+    },
+    {
+      "name": "every planned asset records the prompt it was generated from",
+      "module": "core",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the plan records how each asset was produced",
+      "module": "core",
+      "ok": true,
+      "detail": "[\"procedural-fallback\"]"
+    },
+    {
+      "name": "the theme create reported its observation",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"visual\":true,\"degraded\":false,\"reason\":\"visual snapshot captured\",\"snapshotDir\":\"D:\\\\Hns-Final-Qualification\\\\test-artifacts\\\\qualification-runs\\\\2026-09-23T05-33-13-145Z-0c277af6\\\\runtime\\\\electron"
+    },
+    {
+      "name": "the theme design observed the UI visually",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"snapshotVisual\":true,\"observationVisual\":true,\"reason\":\"visual snapshot captured\"}"
+    },
+    {
+      "name": "the visual theme observation does not invent a dock region",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"snapshotDegraded\":false,\"reason\":\"visual snapshot captured\"}"
+    },
+    {
+      "name": "the observation captured the dock snapshot package",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"captured\":true,\"visual\":true,\"degraded\":false,\"reason\":\"visual snapshot captured\",\"dir\":\"D:\\\\Hns-Final-Qualification\\\\test-artifacts\\\\qualification-runs\\\\2026-09-23T05-33-13-145Z-0c277af6\\\\runtime\\\\"
+    },
+    {
+      "name": "the observation still runs against the dock",
+      "module": "dock",
+      "ok": true,
+      "detail": "{\"ok\":true,\"degraded\":false,\"visual\":true,\"reason\":\"visual snapshot captured\",\"slotCount\":69,\"observedSlots\":{\"count\":0,\"ids\":[],\"boundingBoxes\":{}},\"measured\":[]}"
+    },
+    {
+      "name": "the dock reports no slot geometry, because nothing themes it",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"measured\":[],\"observedSlots\":{\"count\":0,\"ids\":[],\"boundingBoxes\":{}}}"
+    },
+    {
+      "name": "the snapshot directory holds a map file",
+      "module": "theme",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data\\theme-workspace\\snapshot\\ui-map.json"
+    },
+    {
+      "name": "the snapshot package claims PNG files",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"dashboard\":\"snapshot/dashboard.png\",\"worker\":\"snapshot/worker.png\",\"process\":\"snapshot/process.png\",\"hardware\":\"snapshot/hardware.png\",\"log\":\"snapshot/log.png\",\"skills\":\"snapshot/skills.png\",\"settings\":\"snapshot/settings.png\"}"
+    },
+    {
+      "name": "the snapshot PNG snapshot/dashboard.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot PNG snapshot/worker.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot PNG snapshot/process.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot PNG snapshot/hardware.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot PNG snapshot/log.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot PNG snapshot/skills.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot PNG snapshot/settings.png is a real image",
+      "module": "theme",
+      "ok": true,
+      "detail": "64215 bytes, 560x805"
+    },
+    {
+      "name": "the snapshot package reports no capture problems",
+      "module": "theme",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "a revision of a previewed theme succeeds",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"ok\":true,\"draftId\":\"draft-mudoyu5r\",\"changed\":[\"persona\"],\"scope\":{\"intent\":true,\"assets\":\"character\",\"overlay\":true},\"preserved\":[\"official_overlay\",\"official_shell\",\"palette\",\"motion\",\"density\",\"decoration\",\"hns_native\"],\"revision\":1,\"before\":{\"character\":{\"box\":{\"x\":1238,\"y\":758,\"width\":20,\"hei"
+    },
+    {
+      "name": "the revision reports what it changed",
+      "module": "core",
+      "ok": true,
+      "detail": "[\"persona\"]"
+    },
+    {
+      "name": "the revision reports the parts it preserved",
+      "module": "core",
+      "ok": true,
+      "detail": "[\"official_overlay\",\"official_shell\",\"palette\",\"motion\",\"density\",\"decoration\",\"hns_native\"]"
+    },
+    {
+      "name": "the revision is scoped, not a full re-roll",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"intent\":true,\"assets\":\"character\",\"overlay\":true}"
+    },
+    {
+      "name": "the revision count advanced",
+      "module": "core",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "name": "a preview revision does not repaint the live theme before approval",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"before\":{\"x\":1238,\"y\":758,\"width\":20,\"height\":20},\"after\":{\"x\":1238,\"y\":758,\"width\":20,\"height\":20}}"
+    },
+    {
+      "name": "a preview revision does not mutate live overlay safety state",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":false,\"passed\":14,\"total\":16,\"failures\":[{\"id\":\"character_placed\",\"actual\":20,\"limit\":32,\"detail\":\"the safe region could only hold 20x20, below the 32px floor\"},{\"id\":\"critical_regions_observed\",\"actual\":false,\"limit\":null,\"detail\":\"the UI was not observed before layout; the band model stands in for it\"}],\"checks\":[{\"id\":\"overlay_opacity\",\"ok\":true,\"actual\":0,\"limit\":0.22},{\"id\":\"texture_opacity\",\"ok\":true,\"actual\":0,\"limit\":0.22},{\"id\":\"gradient_opacity\",\"ok\":true,\"actual\":0,\"limit\":0.22},{\"id\":\"skin_opacity\",\"ok\":true,\"actual\":0,\"limit\":0.22},{\"id\":\"vignette\",\"ok\":true,\"actual\":0,\"limit\":0.15},{\"id\":\"scanline\",\"ok\":true,\"actual\":0,\"limit\":0.05},{\"id\":\"character_coverage\",\"ok\":true,\"actual\":0.0004,\"limit\":0.22},{\"id\":\"character_placed\",\"ok\":false,\"actual\":20,\"limit\":32},{\"id\":\"critical_overlap\",\"ok\":true,\"actual\":0.075,\"limit\":0.08},{\"id\":\"critical_regions_observed\",\"ok\":false,\"actual\":false,\"limit\":null},{\"id\":\"layout_overflow\",\"ok\":true,\"actual\":null,\"limit\":null},{\"id\":\"layout_follows_view\",\"ok\":true,\"actual\":null,\"limit\":null},{\"id\":\"asset_size\",\"ok\":true,\"actual\":0,\"limit\":4000000},{\"id\":\"brightness\",\"ok\":true,\"actual\":0,\"limit\":0.18},{\"id\":\"contrast_loss\",\"ok\":true,\"actual\":0,\"limit\":0.35},{\"id\":\"overlay_opacity_total\",\"ok\":true,\"actual\":0.0003,\"limit\":0.55}],\"effect\":{\"background\":\"#0f1116\",\"effective\":\"#0f1116\",\"brightness_delta\":0,\"brightness_before\":0.0056,\"brightness_after\":0.0056,\"contrast_loss\":0,\"contrast_before\":null,\"contrast_after\":null,\"total_opacity\":0.0003},\"adjustments\":[{\"action\":\"scale_strengths_and_shrink_character\",\"factor\":0.75,\"reason\":\"overlay strengths scaled to 75% and the character scaled down to satisfy the safety ceilings\",\"remaining\":[\"skin_opacity\",\"character_placed\",\"critical_regions_observed\"]},{\"action\":\"scale_strengths_and_shrink_character\",\"factor\":0.5,\"reason\":\"overlay strengths scaled to 50% and the character scaled down to satisfy the safety ceilings\",\"remaining\":[\"character_placed\",\"critical_regions_observed\"]},{\"action\":\"scale_strengths_and_shrink_character\",\"factor\":0.35,\"reason\":\"overlay strengths scaled to 35% and the character scaled down to satisfy the safety ceilings\",\"remaining\":[\"character_placed\",\"critical_regions_observed\"]},{\"action\":\"scale_strengths_and_shrink_character\",\"factor\":0.25,\"reason\":\"overlay strengths scaled to 25% and the character scaled down to satisfy the safety ceilings\",\"remaining\":[\"character_placed\",\"critical_regions_observed\"]},{\"action\":\"scale_strengths_and_shrink_character\",\"factor\":0.15,\"reason\":\"overlay strengths scaled to 15% and the character scaled down to satisfy the safety ceilings\",\"remaining\":[\"character_placed\",\"critical_regions_observed\"]},{\"action\":\"scale_strengths_and_shrink_character\",\"factor\":0.1,\"reason\":\"overlay strengths scaled to 10% and the character scaled down to satisfy the safety ceilings\",\"remaining\":[\"character_placed\",\"critical_regions_observed\"]}],\"degradation\":{\"disabled\":true,\"level\":3,\"label\":\"disabled\",\"reason\":\"the overlay cannot satisfy character_placed, critical_regions_observed at any allowed strength\"}}"
+    },
+    {
+      "name": "a discarded preview is removed",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true}"
+    },
+    {
+      "name": "the generated theme package exists on disk",
+      "module": "theme",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data\\themes\\user\\hns.user.theme"
+    },
+    {
+      "name": "the generated theme is listed and Dark is restored",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"active\":\"hns.system.dark\",\"listed\":true}"
+    },
+    {
+      "name": "the generated theme can be deleted again",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"ok\":true,\"reason\":null}"
+    },
+    {
+      "name": "the deleted theme package is gone from disk",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "deleting the active theme leaves no overlay plan behind",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"ok\":true,\"overlayEnabled\":false,\"characterOpacity\":null,\"planSurfaces\":null,\"protectedPainted\":false}"
+    },
+    {
+      "name": "theme deletion leaves the direct official page without a legacy overlay",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the protected renderer stayed untouched across the deletion",
+      "module": "core",
+      "ok": true,
+      "detail": "{\"ok\":true,\"overlayEnabled\":false,\"characterOpacity\":null,\"planSurfaces\":null,\"protectedPainted\":false}"
+    },
+    {
+      "name": "no theme asset directory is left in the deleted theme package",
+      "module": "theme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a protected system theme cannot be deleted",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"ok\":false,\"reason\":\"protected\"}"
+    },
+    {
+      "name": "every protected system theme refuses deletion",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"ok\":false,\"reason\":\"protected\"}"
+    },
+    {
+      "name": "the theme pipeline works without an AI designer",
+      "module": "theme",
+      "ok": true,
+      "detail": "{\"enabled\":false,\"available\":false,\"reason\":\"no model worker is configured; the deterministic interpreter is used\",\"calls\":0,\"failures\":0}"
+    },
+    {
+      "name": "the updater rollback tests pass against the real runner",
+      "module": "updater",
+      "ok": true,
+      "detail": "ℹ tests 8 · ℹ pass 8 · ℹ fail 0"
+    }
+  ],
+  "notes": [
+    "native picker requires targeted operator input; request: D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data\\native-picker-request.json",
+    "native picker installation observed; see separate operator visual evidence for input provenance"
+  ],
+  "qualification": {
+    "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+    "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+    "branch": "dev/hns-final-qualification-rc2",
+    "gate": "electron-ui-acceptance"
+  }
+}

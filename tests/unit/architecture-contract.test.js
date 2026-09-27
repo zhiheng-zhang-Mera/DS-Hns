@@ -164,7 +164,8 @@ test('exit paths are graceful and force-exit capable in the shell', () => {
   assert.ok(releaseAt >= 0, 'the teardown no longer releases the Harness')
   assert.ok(extensionStopAt < releaseAt, 'normal exit must flush/persist state before releasing the managed Harness')
   // Force exit keeps going even when a cleanup step fails.
-  const force = main.slice(main.indexOf('function forceExit'), main.indexOf('function integratedDockWidth'))
+  const forceMatch = main.match(/function forceExit\([^)]*\) \{([\s\S]*?)^\}/m)
+  const force = forceMatch ? forceMatch[1] : ''
   assert.ok(force.length > 0 && force.length < 2000, 'the force exit body must be extractable')
   assert.equal(/throw\b/.test(force), false, 'no cleanup step may abort the force exit')
   assert.match(force, /app\.exit\(0\)/)
@@ -177,10 +178,11 @@ test('exit paths are graceful and force-exit capable in the shell', () => {
 
 test('Ctrl+Shift+M toggles the dock using actual input logic', () => {
   const shortcutStart = mega.indexOf('shortcutHandler =')
-  const shortcutEnd = mega.indexOf("ctx.mainWindow.webContents.on('before-input-event'", shortcutStart)
+  const shortcutEnd = mega.indexOf("shortcutWebContents.on('before-input-event'", shortcutStart)
   assert.ok(shortcutStart >= 0)
   assert.ok(shortcutEnd > shortcutStart)
   const shortcut = mega.slice(shortcutStart, shortcutEnd)
+  assert.match(shortcut, /shortcutWebContents = ctx\.officialWebContents \|\| ctx\.mainWindow\.webContents/)
   assert.match(shortcut, /input\.control/)
   assert.match(shortcut, /input\.shift/)
   assert.match(shortcut, /key\s*===\s*['\"]m['\"]/)
@@ -287,4 +289,22 @@ test('owned stale DSH recovery runs before the Harness is asked to start', () =>
   assert.ok(startBlock.indexOf('isPortListening') < spawn, 'the port is not checked before spawning')
   assert.match(runtime, /isExpectedDshProcess/)
   assert.match(runtime, /taskkill\.exe/)
+})
+
+test('hidden integrated dock reserves no strip and creates no wallpaper notch', () => {
+  const { computeIntegratedLayout } = require(path.join(ROOT, 'app', 'extensions', 'mega', 'dock', 'integrated-layout.cjs'))
+  const hidden = computeIntegratedLayout({
+    contentWidth: 1472,
+    contentHeight: 900,
+    dockShown: false,
+    expanded: false
+  })
+  assert.equal(hidden.dockVisible, false)
+  assert.equal(hidden.dockBounds.width, 0)
+  assert.equal(hidden.officialBounds.width, 1472)
+
+  const verifier = fs.readFileSync(path.join(ROOT, 'scripts', 'verify.ps1'), 'utf8')
+  assert.match(verifier, /integrated-layout\.cjs/, 'the architecture gate must inspect the current layout helper')
+  assert.ok(verifier.includes(String.raw`return layout\.dockVisible \? \{ x: layout\.dockBounds\.x, y: layout\.dockBounds\.y \} : null`),
+    'the architecture gate must verify the wallpaper notch is visibility-gated')
 })

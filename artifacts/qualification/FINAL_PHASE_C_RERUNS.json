@@ -1,0 +1,68 @@
+{
+  "schema": "hns-phase-c-repeat-set/v1",
+  "candidateSha": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
+  "candidateTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+  "threshold": 1.2,
+  "sameWorkload": true,
+  "providerCalled": false,
+  "modelLatency": "declared constant; measured process/scan/read counts are reported separately",
+  "runs": [
+    {
+      "directory": "run-01",
+      "atUtc": "2026-09-24T07:23:56.573Z",
+      "baselineMs": 17582,
+      "optimizedMs": 9202,
+      "improvement": 1.911,
+      "checks": 5,
+      "passed": 5,
+      "failed": 0,
+      "source": "D:\\HQR\\phase-c-reruns\\run-01\\phase-c.json",
+      "sha256": "4efbf945053bfdf157a2e15be36d8358970f5bf4b7e5fa5a2e665fead8491d37"
+    },
+    {
+      "directory": "run-02",
+      "atUtc": "2026-09-24T07:25:02.573Z",
+      "baselineMs": 17303,
+      "optimizedMs": 9265,
+      "improvement": 1.868,
+      "checks": 5,
+      "passed": 5,
+      "failed": 0,
+      "source": "D:\\HQR\\phase-c-reruns\\run-02\\phase-c.json",
+      "sha256": "00729a1b280d557d92ef6736f8802d2072a41eb68a6762dd67430c257c1e63ed"
+    },
+    {
+      "directory": "run-03",
+      "atUtc": "2026-09-24T07:26:04.016Z",
+      "baselineMs": 17471,
+      "optimizedMs": 9106,
+      "improvement": 1.919,
+      "checks": 5,
+      "passed": 5,
+      "failed": 0,
+      "source": "D:\\HQR\\phase-c-reruns\\run-03\\phase-c.json",
+      "sha256": "741f9d6631d28c7add7af3fa687b1aebe8fb8db9b68985266a90ec300ccd8763"
+    }
+  ],
+  "aggregate": {
+    "min": 1.868,
+    "median": 1.911,
+    "max": 1.919,
+    "mean": 1.8993333333333334,
+    "populationVariance": 0.0005015555555555555,
+    "allAtOrAboveThreshold": true
+  },
+  "separatePrimaryQualificationMeasurement": {
+    "runId": "2026-09-24T06-54-31-334Z-09571b4b",
+    "baselineMs": 17325,
+    "optimizedMs": 9131,
+    "improvement": 1.897,
+    "artifact": "D:\\HQR\\qualification-runs\\2026-09-24T06-54-31-334Z-09571b4b\\reports\\combined-acceptance.json",
+    "sha256": "d4965d88e3bfc8987c3b8c1aa27c65cc259bdf54493ea60f3983863d4858378b"
+  },
+  "limitations": [
+    "The three-repeat aggregate is separate from the primary combined-acceptance measurement.",
+    "The acceptance harness does not call an external model provider; declared model-latency constants are not provider measurements.",
+    "This is an engineering latency result on one Windows host, not a general research or product-superiority claim."
+  ]
+}

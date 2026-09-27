@@ -263,7 +263,16 @@ export function apply(ctx, { fetchImpl = fetch, env = process.env } = {}) {
       } catch (error) {
         return answer(res, 400, { ok: false, reason: String(error?.message || error) })
       }
-      const result = await callBridge('/action', { method: 'POST', body: { action: body.action, id: body.id }, discovery: readDiscovery(env), fetchImpl })
+      const result = await callBridge('/action', {
+        method: 'POST',
+        body: { action: body.action, id: body.id, confirm: body.confirm === true, key: body.key, value: body.value },
+        discovery: readDiscovery(env), fetchImpl
+      })
+      // The bridge keeps the service response in result; the UI consumes reason
+      // at the envelope level. Keep both so a refusal stays actionable/auditable.
+      if (result.ok === false && !result.reason) {
+        result.reason = result.result?.reason || result.result?.error || result.result?.load?.reason || null
+      }
       // The bridge's own status decides: 409 for a refused action, 503 for an unreachable bridge, 200 otherwise.
       // `refresh-balance` comes back as soon as governance has *started* the read, which is what the button in
       // the panel needs: an account read has a 20-second timeout, and holding the panel open for it would freeze

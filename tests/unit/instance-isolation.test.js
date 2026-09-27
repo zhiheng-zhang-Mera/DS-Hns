@@ -13,7 +13,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
-const os = require('node:os')
+const { resolveTestRoot } = require('../../app/runtime/storage-roots.cjs')
 const net = require('node:net')
 const path = require('node:path')
 
@@ -22,7 +22,9 @@ const instance = require('../../app/runtime/instance.cjs')
 const ROOT = path.resolve(__dirname, '..', '..')
 
 function scratch() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'dshns-instance-'))
+  const testRoot = resolveTestRoot(ROOT)
+  fs.mkdirSync(testRoot, { recursive: true })
+  return fs.mkdtempSync(path.join(testRoot, 'dshns-instance-'))
 }
 
 test('the instance id is a stable function of the canonical root and home', () => {
@@ -269,12 +271,15 @@ test('the repository checkout resolves to a real, instance-specific layout', () 
   assert.equal(resolved.isolated, false)
 })
 
-test('a root that does not exist yet keeps its caller tail under the canonical existing ancestor', () => {
+test('a root that does not exist yet canonicalizes its ancestor and preserves its missing tail', () => {
   const dir = scratch()
   const mixed = path.join(dir, 'MixedCaseRoot-ABC', 'checkout')
   const resolved = instance.describeInstance({ root: mixed, dshHome: path.join(dir, 'data') })
   // The existing prefix is normalized by the filesystem (which may turn an
   // 8.3 alias into its long name); missing segments keep the caller's spelling.
+  const canonicalDir = fs.realpathSync.native(dir)
+  assert.equal(resolved.root, path.join(canonicalDir, 'MixedCaseRoot-ABC', 'checkout'))
   assert.equal(resolved.root, path.join(instance.resolveRoot(dir), 'MixedCaseRoot-ABC', 'checkout'))
+  assert.equal(path.relative(canonicalDir, resolved.root), path.join('MixedCaseRoot-ABC', 'checkout'))
   assert.equal(fs.existsSync(dir), true)
 })

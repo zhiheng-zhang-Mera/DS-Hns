@@ -31,8 +31,8 @@ async function withBridge(run, options = {}) {
       plugins: [{ id: 'dsh-wallpaper-engine', state: 'installed' }],
       boot: { state: 'ENHANCED' }
     }),
-    act: async ({ action, id }) => {
-      actions.push({ action, id })
+    act: async ({ action, id, confirm }) => {
+      actions.push({ action, id, confirm: confirm === true })
       return { ok: action !== 'repair', reason: action === 'repair' ? 'nothing to repair against yet' : null }
     },
     log: () => {},
@@ -99,7 +99,7 @@ test('only the named governance actions are accepted, and their answer travels b
     })
     const ok = await call({ action: 'retry', id: 'wallpaper-layer' })
     assert.equal(ok.status, 200)
-    assert.deepEqual(actions[0], { action: 'retry', id: 'wallpaper-layer' })
+    assert.deepEqual(actions[0], { action: 'retry', id: 'wallpaper-layer', confirm: false })
     // A refused action is the layer's answer, carried through rather than turned into a success.
     const refused = await call({ action: 'repair', id: 'dsh-wallpaper-engine' })
     assert.equal(refused.status, 409)
@@ -108,8 +108,35 @@ test('only the named governance actions are accepted, and their answer travels b
     const unknown = await call({ action: 'setWallpaper', id: 'x' })
     assert.equal(unknown.status, 400)
     assert.match((await unknown.json()).reason, /is not a governance action/)
-    assert.equal((await call({ action: 'retry' })).status, 400, 'an action without an id must be refused')
-    assert.deepEqual(BRIDGE_ACTIONS, ['check', 'retry', 'reset-fallback', 'repair', 'disable', 'enable'])
+    /**
+     * A **product** action names no id, and a **service** action must name one.
+     *
+     * This is the pair that made every recovery button on the official page dead: the page sent
+     * `{ action: 'retry', id: null }` for "retry everything", and the bridge refused anything without an
+     * id. The vocabulary now says which actions are about the runtime and which are about one plugin.
+     */
+    assert.equal((await call({ action: 'retry' })).status, 200, 'a product-level action must not need an id')
+    assert.equal((await call({ action: 'check' })).status, 200)
+    assert.equal((await call({ action: 'diagnostics' })).status, 400, 'a service action without an id must be refused')
+    /**
+     * ...and a **dangerous** one is refused until a person has agreed.
+     *
+     * `" (confirm)"` used to be a suffix in a button's label with the action sent immediately; the
+     * confirmation is enforced here, so no surface can skip the step by forgetting it.
+     */
+    const unconfirmed = await call({ action: 'manual-restart', id: 'dshns.restart-supervisor' })
+    assert.equal(unconfirmed.status, 409)
+    const body = await unconfirmed.json()
+    assert.equal(body.needsConfirmation, true)
+    assert.match(body.reason, /confirm: true/)
+    const confirmed = await call({ action: 'manual-restart', id: 'dshns.restart-supervisor', confirm: true })
+    assert.equal(confirmed.status, 200)
+    assert.equal(actions[actions.length - 1].confirm, true)
+    // The accepted set is the shared vocabulary, not a list kept in the bridge.
+    const { ACCEPTED_ACTIONS, MODULE_ACTIONS } = require('../../app/core/contracts/service-actions.cjs')
+    assert.deepEqual(BRIDGE_ACTIONS, ACCEPTED_ACTIONS)
+    for (const action of MODULE_ACTIONS) assert.ok(BRIDGE_ACTIONS.includes(action), `the bridge dropped ${action}`)
+    assert.ok(BRIDGE_ACTIONS.includes('diagnostics') && BRIDGE_ACTIONS.includes('manual-restart') && BRIDGE_ACTIONS.includes('reset-budget'))
   })
 })
 

@@ -310,16 +310,19 @@ test('the module has no code path that can execute script in, or style, the offi
   assert.match(source, /const view = surfaceId === SURFACE\.OFFICIAL_SHELL \? shellView : overlayView/)
 })
 
-test('the shell wires the surfaces around the official view and hands over an adapter, not a webContents', () => {
+test('the shell keeps the official child protected and uses only the click-through wallpaper window', () => {
   // Read with LF endings: the assertions below are about the code, and a
   // checkout that rewrote line endings used to turn them into line-ending
   // assertions (invisible on Linux, red on a Windows runner).
   const main = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8').replace(/\r\n/g, '\n')
-  // The official view is created first (centre), then the surfaces...
+  // The official child is attached before the product becomes interactive...
   assert.match(main, /await createOfficialHarnessView\(readyUrl\)/)
-  // ...and the surfaces are a *protected* module of the enhancement layer now: created through MEGA's
-  // control plane (startup2.md §12-§19), so a failure is a degradation the panel can show rather than
-  // something the boot has to survive.
+  assert.match(main, /return createOfficialHarnessChildView\(readyUrl\)/)
+  // ...and the official page itself remains a protected, unmodified child renderer.
+  assert.match(main, /new WebContentsView\(\{\s*webPreferences:\s*\{\s*nodeIntegration: false,\s*contextIsolation: true,\s*sandbox: true/s)
+  assert.match(main, /officialWebContents:\s*activeAgentSurface\(\)/)
+  assert.match(main, /const contents = activeAgentSurface\(\)/)
+  // Wallpaper enhancement work remains deferred and failure isolated.
   assert.match(main, /id: 'wallpaper-layer', optional: true, start: \(\) => createOfficialSurfaces\(\)/)
   assert.match(main, /startup\.defer\('official-surfaces-ready', \(\) => protection\.start\('wallpaper-layer'\)\)/)
   // ...and the layer above the official page is a **window, not a view**, because that is the one
@@ -328,7 +331,7 @@ test('the shell wires the surfaces around the official view and hands over an ad
   // became unclickable while a wallpaper was set: the layer was there, drawn correctly, and swallowing
   // every click that landed on it. The integrated build therefore creates no view above the page —
   // the wallpaper is a click-through window (`app/wallpaper-window.cjs`) that the shell places over
-  // the window's content box and cuts the dock's own rectangle out of.
+  // the window's content box and cuts the dock's disjoint rectangle out of.
   //
   // It stays opt-*out*: DSH_OFFICIAL_OVERLAY=0 means nothing above the official renderer, which is
   // the property the overlay's retirement was protecting.
@@ -336,15 +339,13 @@ test('the shell wires the surfaces around the official view and hands over an ad
   assert.match(main, /const \{ createWallpaperWindow \} = require\('\.\/wallpaper-window\.cjs'\)/)
   assert.match(main, /let wallpaperLayer = null/)
   assert.match(main, /wallpaperLayer\?\.destroy\?\.\(\)/, 'the wallpaper layer outlives the shell')
-  assert.equal(/wallpaperOnly/.test(main), false, 'a view above the official page came back')
+  assert.equal(/wallpaperOnly/.test(main), false, 'a second wallpaper renderer came back')
   assert.equal(/paintWallpaper/.test(main), false, 'the wallpaper is painted into a surface again')
-  assert.match(main, /official_shell view attached \(visual-only, input passthrough\)/)
   assert.match(main, /const OFFICIAL_OVERLAY_ENABLED = process\.env\.DSH_OFFICIAL_OVERLAY !== '0'/)
-  assert.match(main, /if \(OFFICIAL_OVERLAY_ENABLED\) \{\n\s*officialSurfaces\.createOverlay\(\)/)
-  assert.match(main, /official_overlay attached for the user wallpaper \(input-transparent, script-free\); it takes no theme effect/)
   const surfacesFactory = main.slice(main.indexOf('async function createOfficialSurfaces('), main.indexOf('async function createIntegratedMegaDock'))
   const overlayCalls = surfacesFactory.match(/officialSurfaces\.createOverlay\(\)/g) || []
-  assert.equal(overlayCalls.length, 1, 'the overlay view has one creation site left, and it is the legacy build\'s')
+  assert.equal(overlayCalls.length, 0, 'integrated official content has no topmost view that could take clicks')
+  assert.match(surfacesFactory, /return createWallpaperLayer\(\)/)
   // ...and the extension receives an adapter whose only operation is a paint.
   assert.match(main, /function createOfficialSurfaceAdapter\(\)/)
   assert.match(main, /officialSurfaceAdapter,/)

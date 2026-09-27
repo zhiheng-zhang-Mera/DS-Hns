@@ -559,7 +559,7 @@ test('uia root describes the desktop root', (t) => {
   assert.equal(typeof root.windowHandle, 'string')
 })
 
-test('uia find walks real windows, not just the desktop children', (t) => {
+test('uia find walks real windows, not just the desktop children', async (t) => {
   if (!IS_WINDOWS) {
     t.skip('the accessibility driver is Windows only')
     return
@@ -574,22 +574,40 @@ test('uia find walks real windows, not just the desktop children', (t) => {
     t.skip(`no window list to search through: ${desktopProbe.reason}`)
     return
   }
-  const windows = desktop.listWindows()
-  if (windows.length === 0) {
-    t.skip('this desktop has no top-level window to look up through UI Automation')
-    return
+  // An arbitrary user's foreground window is not a test fixture. Its provider
+  // may block in FindAll, and a top-level-only hit never proved descent anyway.
+  const target = await require('../helpers/uia-window-fixture.cjs').startUiaWindowFixture(t)
+  t.diagnostic(`owned UIA fixture pid=${target.processId} handle=${target.handle} title=${target.title}`)
+  const ownedWindows = desktop.listWindows().filter(window => window.processId === target.processId)
+  assert.ok(ownedWindows.some(window => String(window.handle) === target.handle), 'owned fixture must be a real enumerated window')
+  const nodes = driver.find({ name: target.title, exact: true, processId: target.processId }, { limit: 5 })
+  t.diagnostic(JSON.stringify(nodes.map(({ ref, role, name, patterns }) => ({ ref, role, name, patterns }))))
+  if (nodes.length !== 5) {
+    // Preserve the original failure; this additional owned-window read is only
+    // diagnostic, never a substitute result or a relaxed search assertion.
+    try {
+      t.diagnostic(`owned subtree after incomplete find: ${JSON.stringify(driver.children(`w:${target.handle}`, { depth: 4 }))}`)
+    } catch (error) {
+      t.diagnostic(`owned subtree diagnostic failed: ${error.code || ''} ${error.message}`)
+    }
   }
-
-  const target = windows[0]
-  const nodes = driver.find({ name: target.title, exact: true }, { limit: 5 })
   assert.ok(Array.isArray(nodes), 'find must return an array')
-  assert.ok(nodes.length >= 1, `UI Automation must find the window titled ${JSON.stringify(target.title)}`)
+  assert.equal(nodes.length, 5, 'find must return the owned root and all four descendant buttons')
+  assert.equal(new Set(nodes.map(node => node.ref)).size, 5, 'the pre-matched root must not consume the result limit twice')
+  assert.equal(nodes.filter(node => node.ref.startsWith(`w:${target.handle}/`)).length, 4, 'a desktop-children-only implementation must fail')
   for (const node of nodes) {
     assert.equal(node.name, target.title)
     assert.equal(typeof node.ref, 'string')
     assert.ok(Array.isArray(node.patterns))
     assertRect(node.bounds, 'node.bounds')
+    assert.equal(node.processId, target.processId, 'search must stay inside the owned process')
   }
+  const first = driver.find({ name: target.title, exact: true, processId: target.processId }, { limit: 1 })
+  assert.equal(first.length, 1)
+  assert.equal(first[0].ref, `w:${target.handle}`, 'limit one preserves the root-first fast path')
+  const childOnly = driver.find({ name: `${target.title}-child-only`, exact: true, windowHandle: target.handle }, { limit: 5 })
+  assert.equal(childOnly.length, 1, 'descendants must remain discoverable when the root does not match')
+  assert.ok(childOnly[0].ref.startsWith(`w:${target.handle}/`))
 })
 
 test('uia refuses an unresolvable ref as stale instead of inventing a node', (t) => {

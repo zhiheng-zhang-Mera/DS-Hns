@@ -107,6 +107,217 @@ const ENTRY = {
   enabled: true
 }
 
+// Execute the shipped desktop adapter against a real plugin host. These catch
+// positional arguments silently crossing the host's object-input boundary.
+function desktopServiceAdapter(name, host) {
+  const source = fs.readFileSync(path.join(ROOT, 'app', 'desktop-main.cjs'), 'utf8')
+  const block = source.slice(source.indexOf('      pluginServices: {'))
+  const line = block.split(/\r?\n/).find((value) => value.trim().startsWith(`${name}:`))
+  assert.ok(line, `desktop adapter ${name} exists`)
+  const expression = line.trim().slice(name.length + 1).replace(/,$/, '')
+  return require('node:vm').runInNewContext(`(${expression})`, { pluginRuntime: () => host })
+}
+
+test('desktop enable adapter changes the real named plugin without losing its id or boolean', async () => {
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  try {
+    await h.host.ensure()
+    const setEnabled = desktopServiceAdapter('setEnabled', h.host)
+    const off = await setEnabled(ENTRY.id, false)
+    assert.equal(off.ok, true, JSON.stringify(off))
+    assert.equal(h.host.registry.has('example-capability'), false)
+    const on = await setEnabled(ENTRY.id, true)
+    assert.equal(on.ok, true, JSON.stringify(on))
+    assert.equal(h.host.registry.has('example-capability'), true)
+  } finally { await h.dispose() }
+})
+
+test('Mega service action preserves a real host refusal for a missing plugin', async () => {
+  const h = harness([])
+  try {
+    const source = fs.readFileSync(path.join(ROOT, 'app/extensions/mega/index.cjs'), 'utf8')
+    const start = source.indexOf('async function serviceAction(action, id) {')
+    const end = source.indexOf('\n/**', start)
+    const action = require('node:vm').runInNewContext(source.slice(start, end) + '\nserviceAction', {
+      ctx: { pluginServices: {
+        report: (id) => h.host.serviceReport(id),
+        setEnabled: desktopServiceAdapter('setEnabled', h.host)
+      } }, log: () => {}
+    })
+    const result = await action('enable', 'missing.plugin')
+    assert.equal(result.ok, false)
+    assert.match(result.reason || '', /no plugin missing\.plugin/)
+    assert.equal(result.result.code, 'PLUGIN_NOT_FOUND')
+  } finally { await h.dispose() }
+})
+
+test('desktop advanced adapter writes through the real host validator and owner config', async () => {
+  const h = harness([])
+  try {
+    const configure = desktopServiceAdapter('setAdvanced', h.host)
+    const result = await configure({ intervalMs: 5000 })
+    assert.equal(result.ok, true, JSON.stringify(result))
+    assert.equal(result.written.length, 1)
+    const ownerFile = result.written[0]
+    assert.equal(path.basename(ownerFile), 'dshns.health-scheduler.json')
+    assert.equal(JSON.parse(fs.readFileSync(ownerFile, 'utf8')).intervalMs, 5000)
+    const refused = await configure({ intervalMs: 0 })
+    assert.equal(refused.ok, false)
+    assert.equal(refused.code, 'INVALID_SETTING')
+    assert.equal(JSON.parse(fs.readFileSync(ownerFile, 'utf8')).intervalMs, 5000)
+  } finally { await h.dispose() }
+})
+
+test('desktop advanced readback reports the value stored by the real host', async () => {
+  const h = harness([])
+  try {
+    await h.host.ensure()
+    assert.equal((await h.host.configure({ settings: { intervalMs: 5000 } })).ok, true)
+    const source = fs.readFileSync(path.join(ROOT, 'app/desktop-main.cjs'), 'utf8')
+    const start = source.indexOf('        advanced: () => {')
+    const end = source.indexOf('\n        setAdvanced:', start)
+    const expression = source.slice(start, end).trim().replace(/^advanced:\s*/, '').replace(/,$/, '')
+    const read = require('node:vm').runInNewContext(`(${expression})`, { pluginRuntime: () => h.host, logLine: () => {} })
+    assert.equal(read().find((field) => field.key === 'intervalMs').value, 5000)
+  } finally { await h.dispose() }
+})
+
+test('advanced writes traverse the shipped proxy, governance callback and Mega setter into owner config', async () => {
+  // Catches dropped key/value at the bridge callback and positional/object
+  // setter drift. Real HTTP and owner files; not an Electron/GUI acceptance.
+  const h = harness([])
+  const vm = require('node:vm')
+  const http = require('node:http')
+  const { pathToFileURL } = require('node:url')
+  const source = fs.readFileSync(path.join(ROOT, 'app/extensions/mega/index.cjs'), 'utf8')
+  const bridgeCode = source.slice(source.indexOf('let governanceBridgeState = null'), source.indexOf('\n/**', source.indexOf('function governanceBridge()')))
+  const actionCode = source.slice(source.indexOf('async function advancedAction('), source.indexOf('\nfunction registerControlCenterIpc()'))
+  const bridge = vm.runInNewContext(`${bridgeCode}\n${actionCode}\ngovernanceBridge()`, {
+    path, PATHS: { ROOT: h.root },
+    createGovernanceBridge: require('../../app/core/governance-bridge.cjs').createGovernanceBridge,
+    serviceActions: require('../../app/core/contracts/service-actions.cjs'),
+    ctx: { pluginServices: { setAdvanced: desktopServiceAdapter('setAdvanced', h.host) } },
+    controlCenter: () => ({}), log: () => {}
+  })
+  const routes = new Map()
+  const proxy = await import(pathToFileURL(path.join(ROOT, 'app/plugins/mega-core/lib/index.js')).href)
+  const dispose = proxy.apply({ webServer: {
+    register: ({ path: route, handler }) => { routes.set(route, handler); return () => routes.delete(route) }
+  } }, { env: { DSH_HOME: path.join(h.root, 'data') } })
+  const server = http.createServer((req, res) => {
+    const handler = routes.get(req.url)
+    if (!handler) { res.writeHead(404); res.end(); return }
+    Promise.resolve(handler(req, res)).catch(error => { res.writeHead(500); res.end(String(error)) })
+  })
+  try {
+    assert.equal((await bridge.start()).ok, true)
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
+    const call = async input => {
+      const response = await fetch(`http://127.0.0.1:${server.address().port}/mega-core/action`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'set-advanced', ...input })
+      })
+      return { status: response.status, body: await response.json() }
+    }
+    const ownerFile = path.join(h.root, 'config/plugins/dshns.health-scheduler.json')
+    const denied = await call({ key: 'intervalMs', value: 16000 })
+    assert.equal(denied.status, 409)
+    assert.equal(fs.existsSync(ownerFile), false, 'unconfirmed action wrote owner config')
+    const written = await call({ confirm: true, key: 'intervalMs', value: 16000 })
+    assert.equal(written.status, 200, JSON.stringify(written.body))
+    assert.equal(written.body.ok, true)
+    const actualFile = written.body.result.result.written[0]
+    assert.equal(actualFile, ownerFile)
+    assert.equal(path.basename(actualFile), 'dshns.health-scheduler.json')
+    const before = fs.readFileSync(actualFile, 'utf8')
+    assert.equal(JSON.parse(before).intervalMs, 16000)
+    for (const input of [{ key: 'intervalMs', value: 0 }, { key: 'unknown.policy', value: 1 }]) {
+      const refused = await call({ confirm: true, ...input })
+      assert.equal(refused.status, 409)
+      assert.match(refused.body.reason, input.key === 'intervalMs' ? /intervalMs/ : /unknown setting/)
+      assert.equal(fs.readFileSync(actualFile, 'utf8'), before, 'refused write changed owner config')
+    }
+  } finally {
+    server.closeAllConnections()
+    await new Promise(resolve => server.close(resolve))
+    dispose()
+    await bridge.stop()
+    await h.dispose()
+  }
+})
+
+test('desktop restart control resolves the real registry without invoking a restart', async () => {
+  const h = harness([])
+  try {
+    await h.host.ensure()
+    const source = fs.readFileSync(path.join(ROOT, 'app/desktop-main.cjs'), 'utf8')
+    const start = source.indexOf('        restartControl: () => {')
+    const end = source.indexOf('\n      },', start)
+    const expression = source.slice(start, end).trim().replace(/^restartControl:\s*/, '')
+    const resolve = require('node:vm').runInNewContext(`(${expression})`, { pluginRuntime: () => h.host })
+    const result = resolve()
+    assert.equal(result.ok, true, result.reason)
+    assert.equal(result.value, h.host.registry.resolve('restart-control'))
+    assert.equal(typeof result.value.manualRestart, 'function')
+  } finally { await h.dispose() }
+})
+
+test('Mega named check reaches the real plugin instead of checking protection modules', async () => {
+  // Regression: product-first dispatch swallowed the service id on the UI path.
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  const protection = require('../../app/extensions/mega/protection/index.cjs').createProtectionLayer()
+  protection.register({ id: 'unrelated-module', healthCheck: () => true })
+  try {
+    await h.host.ensure()
+    const source = fs.readFileSync(path.join(ROOT, 'app/extensions/mega/index.cjs'), 'utf8')
+    const actionCode = source.slice(source.indexOf('async function serviceAction('), source.indexOf('\nfunction registerControlCenterIpc()'))
+    const act = require('node:vm').runInNewContext(`${actionCode}\ncontrolAction`, {
+      serviceActions: require('../../app/core/contracts/service-actions.cjs'),
+      ctx: { protection, pluginServices: {
+        report: id => h.host.serviceReport(id),
+        checkHealth: desktopServiceAdapter('checkHealth', h.host)
+      } }, log: () => {}
+    })
+    const before = JSON.stringify(protection.describe())
+    const checked = await act({ action: 'check', id: ENTRY.id })
+    assert.equal(checked.ok, true)
+    assert.equal(checked.result.health?.health?.status, 'healthy')
+    assert.equal(h.host.serviceReport(ENTRY.id).healthy, true)
+    assert.equal(JSON.stringify(protection.describe()), before, 'named service check touched unrelated protection modules')
+    const missing = await act({ action: 'check', id: 'missing.plugin' })
+    assert.equal(missing.ok, false, 'unknown service must not report a successful global check')
+    protection.register({ id: 'second-module', healthCheck: () => true })
+    const namedModule = await act({ action: 'check', id: 'unrelated-module' })
+    assert.equal(namedModule.ok, true)
+    assert.deepEqual(Array.from(namedModule.result.touched), ['unrelated-module'])
+    const all = await act({ action: 'check' })
+    assert.equal(all.ok, true)
+    assert.deepEqual(Array.from(all.result.touched), ['unrelated-module', 'second-module'])
+  } finally { await h.dispose() }
+})
+
+test('desktop health adapter checks only the requested real plugin', async () => {
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  try {
+    await h.host.ensure()
+    const result = await desktopServiceAdapter('checkHealth', h.host)(ENTRY.id)
+    assert.equal(result.ok, true)
+    assert.equal(result.id, ENTRY.id, 'a named check must not turn into check-all')
+    assert.equal(result.health.status, 'healthy')
+  } finally { await h.dispose() }
+})
+
+test('desktop reload adapter actually reloads the named real plugin', async () => {
+  const h = harness([{ ...ENTRY, module: moduleFor(ENTRY.id, '1.0.0') }])
+  try {
+    await h.host.ensure()
+    const result = await desktopServiceAdapter('reload', h.host)(ENTRY.id, { reason: 'contract test' })
+    assert.equal(result.ok, true, JSON.stringify(result))
+    assert.equal(result.restartCount, 1)
+    assert.equal(h.host.registry.has('example-capability'), true)
+  } finally { await h.dispose() }
+})
+
 test('enabling a plugin while the world runs mounts it, with no restart and no false promise', async () => {
   const harnessed = harness([{ ...ENTRY, enabled: false, module: moduleFor('vendor.example', '1.0.0') }])
   try {

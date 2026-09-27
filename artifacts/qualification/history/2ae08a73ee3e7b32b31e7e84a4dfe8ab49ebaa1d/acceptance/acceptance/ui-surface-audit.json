@@ -1,0 +1,710 @@
+{
+  "generatedAt": "2026-09-17T06:48:34.076Z",
+  "repo": "D:\\DS-Hns",
+  "commit": "5efa302acd381d57d44bc87bbdc36f80a21dda9a",
+  "scope": "User-facing surfaces of the DS-Hns Electron shell and of the official Harness UI as composed by the DS-Hns client plugin. READ-ONLY audit; only this file was written.",
+  "method": {
+    "proven": "The whole code path was read end to end in this checkout (registration -> render -> click handler -> route/IPC handler -> registry/allow-list).",
+    "suspected": "Indirect evidence only (comment, doc, or a layer not read end to end); listed separately and never used to justify a PROVEN finding.",
+    "officialUiDefinition": "The Harness web UI: the official shell (dsh-client-ui-layout, settings.section, conversation header) PLUS the surfaces the DS-Hns client plugin registers into its official slots (shell.overlay, settings.section). The Mega dock, the Mega tray, the Control Center and the separate always-on-top system-orb window are NOT the official UI.",
+    "notRun": "No Electron app was launched and no HTTP request was executed; every claim is a static reading of this checkout."
+  },
+  "auditState": {
+    "headAtAudit": "5efa302acd381d57d44bc87bbdc36f80a21dda9a",
+    "workingTreeWasDirtyDuringAudit": true,
+    "why": "The working tree was clean when this audit started (git status --porcelain was empty on the first command) and became dirty while it was being read: a concurrent agent in the same workspace was editing the very files under audit between 16:43 and 16:49 local time. This audit wrote only docs/acceptance/ui-surface-audit.json.",
+    "filesModifiedByTheConcurrentAgent": [
+      "app/desktop-main.cjs",
+      "app/extensions/mega/control-center.cjs",
+      "app/extensions/mega/index.cjs",
+      "app/plugin-host.cjs",
+      "app/plugins/mega-core/lib/client.js",
+      "app/plugins/mega-core/lib/view.js",
+      "app/plugins/mounted/index.cjs",
+      "app/plugins/restart-supervisor/companion.cjs",
+      "app/plugins/restart-supervisor/index.cjs",
+      "app/plugins/restart-supervisor/lifecycle.cjs",
+      "tests/unit/control-center.test.js",
+      "tests/unit/restart-supervisor-authority.test.js",
+      "app/core/task-continuity.cjs (new)",
+      "app/plugins/restart-supervisor/status.cjs (new)",
+      "app/reboot/targets.cjs (new)"
+    ],
+    "unmodifiedFilesInThisAudit": [
+      "app/core/governance-bridge.cjs",
+      "app/plugins/mega-core/lib/index.js",
+      "app/plugins/health-scheduler/*",
+      "app/extensions/mega/system-orb.cjs",
+      "app/extensions/mega/ui/*",
+      "app/plugins/mounted/index.cjs (exports block untouched)",
+      "data/profiles/web/package.json",
+      "config/app.json"
+    ],
+    "handling": "Every finding was re-checked against the current working tree by grepping the exact code, and where the in-flight work has already closed a finding the entry is marked workingTreeStatus accordingly and its severity lowered to 'info' with the superseding evidence. Findings that survive carry workingTreeStatus 'still-present-reverified'. Line numbers are the ones read during the audit; when a citation moved, the re-verified line is given in workingTreeStatus.",
+    "inFlightWorkThatOverlapsThisAudit": [
+      "A formal restart status/history is being added end to end: new app/plugins/restart-supervisor/status.cjs, pluginServices.restartStatus (app/plugin-host.cjs), controlCenter().restartStatus (app/extensions/mega/index.cjs), a '重启状态 / Restart status' section (app/extensions/mega/control-center.cjs) and view.restartStatus rendered on the Mega page (app/plugins/mega-core/lib/client.js, app/plugins/mega-core/lib/view.js).",
+      "The duplicate-ball problem is being closed: controlCenter().orb.mode ('system' when the always-on-top window is up) plus view.orb.hideInUi and an early 'return null' in MegaOrb (app/plugins/mega-core/lib/client.js).",
+      "Core task-continuity hooks are being threaded into the restart supervisor (app/core/task-continuity.cjs, app/plugins/mounted/index.cjs, app/plugin-host.cjs)."
+    ]
+  },
+  "summary": {
+    "severities": {
+      "critical": 0,
+      "high": 7,
+      "medium": 6,
+      "low": 5,
+      "info": 7
+    },
+    "findingsTotal": 25,
+    "provenFindings": 25,
+    "suspectedSubClaims": 2,
+    "supersededByUncommittedWork": 2,
+    "reverifiedStillPresentAfterConcurrentEdits": 23,
+    "reachableSurfaces": 11,
+    "slotRegistrations": 3,
+    "floatingBallImplementations": 2,
+    "floatingBallReachableInDefaultConfig": 1,
+    "officialUiFallbackCovered": 8,
+    "headline": "The plugin composes and all three official slots mount, but on the HEAD content the recovery-action row (id=null), the dashboard's only action (refresh-balance), 4 of 6 service actions, the whole advanced-policy surface, plugin permissions, the maintenance defer state and the human-gate count are dead or unrendered; the second ball (always-on-top window) is off by default. Two of these were being fixed in the dirty working tree while the audit ran (restart status/history, duplicate ball)."
+  },
+  "loaderAndHostMount": {
+    "pluginPackage": "app/plugins/mega-core/package.json",
+    "clientDeclaration": {
+      "file": "app/plugins/mega-core/package.json",
+      "line": 21,
+      "evidence": "\"dsh\": { \"bundle\": { \"patch\": \"./cordis.patch.yml\" }, \"client\": { \"inject\": [\"@deepseek-ai/dsh-client-runtime\"], \"platform\": \"web\", \"immediately\": true } }",
+      "suspected": false
+    },
+    "hostRowPatch": {
+      "file": "app/plugins/mega-core/cordis.patch.yml",
+      "line": 11,
+      "evidence": "insert: [{ id: mega-core, name: 'dsh-plugin-mega-core' }] over the dsh-web-app layer",
+      "suspected": false
+    },
+    "profileInstall": {
+      "file": "data/profiles/web/package.json",
+      "line": 6,
+      "evidence": "dsh.profile.bundles contains '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', 'dsh-plugin-mega-core'; dependencies: { 'dsh-plugin-mega-core': 'file:D:/DS-Hns/app/plugins/mega-core' }",
+      "suspected": false
+    },
+    "profileCopyExists": {
+      "file": "data/profiles/web/node_modules/dsh-plugin-mega-core/lib/client.js",
+      "line": 1,
+      "evidence": "the profile copy exists with lib/index.js, lib/client.js, lib/view.js, cordis.patch.yml and package.json",
+      "suspected": false
+    },
+    "syncOnLaunch": {
+      "file": "app/desktop-main.cjs",
+      "line": 544,
+      "evidence": "syncHarnessProfilePlugin() -> app/harness-profile.cjs syncShippedPackage({ sourceDir: app/plugins/mega-core, modulesDir: data/profiles/<profile>/node_modules }); called from startHarness() at app/desktop-main.cjs:564",
+      "suspected": false
+    },
+    "syncIsConditional": {
+      "file": "app/harness-profile.cjs",
+      "line": 127,
+      "evidence": "if (!fs.existsSync(targetDir)) return [] -- the refresh only maintains an existing profile install; installing is the Harness CLI's job (scripts/install-profile-plugin.ps1 per CHANGELOG.md:20-24)",
+      "suspected": false
+    },
+    "webServerDependency": {
+      "file": "app/plugins/mega-core/lib/index.js",
+      "line": 416,
+      "evidence": "export const inject = ['webServer'] -- the loader waits for the HTTP server, so the routes are registered on a live server",
+      "suspected": false
+    },
+    "platformSeedHasPrimitives": {
+      "file": "app/node_modules/@deepseek-ai/dsh-web-frontend/dist/assets/index-BKQ_L1z6.js",
+      "line": 1,
+      "evidence": "the boot seed table contains react, @deepseek-ai/dsh-client-ui-slots and @deepseek-ai/dsh-client-ui-primitives; the primitives bundle defines Modal({open,onClose,title,closeLabel,description,children,footer,className,contentClassName,headless}) and exports IconPlusOutline16/IconCloseOutline16, so client.js's require('@deepseek-ai/dsh-client-ui-primitives') resolves",
+      "suspected": false
+    },
+    "conclusion": "PROVEN: with the shipped profile (data/profiles/web) the host half and the browser half are both composed and the three slot registrations run."
+  },
+  "slots": [
+    {
+      "id": "mega-orb",
+      "slot": "shell.overlay",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2260,
+      "evidence": "ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'mega-orb', order: 100, label: 'Mega' }, () => React.createElement(MegaOrb, { store })))",
+      "component": { "name": "MegaOrb", "file": "app/plugins/mega-core/lib/client.js", "line": 1080 },
+      "hostSlotDeclaration": {
+        "file": "app/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js",
+        "line": 540,
+        "evidence": "\"shell.overlay\": { kind: \"list\", scope: \"root\" } (rendered by renderSlot at line 276 into the div at lines 302-305)",
+        "suspected": false
+      },
+      "mounted": true,
+      "reachable": true,
+      "reachableInDefaultConfig": true,
+      "notes": "The layer CSS is .<hash>_overlayLayer{z-index:20;pointer-events:none;position:absolute;inset:0} and .<hash>_overlayLayer>*{pointer-events:auto} (app/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js:71). The plugin's wrapper re-disables pointer events inline.",
+      "proven": true
+    },
+    {
+      "id": "mega",
+      "slot": "settings.section",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2265,
+      "evidence": "ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'mega', order: 500, label: 'Mega' }, (props) => React.createElement(MegaPage, { store, close: props && props.close })))",
+      "component": { "name": "MegaPage", "file": "app/plugins/mega-core/lib/client.js", "line": 1446 },
+      "hostSlotDeclaration": {
+        "file": "app/node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js",
+        "line": 621,
+        "evidence": "\"settings.section\": { kind: \"list\", scope: \"root\" }; the nav list is built from ctx.slots.entries('settings.section') (lines 561-570) and the active section is rendered with renderSlot('settings.section', { close }, { only: active }) (line 167)",
+        "suspected": false
+      },
+      "mounted": true,
+      "reachable": true,
+      "reachableInDefaultConfig": true,
+      "notes": "A new id in a list slot adds a nav row; the label is resolved by resolveSlotLabel (settings-general client.js:568) so the plain string 'Mega' works. `close` is supplied by the host, which is why the page's 关闭 button works.",
+      "proven": true
+    },
+    {
+      "id": "mega-new-task",
+      "slot": "conversation.session.header.actions",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2277,
+      "evidence": "ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({ name: 'conversation.session.header.actions', id: 'mega-new-task', order: 30, label: '新建任务 · New task' }, () => React.createElement(NewTaskAction, null)))",
+      "component": { "name": "NewTaskAction", "file": "app/plugins/mega-core/lib/client.js", "line": 2231 },
+      "hostSlotDeclaration": {
+        "file": "app/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+        "line": 16691,
+        "evidence": "\"conversation.session.header.actions\": { kind: \"list\", scope: \"session\" } (rendered at line 15072 inside the conversation header)",
+        "suspected": false
+      },
+      "mounted": true,
+      "reachable": true,
+      "reachableInDefaultConfig": true,
+      "conditional": "The slot is session-scoped: the button exists only while a conversation is open (app/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js:16691 declares scope: 'session'; the render site at 15072 is inside the conversation header).",
+      "notes": "NewTaskAction returns null when the official primitives are missing (client.js:2233), but the primitives are in the platform seed (see loaderAndHostMount.platformSeedHasPrimitives), so the button renders.",
+      "proven": true
+    }
+  ],
+  "floatingBall": {
+    "implementations": [
+      {
+        "id": "in-ui-orb",
+        "kind": "client-plugin slot occupant",
+        "files": ["app/plugins/mega-core/lib/client.js"],
+        "registeredAt": { "file": "app/plugins/mega-core/lib/client.js", "line": 2260 },
+        "component": { "file": "app/plugins/mega-core/lib/client.js", "line": 1080 },
+        "inDefaultConfig": true,
+        "evidence": "Registered into the official shell.overlay list slot; the profile installs the plugin (data/profiles/web/package.json:6-16). No environment variable gates it.",
+        "proven": true
+      },
+      {
+        "id": "system-orb",
+        "kind": "separate always-on-top Electron BrowserWindow",
+        "files": [
+          "app/extensions/mega/system-orb.cjs",
+          "app/extensions/mega/ui/orb.html",
+          "app/extensions/mega/ui/orb.js",
+          "app/extensions/mega/ui/orb.css",
+          "app/extensions/mega/ui/orb-preload.cjs"
+        ],
+        "createdAt": { "file": "app/extensions/mega/index.cjs", "line": 3605 },
+        "factory": { "file": "app/extensions/mega/index.cjs", "line": 2269 },
+        "inDefaultConfig": false,
+        "evidence": "if (process.env.DSH_SYSTEM_ORB === '1') createSystemOrbWindow() (app/extensions/mega/index.cjs:3605); env is the only gate and no launcher sets it (no .cmd/.ps1 in the repo sets DSH_SYSTEM_ORB; CHANGELOG.md:15-17 states the same). Secondary gate orbEnabled() = process.env.DSH_MEGA_ORB !== '0' (app/extensions/mega/index.cjs:2199-2201).",
+        "proven": true
+      }
+    ],
+    "reachableInDefaultConfig": ["in-ui-orb"],
+    "duplicateRisk": "PROVEN conditional duplicate: with DSH_SYSTEM_ORB=1 the always-on-top window is created unconditionally (app/extensions/mega/index.cjs:3605) and there is no code that suppresses the in-UI orb when it exists, so both balls render at once, both drawing the same view model (app/extensions/mega/index.cjs:2222-2254 builds the view with buildMegaView for the system ball; app/plugins/mega-core/lib/view.js is the same module the client half renders). app/extensions/mega/index.cjs:3600-3604 says the second ball 'was the thing being removed', but the flag still creates it.",
+    "interaction": {
+      "in-ui-orb": {
+        "draggable": true,
+        "evidence": "onPointerDown/onPointerMove/onPointerUp at app/plugins/mega-core/lib/client.js:1173-1226; a press that did not move toggles the panel (line 1225); position is persisted through POST /mega-core/orb (lines 376-391).",
+        "expandable": true,
+        "evidence": "panel opens on click; the panel's 治理详情 · Governance button toggles `expanded` (app/plugins/mega-core/lib/client.js:1062, state at 1087) to draw the service/module/plugin rosters.",
+        "closable": true,
+        "evidence": "× button (line 1386), Escape (line 1230), and a document-level pointerdown outside the orb/panel (lines 1142-1150) — the last is disabled while the in-panel task form is open (line 1139).",
+        "geometry": "40 px circle (ORB_SIZE, client.js:135 and 1266-1267), absolute inside a position:fixed inset:0 wrapper (line 1441), panel width min(340, layer-28) (line 1316), panel side chosen toward the middle of the layer (choosePanelSide, lines 300-310)."
+      },
+      "system-orb": {
+        "draggable": true,
+        "evidence": "orb.js pointer handlers (app/extensions/mega/ui/orb.js:997-1026) drive mega:orb-drag -> systemOrb.dragStart/dragTo/dragEnd (app/extensions/mega/index.cjs:2092-2099, app/extensions/mega/system-orb.cjs:585-617).",
+        "expandable": true,
+        "evidence": "a press that did not move calls api.open (orb.js:1023-1025) -> mega:orb-open -> setOpen (system-orb.cjs:551) which grows the window around the measured panel (layoutOrbWindow, system-orb.cjs:91-159).",
+        "closable": true,
+        "evidence": "panel close button (orb.js:1033-1037) and a document pointerdown outside the ball/panel (orb.js:918-926).",
+        "windowTraits": "transparent, frame:false, resizable:false, movable:false, skipTaskbar:true, focusable:false, alwaysOnTop:true (system-orb.cjs:449-470); click-through by default via setIgnoreMouseEvents(true,{forward:true}) and made interactive only while hovering/dragging/panel-open (system-orb.cjs:355-373); focusable exactly while the panel is open (system-orb.cjs:392-405)."
+      }
+    },
+    "cssAndStacking": {
+      "overlayLayer": "app/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js:71 -> \"<hash>_overlayLayer{z-index:20;pointer-events:none;position:absolute;inset:0}\" and \"<hash>_overlayLayer>*{pointer-events:auto}\"",
+      "orbZIndex": "app/plugins/mega-core/lib/client.js:1282 (orb) and 1339 (panel) both set zIndex 2147483000, but that value is scoped to the overlay layer's stacking context, whose own z-index is 20.",
+      "noDisplayOrOpacityBug": "PROVEN absent for the in-UI orb: no display:none, opacity:0 or zero-size style on the orb or its wrapper; the wrapper is position:fixed/inset:0 (client.js:1441) and the orb is a 40x40 flex box (client.js:1266-1267). The system-orb ball and panel are sized from the shell payload (orb.js:355-370 sets left/top/width/height; orb.js:870-878 sets the panel's left/top/width/maxHeight); #panel[hidden]{display:none} and html,body{pointer-events:none} are the only hiding rules (orb.css:35-47, 89)."
+    }
+  },
+  "officialUiFallback": {
+    "health-scheduler": {
+      "status": {
+        "reachable": true,
+        "officialUiPath": "Official Settings -> Mega nav row (registered by app/plugins/mega-core/lib/client.js:2265) -> MegaBody expanded -> '内置服务 · Built-in services' roster (app/plugins/mega-core/lib/client.js:1021-1035), fed by view.services (app/plugins/mega-core/lib/view.js:480, serviceView at 246-282, serviceState at 218-227). The same rows appear in the orb's panel after clicking 治理详情 · Governance (client.js:1062).",
+        "fieldsShown": ["state word (LOADED/DISABLED/DEGRADED/UNKNOWN/NOT IN THE RUNTIME)", "installed/enabled/loaded/healthy", "health reason", "heartbeat verdict", "capabilities.provides", "pressure + trend + five-state model", "last error", "actions"],
+        "proven": true
+      },
+      "actions": {
+        "reachable": "partial",
+        "officialUiPath": "same rows; each offered action is a button (app/plugins/mega-core/lib/client.js:1034) that POSTs /mega-core/action (client.js:394-409) -> app/plugins/mega-core/lib/index.js:255-274 -> governance bridge POST /action (app/core/governance-bridge.cjs:135-153).",
+        "working": ["check", "enable", "disable"],
+        "broken": ["diagnostics"],
+        "brokenReason": "BRIDGE_ACTIONS is the closed set ['check','retry','reset-fallback','repair','disable','enable'] (app/core/governance-bridge.cjs:36) and any other action is answered 400 (line 144), while the official page offers 'diagnostics' (app/plugins/mega-core/lib/view.js:299 via serviceActions 302-311 -> client.js:1034).",
+        "notOfferedInOfficialUi": "manual-restart / reset-budget are supervisor-only (view.js:309); 'restart-plugin' is offered for an enabled plugin.",
+        "proven": true
+      },
+      "gaps": [
+        "Ships disabled by default (default_enabled: false, app/plugins/health-scheduler/index.cjs:271) and config/app.json 'plugins.disabled' is empty with no config/plugins/*.json present, so in the shipped configuration the row reads DISABLED and only 'enable' changes it.",
+        "Its maintenance deferral (verdict() at app/plugins/health-scheduler/index.cjs:329-333 with deferUntil/held) is carried into view.services[].explanation (app/plugins/mega-core/lib/view.js:268) but never rendered by any surface (grep for deferUntil/maintenance in app/extensions/mega/ui: no matches; client.js has no 'explanation' reference)."
+      ]
+    },
+    "restart-supervisor": {
+      "status": {
+        "reachable": true,
+        "officialUiPath": "same '内置服务' roster; for the supervisor the row carries the restart block built at app/plugins/mega-core/lib/view.js:270-278 and rendered at app/plugins/mega-core/lib/client.js:1031 (supervisor state, restarts used/max, SAFE MODE, companion running/stopped).",
+        "proven": true
+      },
+      "actions": {
+        "reachable": "partial",
+        "officialUiPath": "same button row (app/plugins/mega-core/lib/client.js:1034) -> /mega-core/action -> governance bridge.",
+        "working": ["check", "disable"],
+        "broken": ["diagnostics", "restart-plugin", "manual-restart", "reset-budget"],
+        "brokenReason": "view.js:292-311 offers 'check','diagnostics','disable','restart-plugin','manual-restart','reset-budget'; only check/disable are in BRIDGE_ACTIONS (app/core/governance-bridge.cjs:36), so 400 for the other four at app/core/governance-bridge.cjs:144.",
+        "extraBug": "The dangerous ones are labelled '<id> (confirm)' (view.js:310) but the click handler strips the marker and performs the action immediately with no confirmation step: onAction(String(action).replace(' (confirm)', ''), entry.id) at app/plugins/mega-core/lib/client.js:1034.",
+        "proven": true
+      },
+      "restartStatusAndHistory": {
+        "status": "reachable via the same row (state/budget/safeMode/companion)",
+        "history": "MEGA ONLY (in effect: nowhere)",
+        "historyEvidence": "The supervisor publishes getRestartHistory (app/plugins/restart-supervisor/index.cjs:713, 526-533) and diagnostics() with requests/journal (lines 694-706); view.js:277 derives restart.lastRestartReason; app/plugins/mega-core/lib/client.js never renders it, and no dock panel renders it either (grep 'getRestartHistory|journal|lastRestartReason' in app/extensions/mega: no matches outside view.js:277). docs/restart-supervisor.md:204 claims the official UI shows 'the last restart reason'.",
+        "proven": true
+      }
+    },
+    "deferredPendingTaskState": {
+      "queueAndSuspension": {
+        "reachable": "official UI, orb panel only",
+        "officialUiPath": "The queue line and per-task rows are drawn only by the orb's Dashboard fold: app/plugins/mega-core/lib/client.js:752-922 (queue fold at 768, 902-915; headline 831), from view.dashboard.queue (app/plugins/mega-core/lib/view.js:149-174). The Mega settings page does NOT draw the dashboard: MegaPage passes expanded: true (client.js:1461) and MegaBody computes `const dashboard = expanded ? null : ...` (client.js:982).",
+        "proven": true
+      },
+      "pendingHumanDependency": {
+        "reachable": false,
+        "officialUiPath": "drawn as the field '待人工 / Pending human dependency' (app/plugins/mega-core/lib/view.js:449) and as the numbers row '待人工 / pending' (app/plugins/mega-core/lib/client.js:994), but it can never be non-zero.",
+        "evidence": "view.js:33 declares PENDING_KEY='pending' and view.js:390 reads governance[PENDING_KEY]; the snapshot is controlCenter() (app/extensions/mega/index.cjs:1608) which returns buildControlCenter's object, and that object has no 'pending' key (app/extensions/mega/control-center.cjs:472). CONFIRMED BY THE OWN COMMENT: view.js:17-20 says the gate 'is a later phase; until DS-Hns publishes pending ... the number is absent and the orb reports zero'. status.attention is failed+degraded+pending (view.js:396) so human-required work never counts.",
+        "proven": true
+      }
+    },
+    "pluginStatus": {
+      "reachable": "partial (2 of N)",
+      "officialUiPath": "Official Settings -> Mega -> '内置服务 · Built-in services' (2 rows: app/plugins/mega-core/lib/client.js:1022-1036) and '社区插件 · Bundled plugins' (client.js:1044-1050) fed by view.plugins (app/plugins/mega-core/lib/view.js:377, 411-414, 452).",
+      "evidence": "pluginServices.reportAll() is called with no ids (app/extensions/mega/index.cjs:1852) so plugin-host.cjs's default list applies: exactly ['dshns.health-scheduler','dshns.restart-supervisor'] (app/plugin-host.cjs:1339). The other ~15 mounted plugins of mountedPlugins() (app/plugins/mounted/index.cjs:607-635) plus accelerationPlugins() never reach any official-UI surface.",
+      "fullRosterPath": "MEGA ONLY: dock plugin manager (feature mega.plugins, panel pluginsPanel, app/extensions/mega/ui/plugin-panel.js) via plugins:list/plugins:describe.",
+      "proven": true
+    },
+    "longRunningTaskStatus": {
+      "reachable": false,
+      "officialUiPath": "MEGA ONLY",
+      "evidence": "The engineering episode surface is the dock panel engineeringPanel with channels engineering:* (app/extensions/mega/features.cjs:52-61, panel markup in app/extensions/mega/ui/dock.html, renderer app/extensions/mega/ui/engineering-panel.js); dshns.long-term-worker is a mounted plugin (app/plugins/mounted/index.cjs:106-158) whose state appears only in the plugin registry views (plugin-panel.js) and in the Control Center's module/row text. No client-plugin code path and no official slot render any episode/long-running state.",
+      "proven": true
+    },
+    "recoveryState": {
+      "reachable": true,
+      "officialUiPath": "Official Settings -> Mega -> §4.4 fields, including the '恢复动作 / Recovery action' field (app/plugins/mega-core/lib/view.js:450, computed by recoveryActions at 314-327) and per-module/per-plugin state rows (client.js:1037-1050); the fault lines are also in the orb panel (client.js:991).",
+      "actionsBroken": "The action row those fields describe is not clickable to effect: every view.actions button passes id=null (app/plugins/mega-core/lib/client.js:1002-1007 -> store.act at 394-409 -> app/plugins/mega-core/lib/index.js:266 -> app/core/governance-bridge.cjs:145 rejects an action without an id).",
+      "proven": true
+    },
+    "permissionRequiredTask": {
+      "reachable": false,
+      "officialUiPath": "MEGA ONLY (in effect: nowhere)",
+      "evidence": "No producer exists for the Human-Gate count (see deferredPendingTaskState.pendingHumanDependency). Plugin permission declarations are also invisible everywhere in the UI: the service record carries permissions (app/plugin-host.cjs:1260) but serviceView drops it (app/plugins/mega-core/lib/view.js:246-282) and no dock panel renders a plugin's permissions (grep 'permissions' in app/extensions/mega/ui: only the DSH permission-mode control at dock.js:866,901,1199). Example declaration that is therefore never shown: app/plugins/health-scheduler/dshns-plugin.json:10-12 declares fs.read and bus.emit.",
+      "proven": true
+    }
+  },
+  "settingsSections": {
+    "host": "app/node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js (SettingsRoot; nav built at lines 144-155 from ctx.slots.entries('settings.section'), active section rendered at line 167)",
+    "officialSections": [
+      { "id": "general", "order": 0, "registeredBy": "app/node_modules/@deepseek-ai/dsh-client-ui-settings-general/lib/client.js", "line": 651, "reachable": true },
+      { "id": "models", "order": 10, "registeredBy": "app/node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js", "line": 2936, "reachable": true },
+      { "id": "plugins", "order": 15, "registeredBy": "app/node_modules/@deepseek-ai/dsh-client-ui-settings-plugins/lib/client.js", "line": 1761, "reachable": true },
+      { "id": "agent-presets", "order": 20, "registeredBy": "app/node_modules/@deepseek-ai/dsh-client-ui-agent-preset/lib/client.js", "line": 1519, "reachable": true }
+    ],
+    "dsHnsSections": [
+      {
+        "id": "mega",
+        "order": 500,
+        "registeredBy": "app/plugins/mega-core/lib/client.js",
+        "line": 2265,
+        "reachable": true,
+        "content": "MegaPage -> MegaBody expanded:true -> §4.4 fields + Built-in services + Modules + Bundled plugins + Refresh/actions; the dashboard (price countdown, balance, queue, parallelism) is deliberately not drawn here (client.js:982).",
+        "notShownAnywhere": "view.advanced (the ADVANCED_SCHEMA policy for both built-in plugins) is in the snapshot but rendered by no section and no dock panel."
+      }
+    ],
+    "otherSurfacesInSettings": "None: mega-core is the only DS-Hns registration into settings.section in this checkout (grep 'settings.section' across app/: only app/plugins/mega-core/lib/client.js:2265)."
+  },
+  "unreachableOrHidden": [
+    {
+      "id": "official-recovery-action-buttons-pass-null-id",
+      "kind": "non-interactive / dead control",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 1002,
+      "evidence": "view.actions buttons are created with onClick: () => onAction(action, null) (client.js:1002-1007); store.act posts { action, id } with id=null (client.js:394-409); the host half forwards the body verbatim (app/plugins/mega-core/lib/index.js:266); the governance bridge computes id = String(body.id || '') and answers 400 'an action needs an id' (app/core/governance-bridge.cjs:143-145). The same shape exists on the system ball: app/extensions/mega/ui/orb.js:444-449 -> mega:orb-action -> app/extensions/mega/index.cjs:2023 ('an action and an id are required').",
+      "impact": "Every recovery action offered on the Mega settings page and in both orb panels (check/retry/reset-fallback/repair/disable/enable, from view.js:471 -> recoveryActions) does nothing but print a refusal line.",
+      "severity": "high",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: the handler is unchanged in the dirty tree; the click site is now app/plugins/mega-core/lib/client.js:1006."
+    },
+    {
+      "id": "dashboard-refresh-balance-not-a-bridge-action",
+      "kind": "non-interactive / dead control",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 796,
+      "evidence": "The dashboard action button posts action 'refresh-balance' with id null (client.js:796-814, actDashboard at 420-436). 'refresh-balance' is not in BRIDGE_ACTIONS (app/core/governance-bridge.cjs:36) so the bridge answers 400 before it can be handled, even though the shell's own handler special-cases it (app/extensions/mega/index.cjs:2013-2022). It works only through the system ball's IPC path.",
+      "severity": "high",
+      "proven": true
+    },
+    {
+      "id": "service-action-vocabulary-desync",
+      "kind": "state-selector/allow-list desync",
+      "file": "app/plugins/mega-core/lib/view.js",
+      "line": 292,
+      "evidence": "SERVICE_ACTIONS offers check/enable/disable/restart-plugin/manual-restart/reset-budget/diagnostics (view.js:292-300, selected by serviceActions 302-311); BRIDGE_ACTIONS accepts only check/retry/reset-fallback/repair/disable/enable (app/core/governance-bridge.cjs:36) and rejects everything else with 400 (line 144).",
+      "impact": "On the restart-supervisor row 4 of 6 buttons are refused (diagnostics, restart-plugin, manual-restart, reset-budget); on the health-monitor row 1 of 3 (diagnostics).",
+      "severity": "high",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: app/core/governance-bridge.cjs:36/144 is unmodified and view.js's SERVICE_ACTIONS list is unchanged (app/plugins/mega-core/lib/view.js:292-311)."
+    },
+    {
+      "id": "confirm-flag-without-confirmation",
+      "kind": "safety/UX gap",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 1034,
+      "evidence": "The label carries ' (confirm)' for dangerous actions (app/plugins/mega-core/lib/view.js:310) but the handler strips it and calls the action directly: onAction(String(action).replace(' (confirm)', ''), entry.id). There is no confirmation component for service actions anywhere in the client half.",
+      "severity": "high",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: app/plugins/mega-core/lib/client.js:1034 is byte-identical in the dirty tree."
+    },
+    {
+      "id": "advanced-policy-surface-unreachable",
+      "kind": "implemented but invisible",
+      "file": "app/plugin-host.cjs",
+      "line": 162,
+      "evidence": "ADVANCED_SCHEMA defines 38 validated policy keys owned by dshns.health-scheduler and dshns.restart-supervisor (plugin-host.cjs:162-203); the host exposes describe/write through pluginServices.advanced()/setAdvanced() (app/desktop-main.cjs:2542-2571); the shell puts it in the snapshot (app/extensions/mega/index.cjs:1866-1874) and control-center returns it (app/extensions/mega/control-center.cjs:472); view.js never reads governance.advanced (no occurrence of 'advanced' in app/plugins/mega-core/lib/) and the client half never renders it (grep 'advanced' in app/plugins/mega-core/lib/client.js: no matches); no dock panel exists for it (no 'advanced'/'ADVANCED_SCHEMA' consumer in app/extensions/mega/ui); setAdvanced has no caller anywhere in the repo.",
+      "severity": "high",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: 'advanced' still has zero occurrences in app/plugins/mega-core/lib/view.js and app/plugins/mega-core/lib/client.js, no dock panel consumes it, and setAdvanced (app/desktop-main.cjs:2577) still has no caller; the in-flight work touched other regions of these files."
+    },
+    {
+      "id": "restart-history-and-last-restart-reason-unrendered",
+      "kind": "implemented but invisible",
+      "file": "app/plugins/restart-supervisor/index.cjs",
+      "line": 694,
+      "evidence": "diagnostics() publishes requests (last 20) and journal (last 20) (restart-supervisor/index.cjs:694-706); getRestartHistory is on the plugin surface (line 713, implementation 526-533); view.js:277 computed restart.lastRestartReason; no renderer read it at the time of reading (app/plugins/mega-core/lib/client.js:1031 drew only supervisorState/budget/safeMode/companion; no dock panel referenced restart history). docs/restart-supervisor.md:204 claims the official UI shows 'the last restart reason'.",
+      "severity": "info",
+      "proven": true,
+      "workingTreeStatus": "SUPERSEDED BY UNCOMMITTED WORK: while this audit ran, a formal restart status/history was added end to end (new app/plugins/restart-supervisor/status.cjs, pluginServices.restartStatus in app/plugin-host.cjs, controlCenter().restartStatus in app/extensions/mega/index.cjs, a '重启状态 / Restart status' section in app/extensions/mega/control-center.cjs, and view.restartStatus rendered by app/plugins/mega-core/lib/client.js). What is not superseded: the supervisor's own getRestartHistory()/journal ring and view.js's serviceView.restart.lastRestartReason are still not the path the new surface reads, so the two history sources remain unreconciled."
+    },
+    {
+      "id": "pending-human-count-has-no-producer",
+      "kind": "always-zero field",
+      "file": "app/plugins/mega-core/lib/view.js",
+      "line": 390,
+      "evidence": "view.js:33 declares PENDING_KEY='pending'; view.js:390 reads governance.pending; the snapshot is controlCenter() (app/extensions/mega/index.cjs:1608) whose return value is buildControlCenter's object without a 'pending' key (app/extensions/mega/control-center.cjs:472). The field is drawn at view.js:449 and client.js:994, and status.attention excludes any human-required work (view.js:396).",
+      "severity": "high",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: the snapshot still has no 'pending' key (app/extensions/mega/control-center.cjs:507 returns sections/dashboard/modules/plugins/services/restartStatus/advanced/degraded/failed/failing; view.js:459 still reads governance.pending, field drawn at view.js:526)."
+    },
+    {
+      "id": "system-orb-window-unreachable-by-default",
+      "kind": "unreachable module set",
+      "file": "app/extensions/mega/index.cjs",
+      "line": 3632,
+      "evidence": "Only created when DSH_SYSTEM_ORB === '1' (index.cjs:3632 in the dirty tree; 3605 at HEAD) and only usable when DSH_MEGA_ORB !== '0' (index.cjs:2199-2201 at HEAD); no launcher script in the repo sets DSH_SYSTEM_ORB (grep over *.cmd/*.ps1/package.json: absent; also stated in CHANGELOG.md:15-17).",
+      "impact": "app/extensions/mega/ui/orb.html, orb.js, orb.css, orb-preload.cjs and the 11 mega:orb-* IPC channels (index.cjs:103-110, handlers at 2076-2166) are dead in the default configuration; every mega:orb-* handler answers { ok:false, reason:'the system orb is not running' }.",
+      "severity": "high",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: the createSystemOrbWindow gate is still env-only; it moved to app/extensions/mega/index.cjs:3632."
+    },
+    {
+      "id": "duplicate-ball-when-system-orb-enabled",
+      "kind": "duplicate surface",
+      "file": "app/extensions/mega/index.cjs",
+      "line": 3605,
+      "evidence": "The always-on-top window was created unconditionally when the env flag was set, and nothing suppressed the in-UI orb (registered at app/plugins/mega-core/lib/client.js:2260); both drew the same buildMegaView output.",
+      "severity": "info",
+      "proven": true,
+      "workingTreeStatus": "SUPERSEDED BY UNCOMMITTED WORK: controlCenter() now publishes orb.mode = systemOrb ? 'system' : 'in-ui' (app/extensions/mega/index.cjs), view.js exposes orb.hideInUi ('the system-wide ball is running; the in-UI ball would be a second one') and MegaOrb returns null when snapshot.view.orb.hideInUi is set (app/plugins/mega-core/lib/client.js). Whether the two can still both render depends on that host field being present over the governance bridge; the client-side suppression exists but the bridge snapshot source (controlCenter) does provide it, so the duplicate is closed as of the working tree read."
+    },
+    {
+      "id": "manual-restart-and-reset-budget-have-no-ui",
+      "kind": "unreachable action",
+      "file": "app/extensions/mega/index.cjs",
+      "line": 1959,
+      "evidence": "SERVICE_ACTIONS/serviceAction implement manual-restart and reset-budget (index.cjs:1986, 2014-2030 in the dirty tree; 1959/1987-2003 at HEAD), but the only surfaces that name them are the official page (whose clicks are refused by the bridge, see service-action-vocabulary-desync) and the dock Control Center, which renders NO buttons for service rows (app/extensions/mega/ui/control-panel.js:97-101 draws sections as text only; buttons are created only for protection modules and bundled plugins at 49-90). The system ball does not draw the services roster at all (app/extensions/mega/ui/orb.js:460-466 only points at Settings › Mega). grep 'manual-restart|reset-budget' outside tests/docs finds only view.js and index.cjs.",
+      "severity": "medium",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: nothing in the concurrent edits added a caller; the control-panel still renders service rows without buttons."
+    },
+    {
+      "id": "feature-gate-does-not-cover-plugins-bridge",
+      "kind": "registry/gate desync",
+      "file": "app/extensions/mega/features.cjs",
+      "line": 155,
+      "evidence": "The feature registry declares mega.plugins with channels ['plugins:*'] and panel 'pluginsPanel' (features.cjs:148-156), and the dock hides the panel (app/extensions/mega/ui/dock.js:1046-1059). Two independent holes: (a) the preload exposes megaPlugins WITHOUT gatedBridge (app/extensions/mega/ui/preload.cjs:361-386) while every other gated bridge uses it (preload.cjs:316, 343, 394) — contradicting the file's own comment at preload.cjs:7-10; (b) installFeatureGate only wraps ipcMain.handle calls made after it is installed (app/extensions/mega/index.cjs:1336-1348, installed at 3564), while registerPluginIpc() registers every plugins:* channel earlier (app/desktop-main.cjs:2707 vs 2722).",
+      "impact": "Switching the 'mega.plugins' feature off hides the panel but leaves plugins:list/describe/enable/reload/configure answering.",
+      "severity": "medium",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: app/extensions/mega/ui/preload.cjs:361 still exposes megaPlugins without gatedBridge and app/desktop-main.cjs still registers the plugins:* channels before the extension installs the gate."
+    },
+    {
+      "id": "control-center-misroutes-check-enable-disable",
+      "kind": "handler-ordering bug",
+      "file": "app/extensions/mega/index.cjs",
+      "line": 2036,
+      "evidence": "controlAction tests SERVICE_ACTIONS first (index.cjs:2036 -> serviceAction at 1961), before the protection and store branches (index.cjs:2039-2049). 'check', 'enable' and 'disable' are all in SERVICE_ACTIONS (index.cjs:1959), so: a protection module's 'check' button (offered by moduleActions, app/extensions/mega/control-center.cjs:121-124) is routed to host.report(<module id>) and refused because protection ids ('wallpaper-layer','mega-extension-host','mega-dock' — app/desktop-main.cjs:2617-2626) are not plugin ids; a bundled community plugin's 'disable'/'enable' (pluginActions, control-center.cjs:127-131) is routed to host.setEnabled('dsh-wallpaper-engine'/'@dsh-market/plugin' — app/extensions/mega/plugins/index.cjs:125-152) which is not in the plugin host's world, so installer().disable()/enable() (index.cjs:2043-2049) is never reached for them. 'repair' and 'retry'/'reset-fallback' are unaffected.",
+      "severity": "medium",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: app/extensions/mega/index.cjs:2063 still tests SERVICE_ACTIONS before the protection/store branches (SERVICE_ACTIONS defined at line 1986 in the dirty tree)."
+    },
+    {
+      "id": "health-scheduler-disabled-in-shipped-config",
+      "kind": "feature default",
+      "file": "app/plugins/health-scheduler/index.cjs",
+      "line": 271,
+      "evidence": "default_enabled: false (health-scheduler/index.cjs:271); config/app.json:80-83 has enabled:true, disabled:[] and no per-plugin config exists (no config/plugins/*.json in this checkout), so the plugin is mounted but not loaded. Its row therefore reads DISABLED (view.js:220) and the only official-UI action that can change anything is 'enable'.",
+      "severity": "medium",
+      "proven": true
+    },
+    {
+      "id": "disable-mega-kill-switch-does-not-remove-official-ball",
+      "kind": "feature flag boundary",
+      "file": "app/desktop-main.cjs",
+      "line": 2463,
+      "evidence": "DSH_DISABLE_MEGA=1 only skips startExtensions (app/desktop-main.cjs:2462-2464, app/extensions/manager.cjs:15), while syncHarnessProfilePlugin() still runs inside startHarness (desktop-main.cjs:544-556, called at 564) and the profile keeps the bundle declared (data/profiles/web/package.json:6-16). The Harness therefore still composes dsh-plugin-mega-core, so the shell.overlay ball and the Settings › Mega section still mount; with no governance bridge they render the 'unavailable' branch (app/plugins/mega-core/lib/view.js:346-374) and their routes answer 503 (app/plugins/mega-core/lib/index.js:251, 271).",
+      "impact": "The 'pure Alien' mode still ships a DS-Hns-drawn floating ball and a Mega settings page in the official UI (grey/Unavailable rather than absent).",
+      "severity": "medium",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: DSH_DISABLE_MEGA still only gates startExtensions (app/desktop-main.cjs:2463) while syncShippedPackage still runs from startHarness (app/desktop-main.cjs:547)."
+    },
+    {
+      "id": "official-ui-shows-2-of-N-plugins",
+      "kind": "registry coverage",
+      "file": "app/plugin-host.cjs",
+      "line": 1339,
+      "evidence": "serviceReports(ids) defaults to ['dshns.health-scheduler','dshns.restart-supervisor'] (plugin-host.cjs:1356 in the dirty tree; 1339 at HEAD) and the shell calls reportAll() with no arguments (app/extensions/mega/index.cjs:1852 at HEAD). mountedPlugins() exposes 15 plugins plus accelerationPlugins() (app/plugins/mounted/index.cjs:607-635 at HEAD), none of which appears in any official-UI surface.",
+      "severity": "medium",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified: the default id list is unchanged by the concurrent edits."
+    },
+    {
+      "id": "dead-host-half-routes",
+      "kind": "route with no entry point",
+      "file": "app/plugins/mega-core/lib/index.js",
+      "line": 230,
+      "evidence": "GET /mega-core/health (index.js:230-244) and GET /mega-core/governance (index.js:246-253) are registered but no caller exists in the browser half: the client only uses /mega-core/view, /action, /orb, /timing, /task, /task-edit, /task-move, /task-delete (client.js:128-130, 1469-1473).",
+      "severity": "low",
+      "proven": true
+    },
+    {
+      "id": "plugin-permission-declarations-never-displayed",
+      "kind": "implemented but invisible",
+      "file": "app/plugin-host.cjs",
+      "line": 1260,
+      "evidence": "serviceRecordOf returns permissions (plugin-host.cjs:1260) and list()/describe() expose them (plugin-host.cjs:807, 852); view.js's serviceView drops the field (app/plugins/mega-core/lib/view.js:246-282) and no dock renderer shows a plugin's permissions (grep 'permissions' in app/extensions/mega/ui: only the DSH permission-mode select at dock.js:866/901/1199). Example: app/plugins/health-scheduler/dshns-plugin.json:10-12.",
+      "severity": "low",
+      "proven": true
+    },
+    {
+      "id": "maintenance-defer-and-held-reason-invisible",
+      "kind": "implemented but invisible",
+      "file": "app/plugins/health-scheduler/index.cjs",
+      "line": 330,
+      "evidence": "verdict() publishes allowed/reason/deferUntil/held (health-scheduler/index.cjs:329-333) and decide().model is published as diagnostics.explanation (line 415) -> view.js:268; client.js never renders 'explanation', and no file under app/extensions/mega/ui references maintenance/deferUntil (grep: no matches).",
+      "severity": "low",
+      "proven": true
+    },
+    {
+      "id": "dock-hidden-by-default-entry-points",
+      "kind": "hidden surface",
+      "file": "app/extensions/mega/index.cjs",
+      "line": 754,
+      "evidence": "dockAutoStart() is true only for DSH_MEGA_DOCK=1 / DSH_MEGA_WIDGET=1 (index.cjs:754-756), so at boot the dock is only created when asked for (index.cjs:3595-3596); the durable entry points are the tray item 'Mega 控制台' (index.cjs:966, tray built at 961-976), Ctrl+Shift+M (index.cjs:3585-3592), and the argv/env flags --mega-dock / DSH_MEGA_DOCK_EXPANDED=1 (index.cjs:3624). createTray() swallows a missing/broken icon and returns null (index.cjs:1165-1187; the icon file assets/icon/ds-harness.ico exists and PATHS.ICON resolves to assets/icon per app/extensions/mega/utils/paths.js:64), in which case the tray entry disappears and only the shortcut/flags remain — that failure path is PROVEN, the failure itself is not.",
+      "severity": "low",
+      "proven": true
+    },
+    {
+      "id": "settings-label-not-localized",
+      "kind": "cosmetic/i18n",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2266,
+      "evidence": "The Mega section registers label: 'Mega' (client.js:2266) while every official section registers a locale-bound label (e.g. app/node_modules/@deepseek-ai/dsh-client-ui-settings-plugins/lib/client.js:1761-1766). resolveSlotLabel accepts a string (settings-general client.js:568), so the row works but is fixed to the literal 'Mega' and has no navIcon mapping.",
+      "severity": "low",
+      "proven": true
+    },
+    {
+      "id": "orb-zindex-bounded-by-overlay-layer",
+      "kind": "stacking-context",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 1282,
+      "evidence": "The orb/panel set z-index 2147483000 (client.js:1282, 1339) but live inside .<hash>_overlayLayer, whose own rule is z-index:20 (app/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js:71). Within the frame, the ball cannot rise above any surface outside that layer with a higher z-index; whether official dialogs (portalled to document.body by the primitives' Modal) cover it was NOT verified.",
+      "severity": "info",
+      "proven": true
+    },
+    {
+      "id": "overlay-children-get-pointer-events-auto",
+      "kind": "latent hit-target risk",
+      "file": "app/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js",
+      "line": 71,
+      "evidence": "The host CSS grants pointer-events:auto to every direct child of the overlay layer (.<hash>_overlayLayer>*); the only thing that keeps the orb's full-viewport wrapper (position:fixed; inset:0, app/plugins/mega-core/lib/client.js:1441) click-through is the plugin's own inline pointerEvents:'none'. Nothing in the host enforces it, so a change to that one inline style would make the ball's wrapper swallow every click in the app.",
+      "severity": "info",
+      "proven": true
+    },
+    {
+      "id": "header-entry-only-inside-a-session",
+      "kind": "conditional reachability",
+      "file": "app/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js",
+      "line": 16691,
+      "evidence": "conversation.session.header.actions is scope:'session' (declared at conversation/lib/client.js:16691-16694, rendered at 15072). With no conversation open there is no header, so the DS-Hns '新建任务 · New task' entry (app/plugins/mega-core/lib/client.js:2277) does not exist even though the plugin is loaded.",
+      "severity": "info",
+      "proven": true
+    },
+    {
+      "id": "two-rosters-for-the-two-services",
+      "kind": "duplicate listing",
+      "file": "app/extensions/mega/plugins/index.cjs",
+      "line": 96,
+      "evidence": "dshns.health-scheduler and dshns.restart-supervisor are entries in BUNDLED_MANIFEST (plugins/index.cjs:96-124) and describe() returns every manifest entry (plugins/index.cjs:291, 390-396), so the official Mega page lists each of them twice — once from the plugin-host service record (client.js:1022-1036) and once as a 'bundled plugin' (client.js:1044-1050) with a different state vocabulary (BUNDLED_STATE vs the service record's four facts).",
+      "severity": "info",
+      "proven": true
+    },
+    {
+      "id": "duplicate-module-export-and-stale-comment",
+      "kind": "code hygiene / possibly misleading checks",
+      "file": "app/plugins/mounted/index.cjs",
+      "line": 655,
+      "evidence": "healthSchedulerPlugin is exported twice (app/plugins/mounted/index.cjs:654 and 664 in the dirty tree; 645 and 655 at HEAD) while restartSupervisorPlugin appears once; and app/plugins/restart-supervisor/index.cjs:40 says 'default_enabled is false' while the manifest at line 592 says true. scripts/verify.ps1:271 asserts the service/action wiring by regex over source text, so a text-level contract can pass while the runtime paths above are dead.",
+      "severity": "info",
+      "proven": true,
+      "workingTreeStatus": "still-present-reverified for the duplicate export (lines 654 and 664 now); the verify.ps1 regex check is unchanged."
+    }
+  ],
+  "reachableSurfaces": [
+    {
+      "id": "in-ui-orb",
+      "kind": "official shell.overlay occupant",
+      "entryPoint": "Official UI: a 40px ball at the bottom-right of the app frame, always present while the plugin is composed",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2260,
+      "proven": true
+    },
+    {
+      "id": "orb-panel-dashboard",
+      "kind": "fold-out panel",
+      "entryPoint": "click the ball; categories price/account/sub-worker/tasks/queue/parallelism (client.js:752-922), queue operations move/edit/delete (client.js:1426-1430)",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 1375,
+      "proven": true
+    },
+    {
+      "id": "orb-panel-governance-detail",
+      "kind": "panel mode",
+      "entryPoint": "治理详情 · Governance button in the ball's panel (client.js:1062) draws the service/module/plugin rosters and the §4.4 fields",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 1059,
+      "proven": true
+    },
+    {
+      "id": "orb-panel-new-task-form",
+      "kind": "in-panel form",
+      "entryPoint": "＋ 新建定时任务 · New task, first line of the ball's panel (client.js:1352-1373, form at 2005-2218); POSTs /mega-core/task and /mega-core/task-edit",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 1352,
+      "proven": true
+    },
+    {
+      "id": "settings-mega-section",
+      "kind": "official Settings page",
+      "entryPoint": "Settings nav row 'Mega' (order 500); §4.4 fields, built-in services, modules, bundled plugins, refresh",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2265,
+      "proven": true
+    },
+    {
+      "id": "conversation-header-new-task",
+      "kind": "official header action (session-scoped)",
+      "entryPoint": "新建任务 · New task beside the official schedule/jobs actions; opens the official Modal-based dialog (client.js:1778-1986)",
+      "file": "app/plugins/mega-core/lib/client.js",
+      "line": 2277,
+      "proven": true
+    },
+    {
+      "id": "mega-dock",
+      "kind": "integrated dock WebContentsView / legacy window",
+      "entryPoint": "tray 'Mega 控制台' (index.cjs:966), Ctrl+Shift+M (index.cjs:3585-3592), --mega-dock or DSH_MEGA_DOCK_EXPANDED=1 (index.cjs:3624)",
+      "file": "app/extensions/mega/index.cjs",
+      "line": 901,
+      "proven": true
+    },
+    {
+      "id": "control-center-panel",
+      "kind": "dock panel",
+      "entryPoint": "dock -> controlPanel: sections text rows, protection-module actions, bundled-plugin actions (retry/repair/reset-fallback work; check/enable/disable mis-routed as noted)",
+      "file": "app/extensions/mega/ui/control-panel.js",
+      "line": 92,
+      "proven": true
+    },
+    {
+      "id": "plugin-manager-panel",
+      "kind": "dock panel + tray float",
+      "entryPoint": "dock pluginsPanel or tray '插件管理' (index.cjs:969); full plugin registry, detail, enable/disable/reload, execution settings, lock",
+      "file": "app/extensions/mega/ui/plugin-panel.js",
+      "line": 243,
+      "proven": true
+    },
+    {
+      "id": "queue-panel-and-scheduler-form",
+      "kind": "dock panel",
+      "entryPoint": "dock -> queuePanel; also the scheduler form (startAt/allowPeak/deliveryMode controls in dock.html)",
+      "file": "app/extensions/mega/ui/dock.js",
+      "line": 1,
+      "proven": true
+    },
+    {
+      "id": "engineering-and-subworker-panels",
+      "kind": "dock panels",
+      "entryPoint": "dock -> engineeringPanel / subWorkerPanel (features mega.engineering, mega.sub-worker)",
+      "file": "app/extensions/mega/ui/engineering-panel.js",
+      "line": 1,
+      "proven": true
+    }
+  ],
+  "negativeResults": [
+    {
+      "id": "no-provable-loading-or-spinner-hang",
+      "detail": "The in-UI store's loading state (client.js:328, 350-353, 969) is bounded: every host-half bridge call runs under a 4s AbortController (app/plugins/mega-core/lib/index.js:151-179) and every failure path sets loading:false or a reason. The new-task form's busy flag is cleared in a .finally (client.js:1726), and the loading prop on the official Button only reflects that flag. No code path was found that can leave a spinner or 'connecting' state pending indefinitely.",
+      "proven": true
+    },
+    {
+      "id": "no-display-none-or-zero-size-orb",
+      "detail": "No display:none / opacity:0 / zero-size rule was found on either ball in its default state; see floatingBall.cssAndStacking.noDisplayOrOpacityBug.",
+      "proven": true
+    },
+    {
+      "id": "feature-panels-all-exist",
+      "detail": "Every panel id and element id declared by MEGA_FEATURES (app/extensions/mega/features.cjs:41-167) exists in app/extensions/mega/ui/dock.html (controlPanel, engineeringPanel, subWorkerPanel, queuePanel, balancePanel, computerUsePanel, hardwarePanel, skillsPanel, pluginsPanel, updatePanel, allowPeak, defaultAllowPeak, interruptRunningAtPeak) — no registry/markup desync there.",
+      "proven": true
+    },
+    {
+      "id": "dock-ui-modules-all-referenced",
+      "detail": "Every script referenced by dock.html exists, and every app/extensions/mega/ui/*.js is referenced except apply-skills-css.cjs (a .cjs helper) and orb.js (loaded by orb.html, itself unreachable by default) — no orphan dock module.",
+      "proven": true
+    }
+  ],
+  "notes": [
+    "Severity scale: high = a user-visible capability is offered but cannot work, or a required capability has no path at all; medium = reachable only outside the official UI, or a gate/registry that does not do what it declares; low = implemented-but-invisible detail; info = structural risk or documentation drift.",
+    "PROVEN vs SUSPECTED: all 25 findings are PROVEN by reading the full path; two of them additionally contain one explicitly SUSPECTED sub-claim each. They are (1) whether official dialogs actually cover the in-UI ball (the z-index of the primitives' Modal portal was not verified; see orb-zindex-bounded-by-overlay-layer) and (2) whether the tray can fail on a given host in practice (the failure path is proven, the failure is not; see dock-hidden-by-default-entry-points).",
+    "The working tree was being edited by a concurrent agent while this audit ran; 2 of the 25 findings were superseded by that in-flight work (restart history/status, duplicate ball) and 23 were re-verified as still present. See auditState.inFlightWorkThatOverlapsThisAudit and each finding's workingTreeStatus for the re-verification.",
+    "The single most consequential gap is the governance bridge's action allow-list (app/core/governance-bridge.cjs:36, 144): the official UI's entire action vocabulary (ServiceActions in view.js:292-311, MEGA_ACTIONS in view.js:30, refresh-balance) was designed against the shell's wider IPC handler (app/extensions/mega/index.cjs:1959-2055) and is only partially legal over the bridge the plugin actually talks to.",
+    "The shell-side action handler has its own gap in the opposite direction: SERVICE_ACTIONS is tested before the protection/store branches (app/extensions/mega/index.cjs:2036 vs 2039-2049), which captures 'check'/'enable'/'disable' for ids those branches were written for.",
+    "This checkout has no config/plugins/*.json and no data/plugins/installed.json, so the plugin world consists of the shipped set (app/plugins/mounted/index.cjs:607-635 plus accelerationPlugins()); the findings above were derived from that shipped configuration.",
+    "No Electron process was started and no HTTP request was issued during this audit; scripts/verify.ps1's source-text checks (e.g. line 271) cannot detect any of the runtime mismatches listed here."
+  ]
+}

@@ -3,11 +3,10 @@
  * DS-Harness desktop shell — Alien-derived canonical core.
  *
  * The official @deepseek-ai/dsh Web UI and optional Mega dock are rendered as
- * sibling WebContentsViews inside one native BrowserWindow when the integrated
- * dock is enabled. This keeps the official renderer untouched while reserving
- * real layout width for Mega instead of overlaying it.
+ * sibling WebContentsViews inside one native BaseWindow when the integrated dock
+ * is enabled. The legacy single-page path and auxiliary windows remain BrowserWindows.
  */
-const { app, BrowserWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification } = require('electron')
+const { app, BrowserWindow, BaseWindow, WebContentsView, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
@@ -15,16 +14,17 @@ const path = require('node:path')
 const fs = require('node:fs')
 const runtimeProcess = require('./runtime-process.cjs')
 const runtimeInstance = require('./runtime/instance.cjs')
+const { resolveCommandTemp } = require('./runtime/temp-root.cjs')
 const { createRuntimeClient } = require('./runtime/client.cjs')
 const { WorkerManager } = require('./sub-worker/manager.cjs')
-const { createOfficialSurfaceViews, SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
+const { SURFACE, PAINTABLE } = require('./official-surface-views.cjs')
 const { createStartupManager } = require('./startup.cjs')
 const { createProtectionLayer } = require('./extensions/mega/protection/index.cjs')
 const frontendMode = require('./frontend-mode/index.cjs')
 const { syncShippedPackage } = require('./harness-profile.cjs')
-// The dock's rectangle, including the band it yields to the official UI. Shared with the extension
-// so the integrated view and the legacy window cannot disagree about where the dock starts.
-const { dockBounds, dockTopInset } = require('./extensions/mega/dock/geometry.cjs')
+// The legacy dock window yields the official header band; the integrated dock is a disjoint
+// sibling view and uses this pure side-by-side layout contract instead.
+const { computeIntegratedLayout } = require('./extensions/mega/dock/integrated-layout.cjs')
 
 const ROOT = path.resolve(__dirname, '..')
 const HARNESS_HOST = '127.0.0.1'
@@ -49,12 +49,14 @@ const DSH_LAUNCH_ARGS = ['web', '--no-open', ...(HARNESS_PORT_OVERRIDE ? ['--por
 const DSH_ENTRY = path.join(__dirname, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const STARTUP_TIMEOUT_MS = Number(process.env.DSH_STARTUP_TIMEOUT_MS || 120_000)
 const STARTUP_BUFFER_LIMIT = 64 * 1024
-const INTEGRATED_MEGA_DOCK = process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
+const INTEGRATED_MEGA_DOCK = process.env.DSH_DISABLE_MEGA !== '1' && process.env.DSH_MEGA_INTEGRATED_DOCK !== '0'
 const MEGA_DOCK_COLLAPSED_WIDTH = 48
 const MEGA_DOCK_DEFAULT_WIDTH = 560
 const MEGA_DOCK_MIN_WIDTH = 440
 const MEGA_DOCK_MAX_WIDTH = 720
-const OFFICIAL_VIEW_MIN_WIDTH = 360
+// The pinned official UI layout collapses its sidebar below 1024 px. Keep an 8 px
+// margin so normal rounding and compositor measurements never cross that breakpoint.
+const OFFICIAL_VIEW_MIN_WIDTH = 1032
 
 /**
  * A bilingual title for an OS window or dialog.
@@ -100,6 +102,7 @@ function normalizeHarnessPort(value) {
 }
 
 let mainWindow = null
+let shellView = null
 let officialView = null
 let megaDockView = null
 let officialSurfaces = null
@@ -151,6 +154,7 @@ let megaDockWidth = MEGA_DOCK_DEFAULT_WIDTH
  */
 let officialFocusArmedAt = Number.POSITIVE_INFINITY
 let megaDockCollapseInFlight = false
+let dockWidthNoticeOpen = false
 let harnessProcess = null
 /**
  * The connection to the DS-Hns Runtime.
@@ -342,6 +346,15 @@ normalizeApiKeyEnv()
 loadProjectEnv()
 process.env.DSH_ROOT = process.env.DSH_ROOT || ROOT
 process.env.DSH_HOME = process.env.DSH_HOME || path.join(ROOT, 'data')
+/**
+ * Where the restart supervisor's out-of-process companion keeps its files.
+ *
+ * One variable, both sides: the companion is handed this directory as `--state-dir`, the plugin writes
+ * its heartbeat and reads its requests there, and the shell watches the companion's graceful-stop
+ * request in the same place. Deriving it in three places from `process.cwd()` would be three answers to
+ * one question, and the failure mode is a supervisor watching a directory nobody writes to.
+ */
+process.env.DSHNS_SUPERVISOR_STATE_DIR = process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(process.env.DSH_HOME, 'state', 'restart-supervisor')
 // Mega is rendered inside the native main window. Disable the legacy companion
 // BrowserWindow so there is only one top-level DS-Harness window.
 if (INTEGRATED_MEGA_DOCK) process.env.DSH_MEGA_DOCK = '0'
@@ -400,15 +413,20 @@ function resolveAppIcon() {
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock()
-if (!hasSingleInstanceLock) app.quit()
+if (!hasSingleInstanceLock) {
+  app.quit()
+  // quit() requests exit; it does not stop CommonJS entry evaluation. Do not
+  // register startup work or create runtimes in this rejected second instance.
+  return
+}
 
 function logPath() {
-  return path.join(ROOT, 'logs', 'desktop-runtime.log')
+  return path.join(process.env.DSH_LOG_DIR || path.join(ROOT, 'logs'), 'desktop-runtime.log')
 }
 
 function logLine(message) {
   try {
-    fs.mkdirSync(path.join(ROOT, 'logs'), { recursive: true })
+    fs.mkdirSync(path.dirname(logPath()), { recursive: true })
     fs.appendFileSync(logPath(), `${new Date().toISOString()} ${String(message)}\n`, 'utf8')
   } catch {}
 }
@@ -477,9 +495,10 @@ function resolveNodeExe() {
 }
 
 function ensureRuntimeDirs() {
-  for (const dir of ['logs', 'temp', 'cache', 'data', 'workspace', 'runtime']) {
+  for (const dir of ['logs', 'cache', 'data', 'workspace', 'runtime']) {
     fs.mkdirSync(path.join(ROOT, dir), { recursive: true })
   }
+  fs.mkdirSync(resolveCommandTemp(ROOT, process.env), { recursive: true })
 }
 
 /**
@@ -556,7 +575,7 @@ function syncHarnessProfilePlugin() {
   try {
     const changed = syncShippedPackage({
       sourceDir: path.join(__dirname, 'plugins', 'mega-core'),
-      modulesDir: path.join(ROOT, 'data', 'profiles', profile, 'node_modules'),
+      modulesDir: path.join(process.env.DSH_HOME, 'profiles', profile, 'node_modules'),
       log: logLine
     })
     if (changed.length) logLine(`[profile] the profile's copy of the shipped plugin was refreshed: ${changed.join(', ')}`)
@@ -574,12 +593,13 @@ function startHarness(nodeExe) {
   syncHarnessProfilePlugin()
   startupOutput = ''
   harnessUrl = null
+  const commandTemp = resolveCommandTemp(ROOT, process.env)
 
   logLine('--- DSH launch begin ---')
   logLine(`node=${nodeExe}`)
   logLine(`entry=${DSH_ENTRY}`)
   logLine(`cwd=${ROOT}`)
-  logLine(`DSH_HOME=${path.join(ROOT, 'data')}`)
+  logLine(`DSH_HOME=${process.env.DSH_HOME}`)
   logLine(`apiKeyConfigured=${Boolean(process.env.DEEPSEEK_API_KEY)}`)
 
   // The fixed prefix is the canonical launch line; `--port` is appended only when
@@ -589,11 +609,11 @@ function startHarness(nodeExe) {
     env: {
       ...process.env,
       DSH_ROOT: ROOT,
-      DSH_HOME: path.join(ROOT, 'data'),
+      DSH_HOME: process.env.DSH_HOME,
       DSH_NODE: nodeExe,
       npm_config_cache: path.join(ROOT, 'cache', 'npm'),
-      TEMP: path.join(ROOT, 'temp'),
-      TMP: path.join(ROOT, 'temp'),
+      TEMP: commandTemp,
+      TMP: commandTemp,
       PATH: `${path.dirname(nodeExe)};${process.env.PATH || ''}`
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -1029,7 +1049,7 @@ function registerSubWorkerIpc() {
 function activeAgentSurface() {
   try {
     if (officialView && officialView.webContents) return officialView.webContents
-    if (mainWindow && !mainWindow.isDestroyed()) return mainWindow.webContents
+    if (!INTEGRATED_MEGA_DOCK && mainWindow && !mainWindow.isDestroyed()) return mainWindow.webContents
   } catch {
     /* a destroyed view is simply not an agent surface */
   }
@@ -1271,6 +1291,19 @@ function safeNodeExe() {
   return process.execPath
 }
 
+/**
+ * The plugin runtime, as any scope in this file reaches it.
+ *
+ * `registerPluginIpc` has its own local `host()`; the hooks handed to the extension (`pluginServices`) are
+ * built in a **different function**, so they need a name that exists there too. That is what this is — and
+ * its absence is why the whole built-in-service surface was once dead in the product: the hooks called
+ * `host()`, the identifier did not exist in their scope, every call threw `host is not defined`, and the
+ * panel drew "report unavailable" while the runtime was perfectly healthy.
+ */
+function pluginRuntime() {
+  return ensurePluginHost()
+}
+
 function ensurePluginHost() {
   if (pluginHost) return pluginHost
   const { createPluginHost } = require('./plugin-host.cjs')
@@ -1283,9 +1316,18 @@ function ensurePluginHost() {
     reason: () => 'the plugin runtime is disabled by config/app.json (plugins.enabled = false)',
     defaults: block,
     enforceLock: block.enforceLock === true,
+    /**
+     * Core's task-continuity hooks, handed to the shipped plugins that declare a need for them.
+     *
+     * The supervisor asks them what is running, parks it before a restart and continues it afterwards;
+     * this is the layer that can answer, because the tasks are the shell's and the extension's, not a
+     * plugin's.
+     */
+    continuity: taskContinuity().hooks,
     // A compatibility-mode plugin is activated in a separate process. It has to be *this*
     // deployment's node: a packaged application has no other one on the machine.
-    nodeExe: safeNodeExe()
+    nodeExe: safeNodeExe(),
+    restartSupervisorStateDir: process.env.DSHNS_SUPERVISOR_STATE_DIR
   })
   logLine(`plugin runtime ready (${PLUGIN_CHANNELS.length} channels; lock enforcement ${block.enforceLock === true ? 'on' : 'off'})`)
   return pluginHost
@@ -1311,6 +1353,107 @@ function pluginsEnabled() {
     return config?.plugins?.enabled !== false
   } catch {
     return true
+  }
+}
+
+/**
+ * The companion's graceful-stop request, as this process sees it.
+ *
+ * The companion cannot send a signal that Windows will honour as "please leave" — `child.kill()` there
+ * terminates whether the child wanted to or not — so the graceful half of a restart is a *file*: the
+ * companion writes `app.stop-request.json`, and the application leaves on its own terms, which is what
+ * lets a restart pass through the shell's own exit path (checkpoints, managed resources, the harness).
+ * The companion only escalates to `taskkill` if this does not happen inside the timeout.
+ *
+ * A missing or unreadable file is not an error — it is the normal case for every second of the day
+ * that nobody is restarting anything — so this stays silent until there is something to act on, and it
+ * acts **once** per request.
+ */
+function watchSupervisorStopRequest() {
+  const file = path.join(process.env.DSHNS_SUPERVISOR_STATE_DIR || path.join(ROOT, 'data', 'state', 'restart-supervisor'), 'app.stop-request.json')
+  // A supervised relaunch reads this same state directory. Its predecessor's stop request is still
+  // on disk, so treating every positive timestamp as new would make the fresh process exit again.
+  // Only requests written after this process began watching may stop this instance.
+  let handledAt = Date.now()
+  const timer = setInterval(() => {
+    let request = null
+    try {
+      request = JSON.parse(fs.readFileSync(file, 'utf8'))
+    } catch {
+      return
+    }
+    const at = Number(request && request.at)
+    if (!Number.isFinite(at) || at <= handledAt) return
+    handledAt = at
+    logLine(`the restart supervisor asked this instance to leave gracefully (${request.kind || 'graceful'}): ${request.reason || 'no reason given'}`)
+    gracefulExit('restart-supervisor')
+  }, 1_000)
+  if (timer && typeof timer.unref === 'function') timer.unref()
+  return timer
+}
+
+/**
+ * Start the out-of-process half of the restart authority, behind the boot.
+ *
+ * The restart supervisor can only supervise if part of it is *outside* the process it watches: a hung
+ * or dead main process cannot reliably restart itself, and nothing inside it can notice that the event
+ * loop stopped answering. That outside half is the companion — a separate Node program in
+ * `app/plugins/restart-supervisor/companion/` — and this is what starts it.
+ *
+ * Two properties decide the shape of this call:
+ *
+ *   * **through the plugin runtime**, not around it: the companion's state directory, its policy and
+ *     its pid file belong to the plugin, so the shell asks the plugin to start its own companion
+ *     (`startCompanions`) instead of spawning a path it would have to keep in step by hand;
+ *   * **behind the boot**: it is a `startup.defer` step, so a companion that will not start is a line
+ *     in the boot report and a `degraded` health row — never a shell that refuses to open.
+ */
+async function startRestartSupervisor() {
+  if (!pluginsEnabled()) return { ok: false, skipped: true, reason: 'the plugin runtime is disabled by config/app.json' }
+  const host = ensurePluginHost()
+  const built = await host.ensure()
+  if (built.ok === false) {
+    logLine(`restart supervisor: the plugin world could not be built (${built.error || built.code || 'no reason given'})`)
+    return { ok: false, skipped: true, reason: built.error || 'the plugin world could not be built' }
+  }
+  const listed = host.list()
+  const plugins = Array.isArray(listed) ? listed : (listed && Array.isArray(listed.plugins) ? listed.plugins : [])
+  const outcome = host.startCompanions()
+  // `ensure()` checked health before companions were started. Refresh the owning plugin now so the
+  // first visible service report reflects the launched process instead of caching that boot-time gap.
+  await host.health({ id: 'dshns.restart-supervisor' })
+  /**
+   * Say what this step did, always.
+   *
+   * It is the one boot phase whose whole purpose is to have something *running* before anything can go
+   * wrong, so "it ran and started nothing" has to be visible in the boot report rather than inferred from
+   * the absence of a line -- the first version of this logged only the success and the failure cases, so a
+   * runtime whose world did not mount looked exactly like a healthy one.
+   */
+  logLine(`restart supervisor: plugin world ${plugins.length} plugin(s); companions ${JSON.stringify((outcome && outcome.started) || [])}`)
+  for (const entry of outcome.started || []) {
+    if (entry.ok === true) logLine(`restart supervisor companion: ${entry.already === true ? `already running (pid ${entry.pid})` : `started (pid ${entry.pid || 'unknown'})`}`)
+    else if (entry.skipped === true) logLine(`restart supervisor companion not started: ${entry.reason}`)
+    else logLine(`restart supervisor companion failed to start: ${entry.reason}`)
+  }
+  return outcome
+}
+
+/**
+ * Tell the companion this exit is intentional, before the process is gone.
+ *
+ * The companion watches a pid and a heartbeat, and neither can distinguish "the user closed the
+ * window" from "the application died" — so the difference is written down here, while there is still a
+ * process to write it. Without it, every normal quit would be crash-recovered.
+ */
+function standDownRestartSupervisor() {
+  try {
+    const outcome = pluginHost && typeof pluginHost.stopCompanions === 'function' ? pluginHost.stopCompanions('the shell is quitting') : null
+    if (outcome && outcome.built) logLine(`restart supervisor companion: ${JSON.stringify(outcome.stopped)}`)
+    return outcome
+  } catch (error) {
+    logLine(`could not stand the restart supervisor down: ${error?.message || error}`)
+    return null
   }
 }
 
@@ -1527,66 +1670,15 @@ function ensureReboot() {
     store: rebootStoreRef,
     platform,
     log: (line) => logLine(line),
-    targets: {
-      subWorker: {
-        status: () => {
-          if (!workerManager) return null
-          const state = workerManager.state || {}
-          return { running: Boolean(workerManager.isRunning), state: state.state || null, stage: state.stage || null, task_id: state.task_id || null }
-        },
-        suspend: async ({ plan }) => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = workerManager.pause(`scheduled restart ${plan.id}`)
-          if (!result || result.ok === false) return result || { ok: false, reason: 'the worker refused to pause' }
-          const delivered = Array.isArray(result.workers) ? result.workers.length : 0
-          return {
-            ok: true,
-            // A running worker answers `pause` and suspends at its own next checkpoint: that is a request
-            // in flight, and the coordinator waits for it rather than restarting over it.
-            pending: result.state === 'PAUSING' || delivered > 0,
-            state: result.state || null,
-            detail: delivered || result.state === 'PAUSING'
-              ? 'the worker was asked to stop at its next checkpoint'
-              : 'the worker is suspended'
-          }
-        },
-        resume: async () => {
-          if (!workerManager) return { ok: false, reason: 'the sub-worker is not available in this build' }
-          const result = typeof workerManager.resumeLastTask === 'function'
-            ? await workerManager.resumeLastTask()
-            : workerManager.resume('continuing after a scheduled restart')
-          return { ok: Boolean(result && result.ok !== false), detail: (result && (result.reason || result.detail)) || 'the sub-worker was resumed' }
-        }
-      },
-      engineering: {
-        parkPolicy: 'boundary-first',
-        status: () => {
-          if (!engineeringHost) return null
-          const state = engineeringHost.status()
-          if (!state || state.ok === false) return null
-          return { running: state.running === true, phase: state.phase || null, episode: state.episode || null, request: state.request || null }
-        },
-        suspend: async () => {
-          if (!engineeringEnabled()) return { ok: false, reason: 'the engineering runtime is disabled in this build' }
-          const host = ensureEngineeringHost()
-          const cancelled = host.cancel({ reason: 'a scheduled restart is waiting for a parkable phase', preserveForResume: true })
-          if (cancelled && cancelled.ok === false) return { ok: false, reason: cancelled.error || 'the episode refused to stop' }
-          const report = await host.settled()
-          return { ok: true, detail: report && report.result === 'CANCELLED' ? 'the same episode stopped at a safe boundary and retained an ACTIVE recovery checkpoint' : 'the episode reached a terminal or parkable checkpoint' }
-        },
-        resume: async (intent) => {
-          if (!engineeringEnabled()) return { ok: false, reason: 'the engineering runtime is disabled in this build' }
-          const host = ensureEngineeringHost()
-          const episodeId = intent && intent.targetState && intent.targetState.episode
-          const resumed = await host.resume({ episodeId, trigger: 'planned_restart' })
-          if (resumed && resumed.ok === false) return { ok: false, reason: resumed.error || resumed.reason || 'the episode could not be resumed', code: resumed.code }
-          return {
-            ok: true,
-            detail: resumed.resumed ? `the same episode resumed from checkpoint ${resumed.checkpointSeq}` : 'the episode was already terminal; no work needed resuming'
-          }
-        }
-      }
-    }
+    /**
+     * The task targets, from the one module that owns them.
+     *
+     * They used to be written out here, which meant the only path that knew how to park the sub-worker
+     * and the engineering runtime was the *scheduled machine restart*. The restart supervisor needs the
+     * same two things — what is running, and how to stop and continue it — so they live in
+     * `app/reboot/targets.cjs` and both paths drive them (see `taskContinuity()` below).
+     */
+    targets: taskTargets()
   })
   logLine(`reboot scheduler ready (${platform.supported ? 'restart supported' : `restart not supported on ${platform.platform}`})`)
   return rebootCoordinator
@@ -1596,6 +1688,85 @@ function ensureReboot() {
 function rebootStore() {
   ensureReboot()
   return rebootStoreRef
+}
+
+/**
+ * The task targets both restart paths drive.
+ *
+ * The shell owns the sub-worker and the engineering runtime, so it is the layer that can hand out an
+ * adapter for each; *how* to park and continue them is not written here any more (`app/reboot/targets.cjs`),
+ * because the scheduled machine restart and the supervisor's application restart must not drift apart.
+ */
+let rebootTargetsRef = null
+function taskTargets() {
+  if (rebootTargetsRef) return rebootTargetsRef
+  const { createRebootTargets } = require('./reboot/targets.cjs')
+  rebootTargetsRef = createRebootTargets({ workerManager, engineeringHost, log: (line) => logLine(line) })
+  return rebootTargetsRef
+}
+
+/**
+ * Core's **task continuity**, as the restart supervisor consumes it.
+ *
+ * This is the answer to the half of a restart that is not about processes: what is running, park it at
+ * its own boundary, write down what will have to be continued, and afterwards continue it — reporting
+ * the three different things "recovery" can mean (process, task, semantic) instead of one `ok: true`.
+ *
+ * It is created once and shared: the plugin host hands it to the shipped plugins that declare a need
+ * for it, and the shell's own diagnostics read the same object, so the recorded intent and the resumed
+ * work cannot disagree.
+ */
+let taskContinuityRef = null
+function taskContinuity() {
+  if (taskContinuityRef) return taskContinuityRef
+  const { createTaskContinuity } = require('./core/task-continuity.cjs')
+  taskContinuityRef = createTaskContinuity({
+    targets: taskTargets(),
+    stateDir: path.join(ROOT, 'data', 'state'),
+    log: (line) => logLine(line)
+  })
+  return taskContinuityRef
+}
+
+/**
+ * The health decision, as a plain snapshot the queue can act on.
+ *
+ * It reads the `health-pressure` capability from the plugin registry — read-only, once per question,
+ * and `null` when no monitor is providing one. Nothing here samples the machine: a second sampler
+ * would be a second opinion about pressure, which is the duplication this whole split exists to
+ * avoid.
+ */
+function healthDecisionSnapshot() {
+  try {
+    const registry = pluginHost && pluginHost.manager ? pluginHost.manager.registry : null
+    if (!registry || typeof registry.resolve !== 'function') return null
+    const surface = registry.resolve('health-pressure', { optional: true })
+    if (!surface || typeof surface.decide !== 'function') return null
+    const decision = surface.decide() || {}
+    const latest = typeof surface.pressure === 'function' ? surface.pressure() : null
+    const pressure = Number.isFinite(Number(decision.pressure)) ? Number(decision.pressure) : (latest && Number.isFinite(Number(latest.pressure)) ? Number(latest.pressure) : null)
+    const reasons = Array.isArray(decision.reasons) ? decision.reasons.filter(Boolean) : []
+    return {
+      action: decision.action || 'NO_ACTION',
+      state: decision.state || null,
+      pressure,
+      trend: decision.trend && decision.trend.trend ? decision.trend.trend : null,
+      reason: reasons.length ? reasons.join('; ') : (decision.held ? String(decision.held) : null),
+      explicit: true
+    }
+  } catch (error) {
+    logLine(`the health decision could not be read: ${error?.message || error}`)
+    return null
+  }
+}
+
+/** The one work-admission gate, built once. */
+let workAdmissionRef = null
+function workAdmission() {
+  if (workAdmissionRef) return workAdmissionRef
+  const { createWorkAdmission } = require('./core/work-admission.cjs')
+  workAdmissionRef = createWorkAdmission({ provider: healthDecisionSnapshot, log: (line) => logLine(line) })
+  return workAdmissionRef
 }
 
 /** A due plan fires within a few seconds, and the countdown the panel draws stays true. */
@@ -1827,59 +1998,85 @@ function forceExit(source = 'shell') {
   app.exit(0)
 }
 
-function integratedDockWidth() {
-  return megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
+function reportDockWidthConstraint(contentWidth, { showNotice = false } = {}) {
+  const currentWidth = Math.max(0, Math.floor(Number(contentWidth) || 0))
+  const requiredWidth = OFFICIAL_VIEW_MIN_WIDTH + MEGA_DOCK_MIN_WIDTH
+  logLine(`dock expansion refused: current content width ${currentWidth}px; required width ${requiredWidth}px (official minimum ${OFFICIAL_VIEW_MIN_WIDTH}px + dock minimum ${MEGA_DOCK_MIN_WIDTH}px)`)
+  if (!showNotice || dockWidthNoticeOpen || !mainWindow || mainWindow.isDestroyed()) return false
+
+  dockWidthNoticeOpen = true
+  try {
+    Promise.resolve(dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      buttons: ['确定 / OK'],
+      defaultId: 0,
+      cancelId: 0,
+      title: bilingualTitle('窗口宽度不足', 'Window too narrow'),
+      message: `展开 Mega 控制台需要至少 ${requiredWidth}px 的窗口内容宽度。\nThe expanded Mega dock needs at least ${requiredWidth}px of window content width.`,
+      detail: `官方界面至少 ${OFFICIAL_VIEW_MIN_WIDTH}px，控制台至少 ${MEGA_DOCK_MIN_WIDTH}px；当前内容宽度 ${currentWidth}px。\nThe official view needs ${OFFICIAL_VIEW_MIN_WIDTH}px and the dock needs ${MEGA_DOCK_MIN_WIDTH}px; the current content width is ${currentWidth}px.`
+    })).catch((error) => {
+      logLine(`dock width notice failed: ${error?.message || error}`)
+    }).finally(() => {
+      dockWidthNoticeOpen = false
+    })
+    return true
+  } catch (error) {
+    dockWidthNoticeOpen = false
+    logLine(`dock width notice failed: ${error?.message || error}`)
+    return false
+  }
+}
+
+function rejectIntegratedDockExpansion(contentWidth) {
+  megaDockExpanded = false
+  reportDockWidthConstraint(contentWidth, { showNotice: true })
+  try {
+    const reset = extensionManager?.setDockExpanded?.(false, { persist: true, focus: false })
+    Promise.resolve(reset).catch((error) => logLine(`dock expansion state reset failed: ${error?.message || error}`))
+  } catch (error) {
+    logLine(`dock expansion state reset failed: ${error?.message || error}`)
+  }
+  layoutIntegratedViews()
+  return false
 }
 
 function layoutIntegratedViews() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return
   const [contentWidth, contentHeight] = mainWindow.getContentSize()
-  const maxDockWidth = Math.max(
-    MEGA_DOCK_COLLAPSED_WIDTH,
-    Math.min(MEGA_DOCK_MAX_WIDTH, Math.max(MEGA_DOCK_COLLAPSED_WIDTH, contentWidth - OFFICIAL_VIEW_MIN_WIDTH))
-  )
-  // A hidden dock takes no width at all: the official page (which is the window's own document) keeps the
-  // whole content box, and the wallpaper has no strip to cut out (`wallpaperNotch`).
-  const desiredDockWidth = megaDockExpanded ? megaDockWidth : MEGA_DOCK_COLLAPSED_WIDTH
-  const dockWidth = megaDockShown
-    ? Math.max(MEGA_DOCK_COLLAPSED_WIDTH, Math.min(desiredDockWidth, maxDockWidth))
-    : 0
-  const officialWidth = Math.max(0, contentWidth - dockWidth)
-  const height = Math.max(1, contentHeight)
+  const integratedLayout = computeIntegratedLayout({
+    contentWidth,
+    contentHeight,
+    dockShown: megaDockShown,
+    expanded: megaDockExpanded,
+    requestedDockWidth: megaDockWidth,
+    officialMinWidth: OFFICIAL_VIEW_MIN_WIDTH,
+    dockMinWidth: MEGA_DOCK_MIN_WIDTH,
+    dockMaxWidth: MEGA_DOCK_MAX_WIDTH,
+    collapsedDockWidth: MEGA_DOCK_COLLAPSED_WIDTH
+  })
+  const { dockVisible, expansionBlocked } = integratedLayout
 
-  /**
-   * The official renderer and the dock share the window, and each has its own rectangle:
-   * the dock keeps a reserved strip on the right, and the official view fills the rest.
-   *
-   * A second frontend used to compete for that rectangle, moved outside the content area
-   * when it was inactive. It is gone: there is one frontend, so it sits where it belongs,
-   * and no layout decision can hide it.
-   */
-  const rect = { x: 0, y: 0, width: officialWidth, height }
+  if (shellView) shellView.setBounds({ x: 0, y: 0, width: contentWidth, height: contentHeight })
+  // The official renderer remains attached and visible in its own rectangle for the
+  // complete session. The dock is a sibling and can never cover the official viewport.
   if (officialView) {
-    officialView.setBounds(rect)
+    officialView.setBounds(integratedLayout.officialBounds)
   }
-  if (layoutIntegratedViews.lastKey !== `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`) {
-    layoutIntegratedViews.lastKey = `${officialWidth}x${height}|dock=${dockWidth}|expanded=${megaDockExpanded}`
-    logLine(`layout: content=${contentWidth}px official=${officialWidth}px dock=${dockWidth}px expanded=${megaDockExpanded}`)
+  if (layoutIntegratedViews.lastKey !== `${integratedLayout.officialBounds.width}x${integratedLayout.officialBounds.height}|dock=${integratedLayout.dockBounds.width}|shown=${integratedLayout.dockVisible}|expanded=${megaDockExpanded}|blocked=${integratedLayout.expansionBlocked}`) {
+    layoutIntegratedViews.lastKey = `${integratedLayout.officialBounds.width}x${integratedLayout.officialBounds.height}|dock=${integratedLayout.dockBounds.width}|shown=${integratedLayout.dockVisible}|expanded=${megaDockExpanded}|blocked=${integratedLayout.expansionBlocked}`
+    logLine(`layout: content=${contentWidth}px official=${integratedLayout.officialBounds.width}px dock=${integratedLayout.dockBounds.width}px shown=${integratedLayout.dockVisible} expanded=${megaDockExpanded} blocked=${integratedLayout.expansionBlocked}`)
+    if (integratedLayout.expansionBlocked) reportDockWidthConstraint(contentWidth)
   }
   if (megaDockView) {
     try {
-      megaDockView.setVisible(megaDockShown)
+      megaDockView.setVisible(integratedLayout.dockVisible)
     } catch (error) {
-      logLine(`the dock view could not be ${megaDockShown ? 'shown' : 'hidden'}: ${error?.message || error}`)
+      logLine(`the dock view could not be ${integratedLayout.dockVisible ? 'shown' : 'hidden'}: ${error?.message || error}`)
     }
-    // The dock yields the top band to the official UI (see `dock/geometry.cjs`): in this build the
-    // official page *is* the window's document, laid out against the full width, so it cannot know
-    // that a strip of its right edge is covered — and the conversation header's controls live in
-    // exactly that strip's top. Both the rail and the panel move together, because they are one
-    // view.
-    if (megaDockShown) megaDockView.setBounds(dockBounds({ x: officialWidth, width: dockWidth, height, inset: dockTopInset() }))
+    if (integratedLayout.dockVisible) megaDockView.setBounds(integratedLayout.dockBounds)
   }
-  // The official surfaces follow the official view bounds (Update-Plan 任务 3):
-  // the overlay tracks it exactly, the shell spans the window so its frame band
-  // is drawn on all four sides. Called on resize/maximize/restore/dock-toggle, and
-  // its failure can only degrade the surfaces, never the window.
+  // Retain the surface adapter's layout hook for an optional future surface manager;
+  // the production path below uses only the click-through wallpaper window.
   if (officialSurfaces) {
     try {
       officialSurfaces.applyLayout()
@@ -1921,8 +2118,20 @@ function contentBounds() {
 }
 
 function applyIntegratedDockState(payload = {}) {
-  if (!INTEGRATED_MEGA_DOCK) return
-  if (typeof payload.expanded === 'boolean') megaDockExpanded = payload.expanded
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
+  const candidate = Number(payload.expandedWidth ?? payload.width)
+  if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
+    megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
+  }
+  if (payload.expanded === true) {
+    const [contentWidth] = mainWindow.getContentSize()
+    if (contentWidth < OFFICIAL_VIEW_MIN_WIDTH + MEGA_DOCK_MIN_WIDTH) {
+      return rejectIntegratedDockExpansion(contentWidth)
+    }
+    megaDockExpanded = true
+  } else if (payload.expanded === false) {
+    megaDockExpanded = false
+  }
   /**
    * The extension's own state is the user's intent, so this is where a hidden dock comes back: an `expanded:
    * true` means somebody asked for the console (the tray, the plugin manager, the shortcut, or the dock's own
@@ -1933,11 +2142,8 @@ function applyIntegratedDockState(payload = {}) {
   // Collapsing hides the strip: with the dock retired there is no persistent rail to keep, and a collapsed
   // dock is exactly the "residual sidebar" this round removed. The next request brings it back.
   if (payload.expanded === false && megaDockShown) hideIntegratedMegaDock()
-  const candidate = Number(payload.expandedWidth ?? payload.width)
-  if (Number.isFinite(candidate) && candidate >= MEGA_DOCK_MIN_WIDTH) {
-    megaDockWidth = Math.max(MEGA_DOCK_MIN_WIDTH, Math.min(MEGA_DOCK_MAX_WIDTH, candidate))
-  }
   layoutIntegratedViews()
+  return true
 }
 
 /**
@@ -1999,6 +2205,16 @@ function configureOfficialWebContents(contents) {
       shell.openExternal(url)
     }
   })
+  if (INTEGRATED_MEGA_DOCK) {
+    contents.on('page-title-updated', (event, title) => {
+      try {
+        event.preventDefault()
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(String(title || 'DS-Harness'))
+      } catch (error) {
+        logLine(`official title update failed: ${error?.message || error}`)
+      }
+    })
+  }
   contents.on('render-process-gone', (_event, details) => logLine(`official renderer gone: ${JSON.stringify(details)}`))
 }
 
@@ -2017,7 +2233,9 @@ function configureOfficialWebContents(contents) {
 async function showStartupSkeleton() {
   if (!mainWindow || mainWindow.isDestroyed()) return false
   try {
-    await mainWindow.loadFile(path.join(__dirname, 'splash.html'))
+    const shellContents = shellView?.webContents || mainWindow.webContents
+    if (!shellContents || shellContents.isDestroyed()) return false
+    await shellContents.loadFile(path.join(__dirname, 'splash.html'))
   } catch (error) {
     logLine(`the startup skeleton could not be loaded (the official UI is unaffected): ${error?.message || error}`)
     return false
@@ -2033,49 +2251,51 @@ async function showStartupSkeleton() {
 
 async function createOfficialHarnessView(readyUrl) {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  /**
-   * The official Harness UI is the *window's own page*.
-   *
-   * It used to be a sibling `WebContentsView` next to the Daily view, toggled with
-   * `setVisible`. That does not hold up: the sibling is still drawn when it is
-   * meant to be hidden (so Work Mode showed the Daily interface), and a sibling
-   * that was hidden or moved out of the window comes back without a compositor
-   * surface (so Work Mode showed a blank page). The official UI is the one surface
-   * that must never be in doubt, so it uses the plain renderer a BrowserWindow
-   * gives us - the same path this product used before the integrated dock existed.
-   *
-   * Daily then floats *above* it as a child view, and switching is adding or
-   * removing that one view. The official page stays loaded throughout, so nothing
-   * about the Harness session is reset by a mode switch.
-   */
-  configureOfficialWebContents(mainWindow.webContents)
-  await mainWindow.loadURL(readyUrl)
-  return true
+  return createOfficialHarnessChildView(readyUrl)
 }
 
-/** Is the official UI the window's own page (always, in the integrated build)? */
+/** Is the official UI the BrowserWindow's own page rather than a child view? */
 function officialLivesInWindow() {
-  return INTEGRATED_MEGA_DOCK
+  return Boolean(!INTEGRATED_MEGA_DOCK && !officialView && mainWindow && !mainWindow.isDestroyed())
 }
 
 /**
- * Legacy official-view path: only used when the integrated dock is disabled and
- * the window has its own content for something else.
+ * Load the untouched official renderer before attaching it above the startup shell.
+ * BaseWindow is the integrated host because a BrowserWindow's own page is not a
+ * sibling in contentView and can obscure otherwise-visible child views.
  */
 async function createOfficialHarnessChildView(readyUrl) {
+  if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
   if (!officialView) {
-    officialView = new WebContentsView({
+    if (!WebContentsView || !mainWindow.contentView?.addChildView) {
+      logLine('Official renderer unavailable: WebContentsView/contentView not supported by this Electron build')
+      return false
+    }
+    const nextOfficialView = new WebContentsView({
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true
       }
     })
-    configureOfficialWebContents(officialView.webContents)
+    configureOfficialWebContents(nextOfficialView.webContents)
+    try {
+      // Keep the startup shell visible while the remote UI is loading; attaching
+      // an unpainted child first would replace that useful progress surface with blank.
+      await nextOfficialView.webContents.loadURL(readyUrl)
+    } catch (error) {
+      try { if (!nextOfficialView.webContents.isDestroyed()) nextOfficialView.webContents.close() } catch {}
+      throw error
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      try { if (!nextOfficialView.webContents.isDestroyed()) nextOfficialView.webContents.close() } catch {}
+      return false
+    }
+    officialView = nextOfficialView
     mainWindow.contentView.addChildView(officialView)
+    officialView.setVisible(true)
+    layoutIntegratedViews()
   }
-  layoutIntegratedViews()
-  await officialView.webContents.loadURL(readyUrl)
   return true
 }
 
@@ -2088,12 +2308,8 @@ async function createOfficialHarnessChildView(readyUrl) {
  * ------------------------------------------------------------------------- */
 
 /**
- * Show the official frontend.
- *
- * Called once the window's page has loaded: the official UI is the window's own page in
- * the integrated build, so showing it is about the dock's width rather than about a view's
- * visibility. It is idempotent, and it re-applies the layout for the reason the old switch
- * did — Chromium can keep a stale viewport for a view resized while unloaded.
+ * Re-apply the official child-view layout after its page has loaded. The child remains
+ * attached and visible; only its bounds change when the dock takes or releases a column.
  */
 function showOfficialFrontend() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
@@ -2177,44 +2393,9 @@ function registerFrontendIpc() {
  */
 async function createOfficialSurfaces() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  if (!officialView) {
-    // The official UI is the window's own page, so there is no protected sibling to draw a frame
-    // around and no theme surface to paint: the shell and the theme's own overlay stay unbuilt.
-    //
-    // What is still created here is the **wallpaper** — and it is a click-through *window* rather
-    // than the view this used to be, because a view above the page cannot be made input-transparent
-    // in this Electron build and would eat every click on the official UI.
-    return createWallpaperLayer()
-  }
-  if (officialSurfaces) return true
-  officialSurfaces = createOfficialSurfaceViews({
-    getWindow: () => mainWindow,
-    getOfficialView: () => officialView,
-    getWindowSize: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow.getContentSize() : null),
-    getDockWidth: () => integratedDockWidth(),
-    log: (message) => logLine(`[surface] ${message}`),
-    electron: { WebContentsView }
-  })
-  try {
-    officialSurfaces.createShell()
-    // 任务 1: the official Overlay is DEPRECATED and is not created by default.
-    // Work Mode must be untouched official UI, so nothing is stacked above it
-    // unless an operator explicitly asks for the legacy architecture.
-    if (OFFICIAL_OVERLAY_ENABLED) {
-      officialSurfaces.createOverlay()
-      logLine('official_overlay attached for the user wallpaper (input-transparent, script-free); it takes no theme effect')
-    } else {
-      logLine('official_overlay turned off for this run (DSH_OFFICIAL_OVERLAY=0); the wallpaper cannot be drawn over the official UI')
-    }
-    officialSurfaces.applyLayout()
-    logLine(`official_shell view attached (visual-only, input passthrough); overlay=${OFFICIAL_OVERLAY_ENABLED ? 'wallpaper' : 'disabled'}`)
-    return true
-  } catch (error) {
-    logLine(`official surfaces failed to attach; the official renderer keeps running unthemed: ${error?.stack || error}`)
-    try { officialSurfaces.destroy() } catch {}
-    officialSurfaces = null
-    return false
-  }
+  // The protected official renderer is a child view now. Preserve the current
+  // click-through wallpaper window instead of stacking any additional view on it.
+  return createWallpaperLayer()
 }
 
 /**
@@ -2298,13 +2479,20 @@ function createWallpaperLayer() {
  * dock there is nothing to cut.
  */
 function wallpaperNotch() {
-  // No dock on screen, no strip to cut: the picture covers the whole window (and only the strip the dock
-  // actually occupies is ever cut, which is the rule this function has always followed).
-  if (!megaDockShown || !megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
-  const [contentWidth] = mainWindow.getContentSize()
-  const width = Math.max(1, Number(contentWidth) || 0)
-  const dockWidth = Math.max(1, Math.min(integratedDockWidth(), width))
-  return { x: Math.max(0, width - dockWidth), y: dockTopInset() }
+  if (!megaDockView || !mainWindow || mainWindow.isDestroyed()) return null
+  const [contentWidth, contentHeight] = mainWindow.getContentSize()
+  const layout = computeIntegratedLayout({
+    contentWidth,
+    contentHeight,
+    dockShown: megaDockShown,
+    expanded: megaDockExpanded,
+    requestedDockWidth: megaDockWidth,
+    officialMinWidth: OFFICIAL_VIEW_MIN_WIDTH,
+    dockMinWidth: MEGA_DOCK_MIN_WIDTH,
+    dockMaxWidth: MEGA_DOCK_MAX_WIDTH,
+    collapsedDockWidth: MEGA_DOCK_COLLAPSED_WIDTH
+  })
+  return layout.dockVisible ? { x: layout.dockBounds.x, y: layout.dockBounds.y } : null
 }
 
 async function createIntegratedMegaDock() {
@@ -2372,7 +2560,7 @@ async function createIntegratedMegaDock() {
  */
 function watchOfficialUseToCollapseDock() {
   if (!INTEGRATED_MEGA_DOCK || !mainWindow || mainWindow.isDestroyed()) return false
-  const contents = mainWindow.webContents
+  const contents = activeAgentSurface()
   if (!contents || contents.hnsDockCollapseWatch === true) return false
   contents.hnsDockCollapseWatch = true
 
@@ -2393,10 +2581,27 @@ function watchOfficialUseToCollapseDock() {
     return true
   }
 
+  /**
+   * The main-process focus event can arrive between native mouse-down and the renderer's click
+   * handler. Reflowing the sibling views in that gap moves the target under the pointer and loses
+   * the click. Let the originating input dispatch first, then collapse only if the official page
+   * still owns focus.
+   */
+  let collapseAfterInput = null
+  const deferCollapse = (because) => {
+    if (collapseAfterInput) return false
+    collapseAfterInput = setTimeout(() => {
+      collapseAfterInput = null
+      if (typeof contents.isFocused === 'function' && !contents.isFocused()) return
+      collapse(because)
+    }, 200)
+    return true
+  }
+
   contents.on('focus', () => {
     // A focus event during boot is the window being shown, not the user turning away.
     if (Date.now() < officialFocusArmedAt) return
-    collapse('the official page took focus')
+    deferCollapse('the official page took focus')
   })
 
   contents.on('before-input-event', (_event, input) => {
@@ -2404,7 +2609,7 @@ function watchOfficialUseToCollapseDock() {
     // A modifier alone is not an intent to type; a shortcut like Ctrl+C is not either.
     if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(input.key)) return
     if (input.control || input.meta || input.alt) return
-    collapse('a key was pressed into the official page')
+    deferCollapse('a key was pressed into the official page')
   })
   return true
 }
@@ -2422,7 +2627,7 @@ function destroyIntegratedViews() {
     logLine(`wallpaper layer teardown failed: ${error?.message || error}`)
   }
   wallpaperLayer = null
-  for (const view of [megaDockView, officialView]) {
+  for (const view of [megaDockView, officialView, shellView]) {
     if (!view) continue
     try { mainWindow?.contentView?.removeChildView?.(view) } catch {}
     try {
@@ -2431,33 +2636,59 @@ function destroyIntegratedViews() {
   }
   megaDockView = null
   officialView = null
+  shellView = null
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const WindowClass = INTEGRATED_MEGA_DOCK ? BaseWindow : BrowserWindow
+  const windowOptions = {
     width: INTEGRATED_MEGA_DOCK ? 1488 : 1440,
     height: 920,
     minWidth: 980,
     minHeight: 640,
     title: bilingualTitle('DS-Harness 工作台', 'DS-Harness Workbench'),
-    icon: resolveAppIcon(),
     backgroundColor: '#f7f8fa',
-    autoHideMenuBar: true,
-    show: false,
-    webPreferences: {
+    show: false
+  }
+  if (!INTEGRATED_MEGA_DOCK) {
+    windowOptions.icon = resolveAppIcon()
+    windowOptions.autoHideMenuBar = true
+    windowOptions.webPreferences = {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true
     }
-  })
+  }
+  mainWindow = new WindowClass(windowOptions)
 
-  if (!INTEGRATED_MEGA_DOCK) configureOfficialWebContents(mainWindow.webContents)
+  if (INTEGRATED_MEGA_DOCK) {
+    shellView = new WebContentsView({
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true
+      }
+    })
+    mainWindow.contentView.addChildView(shellView)
+    const [width, height] = mainWindow.getContentSize()
+    shellView.setBounds({ x: 0, y: 0, width, height })
+    // Keep the existing shell webContents API for IPC/extension consumers; the
+    // official interactive surface remains the separate child returned above.
+    mainWindow.webContents = shellView.webContents
+  } else {
+    configureOfficialWebContents(mainWindow.webContents)
+  }
 
   mainWindow.on('resize', layoutIntegratedViews)
   mainWindow.on('maximize', layoutIntegratedViews)
   mainWindow.on('unmaximize', layoutIntegratedViews)
   mainWindow.on('restore', layoutIntegratedViews)
   mainWindow.on('closed', () => {
+    // Wallpaper, notification and optional orb windows may still exist, so
+    // window-all-closed is not the primary-window exit signal. Use the existing
+    // before-quit teardown (detach, never stop the Runtime) while owned view
+    // references are still available. Explicit shutdown already owns this path.
+    if (!shuttingDown) app.quit()
     megaDockView = null
     officialView = null
     mainWindow = null
@@ -2594,6 +2825,7 @@ function createOfficialSurfaceAdapter() {
       if (!officialSurfaces) {
         return {
           available: false,
+          reason: officialView ? 'official_surfaces_unavailable' : 'official_renderer_is_window_page',
           surfaces: PAINTABLE.map((id) => ({ id, created: false, ready: false, bounds: null })),
           protected: protectedSurface,
           wallpaper
@@ -2653,7 +2885,7 @@ async function startExtensions(nodeExe) {
       root: ROOT,
       nodeExe,
       mainWindow,
-      officialWebContents: officialView?.webContents || mainWindow?.webContents || null,
+      officialWebContents: activeAgentSurface(),
       dockAdapter,
       // The two official surfaces. The extension paints them with the same theme
       // payload it paints the dock with; it never receives the official webContents,
@@ -2690,10 +2922,103 @@ async function startExtensions(nodeExe) {
       // and the dock must degrade gracefully.
       subWorker: workerManager,
       onSubWorkerChange: subscribeSubWorker,
+      /**
+       * **Work admission**: the health decision, asked by the queue before it starts anything new.
+       *
+       * `app/core/work-admission.cjs` turns the monitor's decision into "may new work start, and with
+       * how many slots". The seam is here because the shell is the only layer that can see both halves:
+       * the queue belongs to the Mega extension, the decision to a plugin, and neither may reach into
+       * the other. A monitor that is absent, disabled or answering UNKNOWN admits — no evidence, no
+       * restriction — and one that throws is a log line rather than a stopped queue.
+       */
+      workAdmission: () => workAdmission().admit(),
       // The store changes the installed set while the plugin host's world is already built.
       // This hook lets the store *await* the rebuild, so the panel's next read cannot show
       // "enabled" for a plugin the runtime has not mounted yet.
       reloadInstalledPlugins,
+      /**
+       * The plugin host, as the surface Mega and the official page read the two **built-in services**
+       * through: the health scheduler and the restart supervisor.
+       *
+       * Every call is synchronous and side-effect free except the four that act (`setEnabled`,
+       * `checkHealth`, `reload`, `restartControl`), because this is handed to a *panel*: it describes
+       * plugins, and the operations it can perform are the ones the Control Center's own action
+       * vocabulary names. The shell owns the host, so this is a hook rather than an import — the
+       * extension never reaches into the runtime's internals.
+       */
+      pluginServices: {
+        report: (id) => pluginRuntime().serviceReport(id),
+        reportAll: (ids) => pluginRuntime().serviceReports(ids),
+        /**
+         * The formal `restart_status`, for the panels.
+         *
+         * It is its own hook rather than a field a panel digs out of the supervisor's record: the
+         * official UI must be able to show "when did this machine last restart and what came back"
+         * even while the plugin that owns the answer is the thing that just failed.
+         */
+        restartStatus: () => pluginRuntime().restartStatus(),
+        setEnabled: (id, enabled) => pluginRuntime().setEnabled({ id, enabled }),
+        checkHealth: (id) => pluginRuntime().health({ id }),
+        reload: (id, options) => pluginRuntime().reload({ ...options, id }),
+        /**
+         * The **advanced** settings the panel may change: the two plugins' own policy, as dotted paths
+         * into the configuration they read.
+         *
+         * `advanced()` describes (the schema's label, type and range beside the value in force);
+         * `setAdvanced()` writes. Both go through the host's one validator, so a value the panel offers
+         * is a value the host accepts, and a refusal carries its reason rather than being clamped.
+         */
+        advanced: () => {
+          try {
+            const runtime = pluginRuntime()
+            const schema = runtime.ADVANCED_SCHEMA || {}
+            const owners = ['dshns.health-scheduler', 'dshns.restart-supervisor']
+            const resolved = {}
+            for (const owner of owners) {
+              try {
+                const description = runtime.describe({ id: owner })
+                resolved[owner] = description?.ok === true ? description.config : null
+              } catch {
+                resolved[owner] = null
+              }
+            }
+            const read = (object, key) => key.split('.').reduce((cursor, part) => (cursor && typeof cursor === 'object' ? cursor[part] : undefined), object)
+            return Object.entries(schema).map(([key, rule]) => ({
+              key,
+              owner: rule.owner,
+              label: rule.label || key,
+              type: rule.type || 'string',
+              min: Number.isFinite(rule.min) ? rule.min : null,
+              max: Number.isFinite(rule.max) ? rule.max : null,
+              enum: Array.isArray(rule.enum) ? rule.enum.slice() : null,
+              value: resolved[rule.owner] ? read(resolved[rule.owner], key) : undefined
+            }))
+          } catch (error) {
+            logLine(`the advanced plugin settings could not be described: ${error?.message || error}`)
+            return null
+          }
+        },
+        setAdvanced: (settings) => pluginRuntime().configure({ settings }),
+        /**
+         * `restart-control`, if anything provides it.
+         *
+         * Resolved through the capability registry rather than by importing the supervisor: the
+         * monitor's own rule applies to every consumer, and the answer carries the reason when nothing
+         * provides it, so a surface can say "unavailable, because" rather than showing a dead button.
+         */
+        restartControl: () => {
+          try {
+            const runtime = pluginRuntime()
+            const resolved = runtime.registry && typeof runtime.registry.resolve === 'function'
+              ? runtime.registry.resolve('restart-control')
+              : null
+            if (!resolved) return { ok: false, reason: 'no plugin provides restart-control' }
+            return { ok: true, value: resolved }
+          } catch (error) {
+            return { ok: false, reason: `resolving restart-control threw: ${error?.message || error}` }
+          }
+        }
+      },
       // `Notification` is handed to the extension so terminal task notifications
       // are a first-class lifecycle capability rather than a renderer concern.
       electron: { app, BrowserWindow, dialog, shell, ipcMain, Tray, Menu, nativeImage, screen, Notification }
@@ -2817,6 +3142,15 @@ app.whenReady().then(async () => {
     if (pluginsEnabled()) {
       registerPluginIpc()
       logLine('plugins: runtime available on demand (plugins:* IPC)')
+      // The companion's graceful request is watched from boot, so a restart the supervisor starts is a
+      // graceful one rather than a `taskkill` — even when nobody ever opens a plugin panel.
+      watchSupervisorStopRequest()
+      // ...and the one process that has to be up *before* anything can go wrong: the restart
+      // supervisor's companion. Deferred, so it is a boot-report phase rather than a boot dependency.
+      startup.defer('restart-supervisor', () => startRestartSupervisor())
+        .then((outcome) => {
+          if (outcome?.value?.ok === false) logLine(`restart supervisor: ${outcome.value.reason}`)
+        })
     } else {
       logLine('plugins: disabled by config/app.json')
     }
@@ -2904,7 +3238,10 @@ app.on('before-quit', () => {
   // Closing the main window (or a system shutdown) is the implicit normal exit.
   if (shuttingDown) return
   shuttingDown = true
-  logLine('before-quit: releasing the UI; the Runtime is left running')
+  logLine('before-quit: releasing the UI and reconciling desktop resources; the Runtime is left running')
+  // Before anything is torn down, and while this process can still write: an intentional exit and a
+  // crash look identical from outside, so the companion is told which one this is.
+  standDownRestartSupervisor()
   teardownManagedResources()
 })
 process.on('exit', () => {

@@ -35,6 +35,7 @@
   let state = { open: false, view: null, ball: { x: 0, y: 0 }, ballSize: 44, panel: null }
   let drag = null
   let measured = null
+  let settleAfterWidthClamp = false
   let over = false
   /**
    * Which dashboard category is open — **at most one**, by id, or `null` when they are all shut.
@@ -968,8 +969,12 @@
 
   /** Apply one state from the shell. Everything drawn here is a function of it. */
   function apply(next) {
-    if (!next || typeof next !== 'object') return
+    // Open/measure operations also answer with acknowledgements. They are not
+    // snapshots: interpreting their absent `open` as false closes the panel,
+    // resets measurement deduplication and races the shell's pushed state.
+    if (!next || typeof next !== 'object' || typeof next.open !== 'boolean') return
     const openChanged = state.open !== (next.open === true)
+    const viewChanged = next.view != null && JSON.stringify(next.view) !== JSON.stringify(state.view)
     state = {
       open: next.open === true,
       view: next.view || state.view,
@@ -979,17 +984,25 @@
     }
     // Closing the panel forgets the last queue receipt: it belonged to a conversation the user has left.
     if (openChanged && !state.open) taskNotice = null
-    if (openChanged) measured = null
+    if (openChanged) { measured = null; settleAfterWidthClamp = false }
     drawBall()
     drawPanel()
     drawPanelGeometry()
     // One measurement per open (and per new content), then the layout that comes back is the final word.
-    if (state.open) measure()
+    // setPanelSize pushes the same view back with new geometry. Its flex body
+    // can report two scroll heights around the cap; that echo is not new
+    // content and must not initiate another resize. The first width clamp
+    // still needs one follow-up measurement at the width actually granted.
+    const widthChanged = measured && state.panel && Number(state.panel.width) !== measured.width
+    const settleNow = settleAfterWidthClamp && !widthChanged
+    if (widthChanged) settleAfterWidthClamp = true
+    else if (settleNow) settleAfterWidthClamp = false
+    if (state.open && (openChanged || viewChanged || widthChanged || settleNow)) measure()
   }
 
   /** Tell the shell whether the cursor is over something clickable. It is what makes the window usable. */
-  function setOver(next) {
-    if (next === over) return
+  function setOver(next, force = false) {
+    if (next === over && !force) return
     over = next
     if (api && typeof api.hover === 'function') Promise.resolve(api.hover(over)).catch(() => {})
   }
@@ -1038,7 +1051,10 @@
   if (doc) {
     doc.addEventListener('pointermove', onPointerMove)
     doc.addEventListener('pointerdown', onDocumentPointerDown)
-    doc.addEventListener('mouseleave', () => setOver(false))
+    // The shell can reject a spurious native leave while the cursor is still
+    // on the ball. A subsequent genuine leave must reach it even when our
+    // renderer-side hover value is already false.
+    doc.addEventListener('mouseleave', () => setOver(false, true))
   }
 
   global.hnsOrbView = { apply, state: () => ({ ...state }), measure }

@@ -1,0 +1,180 @@
+{
+  "ok": true,
+  "checks": 33,
+  "failures": 0,
+  "ms": 10537,
+  "results": [
+    {
+      "name": "the dsh-restart-supervisor is present",
+      "ok": true,
+      "detail": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\dsh-restart\\bin\\supervisor.mjs"
+    },
+    {
+      "name": "the stand-in application is running",
+      "ok": true,
+      "detail": "pid=21680 (a stand-in, not the real DS-Hns)"
+    },
+    {
+      "name": "the adapter contains no restart business vocabulary",
+      "ok": true,
+      "detail": "scanned 2 modules"
+    },
+    {
+      "name": "adapts through the framework",
+      "ok": true,
+      "detail": "adapter=dshns.process"
+    },
+    {
+      "name": "detected as a process plugin",
+      "ok": true,
+      "detail": "type=dshns.process"
+    },
+    {
+      "name": "runtime is a managed process",
+      "ok": true,
+      "detail": "managed-process/protocol"
+    },
+    {
+      "name": "capabilities are declared, not discovered",
+      "ok": true,
+      "detail": "[\"restart-control\"]"
+    },
+    {
+      "name": "installs",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "never auto-enabled",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "enables and loads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "health is healthy",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the companion runs in its own process",
+      "ok": true,
+      "detail": "pid=12500"
+    },
+    {
+      "name": "the capability is registered in HNS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "status answers through the bridge",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the supervisor is watching the application",
+      "ok": true,
+      "detail": "watched=21680"
+    },
+    {
+      "name": "the supervisor reports a real phase from its own state file",
+      "ok": true,
+      "detail": "phase=MONITORING"
+    },
+    {
+      "name": "the supervisor has a live pid of its own",
+      "ok": true,
+      "detail": "supervisorPid=11180"
+    },
+    {
+      "name": "the supervisor noticed the application leave",
+      "ok": true,
+      "detail": "phase=WAITING_FOR_HEARTBEAT unclean=1"
+    },
+    {
+      "name": "the companion brought the application back",
+      "ok": true,
+      "detail": "pids recorded: 2"
+    },
+    {
+      "name": "the relaunched application is a different, live process",
+      "ok": true,
+      "detail": "new pid=10592"
+    },
+    {
+      "name": "this host is still running",
+      "ok": true,
+      "detail": "pid=7672"
+    },
+    {
+      "name": "the plugin manager is still answering",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the capability registry is untouched by the crash",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the crash is reported, not thrown",
+      "ok": true,
+      "detail": "state=healthy"
+    },
+    {
+      "name": "the bounded restart brought the companion back",
+      "ok": true,
+      "detail": "new pid=3124"
+    },
+    {
+      "name": "the restart budget ends in a terminal state",
+      "ok": true,
+      "detail": "state=safe-mode after 2/2 restarts"
+    },
+    {
+      "name": "nothing restarts after the budget is spent",
+      "ok": true,
+      "detail": "state stayed safe-mode"
+    },
+    {
+      "name": "the exit count stops growing",
+      "ok": true,
+      "detail": "exits=3"
+    },
+    {
+      "name": "the reason is recorded",
+      "ok": true,
+      "detail": "PROCESS_EXITED"
+    },
+    {
+      "name": "uninstalls",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "is gone from the plugin list",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "the companion process is gone",
+      "ok": true,
+      "detail": "pid=null"
+    },
+    {
+      "name": "its capability was revoked",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "qualification": {
+    "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+    "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+    "branch": "dev/hns-final-qualification-rc2",
+    "gate": "process-adapter"
+  }
+}

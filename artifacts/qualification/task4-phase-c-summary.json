@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "threshold": 1.2,
+  "gitSha": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+  "rootCause": "The optimized path still started six separate Node validation processes. Their fixed startup cost dominated the saved model round trips and made the ratio threshold-sensitive.",
+  "repair": "Use the existing validation/tool batching mechanism to execute the same six explicit test files in one Node process only on Phase C's optimized path. Phase B keeps independent processes because it measures scheduler lanes.",
+  "workloadChanged": false,
+  "thresholdChanged": false,
+  "runs": [
+    { "run": 1, "baselineMs": 17198, "optimizedMs": 9141, "improvement": 1.881, "baselineProcessStarts": 7, "optimizedProcessStarts": 2 },
+    { "run": 2, "baselineMs": 17218, "optimizedMs": 9184, "improvement": 1.875, "baselineProcessStarts": 7, "optimizedProcessStarts": 2 },
+    { "run": 3, "baselineMs": 17381, "optimizedMs": 9248, "improvement": 1.879, "baselineProcessStarts": 7, "optimizedProcessStarts": 2 }
+  ],
+  "aggregate": {
+    "min": 1.875,
+    "median": 1.879,
+    "max": 1.881,
+    "mean": 1.8783333333333332,
+    "variance": 0.000006222222222222234
+  }
+}

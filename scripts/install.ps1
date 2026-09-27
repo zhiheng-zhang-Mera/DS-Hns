@@ -283,6 +283,7 @@ $criticalScripts = @(
   (Join-Path $PSScriptRoot 'ensure-icon.ps1'),
   (Join-Path $PSScriptRoot 'install-deps.ps1'),
   (Join-Path $PSScriptRoot 'install-profile-plugin.ps1'),
+  (Join-Path $PSScriptRoot 'install-bundled-plugins.ps1'),
   (Join-Path $PSScriptRoot 'install-community-plugins.ps1'),
   (Join-Path $PSScriptRoot 'test-all.ps1'),
   (Join-Path $PSScriptRoot 'verify.ps1')
@@ -327,7 +328,7 @@ $electronExe = Join-Path $ROOT 'app\node_modules\electron\dist\electron.exe'
 $megaCoreDir = Join-Path $ROOT 'app\plugins\mega-core'
 $installState = $null
 $installStateFile = Join-Path $dshHome 'state\install-state.json'
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ((Test-Path -LiteralPath $fingerprintScript) -and $node) {
   try {
     $installStateJson = & $node @($fingerprintScript, 'describe', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
     $installState = ($installStateJson | Select-Object -Last 1) | ConvertFrom-Json
@@ -335,56 +336,8 @@ if (Test-Path -LiteralPath $fingerprintScript) {
     Write-Warning "Install state could not be computed; this run will do the full work: $($_.Exception.Message)"
     $installState = $null
   }
-}
-
-# Host capability, measured rather than assumed. It is printed as information and cached for the
-# Runtime to use; nothing below fails an installation because this machine is slow. See
-# app/runtime/host-capability.cjs for why a static machine table was rejected in favour of a short
-# calibration, and why the performance numbers are reporting rather than gating.
-$hostProfile = $null
-if ($HostProfileFixture) {
-  # A simulated host. The profile is read, classified and cached by the same code a
-  # measured one goes through, so the policy under test is the real policy.
-  $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
-  try {
-    $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
-    Write-Host "Host capability: SIMULATED from $fixturePath"
-  } catch {
-    Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
-    $hostProfile = $null
-  }
-}
-if (-not $hostProfile) {
-  $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
-  if (Test-Path -LiteralPath $capabilityScript) {
-    try {
-      $hostProfile = (& $node @($capabilityScript, 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
-    } catch {
-      $hostProfile = $null
-    }
-  }
-}
-if ($hostProfile) {
-  $capacity = $hostProfile.capacity.class
-  $cores = $hostProfile.cpu.logicalCores
-  $memoryMb = $hostProfile.memory.totalMB
-  Write-Host "Host capability: $capacity ($cores logical cores, ${memoryMb} MB RAM)."
-  Write-Host "  worker ceiling: $($hostProfile.workers.recommended) ($($hostProfile.workers.label) scaling)"
-  Write-Host "  measured node spawn p95: $($hostProfile.calibration.nodeSpawnP95Ms) ms"
-  if ($capacity -eq 'LOW_CAPACITY' -or $capacity -eq 'CONSERVATIVE') {
-    # Reported as a *policy*, not as an error: a small machine gets conservative defaults and the
-    # installation continues to completion.
-    Write-Host '  this host is treated as conservative: lower worker concurrency and longer timeouts.'
-  }
-  # Recorded for the Runtime, so the worker ceiling it uses is the one measured here rather than a
-  # default chosen on a faster machine.
-  try {
-    $profileFile = Join-Path $dshHome 'state\host-profile.json'
-    New-Item -ItemType Directory -Path (Split-Path -Parent $profileFile) -Force | Out-Null
-    $hostProfile | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $profileFile -Encoding UTF8
-  } catch {
-    Write-Warning "The host capability profile could not be cached: $($_.Exception.Message)"
-  }
+} elseif (Test-Path -LiteralPath $fingerprintScript) {
+  Write-Host 'Install state lookup deferred until the dependency step bootstraps Node.'
 }
 
 Write-Step '2/9 Resolve/reuse dependencies'
@@ -412,6 +365,63 @@ if ($depsReuse) {
     Write-Host "  reinstall: $($installState.decisions.dependencies.reason)"
   }
   & $dependencyScript -Full
+}
+
+# Dependency resolution owns Node bootstrap. Resolve again in this scope before using Node for
+# host calibration or the final install-state write; a child PowerShell script cannot update `$node`.
+$node = Resolve-InstallerNode
+
+# Host capability, measured rather than assumed. It is printed as information and cached for the
+# Runtime to use; nothing below fails an installation because this machine is slow. See
+# app/runtime/host-capability.cjs for why a static machine table was rejected in favour of a short
+# calibration, and why the performance numbers are reporting rather than gating.
+$hostProfile = $null
+if ($HostProfileFixture) {
+  # A simulated host. The profile is read, classified and cached by the same code a
+  # measured one goes through, so the policy under test is the real policy.
+  $fixturePath = if (Test-Path -LiteralPath $HostProfileFixture) { $HostProfileFixture } else { Join-Path $ROOT $HostProfileFixture }
+  if ($node) {
+    try {
+      $hostProfile = (& $node @($fingerprintScript, 'host-profile', '--fixture', $fixturePath) 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+      Write-Host "Host capability: SIMULATED from $fixturePath"
+    } catch {
+      Write-Warning "The host profile fixture could not be read, so this host will be measured instead: $($_.Exception.Message)"
+      $hostProfile = $null
+    }
+  }
+}
+if (-not $hostProfile -and $node) {
+  $capabilityScript = Join-Path $ROOT 'app\runtime\runtime.cjs'
+  if (Test-Path -LiteralPath $capabilityScript) {
+    try {
+      $hostProfile = (& $node @($capabilityScript, '--json', 'capability') 2>&1 | Select-Object -Last 1) | ConvertFrom-Json
+    } catch {
+      Write-Warning "The host capability profile could not be measured; installation will continue without its cached measurements: $($_.Exception.Message)"
+      $hostProfile = $null
+    }
+  }
+}
+if ($hostProfile) {
+  $capacity = $hostProfile.capacity.class
+  $cores = $hostProfile.cpu.logicalCores
+  $memoryMb = $hostProfile.memory.totalMB
+  Write-Host "Host capability: $capacity ($cores logical cores, ${memoryMb} MB RAM)."
+  Write-Host "  worker ceiling: $($hostProfile.workers.recommended) ($($hostProfile.workers.label) scaling)"
+  Write-Host "  measured node spawn p95: $($hostProfile.calibration.nodeSpawnP95Ms) ms"
+  if ($capacity -eq 'LOW_CAPACITY' -or $capacity -eq 'CONSERVATIVE') {
+    # Reported as a *policy*, not as an error: a small machine gets conservative defaults and the
+    # installation continues to completion.
+    Write-Host '  this host is treated as conservative: lower worker concurrency and longer timeouts.'
+  }
+  # Recorded for the Runtime, so the worker ceiling it uses is the one measured here rather than a
+  # default chosen on a faster machine.
+  try {
+    $profileFile = Join-Path $dshHome 'state\host-profile.json'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $profileFile) -Force | Out-Null
+    $hostProfile | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $profileFile -Encoding UTF8
+  } catch {
+    Write-Warning "The host capability profile could not be cached: $($_.Exception.Message)"
+  }
 }
 
 Write-Step '3/9 Resolve DeepSeek API key'
@@ -463,52 +473,181 @@ if ($systemKey) {
 # Restore canonical project runtime variables after install-time cache reuse.
 . (Join-Path $PSScriptRoot 'env.ps1')
 
-Write-Step '4/9 Sign the shipped client plugin into the Harness profile'
-# The orb in the official UI is drawn by the client plugin DS-Hns ships (`app\plugins\mega-core`,
-# registered into the official `shell.overlay` slot), and the official UI mounts it only when the
-# profile this product boots has it installed. That install is host-local: `data\*` is git-ignored
-# and the dependency is an absolute `file:` path, so no checkout can carry it. Installing it is the
-# Harness' own CLI's job (`scripts\install-profile-plugin.ps1`), and it is a step of the
-# installation rather than something a fresh host acquires by itself -- without it the product runs
-# and shows no ball at all.
+Write-Step '4/9 Sign the shipped plugins into the Harness profile'
+# Four plugins DS-Hns ships are installed here, and none of them is optional.
 #
-# This is the product's **own** plugin, and it is not optional: it is signed in unconditionally,
-# above, before the optional community plugins are ever mentioned. Nothing below this line may turn
-# it into a choice.
+#   * `app\plugins\mega-core` draws the orb and the Mega settings page in the official UI, and the
+#     official UI mounts it only when the profile this product boots has it installed;
+#   * `app\plugins\health-scheduler` and `app\plugins\restart-supervisor` are the two built-in
+#     plugins of this release. They run in our own plugin host either way, but the official UI lists
+#     a plugin because the *profile* declares it -- so without this step they would be invisible in
+#     the one place the requirement says they must be visible.
 #
-# The fast path: when the install state already proves the profile holds *this checkout's* copy of the
-# plugin, the Harness CLI is not invoked at all. That is the expensive half -- it resolves Node and
-# pnpm through corepack and can reach the registry -- and the proof is the same one
-# `install-profile-plugin.ps1` makes internally (the declared `file:` spec plus both installed halves),
-# so skipping the call cannot skip a repair that was actually needed.
+# That install is host-local: `data\*` is git-ignored and the dependency is an absolute `file:` path,
+# so no checkout can carry it. Installing it is the Harness' own CLI's job
+# (`scripts\install-profile-plugin.ps1`, driven for the whole set by
+# `scripts\install-bundled-plugins.ps1`), and it is a step of the installation rather than something
+# a fresh host acquires by itself.
+#
+# This step is **not** a choice: it runs unconditionally, before the optional community plugins are
+# ever mentioned, and nothing below may turn any of these three into something a user can skip.
+$script:BuiltInPluginStates = [ordered]@{
+  'dshns.health-scheduler' = 'NOT INSTALLED'
+  'dshns.restart-supervisor' = 'NOT INSTALLED'
+}
+$script:RequiredBuiltInPluginFailure = $false
+# What the *runtime* says about them, which is a different question from what the profile holds: the
+# registration check fills this in (registered, mounted, or listed in the official UI), and the
+# completion summary reports it rather than only the file-level state.
+$script:BuiltInRegistration = [ordered]@{
+  'dshns.health-scheduler' = 'NOT VERIFIED'
+  'dshns.restart-supervisor' = 'NOT VERIFIED'
+}
 $profileReuse = $false
 if ($installState -and $installState.decisions -and $installState.decisions.profile) {
   $profileReuse = [bool]$installState.decisions.profile.reuse
 }
-if ($profileReuse) {
-  $script:MegaCoreState = 'ALREADY INSTALLED'
-  Write-Host "  reuse: $($installState.decisions.profile.reason)"
-} else {
-  if ($installState -and $installState.decisions -and $installState.decisions.profile) {
-    Write-Host "  sign-in required: $($installState.decisions.profile.reason)"
-  }
-  try {
-    $profilePluginLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') 2>&1 | ForEach-Object { [string]$_ })
-    $profilePluginExit = $LASTEXITCODE
-    $profilePluginTail = ($profilePluginLines | Select-Object -Last 1)
-    if ($profilePluginExit -ne 0) {
+try {
+  # The orb first, and separately, because its outcome is what the summary's Mega Core line reports.
+  # The runtime branch's fingerprint can prove that this exact checkout is already installed; only in
+  # that case may the expensive Harness CLI call be skipped. The two required long-host plugins below
+  # still run through their own freshness-aware installer and registration probe.
+  if ($profileReuse) {
+    $script:MegaCoreState = 'ALREADY INSTALLED'
+    Write-Host "  reuse: $($installState.decisions.profile.reason)"
+  } else {
+    if ($installState -and $installState.decisions -and $installState.decisions.profile) {
+      Write-Host "  sign-in required: $($installState.decisions.profile.reason)"
+    }
+    $orbLines = @(& (Join-Path $PSScriptRoot 'install-profile-plugin.ps1') -Plugin 'mega-core' 2>&1 | ForEach-Object { [string]$_ })
+    $orbExit = $LASTEXITCODE
+    $orbTail = ($orbLines | Select-Object -Last 1)
+    if ($orbExit -ne 0) {
       $script:MegaCoreState = 'FAILED'
       Write-Warning 'The orb plugin is not in the Harness profile, so the official UI will show no ball.'
       Write-Warning 'DS-Harness is fully usable without it; re-run scripts\install-profile-plugin.ps1 to add it.'
-    } elseif ($profilePluginTail -match 'already-installed') {
+    } elseif ($orbTail -match 'already-installed') {
       $script:MegaCoreState = 'ALREADY INSTALLED'
     } else {
       $script:MegaCoreState = 'LOADED'
     }
-  } catch {
-    $script:MegaCoreState = 'FAILED'
-    Write-Warning "Signing the orb plugin into the profile failed, installation continues: $($_.Exception.Message)"
   }
+
+  # Then the two built-in plugins, through the one installer that owns the list.
+  $bundledReportFile = Join-Path ([System.IO.Path]::GetTempPath()) "dsh-bundled-plugins-$PID.json"
+  Remove-Item -LiteralPath $bundledReportFile -Force -ErrorAction SilentlyContinue
+  $bundledLines = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'install-bundled-plugins.ps1') -Json 2>&1 | ForEach-Object { [string]$_ })
+  $bundledExit = $LASTEXITCODE
+  foreach ($line in $bundledLines) { if ($line.Trim() -and -not $line.Trim().StartsWith('{')) { Write-Host "  $($line.Trim())" } }
+  $bundledJson = ($bundledLines | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+  $bundledReportValid = $false
+  if ($bundledJson) {
+    try {
+      $bundledReport = $bundledJson | ConvertFrom-Json
+      $bundledReportValid = $null -ne $bundledReport.results
+      foreach ($result in @($bundledReport.results)) {
+        $id = [string]$result.id
+        if (-not $id -or -not $script:BuiltInPluginStates.Contains($id)) { continue }
+        $script:BuiltInPluginStates[$id] = if ($result.state -eq 'installed') { 'INSTALLED' } elseif ($result.state -eq 'already-installed') { 'ALREADY INSTALLED' } else { 'FAILED' }
+        if ($script:BuiltInPluginStates[$id] -eq 'FAILED') {
+          $script:RequiredBuiltInPluginFailure = $true
+        }
+        if ($result.state -eq 'failed' -or $result.state -eq 'missing') { Write-Warning "$id is not in the Harness profile: $($result.reason)" }
+      }
+    } catch {
+      $script:RequiredBuiltInPluginFailure = $true
+      Write-Warning "The built-in plugin report could not be read: $($_.Exception.Message)"
+    }
+  }
+  if (-not $bundledReportValid) {
+    $script:RequiredBuiltInPluginFailure = $true
+    Write-Warning 'The built-in plugin installer produced no valid report; the required plugins are not verified.'
+    foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  }
+  if ($bundledExit -ne 0) {
+    $script:RequiredBuiltInPluginFailure = $true
+    if ($bundledReportValid) { Write-Warning "The built-in plugin installer exited $bundledExit; required plugin installation failed." }
+  }
+  foreach ($id in @($script:BuiltInPluginStates.Keys)) {
+    if ($script:BuiltInPluginStates[$id] -notin @('INSTALLED', 'ALREADY INSTALLED')) {
+      $script:RequiredBuiltInPluginFailure = $true
+      $script:BuiltInPluginStates[$id] = 'FAILED'
+    }
+  }
+
+  # The proof that matters: the runtime registers what the profile now carries.
+  #
+  # "The file is installed" and "the plugin is registered, mounted and listed by the official UI" are
+  # different claims, and the requirement names the gap between them: a plugin whose files are installed
+  # while the system has never registered it. This builds the real plugin host - the same one the product
+  # boots, through the same adapter framework - and reports per plugin whether the runtime knows it,
+  # whether it mounted, and whether the service row the official Settings page draws exists. A required
+  # plugin that is not registered fails the line.
+  Write-Host ''
+  Write-Host 'Built-in plugin registration'
+  $registrationScript = Join-Path $PSScriptRoot 'plugin-registration-check.cjs'
+  if (Test-Path -LiteralPath $registrationScript) {
+    $previousRegistration = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+      # Node is resolved the way the community step below resolves it: the repository's own bundled
+      # runtime first (an install may have no system Node at all), then whatever `node` the machine has.
+      $registrationExe = ''
+      try {
+        $registrationNodeDir = & (Join-Path $PSScriptRoot 'ensure-node.ps1') | Select-Object -Last 1
+        if ($registrationNodeDir) {
+          $candidateRegistrationNode = Join-Path ([string]$registrationNodeDir) 'node.exe'
+          if (Test-Path -LiteralPath $candidateRegistrationNode) { $registrationExe = $candidateRegistrationNode }
+        }
+      } catch {
+        $registrationExe = ''
+      }
+      if (-not $registrationExe) {
+        $registrationNodeCommand = Get-Command node -ErrorAction SilentlyContinue
+        if ($registrationNodeCommand) { $registrationExe = $registrationNodeCommand.Source }
+      }
+      if (-not $registrationExe) {
+        Write-Warning 'no usable Node.js was found; plugin registration was not verified.'
+        $registrationLines = @()
+        $registrationExit = 1
+      } else {
+        $registrationLines = @(& $registrationExe $registrationScript --root $ROOT --json 2>&1 | ForEach-Object { [string]$_ })
+        $registrationExit = $LASTEXITCODE
+      }
+    } finally {
+      $ErrorActionPreference = $previousRegistration
+    }
+    $registrationJson = ($registrationLines | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1)
+    if ($registrationJson) {
+      try {
+        $registration = $registrationJson | ConvertFrom-Json
+        foreach ($entry in @($registration.plugins)) {
+          $id = [string]$entry.id
+          if (-not $id) { continue }
+          $state = if ($entry.registered -ne $true) { 'NOT REGISTERED' } elseif ($entry.enabled -eq $true -and $entry.loaded -ne $true) { 'NOT MOUNTED' } elseif ($entry.loaded -eq $true) { 'REGISTERED + MOUNTED' } else { 'REGISTERED (DISABLED BY DEFAULT)' }
+          $script:BuiltInRegistration[$id] = $state
+          $uiNote = if ($entry.officialUi -eq $true) { 'listed in the official UI' } else { 'NOT in the official UI' }
+          Write-Host "  $id : $state; $uiNote"
+          if ($entry.registered -ne $true) { Write-Warning "$id is installed but the runtime has no record of it: $($entry.reason)" }
+        }
+        if (@($registration.duplicateRegistrations).Count) {
+          Write-Warning "the runtime registered a plugin more than once: $(@($registration.duplicateRegistrations) -join ', ')"
+          $script:BuiltInRegistration['duplicates'] = "DUPLICATE: $(@($registration.duplicateRegistrations) -join ', ')"
+        }
+      } catch {
+        Write-Warning "The plugin registration report could not be read: $($_.Exception.Message)"
+      }
+    } elseif ($registrationExit -ne 0) {
+      Write-Warning 'The plugin registration check produced no report; registration was not verified.'
+    }
+  } else {
+    Write-Warning 'scripts\plugin-registration-check.cjs is missing; registration was not verified.'
+  }
+} catch {
+  $script:MegaCoreState = 'FAILED'
+  $script:RequiredBuiltInPluginFailure = $true
+  foreach ($id in @($script:BuiltInPluginStates.Keys)) { $script:BuiltInPluginStates[$id] = 'FAILED' }
+  Write-Warning "Signing the shipped plugins into the profile failed, installation continues: $($_.Exception.Message)"
 }
 
 Write-Step '5/9 Optional community plugins'
@@ -587,7 +726,17 @@ $optionalReuse = $optionalDecisionAlreadyRecorded -and
 if ($optionalReuse) {
   Write-Host "  reuse: every optional community plugin already has a recorded decision"
   foreach ($property in @($installState.optional.decisions.PSObject.Properties)) {
-    if ($communitySelections.Contains($property.Name)) { $communitySelections[$property.Name] = [string]$property.Value.state }
+    if ($communitySelections.Contains($property.Name)) {
+      switch ([string]$property.Value.state) {
+        'installed' { $communitySelections[$property.Name] = 'ALREADY INSTALLED' }
+        'already-installed' { $communitySelections[$property.Name] = 'ALREADY INSTALLED' }
+        'declined' { $communitySelections[$property.Name] = 'SKIPPED' }
+        'skipped' { $communitySelections[$property.Name] = 'SKIPPED' }
+        'failed' { $communitySelections[$property.Name] = 'FAILED' }
+        'version-drift' { $communitySelections[$property.Name] = 'VERSION DRIFT' }
+        default { $communitySelections[$property.Name] = ([string]$property.Value.state).ToUpperInvariant() }
+      }
+    }
   }
   $communityAvailable = $false
 } else {
@@ -800,8 +949,13 @@ if ($NoShortcuts) {
   }
 }
 
-Write-Step '9/9 Complete'
-Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Step '9/9 Incomplete'
+  Write-Host 'DS-Harness installation is incomplete: a required built-in plugin failed or could not be verified.' -ForegroundColor Red
+} else {
+  Write-Step '9/9 Complete'
+  Write-Host 'DS-Harness installation is complete.' -ForegroundColor Green
+}
 if ($systemKey) {
   Write-Host "API: system environment ($($systemKey.Name), $($systemKey.Scope))"
 } elseif ($env:DEEPSEEK_API_KEY) {
@@ -883,6 +1037,11 @@ Write-SummaryLine 'Mode' $Mode
 Write-SummaryLine 'Official Harness UI' $harnessUiState
 Write-SummaryLine 'DS-Hns runtime' $runtimeState
 Write-SummaryLine 'Mega Core' $script:MegaCoreState
+Write-SummaryLine 'Health Scheduler' ([string]$script:BuiltInPluginStates['dshns.health-scheduler'])
+Write-SummaryLine 'Restart Supervisor' ([string]$script:BuiltInPluginStates['dshns.restart-supervisor'])
+# The runtime's answer, next to the profile's: what the official UI will actually list.
+Write-SummaryLine 'Health Scheduler (runtime)' ([string]$script:BuiltInRegistration['dshns.health-scheduler'])
+Write-SummaryLine 'Restart Supervisor (runtime)' ([string]$script:BuiltInRegistration['dshns.restart-supervisor'])
 Write-SummaryLine 'Plugin Market' $marketState
 Write-SummaryLine 'Wallpaper Engine' $wallpaperState
 Write-SummaryLine 'Adapter registry' $adapterState
@@ -891,6 +1050,11 @@ Write-Host ''
 if (($marketState -eq 'FAILED') -or ($wallpaperState -eq 'FAILED')) {
   Write-Warning 'An optional community plugin failed. The reason is printed above; DS-Harness itself is installed.'
 }
+if (([string]$script:BuiltInPluginStates['dshns.health-scheduler']) -eq 'FAILED' -or ([string]$script:BuiltInPluginStates['dshns.restart-supervisor']) -eq 'FAILED') {
+  Write-Warning 'A built-in plugin is not in the Harness profile, so the official UI will not list it. The reason is printed above.'
+  Write-Warning 'The product runs either way; re-run scripts\install-bundled-plugins.ps1 -Repair to put it back.'
+}
+Write-Host 'Built-in plugins (Health Scheduler, Restart Supervisor) are part of the installation, never a choice.'
 Write-Host 'Community plugins are optional: DS-Harness runs and the official UI opens without either of them.'
 Write-Host "Optional plugin decisions are recorded in $communityStateFile."
 Write-Host 'Primary UI: official DeepSeek Harness (Alien-derived shell).'
@@ -903,7 +1067,9 @@ Write-Host 'Pure Alien diagnostic mode: scripts\run.ps1 -PureAlien.'
 # Written last, and only when every step above succeeded: a state file written after a partial install
 # would claim work that did not happen. The next run reads it and skips what has not changed, which is
 # what makes a warm reinstall cheap instead of a repeat of the first one.
-if (Test-Path -LiteralPath $fingerprintScript) {
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Host 'Install state not recorded: required built-in plugins did not pass installation verification.' -ForegroundColor Yellow
+} elseif (Test-Path -LiteralPath $fingerprintScript) {
   try {
     $writeResult = & $node @($fingerprintScript, 'write', '--root', $ROOT, '--dsh-home', $dshHome, '--profile', $profileName, '--plugin-dir', $megaCoreDir, '--electron-exe', $electronExe, '--node-version', (& $node --version)) 2>&1
     $written = ($writeResult | Select-Object -Last 1) | ConvertFrom-Json
@@ -925,9 +1091,13 @@ if (Test-Path -LiteralPath $fingerprintScript) {
   }
 }
 
-if (-not $NoLaunch) {
+if ($script:RequiredBuiltInPluginFailure) {
+  Write-Host 'Launch skipped because required built-in plugins did not pass installation verification.' -ForegroundColor Yellow
+} elseif (-not $NoLaunch) {
   Write-Host 'Launching DS-Harness...'
   Start-Process -FilePath (Join-Path $ROOT 'Start-DeepSeek-Harness.cmd') -WorkingDirectory $ROOT
 } else {
   Write-Host 'Launch skipped by -NoLaunch.'
 }
+
+if ($script:RequiredBuiltInPluginFailure) { exit 1 }

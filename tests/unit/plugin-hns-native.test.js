@@ -110,7 +110,8 @@ test('the long-term-hosting capabilities are documented vocabulary, not strings'
   }
   // The restart authority is deliberately not part of the health vocabulary: a monitor may request
   // a restart, and the capability that performs one is a different thing with a different provider.
-  assert.deepEqual(CAPABILITIES['restart-control'].providers, ['dshns.process'])
+  // That provider is now a first-class plugin of this product rather than the generic process adapter.
+  assert.deepEqual(CAPABILITIES['restart-control'].providers, ['dshns.restart-supervisor'])
   assert.match(CAPABILITIES['restart-control'].fallback, /unavailable/)
   assert.notEqual(CAPABILITIES['health-pressure'].providers[0], CAPABILITIES['restart-control'].providers[0])
 })

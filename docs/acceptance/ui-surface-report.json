@@ -1,0 +1,105 @@
+{
+  "generatedAt": "2026-09-17T08:30:33.704Z",
+  "commit": "051b2902ae4fea44f9785a6116d28c67c4bb7499",
+  "source": "docs/acceptance/ui-surface-audit.json (before) + the repair pass in this branch (after)",
+  "before": {
+    "findings": {
+      "severities": {
+        "critical": 0,
+        "high": 7,
+        "medium": 6,
+        "low": 5,
+        "info": 7
+      },
+      "findingsTotal": 25,
+      "provenFindings": 25,
+      "suspectedSubClaims": 2,
+      "supersededByUncommittedWork": 2,
+      "reverifiedStillPresentAfterConcurrentEdits": 23,
+      "reachableSurfaces": 11,
+      "slotRegistrations": 3,
+      "floatingBallImplementations": 2,
+      "floatingBallReachableInDefaultConfig": 1,
+      "officialUiFallbackCovered": 8,
+      "headline": "The plugin composes and all three official slots mount, but on the HEAD content the recovery-action row (id=null), the dashboard's only action (refresh-balance), 4 of 6 service actions, the whole advanced-policy surface, plugin permissions, the maintenance defer state and the human-gate count are dead or unrendered; the second ball (always-on-top window) is off by default. Two of these were being fixed in the dirty working tree while the audit ran (restart status/history, duplicate ball)."
+    },
+    "high": []
+  },
+  "after": {
+    "closed": [
+      {
+        "id": "dead-recovery-buttons",
+        "fix": "product-level actions are accepted without an id and fan out over the modules that answer (governance-bridge.cjs, mega/index.cjs productAction)"
+      },
+      {
+        "id": "action-vocabulary-desync",
+        "fix": "one vocabulary in app/core/contracts/service-actions.cjs, published in the snapshot and accepted by the bridge"
+      },
+      {
+        "id": "confirm-was-a-label",
+        "fix": "dangerous actions are refused without confirm: true (bridge and Control Center) and the page asks in place first"
+      },
+      {
+        "id": "advanced-policy-unreachable",
+        "fix": "the 38 keys and their write path are drawn in the official page and written through the host validator"
+      },
+      {
+        "id": "human-gate-count-zero",
+        "fix": "the scheduler publishes waitingHuman/deferred and the Control Center republishes them as pending"
+      },
+      {
+        "id": "roster-two-of-many",
+        "fix": "serviceReports() answers for the whole runtime (28 plugins in this checkout)"
+      },
+      {
+        "id": "duplicate-ball",
+        "fix": "the host publishes orb.mode and the in-UI ball stands down when the system window owns it"
+      },
+      {
+        "id": "permissions-and-held-invisible",
+        "fix": "the service row draws the monitor’s held/maintenance reason and the plugin’s permissions"
+      }
+    ],
+    "open": []
+  },
+  "reachableSurfaces": [
+    "the official Settings section (Mega page)",
+    "the official shell.overlay ball",
+    "the conversation header new-task action",
+    "the Control Center sections in the dock",
+    "the rest of the service roster in the official page"
+  ],
+  "foundByStartingTheProduct": [
+    {
+      "id": "host-is-not-defined",
+      "symptom": "every built-in-service hook threw `host is not defined`, so the official page drew \"report unavailable\" while the runtime was healthy",
+      "fix": "a module-level `pluginRuntime()` the hooks can reach (desktop-main.cjs)"
+    },
+    {
+      "id": "plugin-require-escapes-package",
+      "symptom": "the Harness could not load the profile packages at all: `Cannot find module ../../core/contracts/plugin.cjs`",
+      "fix": "each plugin declares its contract inside the package (contract.cjs)"
+    },
+    {
+      "id": "package-entry-is-not-a-cordis-plugin",
+      "symptom": "the Harness loader refused the package: `invalid plugin, expect function or object with an \"apply\" method`",
+      "fix": "the package entry also exports a cordis `apply` half, documented as the composition entry"
+    },
+    {
+      "id": "stale-profile-copy",
+      "symptom": "a `file:` plugin copied into the profile never received new files (pnpm answers from its store), so the profile kept a half-plugin",
+      "fix": "the installer detects a stale copy, reinstalls it, and links the profile entry to the checkout"
+    },
+    {
+      "id": "native-adapter-whitelist",
+      "symptom": "the plugin hooks the shell calls (`ensureCompanion`, `stopCompanion`) were dropped by the adapter field list, so no companion ever started",
+      "fix": "the adapter carries the hooks the shell calls, like diagnostics and errorReport"
+    }
+  ],
+  "liveProbe": {
+    "at": "2026-09-17T08:30:08.104Z",
+    "state": "D:\\dsh-acc3\\data\\state",
+    "passed": true,
+    "checks": 70
+  }
+}

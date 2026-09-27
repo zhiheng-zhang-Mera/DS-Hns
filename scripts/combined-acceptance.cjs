@@ -207,6 +207,7 @@ function fallbackTextSearch(workspace, needle) {
  */
 async function runEpisode(options) {
   const { workspace, mode, accelerators, label } = options
+  const batchVerification = options.batchVerification === true
   const bus = createEventBus()
   const events = []
   bus.onAny((payload, event) => events.push({ type: event.type, at: event.at, durationMs: payload && payload.durationMs }))
@@ -242,7 +243,7 @@ async function runEpisode(options) {
       })
     : null
   const executor = createParallelExecutor({ mode, resources, isolation, log: () => {} })
-  const counters = { scans: 0, reads: 0, commands: 0, cacheHits: 0, cacheMisses: 0, modelCalls: 0, rollbacks: 0 }
+  const counters = { scans: 0, reads: 0, commands: 0, processStarts: 0, cacheHits: 0, cacheMisses: 0, modelCalls: 0, rollbacks: 0 }
   const startedAt = nowMs()
 
   /** One model round trip, through the single serving queue when acceleration is on. */
@@ -326,10 +327,12 @@ async function runEpisode(options) {
         return { ...lookup.result, cached: true }
       }
       counters.cacheMisses += 1
+      counters.processStarts += 1
       const result = await runTests(workspace, input.args)
       cache.record({ command, files: input.files, env: process.env.NODE_ENV, result, ok: result.ok === true, durationMs: result.ms })
       return { ...result, cached: false, missReason: lookup.reason }
     }
+    counters.processStarts += 1
     return { ...(await runTests(workspace, input.args)), cached: false, missReason: 'no cache' }
   }
 
@@ -350,10 +353,25 @@ async function runEpisode(options) {
    * share no files, so they may overlap — and each is a real `node --test` process, so
    * the wall-clock difference between the serial and parallel runs is real too.
    */
+  let verificationBatch = null
   const verifyOne = async (node, context) => {
     const name = node.id.replace(/^verify-/, '')
     const file = `tests/${name}.test.cjs`
-    const result = await runCached({ command: `node --test ${file}`, files: [`src/${name}.cjs`, file], args: [file] })
+    // Phase C's optimized path uses the existing tool-batching accelerator to
+    // start Node once for the same six explicit test files. The workload and
+    // acceptance semantics are unchanged; only five redundant process startups
+    // disappear. Phase B leaves this off because it is specifically measuring
+    // independent scheduler lanes rather than validation batching.
+    if (batchVerification && !verificationBatch) {
+      verificationBatch = runCached({
+        command: `node --test ${options.fixture.testFiles.join(' ')}`,
+        files: [...options.fixture.sourceFiles, ...options.fixture.testFiles],
+        args: options.fixture.testFiles
+      })
+    }
+    const result = batchVerification
+      ? await verificationBatch
+      : await runCached({ command: `node --test ${file}`, files: [`src/${name}.cjs`, file], args: [file] })
     verifyResults.push({ name, ok: result.ok === true, ms: result.ms, cached: result.cached })
     bus.emit('validation.completed', { level: name, durationMs: result.ms })
     // Verification itself is mechanical; the model is asked to triage only when it fails.
@@ -542,7 +560,14 @@ async function acceptanceC() {
     const fixture = createFixture()
     try {
       // Serial in both, so the comparison isolates the accelerators from the scheduler.
-      const run = await runEpisode({ workspace: fixture.dir, mode: PARALLEL_MODES.OFF, accelerators: configuration.accelerators, fixture, label: `C/${configuration.label}` })
+      const run = await runEpisode({
+        workspace: fixture.dir,
+        mode: PARALLEL_MODES.OFF,
+        accelerators: configuration.accelerators,
+        batchVerification: configuration.accelerators,
+        fixture,
+        label: `C/${configuration.label}`
+      })
       const tests = await runTests(fixture.dir, fixture.testFiles)
       measured.push({
         label: configuration.label,
@@ -553,6 +578,9 @@ async function acceptanceC() {
         scans: run.counters.scans,
         reads: run.counters.reads,
         commands: run.counters.commands,
+        processStarts: run.counters.processStarts,
+        modelLatencyBudgetMs: run.counters.modelCalls * MODEL_LATENCY_MS,
+        nonModelWallMs: Math.max(0, run.wallMs - (run.counters.modelCalls * MODEL_LATENCY_MS)),
         patchHash: fixture.hash('src/math.cjs'),
         approvalReason: run.approvalReason
       })
@@ -572,6 +600,11 @@ async function acceptanceC() {
     reads: { baseline: baseline.reads, optimized: optimized.reads }
   })
   check('C', 'the repository is scanned once with the map, and per lookup without it', optimized.scans < baseline.scans, { baselineScans: baseline.scans, optimizedScans: optimized.scans })
+  check('C', 'the optimized path batches the same validation workload into fewer process starts', optimized.processStarts < baseline.processStarts, {
+    baselineProcessStarts: baseline.processStarts,
+    optimizedProcessStarts: optimized.processStarts,
+    workload: MODULES.map((name) => `tests/${name}.test.cjs`)
+  })
   const improvement = baseline.timeToAcceptedPatchMs && optimized.timeToAcceptedPatchMs
     ? Number((baseline.timeToAcceptedPatchMs / optimized.timeToAcceptedPatchMs).toFixed(3))
     : null
@@ -903,13 +936,61 @@ function printReport(report) {
   process.stdout.write(lines.join('\n'))
 }
 
+const USAGE = [
+  'Usage: node scripts/combined-acceptance.cjs [--json] [--out <path>] [--phase <a,b,c,d,e>]',
+  '       node scripts/combined-acceptance.cjs --help',
+  'With no arguments, all acceptance phases A-E run.'
+].join('\n')
+
+class CliArgumentError extends Error {}
+
+function parseArguments(argv) {
+  const options = { help: false, asJson: false, outPath: null, wanted: ['a', 'b', 'c', 'd', 'e'] }
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index]
+    if (argument === '--help' || argument === '-h') return { ...options, help: true }
+    if (argument === '--json') {
+      options.asJson = true
+      continue
+    }
+    if (argument === '--out' || argument === '--phase') {
+      const value = argv[index + 1]
+      if (typeof value !== 'string' || value.length === 0 || value.startsWith('-')) {
+        throw new CliArgumentError(`missing value for ${argument}`)
+      }
+      index += 1
+      if (argument === '--out') options.outPath = value
+      else {
+        const phases = value.split(',').map((entry) => entry.trim().toLowerCase())
+        const invalid = phases.filter((phase) => !['a', 'b', 'c', 'd', 'e'].includes(phase))
+        if (invalid.length > 0) throw new CliArgumentError(`unknown phase: ${invalid.join(', ')}`)
+        options.wanted = phases
+      }
+      continue
+    }
+    throw new CliArgumentError(`unknown option: ${argument}`)
+  }
+
+  return options
+}
+
 async function main() {
-  const argv = process.argv.slice(2)
-  const asJson = argv.includes('--json')
-  const outIndex = argv.indexOf('--out')
-  const phasesIndex = argv.indexOf('--phase')
-  const wanted = phasesIndex === -1 ? ['a', 'b', 'c', 'd', 'e'] : String(argv[phasesIndex + 1] || '').split(',').map((entry) => entry.trim().toLowerCase())
-  const outPath = path.resolve(ROOT, outIndex === -1 ? path.join('runtime', 'acceptance', 'combined-acceptance.json') : argv[outIndex + 1])
+  let options
+  try {
+    options = parseArguments(process.argv.slice(2))
+  } catch (error) {
+    process.stderr.write(`Error: ${error.message}\n${USAGE}\n`)
+    return 2
+  }
+  if (options.help) {
+    process.stdout.write(`${USAGE}\n`)
+    return 0
+  }
+
+  const asJson = options.asJson
+  const wanted = options.wanted
+  const outPath = path.resolve(ROOT, options.outPath || path.join('runtime', 'acceptance', 'combined-acceptance.json'))
 
   const report = { at: new Date().toISOString(), node: process.version, platform: `${process.platform}/${process.arch}`, commit: null, checks: [] }
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })

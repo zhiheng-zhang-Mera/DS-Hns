@@ -868,13 +868,29 @@ function Invoke-FindOp($request) {
     $windowElement = Get-WindowElement $window
     if ($null -eq $windowElement) { continue }
     $searched++
+
+    # A request for a top-level window must not depend on that application's
+    # descendant provider. Some real apps expose their window properties
+    # promptly but can block indefinitely while UIA materialises the subtree.
+    # Match the window itself first and return as soon as the caller's limit is
+    # satisfied; descendant searches keep the existing exhaustive behaviour.
+    $scanned++
+    if (Test-NodeMatches $windowElement $filter) {
+      $record = New-FoundNode $windowElement $windowElement $window.Handle $maxDepth $memo
+      if ($null -ne $record) {
+        [void]$matches.Add($record)
+        if ($matches.Count -ge $limit) { break }
+      }
+    }
+
     $hits = @()
     try {
-      # One native, explicitly conditioned search per window. It covers the window
-      # element itself and every descendant in a single provider call, which is
+      # The window itself was already considered above. Search descendants only
+      # so its root ref cannot consume the limit twice and hide a distinct hit.
+      # One native, explicitly conditioned search per window is
       # what makes a by-name search affordable on a desktop with hundreds of
       # windows: a PowerShell side walk costs milliseconds per node.
-      $hits = @($windowElement.FindAll([System.Windows.Automation.TreeScope]::Subtree, $condition))
+      $hits = @($windowElement.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition))
     } catch { $hits = @() }
     foreach ($hit in $hits) {
       if ($matches.Count -ge $limit) { break }

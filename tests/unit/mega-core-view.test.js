@@ -88,11 +88,61 @@ function snapshot(overrides = {}) {
 const BRIDGE = { available: true, host: '127.0.0.1', port: 51000, schema: 1 }
 const plugin = { id: 'dsh-plugin-mega-core', version: '0.1.0' }
 
+for (const [label, value, expected] of [
+  ['null', null, '—'], ['missing', undefined, '—'], ['empty', '', '—'],
+  ['whitespace', '  ', '—'], ['boolean', false, '—'], ['object', {}, '—'],
+  ['out of Date range', 9e15, '—'], ['not finite', Infinity, '—'],
+  ['real epoch zero', 0, '1970-01-01T00:00:00.000Z'],
+  ['actual milliseconds', 1700000000000, '2023-11-14T22:13:20.000Z'],
+  ['numeric persisted string', '1700000000000', '2023-11-14T22:13:20.000Z']
+]) {
+  test(`restart timestamps preserve absence and do not invent history: ${label}`, async () => {
+    const { buildMegaView } = await loadView()
+    const view = buildMegaView({ plugin, bridge: BRIDGE, governance: snapshot({
+      restartStatus: { phase: 'IDLE', inFlight: false, requestedAt: value, completedAt: value, historyCount: 0 }
+    }) })
+    for (const id of ['restart:requested', 'restart:completed']) {
+      assert.equal(view.restartStatus.rows.find(row => row.id === id).value, expected)
+    }
+    assert.equal(view.restartStatus.phase, 'IDLE')
+    assert.equal(view.restartStatus.historyCount, 0)
+  })
+}
+
+// Regression: dropping Desktop's orb ownership in Control Center made the
+// official renderer draw a second ball alongside the native system window.
+for (const [name, orb, mode, hideInUi] of [
+  ['native system owner', { mode: 'system', system: true }, 'system', true],
+  ['in-UI owner', { mode: 'in-ui', system: false }, 'in-ui', false],
+  ['absent native owner', undefined, 'in-ui', false]
+]) {
+  test(`Control Center preserves ${name} through the real view pipeline`, async () => {
+    const { buildMegaView } = await loadView()
+    const governance = JSON.parse(JSON.stringify(buildControlCenter({ orb })))
+    const view = buildMegaView({ plugin, bridge: BRIDGE, governance })
+    assert.equal(view.orb.mode, mode)
+    assert.equal(view.orb.hideInUi, hideInUi)
+  })
+}
+
 test('the view model asks governance for exactly the actions the bridge accepts', async () => {
   const { MEGA_ACTIONS } = await loadView()
-  // Two lists, one closed set: if the bridge gains or loses an action and the plugin does not follow, this is
-  // the test that says so — rather than a button in the official UI that silently does nothing.
-  assert.deepEqual([...MEGA_ACTIONS], [...BRIDGE_ACTIONS])
+  /**
+   * Two lists, one closed set — and they are now one list.
+   *
+   * The plugin used to carry its own `MEGA_ACTIONS`, and the view offered service actions the bridge had
+   * never heard of (`diagnostics`, `restart-plugin`, `manual-restart`, `reset-budget`): four buttons that
+   * could only ever print a refusal. The vocabulary lives in `app/core/contracts/service-actions.cjs` now,
+   * and this asserts the view's module recovery set is exactly the contract's non-balance half — so a new
+   * action cannot be drawn without the bridge accepting it.
+   */
+  const { PRODUCT_ACTIONS, MODULE_ACTIONS, ACCEPTED_ACTIONS } = require('../../app/core/contracts/service-actions.cjs')
+  const recovery = PRODUCT_ACTIONS.filter((action) => action.id !== 'refresh-balance').map((action) => action.id)
+  assert.deepEqual([...MEGA_ACTIONS], [...recovery, ...MODULE_ACTIONS])
+  for (const action of MEGA_ACTIONS) {
+    assert.ok(ACCEPTED_ACTIONS.includes(action), `the bridge does not accept ${action}`)
+    assert.ok(BRIDGE_ACTIONS.includes(action), `the bridge does not accept ${action}`)
+  }
 })
 
 test('a degraded layer is degraded everywhere: status, hover, lines and fields agree', async () => {
@@ -144,6 +194,33 @@ test('nothing wrong is reported as fine, and only as fine', async () => {
   assert.equal(view.lines.every((entry) => entry.tone === 'ok'), true, JSON.stringify(view.lines))
   assert.deepEqual(view.actions, ['check'], 'a healthy system still offers its cheapest health re-read')
   assert.equal(view.fields.find((entry) => entry.id === 'lastError').tone, 'ok')
+})
+
+test('an optional Computer Use host absence is explained as unavailable without downgrading the core', async () => {
+  const { buildMegaView } = await loadView()
+  const clean = snapshot({
+    modules: [{ id: 'mega:dock', state: 'HEALTHY', retries: 0, lastError: null, fallback: null, tone: 'ok', actions: ['check', 'retry', 'reset-fallback'] }],
+    degraded: 0,
+    services: [{
+      id: 'dshns.computer-use',
+      name: 'Computer Use',
+      ok: true,
+      installed: true,
+      enabled: true,
+      loaded: true,
+      healthy: false,
+      health: {
+        status: 'degraded',
+        reason: 'no host runtime was attached, so GUI work is unavailable in this process'
+      }
+    }]
+  })
+  const view = buildMegaView({ plugin, bridge: BRIDGE, governance: clean })
+
+  assert.equal(view.status.label, 'Healthy', 'an absent optional GUI host must not downgrade the core')
+  assert.equal(view.services[0].state, 'UNAVAILABLE')
+  assert.equal(view.services[0].coreImpact, false)
+  assert.match(view.lines.find((entry) => /Computer Use/.test(entry.text)).text, /Computer Use unavailable — no host runtime attached; core unaffected/)
 })
 
 test('a failed module outranks a degraded one, and pending human work reaches the badge', async () => {

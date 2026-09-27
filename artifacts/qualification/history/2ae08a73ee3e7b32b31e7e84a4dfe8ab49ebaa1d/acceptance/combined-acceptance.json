@@ -1,0 +1,857 @@
+{
+  "at": "2026-09-21T07:45:12.471Z",
+  "node": "v24.14.1",
+  "platform": "win32/x64",
+  "commit": "137523b65147247c52e30d4fe3d758dd849c8cd6",
+  "checks": [
+    {
+      "phase": "A",
+      "name": "the mounted set and the acceleration set load together",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "phase": "A",
+      "name": "computer-use off, shell coding still works",
+      "ok": true,
+      "detail": {
+        "capabilityAbsent": true,
+        "kept": true,
+        "fallback": "GUI-only work is unavailable; shell and filesystem paths still work"
+      }
+    },
+    {
+      "phase": "A",
+      "name": "repo-map off, the fallback search is what remains",
+      "ok": true,
+      "detail": {
+        "capabilityAbsent": true,
+        "kept": true,
+        "fallback": "the runtime falls back to text search over the workspace"
+      }
+    },
+    {
+      "phase": "A",
+      "name": "telemetry off, the task continues",
+      "ok": true,
+      "detail": {
+        "capabilityAbsent": true,
+        "kept": true,
+        "fallback": "no performance claim can be made from this run"
+      }
+    },
+    {
+      "phase": "A",
+      "name": "workspace isolation off, the executor degrades to serial writes",
+      "ok": true,
+      "detail": {
+        "capabilityAbsent": true,
+        "kept": true,
+        "fallback": "parallel writes are refused"
+      }
+    },
+    {
+      "phase": "A",
+      "name": "recovery restarted, the long-term worker does not crash",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "phase": "A",
+      "name": "switching the provider leaves the generic plugins untouched",
+      "ok": true,
+      "detail": {
+        "genericCapabilities": 13,
+        "providerSpecificPlugins": [],
+        "note": "the DeepSeek provider is a plugin of its own (dshns.provider.deepseek); no generic plugin names a model"
+      }
+    },
+    {
+      "phase": "B",
+      "name": "every mode produces the same correct, accepted patch",
+      "ok": true,
+      "detail": [
+        {
+          "mode": "off",
+          "wallMs": 14233,
+          "accepted": true,
+          "correctness": true,
+          "suiteCode": 0,
+          "suiteTail": null,
+          "modelCalls": 2,
+          "rollbacks": 0,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "allocation": {
+            "workers": 1,
+            "bound": "off",
+            "reason": "parallel execution is off, so every node runs alone"
+          },
+          "allocationSource": "the resource manager",
+          "maxParallelism": 1,
+          "lanes": [
+            [
+              "serial",
+              "serial",
+              "serial",
+              "serial",
+              "serial",
+              "serial",
+              "serial",
+              "serial"
+            ],
+            [
+              "serial"
+            ],
+            [
+              "serial",
+              "serial",
+              "serial",
+              "serial",
+              "serial",
+              "serial"
+            ],
+            [
+              "serial"
+            ]
+          ],
+          "reason": null
+        },
+        {
+          "mode": "safe",
+          "wallMs": 8787,
+          "accepted": true,
+          "correctness": true,
+          "suiteCode": 0,
+          "suiteTail": null,
+          "modelCalls": 2,
+          "rollbacks": 0,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "allocation": {
+            "workers": 4,
+            "bound": "model",
+            "reason": "4 concurrent model requests, 0 already in flight",
+            "pressure": "normal"
+          },
+          "allocationSource": "the resource manager",
+          "maxParallelism": 4,
+          "lanes": [
+            [
+              "parallel"
+            ],
+            [
+              "serial"
+            ],
+            [
+              "parallel"
+            ],
+            [
+              "parallel"
+            ]
+          ],
+          "reason": null
+        },
+        {
+          "mode": "adaptive",
+          "wallMs": 8791,
+          "accepted": true,
+          "correctness": true,
+          "suiteCode": 0,
+          "suiteTail": null,
+          "modelCalls": 2,
+          "rollbacks": 0,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "allocation": {
+            "workers": 4,
+            "bound": "model",
+            "reason": "4 concurrent model requests, 0 already in flight",
+            "pressure": "normal"
+          },
+          "allocationSource": "the resource manager",
+          "maxParallelism": 4,
+          "lanes": [
+            [
+              "parallel"
+            ],
+            [
+              "parallel"
+            ],
+            [
+              "parallel"
+            ],
+            [
+              "parallel"
+            ]
+          ],
+          "reason": null
+        }
+      ]
+    },
+    {
+      "phase": "B",
+      "name": "adaptive does not lower the final correctness",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "phase": "B",
+      "name": "adaptive lowers wall-clock time for the same task",
+      "ok": true,
+      "detail": {
+        "offMs": 14233,
+        "safeMs": 8787,
+        "adaptiveMs": 8791,
+        "gain": 1.619
+      }
+    },
+    {
+      "phase": "C",
+      "name": "both configurations accept the same patch, and it is correct",
+      "ok": true,
+      "detail": [
+        {
+          "label": "baseline",
+          "timeToAcceptedPatchMs": 16959,
+          "accepted": true,
+          "correctness": true,
+          "modelCalls": 13,
+          "scans": 6,
+          "reads": 6,
+          "commands": 7,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "approvalReason": "the full verification passed after the last change"
+        },
+        {
+          "label": "optimized",
+          "timeToAcceptedPatchMs": 14170,
+          "accepted": true,
+          "correctness": true,
+          "modelCalls": 2,
+          "scans": 1,
+          "reads": 6,
+          "commands": 7,
+          "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+          "approvalReason": "the full verification passed after the last change"
+        }
+      ]
+    },
+    {
+      "phase": "C",
+      "name": "the accelerators cut the model round trips the task needs",
+      "ok": true,
+      "detail": {
+        "baselineCalls": 13,
+        "optimizedCalls": 2,
+        "scans": {
+          "baseline": 6,
+          "optimized": 1
+        },
+        "reads": {
+          "baseline": 6,
+          "optimized": 6
+        }
+      }
+    },
+    {
+      "phase": "C",
+      "name": "the repository is scanned once with the map, and per lookup without it",
+      "ok": true,
+      "detail": {
+        "baselineScans": 6,
+        "optimizedScans": 1
+      }
+    },
+    {
+      "phase": "C",
+      "name": "Time To Accepted Patch improves materially with the accelerators on",
+      "ok": false,
+      "detail": {
+        "metric": "Time To Accepted Patch",
+        "baselineMs": 16959,
+        "optimizedMs": 14170,
+        "improvement": 1.197,
+        "declaredModelLatencyMs": 250,
+        "note": "the round-trip counts are measured; the per-call latency is a declared constant because no provider is called from acceptance"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "model timeout: stopped clearly after one attempt",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "stopped clearly after one attempt",
+        "attempts": 1,
+        "skipped": [
+          "after"
+        ],
+        "hang": false,
+        "silentFailure": false,
+        "reason": "task \"ask\" failed: the model request timed out after 1800000ms"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "shell crash: recovered: the dead session was discarded and a fresh one started",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "recovered: the dead session was discarded and a fresh one started",
+        "starts": 2,
+        "recycled": 1
+      }
+    },
+    {
+      "phase": "D",
+      "name": "tool timeout: recovered: the session was recycled after two failed uses, not retried forever",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "recovered: the session was recycled after two failed uses, not retried forever",
+        "reason": "2 consecutive failed uses"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "test failure: stopped clearly: completion is refused and the evidence is named",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "stopped clearly: completion is refused and the evidence is named",
+        "reason": "the tier3 tier did not pass"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "UI miss: recovered: the GUI path is absent and the shell path continues",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "recovered: the GUI path is absent and the shell path continues",
+        "fallback": "GUI-only work is unavailable; shell and filesystem paths still work"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "plugin failure: recovered: the plugin restarted and nothing that does not need it was unloaded",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "recovered: the plugin restarted and nothing that does not need it was unloaded"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "context rebuild: recovered: every cut layer was declared, both builds fit the budget, and the rebuild needed fewer cuts",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "recovered: every cut layer was declared, both builds fit the budget, and the rebuild needed fewer cuts",
+        "dropped": [
+          "stable: 199 characters",
+          "diff: 160 characters"
+        ],
+        "droppedAfterRebuild": [
+          "stable: 199 characters"
+        ],
+        "layersKept": 3,
+        "firstBytes": 97,
+        "rebuiltBytes": 55
+      }
+    },
+    {
+      "phase": "D",
+      "name": "git conflict: stopped clearly: user changes are reported, and the destructive verb does not exist",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "stopped clearly: user changes are reported, and the destructive verb does not exist",
+        "conflicted": [],
+        "refusedReason": "refused: a hard reset destroys uncommitted work"
+      }
+    },
+    {
+      "phase": "D",
+      "name": "process restart: recovered: the checkpoint written before the restart resumes after it",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "verdict": "recovered: the checkpoint written before the restart resumes after it",
+        "step": "patch",
+        "verifiedMutations": 1
+      }
+    },
+    {
+      "phase": "D",
+      "name": "no fault hung, and none failed silently",
+      "ok": true,
+      "detail": {
+        "faults": 9,
+        "recovered": 6,
+        "stoppedClearly": 3,
+        "hung": 0,
+        "silent": 0
+      }
+    },
+    {
+      "phase": "E",
+      "name": "the evidence suites pass",
+      "ok": true,
+      "detail": {
+        "failing": [],
+        "passing": 213
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.1: accepts an arbitrary repository path",
+      "ok": true,
+      "detail": {
+        "evidence": "a missing workspace is reported, never created by the runtime"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.2: discovers the project commands itself",
+      "ok": true,
+      "detail": {
+        "evidence": "a run resolves the level command, appends the focus and goes through the supervisor"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.3: establishes a baseline",
+      "ok": true,
+      "detail": {
+        "evidence": "a fix goal shows the failing test failing before anything patches code"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.4: protects existing user changes",
+      "ok": true,
+      "detail": {
+        "evidence": "a pending mutation that conflicts with the file on disk forces a restart"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.5: performs file and code mutation",
+      "ok": true,
+      "detail": {
+        "evidence": "a pending mutation whose effect is already on disk resumes as already-complete"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.6: manages long-running subprocesses",
+      "ok": true,
+      "detail": {
+        "evidence": "a real command runs end to end through the real supervisor registry"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.7: calls Computer Use when a GUI is genuinely needed",
+      "ok": true,
+      "detail": {
+        "evidence": "acceptance A: switching a plugin off leaves the others working"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.8: runs build, test and lint automatically",
+      "ok": true,
+      "detail": {
+        "evidence": "a build goal builds and then verifies"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.9: repairs from a real failure",
+      "ok": true,
+      "detail": {
+        "evidence": "scenario A: a failing unit test is reproduced, repaired and verified with fresh evidence"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.10: never retries blind",
+      "ok": true,
+      "detail": {
+        "evidence": "a repair that does not work is not retried blind, and the episode fails with evidence"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.11: judges meaningful progress",
+      "ok": true,
+      "detail": {
+        "evidence": "an owned process milestone plans a step and its completion closes the step"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.12: recognises an engineering stall",
+      "ok": true,
+      "detail": {
+        "evidence": "no step may outlive the episode budget the contract declares"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.13: performs bounded recovery",
+      "ok": true,
+      "detail": {
+        "evidence": "a bounded plan refuses to grow past contract.maxSteps and says what it dropped"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.14: bounds every resource that grows",
+      "ok": true,
+      "detail": {
+        "evidence": "every ring is bounded: verifications, decisions, process milestones and changed files"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.15: checkpoints",
+      "ok": true,
+      "detail": {
+        "evidence": "a checkpoint round-trips through disk with every saved field intact"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.16: resumes after a crash",
+      "ok": true,
+      "detail": {
+        "evidence": "missing owned processes are reported, and the checkpoint is still resumable"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.17: detects workspace drift",
+      "ok": true,
+      "detail": {
+        "evidence": "verifyResume restarts when a manifest drifted under the same HEAD"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.18: handles a long test or build",
+      "ok": true,
+      "detail": {
+        "evidence": "summarizeTestOutput bounds a huge suite and says it truncated"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.19: continues autonomously",
+      "ok": true,
+      "detail": {
+        "evidence": "autonomy continues only with new evidence, and never past its own bounds"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.20: honours the contract autonomy override",
+      "ok": true,
+      "detail": {
+        "evidence": "autonomy authority: runtime default < contract override < explicit run option"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.21: one module failing does not sink the episode",
+      "ok": true,
+      "detail": {
+        "evidence": "acceptance A: workspace isolation off degrades the executor to serial writes"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.22: does not depend on a continuous screenshot stream",
+      "ok": true,
+      "detail": {
+        "evidence": "the screenshot ring and the entry ring are capped (Task 8)"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.23: does not depend on a human pressing Continue",
+      "ok": true,
+      "detail": {
+        "evidence": "autonomy continues only with new evidence, and never past its own bounds"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.24: does not depend on app learning",
+      "ok": true,
+      "detail": {
+        "evidence": "a non-zero exit is classified from the output and is not a success"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.25: completion is decided by fresh verification evidence",
+      "ok": true,
+      "detail": {
+        "evidence": "satisfied() is false when the full level evidence predates a mutation"
+      }
+    },
+    {
+      "phase": "E",
+      "name": "section 150.26: no obvious process, watcher, listener or resource leak after 24h",
+      "ok": true,
+      "detail": {
+        "evidence": "every ring is bounded: verifications, decisions, process milestones and changed files"
+      }
+    }
+  ],
+  "phaseB": {
+    "runs": [
+      {
+        "mode": "off",
+        "wallMs": 14233,
+        "accepted": true,
+        "correctness": true,
+        "suiteCode": 0,
+        "suiteTail": null,
+        "modelCalls": 2,
+        "rollbacks": 0,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "allocation": {
+          "workers": 1,
+          "bound": "off",
+          "reason": "parallel execution is off, so every node runs alone"
+        },
+        "allocationSource": "the resource manager",
+        "maxParallelism": 1,
+        "lanes": [
+          [
+            "serial",
+            "serial",
+            "serial",
+            "serial",
+            "serial",
+            "serial",
+            "serial",
+            "serial"
+          ],
+          [
+            "serial"
+          ],
+          [
+            "serial",
+            "serial",
+            "serial",
+            "serial",
+            "serial",
+            "serial"
+          ],
+          [
+            "serial"
+          ]
+        ],
+        "reason": null
+      },
+      {
+        "mode": "safe",
+        "wallMs": 8787,
+        "accepted": true,
+        "correctness": true,
+        "suiteCode": 0,
+        "suiteTail": null,
+        "modelCalls": 2,
+        "rollbacks": 0,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "allocation": {
+          "workers": 4,
+          "bound": "model",
+          "reason": "4 concurrent model requests, 0 already in flight",
+          "pressure": "normal"
+        },
+        "allocationSource": "the resource manager",
+        "maxParallelism": 4,
+        "lanes": [
+          [
+            "parallel"
+          ],
+          [
+            "serial"
+          ],
+          [
+            "parallel"
+          ],
+          [
+            "parallel"
+          ]
+        ],
+        "reason": null
+      },
+      {
+        "mode": "adaptive",
+        "wallMs": 8791,
+        "accepted": true,
+        "correctness": true,
+        "suiteCode": 0,
+        "suiteTail": null,
+        "modelCalls": 2,
+        "rollbacks": 0,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "allocation": {
+          "workers": 4,
+          "bound": "model",
+          "reason": "4 concurrent model requests, 0 already in flight",
+          "pressure": "normal"
+        },
+        "allocationSource": "the resource manager",
+        "maxParallelism": 4,
+        "lanes": [
+          [
+            "parallel"
+          ],
+          [
+            "parallel"
+          ],
+          [
+            "parallel"
+          ],
+          [
+            "parallel"
+          ]
+        ],
+        "reason": null
+      }
+    ],
+    "gain": 1.619,
+    "target": "1.3x-2x"
+  },
+  "phaseC": {
+    "measured": [
+      {
+        "label": "baseline",
+        "timeToAcceptedPatchMs": 16959,
+        "accepted": true,
+        "correctness": true,
+        "modelCalls": 13,
+        "scans": 6,
+        "reads": 6,
+        "commands": 7,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "approvalReason": "the full verification passed after the last change"
+      },
+      {
+        "label": "optimized",
+        "timeToAcceptedPatchMs": 14170,
+        "accepted": true,
+        "correctness": true,
+        "modelCalls": 2,
+        "scans": 1,
+        "reads": 6,
+        "commands": 7,
+        "patchHash": "8a166d660547e84e9896c2cb6b773cf4f65545b52a1d8d2099c64fe2f989934b",
+        "approvalReason": "the full verification passed after the last change"
+      }
+    ],
+    "metric": "Time To Accepted Patch",
+    "improvement": 1.197,
+    "declaredModelLatencyMs": 250
+  },
+  "phaseD": {
+    "faults": [
+      {
+        "fault": "model timeout",
+        "ok": true,
+        "verdict": "stopped clearly after one attempt",
+        "attempts": 1,
+        "skipped": [
+          "after"
+        ],
+        "hang": false,
+        "silentFailure": false,
+        "reason": "task \"ask\" failed: the model request timed out after 1800000ms"
+      },
+      {
+        "fault": "shell crash",
+        "ok": true,
+        "verdict": "recovered: the dead session was discarded and a fresh one started",
+        "starts": 2,
+        "recycled": 1
+      },
+      {
+        "fault": "tool timeout",
+        "ok": true,
+        "verdict": "recovered: the session was recycled after two failed uses, not retried forever",
+        "reason": "2 consecutive failed uses"
+      },
+      {
+        "fault": "test failure",
+        "ok": true,
+        "verdict": "stopped clearly: completion is refused and the evidence is named",
+        "reason": "the tier3 tier did not pass"
+      },
+      {
+        "fault": "UI miss",
+        "ok": true,
+        "verdict": "recovered: the GUI path is absent and the shell path continues",
+        "fallback": "GUI-only work is unavailable; shell and filesystem paths still work"
+      },
+      {
+        "fault": "plugin failure",
+        "ok": true,
+        "verdict": "recovered: the plugin restarted and nothing that does not need it was unloaded"
+      },
+      {
+        "fault": "context rebuild",
+        "ok": true,
+        "verdict": "recovered: every cut layer was declared, both builds fit the budget, and the rebuild needed fewer cuts",
+        "dropped": [
+          "stable: 199 characters",
+          "diff: 160 characters"
+        ],
+        "droppedAfterRebuild": [
+          "stable: 199 characters"
+        ],
+        "layersKept": 3,
+        "firstBytes": 97,
+        "rebuiltBytes": 55
+      },
+      {
+        "fault": "git conflict",
+        "ok": true,
+        "verdict": "stopped clearly: user changes are reported, and the destructive verb does not exist",
+        "conflicted": [],
+        "refusedReason": "refused: a hard reset destroys uncommitted work"
+      },
+      {
+        "fault": "process restart",
+        "ok": true,
+        "verdict": "recovered: the checkpoint written before the restart resumes after it",
+        "step": "patch",
+        "verifiedMutations": 1
+      }
+    ],
+    "summary": {
+      "faults": 9,
+      "recovered": 6,
+      "stoppedClearly": 3,
+      "hung": 0,
+      "silent": 0
+    }
+  },
+  "section150": {
+    "conditions": 26,
+    "proven": 26,
+    "missing": [],
+    "passing": 213
+  },
+  "summary": {
+    "checks": 51,
+    "passed": 50,
+    "failed": 1,
+    "verdict": "NOT ACCEPTED"
+  }
+}

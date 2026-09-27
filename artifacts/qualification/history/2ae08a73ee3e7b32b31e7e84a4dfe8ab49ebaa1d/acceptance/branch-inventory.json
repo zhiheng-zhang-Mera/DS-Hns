@@ -1,0 +1,108 @@
+{
+  "schema": "hns-integration-rc-branch-inventory/v1",
+  "capturedAt": "2026-09-21T17:34:19+10:00",
+  "remote": "https://github.com/zhiheng-zhang-Mera/DS-Hns.git",
+  "main": {
+    "head": "59d816b734bea1c20ff2fbd6244395fc715304fe",
+    "cleanClone": true,
+    "latestCi": {
+      "workflow": "verify",
+      "runId": 35078946779,
+      "conclusion": "success",
+      "headSha": "59d816b734bea1c20ff2fbd6244395fc715304fe"
+    }
+  },
+  "toolchain": {
+    "packageManager": "npm (app/package-lock.json; npm ci)",
+    "nodeRequirement": "CI uses Node 22; installer accepts Node >=20 and defaults portable bootstrap to v24.14.1",
+    "localNode": "v24.14.1 portable under D:/Hns-Integration-RC/repo/runtime",
+    "localNpm": "11.11.0",
+    "electron": "43.4.0",
+    "dsh": "0.1.5-rc.1"
+  },
+  "tags": [
+    { "name": "manual-ui-review-1", "tagObject": "b3f98d827be9a0b209dde07315c5371ce4557539", "commit": "ab81628fa133b4b795ff8a7133421e6dd13d7e9f" },
+    { "name": "manual-ui-review-2", "tagObject": "521c5ece0b1b7312850dd2ab8e1ab6b44db707d5", "commit": "e15385f5f0ef1b95572a43cc1c0d272963afab47" },
+    { "name": "manual-ui-review-3", "tagObject": "e3ba9267fdde17f748f9d5303f5d8ac212805523", "commit": "72e6f5c03ceb22b5563f8a08fd7fa5b7329daa23" },
+    { "name": "manual-ui-review-4", "tagObject": "b7255738a1065fbcba6f2721b919a64a2476a5ec", "commit": "acd5bd3be0e231cbae4f8be21e477edb38177ff8" },
+    { "name": "manual-ui-review-5", "tagObject": "f1b9383aea8121c49dbbf7dbb6ef1bf57edf7773", "commit": "56f3e7f88a12cb61efae3c0bad086ab46b29ae0b" },
+    { "name": "plugin-ize-checkpoint-2", "tagObject": "8a6c7747b1eaf16c715a647d6dc522fe6e32a9fc", "commit": "400f3ed3bdebdaf8f65e1a00e0d8231a4cf4e72b" },
+    { "name": "plugin-ize-checkpoint-3", "tagObject": "b0d0054d2e5e7276478c1649d65fb6a29aae5f00", "commit": "4d2016dfc951d098c3f14ebedab7f6620fa0e108" }
+  ],
+  "branches": [
+    {
+      "branch": "origin/better-install",
+      "head": "a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6",
+      "purpose": "clean install, optional community-plugin choices, runtime-cleanup coexistence and installer assertions",
+      "dependencies": ["origin/main"],
+      "decision": "ALREADY_INCLUDED",
+      "reason": "Ancestor of both admitted candidate heads; merging it separately would duplicate history.",
+      "ci": { "runId": 35088779923, "conclusion": "success" },
+      "conflicts": [],
+      "result": "Present through both included lineages."
+    },
+    {
+      "branch": "origin/target-standby",
+      "head": "5efa302acd381d57d44bc87bbdc36f80a21dda9a",
+      "purpose": "formal health scheduler and restart supervisor plugins, failure isolation, registration and service records",
+      "dependencies": ["origin/better-install"],
+      "decision": "ALREADY_INCLUDED",
+      "reason": "Ancestor of origin/try-auto; latest successful CI run validates this exact head.",
+      "ci": { "runId": 35179097969, "conclusion": "success" },
+      "conflicts": [],
+      "result": "Present through origin/try-auto."
+    },
+    {
+      "branch": "origin/try-auto",
+      "head": "432cf431f2b40843ab3ec5287ffd7e5296cb6626",
+      "purpose": "long-host continuity, work admission, restart status, plugin registration and repaired official fallback UI",
+      "dependencies": ["origin/target-standby", "origin/better-install"],
+      "decision": "INCLUDE",
+      "reason": "Ancestor-complete continuation with automated continuity/chaos/UI probes and recorded real startup evidence; directly addresses health, restart, official fallback and long-term runtime scope.",
+      "ci": { "status": "NOT_RUN", "reason": "verify.yml push trigger did not include try-auto" },
+      "conflicts": [],
+      "result": "Merged cleanly with --no-ff; integrated verifier later passed."
+    },
+    {
+      "branch": "origin/dev/runtime-ui-separation-v1",
+      "head": "923f5293a2ada553cb7f91a4bc1b54e750dfe7c3",
+      "purpose": "separate runtime host/client lifecycle, instance isolation, portable installer fingerprint and measured host-capacity policy",
+      "dependencies": ["origin/better-install"],
+      "decision": "INCLUDE",
+      "reason": "Independent, tested runtime ownership and isolation work needed by the RC; does not supersede the long-host plugin line.",
+      "ci": { "status": "NOT_RUN", "reason": "verify.yml push trigger did not include dev/runtime-ui-separation-v1" },
+      "conflicts": [
+        {
+          "file": "app/desktop-main.cjs",
+          "resolution": "Stand down the restart companion on intentional UI exit, detach UI resources, and leave the separated Runtime running."
+        },
+        {
+          "file": "scripts/install.ps1",
+          "resolution": "Retain fingerprint reuse for Mega Core while always running freshness-aware installation and registration checks for required health/restart plugins."
+        },
+        {
+          "file": "tests/unit/installer-contract.test.js",
+          "resolution": "Use tier-aware step detection with the plural shipped-plugin step and retain built-in plugin/uninstall assertions."
+        }
+      ],
+      "result": "Semantically merged; conflict-focused 48/48 tests and integrated verifier 1885 pass, 0 fail, 2 explicitly skipped."
+    }
+  ],
+  "integrationFindings": [
+    {
+      "id": "RC1-INSTALL-001",
+      "severity": "P1",
+      "finding": "ensure-node accepted a Node-only PATH runtime without npm.cmd, so clean dependency installation failed before npm ci.",
+      "resolution": "Require npm.cmd beside node.exe before a runtime is reusable; bootstrap a complete portable runtime otherwise.",
+      "test": "tests/unit/installer-contract.test.js - node bootstrap reuses compatible runtimes and cached archive",
+      "redGreen": "Observed failing assertion before implementation; focused test and full installer-contract suite pass after implementation."
+    }
+  ],
+  "task1Gate": {
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1",
+    "result": "PASS",
+    "tests": { "total": 1887, "passed": 1885, "failed": 0, "skipped": 2 },
+    "durationSeconds": 446.2,
+    "log": "artifacts/acceptance/logs/task1-verify-after-install.log"
+  }
+}

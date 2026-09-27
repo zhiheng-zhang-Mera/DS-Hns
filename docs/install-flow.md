@@ -14,7 +14,7 @@ suite (`tests\unit\installer-contract.test.js`, `tests\unit\installer-optional-p
 | 1/9 | `cleanup-runtime.ps1`, then the bootstrap directory tree | **yes** |
 | 2/9 | `install-deps.ps1 -Full`: Node, the harness package, Electron, the binary repair | **yes** |
 | 3/9 | Resolve the DeepSeek API key (process/user/machine environment, then the project `.env`, then prompt) | no — it continues unconfigured |
-| 4/9 | **Sign the shipped client plugin into the Harness profile** (`install-profile-plugin.ps1`) | no — a warning, and the install carries on |
+| 4/9 | **Sign the shipped plugins into the Harness profile** — Mega Core, the Health Scheduler and the Restart Supervisor (`install-bundled-plugins.ps1` driving `install-profile-plugin.ps1`, once per plugin) | no — a warning, and the install carries on |
 | 5/9 | **The optional community plugins** (this document's second half) | no — every outcome is a report |
 | 6/9 | `test-all.ps1`: the unit and architecture gate | **yes** |
 | 7/9 | `verify.ps1 -SkipTests`: the invariant checks | **yes** |
@@ -23,9 +23,10 @@ suite (`tests\unit\installer-contract.test.js`, `tests\unit\installer-optional-p
 
 The order matters in two places, and both are asserted:
 
-* **4/9 before 5/9.** Mega Core is DS-Hns' *own* plugin. It is signed into the profile
-  unconditionally, before any optional plugin is mentioned, so nothing about the community plugins
-  can turn it into a choice.
+* **4/9 before 5/9.** The three built-in plugins — Mega Core, the Health Scheduler and the Restart
+  Supervisor — are DS-Hns' *own*, and they are signed into the profile unconditionally, in their own
+  step, before any optional plugin is mentioned. Nothing about the community plugins can turn them into
+  a choice.
 * **5/9 before 6/9.** The optional plugins are settled before the gates run, so a gate failure is a
   real failure rather than something an optional plugin's warning was masking.
 
@@ -33,13 +34,19 @@ The order matters in two places, and both are asserted:
 
 The two are different in kind, and the installer and the summary keep them apart.
 
-| | Mega Core | `@dsh-market/plugin` | `dsh-plugin-wallpaper-engine` |
-| --- | --- | --- | --- |
-| Where it comes from | `app\plugins\mega-core`, shipped in the checkout | published npm package | published npm package |
-| Channel | the Harness' own CLI, `file:` spec | the Harness' own CLI, pinned version | the Harness' own CLI, pinned tag |
-| Asked about? | never — it is a step of the installation | yes, unless a parameter answers | yes, unless a parameter answers |
-| If it fails | no orb in the official UI; everything else works | warning, reported `FAILED`, install continues | warning, reported `FAILED`, install continues |
-| Recorded in | the profile's `dependencies` | `data\state\optional-plugins.json` **and** the profile | same |
+| | Mega Core | Health Scheduler / Restart Supervisor | `@dsh-market/plugin` | `dsh-plugin-wallpaper-engine` |
+| --- | --- | --- | --- | --- |
+| Where it comes from | `app\plugins\mega-core`, shipped in the checkout | `app\plugins\<name>`, shipped in the checkout | published npm package | published npm package |
+| Channel | the Harness' own CLI, `file:` spec | the same, driven by `scripts\install-bundled-plugins.ps1` from `scripts\bundled-plugins.json` | the Harness' own CLI, pinned version | the Harness' own CLI, pinned tag |
+| Asked about? | never — it is a step of the installation | never — the same step, and `required: true` in the release manifest | yes, unless a parameter answers | yes, unless a parameter answers |
+| If it fails | no orb in the official UI; everything else works | the official UI does not list it; the product runs either way | warning, reported `FAILED`, install continues | warning, reported `FAILED`, install continues |
+| Recorded in | the profile's `dependencies` | the profile's `dependencies` **and** `data\state\optional-plugins.json` is untouched: they are not optional | `data\state\optional-plugins.json` **and** the profile | same |
+| Repair / uninstall | `scripts\install-profile-plugin.ps1 -Plugin mega-core` | `scripts\install-bundled-plugins.ps1 -Repair` / `-Uninstall`, or `scripts\uninstall-ds-harness.ps1` | the plugin CLI, or the store's repair | same |
+
+The two built-in plugins also run inside this product's own plugin host — they are `dshns.plugin/v1`
+plugins mounted by `NativeHnsAdapter`, not merely entries in another application's profile. The profile
+install is what makes the *official* Harness UI list them and compose their rows; the host mount is what
+makes them work. `docs/restart-supervisor.md` and `docs/health-scheduler.md` are their own documents.
 
 ## The optional community plugins
 

@@ -66,9 +66,16 @@ function fixture(overrides = {}) {
 
 test('the sections are built from the dock\'s own snapshot, not from a second query', () => {
   const built = buildControlCenter(fixture())
-  assert.deepEqual(built.sections.map((section) => section.id), ['execution', 'automation', 'resources', 'extensions', 'protection', 'diagnostics'])
+  // `services` comes first because it is the section about *this product's own* two built-in
+  // components — the health scheduler and the restart supervisor — and their state is the thing a
+  // person opens a control centre to check. `restart` follows it: whether those components are running
+  // and what the last restart actually did are the two halves of the same question.
+  assert.deepEqual(built.sections.map((section) => section.id), ['services', 'restart', 'execution', 'automation', 'resources', 'extensions', 'protection', 'diagnostics'])
   const execution = built.sections.find((section) => section.id === 'execution')
-  assert.deepEqual(execution.rows.map((row) => row.value), ['2', '3', '0', '0', '0'])
+  // Running workers, queued, deferred-by-policy and waiting-for-a-person, then blocked/retrying/failed.
+  // The two middle rows are the ones that were missing a producer: a held task now says which kind of
+  // hold it is, in the official UI's own row rather than only in the enhanced panel.
+  assert.deepEqual(execution.rows.map((row) => row.value), ['2', '3', '0', '0', '0', '0', '0'])
   // Zero is quiet: a fault count of zero is reported as `0` and never carries a tone (§36).
   assert.equal(execution.rows.find((row) => row.cn === '失败').tone, null)
   const resources = built.sections.find((section) => section.id === 'resources')
@@ -109,7 +116,15 @@ test('a snapshot with nothing in it is a panel of zeros, not a crash', () => {
   assert.equal(built.ok, true)
   assert.deepEqual(built.modules, [])
   assert.deepEqual(built.plugins, [])
-  assert.equal(built.sections.length, 6)
+  // Six reporting sections plus the built-in-service section and the restart-status section, both of
+  // which report "unavailable" rather than an empty box: a control centre that silently omitted the
+  // two components whose failure the product is meant to survive — and the record of what the last
+  // restart did — would be hiding the things it exists to show.
+  assert.equal(built.sections.length, 8)
+  assert.deepEqual(built.services, [])
+  assert.equal(built.sections.find((section) => section.id === 'services').rows[0].value, 'report unavailable')
+  assert.equal(built.sections.find((section) => section.id === 'restart').rows[0].value, 'report unavailable')
+  assert.equal(built.restartStatus, null, 'no restart report must not become a fabricated zero-restart status')
   assert.equal(built.sections.find((section) => section.id === 'diagnostics').rows[0].value, '—')
 })
 

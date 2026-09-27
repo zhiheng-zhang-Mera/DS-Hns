@@ -15,9 +15,13 @@
  *   2. **A per-run token.** The token is generated with `crypto.randomBytes` at every start and written beside
  *      the port in a discovery file. A token that outlived the process would be a password nobody rotated.
  *   3. **Read is a snapshot, write is a named action.** The plugin asks for data, or asks for one of a closed
- *      set of actions (`check`, `retry`, `reset-fallback`, `repair`, `disable`, `enable`). There is no "call
- *      this function" surface, which is what keeps a UI plugin from becoming a remote control for the kernel.
- *   4. **The bridge is optional.** If it cannot bind (a busy environment, a sandbox), the product runs exactly
+ *      set of actions. That set is *not* written here: it is the shared vocabulary in
+ *      `app/core/contracts/service-actions.cjs`, which the snapshot publishes to the page. Two lists — one
+ *      drawn, one accepted — is how the official page came to offer four buttons this endpoint refused.
+ *   4. **A dangerous action needs a confirmation, and it is checked here.** The page may ask a person first;
+ *      the bridge is what refuses to run `manual-restart` or `reset-budget` without `confirm: true`, because a
+ *      label that says "(confirm)" is not a step.
+ *   5. **The bridge is optional.** If it cannot bind (a busy environment, a sandbox), the product runs exactly
  *      as before and says so; the plugin then reports "governance unavailable" instead of inventing an answer.
  *
  * The discovery file lives under `$DSH_HOME/state/` — the same directory the Harness child is spawned with — so
@@ -29,11 +33,18 @@ const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
 
+const serviceActions = require('./contracts/service-actions.cjs')
+
 /** The only host this bridge may listen on. */
 const LOOPBACK = '127.0.0.1'
 
-/** The actions a client may ask for, and nothing else (`updateplan/pluginize.md` §22's governance boundary). */
-const BRIDGE_ACTIONS = Object.freeze(['check', 'retry', 'reset-fallback', 'repair', 'disable', 'enable'])
+/**
+ * The actions a client may ask for (`updateplan/pluginize.md` §22's governance boundary).
+ *
+ * Kept as a named export for the callers that only need the ids; the authoritative definitions — scope and
+ * whether a confirmation is required — are the vocabulary's.
+ */
+const BRIDGE_ACTIONS = serviceActions.ACCEPTED_ACTIONS
 
 /**
  * The bridge's own state schema, so a later version can migrate rather than guess.
@@ -141,15 +152,45 @@ function createGovernanceBridge({ stateDir, snapshot, act, timing = null, create
       }
       const action = String(body.action || '')
       const id = String(body.id || '')
-      if (!BRIDGE_ACTIONS.includes(action)) return json(response, 400, { ok: false, reason: `"${action}" is not a governance action; expected ${BRIDGE_ACTIONS.join(', ')}` })
-      if (!id) return json(response, 400, { ok: false, reason: 'an action needs an id' })
+      const confirm = body.confirm === true
+      /**
+       * The accepted set is the shared vocabulary (`app/core/contracts/service-actions.cjs`), not a list
+       * kept here.
+       *
+       * They had drifted: the official page offered `diagnostics`, `restart-plugin`, `manual-restart` and
+       * `reset-budget`, and this endpoint refused all four — buttons that could only ever print a
+       * refusal. One list, published to the page in the snapshot, is what makes a drawn button a working
+       * one.
+       */
+      if (!serviceActions.isAccepted(action)) {
+        return json(response, 400, { ok: false, reason: `"${action}" is not a governance action; expected ${serviceActions.ACCEPTED_ACTIONS.join(', ')}` })
+      }
+      // A product-level action names no plugin — "retry" means "retry everything degraded" — so only
+      // the actions that are *about* a service or a module need an id.
+      if (serviceActions.requiresId(action) && !id) {
+        return json(response, 400, { ok: false, reason: `"${action}" needs an id: it acts on one plugin or module` })
+      }
+      /**
+       * Confirmation is enforced here, where the action runs.
+       *
+       * The page used to render a `" (confirm)"` suffix in the button's label and send the action
+       * immediately, which is a warning label rather than a confirmation. A dangerous action now has to
+       * carry `confirm: true`, so a caller that skipped the step cannot perform it by accident — or by
+       * forgetting.
+       */
+      if (serviceActions.isDangerous(action) && !confirm) {
+        return json(response, 409, { ok: false, action, id: id || null, needsConfirmation: true, reason: `"${action}" changes the running product; send confirm: true once a person has agreed` })
+      }
       try {
-        const result = await act({ action, id })
-        return json(response, result?.ok === false ? 409 : 200, { ok: result?.ok !== false, action, id, result: result || null })
+        // Keep the legacy body envelope, but preserve the named advanced fields
+        // consumed by the same controlAction used by desktop IPC. Never spread
+        // arbitrary body fields over the validated action/id/confirmation.
+        const result = await act({ action, id: id || null, confirm, key: body.key, value: body.value, body: body || {} })
+        return json(response, result?.ok === false ? 409 : 200, { ok: result?.ok !== false, action, id: id || null, result: result || null })
       } catch (error) {
         lastError = String(error?.message || error)
         log(`governance action ${action} failed: ${lastError}`)
-        return json(response, 500, { ok: false, action, id, reason: lastError })
+        return json(response, 500, { ok: false, action, id: id || null, reason: lastError })
       }
     }
     /**

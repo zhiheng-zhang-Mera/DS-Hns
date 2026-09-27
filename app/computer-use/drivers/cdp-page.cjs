@@ -187,6 +187,7 @@ function createCdpPage(options = {}) {
   let eventLog = []
   const listeners = []
   let pendingDialog = null
+  let unsubscribeTransport = null
 
   function requireTransport() {
     if (!transport || typeof transport.send !== 'function') {
@@ -206,7 +207,14 @@ function createCdpPage(options = {}) {
 
   /** Called by the host when the transport starts delivering CDP events. */
   function handleEvent(method, params) {
-    if (method === 'Page.javascriptDialogOpening') {
+    if (method === 'Inspector.detached') {
+      if (unsubscribeTransport) unsubscribeTransport()
+      unsubscribeTransport = null
+      attached = false
+      bootstrapState = null
+      pendingDialog = null
+      record({ type: 'detached' })
+    } else if (method === 'Page.javascriptDialogOpening') {
       pendingDialog = { type: params.type, message: params.message, open: true, blocking: true, url: params.url }
       record({ type: 'dialog_opened', dialog: pendingDialog })
     } else if (method === 'Page.javascriptDialogClosed') {
@@ -232,6 +240,9 @@ function createCdpPage(options = {}) {
    */
   async function attach() {
     if (attached) return { ok: true, bootstrap: bootstrapState }
+    if (!unsubscribeTransport && typeof transport?.onEvent === 'function') {
+      unsubscribeTransport = transport.onEvent(handleEvent)
+    }
     const domains = [
       ['Page.enable', {}],
       ['Runtime.enable', {}],
@@ -779,27 +790,31 @@ function createElectronDebuggerTransport(webContents) {
   const debugger_ = webContents.debugger
   const handlers = []
   let listening = false
+  function message(_event, method, params) {
+    for (const handler of [...handlers]) {
+      try { handler(method, params) } catch { /* listener isolation */ }
+    }
+  }
+  function removeNativeListeners() {
+    debugger_.removeListener('message', message)
+    debugger_.removeListener('detach', detached)
+    listening = false
+  }
+  function detached() {
+    removeNativeListeners()
+    // Invalidate the page before releasing every connection-owned subscriber.
+    // The page subscribes afresh when its next observation attaches.
+    message(null, 'Inspector.detached', {})
+    handlers.length = 0
+  }
   return {
     probe: () => ({ available: true, reason: null, detail: { backend: 'electron-webcontents-debugger' } }),
     async send(method, params) {
       if (!debugger_.isAttached()) debugger_.attach('1.3')
       if (!listening) {
         listening = true
-        debugger_.on('message', (_event, method_, params_) => {
-          for (const handler of handlers) {
-            try {
-              handler(method_, params_)
-            } catch {
-              /* listener isolation */
-            }
-          }
-        })
-        debugger_.on('detach', () => {
-          listening = false
-          // A detached session has no live subscribers: keeping them would make
-          // the handler list grow across every reconnect in a long run.
-          handlers.length = 0
-        })
+        debugger_.on('message', message)
+        debugger_.on('detach', detached)
       }
       return debugger_.sendCommand(method, params)
     },
@@ -816,11 +831,9 @@ function createElectronDebuggerTransport(webContents) {
       } catch {
         /* already detached */
       }
-      // The page is gone, so nothing it fed can still be wanted: dropping the
-      // handlers here is what keeps a long session's listener count flat across
-      // attach/detach cycles. The runtime re-subscribes when it re-attaches.
+      // Explicit disposal releases both native listeners and page subscribers.
+      removeNativeListeners()
       handlers.length = 0
-      listening = false
     }
   }
 }

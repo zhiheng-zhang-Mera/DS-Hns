@@ -70,12 +70,42 @@ function orderPlugins(entries) {
 }
 
 /**
+ * Resolve a promise, or fail with a marked error after `timeoutMs`.
+ *
+ * The timer is cleared on the fast path so a healthy plugin does not leave a ten-second timer behind on
+ * every health pass. The rejected error carries `timedOut: true`, which is what lets the caller report
+ * "it did not answer" instead of pretending the plugin is broken.
+ */
+function withTimeout(promise, timeoutMs, message) {
+  let timer = null
+  const bound = new Promise((resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error(message)
+      error.timedOut = true
+      reject(error)
+    }, timeoutMs)
+    /**
+     * Deliberately **not** unref'd.
+     *
+     * An unref'd timer does not keep the event loop alive, so a health check that never settles and has no
+     * other handle would let the process exit instead of timing out — the timeout would work in a busy
+     * process and silently do nothing in a quiet one. The timer is cleared the moment the hook answers.
+     */
+  })
+  return Promise.race([
+    Promise.resolve(promise).finally(() => { if (timer) clearTimeout(timer) }),
+    bound
+  ])
+}
+
+/**
  * @param {object} [options]
  * @param {object} [options.bus] a bus to reuse (the runtime owns one)
  * @param {object} [options.registry] a registry to reuse
  * @param {object} [options.config] `{ plugins: { <id>: {...} }, enabled: {...} }`
  * @param {Function} [options.now]
  * @param {Function} [options.log]
+ * @param {number}   [options.healthTimeoutMs] how long a plugin's healthCheck may take (default 10s)
  * @param {object} [options.services] core services handed to every plugin context
  */
 function createPluginManager(options = {}) {
@@ -84,6 +114,15 @@ function createPluginManager(options = {}) {
   const bus = options.bus || createEventBus({ now })
   const registry = options.registry || createCapabilityRegistry({ now, bus })
   const config = options.config && typeof options.config === 'object' ? options.config : {}
+  /**
+   * How long a plugin's `healthCheck` may take before it is reported as not answering.
+   *
+   * A hook that never settles is plugin code, and the health pass is sequential — so without a bound one
+   * hung plugin would hold the whole runtime's health for ever (and the host's world build with it). Ten
+   * seconds is long enough for a probe that talks to a child process and short enough that a person
+   * watching the panel sees an answer.
+   */
+  const healthTimeoutMs = Number.isFinite(Number(options.healthTimeoutMs)) ? Math.max(1, Number(options.healthTimeoutMs)) : 10_000
   const services = options.services && typeof options.services === 'object' ? options.services : {}
   /** id -> the record the manager reports on */
   const records = new Map()
@@ -307,6 +346,12 @@ function createPluginManager(options = {}) {
    * `healthCheck` is optional: a plugin that does not implement it is `unknown`
    * rather than assumed healthy. A `healthCheck` that throws is `unhealthy` with
    * the reason, and never propagates.
+   *
+   * **A `healthCheck` that never answers is bounded.** It is plugin code, and a plugin whose promise never
+   * settles would otherwise hang `checkAllHealth` — and with it the host's world build, since the pass is
+   * sequential — for ever. The bound turns that into `unknown` with the reason "it did not answer", which is
+   * the honest answer and keeps the rest of the runtime serving. The pending promise is left alone: it is
+   * the plugin's, and this manager has no way to cancel it.
    */
   async function checkHealth(id) {
     const record = entry(id)
@@ -318,7 +363,7 @@ function createPluginManager(options = {}) {
       return record.health
     }
     try {
-      const result = await record.plugin.healthCheck()
+      const result = await withTimeout(record.plugin.healthCheck(), healthTimeoutMs, `${record.id} did not answer its health check within ${healthTimeoutMs}ms`)
       const status = result && Object.values(HEALTH_STATUS).includes(result.status) ? result.status : HEALTH_STATUS.UNKNOWN
       record.health = {
         status,
@@ -332,10 +377,17 @@ function createPluginManager(options = {}) {
       bus.emit('plugin.health', { plugin: record.id, status, reason: record.health.reason })
       return record.health
     } catch (error) {
-      record.health = { status: HEALTH_STATUS.UNHEALTHY, reason: String(error && error.message ? error.message : error), latency_ms: null, at: now() }
-      record.healthy = false
+      const timedOut = Boolean(error && error.timedOut)
+      record.health = {
+        status: timedOut ? HEALTH_STATUS.UNKNOWN : HEALTH_STATUS.UNHEALTHY,
+        reason: String(error && error.message ? error.message : error),
+        latency_ms: null,
+        timedOut,
+        at: now()
+      }
+      record.healthy = timedOut ? null : false
       record.healthAt = now()
-      bus.emit('plugin.fault', { plugin: record.id, code: LOAD_REASONS.LOAD_FAILED, reason: record.health.reason, level: record.fault_level, phase: 'health' })
+      bus.emit('plugin.fault', { plugin: record.id, code: timedOut ? 'PLUGIN_HEALTH_TIMEOUT' : LOAD_REASONS.LOAD_FAILED, reason: record.health.reason, level: record.fault_level, phase: 'health' })
       return record.health
     }
   }

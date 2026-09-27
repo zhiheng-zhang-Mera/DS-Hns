@@ -1,0 +1,30 @@
+{
+  "schema": "hns-production-like-candidate/v1",
+  "candidateType": "repository-supported installed Electron source candidate",
+  "standalonePackagerDeclared": false,
+  "root": "D:\\Hns-Integration-RC\\repo",
+  "entry": "app/desktop-main.cjs",
+  "electron": "app/node_modules/electron/dist/electron.exe",
+  "node": "runtime/node-v24.14.1-win-x64/node.exe",
+  "versions": {
+    "node": "24.14.1",
+    "npm": "11.11.0",
+    "electron": "43.4.0",
+    "dsh": "0.1.5-rc.1"
+  },
+  "installMode": "Standard",
+  "installExitCode": 0,
+  "installerTests": {
+    "total": 113,
+    "passed": 113,
+    "failed": 0
+  },
+  "architectureVerifier": "PASS",
+  "launch": {
+    "status": "PASS",
+    "userData": "D:\\Hns-Integration-RC\\data\\acceptance-userdata",
+    "runtimeData": "D:\\Hns-Integration-RC\\data\\acceptance-runtime",
+    "screenshot": "artifacts/rc-evidence/final-isolated-mega-health.png"
+  },
+  "warning": "Optional Plugin Market state disagrees between installer summary and the same profile's UI; see RC1-INSTALL-002."
+}

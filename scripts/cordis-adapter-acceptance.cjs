@@ -46,8 +46,8 @@ function arg(name, fallback) {
 }
 
 const JSON_OUT = process.argv.includes('--json')
-const SAMPLES_DIR = path.resolve(arg('samples', 'D:/test-DSH/samples'))
-const ROOTS = String(arg('roots', 'D:/test-DSH/peer-providers/node_modules,' + path.join(ROOT, 'app/node_modules')))
+const SAMPLES_DIR = path.resolve(arg('samples', path.join(process.env.DSH_TEST_ROOT || path.join(ROOT, 'test-artifacts'), 'qualification-fixtures', 'samples')))
+const ROOTS = String(arg('roots', path.join(ROOT, 'app/node_modules')))
   .split(',')
   .map((entry) => entry.trim())
   .filter(Boolean)

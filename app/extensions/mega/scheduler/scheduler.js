@@ -35,6 +35,17 @@ const DEFAULT_STATE_DIR = path.join(ROOT, 'data', 'state')
 /** Reasons that are internal continuations rather than user-visible outcomes. */
 const CONTINUATION_REASONS = new Set([REASONS.PEAK_PAUSE, REASONS.STALL_RETRY])
 
+/**
+ * The reasons that mean "a person has to decide before this runs".
+ *
+ * They are recorded by whoever refuses the work — the sub-worker when the machine's permissions cannot
+ * grant a task what it asked for, an extension when a decision is genuinely the user's — and this is the
+ * one place that reads them. `permission-required` is the name the worker uses; the others are the
+ * spellings already present in the queue files of older builds, which is why they are matched rather
+ * than normalised on the way in.
+ */
+const HUMAN_REASONS = /permission|needs?-human|awaiting-approval|waiting-for-human/i
+
 const DEFAULTS = {
   defaultAllowPeak: false,
   minConcurrent: 1,
@@ -124,6 +135,13 @@ class SchedulerService extends EventEmitter {
     this.officialClient = options.officialClient || new OfficialSessionClient()
     this.tickInFlight = false
     this.tickPending = false
+    /**
+     * The health gate, when the shell installs one (`setWorkAdmission`).
+     *
+     * Absent is the default and it admits: a monitor that is switched off must not stop the queue.
+     */
+    this.workAdmission = null
+    this.lastAdmission = null
     this.ensureQueueOrders()
     this.lastSystem = this.systemProbe()
     this.concurrency = system.computeMaxConcurrent(this.lastSystem, this.config)
@@ -667,6 +685,57 @@ class SchedulerService extends EventEmitter {
   }
 
   /**
+   * Install the **work admission** gate (`app/core/work-admission.cjs`).
+   *
+   * The scheduler asks it before it starts anything new, and it answers with the health decision the
+   * monitor is publishing: `THROTTLE` uses half the slots, `PAUSE_NEW_WORK` and `REQUEST_RESTART` hold
+   * the task in the queue with a reason. Without a gate — a build with no plugin host, or a monitor
+   * that is switched off — every decision admits, which is the honest default: no evidence, no
+   * restriction.
+   */
+  setWorkAdmission(gate) {
+    this.workAdmission = typeof gate === 'function' ? gate : (gate && typeof gate.admit === 'function' ? () => gate.admit() : null)
+    return { ok: true, installed: Boolean(this.workAdmission) }
+  }
+
+  /**
+   * What the queue currently thinks of starting work, for the panels.
+   *
+   * It is published in `describe()` so the official UI can show *why* the queue is holding — a held
+   * task with no visible reason reads as a stuck queue.
+   */
+  admissionState() {
+    if (!this.workAdmission) return { installed: false, action: 'NO_ACTION', reason: null, at: null }
+    const decision = this.lastAdmission || null
+    return {
+      installed: true,
+      action: decision ? decision.action : 'NO_ACTION',
+      defer: Boolean(decision && decision.defer),
+      pressure: decision && Number.isFinite(Number(decision.pressure)) ? Number(decision.pressure) : null,
+      reason: decision ? decision.reason || null : null,
+      at: decision ? decision.at || null : null
+    }
+  }
+
+  /**
+   * How many tasks may run right now.
+   *
+   * The queue owns its cap (`this.concurrency.current`, derived from the machine's own probe); the
+   * health decision only says how much of it to use — half while `THROTTLE`, and never zero, because a
+   * throttle that stops is a pause and the pause is a different action with a different reason.
+   */
+  effectiveConcurrency() {
+    const cap = Number(this.concurrency && this.concurrency.current)
+    const base = Number.isFinite(cap) && cap > 0 ? cap : 1
+    const factor = this.lastAdmission && Number.isFinite(Number(this.lastAdmission.concurrencyFactor))
+      ? Number(this.lastAdmission.concurrencyFactor)
+      : 1
+    if (factor <= 0) return 0
+    if (factor >= 1) return base
+    return Math.max(1, Math.floor(base * factor))
+  }
+
+  /**
    * The active queue: only tasks that may still be executed. Terminal tasks
    * live in the history layer and are never returned here.
    */
@@ -796,7 +865,28 @@ class SchedulerService extends EventEmitter {
           continue
         }
         if (decision === 'ready') {
-          if (this.running.size >= this.concurrency.current) break
+          if (this.running.size >= this.effectiveConcurrency()) break
+          /**
+           * The health decision, asked once per candidate rather than once per tick: the pressure can
+           * change between two tasks, and a decision made at the top of the loop would be a decision
+           * about the machine as it was a moment ago.
+           */
+          const admission = this.workAdmission ? this.workAdmission() : null
+          this.lastAdmission = admission || null
+          if (admission && admission.ok === false) {
+            // Held, not failed: the task keeps its place and the reason is published for the panel.
+            const held = admission.reason || 'new work is held by the health decision'
+            if (t.reason !== held) {
+              t.reason = held
+              changed = true
+            }
+            continue
+          }
+          if (t.reason && t.status === 'PENDING' && /pressure|restart has been requested/i.test(String(t.reason))) {
+            // The hold has cleared: the reason goes away with it rather than sticking to the task.
+            t.reason = null
+            changed = true
+          }
           await this.launch(t)
           changed = true
         }
@@ -1055,6 +1145,8 @@ class SchedulerService extends EventEmitter {
       autonomy: { enabled: this.autonomyEnabled, bounds: this.autonomy ? { quietAfterMs: this.autonomy.bounds.quietAfterMs, hardStallAfterMs: this.autonomy.bounds.hardStallAfterMs, failAfterMs: this.autonomy.bounds.failAfterMs } : null },
       peak: this.peakInfo(),
       concurrency: this.concurrency,
+      /** What the health decision is doing to the queue, and why a task may be held (§6). */
+      admission: this.admissionState(),
       system: this.lastSystem,
       hardware: this.lastSystem?.hardware || system.hardwareInventory(),
       officialDeliveryReady: Boolean(this.officialClient),
@@ -1067,6 +1159,21 @@ class SchedulerService extends EventEmitter {
         running: this.tasks.filter(isActive).length,
         queued: this.tasks.filter(isQueued).length,
         suspended: this.tasks.filter((t) => t.status === 'SUSPENDED').length,
+        /**
+         * The two halves of "not running, and not by accident".
+         *
+         * `deferred` is work the *policy* is holding (a peak window, a scheduled instant) — it will run by
+         * itself. `waitingHuman` is work held for a **person** (a permission the automation cannot grant),
+         * which is the count the official UI shows as 待人工. They are separated because they need
+         * different things from the reader: patience, and a decision.
+         *
+         * `waitingHuman` is derived from the task's own recorded reason rather than from a status the
+         * scheduler never sets: the counts this used to read (`BLOCKED`, `RETRYING`) belong to the
+         * engineering runtime, so the human-gate number was structurally zero and the panel showed a
+         * permanent `0` — a fact nobody had produced.
+         */
+        deferred: this.tasks.filter((t) => t.status === 'SUSPENDED' && !HUMAN_REASONS.test(String(t.reason || ''))).length,
+        waitingHuman: this.tasks.filter((t) => t.status === 'SUSPENDED' && HUMAN_REASONS.test(String(t.reason || ''))).length,
         workerSlotsInUse: this.running.size
       }
     }

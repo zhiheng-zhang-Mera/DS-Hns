@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 2,
+  "claims": [
+    {
+      "id": "C1",
+      "title": "capability-separated health and restart authority",
+      "claim": "Health observation and restart recommendations are separated from restart-control execution authority.",
+      "status": "SUPPORTED_ENGINEERING",
+      "code": [
+        "app/plugins/health-scheduler",
+        "app/plugins/restart-supervisor"
+      ],
+      "commits": [
+        "16d722c",
+        "572bf52"
+      ],
+      "tests": [
+        "tests/unit/restart-supervisor-authority.test.js"
+      ],
+      "experiments": [
+        "E-CHAOS",
+        "E-SOAK"
+      ],
+      "artifacts": [
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/longhost-chaos.json"
+      ],
+      "limitations": [
+        "Injected fault schedules on one Windows host; no external adversarial security evaluation."
+      ]
+    },
+    {
+      "id": "C2",
+      "title": "heterogeneous plugin adaptation behind one lifecycle",
+      "claim": "Native HNS, Cordis and managed-process plugins reach one manager/install contract through declared adapters.",
+      "status": "SUPPORTED_ENGINEERING",
+      "code": [
+        "app/core/plugin-adapters",
+        "app/core/plugin-install"
+      ],
+      "commits": [
+        "db5ebab",
+        "d44d835",
+        "9417ca8",
+        "1965f33"
+      ],
+      "tests": [
+        "tests/unit/plugin-adapters-framework.test.js",
+        "tests/unit/plugin-hns-native.test.js"
+      ],
+      "experiments": [
+        "E-INSTALL",
+        "E-CORDIS",
+        "E-PROCESS"
+      ],
+      "artifacts": [
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/install-pipeline.json",
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/cordis-adapter.json"
+      ],
+      "limitations": [
+        "Bounded source fixtures, not compatibility with arbitrary plugins."
+      ]
+    },
+    {
+      "id": "C3",
+      "title": "bounded process failure isolation",
+      "claim": "Managed-process isolation supports bounded restart and safe-mode behavior without treating recovery refusal as success.",
+      "status": "SUPPORTED_ENGINEERING",
+      "code": [
+        "app/core/plugin-adapters/adapters/process.cjs",
+        "app/core/plugin-adapters/process/supervisor.cjs"
+      ],
+      "commits": [
+        "9417ca8"
+      ],
+      "tests": [
+        "tests/unit/plugin-process-adapter.test.js"
+      ],
+      "experiments": [
+        "E-PROCESS",
+        "E-CHAOS"
+      ],
+      "artifacts": [
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/process-adapter.json"
+      ],
+      "limitations": [
+        "The watched application is a stand-in."
+      ]
+    },
+    {
+      "id": "C4",
+      "title": "durable task-continuity checks across runtime restart",
+      "claim": "Task continuity checks reject false success and duplicate continuation across controlled runtime restart paths.",
+      "status": "SUPPORTED_ENGINEERING",
+      "code": [
+        "app/core/task-continuity.cjs",
+        "app/core/work-admission.cjs"
+      ],
+      "commits": [
+        "f009619",
+        "f90660b"
+      ],
+      "tests": [
+        "tests/unit/longhost-continuity.test.js"
+      ],
+      "experiments": [
+        "E-CHAOS"
+      ],
+      "artifacts": [
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/longhost-chaos.json"
+      ],
+      "limitations": [
+        "Real Windows reboot is NOT_RUN."
+      ]
+    },
+    {
+      "id": "C5",
+      "title": "runtime/UI ownership separation",
+      "claim": "A per-instance Runtime Host owns durable services while Electron attaches as a client; a second host for the same instance is refused.",
+      "status": "SUPPORTED_ENGINEERING",
+      "code": [
+        "app/runtime/host.cjs",
+        "app/desktop-main.cjs"
+      ],
+      "commits": [
+        "d0b02e0",
+        "5a34f30"
+      ],
+      "tests": [
+        "tests/unit/instance-isolation.test.js",
+        "tests/unit/runtime-client-contract.test.js"
+      ],
+      "experiments": [],
+      "artifacts": [
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/results/all-unit-tests.json",
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/raw/all-unit-tests.stdout.txt"
+      ],
+      "limitations": [
+        "The referenced full unit suite includes runtime tests; its entire assertion count is not a runtime-only count.",
+        "Not an accessibility or usability study; the same run's UI gate failed."
+      ]
+    },
+    {
+      "id": "C6",
+      "title": "evidence-consistent qualification",
+      "claim": "Qualification evidence is bound to a run and rejects identity or verdict contradictions.",
+      "status": "SUPPORTED_ENGINEERING",
+      "code": [
+        "scripts/qualification-runner.cjs",
+        "scripts/evidence-consistency.cjs"
+      ],
+      "commits": [
+        "67b741a",
+        "be743a7"
+      ],
+      "tests": [
+        "tests/unit/qualification-runner.test.js",
+        "tests/unit/evidence-consistency.test.js"
+      ],
+      "experiments": [
+        "E-QUAL"
+      ],
+      "artifacts": [
+        "artifacts/qualification/history/1a2fa2c4881cb7337f480c770b25337fd55b7654/2026-09-23T05-33-13-145Z-0c277af6/reports/evidence-consistency.json"
+      ],
+      "limitations": [
+        "An internally consistent failed run remains failed; structural consistency is not scientific validity."
+      ]
+    },
+    {
+      "id": "C7",
+      "title": "comparative reliability against other AI harnesses",
+      "claim": "DS-Hns is more reliable than alternative AI harnesses.",
+      "status": "UNSUPPORTED",
+      "code": [],
+      "commits": [],
+      "tests": [],
+      "experiments": [],
+      "artifacts": [],
+      "limitations": [
+        "No external comparative baseline exists."
+      ]
+    }
+  ]
+}

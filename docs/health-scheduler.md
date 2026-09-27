@@ -52,13 +52,29 @@ A `dshns.plugin/v1` plugin in `app/plugins/health-scheduler/`, mounted through `
 like every other shipped plugin, shipping **disabled** — sampling a machine is a decision a user
 makes.
 
-* **Collects** memory, CPU, process age and event-loop drift through an injectable `readings()`
-  function, so it is testable without a machine under load.
-* **Scores** a 0-100 pressure over those four dimensions, with weights, and publishes `coverage`.
+* **Collects** the machine, the runtime, the process, the event loop, the heartbeat, the worker pool,
+  the task queue and the restart history, each through an **isolated telemetry provider**. One provider
+  throwing is a fault against *that provider*: its dimensions stay `unknown`, the sample's confidence
+  drops, and every other provider still answers (`providers.cjs`).
+* **Scores** a 0-100 pressure over four dimensions, with weights, and publishes `coverage` and
+  `confidence` beside it. A sample that could see too little is `UNKNOWN`, and `UNKNOWN` never escalates
+  to a maintenance action.
+* **Models** five states — `HEALTHY`, `ELEVATED`, `DEGRADED`, `CRITICAL`, `UNKNOWN` — with hysteresis on
+  the thresholds, a debounce on the transitions, and a least-squares **trend** beside them
+  (`severity.cjs`).
 * **Manages** a maintenance window that may wrap midnight (`23:00`-`01:00` is ordinary, not
-  misconfigured).
+  misconfigured) with a **bounded defer**: `maxDeferMs` is how long a restart may wait for the window,
+  `deadlineMs` is the hard stop past which the answer is a refusal with a reason rather than another
+  deferral.
 * **Decides** `NO_ACTION → THROTTLE → PAUSE_NEW_WORK → REQUEST_RESTART` with hysteresis, and
-  requests a restart through `restart-control` — never by doing it.
+  requests a restart through `restart-control` — never by doing it. A planned machine-level escalation
+  is the *supervisor's* maintenance tier and is not reachable from here.
+* **Explains** every decision: why it triggered, which metrics, how long it has lasted, the thresholds
+  in force, the last action and why that action was chosen (`health-pressure.explain()`).
+
+The restart authority it requests through is `dshns.restart-supervisor` — the one restart executor this
+product allows, in process or as its out-of-process companion. `docs/restart-supervisor.md` is the other
+half of this document.
 
 ### It cannot restart anything, and that is checkable
 

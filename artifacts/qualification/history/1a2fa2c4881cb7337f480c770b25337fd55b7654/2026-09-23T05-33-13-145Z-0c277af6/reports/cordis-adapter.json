@@ -1,0 +1,406 @@
+{
+  "ok": true,
+  "checks": 66,
+  "failures": 0,
+  "ms": 8991,
+  "samples": [
+    {
+      "label": "dsh-market",
+      "id": "cordis.linxin666.dsh-client-ui-market",
+      "rows": [
+        "ui-market"
+      ],
+      "client": {
+        "declared": true,
+        "inject": [
+          "@deepseek-ai/dsh-client-connection",
+          "@deepseek-ai/dsh-client-ui-renderer",
+          "@deepseek-ai/dsh-client-ui-settings"
+        ],
+        "platform": "web",
+        "immediately": false,
+        "entry": "lib/client.js",
+        "entryExists": true,
+        "servable": false,
+        "reason": "a client half is browser code for the web UI; a host-process bridge cannot serve it"
+      }
+    },
+    {
+      "label": "wallpaper-engine-dsh",
+      "id": "cordis.dsh-plugin-wallpaper-engine",
+      "rows": [
+        "wallpaper-engine"
+      ],
+      "client": {
+        "declared": true,
+        "inject": [
+          "@deepseek-ai/dsh-client-runtime"
+        ],
+        "platform": "web",
+        "immediately": true,
+        "entry": "lib/client.js",
+        "entryExists": true,
+        "servable": false,
+        "reason": "a client half is browser code for the web UI; a host-process bridge cannot serve it"
+      }
+    },
+    {
+      "label": "stranger",
+      "id": "cordis.stranger.dsh-status-badge",
+      "rows": [
+        "stranger-badge"
+      ],
+      "client": {
+        "declared": true,
+        "inject": [
+          "@deepseek-ai/dsh-client-runtime"
+        ],
+        "platform": "web",
+        "immediately": false,
+        "entry": "lib/client.js",
+        "entryExists": true,
+        "servable": false,
+        "reason": "a client half is browser code for the web UI; a host-process bridge cannot serve it"
+      }
+    }
+  ],
+  "results": [
+    {
+      "name": "the community adapter is registered",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "it outranks generic adoption for a bundle",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "dsh-market: adapts through the framework",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "dsh-market: detected as a community bundle",
+      "ok": true,
+      "detail": "type=cordis.bundle"
+    },
+    {
+      "name": "dsh-market: adapted by dshns.cordis-dsh",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "dsh-market: installs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dsh-market: never auto-enabled",
+      "ok": true,
+      "detail": "an adapted community plugin must be enabled explicitly"
+    },
+    {
+      "name": "dsh-market: enables and loads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dsh-market: health is degraded",
+      "ok": true,
+      "detail": "degraded: the host half is running, but the browser half (@deepseek-ai/dsh-client-connection, @deepseek-ai/dsh-client-ui-renderer, @deepseek-ai/dsh-client-ui-settings) is not served by a host-process bridge"
+    },
+    {
+      "name": "dsh-market: routes are mounted on the host server",
+      "ok": true,
+      "detail": "[\"/api/market/installed\",\"/api/market/install-skin\",\"/api/market/install-pet\",\"/api/market/install-preset\"]"
+    },
+    {
+      "name": "dsh-market: a bridged route answers a real request",
+      "ok": true,
+      "detail": "GET /api/market/installed -> 200"
+    },
+    {
+      "name": "dsh-market: an unrouted path still 404s",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "name": "dsh-market: runs in its own process",
+      "ok": true,
+      "detail": "pid=8340"
+    },
+    {
+      "name": "dsh-market: disables",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "dsh-market: disabling stops the plugin process",
+      "ok": true,
+      "detail": "pid 8340"
+    },
+    {
+      "name": "dsh-market: disabling unmounts its routes",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "dsh-market: reloads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dsh-market: reload re-mounts its routes",
+      "ok": true,
+      "detail": "routes=4"
+    },
+    {
+      "name": "dsh-market: health after reload is degraded",
+      "ok": true,
+      "detail": "degraded"
+    },
+    {
+      "name": "dsh-market: uninstalls",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dsh-market: is gone from the plugin list",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "dsh-market: uninstall unmounts its routes",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "dsh-market: uninstall stops the plugin process",
+      "ok": true,
+      "detail": "pid 16076"
+    },
+    {
+      "name": "wallpaper-engine-dsh: adapts through the framework",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "wallpaper-engine-dsh: detected as a community bundle",
+      "ok": true,
+      "detail": "type=cordis.bundle"
+    },
+    {
+      "name": "wallpaper-engine-dsh: adapted by dshns.cordis-dsh",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "wallpaper-engine-dsh: installs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "wallpaper-engine-dsh: never auto-enabled",
+      "ok": true,
+      "detail": "an adapted community plugin must be enabled explicitly"
+    },
+    {
+      "name": "wallpaper-engine-dsh: enables and loads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "wallpaper-engine-dsh: health is degraded",
+      "ok": true,
+      "detail": "degraded: the host half is running, but the browser half (@deepseek-ai/dsh-client-runtime) is not served by a host-process bridge"
+    },
+    {
+      "name": "wallpaper-engine-dsh: routes are mounted on the host server",
+      "ok": true,
+      "detail": "[\"/wallpaper-engine/inventory\",\"/wallpaper-engine/media-info\",\"/wallpaper-engine/transcode-progress\",\"/wallpaper-engine/transcoded\",\"/wallpaper-engine/media\",\"/wallpaper-engine/preview\",\"/wallpaper-engine/video-preview\",\"/wallpaper-engine/scene-frame\",\"/wallpaper-engine/scene-anim\",\"/wallpaper-engine/scene-anim-progress\",\"/wallpaper-engine/scene-runtime\",\"/wallpaper-engine/scene-manifest\",\"/wallpaper-engine/scene-resource\",\"/wallpaper-engine/scene-video\",\"/wallpaper-engine/scene-audio\",\"/wallpaper-engine/custom-frame\",\"/wallpaper-engine/upload\",\"/wallpaper-engine/remove\",\"/wallpaper-engine/upload-dir\",\"/wallpaper-engine/settings\"]"
+    },
+    {
+      "name": "wallpaper-engine-dsh: a bridged route answers a real request",
+      "ok": true,
+      "detail": "GET /wallpaper-engine/inventory -> 200"
+    },
+    {
+      "name": "wallpaper-engine-dsh: an unrouted path still 404s",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "name": "wallpaper-engine-dsh: runs in its own process",
+      "ok": true,
+      "detail": "pid=1944"
+    },
+    {
+      "name": "wallpaper-engine-dsh: disables",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "wallpaper-engine-dsh: disabling stops the plugin process",
+      "ok": true,
+      "detail": "pid 1944"
+    },
+    {
+      "name": "wallpaper-engine-dsh: disabling unmounts its routes",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "wallpaper-engine-dsh: reloads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "wallpaper-engine-dsh: reload re-mounts its routes",
+      "ok": true,
+      "detail": "routes=20"
+    },
+    {
+      "name": "wallpaper-engine-dsh: health after reload is degraded",
+      "ok": true,
+      "detail": "degraded"
+    },
+    {
+      "name": "wallpaper-engine-dsh: uninstalls",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "wallpaper-engine-dsh: is gone from the plugin list",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "wallpaper-engine-dsh: uninstall unmounts its routes",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "wallpaper-engine-dsh: uninstall stops the plugin process",
+      "ok": true,
+      "detail": "pid 8600"
+    },
+    {
+      "name": "stranger: adapts through the framework",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "stranger: detected as a community bundle",
+      "ok": true,
+      "detail": "type=cordis.bundle"
+    },
+    {
+      "name": "stranger: adapted by dshns.cordis-dsh",
+      "ok": true,
+      "detail": "adapter=dshns.cordis-dsh"
+    },
+    {
+      "name": "stranger: installs",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "stranger: never auto-enabled",
+      "ok": true,
+      "detail": "an adapted community plugin must be enabled explicitly"
+    },
+    {
+      "name": "stranger: enables and loads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "stranger: health is degraded",
+      "ok": true,
+      "detail": "degraded: the host half is running, but the browser half (@deepseek-ai/dsh-client-runtime) is not served by a host-process bridge"
+    },
+    {
+      "name": "stranger: routes are mounted on the host server",
+      "ok": true,
+      "detail": "[\"/stranger/badge\"]"
+    },
+    {
+      "name": "stranger: a bridged route answers a real request",
+      "ok": true,
+      "detail": "GET /stranger/badge -> 200"
+    },
+    {
+      "name": "stranger: an unrouted path still 404s",
+      "ok": true,
+      "detail": "status=404"
+    },
+    {
+      "name": "stranger: runs in its own process",
+      "ok": true,
+      "detail": "pid=17188"
+    },
+    {
+      "name": "stranger: disables",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "stranger: disabling stops the plugin process",
+      "ok": true,
+      "detail": "pid 17188"
+    },
+    {
+      "name": "stranger: disabling unmounts its routes",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "stranger: reloads",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "stranger: reload re-mounts its routes",
+      "ok": true,
+      "detail": "routes=1"
+    },
+    {
+      "name": "stranger: health after reload is degraded",
+      "ok": true,
+      "detail": "degraded"
+    },
+    {
+      "name": "stranger: uninstalls",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "stranger: is gone from the plugin list",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "stranger: uninstall unmounts its routes",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "stranger: uninstall stops the plugin process",
+      "ok": true,
+      "detail": "pid 8360"
+    },
+    {
+      "name": "stranger: adapted with no adapter change",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "qualification": {
+    "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+    "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+    "branch": "dev/hns-final-qualification-rc2",
+    "gate": "cordis-adapter"
+  }
+}

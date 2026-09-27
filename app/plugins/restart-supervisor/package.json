@@ -1,0 +1,43 @@
+{
+  "name": "dsh-restart-supervisor",
+  "version": "1.0.1",
+  "private": true,
+  "description": "DS-Hns Restart Supervisor: the only restart authority. Validates and prices a restart request against a budget, waits for a safe boundary, stops the application, relaunches it, waits for readiness and then tells Core continuity it may resume — in process through restart-control, or out of process through its companion when the application is hung.",
+  "main": "index.cjs",
+  "exports": {
+    ".": "./index.cjs",
+    "./policy": "./policy.cjs",
+    "./budget": "./budget.cjs",
+    "./heartbeat": "./heartbeat.cjs",
+    "./lifecycle": "./lifecycle.cjs",
+    "./companion": "./companion.cjs",
+    "./companion/main": "./companion/main.cjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.cjs",
+    "contract.cjs",
+    "status.cjs",
+    "policy.cjs",
+    "budget.cjs",
+    "heartbeat.cjs",
+    "lifecycle.cjs",
+    "companion.cjs",
+    "companion/main.cjs",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "bin": {
+    "dsh-restart-supervisor": "./companion/main.cjs"
+  },
+  "license": "MIT"
+}

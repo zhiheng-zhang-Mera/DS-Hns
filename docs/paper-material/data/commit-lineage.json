@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-09-22",
+  "reachableCommitCount": 326,
+  "refresh": {
+    "snapshotDate": "2026-09-23",
+    "head": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "reachableCommitCount": 340,
+    "additionalCommits": ["734bc64", "1c7d338", "f03cc37", "bf2c9dc", "e32d55d", "80ffe0e", "f90660b", "9e7404d", "9989ea7", "c20e6f5", "231fd7f", "7afe8bc", "9900555", "1a2fa2c"],
+    "additionalStablePatchIdsUnique": 14,
+    "scope": "Fetched refs and inspected qualification follow-up lineage; later self-describing followup commits are not included in this fixed snapshot count."
+  },
+  "deduplicationMethod": "git patch-id --stable plus ancestry inspection",
+  "postRefreshRepairs": {
+    "head": "2d76ca3caf6c3f3a99ee2e453d46a7daafaaebfd",
+    "reachableCommitCount": 342,
+    "commits": [
+      {"sha": "65121f1", "patchId": "33c34a91623aaf11682fd34857a408bcd2316cbe", "negative": "N27"},
+      {"sha": "2d76ca3", "patchId": "e34a8d7cfba6f7c076d9d4e0c45eed460e0861a0", "negative": "N28"}
+    ],
+    "scope": "Actual repair diffs reviewed; excludes this metadata commit and future release commits."
+  },
+  "finalQualificationFollowup": {
+    "snapshotDate": "2026-09-24",
+    "head": "dafd3bfff8db30f2aaf094e4a15ed41a2c1f9ce6",
+    "reachableCommitCount": 364,
+    "base": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "additionalCommits": [
+      "65121f1", "2d76ca3", "658fa17", "5afb25c", "cc3d909", "1068527",
+      "997345f", "491c4fd", "174318d", "1f901d0", "545462a", "4a823ae",
+      "42b48b9", "e9d8232", "ce0bb20", "7fef904", "08900a8", "9821066",
+      "b3fec70", "27eea59", "5cec025", "d67ecd0", "fe436c2", "dafd3bf"
+    ],
+    "scope": "All refs reachable at the dafd3bf qualification candidate; later evidence-document and production commits are excluded. The twenty-four commits are grouped by logical repair and evidence role in 01-COMMIT-TIMELINE.md, not counted as twenty-four research contributions."
+  },
+  "patchEquivalentGroups": [
+    {"logicalChange": "capability-gated plugin adapter", "commits": ["22b3261", "db5ebab"], "patchId": "def35337e01da733c0cf71c27cfa7044e123902d"},
+    {"logicalChange": "Cordis adapter integration", "commits": ["7969807", "d44d835"], "patchId": "159b5d64731e6283a7f134d5dc950dbaa4506c64"},
+    {"logicalChange": "managed-process adapter", "commits": ["791773d", "9417ca8"], "patchId": "35c8c23d2948bc3fb0676a340d4839675337605a"},
+    {"logicalChange": "health scheduler", "commits": ["96c571f", "16d722c"], "patchId": "0199c249a0c9575db6327b320f4a3e5923a49708"},
+    {"logicalChange": "unified native load path", "commits": ["d76dc3d", "1965f33"], "patchId": "90187c443e10db04b03577f57917487d16b39ac2"}
+  ],
+  "qualificationLineage": {
+    "integrationRc": "2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d",
+    "prePaperCandidate": "be743a705966858bf7086010dcba45f6730b432c",
+    "mainBaseline": "59d816b734bea1c20ff2fbd6244395fc715304fe"
+  },
+  "productionBaselineSnapshot": {
+    "snapshotDate": "2026-09-24",
+    "qualifiedCandidate": "63eabc9a9341abd2e612bf603e3ce340eaa2cc57",
+    "qualifiedTree": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+    "productionMerge": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "productionTag": "hns-production-v1",
+    "productionTagObject": "2d4aeeda945b410d3e35ad82b456f7b74de922fc",
+    "productionTagTarget": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "mainTreeAtRelease": "8e6884e6b25bb3989509bd9d623dca4c0abb2bf1",
+    "reachableCommitCount": 366,
+    "branchHeads": [
+      {"name":"better-install","sha":"a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6","status":"ALREADY_INCLUDED","basis":"branch head is an ancestor of release main"},
+      {"name":"target-standby","sha":"5efa302acd381d57d44bc87bbdc36f80a21dda9a","status":"ALREADY_INCLUDED","basis":"branch head is an ancestor of release main"},
+      {"name":"try-auto","sha":"432cf431f2b40843ab3ec5287ffd7e5296cb6626","status":"INCLUDE","basis":"reviewed commits contributed to the candidate; branch head is an ancestor of release main"},
+      {"name":"dev/runtime-ui-separation-v1","sha":"923f5293a2ada553cb7f91a4bc1b54e750dfe7c3","status":"INCLUDE","basis":"reviewed commits contributed to the candidate; branch head is an ancestor of release main"},
+      {"name":"dev/hns-integration-visual-rc1","sha":"2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d","status":"ALREADY_INCLUDED","basis":"branch head is an ancestor of candidate/release main"},
+      {"name":"dev/hns-final-qualification-rc2","sha":"63eabc9a9341abd2e612bf603e3ce340eaa2cc57","status":"INCLUDE","basis":"qualified candidate merged by PR #2"}
+    ],
+    "supersededBranches": [],
+    "excludedBranches": [],
+    "scope": "Reachable commit count covers the fully fetched project refs at the qualified product baseline. Report-only commits created after tagging are administrative and are excluded from research-contribution counts; merge commits and patch-equivalent changes are not separate contributions."
+  },
+  "rc2FinalizationSnapshot": {
+    "snapshotDate": "2026-09-25",
+    "candidateBranch": "dev/hns-final-qualification-rc2",
+    "candidateSha": "4ef9c0df149a6cecf1eaa17e50cee4b22271b810",
+    "candidateTree": "816f513c98e40831f0e81f8567e72e6fd01adcd4",
+    "qualificationRunId": "2026-09-25T04-37-57-947Z-f4caf3b3",
+    "mandatoryGates": 17,
+    "mandatoryFailures": 0,
+    "terminalStatus": "HNS_FINALIZATION_BLOCKED",
+    "branchHeads": [
+      {"name":"better-install","sha":"a5d89b9ae63a8eb996e3cb6be521aadd7cbcc7b6","status":"ALREADY_INCLUDED","basis":"reviewed head is already in the historical released ancestry"},
+      {"name":"target-standby","sha":"5efa302acd381d57d44bc87bbdc36f80a21dda9a","status":"ALREADY_INCLUDED","basis":"reviewed head is already in the historical released ancestry"},
+      {"name":"codex/hns-final-evidence-docs","sha":"fb008fb100364f67e12eddd4850254e4c19e9663","status":"ALREADY_INCLUDED","basis":"documentation-only PR #3 head is an ancestor of fetched main 8b912286; no product-source contribution or re-merge needed"},
+      {"name":"try-auto","sha":"432cf431f2b40843ab3ec5287ffd7e5296cb6626","status":"INCLUDE","basis":"reviewed contribution remains in the qualified history"},
+      {"name":"dev/runtime-ui-separation-v1","sha":"923f5293a2ada553cb7f91a4bc1b54e750dfe7c3","status":"INCLUDE","basis":"reviewed contribution remains in the qualified history"},
+      {"name":"dev/hns-integration-visual-rc1","sha":"2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d","status":"ALREADY_INCLUDED","basis":"reviewed head is included in current candidate ancestry"},
+      {"name":"dev/hns-final-qualification-rc2","sha":"4ef9c0df149a6cecf1eaa17e50cee4b22271b810","status":"INCLUDE","basis":"reviewed installer fail-closed source fix; exact candidate passed 17/17 machine gates; unmerged/untagged"}
+    ],
+    "supersededBranches": [],
+    "excludedBranches": [],
+    "scope": "Branch choices reflect reviewed commit/diff and ancestry evidence, not branch existence. The snapshot does not assert a new research contribution count or production release. The prior productionBaselineSnapshot remains unchanged."
+  },
+  "repositoryHistorySnapshot": {
+    "snapshotDate": "2026-09-25",
+    "head": "d4d2e8757c7660a6130050cc718debf79c1ea252",
+    "baseline": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "reachableCommitCount": 379,
+    "additionalCommitCount": 13,
+    "additionalMergeCommitCount": 2,
+    "additionalNonMergeCommitCount": 11,
+    "additionalStablePatchIdsUnique": 11,
+    "patchEquivalentToPriorHistory": 0,
+    "commitsAfterProductionBaseline": [
+      {"sha":"b7cf73860d7af53e8da33cf58285043dacd78cac","kind":"DOCUMENTATION_EVIDENCE","patchId":"e29dbabb4134b9cafd20f53aa77d07c1cc7d212d"},
+      {"sha":"f869173321e1485d80404349493c9f38d9e97f9f","kind":"DOCUMENTATION_EVIDENCE","patchId":"fb478a20cba1c4c2a9293d012de0f04f544c07f0"},
+      {"sha":"a34dcafe589509d2d59d69c7e795616b5748546c","kind":"DOCUMENTATION_EVIDENCE","patchId":"e9372ebc51e29d85579d62dcd4e92027db2440a5"},
+      {"sha":"fb008fb100364f67e12eddd4850254e4c19e9663","kind":"DOCUMENTATION_EVIDENCE","patchId":"3410c0c27168786da668f87ef6048d75119568d4"},
+      {"sha":"8b91228628e9168cabd545f26f1320ba141561e0","kind":"MERGE","patchId":null},
+      {"sha":"f4885b7639b8fb302819e77f1aa68f12576bf07c","kind":"RESTART_WATCH_REPAIR","patchId":"ade14d4e8475b4782108fe28b015f6482468381c"},
+      {"sha":"d36c490153e17d410efaad8ce879f8135bb8a135","kind":"MERGE","patchId":null},
+      {"sha":"337169d37da13d2f843d3b9e6201d414a2962059","kind":"INTEGRATED_DOCK_LAYOUT_REPAIR","patchId":"dc24210c8ae61f1552a3352487bd50142cc53c0e"},
+      {"sha":"4ddb717f326ab85982cd35376d691841c5fc06de","kind":"DOCK_LAYOUT_CONTRACT_TEST","patchId":"6eff349b43bda6c473cf35a290eded46310e41e9"},
+      {"sha":"73d3332a341f478d17079d2915c5389f1ed0bff1","kind":"COLD_INSTALL_NODE_ORDERING_REPAIR","patchId":"f49fcd0e75ef8616b0bed8c464e2de8941c59463"},
+      {"sha":"61506b3d14802498a6c7fa5a463c655f76ea14a8","kind":"HOST_CAPABILITY_JSON_REPAIR","patchId":"d2e09b677292731de8526202746f6581b16a306a"},
+      {"sha":"4ef9c0df149a6cecf1eaa17e50cee4b22271b810","kind":"REQUIRED_PLUGIN_INSTALLER_FAIL_CLOSED","patchId":"c2643fe0101360d3879a80ccdbc2c62641f73fd52"},
+      {"sha":"d4d2e8757c7660a6130050cc718debf79c1ea252","kind":"DOCUMENTATION_EVIDENCE","patchId":"d0db3a91b03c347f5a2af34be79fb2b84a61b46e"}
+    ],
+    "verification": "After fetching all remotes/tags, git rev-list --all --count returned 379; git cherry against 5dcde767 returned 11 unique non-merge patches and no equivalent patch in the prior reachable history.",
+    "scope": "Fixed history cutoff before the present report refresh. Counts reachable commits including documentation and merge commits; non-merge patch records are not automatically research contributions. The prior 366-commit productionBaselineSnapshot remains unchanged."
+  },
+  "latestHistoryExtension": {
+    "snapshotDate": "2026-09-25",
+    "head": "e30d196faf4a77ab97c00f048e55cc742276af45",
+    "priorSnapshotHead": "d4d2e8757c7660a6130050cc718debf79c1ea252",
+    "baseline": "5dcde767020161f6f6c7a5fc3330bccaca1d14a3",
+    "reachableCommitCount": 381,
+    "commitsSincePriorSnapshot": 2,
+    "additionalCommitCountSinceProductionBaseline": 15,
+    "additionalMergeCommitCountSinceProductionBaseline": 2,
+    "additionalNonMergeCommitCountSinceProductionBaseline": 13,
+    "additionalStablePatchIdsUniqueSinceProductionBaseline": 13,
+    "patchEquivalentToPriorHistory": 0,
+    "commitsSincePriorSnapshotDetails": [
+      {"sha":"d0204722c0c3bad8c55b9d412388c0e6be04dc07","kind":"DOCUMENTATION_PAPER_EVIDENCE_REFRESH","patchId":"fd6203425afd8b1eb67ea200cc4579316afcac6d"},
+      {"sha":"e30d196faf4a77ab97c00f048e55cc742276af45","kind":"DOCUMENTATION_QUALIFICATION_EVIDENCE_REFRESH","patchId":"6284c59615352a4ba9489c8b734310994ae83bf0"}
+    ],
+    "verification": "At e30d196, git rev-list --all --count returned 381; git cherry against production merge 5dcde767 returned 13 non-merge commits, all patch-distinct (+), plus two merge commits in the 15-commit delta.",
+    "scope": "These two commits were inspected with git show and change documentation/evidence only. They extend repository-history provenance, not the product contribution count. The d4d2e87 fixed snapshot remains preserved above."
+  },
+  "postCutoffTargetModeAudit": {
+    "snapshotDate": "2026-09-25",
+    "auditHead": "965ca619a2fa32d927af922e13103403e8cfe0a4",
+    "branch": "dev/hns-final-qualification-rc2",
+    "reachableCommitCountAtAuditHead": 384,
+    "fixedPriorHistoryHead": "e30d196faf4a77ab97c00f048e55cc742276af45",
+    "fixedPriorReachableCommitCount": 381,
+    "commitsSinceFixedHistoryHead": 3,
+    "commits": [
+      {"sha":"f59f0f1d1aa84ec409d63eaaa9b07b56c0783068","kind":"DOCUMENTATION_EVIDENCE_REFRESH","patchId":"cafa3dd2700a84757c7ac4323a476fbef4305880","researchContribution":false},
+      {"sha":"7918812302e6173f7377f0575394d842526f0aa3","kind":"DOCUMENTATION_QUALIFICATION_EVIDENCE_REFRESH","patchId":"e41c58076d957879acc3ca91fb8a98fbffba5158","researchContribution":false},
+      {"sha":"965ca619a2fa32d927af922e13103403e8cfe0a4","kind":"ACCEPTANCE_CLI_FAIL_FAST_AND_REGRESSION_TESTS","patchId":"083101ac7fcbbeb2e7361f186407046e4877fd69","files":["scripts/combined-acceptance.cjs","tests/unit/combined-acceptance-cli.test.js"],"applicationSourceChanged":false,"researchContribution":false}
+    ],
+    "reportPublicationBoundary": "The documentation-only report/paper publication after auditHead is not included in this measured fixed extension; it does not change product source, research claims, main, or production tag.",
+    "scope": "Post-cutoff engineering/evidence provenance only; preserve the historical 381-commit snapshot and do not inflate research contribution counts."
+  },
+  "notes": [
+    "Patch-equivalent commits count once as a logical change.",
+    "Merge commits and preserved history are not additional research contributions."
+  ]
+}

@@ -218,6 +218,38 @@ test('the window is created always-on-top, never focusable, and ignoring the mou
   }
 })
 
+test('a stationary native cursor survives false leave, but real exits restore click-through', () => {
+  const electron = stubElectron({ workArea: { x: 0, y: 0, width: 1000, height: 800 } })
+  let cursor = { x: 962, y: 762 }
+  electron.screen.getCursorScreenPoint = () => cursor
+  const orb = createSystemOrb({ electron })
+  assert.equal(orb.create().ok, true)
+  orb.setInteractive(true)
+  const writes = electron.last().ignoreWrites
+  orb.setInteractive(false)
+  assert.equal(orb.describe().interactive, true, 'native style changes can report leave without a cursor exit')
+  assert.equal(electron.last().ignoreWrites, writes)
+  cursor = { x: 940, y: 740 } // transparent corner outside the circular ball
+  orb.setInteractive(false)
+  assert.equal(orb.describe().interactive, false)
+  orb.setInteractive(true)
+  cursor = { x: 100, y: 100 }
+  orb.setInteractive(false)
+  assert.equal(orb.describe().interactive, false)
+})
+
+test('unavailable or invalid native cursor cannot latch closed-orb input', () => {
+  for (const read of [undefined, () => { throw new Error('unavailable') }, () => null, () => ({ x: NaN, y: 762 })]) {
+    const electron = stubElectron()
+    electron.screen.getCursorScreenPoint = read
+    const orb = createSystemOrb({ electron })
+    orb.create()
+    orb.setInteractive(true)
+    assert.doesNotThrow(() => orb.setInteractive(false))
+    assert.equal(orb.describe().interactive, false)
+  }
+})
+
 test('only the open panel can be typed into: the ball never takes the keyboard, the form needs it', () => {
   /**
    * The user's report — "悬浮球的入口打开窗口后无法编辑" — stated as a property of the window rather than of the form:

@@ -157,7 +157,7 @@ function computeProfileFingerprint({ dshHome, profile = 'web', pluginName = 'dsh
 }
 
 /** One optional community plugin's recorded decision and installation state. */
-function computeOptionalFingerprint({ root, dshHome }) {
+function computeOptionalFingerprint({ root, dshHome, profile = 'web' }) {
   const stateFile = path.join(dshHome, 'state', 'optional-plugins.json')
   const value = readJson(stateFile)
   const entries = value && typeof value === 'object' && value.plugins && typeof value.plugins === 'object' ? value.plugins : value
@@ -167,6 +167,22 @@ function computeOptionalFingerprint({ root, dshHome }) {
       if (!entry || typeof entry !== 'object') continue
       decisions[id] = { state: String(entry.state || ''), spec: entry.spec ? String(entry.spec) : null, at: entry.at || entry.recordedAt || null }
     }
+  }
+  try {
+    const community = require('../app/extensions/mega/plugins/community-install.cjs')
+    const { BUNDLED_MANIFEST } = require('../app/extensions/mega/plugins/index.cjs')
+    for (const entry of community.communityEntries(BUNDLED_MANIFEST)) {
+      const reconciled = community.reconcileOptionalPluginState({ root, dshHome, profile, id: entry.id, manifest: BUNDLED_MANIFEST })
+      decisions[entry.id] = {
+        ...(decisions[entry.id] || {}),
+        state: reconciled.state,
+        version: reconciled.version || null,
+        provenance: reconciled.provenance,
+        transientState: reconciled.transientState || null
+      }
+    }
+  } catch (error) {
+    return { stateFile, decisions, present: fs.existsSync(stateFile), reconciliationError: String(error?.message || error) }
   }
   return { stateFile, decisions, present: fs.existsSync(stateFile) }
 }
@@ -245,7 +261,7 @@ function decideReuse({ previous, current }) {
 function computeState({ root, dshHome, profile, pluginName, pluginDir, nodeVersion, electronExe, previous }) {
   const dependencies = computeDependencyFingerprint({ root, nodeVersion, electronExe })
   const profileState = computeProfileFingerprint({ dshHome, profile, pluginName, pluginDir })
-  const optional = computeOptionalFingerprint({ root, dshHome })
+  const optional = computeOptionalFingerprint({ root, dshHome, profile })
   const decisions = decideReuse({ previous, current: { dependencies, profile: profileState, optional } })
   return {
     version: STATE_VERSION,

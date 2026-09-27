@@ -1,0 +1,14 @@
+{
+  "schema": "hns-qualification-history/v1",
+  "sourceSha": "2ae08a73ee3e7b32b31e7e84a4dfe8ab49ebaa1d",
+  "sourceTree": "b0fc5fef0075568a42047a92e09938219e403239",
+  "sourceBranch": "origin/dev/hns-integration-visual-rc1",
+  "archivedByBranch": "dev/hns-final-qualification-rc2",
+  "archivedAt": "2026-09-22T07:10:00+10:00",
+  "contents": [
+    "acceptance",
+    "acceptance-docs",
+    "rc-evidence"
+  ],
+  "policy": "append-only historical evidence; never treated as the live final run"
+}

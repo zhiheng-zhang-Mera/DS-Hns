@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "kind": "construction-phase-visual-acceptance",
+  "status": "PASS_WITH_NEGATIVE_EXPERIMENT_RETAINED",
+  "host": "Mera-Alianware",
+  "platform": "Windows 10.0.26200 x64",
+  "branch": "dev/hns-final-qualification-rc2",
+  "codeShaAtFinalProbe": "1ffa9a97aef75241edd0c636ae69e9e387a00667",
+  "realInput": true,
+  "codexVisualInspection": true,
+  "checks": [
+    { "id": "fresh-installed-list", "passed": true, "evidence": "visual/task5-installed.png", "detail": "four logical packages, no repeated bundled rows" },
+    { "id": "computer-use-explanation", "passed": true, "evidence": "visual/task5-orb-expanded.png", "detail": "unavailable reason and core unaffected are visible; overall Healthy" },
+    { "id": "orb-click-expands", "passed": true, "evidence": "visual/task5-orb-expanded.png", "detail": "real foreground coordinate click expanded the panel" },
+    { "id": "orb-interaction-feedback", "passed": true, "evidence": "visual/task5-orb-price-expanded.png", "detail": "second click expanded Price details and countdown" },
+    { "id": "rejected-junction-isolation", "passed": false, "expectedFailure": true, "evidence": "visual/task5-installed-canonical-with-duplicate-profile.png", "detail": "upstream Dirent.isDirectory skipped the junction and produced zero rows; implementation removed" },
+    { "id": "canonical-identity-duplicate-profile", "passed": true, "evidence": "visual/task5-installed-canonical-patched-duplicate-profile.png", "detail": "duplicate profile remained present while official UI displayed four logical rows and provider text" }
+  ],
+  "limitations": [
+    "construction-phase evidence; final clean-room SHA must be re-exercised",
+    "real pointer and screenshot evidence is not accessibility certification"
+  ]
+}

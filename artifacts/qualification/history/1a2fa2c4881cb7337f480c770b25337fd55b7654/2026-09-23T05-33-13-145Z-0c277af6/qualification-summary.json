@@ -1,0 +1,530 @@
+{
+  "schema": 1,
+  "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+  "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+  "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+  "branch": "dev/hns-final-qualification-rc2",
+  "host": {
+    "hostname": "Mera-Alianware",
+    "platform": "win32",
+    "release": "10.0.26200",
+    "arch": "x64",
+    "cpus": 16,
+    "totalMemory": 34101420032
+  },
+  "toolchain": {
+    "node": "v24.14.1",
+    "nodeExecutable": "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+    "powershell": "powershell.exe"
+  },
+  "startedAt": "2026-09-23T05:33:13.145Z",
+  "completedAt": "2026-09-23T06:00:31.986Z",
+  "results": [
+    {
+      "id": "syntax-check",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:33:13.150Z",
+      "completedAt": "2026-09-23T05:37:47.633Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\check-syntax.cjs"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\syntax-check.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\syntax-check.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "all-unit-tests",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:37:47.633Z",
+      "completedAt": "2026-09-23T05:46:24.876Z",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\test-all.ps1"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\all-unit-tests.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\all-unit-tests.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "architecture-verifier",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:46:24.876Z",
+      "completedAt": "2026-09-23T05:53:53.302Z",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\verify.ps1"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\architecture-verifier.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\architecture-verifier.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "external-fixtures",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:53:53.302Z",
+      "completedAt": "2026-09-23T05:54:49.379Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\qualification-fixtures.cjs",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\external-fixtures.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 3,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\external-fixtures.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\external-fixtures.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\external-fixtures.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "install-pipeline",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:54:49.380Z",
+      "completedAt": "2026-09-23T05:54:53.184Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\install-pipeline-acceptance.cjs",
+        "--json",
+        "--samples",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\samples",
+        "--companion-repo",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\dsh-restart"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 46,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\install-pipeline.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\install-pipeline.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\install-pipeline.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "cordis-adapter",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:54:53.184Z",
+      "completedAt": "2026-09-23T05:55:03.303Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\cordis-adapter-acceptance.cjs",
+        "--json",
+        "--samples",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\samples"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 66,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\cordis-adapter.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\cordis-adapter.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\cordis-adapter.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "process-adapter",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:55:03.304Z",
+      "completedAt": "2026-09-23T05:55:14.802Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\process-adapter-acceptance.cjs",
+        "--json",
+        "--companion-repo",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\test\\qualification-fixtures\\dsh-restart"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 33,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\process-adapter.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\process-adapter.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\process-adapter.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "native-hns-adapter",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:55:14.803Z",
+      "completedAt": "2026-09-23T05:55:17.309Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "--test",
+        "D:\\Hns-Final-Qualification\\repo\\tests\\unit\\plugin-hns-native.test.js"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\native-hns-adapter.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\native-hns-adapter.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "health-restart-continuity",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:55:17.309Z",
+      "completedAt": "2026-09-23T05:55:29.138Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "--test",
+        "D:\\Hns-Final-Qualification\\repo\\tests\\unit\\restart-supervisor-authority.test.js",
+        "D:\\Hns-Final-Qualification\\repo\\tests\\unit\\longhost-continuity.test.js"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": null,
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\health-restart-continuity.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\health-restart-continuity.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "community-installer",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:55:29.139Z",
+      "completedAt": "2026-09-23T05:55:40.037Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\installer-community-acceptance.cjs",
+        "--json",
+        "--report=D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\community-installer.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": null,
+      "failures": null,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\community-installer.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\community-installer.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\community-installer.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "electron-ui-acceptance",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:55:40.037Z",
+      "completedAt": "2026-09-23T05:58:28.729Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\acceptance.mjs",
+        "--root",
+        "D:\\Hns-Final-Qualification\\repo",
+        "--port",
+        "3091",
+        "--cdp",
+        "9331",
+        "--user-data-dir",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-user-data",
+        "--data-dir",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\runtime\\electron-data",
+        "--report",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\electron-ui-acceptance.json",
+        "--skills",
+        "--github"
+      ],
+      "exitCode": 1,
+      "passed": false,
+      "checks": 130,
+      "failures": 3,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\electron-ui-acceptance.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\electron-ui-acceptance.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\electron-ui-acceptance.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 1,
+      "reportError": null
+    },
+    {
+      "id": "computer-use-longrun",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:58:28.729Z",
+      "completedAt": "2026-09-23T05:58:33.123Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\computer-use-longrun-acceptance.cjs",
+        "--out",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\computer-use-longrun.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 96,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\computer-use-longrun.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\computer-use-longrun.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\computer-use-longrun.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "longhost-chaos",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:58:33.123Z",
+      "completedAt": "2026-09-23T05:58:42.772Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\longhost-chaos.cjs",
+        "--out=D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\longhost-chaos.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 65,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\longhost-chaos.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\longhost-chaos.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\longhost-chaos.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "synthetic-soak",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:58:42.772Z",
+      "completedAt": "2026-09-23T05:58:44.117Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\longhost-soak.cjs",
+        "--out=D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\synthetic-soak.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 120,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\synthetic-soak.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\synthetic-soak.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\synthetic-soak.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "combined-acceptance",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T05:58:44.118Z",
+      "completedAt": "2026-09-23T06:00:30.826Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\combined-acceptance.cjs",
+        "--out",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\combined-acceptance.json"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 52,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\combined-acceptance.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\combined-acceptance.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\combined-acceptance.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "post-test-audit",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T06:00:30.826Z",
+      "completedAt": "2026-09-23T06:00:31.975Z",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\post-test-audit.ps1",
+        "-Root",
+        "D:\\Hns-Final-Qualification\\repo",
+        "-StartedAtUtc",
+        "2026-09-23T05:33:13.145Z",
+        "-ReportPath",
+        "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\post-test-audit.json",
+        "-ExcludeProcessId",
+        "20580"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 2,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\post-test-audit.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\post-test-audit.stdout.txt",
+        "stderr": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\raw\\post-test-audit.stderr.txt"
+      },
+      "spawnError": null,
+      "processExitCode": 0,
+      "reportError": null
+    },
+    {
+      "id": "evidence-consistency",
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gitSha": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+      "gitTree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f",
+      "branch": "dev/hns-final-qualification-rc2",
+      "mandatory": true,
+      "startedAt": "2026-09-23T06:00:31.986Z",
+      "completedAt": "2026-09-23T06:00:31.986Z",
+      "command": [
+        "D:\\Hns-Final-Qualification\\repo\\runtime\\node-v24.14.1-win-x64\\node.exe",
+        "D:\\Hns-Final-Qualification\\repo\\scripts\\evidence-consistency.cjs",
+        "<summary.json>"
+      ],
+      "exitCode": 0,
+      "passed": true,
+      "checks": 1,
+      "failures": 0,
+      "report": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\evidence-consistency.json",
+      "rawEvidence": {
+        "stdout": "D:\\Hns-Final-Qualification\\test-artifacts\\qualification-runs\\2026-09-23T05-33-13-145Z-0c277af6\\reports\\evidence-consistency.json",
+        "stderr": null
+      },
+      "spawnError": null
+    }
+  ],
+  "mandatoryFailures": 1,
+  "passed": false,
+  "evidenceConsistency": {
+    "ok": true,
+    "code": "PASS",
+    "errors": []
+  }
+}
