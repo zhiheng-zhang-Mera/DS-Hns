@@ -18,6 +18,27 @@ The full local batch is `runtime/engineering/evidence/recovery/E2-W0-final-20260
 
 The committed LF report copy's SHA-256 is `f55dc8189f03f89f602e27193d3de5a9d3a35c7494a4be56c961ca0270f5d4aa`.
 
+## System model and source map
+
+This source map identifies where the implemented contracts live. It is implementation documentation; the runtime evidence and claim limits remain those in the frozen report above.
+
+| System area | Implementation source | Focused regression evidence |
+|---|---|---|
+| Architecture and failure isolation | [`engineering-host.cjs`](../../../app/engineering-host.cjs), [`supervisor.cjs`](../../../app/engineering/supervisor.cjs), [`process-identity.cjs`](../../../app/engineering/process-identity.cjs) | [`engineering-host-resume.test.js`](../../../tests/unit/engineering-host-resume.test.js), [`engineering-process-identity.test.js`](../../../tests/unit/engineering-process-identity.test.js) |
+| Checkpoint truth and monotonic cursor | [`checkpoint.cjs`](../../../app/engineering/checkpoint.cjs), [`recovery-schema.cjs`](../../../app/engineering/recovery-schema.cjs) | [`engineering-checkpoint.test.js`](../../../tests/unit/engineering-checkpoint.test.js), [`engineering-recovery-schema.test.js`](../../../tests/unit/engineering-recovery-schema.test.js) |
+| Durable lifecycle, exclusive claim, and bounded resume | [`recovery-store.cjs`](../../../app/engineering/recovery-store.cjs), [`engineering-host.cjs`](../../../app/engineering-host.cjs), [`desktop-main.cjs`](../../../app/desktop-main.cjs) | [`engineering-recovery-store.test.js`](../../../tests/unit/engineering-recovery-store.test.js), [`engineering-host-resume.test.js`](../../../tests/unit/engineering-host-resume.test.js) |
+| Mutation verification and replay reconciliation | [`mutation.cjs`](../../../app/engineering/mutation.cjs), [`checkpoint.cjs`](../../../app/engineering/checkpoint.cjs), [`supervisor.cjs`](../../../app/engineering/supervisor.cjs) | [`engineering-recovery-journal.test.js`](../../../tests/unit/engineering-recovery-journal.test.js), [`engineering-scenarios.test.js`](../../../tests/unit/engineering-scenarios.test.js) |
+| Cross-volume ownership and terminal cleanup | [`cross-volume-cleanup.cjs`](../../../app/engineering/cross-volume-cleanup.cjs), [`supervisor.cjs`](../../../app/engineering/supervisor.cjs) | [`engineering-cross-volume-cleanup.test.js`](../../../tests/unit/engineering-cross-volume-cleanup.test.js) |
+| Evidence schema, independent oracle, and integrity | [`engineering-recovery-evidence.cjs`](../../../scripts/lib/engineering-recovery-evidence.cjs), [`engineering-recovery-evidence.cjs` CLI](../../../scripts/engineering-recovery-evidence.cjs) | [`engineering-evidence-harness.test.js`](../../../tests/unit/engineering-evidence-harness.test.js), [`schema-v1.json`](../../../tests/evidence/engineering-recovery/schema-v1.json) |
+
+The recovery path is: desktop startup or planned restart calls the engineering host's resume entry point; the host discovers the latest valid checkpoint, obtains the episode claim, validates/reconciles mutations and cursor state, then delegates execution to the supervisor. Checkpoint files remain execution truth; the recovery index is repairable metadata. Cross-volume paths are registry-owned and terminal cleanup is gated by persisted terminal intent. The FINAL W0 row directly observes one controlled worker termination and the returned resume API result; the source map and unit tests do not expand that one-run denominator.
+
+## Remaining campaign status
+
+The frozen CLI at the evaluated harness SHA accepts only `pilot` and `final-w0-fault04`; it does not implement the E3 stratified matrix, E4 paired replay, E5 terminal-cleanup campaign, or E7 sealed replay runner. E2 therefore remains one W0/fault-4 final observation. Although the host currently has distinct healthy C: and D: NTFS volumes, volume availability and the focused cleanup tests do not count as an E5 campaign. E3, E4, E5, and E7 remain `NOT_RUN` until a campaign runner is implemented, qualified on a fresh E0 freeze, and its observations are generated and verified. E6 remains `NOT_RUN` because the required controlled reboot needs a separately safe maintenance window and OS-owned same-account sign-in; no credential or sign-in configuration was changed.
+
+Accordingly, the engineering implementation and E0 candidate are frozen for this evaluated scope, while the broader paper campaign continues. The integration evidence disposition remains `HNS_INTEGRATION_RC_NOT_READY`; this index does not upgrade it to acceptance.
+
 ## Frozen acceptance
 
 E0 passed on branch `dev/crash-resume-recovery-v1`, implementation SHA `7d2967c2534f05952a2ddaf7e1ab2db50914eab1`, Node `v24.19.0`, Windows `10.0.26200 x64`. Run ID: `E0-20260927T014857685Z`. All four log SHA-256 values matched the E0 gate.
