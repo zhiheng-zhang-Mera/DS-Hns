@@ -160,6 +160,8 @@ test('E5 records registered children deleted before an expected parent cleanup b
     const runManifest = JSON.parse(fs.readFileSync(path.join(runDir, 'manifest.json'), 'utf8'))
     const resultJson = JSON.parse(fs.readFileSync(path.join(runDir, 'result.json'), 'utf8'))
     assert.equal(runManifest.runOrdinal, planEntry.ordinal + 1)
+    assert.deepEqual(runManifest.storageVolumeRoles, ['work:D', 'scratch:C'])
+    assert.deepEqual(runManifest.taskScratchVolumes, ['C:'])
     assert.equal(resultJson.offWorkVolumeTempCreatedCount, 2)
     assert.equal(resultJson.offWorkVolumeTempDeletedCount, 2, 'the registered file deleted before the directory block must be recorded')
     assert.equal(resultJson.offWorkVolumeResidualCount, 0)

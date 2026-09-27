@@ -235,7 +235,7 @@ async function runE5Observation(batch, planEntry, options = {}) {
         : faultId === 86 ? 'TEMP_MARKER_MISMATCH'
           : faultId === 87 ? 'TEMP_PATH_REPARSE_BOUNDARY' : null,
       taskScratchVolumes: [volumes.scratchVolume],
-      storageVolumeRoles: [`work:${volumes.workVolume.slice(0, 1)}`, `scratch:${volumes.scratchVolume}`],
+      storageVolumeRoles: [`work:${volumes.workVolume.slice(0, 1)}`, `scratch:${volumes.scratchVolume.slice(0, 1)}`],
       selectedWorkVolume: volumes.workVolume,
       recoveryConfiguration: { campaign: 'E5', scenario: kind, cleanupRetries: 2, ownership: 'episode-registry-v1' },
       episodeId: runId
