@@ -22,14 +22,25 @@ This Python-standard-library analysis verifies raw record hashes and independent
 
 Use Windows x64, Node 24.14.0 and Python 3.14. Install the exact external package set in docs/paper-material/revision-2026-10/EXTERNAL_REQUIREMENTS.txt into a dedicated environment. Installed package versions, MIT licenses and source-tree digests are in EXTERNAL_BASELINE_IDENTITY.json. The library source is https://github.com/langchain-ai/langgraph and persistence documentation is https://docs.langchain.com/oss/python/langgraph/persistence .
 
+Run V1 from its exact isolated source revision, not the latest working tree:
+
 ~~~
+git clone https://github.com/zhiheng-zhang-Mera/DS-Hns.git D:/paper-v1-source
+git -C D:/paper-v1-source checkout --detach 85facfad02d995f4327fb99c9f4614612a7c41e5
+cd D:/paper-v1-source
 node --test tests/paper-revision/safe-experiments.test.cjs
-node scripts/paper-revision/safe-experiments.cjs campaign D:/paper-env/Scripts/python.exe D:/paper-new-campaign
-python scripts/paper-revision/analyze_safe.py D:/paper-new-campaign
+node scripts/paper-revision/safe-experiments.cjs campaign D:/paper-env/Scripts/python.exe D:/paper-new-v1-campaign
+python scripts/paper-revision/analyze_safe.py D:/paper-new-v1-campaign
 ~~~
+
+The latest worker implements V2 initialization. Calling its legacy campaign mode would not reproduce V1, even if the mode label says safe-v1. For V2 use a separate checkout at ec1c516 and the gap-v2 command in that artifact's README.
+
+Timing dictionary: the historical recoveryMs, recovery_ms_median and paired latency keys actually measure launch-to-terminal-exit, including the six failed V1 resume exits. They are not confirmed-recovery latency, and no same-runtime or cross-runtime recovery-speed inference is justified from those mixed exits. The original values and names are retained for byte-level provenance.
 
 The target output directory must not already exist. Keep scratch/venv/cache on D when following the experiment storage convention. Run serially with no unrelated workload for comparable timings. Expected runtime on the recorded host is in environment.json (several minutes; budget 30 minutes). No paid model or network task is used. The LangGraph worker denies outgoing socket connections and tracing is disabled. Only owned child handles are terminated; no reboot or existing service is touched.
 
 All arms use the same sequential append task and fault handshake. LangGraph uses synchronous SQLite persistence; the production adapter uses createCheckpointStore and verifyResume with a fixed fixture fingerprint. It does not exercise the complete runtime mutation log, fencing, task scheduler or restart supervisor. An uncommitted effect is deliberately outside the checkpoint transaction in every arm, so the retained single-step replay is an adapter-level boundary, not a demonstrated full-product bug.
 
 A3 cap removal leaves eight finite requests as a hard bound, disables cooldown/backoff/safe-mode in both production arms, and never restarts a process. Its three schedule families are constructive policy tests. A1/A2, ECQ evaluator comparisons, Phase C, resource peaks, second environment, real 24h task and physical reboot remain unrun.
+
+Metric-field erratum: see docs/paper-material/revision-2026-10/METRIC_ERRATUM.md. The legacy cross_runtime_latency_causal_claim_allowed flag is not permission for a same-runtime causal speed claim; all latency fields are descriptive launch-to-terminal-exit. Frozen source/data remain unchanged.

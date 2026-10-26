@@ -1,0 +1,16 @@
+{
+  "protocol_commit": "ec1c5169d25dfc0c7b6d4313b1202db5c6143d80",
+  "production_module_revision": "6ae4dbc083efff0c4c611ca4e7a1f69823c2ccb6",
+  "files": 575,
+  "zip_sha256": "488e5ef9488186a3cc2595e24b3eb4d2c71af2806f6bc12a3610b571bcbe1d39",
+  "zip_bytes": 501329,
+  "new_arm_observations": 120,
+  "new_ecq_episodes": 0,
+  "purpose": "Full gap-stratum matched-initialization follow-up, kept separate from v1; not a replacement of unfavorable v1 data",
+  "execution_driver_file_sha256": {
+    "scripts/paper-revision/safe-experiments.cjs": "2c880755a7982fa01662768196bab89469f9d9b5a0a409b6576965f60270f0e0",
+    "scripts/paper-revision/checkpoint-worker.cjs": "953bf835ecb4d9e4aee89207d297f1733a1b59fe09f9c4ca284ed5ad43d2d9c4",
+    "scripts/paper-revision/langgraph_worker.py": "f38a823d0739a620d5b2340915c7a6e4b9370623ea08ab8d7d9db4f7749ebff6",
+    "scripts/paper-revision/analyze_safe.py": "c800419fe3dfcac2f3332c860172f04912178aba7a34dbacfdab867a1325245e"
+  }
+}

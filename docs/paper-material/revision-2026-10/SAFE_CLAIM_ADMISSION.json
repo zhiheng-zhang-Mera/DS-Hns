@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "scope": "New safe component study only; no replacement of historical claim ledgers",
+  "productionModuleSha": "6ae4dbc083efff0c4c611ca4e7a1f69823c2ccb6",
+  "campaigns": [
+    {"id":"safe-campaign-01","driver":"85facfad02d995f4327fb99c9f4614612a7c41e5","armObservations":630,"adapterResumeErrors":6,"archive":"artifacts/paper-revision/safe-campaign-01/raw-evidence.zip"},
+    {"id":"safe-gap-v2","driver":"ec1c5169d25dfc0c7b6d4313b1202db5c6143d80","armObservations":120,"adapterResumeErrors":0,"archive":"artifacts/paper-revision/safe-gap-v2/raw-evidence.zip"}
+  ],
+  "claims": [
+    {"id":"SAFE-A3","status":"OBSERVED_COMPONENT_ONLY","statement":"A cap of three prevents over-budget decisions on the declared virtual-time schedules; matches simple rolling-window baseline.","notSupported":["physical restart-loop incidence","authority-separation effect","advantage over simple limiter"]},
+    {"id":"SAFE-A4-BOUNDARY","status":"OBSERVED_COMPONENT_ONLY","statement":"On V1 committed-boundary interruption, checkpoint/simple-cursor/LangGraph achieve duplicate-free completion 30/30, replay 0/30.","notSupported":["full desktop recovery","exactly-once at arbitrary faults","general comparative reliability"]},
+    {"id":"SAFE-A4-GAP-V1","status":"INITIALIZATION_CONFOUNDED","statement":"Six file-adapter resume errors retained; file arms complete 27/30 each versus external 30/30; all arms duplicate-free 0/30.","notSupported":["external completion superiority after equal initialization"]},
+    {"id":"SAFE-A4-GAP-V2","status":"OBSERVED_COMPONENT_ONLY","statement":"Separate equal-initialization follow-up: all four arms complete 30/30; none duplicate-free; persistent arms each replay one effect.","notSupported":["independent confirmation","pooled V1/V2 denominator","full product defect"]},
+    {"id":"C7","status":"UNSUPPORTED","statement":"No cross-system reliability superiority established."},
+    {"id":"ECQ-EFFECTIVENESS","status":"NOT_RUN","statement":"No implemented ECQ observer or ECQ evaluation campaign added."}
+  ],
+  "unrun":["A1 authority separation","A2 plugin isolation","A5 formal evidence binding/ECQ study","A6 Phase C repeats","second environment","real 24h task soak","physical reboot"],
+  "statisticalUnit":"30 seeded workloads per declared stratum, arms paired; same seeds recur across strata and V2. 750 arm observations are not 750 independent trials."
+}

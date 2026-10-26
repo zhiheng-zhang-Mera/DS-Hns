@@ -1,0 +1,49 @@
+{
+  "protocol": "safe-v2-equal-initialization",
+  "mode": "gap-v2",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
+  ],
+  "budgetScenarios": [],
+  "checkpointScenarios": [
+    "gap"
+  ],
+  "checkpointArms": [
+    "checkpoint",
+    "replay",
+    "simple-journal",
+    "langgraph-sqlite"
+  ],
+  "candidateSha": "6ae4dbc083efff0c4c611ca4e7a1f69823c2ccb6",
+  "candidateTree": "a3a94c3cd5d9505d207ee16b4056013ad5b2bd61",
+  "driverSha": "ec1c5169d25dfc0c7b6d4313b1202db5c6143d80"
+}

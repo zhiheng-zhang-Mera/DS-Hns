@@ -1,0 +1,148 @@
+{
+  "protocol": "safe-v2-equal-initialization",
+  "mode": "gap-v2",
+  "total_arm_observations": 120,
+  "budget_arm_observations": 0,
+  "checkpoint_arm_observations": 120,
+  "infrastructure_errors": [],
+  "new_ecq_episodes": 0,
+  "groups": [
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "checkpoint",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 1,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 443.3904499999917
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "langgraph-sqlite",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 1,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 3510.001049999999
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "replay",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 5.933333333333334,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 169.1659499999987
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "simple-journal",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 1,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 173.4757999999929
+    }
+  ],
+  "paired": [
+    {
+      "scenario": "gap",
+      "comparator": "replay",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 4.933333333333334,
+      "duplicate_reduction_bootstrap95": [
+        3.8666666666666667,
+        6.066666666666666
+      ],
+      "recovery_latency_difference_ms_median": 271.5443499999965,
+      "latency_difference_bootstrap95": [
+        247.12645000000884,
+        331.51570000001084
+      ],
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "gap",
+      "comparator": "simple-journal",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": 258.9676999999938,
+      "latency_difference_bootstrap95": [
+        244.54369999999471,
+        331.7366499999807
+      ],
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "gap",
+      "comparator": "langgraph-sqlite",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": -3033.5804500000086,
+      "latency_difference_bootstrap95": [
+        -3083.0928499999936,
+        -2973.2904500000004
+      ],
+      "cross_runtime_latency_causal_claim_allowed": false
+    }
+  ],
+  "limitations": [
+    "One Windows host; component adapters, not desktop product workflow.",
+    "A3 is deterministic virtual-time policy testing, three fixed schedule families; no physical restart.",
+    "A4 uses 30 generated seeds in each fixed fault stratum; four arms paired, not independent populations.",
+    "Wilson and bootstrap intervals conditional on sampled fixture seeds; structural outcomes are not general reliability estimates.",
+    "Effect and checkpoint are not one transaction; gap duplicates are counterevidence retained.",
+    "Cross-runtime launch/import latency not an algorithmic speed comparison."
+  ]
+}
