@@ -1,0 +1,44 @@
+[
+  {
+    "distribution": "langgraph",
+    "version": "1.2.17",
+    "license": "MIT",
+    "project_urls": [
+      "Homepage, https://docs.langchain.com/oss/python/langgraph/overview",
+      "Documentation, https://reference.langchain.com/python/langgraph/",
+      "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/langgraph",
+      "Changelog, https://github.com/langchain-ai/langgraph/releases",
+      "Twitter, https://x.com/langchain_oss",
+      "Slack, https://www.langchain.com/join-community",
+      "Reddit, https://www.reddit.com/r/LangChain/"
+    ],
+    "python_source_files": 79,
+    "installed_python_source_tree_sha256": "288b69a3e58ce6df61cb0cc8a8a52eb7341425237b22d6abd3d76faff7821e25"
+  },
+  {
+    "distribution": "langgraph-checkpoint-sqlite",
+    "version": "3.1.2",
+    "license": "MIT",
+    "project_urls": [
+      "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint-sqlite",
+      "Twitter, https://x.com/langchain_oss",
+      "Slack, https://www.langchain.com/join-community",
+      "Reddit, https://www.reddit.com/r/LangChain/"
+    ],
+    "python_source_files": 8,
+    "installed_python_source_tree_sha256": "f71930a0f00d714db6accc6f19f35f0a2b99d8367453ef96d1dc49a42b3eb9de"
+  },
+  {
+    "distribution": "langgraph-checkpoint",
+    "version": "4.3.0",
+    "license": "MIT",
+    "project_urls": [
+      "Source, https://github.com/langchain-ai/langgraph/tree/main/libs/checkpoint",
+      "Twitter, https://x.com/langchain_oss",
+      "Slack, https://www.langchain.com/join-community",
+      "Reddit, https://www.reddit.com/r/LangChain/"
+    ],
+    "python_source_files": 17,
+    "installed_python_source_tree_sha256": "678b304635dc8425c012845242feae2da92a92e5db8d69c63599dfd2a9973777"
+  }
+]
