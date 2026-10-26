@@ -96,7 +96,8 @@ async function main(argv) {
   fs.mkdirSync(out,{recursive:true});const driverSha=execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim()
   const candidateTree=execFileSync('git',['rev-parse',CANDIDATE+'^{tree}'],{cwd:ROOT,encoding:'utf8'}).trim()
   const count=mode==='pilot'?2:30;const seeds=Array.from({length:count},(_,i)=>mode==='pilot'?1001+i:1+i)
-  const config={protocol:'safe-v1',mode,seeds,budgetScenarios:['burst','spaced','window-edge'],checkpointScenarios:['no-fault','boundary','gap'],checkpointArms:['checkpoint','replay','simple-journal','langgraph-sqlite'],candidateSha:CANDIDATE,candidateTree,driverSha}
+  const gapV2=mode==='gap-v2'
+  const config={protocol:gapV2?'safe-v2-equal-initialization':'safe-v1',mode,seeds,budgetScenarios:gapV2?[]:['burst','spaced','window-edge'],checkpointScenarios:gapV2?['gap']:['no-fault','boundary','gap'],checkpointArms:['checkpoint','replay','simple-journal','langgraph-sqlite'],candidateSha:CANDIDATE,candidateTree,driverSha}
   const configHash=hash(JSON.stringify(config));write(path.join(out,'config.json'),config)
   const rows=[];const begin=Date.now();const append=(r)=>{rows.push(r);fs.appendFileSync(path.join(out,'attempts.jsonl'),JSON.stringify(r)+'\n')}
   for(const scenario of config.budgetScenarios)for(const seed of seeds){for(const arm of seed%2?['bounded','cap-off','simple-window']:['simple-window','cap-off','bounded']){
@@ -109,7 +110,7 @@ async function main(argv) {
     const r=await checkpointEpisode(seed,scenario,arm,dir,python);write(path.join(dir,'attempt.json'),r);const rawPath=`episodes/${episodeId}/attempt.json`
     append({episodeId,experiment:'A4',scenario,seed,arm,candidateSha:CANDIDATE,candidateTree,driverSha,configHash,startedAt,endedAt:new Date().toISOString(),rawPath,rawHash:hash(fs.readFileSync(path.join(out,rawPath))),...r.outcome,completeProcessExit:r.completeProcessExit,recoveryMs:r.recoveryMs,totalMs:r.totalMs,status:r.infrastructureError?'INFRASTRUCTURE_ERROR':'OBSERVED',infrastructureError:r.infrastructureError})
   }process.stdout.write(`completed ${scenario} seed ${seed}\n`) }
-  validateRows(rows,out,seeds.length*21)
+  validateRows(rows,out,seeds.length*(config.budgetScenarios.length*3+config.checkpointScenarios.length*4))
   write(path.join(out,'environment.json'),{node:process.version,python:execFileSync(python,['--version'],{encoding:'utf8'}).trim(),platform:process.platform,arch:process.arch,osRelease:os.release(),cpu:os.cpus()[0]?.model,cpuCount:os.cpus().length,driverSha,candidateSha:CANDIDATE,candidateTree,startedAt:new Date(begin).toISOString(),endedAt:new Date().toISOString(),newRows:rows.length})
   console.log(JSON.stringify({out,rows:rows.length,infrastructureErrors:rows.filter(r=>r.status!=='OBSERVED').length}))
 }

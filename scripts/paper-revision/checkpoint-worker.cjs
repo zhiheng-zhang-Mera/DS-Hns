@@ -11,6 +11,13 @@ const plan={version:1,id:'safe-plan',goal:'ordered reversible append workload',i
 function descriptor(next){return {version:1,episodeId,request:{workspace:dir,goal:plan.goal,startedAt:1700000000000,deadlineAt:1700086400000,contract:{maxSteps:32}},plan,planDigest:computePlanDigest(plan),cursor:{nextStepIndex:next,lastVerifiedStepId:next?`step-${next-1}`:null,verifiedStepIds:spec.steps.slice(0,next).map(s=>`step-${s.id}`),skippedStepIds:[]},fingerprint:{head:'fixed-fixture'},verifiedMutationIds:[],unresolvedMutationIds:[],executorCompatibility:'engineering-v1',workRoot:path.parse(dir).root,crossVolumeTemp:[],lifecycleState:'ACTIVE'}}
 async function main(){
   let start=0
+  if(phase==='first'&&arm==='checkpoint'){
+    const saved=store.save({episodeId,workspace:dir,fingerprint:{head:'fixed-fixture'},cursor:{nextStepIndex:0},recovery:descriptor(0)})
+    emit({event:'initial-checkpoint',step:0,ok:saved.ok});if(!saved.ok)throw Error(saved.reason)
+  }else if(phase==='first'&&arm==='simple-journal'){
+    fs.writeFileSync(cursorFile+'.tmp',JSON.stringify({next:0}));fs.renameSync(cursorFile+'.tmp',cursorFile)
+    emit({event:'initial-checkpoint',step:0,ok:true})
+  }
   if(phase==='resume'&&arm==='checkpoint'){
     const c=store.latest(episodeId);const gate=verifyResume({checkpoint:c,workspace:dir,fingerprint:{head:'fixed-fixture'}});emit({event:'resume-gate',...gate})
     if(!gate.ok)throw Error('production resume gate refused checkpoint')

@@ -16,7 +16,7 @@ def ci(values,stat=statistics.mean):
     return [means[249],means[9749]]
 def analyze(root):
     config=json.loads((root/'config.json').read_text());rows=[json.loads(x) for x in (root/'attempts.jsonl').read_text().splitlines()]
-    assert len(rows)==len(config['seeds'])*21
+    assert len(rows)==len(config['seeds'])*(len(config['budgetScenarios'])*3+len(config['checkpointScenarios'])*4)
     cells=set();errors=[]
     for row in rows:
         cell=(row['experiment'],row['scenario'],row['seed'],row['arm']);assert cell not in cells;cells.add(cell)

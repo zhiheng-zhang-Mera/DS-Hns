@@ -40,3 +40,16 @@ test('ledger rejects provenance errors but retains scientifically negative obser
     assert.throws(()=>x.validateRows([r],root,2),/expected/)
   }finally{fs.rmSync(root,{recursive:true,force:true})}
 })
+test('equal-initialization protocol recovers first-effect gap without missing progress state',async()=>{
+  const x=require(target),os=require('node:os')
+  const root=fs.mkdtempSync(path.join(process.env.TEMP||os.tmpdir(),'safe-initial-'))
+  try{
+    assert.equal(x.workload(14).faultStep,1)
+    for(const arm of ['checkpoint','simple-journal']){
+      const r=await x.checkpointEpisode(14,'gap',arm,path.join(root,arm),null)
+      assert.equal(r.completeProcessExit,true,arm+': initial progress must exist before first effect')
+      assert.equal(r.outcome.complete,true)
+      assert.equal(r.outcome.duplicateCount,1)
+    }
+  }finally{fs.rmSync(root,{recursive:true,force:true})}
+})
