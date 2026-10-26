@@ -1,0 +1,15 @@
+{
+  "node": "v24.14.0",
+  "python": "Python 3.14.3",
+  "platform": "win32",
+  "arch": "x64",
+  "osRelease": "10.0.26200",
+  "cpu": "Intel(R) Core(TM) i7-14650HX",
+  "cpuCount": 24,
+  "driverSha": "85facfad02d995f4327fb99c9f4614612a7c41e5",
+  "candidateSha": "6ae4dbc083efff0c4c611ca4e7a1f69823c2ccb6",
+  "candidateTree": "a3a94c3cd5d9505d207ee16b4056013ad5b2bd61",
+  "startedAt": "2026-10-26T11:10:36.045Z",
+  "endedAt": "2026-10-26T11:20:54.688Z",
+  "newRows": 630
+}

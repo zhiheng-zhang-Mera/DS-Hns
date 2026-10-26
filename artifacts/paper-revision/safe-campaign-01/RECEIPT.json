@@ -1,0 +1,64 @@
+{
+  "protocol_commit": "85facfad02d995f4327fb99c9f4614612a7c41e5",
+  "production_module_revision": "6ae4dbc083efff0c4c611ca4e7a1f69823c2ccb6",
+  "campaign_archive": {
+    "files": 1967,
+    "zip_sha256": "fbcc54b064a9f677aea25b9712a3b0b5d20fca3d86170be80987d7f28596b5ed",
+    "zip_bytes": 1610330
+  },
+  "pilot_archive": {
+    "files": 137,
+    "zip_sha256": "b74104fb24803cfdf2a9585f12cc9afb0fdd250959f95bcd755e9133d8d39743",
+    "zip_bytes": 109247
+  },
+  "module_identities": [
+    {
+      "path": "app/engineering/checkpoint.cjs",
+      "execution_file_sha256": "290c272bfe2d5b2ec8134c5b028b77fe30dc9863cab5ffc306030e83bc1ab593",
+      "git_blob_at_driver": "0e9367e874c1fe43081b623d655cc3819543b7d7"
+    },
+    {
+      "path": "app/engineering/recovery-schema.cjs",
+      "execution_file_sha256": "4a5feeefba9f76a1384aa85c56c6db92183bdf29b20e008fa0df022cebfc3c69",
+      "git_blob_at_driver": "d4f918a1d508facb38c00de0fc32fd85456e583d"
+    },
+    {
+      "path": "app/engineering/repository.cjs",
+      "execution_file_sha256": "50459dadfeca1983ac3be0815ac165e283ea9d4dabd256cb18282bfbdf3a3370",
+      "git_blob_at_driver": "8bd9c9ee87ad5814b41cb9ad807e2b345a7f2fec"
+    },
+    {
+      "path": "app/plugins/restart-supervisor/budget.cjs",
+      "execution_file_sha256": "68d16397732b5e18a5e40c28e5ae66d9edf8bc4785b2468cc998ef4893dad3b1",
+      "git_blob_at_driver": "c9be90a25177eaa26ea4b30d3680a3a601e1b199"
+    },
+    {
+      "path": "app/plugins/restart-supervisor/policy.cjs",
+      "execution_file_sha256": "e76ec4a43eb863670bb178c86fcaa7c23a787abda4488c077ba32ac80feaa8f7",
+      "git_blob_at_driver": "00f84744d88c3b0f3dceade4b4ca01ba4895f6ab"
+    },
+    {
+      "path": "scripts/paper-revision/safe-experiments.cjs",
+      "execution_file_sha256": "eed9814cf19662bbf5adc79840fcfdf9877a23b824eef298a4959d1b25fb0af7",
+      "git_blob_at_driver": "48585445683892953d381805494232200ee2a951"
+    },
+    {
+      "path": "scripts/paper-revision/checkpoint-worker.cjs",
+      "execution_file_sha256": "61c6d96bb6ebc863d55c2f940bdf9bd30f1fb92141890b7efd082a05e40ae0ee",
+      "git_blob_at_driver": "bdb977af42cb3c43065d05aaed66526cfba00e6f"
+    },
+    {
+      "path": "scripts/paper-revision/langgraph_worker.py",
+      "execution_file_sha256": "f38a823d0739a620d5b2340915c7a6e4b9370623ea08ab8d7d9db4f7749ebff6",
+      "git_blob_at_driver": "7998e7c772de1261338473ebfb03d2929ae15ea6"
+    },
+    {
+      "path": "scripts/paper-revision/analyze_safe.py",
+      "execution_file_sha256": "106574a9666d93fffff074ccd7ea84edee93b271925271518297e75b803117b0",
+      "git_blob_at_driver": "4e1074d98c80a4faf0ed35630b6679883e44bdd8"
+    }
+  ],
+  "new_ecq_episodes": 0,
+  "scope": "A3 virtual-time component policy; A4 owned-child-process persistence fixture; not desktop runtime or physical reboot",
+  "raw_data_license": "Synthetic task records and adapters follow repository license; external library source is not redistributed."
+}
