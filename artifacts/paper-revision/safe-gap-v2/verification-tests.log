@@ -1,0 +1,44 @@
+✔ safe experiment runner exposes seeded workload, independent oracle, and ledger validator (6.5192ms)
+✔ bounded production budget and independent rolling-window baseline match across fixed schedules (8.7289ms)
+✔ ledger rejects provenance errors but retains scientifically negative observations (2.3978ms)
+✔ equal-initialization protocol recovers first-effect gap without missing progress state (655.3725ms)
+✔ a checkpoint round-trips through disk with every saved field intact (21.3825ms)
+✔ the checkpoint directory defaults under the root option instead of a hardcoded path (0.6312ms)
+✔ recovery checkpoints preserve the full recovery descriptor and assign the first sequence (4.1085ms)
+✔ checkpoint writes refuse a descriptor whose digest no longer matches its plan (0.9216ms)
+✔ the latest recovery checkpoint follows checkpointSeq when the wall clock moves backward (44.0293ms)
+✔ retention prunes old recovery sequences, never the newest sequence after a clock rollback (66.5493ms)
+✔ a corrupt checkpoint is skipped and latest() still returns the newest good one (74.0991ms)
+✔ a half-written temporary file is never read as a checkpoint (25.2227ms)
+✔ list() is newest first and prune() keeps at most maxFiles checkpoints per episode (111.9855ms)
+✔ save() enforces maxFiles by itself and leaves no temporary files behind (129.2905ms)
+✔ remove() discards one episode and leaves the others alone (28.1152ms)
+✔ latest() returns null — never throws — for a missing directory, an unknown episode and corrupt-only files (29.4967ms)
+✔ truncateOutput keeps the head, the tail and the region around the first error (3.6516ms)
+✔ truncateOutput reports no region when nothing matches, and leaves a small output alone (0.3432ms)
+✔ summarizeTestOutput extracts the failure summary, failed cases, traces, last lines and artifacts (2.6649ms)
+✔ summarizeTestOutput bounds a huge suite and says it truncated (26.2339ms)
+✔ verifyResume resumes an unchanged world (214.0454ms)
+✔ verifyResume restarts when HEAD moved (110.5286ms)
+✔ verifyResume restarts when a manifest drifted under the same HEAD (159.3771ms)
+✔ verifyResume refuses when the workspace is gone or is a different workspace (207.7088ms)
+✔ a pending mutation whose effect is already on disk resumes as already-complete (166.1767ms)
+✔ a pending mutation that conflicts with the file on disk forces a restart (182.9018ms)
+✔ verifyResume will not resume over a pending mutation it cannot re-check (161.0696ms)
+✔ missing owned processes are reported, and the checkpoint is still resumable (158.584ms)
+✔ verifyResume only inspects: nothing on disk changes (205.6427ms)
+✔ verifyResume restarts when there is no checkpoint at all (52.9433ms)
+✔ JSON evidence accepts the UTF-8 BOM emitted by Windows PowerShell 5 (1.2838ms)
+✔ acceptance reports that use ok instead of passed retain their verdict (0.3073ms)
+✔ one run with matching identity, timestamps, exit status and totals passes (17.7693ms)
+✔ mixed run identity and stale external reports fail closed (1.1246ms)
+✔ the historical passed true plus exitCode 2 contradiction is rejected (2.4289ms)
+✔ top-level totals cannot disagree with mandatory children (3.2964ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2311.0094
