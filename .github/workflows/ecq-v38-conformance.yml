@@ -22,7 +22,7 @@ jobs:
       - name: Record concrete expression controls
         env:
           OBSERVATIONS: >-
-            {"caseInsensitive":${{ 'A' == 'a' }},"emptyZero":${{ '' == 0 }},"boolZero":${{ false == 0 }},"missingNull":${{ github.event.nonexistent == null }},"missingFalse":${{ github.event.nonexistent == false }},"operandFallback":${{ toJSON('' || 'fallback') }},"operandAnd":${{ toJSON('yes' && 'value') }},"arrayTruthy":${{ !!fromJSON('[]') }},"hexString":${{ '0xff' == 255 }},"spaceZero":${{ ' ' == 0 }}}
+            {"caseInsensitive":${{ 'A' == 'a' }},"emptyZero":${{ '' == 0 }},"boolZero":${{ false == 0 }},"missingNull":${{ github.event.nonexistent == null }},"missingFalse":${{ github.event.nonexistent == false }},"missingStringZero":${{ github.event.nonexistent == '0' }},"missingStringEmpty":${{ github.event.nonexistent == '' }},"missingJSON":${{ toJSON(github.event.nonexistent) }},"operandFallback":${{ toJSON('' || 'fallback') }},"operandAnd":${{ toJSON('yes' && 'value') }},"arrayTruthy":${{ !!fromJSON('[]') }},"hexString":${{ '0xff' == 255 }},"spaceZero":${{ ' ' == 0 }}}
           IDENTITY_JSON: >-
             {"workflowSha":"${{ github.workflow_sha }}","workflowRef":"${{ github.workflow_ref }}","sha":"${{ github.sha }}","repository":"${{ github.repository }}","runId":"${{ github.run_id }}","runAttempt":"${{ github.run_attempt }}","eventName":"${{ github.event_name }}"}
         run: |
