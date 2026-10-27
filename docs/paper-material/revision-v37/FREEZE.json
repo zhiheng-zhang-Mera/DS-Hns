@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "campaignVersion": "ecq-v37-v1",
   "createdDate": "2026-10-27",
-  "methodRevision": "d204ad588e93d9ca8b27a65ed6b3a424586d17c59e95aa959fb0d6a316edeff7",
+  "methodRevision": "d22ee0f8ff5603defb01acfcff5550cc88d3aad2bc97ecb5c9a0cc888bd427d2",
   "files": {
     "artifacts/paper-revision/ecq-v37/corpus/development/001fd2c6175dcbc7332511ec/bundle.json": "5ab1ae2d9cf6370835dbc4a9af57f492c2918ebe4c28d881ecec9e7302988ad6",
     "artifacts/paper-revision/ecq-v37/corpus/development/001fd2c6175dcbc7332511ec/contract.json": "2bbf72307363a2914ca54e48ea7c77226d73226cdb1542ba33ca52991ee85a12",
@@ -7042,7 +7042,7 @@
     "artifacts/paper-revision/ecq-v37/sources/pytest-dev--pytest/40147490790/workflow.yml": "676d95134aed97c11cb00ec7b4d85645f56dbf284395474f73fc0f28c34751c9",
     "artifacts/paper-revision/ecq-v37/sources/pytest-dev--pytest/candidate-runs.json": "b67d63eda50a1255c6f3cf39ce741b767d1eaa4f8d0dbda1eed62764e1f8b12c",
     "artifacts/paper-revision/ecq-v37/sources/selection-manifest.json": "ef1dc89ece869b6c53072cdcf69f640e5ca92e8983fad2aa126c0ccb6877b3d1",
-    "artifacts/paper-revision/ecq-v37/sources/SHA256SUMS": "9b3effac52889b5f70fe9378de04c19f2430eff1bc42f2ff07e0110a0854e463",
+    "artifacts/paper-revision/ecq-v37/sources/SHA256SUMS": "ae563bbb777381580542e9e21668d01a438b7f9213c15c8f66c6f4b5b70ee20c",
     "docs/paper-material/revision-v37/collection-plan.json": "ec2089ddf332b1f426a9176f0f278978bad75d7d567680a57de2add1af46c7d8",
     "docs/paper-material/revision-v37/ENVIRONMENT.json": "9edf05fb307e064e20a7fc187e2d7f32643953cae5972c384f0be4cbee4efd4e",
     "docs/paper-material/revision-v37/EXPERIMENT_PROTOCOL.md": "a32834015f1eca4b13613bc4f47f604e5f5b990870529c6d0e82c71e152f90a2",
@@ -7090,7 +7090,9 @@
     "tests/ecq/test_collect_ci.py": "121eb6e186085db163016ddb48c4cea7f783c88b1fbcb2b0b6e574f225bb395b",
     "tests/ecq/test_external_integrity.py": "760a136c54167e85f3f8dad469e558b0160209306be0feaa6683c7413ea9a171",
     "tests/ecq/test_reference_labels.py": "32237a00ebd097f65ac66edb1e3948584423a339ee9b9f6571639503773a910a",
-    "tests/ecq/test_shacl_profile.py": "d365cf50dc7735722d3d0faddca547b77cb6b37bddb963bc35e37827d0dbc2bc"
+    "tests/ecq/test_shacl_profile.py": "d365cf50dc7735722d3d0faddca547b77cb6b37bddb963bc35e37827d0dbc2bc",
+    "scripts/ecq/.gitignore": "6252093f8103b25bf77e3171bfc9952ba9c964480ae8f326dc9c4bb12e6aea28",
+    "tests/ecq/.gitignore": "6252093f8103b25bf77e3171bfc9952ba9c964480ae8f326dc9c4bb12e6aea28"
   },
   "datasets": {
     "challenge": "artifacts/paper-revision/ecq-v37/corpus/evaluation/manifest.jsonl",
