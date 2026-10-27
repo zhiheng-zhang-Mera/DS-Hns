@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-24T21:44:21Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "committer": {
+    "date": "2026-10-24T21:44:21Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/5b6d1e68d00cac4fd36d7cfd826512c0d544d8bd",
+  "message": "feat(route): identify generated HEAD routes in onRoute\n\nSigned-off-by: Matteo Collina <hello@matteocollina.com>",
+  "node_id": "C_kwDOBCRpgtoAKDViNmQxZTY4ZDAwY2FjNGZkMzZkN2NmZDgyNjUxMmMwZDU0NGQ4YmQ",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/2a64ae1627d78fe1f22fb021a7e5763581384473",
+      "sha": "2a64ae1627d78fe1f22fb021a7e5763581384473",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/2a64ae1627d78fe1f22fb021a7e5763581384473"
+    }
+  ],
+  "sha": "5b6d1e68d00cac4fd36d7cfd826512c0d544d8bd",
+  "tree": {
+    "sha": "440a66ff8b90c600931326b84fb4f0d267445085",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/440a66ff8b90c600931326b84fb4f0d267445085"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/5b6d1e68d00cac4fd36d7cfd826512c0d544d8bd",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

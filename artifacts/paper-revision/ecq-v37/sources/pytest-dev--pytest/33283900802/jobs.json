@@ -1,0 +1,89 @@
+{
+  "jobs": [
+    {
+      "check_run_url": "https://api.github.com/repos/pytest-dev/pytest/check-runs/99183617278",
+      "completed_at": "2026-08-30T00:53:33Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-30T00:41:15Z",
+      "head_branch": "main",
+      "head_sha": "fdba12e1708313f56e9cf713d260c029764ca2b7",
+      "html_url": "https://github.com/pytest-dev/pytest/actions/runs/33283900802/job/99183617278",
+      "id": 99183617278,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "doc-check-links",
+      "node_id": "CR_kwDOAjwLdc8AAAAXF83k_g",
+      "run_attempt": 1,
+      "run_id": 33283900802,
+      "run_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/33283900802",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions",
+      "runner_id": 1000369467,
+      "runner_name": "GitHub Actions 1000369467",
+      "started_at": "2026-08-30T00:41:16Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-30T00:41:17Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-30T00:41:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-30T00:41:21Z",
+          "conclusion": "success",
+          "name": "Checkout",
+          "number": 2,
+          "started_at": "2026-08-30T00:41:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-30T00:41:24Z",
+          "conclusion": "success",
+          "name": "Set up tox",
+          "number": 3,
+          "started_at": "2026-08-30T00:41:21Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-30T00:53:31Z",
+          "conclusion": "failure",
+          "name": "Run sphinx linkcheck via tox",
+          "number": 4,
+          "started_at": "2026-08-30T00:41:24Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-30T00:53:31Z",
+          "conclusion": "success",
+          "name": "Post Set up tox",
+          "number": 7,
+          "started_at": "2026-08-30T00:53:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-30T00:53:31Z",
+          "conclusion": "success",
+          "name": "Post Checkout",
+          "number": 8,
+          "started_at": "2026-08-30T00:53:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-30T00:53:31Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "started_at": "2026-08-30T00:53:31Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://api.github.com/repos/pytest-dev/pytest/actions/jobs/99183617278",
+      "workflow_name": "Doc Check Links"
+    }
+  ],
+  "total_count": 1
+}

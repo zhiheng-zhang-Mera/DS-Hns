@@ -1,0 +1,43 @@
+{
+  "admissibleTypes": {
+    "provenance": [
+      "github-rest-api-collected"
+    ],
+    "types": [
+      "github-actions-job-api-record"
+    ]
+  },
+  "claimGraph": {
+    "edges": [
+      [
+        "job:build",
+        "workflow:recorded-outcome"
+      ]
+    ],
+    "nodes": [
+      "workflow:recorded-outcome",
+      "job:build"
+    ]
+  },
+  "contractId": "actions:fastify/fastify:39575395079",
+  "requestedClaim": "workflow:recorded-outcome",
+  "requiredGates": [
+    {
+      "claimId": "job:build",
+      "id": "build",
+      "required": true,
+      "scope": "job:build"
+    }
+  ],
+  "runPolicy": {
+    "allowedRunIds": [
+      "39575395079"
+    ]
+  },
+  "statePolicy": {
+    "commit": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+    "configurationDigest": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee",
+    "repositoryId": "fastify/fastify",
+    "tree": "f818e02459085147bfb18c1e4a0228fa09b35f1a"
+  }
+}

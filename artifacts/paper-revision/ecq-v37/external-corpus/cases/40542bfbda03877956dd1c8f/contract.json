@@ -1,0 +1,43 @@
+{
+  "admissibleTypes": {
+    "provenance": [
+      "github-rest-api-collected"
+    ],
+    "types": [
+      "github-actions-job-api-record"
+    ]
+  },
+  "claimGraph": {
+    "edges": [
+      [
+        "job:doc-check-links",
+        "workflow:recorded-outcome"
+      ]
+    ],
+    "nodes": [
+      "workflow:recorded-outcome",
+      "job:doc-check-links"
+    ]
+  },
+  "contractId": "actions:pytest-dev/pytest:34001980410",
+  "requestedClaim": "workflow:recorded-outcome",
+  "requiredGates": [
+    {
+      "claimId": "job:doc-check-links",
+      "id": "doc-check-links",
+      "required": true,
+      "scope": "job:doc-check-links"
+    }
+  ],
+  "runPolicy": {
+    "allowedRunIds": [
+      "34001980410"
+    ]
+  },
+  "statePolicy": {
+    "commit": "eadb5a625081a1c9db58552797fecf8c88b2508c",
+    "configurationDigest": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5",
+    "repositoryId": "pytest-dev/pytest",
+    "tree": "79d234e849e47fc8abae8e6012a7e02b00316a4d"
+  }
+}

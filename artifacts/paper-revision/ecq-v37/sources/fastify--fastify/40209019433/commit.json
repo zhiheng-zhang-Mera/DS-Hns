@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-25T15:47:46Z",
+    "email": "118877752+mayur-dhavan@users.noreply.github.com",
+    "name": "Mayur Dhavan"
+  },
+  "committer": {
+    "date": "2026-10-25T15:52:40Z",
+    "email": "Tony133@users.noreply.github.com",
+    "name": "Antonio Tripodi"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/18a704976f66504001b6eaa4843328e479a35192",
+  "message": "docs: fix syntax errors in code examples (#7159)\n\nTwo code examples in the docs have syntax errors that break\nparsing when copied:\n\n- docs/Guides/Migration-Guide-V5.md: both `hasRoute` examples\n  (the v4 and v5 snippets) are missing the closing `}` of the\n  options object before `)); // true`.\n- docs/Reference/Validation-and-Serialization.md: the response\n  content-types schema example is missing a comma after the\n  `description` string, before `content:`.\n\nEach fixed example was verified to parse with the TypeScript\ncompiler. Docs only.\n\n---------\n\nSigned-off-by: Mayur Dhavan <118877752+mayur-dhavan@users.noreply.github.com>\n(cherry picked from commit 5df959f3af698823dd582f1c3661f3e80df0b5da)",
+  "node_id": "C_kwDOBCRpgtoAKDE4YTcwNDk3NmY2NjUwNDAwMWI2ZWFhNDg0MzMyOGU0NzlhMzUxOTI",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/c41086728020917e89c2c164b3f61d3633c6e665",
+      "sha": "c41086728020917e89c2c164b3f61d3633c6e665",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/c41086728020917e89c2c164b3f61d3633c6e665"
+    }
+  ],
+  "sha": "18a704976f66504001b6eaa4843328e479a35192",
+  "tree": {
+    "sha": "564621c47365c5825adce085b673688aace504e6",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/564621c47365c5825adce085b673688aace504e6"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/18a704976f66504001b6eaa4843328e479a35192",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

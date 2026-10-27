@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-25T12:39:21Z",
+    "email": "73421813+RubenPari@users.noreply.github.com",
+    "name": "Ruben Pari"
+  },
+  "committer": {
+    "date": "2026-10-25T12:40:13Z",
+    "email": "Tony133@users.noreply.github.com",
+    "name": "Antonio Tripodi"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/c41086728020917e89c2c164b3f61d3633c6e665",
+  "message": "docs: clarify that maxParamLength does not prevent ReDoS (#7140)\n\nFixes #7082\n\nThe `maxParamLength` docs claimed the option protects regex routes\nagainst ReDoS. It does not: in find-my-way 9.10.0,\n`currentNode.regex.exec(param)` runs on the whole path segment\n(everything up to the next `/`), and only the captured values are\ncompared against `maxParamLength` afterwards. With `maxParamLength: 10`\nand `allowUnsafeRegex: true` on `/u/:id(^(a+)+$)`, an 11-char segment\ntakes about 10 ms, 27 chars about 357 ms and 29 chars about 1282 ms, all\nending in a 404. The actual ReDoS guard is the `safe-regex2` check\nfind-my-way runs at route registration, which is skipped only when\n`allowUnsafeRegex` is `true`.\n\n#### Changes\n\n- The `maxParamLength` docs no longer claim ReDoS protection, explain\nthat the limit is checked against the captured values after the regex\nhas run on the full segment, and link to `allowUnsafeRegex`.\n\nThe code is unchanged: checking the length before `exec` would reject\nsegments that hold several regex params (e.g. `/:a(^\\d+)-:b(^\\d+)`)\nwhose combined length exceeds the limit while each captured value is\nwithin it, so changing that is a find-my-way decision.\n\n#### Checklist\n\n- [x] documentation updated\n- [x] run `npm run lint:markdown` on the changed file\n- [x] commit message and code follow the [Developer's Certification of\nOrigin](https://developercertificate.org/) and the [Code of\nconduct](https://github.com/fastify/fastify/blob/main/CODE_OF_CONDUCT.md)\n\nCo-authored-by: Antonio Tripodi <Tony133@users.noreply.github.com>\n(cherry picked from commit d40c30d2a68051a35c2ded4d4b2db114784e2d6c)",
+  "node_id": "C_kwDOBCRpgtoAKGM0MTA4NjcyODAyMDkxN2U4OWMyYzE2NGIzZjYxZDM2MzNjNmU2NjU",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/0fa6bc2cee1c52cb04c4f6b908b28c55022fadaf",
+      "sha": "0fa6bc2cee1c52cb04c4f6b908b28c55022fadaf",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/0fa6bc2cee1c52cb04c4f6b908b28c55022fadaf"
+    }
+  ],
+  "sha": "c41086728020917e89c2c164b3f61d3633c6e665",
+  "tree": {
+    "sha": "4b517551fee97306f70a272758d359d9d67f666d",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/4b517551fee97306f70a272758d359d9d67f666d"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/c41086728020917e89c2c164b3f61d3633c6e665",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

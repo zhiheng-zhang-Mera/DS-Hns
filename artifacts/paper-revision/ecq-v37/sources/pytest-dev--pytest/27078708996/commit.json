@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-06-04T12:49:30Z",
+    "email": "wurslu@gmail.com",
+    "name": "morning-verlu"
+  },
+  "committer": {
+    "date": "2026-06-04T12:49:30Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/3422c67a3a46ccb4b5549c88821d5d768843418e",
+  "message": "Clarify request fixture in indirect parametrization docs (#14539)\n\nCloses #13155\n\n---------\n\nCo-authored-by: Bruno Oliveira <bruno@pytest.org>",
+  "node_id": "C_kwDOAjwLddoAKDM0MjJjNjdhM2E0NmNjYjRiNTU0OWM4ODgyMWQ1ZDc2ODg0MzQxOGU",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/fbd736f688521fd5d926fa00bb495e720fa6c416",
+      "sha": "fbd736f688521fd5d926fa00bb495e720fa6c416",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/fbd736f688521fd5d926fa00bb495e720fa6c416"
+    }
+  ],
+  "sha": "3422c67a3a46ccb4b5549c88821d5d768843418e",
+  "tree": {
+    "sha": "6c183331c6298027836b8fa89cfbb8a0b2f33169",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/6c183331c6298027836b8fa89cfbb8a0b2f33169"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/3422c67a3a46ccb4b5549c88821d5d768843418e",
+  "verification": {
+    "payload": "tree 6c183331c6298027836b8fa89cfbb8a0b2f33169\nparent fbd736f688521fd5d926fa00bb495e720fa6c416\nauthor morning-verlu <wurslu@gmail.com> 1780577370 +0800\ncommitter GitHub <noreply@github.com> 1780577370 -0300\n\nClarify request fixture in indirect parametrization docs (#14539)\n\nCloses #13155\n\n---------\n\nCo-authored-by: Bruno Oliveira <bruno@pytest.org>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqIXRaCRC1aQ7uu5UhlAAA05gQAAJ1feUN54bXdrEgaMPDVzij\nRBFKyu+7036m6OKC5SUi2a+6urvsTNO6GLhzASjkB40fkP9dThcQnht1OsmRwEY6\n7TB3Rkij9qlLGeaumsHDkfSsSPBSVtXT5thmsS4e2skLneAPSKvUEV9ObcXJSJvP\nNo/zg0bepf8P78iMIj4YZPxmYQWABeuwIt0iFuuzC2o2ZZCgPW3qcq/aX2qWj+uk\nssVdAfIogoFimTPP8DwVSNNolVZr6Yi+x0Tkwu8W6SRP2WNwSYrdtcFbHXFBOjsH\nzyEjz+bz1DOrh364efz5hE3i1sPPGjc5y0iDDq2pjLlVuqauKhvtLH8dQfmJsl07\n6/6TA7g8qJQZuafmHAfKefhRqkoeyq2YTNVPCAJnOMEKKKrQ8lCBITqXMegHgOb0\nbiEwdznRXAwqoDnK9T0Tvti7LKRkV9wk8xHRC8siHiZKPc6VNQCloY5pA/gZq5Cq\nO9otwq6Mb1ZXw1yt1wKf2kEqpsWCF/JN9eRXvJYnE1pTUqh4qxLbOPtgMA64krBC\nHqgrA3Wls489ZoGwYKs1osP+CxlrOxW0M5s6HL+YUXslGblnx0oot7lyLTxJ1GKI\nB5CuAvsfKBqLDoREq/VhL2dJqMLXZOuyFgeUnqvK5cAKVplwduykeDyUaevca7KD\nTAWMgeAP6Vvh/wMy1HTt\n=dpW1\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-06-04T12:49:31Z"
+  }
+}

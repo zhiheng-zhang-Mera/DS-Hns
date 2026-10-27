@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-12T10:55:00Z",
+    "email": "41898282+github-actions[bot]@users.noreply.github.com",
+    "name": "github-actions[bot]"
+  },
+  "committer": {
+    "date": "2026-10-12T10:55:00Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/20b55d43a707607ec8ef103962e985b6bf126a06",
+  "message": "[Backport 5.x] fix: remove error when HTTP QUERY request has empty body (#7060)\n\nBackport bc25b7499acedb803ef3cef644d0d56cf4e7c725 from #6929.\n\n---------\n\nSigned-off-by: Gürgün Dayıoğlu <hey@gurgun.day>\nCo-authored-by: Livia Medeiros <livia@cirno.name>\nCo-authored-by: Gürgün Dayıoğlu <hey@gurgun.day>\nCo-authored-by: Antonio Tripodi <Tony133@users.noreply.github.com>",
+  "node_id": "C_kwDOBCRpgtoAKDIwYjU1ZDQzYTcwNzYwN2VjOGVmMTAzOTYyZTk4NWI2YmYxMjZhMDY",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/38d2b63b483db50924020d55bf7fa0cb4503a709",
+      "sha": "38d2b63b483db50924020d55bf7fa0cb4503a709",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/38d2b63b483db50924020d55bf7fa0cb4503a709"
+    }
+  ],
+  "sha": "20b55d43a707607ec8ef103962e985b6bf126a06",
+  "tree": {
+    "sha": "fbe9e3e22fd41063cbb18c5769128e275035ba20",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/fbe9e3e22fd41063cbb18c5769128e275035ba20"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/20b55d43a707607ec8ef103962e985b6bf126a06",
+  "verification": {
+    "payload": "tree fbe9e3e22fd41063cbb18c5769128e275035ba20\nparent 38d2b63b483db50924020d55bf7fa0cb4503a709\nauthor github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com> 1791802500 +0200\ncommitter GitHub <noreply@github.com> 1791802500 +0200\n\n[Backport 5.x] fix: remove error when HTTP QUERY request has empty body (#7060)\n\nBackport bc25b7499acedb803ef3cef644d0d56cf4e7c725 from #6929.\n\n---------\n\nSigned-off-by: Gürgün Dayıoğlu <hey@gurgun.day>\nCo-authored-by: Livia Medeiros <livia@cirno.name>\nCo-authored-by: Gürgün Dayıoğlu <hey@gurgun.day>\nCo-authored-by: Antonio Tripodi <Tony133@users.noreply.github.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqzLyECRC1aQ7uu5UhlAAAxiQQAGtatouM4pBIXz/yC5/pfBKl\n5HIcaqC93yVHL+e7SGeOmVVU+fgPZru6LbO0pNRGW9bQzpZS7r7jLIvQNRosidlG\n/mg6E6knsYb+nQ/MxS62sQdjwf4Wu464jNAOy8NFRFwRcpcy390+quOZ7gnJ4tzu\n2LEDKwueBgZG97BRJCswVjmvfZeW3gh+SAXCUrUgMfARhmzLDmq4t5zWpNKX6mZy\nKLDF1b5aybFL4b4dRGpi1MhUb9iadtSRi85dfc8OcKqvb/fl5MMb1uM9kE8KBT6u\n2Qpo+tOZ3mBsPppk574QsjNXGP/m/GIw6GrYV+V/yrim2kDEOTGc2dtRl0mlZ0Mj\nhEEocbGxm5vygRmxiHsa+hJLUll0LZC+SnV6L1ZHqfBF0Gd12N2ht8OU5KV9Vmu1\nz9LBSA8hETIRlKnWyYoJm2Fr+pT54BFojhTsdxJEoynLvYGGD8LyiBvBCcDQS4Od\nEScSre7YhoWZ4ICSmQkZEZxfsF4l5GyZldi8ImqNFi94n1rSQfjndmyZ3+j3E9Cn\nmwCDlBwfWxMx7HMMG1gC1C3J353BoLkRgRwofH6TvSR8bC4PvXvYfLRzR59TbrW8\n7twtZVWasenzfV6kVdXdXxmc9jfYnmc/nNIrGdr0ZxkC7d3j9AxCvbs3IIWWfo57\naBLeQBaniB5BZ/DJtJwi\n=i6MP\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-12T10:55:00Z"
+  }
+}

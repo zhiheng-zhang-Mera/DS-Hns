@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-24T10:42:01Z",
+    "email": "manuel.spigolon@nearform.com",
+    "name": "Manuel Spigolon"
+  },
+  "committer": {
+    "date": "2026-10-24T10:42:01Z",
+    "email": "manuel.spigolon@nearform.com",
+    "name": "Manuel Spigolon"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/9d25681179f35e10cb40654213a2157a9a7357ee",
+  "message": "docs(request): fix table of contents anchors",
+  "node_id": "C_kwDOBCRpgtoAKDlkMjU2ODExNzlmMzVlMTBjYjQwNjU0MjEzYTIxNTdhOWE3MzU3ZWU",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/907cadfbc6720cadd7f64f1f49deeb7be9164155",
+      "sha": "907cadfbc6720cadd7f64f1f49deeb7be9164155",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/907cadfbc6720cadd7f64f1f49deeb7be9164155"
+    }
+  ],
+  "sha": "9d25681179f35e10cb40654213a2157a9a7357ee",
+  "tree": {
+    "sha": "1f33e5e845cb2fdafc2fd2854633dde1e5ad03f0",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/1f33e5e845cb2fdafc2fd2854633dde1e5ad03f0"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/9d25681179f35e10cb40654213a2157a9a7357ee",
+  "verification": {
+    "payload": "tree 1f33e5e845cb2fdafc2fd2854633dde1e5ad03f0\nparent 907cadfbc6720cadd7f64f1f49deeb7be9164155\nauthor Manuel Spigolon <manuel.spigolon@nearform.com> 1792838521 +0200\ncommitter Manuel Spigolon <manuel.spigolon@nearform.com> 1792838521 +0200\n\ndocs(request): fix table of contents anchors\n",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\niQJPBAABCAA5FiEEM85rNjiXeWv8ALw7mb2vQKcp2a0FAmrci3kbFIAAAAAABAAO\nbWFudTIsMi41KzEuMTIsMCwzAAoJEJm9r0CnKdmtS4gP/R+IingI6dLD6MrCjck/\nsvg16mDb2o7/lS0saZ/FA4cYquaW7pD/x2mpcTCvoC6v7PWprLfs0ZsRdImzsAi2\n7CBQh6TAKz+pNFMzIV9xq63kGF4TuAAr+rp2fXv2z+ydbp3Cszob9QhauGGrVBxP\nItG0ysdK7LyiPqDpJidBfn0Nhv+S3N3JLzDtBJ5lpHHhLjCFTLW9HRlRZUtHkhoP\nCc2L46T5x9SzDeK/WlDFr/lWUZupEkqVQgssAMb2Nex0YP7UDcMBDwGOOldiy8eU\n1tAH5OieZCuF94uqksWmeepYtXAplO8WWeWQvFeqiq2NM2LIg5t6/g2ffMQ4a8h0\n+xFaDYuQi95zBF0fJ5b2U2QgdmjRJW0j+0jH3rK6hxXO8wEM96I1n/ckmVxBgykh\nR9z40P5MKVWO/vG/1hHMFaRga0zrHzVOWhQenkB62WT4cabepR9EELx5m2MW+/Xq\nHcSgwiCmRFJlg8uH9eiSzampFWWFlbWdcIi8mQOWSDUBpdeB9Woc7GgX7vwvcCVF\nQQTMkLM4yjvT8dFzYPprp/2tMcqFJF7xIrDJMNYwclKCJYfE0HqKAlo+KnmaxtDF\nuWxskC+Nk5wmHwEyQA4Xz1se/k5hIQaYf2/0Heh5gG9SyuwCdqRi3TdODSbrLx/a\ncXuOPmwJceoCZgPIh05vGW7W\n=7ECa\n-----END PGP SIGNATURE-----",
+    "verified": true,
+    "verified_at": "2026-10-24T10:48:43Z"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "_links": {
+    "git": "https://api.github.com/repos/pytest-dev/pytest/git/blobs/6e0e1707f8cde34961c60707764eec36e3e2dfe7",
+    "html": "https://github.com/pytest-dev/pytest/blob/0f54d41bedf00505bb1ac2c724abf96ba6dcf48d/.github/workflows/doc-check-links.yml",
+    "self": "https://api.github.com/repos/pytest-dev/pytest/contents/.github/workflows/doc-check-links.yml?ref=0f54d41bedf00505bb1ac2c724abf96ba6dcf48d"
+  },
+  "content": "bmFtZTogRG9jIENoZWNrIExpbmtzCgpvbjoKICBzY2hlZHVsZToKICAgICMg\nQXQgMDA6MDAgb24gU3VuZGF5LgogICAgIyBodHRwczovL2Nyb250YWIuZ3Vy\ndQogICAgLSBjcm9uOiAnMCAwICogKiAwJwogIHdvcmtmbG93X2Rpc3BhdGNo\nOgoKIyBTZXQgcGVybWlzc2lvbnMgYXQgdGhlIGpvYiBsZXZlbC4KcGVybWlz\nc2lvbnM6IHt9Cgpqb2JzOgogIGRvYy1jaGVjay1saW5rczoKICAgIGlmOiBn\naXRodWIucmVwb3NpdG9yeV9vd25lciA9PSAncHl0ZXN0LWRldicKICAgIHJ1\nbnMtb246IHVidW50dS1sYXRlc3QKCiAgICBzdGVwczoKICAgICAgLSBuYW1l\nOiBDaGVja291dAogICAgICAgIHVzZXM6IGFjdGlvbnMvY2hlY2tvdXRAM2Qz\nYzQyZTVhYWM1YmE4MDU4MjVkYTc2NDEwYzE4MTI3M2JhOTBiMSAjIHY3LjAu\nMQogICAgICAgIHdpdGg6CiAgICAgICAgICBmZXRjaC1kZXB0aDogMAogICAg\nICAgICAgcGVyc2lzdC1jcmVkZW50aWFsczogZmFsc2UKCiAgICAgIC0gbmFt\nZTogU2V0IHVwIHRveAogICAgICAgIHVzZXM6ICQvLmdpdGh1Yi9hY3Rpb25z\nL3NldHVwLXRveAogICAgICAgIHdpdGg6CiAgICAgICAgICBweXRob24tdmVy\nc2lvbjogIjMuMTMiCgogICAgICAtIG5hbWU6IFJ1biBzcGhpbnggbGlua2No\nZWNrIHZpYSB0b3gKICAgICAgICBydW46IHRveCAtZSBkb2NzLWNoZWNrbGlu\na3MK\n",
+  "download_url": "https://raw.githubusercontent.com/pytest-dev/pytest/0f54d41bedf00505bb1ac2c724abf96ba6dcf48d/.github/workflows/doc-check-links.yml",
+  "encoding": "base64",
+  "git_url": "https://api.github.com/repos/pytest-dev/pytest/git/blobs/6e0e1707f8cde34961c60707764eec36e3e2dfe7",
+  "html_url": "https://github.com/pytest-dev/pytest/blob/0f54d41bedf00505bb1ac2c724abf96ba6dcf48d/.github/workflows/doc-check-links.yml",
+  "name": "doc-check-links.yml",
+  "path": ".github/workflows/doc-check-links.yml",
+  "sha": "6e0e1707f8cde34961c60707764eec36e3e2dfe7",
+  "size": 678,
+  "type": "file",
+  "url": "https://api.github.com/repos/pytest-dev/pytest/contents/.github/workflows/doc-check-links.yml?ref=0f54d41bedf00505bb1ac2c724abf96ba6dcf48d"
+}

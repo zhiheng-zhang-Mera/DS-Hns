@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "frozenBeforeCollection": "2026-10-27T07:10:00Z",
+  "cutoffUtc": "2026-10-27T07:09:19Z",
+  "candidateOrder": ["pytest-dev/pytest", "fastify/fastify", "pallets/flask", "nodejs/undici"],
+  "workflowProfiles": [
+    {"repository":"pytest-dev/pytest","workflow":"doc-check-links.yml","event":"schedule","claim":"recorded documentation-link-check workflow outcome"},
+    {"repository":"fastify/fastify","workflow":"md-lint.yml","event":"push","claim":"recorded Markdown-lint workflow outcome"}
+  ],
+  "selection": "Query latest 100 completed runs for the declared workflow/event, sort created_at descending then run ID descending, examine in order until 30 eligible distinct runs. First 10 eligible runs development, next 20 evaluation. No outcome-balancing or evaluator-driven selection.",
+  "eligibility": "Pinned commit and tree, workflow bytes at commit, supported static non-matrix non-reusable jobs and reconstructable conditions, complete matching job records. Terminal success/failure required for the selected job records; cancelled/skipped/timed_out/approval-only records excluded with reasons.",
+  "conditionPolicy": "Support absent if (true) and exact repository_owner equality only; reject other expressions rather than infer from jobs.",
+  "qualificationScope": "Profile concerns GitHub API-reported outcome of the named workflow only, not release readiness or underlying log validity. Expected gate set comes from pinned workflow before inspecting result records.",
+  "artifactTrust": "Archive exact canonical JSON projection of each source API job object. Trusted expected digest is pinned at collection, independently of subsequent mutations. This verifies archive integrity of API records, not authenticity of underlying test execution or missing workflow upload artifacts.",
+  "variants": ["original","wrong-state","wrong-run","missing-gate","scope-binding","unavailable-artifact"],
+  "splitUnit": "source workflow run; all variants stay together",
+  "target": {"projects":2,"runsPerProject":30,"developmentRunsPerProject":10,"evaluationRunsPerProject":20},
+  "limits": "Only fixed-job quality workflows are sampled; sparse real failure distribution reported as observed. API service and collection snapshot are trust boundaries. No live CI is triggered."
+}

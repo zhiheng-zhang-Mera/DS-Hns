@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-19T21:04:30Z",
+    "email": "106037940+yassertawfik4@users.noreply.github.com",
+    "name": "Yasser Tawfik"
+  },
+  "committer": {
+    "date": "2026-10-19T21:05:27Z",
+    "email": "Tony133@users.noreply.github.com",
+    "name": "Antonio Tripodi"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+  "message": "docs(serverless): clarify per-route observability on serverless platforms (#6802)\n\nSigned-off-by: yassertawfik4 <yassertito682@gmail.com>\nCo-authored-by: Manuel Spigolon <behemoth89@gmail.com>\nCo-authored-by: Antonio Tripodi <Tony133@users.noreply.github.com>\n(cherry picked from commit e61a91e73bed771396d8ae7365b5d3ca2501e624)",
+  "node_id": "C_kwDOBCRpgtoAKGU2NjkzYmI2NjZlNjExMWJiYTNmZjU2MWI3MmM0NGUxOGY2ZGJkMGQ",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/6cd2882c84eddff2a3b2707bf6cfca53a45c5a98",
+      "sha": "6cd2882c84eddff2a3b2707bf6cfca53a45c5a98",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/6cd2882c84eddff2a3b2707bf6cfca53a45c5a98"
+    }
+  ],
+  "sha": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+  "tree": {
+    "sha": "3d55f5ffe9ebc23d01420a49544c5cfcd7fed685",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/3d55f5ffe9ebc23d01420a49544c5cfcd7fed685"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

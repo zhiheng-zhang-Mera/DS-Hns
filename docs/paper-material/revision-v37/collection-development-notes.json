@@ -1,0 +1,10 @@
+{
+  "stage": "source collection development before evaluator execution",
+  "selectionPlanCreatedUtcFromFilesystem": "2026-10-27T07:10:51.7443509Z",
+  "planRecordedTimePrecision": "minute",
+  "initialCollectorFailure": "PyYAML SafeLoader follows YAML 1.1 and coerced the GitHub Actions 'on' key to boolean True. Canonical JSON sorting then rejected a mixed bool/string mapping; no judgments were generated.",
+  "observedInitialErrors": ["40147490790", "39083532149", "38099531711", "37167493424", "36283392425", "35479449080", "34728638591", "34001980410", "33283900802"],
+  "fix": "Use BaseLoader for this structural/string-only Actions profile, add YAML event-key regression, retain archived source responses, restart collection from exactly the same candidate order.",
+  "retention": "Initial source API responses remain archived and were reused byte-identically. These were collector development failures, not excluded evidence cases or unsuccessful qualification decisions. Final selection-manifest records the completed actual collection.",
+  "tests": "normalizers 6/6; collector 3/3 before actual external method evaluation"
+}

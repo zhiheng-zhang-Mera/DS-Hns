@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-05-23T15:20:40Z",
+    "email": "aifriday700@gmail.com",
+    "name": "Fridayworks"
+  },
+  "committer": {
+    "date": "2026-05-23T15:20:40Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/46ea2a3cfc50ae42310c278387be49d165d71581",
+  "message": "Fix capteesys producing doubled output with --capture=no (#14205)\n\nWhen capteesys is used with -s (--capture=no), output was printed\ntwice: once by TeeCaptureIO teeing to the original stream in\nreal-time, and again by pop_outerr_to_orig() writing the buffered\ncontent back via writeorg() on close.\n\nSkip the writeorg() call when tee is enabled, since the output was\nalready delivered live.\n\nFixes #13784.",
+  "node_id": "C_kwDOAjwLddoAKDQ2ZWEyYTNjZmM1MGFlNDIzMTBjMjc4Mzg3YmU0OWQxNjVkNzE1ODE",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/58d454a6aedce3f57613e40556f474396123e0f2",
+      "sha": "58d454a6aedce3f57613e40556f474396123e0f2",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/58d454a6aedce3f57613e40556f474396123e0f2"
+    }
+  ],
+  "sha": "46ea2a3cfc50ae42310c278387be49d165d71581",
+  "tree": {
+    "sha": "1e9b711de39ecc6e2b55d17c16fa47901ad0a7e1",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/1e9b711de39ecc6e2b55d17c16fa47901ad0a7e1"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/46ea2a3cfc50ae42310c278387be49d165d71581",
+  "verification": {
+    "payload": "tree 1e9b711de39ecc6e2b55d17c16fa47901ad0a7e1\nparent 58d454a6aedce3f57613e40556f474396123e0f2\nauthor Fridayworks <aifriday700@gmail.com> 1779549640 -0400\ncommitter GitHub <noreply@github.com> 1779549640 +0200\n\nFix capteesys producing doubled output with --capture=no (#14205)\n\nWhen capteesys is used with -s (--capture=no), output was printed\ntwice: once by TeeCaptureIO teeing to the original stream in\nreal-time, and again by pop_outerr_to_orig() writing the buffered\ncontent back via writeorg() on close.\n\nSkip the writeorg() call when tee is enabled, since the output was\nalready delivered live.\n\nFixes #13784.",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqEcXICRC1aQ7uu5UhlAAAj7sQAJ6Y7T2+7Vo6Ve3/SwZcINUz\n+rbYm/qiqWb7ErJJrVuUTDsAr352Jaw2AYz+7MYAxtv/wtLZ/edXjRPREXhwqF7Q\n7hpEk4v+AmoxiImQb8LJOOVKAvGgY6obtHKKhYyBFzJ8b8uqm6kA0M5mZbkB6kF7\nDikjs8RCkroLmy4sIs4BclaAp5kFNzQ4slBjKiP10yz2FiNql/UmdMf5Cv/Sf7WZ\nIcRM6aTm9m1XfO6DTQRwWtjuVJVQIOQqjsQfVoGN0tSl3bnjKbP0FLOO7d7EG1g1\nOva2XAKlH0iCB52NL1v5nUV/Z+/Az6wqfLnrwvx8ZExghZPy5smqyiSTbTkuls4w\nGPtF44YsMvr0m8hcXDUMYMI92Pl41VBtNAJP8Ejlf26ZDju+dAly5MicHLvqAeFn\nZg9GcZ/RtF6S97VMUIH4utTuZIId5IIUpe0PVQ0AVKkdFyjrKPQMQEyx8/5AIc0Q\nViOWp/YWCXxrnIVTgZgwS9k8HCCzFp4pHEth/2zEPki3U9sVCbNkj8hLw8MkzH2t\n5pQmIC+ch27jIS+9B+YARTgJIu6T3P0D+5b02deGqijkgA4shPUCD1bPBXTLEzm6\nyUqnCL5k7KdaHuDCAUkqiHrpjWRzsU6Sjvb82tFYYlDOsnM6eCWnPcCLZwzzA+bQ\nE6chddLHd3jDMjsFW08W\n=Zoil\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-05-23T15:20:40Z"
+  }
+}

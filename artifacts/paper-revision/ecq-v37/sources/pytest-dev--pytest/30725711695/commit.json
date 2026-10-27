@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-08-01T20:24:25Z",
+    "email": "pierre.sassoulas@gmail.com",
+    "name": "Pierre Sassoulas"
+  },
+  "committer": {
+    "date": "2026-08-01T20:24:25Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/1d5c40392ea42db38582b096f639eb762a5527c8",
+  "message": "Merge pull request #14791 from Pierre-Sassoulas/ini-literal-option-types\n\nValidate enum-valued configuration options with Literal types",
+  "node_id": "C_kwDOAjwLddoAKDFkNWM0MDM5MmVhNDJkYjM4NTgyYjA5NmY2MzllYjc2MmE1NTI3Yzg",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/f306da747e70403ca75ae6d9e1dd61f2ad1b8979",
+      "sha": "f306da747e70403ca75ae6d9e1dd61f2ad1b8979",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/f306da747e70403ca75ae6d9e1dd61f2ad1b8979"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/13dd9d24529339b537b7070baebd127c373bdd7d",
+      "sha": "13dd9d24529339b537b7070baebd127c373bdd7d",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/13dd9d24529339b537b7070baebd127c373bdd7d"
+    }
+  ],
+  "sha": "1d5c40392ea42db38582b096f639eb762a5527c8",
+  "tree": {
+    "sha": "ceac32e713e52dd91f3133009aea77dbc667a00a",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/ceac32e713e52dd91f3133009aea77dbc667a00a"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/1d5c40392ea42db38582b096f639eb762a5527c8",
+  "verification": {
+    "payload": "tree ceac32e713e52dd91f3133009aea77dbc667a00a\nparent f306da747e70403ca75ae6d9e1dd61f2ad1b8979\nparent 13dd9d24529339b537b7070baebd127c373bdd7d\nauthor Pierre Sassoulas <pierre.sassoulas@gmail.com> 1785615865 +0200\ncommitter GitHub <noreply@github.com> 1785615865 +0200\n\nMerge pull request #14791 from Pierre-Sassoulas/ini-literal-option-types\n\nValidate enum-valued configuration options with Literal types",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqblX5CRC1aQ7uu5UhlAAA0IEQAF0XfdJWeDFFAHNAsfBcV0vw\nSPJXf8RAGTIq9SYGYBldhnEXSBPKlqJ4hjUbCrSLoMyK4pAqOgg4EXac1bUqwlZG\n3pSzpBiOljnQdQo1u307tC9liFbU5N/cJLof4nNmAU3OnoUOuNBeESE8B2qkXEO/\nL/wu9cyXyS0H6sqXTPOETsu8hHsqPrxgKz9FcMK0Fv98Qt6s3iHJQN6no/f0jjnY\naGUPPZaWzz8w3bg+MP+yHSaQwAvW7pdde2/sTcvDkEYhLYMOyx9eWFOAVY9LUmdW\n3SvwquxJc+ekHARKmA3gNCrgG95G5ST/oKEQsccnPWPPGN8KRoE+wnC4/bOaJ55X\n2MRnOblDCvOfrsAACWmvWmU0HPFUkoudXjC0CXd5VoIut0IBvqtAgrU/D/R7Ofkm\n76SveQYgQj5Pled6mjGPEDICsywfAhYpCCmx2hDs0pgSHo5b9D88atf7Hb2Udmf9\nIXcwRrDdAZmOcg+Ru1UTnhh1OP2HsqVchYcW9ok+XEYWUYDfhkZEHFXDQYh1yCLj\nKBSoW18VCHkqKIbeOj8/3VefuU+jnQjWQdOsUSW59Jgy0gcr71xCsLjiOH2i+0mI\nC5mK2WWevcbylg5kq64rm3PoyTvvfpdUUoq4dofI1gpS8iD3qbIAb4OrUN6j1Jl7\nGah8fG4nLtEZYCVE59+t\n=yMU6\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-08-01T20:24:26Z"
+  }
+}

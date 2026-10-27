@@ -1,0 +1,105 @@
+{
+  "jobs": [
+    {
+      "check_run_url": "https://api.github.com/repos/fastify/fastify/check-runs/119139539323",
+      "completed_at": "2026-10-21T09:14:55Z",
+      "conclusion": "success",
+      "created_at": "2026-10-21T09:14:21Z",
+      "head_branch": "fix/content-schema-case-canonicalization",
+      "head_sha": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+      "html_url": "https://github.com/fastify/fastify/actions/runs/39575395079/job/119139539323",
+      "id": 119139539323,
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "name": "Lint Markdown",
+      "node_id": "CR_kwDOBCRpgs8AAAAbvUUZew",
+      "run_attempt": 1,
+      "run_id": 39575395079,
+      "run_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions",
+      "runner_id": 1000219229,
+      "runner_name": "GitHub Actions 1000219229",
+      "started_at": "2026-10-21T09:14:24Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-10-21T09:14:26Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-10-21T09:14:25Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:28Z",
+          "conclusion": "success",
+          "name": "Checkout Code",
+          "number": 2,
+          "started_at": "2026-10-21T09:14:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:29Z",
+          "conclusion": "success",
+          "name": "Setup Node",
+          "number": 3,
+          "started_at": "2026-10-21T09:14:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:50Z",
+          "conclusion": "success",
+          "name": "Install Linter",
+          "number": 4,
+          "started_at": "2026-10-21T09:14:29Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:51Z",
+          "conclusion": "success",
+          "name": "Add Matcher",
+          "number": 5,
+          "started_at": "2026-10-21T09:14:50Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:52Z",
+          "conclusion": "success",
+          "name": "Run Linter",
+          "number": 6,
+          "started_at": "2026-10-21T09:14:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:52Z",
+          "conclusion": "success",
+          "name": "Post Setup Node",
+          "number": 11,
+          "started_at": "2026-10-21T09:14:52Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:52Z",
+          "conclusion": "success",
+          "name": "Post Checkout Code",
+          "number": 12,
+          "started_at": "2026-10-21T09:14:52Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-10-21T09:14:52Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 13,
+          "started_at": "2026-10-21T09:14:52Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://api.github.com/repos/fastify/fastify/actions/jobs/119139539323",
+      "workflow_name": "Lint Docs"
+    }
+  ],
+  "total_count": 1
+}

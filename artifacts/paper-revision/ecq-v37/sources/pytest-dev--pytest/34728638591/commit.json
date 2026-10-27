@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-09-08T09:13:43Z",
+    "email": "66853113+pre-commit-ci[bot]@users.noreply.github.com",
+    "name": "pre-commit-ci[bot]"
+  },
+  "committer": {
+    "date": "2026-09-08T09:13:43Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/3fd8675d6d798507c06cf9c60753be6d9d7b0e17",
+  "message": "[pre-commit.ci] pre-commit autoupdate (#14986)\n\nupdates:\n- [github.com/astral-sh/ruff-pre-commit: v0.16.5 → v0.16.6](https://github.com/astral-sh/ruff-pre-commit/compare/v0.16.5...v0.16.6)\n\nCo-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>",
+  "node_id": "C_kwDOAjwLddoAKDNmZDg2NzVkNmQ3OTg1MDdjMDZjZjljNjA3NTNiZTZkOWQ3YjBlMTc",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/0fabaa620d204fd040066eefd2a3ea2aad8d84cc",
+      "sha": "0fabaa620d204fd040066eefd2a3ea2aad8d84cc",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/0fabaa620d204fd040066eefd2a3ea2aad8d84cc"
+    }
+  ],
+  "sha": "3fd8675d6d798507c06cf9c60753be6d9d7b0e17",
+  "tree": {
+    "sha": "7f32d4b874ec740a39aac1ae9dd35e4dd98f12fe",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/7f32d4b874ec740a39aac1ae9dd35e4dd98f12fe"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/3fd8675d6d798507c06cf9c60753be6d9d7b0e17",
+  "verification": {
+    "payload": "tree 7f32d4b874ec740a39aac1ae9dd35e4dd98f12fe\nparent 0fabaa620d204fd040066eefd2a3ea2aad8d84cc\nauthor pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com> 1788858823 +0200\ncommitter GitHub <noreply@github.com> 1788858823 +0200\n\n[pre-commit.ci] pre-commit autoupdate (#14986)\n\nupdates:\n- [github.com/astral-sh/ruff-pre-commit: v0.16.5 → v0.16.6](https://github.com/astral-sh/ruff-pre-commit/compare/v0.16.5...v0.16.6)\n\nCo-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqn9HHCRC1aQ7uu5UhlAAAUTQQAJnU17eC0+8wBTxfIHf6iN/t\nqKRzHLpFtzBa2ECf7J+ZFZum9nZ4QmY/WJpagGY92pROWZP8hqMAIXYkyTHJ1gjR\nttq2Nz13Zqt9zsOhBCcFy8P4UKAGGgCnL4jo0RfQzOx23Rpt12VDAjWRSZysLsxc\n2x2MiEus0X0aNSdDvtaSFjOK2nT5BFGY9ezuPVDnmJhXu0K5A8Vi8XVj4mbc81do\n3QVXPlAXYEGnViMcTPm+FBzcwfFaUb7d/SS3EEJrP+f5a6ql/AEhc86qM6L7YipU\n+aekWld9Wn0A817iBMPKrBslukdpZaXQUKMcQC8Y0O9dD6yeSvWZTmKMhhbaQh1S\nvJfPyo/siXZPbOj1FYfnY6na7wN4TdkWpWewcCGlCqTwL8Y/KgiJS9qP/vBO9stC\nek+oWASzfL4EptOHIYkwrQq0upHcd+/EpXbFils5geCTqzCENsYLRqzljebpXIY7\nLVsHx/QjHsq7Um0w8blzA6uRxD/Jq6yAzjxj8NbOH+u4CeOi8WZa/4xu9qbDMfes\nGlnm8DJ6juUXhZeUVuM9P4ov1pCkrCVnNVrYOiyumjOQRmVFnjdQTZZSLvNXYSFy\nh2NZX4a95DMWjiPYwnUN1JAXIsIW1fbIo7kqSZz4cM2NViJcZuUUIwAbcyxUcXpH\nWGFiBNiaxYXqZlUeXtUR\n=6oGM\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-09-08T09:13:44Z"
+  }
+}

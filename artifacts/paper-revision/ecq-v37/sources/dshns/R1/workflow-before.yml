@@ -1,0 +1,395 @@
+name: verify
+
+# Syntax, unit and architecture gates.
+#
+# This runs on Windows because DS-Hns is a Windows desktop product: the tests
+# exercise the real launcher/installer scripts, the `.cmd` shims, `taskkill.exe`
+# teardown and PowerShell probes, and a green Linux run would not be evidence that
+# the shipped platform works. The full Electron acceptance is a release step on
+# top of this (scripts\acceptance.mjs, see its header for usage).
+on:
+  push:
+    branches: [main, merging, Theme-Cover, computer-use, long-term-work, test-reboot]
+  pull_request:
+    branches: [main, merging, Theme-Cover, computer-use, long-term-work]
+
+jobs:
+  verify:
+    name: check + tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned on purpose. The suite is verified on both 22 and 24 locally,
+          # and pinning the LTS line is what keeps the gate reproducible: the
+          # `node --test` runner resolves "the event loop emptied" differently on
+          # the version boundary, which is exactly the class of failure this gate
+          # is supposed to surface rather than hide behind a floating version.
+          node-version: '22'
+
+      - name: Syntax gate
+        working-directory: app
+        run: npm run check
+
+      - name: Unit + architecture tests
+        working-directory: app
+        run: npm test
+
+      # The four-surface work (Update-Plan/General-Theme.md) adds modules in
+      # subdirectories the syntax gate has to be told about explicitly, and two
+      # HTML documents that are part of the product. A silent gap there would be a
+      # green gate over unchecked code, so the directories are asserted here too.
+      - name: Theme surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/frontend-mode/model.cjs',
+            'app/frontend-mode/backend.cjs',
+            'app/frontend-mode/adapter.cjs',
+            'app/frontend-mode/probe.cjs',
+            'app/frontend-mode/index.cjs',
+            'app/extensions/mega/theme/surface.js',
+            'app/extensions/mega/theme/assets/planner.js',
+            'app/extensions/mega/theme/assets/generator.js',
+            'app/extensions/mega/theme/assets/processor.js',
+            'app/extensions/mega/theme/assets/validator.js',
+            'app/extensions/mega/theme/assets/fallback.js',
+            'app/extensions/mega/theme/official/overlay-layout.js',
+            'app/extensions/mega/theme/official/overlay-safety.js',
+            'app/official-surface-views.cjs',
+            'app/extensions/mega/ui/hns-shell.html',
+            'app/extensions/mega/ui/official-overlay.html',
+            # The dock is frosted glass and never skinned: the glass layer is its only appearance
+            # input, and the panel that drives it is part of the shipped surface.
+            'app/extensions/mega/ui/glass-layer.js',
+            'app/extensions/mega/ui/appearance-panel.js',
+            # Where the dock is allowed to be drawn: it yields the official header band, and one
+            # shared module decides that for both backends.
+            'app/extensions/mega/dock/geometry.cjs',
+            'tests/unit/appearance-panel.test.js',
+            'tests/unit/official-frontend.test.js',
+            'docs/dual-ui.md'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing theme surface files: $($missing -join ', ')"; exit 1 }
+          $dirs = @(
+            'extensions/mega/theme/assets',
+            'extensions/mega/theme/official',
+            'frontend-mode'
+          )
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in $dirs) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          # The native frontend and its mode machinery were removed with Daily, and the
+          # gate says so: a re-introduced directory would fail here rather than ship
+          # unchecked.
+          foreach ($gone in @('app/native-ui', 'frontend-mode/state.cjs', 'frontend-mode/manager.cjs', 'frontend-mode/sync.cjs')) {
+            if (Test-Path $gone) { Write-Error "$gone should have been removed with the Daily frontend"; exit 1 }
+          }
+          if ($check -match 'native-ui') { Write-Error 'the syntax gate still lists the removed native frontend'; exit 1 }
+          $tests = Get-Content scripts/test-all.ps1 -Raw
+          if ($tests -notmatch 'official-frontend\.test\.js') { Write-Error 'test-all.ps1 does not assert the official frontend suite'; exit 1 }
+          if ($tests -notmatch 'appearance-panel\.test\.js') { Write-Error 'test-all.ps1 does not assert the glass control surface'; exit 1 }
+          # The Theme surface gate covers the frontend, so the frontend work must also be
+          # asserted by name: a gate whose suites can be renamed away is a gate that rots.
+          $docs = Get-Content docs/dual-ui.md -Raw
+          if ($docs -notmatch 'Daily has been removed') { Write-Error 'docs/dual-ui.md does not record the removal'; exit 1 }
+          Write-Host "theme + official frontend surface files present and covered by the syntax gate"
+
+      # Update-Plan/computer-use.md ships a runtime plus real Windows drivers and
+      # a panel. The syntax gate has to be told about the new directories, so the
+      # same silence-proof assertion is repeated here: a green gate over an
+      # unchecked controller would be worse than a red one.
+      - name: Computer Use surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/computer-use/index.cjs',
+            'app/computer-use/constants.cjs',
+            'app/computer-use/errors.cjs',
+            'app/computer-use/ports.cjs',
+            'app/computer-use/contract.cjs',
+            'app/computer-use/criteria.cjs',
+            'app/computer-use/action.cjs',
+            'app/computer-use/target.cjs',
+            'app/computer-use/world-state.cjs',
+            'app/computer-use/state-machine.cjs',
+            'app/computer-use/safety.cjs',
+            'app/computer-use/routing.cjs',
+            'app/computer-use/log.cjs',
+            'app/computer-use/stabilization.cjs',
+            'app/computer-use/verification.cjs',
+            'app/computer-use/miss.cjs',
+            'app/computer-use/recovery.cjs',
+            'app/computer-use/stall.cjs',
+            'app/computer-use/observer.cjs',
+            'app/computer-use/executor.cjs',
+            'app/computer-use/isolation.cjs',
+            'app/computer-use/autonomy.cjs',
+            'app/computer-use/host-electron.cjs',
+            # The long-running execution surface (Update-Plan/24h.md Tasks 1-20).
+            'app/computer-use/focus.cjs',
+            'app/computer-use/modal.cjs',
+            'app/computer-use/evidence.cjs',
+            'app/computer-use/progress.cjs',
+            'app/computer-use/processes.cjs',
+            'app/computer-use/resources.cjs',
+            'app/computer-use/health.cjs',
+            'app/computer-use/workspace.cjs',
+            'app/computer-use/command.cjs',
+            'app/computer-use/mutation.cjs',
+            'app/computer-use/reconnect.cjs',
+            'app/computer-use/controllers/browser.cjs',
+            'app/computer-use/controllers/desktop.cjs',
+            'app/computer-use/controllers/vision.cjs',
+            'app/computer-use/controllers/shell.cjs',
+            'app/computer-use/controllers/file.cjs',
+            'app/computer-use/drivers/cdp-page.cjs',
+            'app/computer-use/drivers/win32.cjs',
+            'app/computer-use/drivers/win32-input.ps1',
+            'app/computer-use/drivers/uia.cjs',
+            'app/computer-use/drivers/uia.ps1',
+            'app/computer-use/drivers/screenshot.cjs',
+            'app/computer-use/drivers/screenshot.ps1',
+            'app/extensions/mega/ui/computer-use-panel.js',
+            'scripts/computer-use-acceptance.cjs',
+            # The long-running half of the acceptance harness (24h.md 23-26): the
+            # accelerated soak, the twelve failure injections and scenarios A-G.
+            'scripts/computer-use-longrun-acceptance.cjs',
+            'tests/unit/computer-use-architecture.test.js',
+            'tests/unit/computer-use-executor-boundaries.test.js',
+            'tests/unit/computer-use-longrun-modules.test.js',
+            'tests/unit/computer-use-longrun-acceptance.test.js',
+            'tests/unit/computer-use-production-wiring.test.js',
+            'tests/unit/computer-use-resource-growth.test.js',
+            'tests/unit/computer-use-soak.test.js',
+            'docs/computer-use.md',
+            'docs/computer-use-acceptance.md'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing computer use files: $($missing -join ', ')"; exit 1 }
+          # A green gate over unchecked code is worse than a red one, so the
+          # long-running modules and their coverage are asserted by name too.
+          $longRunning = @(
+            'app/computer-use/focus.cjs',
+            'app/computer-use/modal.cjs',
+            'app/computer-use/evidence.cjs',
+            'app/computer-use/progress.cjs',
+            'app/computer-use/processes.cjs',
+            'app/computer-use/resources.cjs',
+            'app/computer-use/health.cjs',
+            'app/computer-use/workspace.cjs',
+            'app/computer-use/command.cjs',
+            'app/computer-use/mutation.cjs',
+            'app/computer-use/reconnect.cjs'
+          )
+          foreach ($file in $longRunning) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $longRunTests = Get-Content tests/unit/computer-use-longrun-modules.test.js -Raw
+          if ($longRunTests -notmatch 'Task 20') { Write-Error 'the long-running test file does not cover the plan tasks'; exit 1 }
+          $cuDoc = Get-Content docs/computer-use.md -Raw
+          if ($cuDoc -notmatch 'Long-running execution') { Write-Error 'docs/computer-use.md has no long-running execution section'; exit 1 }
+          $cuAcceptance = Get-Content docs/computer-use-acceptance.md -Raw
+          if ($cuAcceptance -notmatch 'failure-injection') { Write-Error 'the acceptance record has no failure-injection matrix'; exit 1 }
+          $dirs = @('computer-use', 'computer-use/controllers', 'computer-use/drivers')
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in $dirs) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          foreach ($script in @('computer-use-acceptance.cjs', 'computer-use-longrun-acceptance.cjs')) {
+            if ($check -notmatch [regex]::Escape($script)) { Write-Error "check-syntax.cjs does not cover $script"; exit 1 }
+          }
+          $config = Get-Content config/app.json -Raw
+          if ($config -notmatch '"computerUse"') { Write-Error 'config/app.json has no computerUse block'; exit 1 }
+          $shell = Get-Content app/desktop-main.cjs -Raw
+          if ($shell -notmatch 'COMPUTER_USE_CHANNELS') { Write-Error 'the shell does not register the Computer Use IPC surface'; exit 1 }
+          Write-Host "computer use runtime, drivers, panel and acceptance harness present and covered by the syntax gate"
+
+      # The engineering runtime (Update-Plan/24h-1.md) is a second subsystem with
+      # its own surface: episodes, supervision, discovery, checkpointing and the
+      # project adapters. A green gate over unchecked files is worse than a red one,
+      # so its modules, adapters and test matrix are asserted by name here too.
+      - name: Engineering runtime surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/engineering/index.cjs',
+            'app/engineering/episode.cjs',
+            'app/engineering/supervisor.cjs',
+            'app/engineering/repository.cjs',
+            'app/engineering/discovery.cjs',
+            'app/engineering/plan.cjs',
+            'app/engineering/mutation.cjs',
+            'app/engineering/git.cjs',
+            'app/engineering/verifier.cjs',
+            'app/engineering/scheduler.cjs',
+            'app/engineering/checkpoint.cjs',
+            'app/engineering/context.cjs',
+            'app/engineering/result.cjs',
+            'app/engineering/failure.cjs',
+            'app/engineering/process.cjs',
+            'app/engineering/autonomy.cjs',
+            'app/engineering/locking.cjs',
+            'app/engineering/adapters/index.cjs',
+            'app/extensions/mega/ui/engineering-panel.js',
+            'docs/engineering.md',
+            'tests/unit/engineering-context.test.js',
+            'tests/unit/engineering-checkpoint.test.js',
+            'tests/unit/engineering-plan.test.js',
+            'tests/unit/engineering-verifier.test.js',
+            'tests/unit/engineering-scenarios.test.js',
+            'tests/unit/engineering-wiring.test.js',
+            'tests/helpers/engineering-fixture.cjs',
+            'tests/helpers/engineering-scripted.cjs'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing engineering runtime files: $($missing -join ', ')"; exit 1 }
+          foreach ($file in $required) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in @('engineering', 'engineering/adapters')) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          $supervisor = Get-Content app/engineering/supervisor.cjs -Raw
+          if ($supervisor -notmatch 'REPAIRING') { Write-Error 'the supervisor does not run the repair loop'; exit 1 }
+          $result = Get-Content app/engineering/result.cjs -Raw
+          if ($result -notmatch 'FRESHNESS') { Write-Error 'the result validator does not require fresh evidence'; exit 1 }
+          $git = Get-Content app/engineering/git.cjs -Raw
+          if ($git -notmatch 'FORBIDDEN_COMMANDS') { Write-Error 'the git controller does not guard destructive commands'; exit 1 }
+          Write-Host "engineering runtime, adapters and test matrix present and covered by the syntax gate"
+
+      # The plugin runtime (Update-Plan/accleration.md) is the platform every
+      # feature is mounted through. Its core, its contracts and its test matrix are
+      # asserted by name for the same reason as the other surfaces: a green gate
+      # over unchecked platform code is worse than a red one.
+      - name: Plugin runtime surface gate
+        shell: pwsh
+        run: |
+          $required = @(
+            'app/core/contracts/plugin.cjs',
+            'app/core/contracts/model.cjs',
+            'app/core/contracts/profile.cjs',
+            'app/core/contracts/capability.cjs',
+            'app/plugins/mounted/index.cjs',
+            'tests/unit/plugin-mounted-set.test.js',
+            'app/plugins/providers/deepseek/index.cjs',
+            'profiles/flash-balanced.json',
+            'profiles/flash-fast.json',
+            'profiles/flash-deep.json',
+            'profiles/autonomous-24h.json',
+            'profiles/desktop-agent.json',
+            'tests/unit/core-model-capability.test.js',
+            'app/core/plugin-manager/index.cjs',
+            'app/core/capability-registry/index.cjs',
+            'app/core/event-bus/index.cjs',
+            'app/core/config-manager/index.cjs',
+            'app/core/resource-manager/index.cjs',
+            'app/core/health-supervisor/index.cjs',
+            'tests/unit/core-plugin-runtime.test.js',
+            'app/plugins/acceleration/reasoning-governor/index.cjs',
+            'app/plugins/acceleration/index.cjs',
+            'app/plugins/acceleration/command-cache/index.cjs',
+            'app/plugins/acceleration/dirty-context/index.cjs',
+            'app/plugins/acceleration/high-performance/index.cjs',
+            'app/plugins/acceleration/tool-batcher/index.cjs',
+            'app/plugins/acceleration/incremental-validation/index.cjs',
+            'app/plugins/acceleration/repo-map/index.cjs',
+            'app/plugins/acceleration/persistent-tools/index.cjs',
+            'app/plugins/acceleration/parallel-executor/index.cjs',
+            'app/plugins/acceleration/workspace-isolation/index.cjs',
+            'app/plugins/acceleration/patch-first/index.cjs',
+            'tests/unit/plugin-acceleration.test.js',
+            'tests/unit/plugin-acceleration-cache.test.js',
+            'tests/unit/plugin-acceleration-high-performance.test.js',
+            'tests/unit/plugin-acceleration-mounted.test.js',
+            'tests/unit/plugin-acceleration-parallel.test.js',
+            'tests/unit/plugin-acceleration-patch-first.test.js',
+            'tests/unit/plugin-acceleration-persistent-tools.test.js',
+            'tests/unit/plugin-ui-wiring.test.js',
+            'tests/unit/ui-bilingual.test.js',
+            'tests/unit/ui-layout-contract.test.js',
+            'tests/unit/ui-panel-load.test.js',
+            'app/extensions/mega/features.cjs',
+            'app/extensions/mega/ui/feature-manager.js',
+            'tests/unit/mega-features.test.js',
+            'tests/unit/mega-feature-wiring.test.js',
+            'tests/unit/mega-plugin-manager.test.js',
+            'app/extensions/mega/store/installer.cjs',
+            'app/extensions/mega/store/compat.cjs',
+            'app/extensions/mega/store/source.cjs',
+            'app/core/plugin-compat/index.cjs',
+            'app/core/plugin-compat/worker.cjs',
+            'app/core/plugin-compat/deps.cjs',
+            'tests/unit/plugin-compat.test.js',
+            'tests/unit/mega-store-installer.test.js',
+            'tests/unit/plugin-store-mount.test.js',
+            'app/extensions/mega/store/github-store.cjs',
+            'tests/unit/mega-plugin-store.test.js',
+            # The store's GitHub settings (token, topic, the three addresses) are their own
+            # surface: the shell owns them, the bridge carries them, the store tab renders them.
+            'tests/unit/mega-store-github.test.js',
+            'app/extensions/mega/ui/bilingual.js',
+            'scripts/dshns-baseline.cjs',
+            'scripts/combined-acceptance.cjs',
+            'app/plugin-host.cjs',
+            'app/core/lockfile/index.cjs',
+            'app/extensions/mega/ui/plugin-panel.js',
+            # The installation-level acceptance: the bundle the installer puts on disk is discovered, is
+            # loadable from the profile's own node_modules, and reaches the official Settings. Asserted by
+            # name here for the same reason as the rest: a renamed file must fail the gate rather than
+            # silently drop the one check that leaves the checkout.
+            'tests/unit/mega-core-install-acceptance.test.js',
+            'dshns-lock.yaml'
+          )
+          $missing = $required | Where-Object { -not (Test-Path $_) }
+          if ($missing) { Write-Error "missing plugin runtime files: $($missing -join ', ')"; exit 1 }
+          foreach ($file in $required) {
+            if ((Get-Item $file).Length -eq 0) { Write-Error "$file is empty"; exit 1 }
+          }
+          $check = Get-Content scripts/check-syntax.cjs -Raw
+          foreach ($dir in @('core/contracts', 'core/plugin-manager', 'core/plugin-compat', 'core/capability-registry', 'core/event-bus', 'core/config-manager', 'core/lockfile', 'core/resource-manager', 'core/health-supervisor', 'plugins/mounted', 'plugins/acceleration', 'plugins/acceleration/command-cache', 'plugins/acceleration/dirty-context', 'plugins/acceleration/high-performance', 'plugins/acceleration/incremental-validation', 'plugins/acceleration/parallel-executor', 'plugins/acceleration/patch-first', 'plugins/acceleration/persistent-tools', 'plugins/acceleration/reasoning-governor', 'plugins/acceleration/repo-map', 'plugins/acceleration/tool-batcher', 'plugins/acceleration/workspace-isolation')) {
+            if ($check -notmatch [regex]::Escape($dir)) { Write-Error "check-syntax.cjs does not cover $dir"; exit 1 }
+          }
+          $tests = Get-Content scripts/test-all.ps1 -Raw
+          foreach ($suite in @('plugin-acceleration\.test\.js', 'plugin-acceleration-cache\.test\.js', 'plugin-acceleration-high-performance\.test\.js', 'plugin-acceleration-mounted\.test\.js', 'plugin-acceleration-parallel\.test\.js', 'plugin-acceleration-patch-first\.test\.js', 'plugin-acceleration-persistent-tools\.test\.js', 'plugin-compat\.test\.js', 'plugin-ui-wiring\.test\.js', 'ui-bilingual\.test\.js', 'ui-layout-contract\.test\.js', 'ui-panel-load\.test\.js', 'mega-features\.test\.js', 'mega-feature-wiring\.test\.js', 'mega-plugin-manager\.test\.js', 'mega-plugin-store\.test\.js', 'mega-store-github\.test\.js', 'mega-store-installer\.test\.js', 'plugin-store-mount\.test\.js')) {
+            if ($tests -notmatch $suite) { Write-Error "test-all.ps1 does not assert $suite"; exit 1 }
+          }
+          # The plugin panel is a control surface: it must reach the platform only through
+          # the bridge, and it must not execute anything itself.
+          $panel = Get-Content app/extensions/mega/ui/plugin-panel.js -Raw
+          if ($panel -notmatch 'window\.megaPlugins') { Write-Error 'the plugin panel does not use the bridge'; exit 1 }
+          if ($panel -match 'child_process|spawn\(|readFileSync|require\(') { Write-Error 'the plugin panel must not execute anything'; exit 1 }
+          # The shipped lockfile must describe the shipped set, so it cannot silently go
+          # stale while the CI stays green.
+          $lock = Get-Content dshns-lock.yaml -Raw
+          foreach ($id in @('dshns.parallel-executor', 'dshns.repo-map', 'dshns.computer-use', 'dshns.long-term-worker')) {
+            if ($lock -notmatch [regex]::Escape($id)) { Write-Error "dshns-lock.yaml does not pin $id"; exit 1 }
+          }
+          $contract = Get-Content app/core/contracts/plugin.cjs -Raw
+          if ($contract -notmatch 'dshns.plugin/v1') { Write-Error 'the plugin API version is not declared'; exit 1 }
+          $manager = Get-Content app/core/plugin-manager/index.cjs -Raw
+          if ($manager -notmatch 'MISSING_CAPABILITY') { Write-Error 'the manager does not refuse a missing capability'; exit 1 }
+          $resource = Get-Content app/core/resource-manager/index.cjs -Raw
+          if ($resource -notmatch 'effectiveWorkers') { Write-Error 'the resource manager does not derive the worker count'; exit 1 }
+          # The acceleration boundary that is worse to get wrong than to be slow: a
+          # write folded into a read batch, or a validation tier that approves a
+          # completion it did not earn.
+          $batcher = Get-Content app/plugins/acceleration/tool-batcher/index.cjs -Raw
+          if ($batcher -notmatch 'writes are not batched') { Write-Error 'the tool batcher does not refuse writes'; exit 1 }
+          $validation = Get-Content app/plugins/acceleration/incremental-validation/index.cjs -Raw
+          if ($validation -notmatch 'canApproveCompletion') { Write-Error 'incremental validation does not gate completion'; exit 1 }
+          Write-Host "plugin runtime core, contracts and test matrix present and covered by the syntax gate"
+
+      # The combined acceptance: the plugin platform's standards A-D
+      # (Update-Plan/accleration.md sections 50-53) and the engineering runtime's 26
+      # completion conditions (Update-Plan/24h-1.md section 150), in one report where
+      # every check names its evidence. A green build that never ran the acceptance is
+      # how an acceptance standard quietly stops being true.
+      - name: Combined acceptance
+        shell: pwsh
+        run: node scripts/combined-acceptance.cjs

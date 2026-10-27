@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-09-18T06:25:34Z",
+    "email": "poorvabarve@gmail.com",
+    "name": "Poorva Barve"
+  },
+  "committer": {
+    "date": "2026-09-18T06:25:34Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/6a0de9be56365e75ff30d75cee9654739ca95f97",
+  "message": "Warn when writing or closing a cache file fails (#15044)\n\n* Warn on cache write and close errors\n\nCo-authored-by: Codex <noreply@openai.com>",
+  "node_id": "C_kwDOAjwLddoAKDZhMGRlOWJlNTYzNjVlNzVmZjMwZDc1Y2VlOTY1NDczOWNhOTVmOTc",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/7d90c44cca8f2e37dc0ab3d9643a4672a8a3f7f9",
+      "sha": "7d90c44cca8f2e37dc0ab3d9643a4672a8a3f7f9",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/7d90c44cca8f2e37dc0ab3d9643a4672a8a3f7f9"
+    }
+  ],
+  "sha": "6a0de9be56365e75ff30d75cee9654739ca95f97",
+  "tree": {
+    "sha": "cdfd3069f0b1a997b090206e7660f958dd955fbc",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/cdfd3069f0b1a997b090206e7660f958dd955fbc"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/6a0de9be56365e75ff30d75cee9654739ca95f97",
+  "verification": {
+    "payload": "tree cdfd3069f0b1a997b090206e7660f958dd955fbc\nparent 7d90c44cca8f2e37dc0ab3d9643a4672a8a3f7f9\nauthor Poorva Barve <poorvabarve@gmail.com> 1789712734 -0700\ncommitter GitHub <noreply@github.com> 1789712734 +0200\n\nWarn when writing or closing a cache file fails (#15044)\n\n* Warn on cache write and close errors\n\nCo-authored-by: Codex <noreply@openai.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqrNleCRC1aQ7uu5UhlAAAjGkQAI6uZAlDYHxFd+rnE7+6aXj8\nou+K2TpqTTExsKhG7ljtAXguVHa4CC/PVBXp4Mo1pTeFoVkKIujPgfZB15BLRd5b\nC6zQIJQlmhLUuVe5oWoutbIxH+tm9alX0gQUT2lgox7DbNbWYr8w+KX3jzFctAkB\n8NWzS6asvg+P462JoQPEmqNZtZ+2k5nzi+0v3R2LUoN+DIgMQNakaU68Op0EhX5Y\nIsfK37oQ4pbb7I0tDQ2AOZnR2NVgK71YLM0zM9oFDCgLEmwy5QWiD06WBQmYD6hm\nuyA6OX/D/lqGYZ19b58mgIiigH9RyJlhRzojqqjkG827QrUTjlOtVU1AeN3aTs+L\nvoOQBsmHerh3SBYRto41A06gWJnwplwFTLqtBLSB8sWFTmZ/U3hiPyCWv3ayKPtY\nmoGMV0F59S4X8dL8+xVC69Whj1Jf8mHvTkOs/4qNYxDhuqHFoqa8qQ8alg3/VLzZ\nJMTdbJP1MIKHsL9X8dexqVwO6aO/MqxbJuWijyr4l5iNgRhptnlM0KemM5yL8ibG\nyAJWhPYFGLXK7BMCNoLru+fYmKrVeJXv6u2YMP4+FkthhPtFB3wgUUTbxxHD9/Ep\ntqXQi/ILvDFHAZy58/lnsBtdO/i2MdPjNBCC/nI+GOFADDojce1bNAo7iBvdU6Cb\nb7H5i9tOPhmIXfPNJ6O2\n=q8+V\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-09-18T06:25:34Z"
+  }
+}

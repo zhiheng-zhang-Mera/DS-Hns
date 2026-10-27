@@ -1,0 +1,218 @@
+{
+  "contractId": "dshns:2026-09-23T05-33-13-145Z-0c277af6",
+  "statePolicy": {
+    "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+    "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+    "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+  },
+  "runPolicy": {
+    "allowedRunIds": [
+      "2026-09-23T05-33-13-145Z-0c277af6"
+    ]
+  },
+  "requiredGates": [
+    {
+      "id": "syntax-check",
+      "claimId": "gate:syntax-check",
+      "scope": "gate:syntax-check",
+      "required": true
+    },
+    {
+      "id": "all-unit-tests",
+      "claimId": "gate:all-unit-tests",
+      "scope": "gate:all-unit-tests",
+      "required": true
+    },
+    {
+      "id": "architecture-verifier",
+      "claimId": "gate:architecture-verifier",
+      "scope": "gate:architecture-verifier",
+      "required": true
+    },
+    {
+      "id": "external-fixtures",
+      "claimId": "gate:external-fixtures",
+      "scope": "gate:external-fixtures",
+      "required": true
+    },
+    {
+      "id": "install-pipeline",
+      "claimId": "gate:install-pipeline",
+      "scope": "gate:install-pipeline",
+      "required": true
+    },
+    {
+      "id": "cordis-adapter",
+      "claimId": "gate:cordis-adapter",
+      "scope": "gate:cordis-adapter",
+      "required": true
+    },
+    {
+      "id": "process-adapter",
+      "claimId": "gate:process-adapter",
+      "scope": "gate:process-adapter",
+      "required": true
+    },
+    {
+      "id": "native-hns-adapter",
+      "claimId": "gate:native-hns-adapter",
+      "scope": "gate:native-hns-adapter",
+      "required": true
+    },
+    {
+      "id": "health-restart-continuity",
+      "claimId": "gate:health-restart-continuity",
+      "scope": "gate:health-restart-continuity",
+      "required": true
+    },
+    {
+      "id": "community-installer",
+      "claimId": "gate:community-installer",
+      "scope": "gate:community-installer",
+      "required": true
+    },
+    {
+      "id": "electron-ui-acceptance",
+      "claimId": "gate:electron-ui-acceptance",
+      "scope": "gate:electron-ui-acceptance",
+      "required": true
+    },
+    {
+      "id": "computer-use-longrun",
+      "claimId": "gate:computer-use-longrun",
+      "scope": "gate:computer-use-longrun",
+      "required": true
+    },
+    {
+      "id": "longhost-chaos",
+      "claimId": "gate:longhost-chaos",
+      "scope": "gate:longhost-chaos",
+      "required": true
+    },
+    {
+      "id": "synthetic-soak",
+      "claimId": "gate:synthetic-soak",
+      "scope": "gate:synthetic-soak",
+      "required": true
+    },
+    {
+      "id": "combined-acceptance",
+      "claimId": "gate:combined-acceptance",
+      "scope": "gate:combined-acceptance",
+      "required": true
+    },
+    {
+      "id": "post-test-audit",
+      "claimId": "gate:post-test-audit",
+      "scope": "gate:post-test-audit",
+      "required": true
+    },
+    {
+      "id": "evidence-consistency",
+      "claimId": "gate:evidence-consistency",
+      "scope": "gate:evidence-consistency",
+      "required": true
+    }
+  ],
+  "claimGraph": {
+    "nodes": [
+      "qualification:whole",
+      "gate:syntax-check",
+      "gate:all-unit-tests",
+      "gate:architecture-verifier",
+      "gate:external-fixtures",
+      "gate:install-pipeline",
+      "gate:cordis-adapter",
+      "gate:process-adapter",
+      "gate:native-hns-adapter",
+      "gate:health-restart-continuity",
+      "gate:community-installer",
+      "gate:electron-ui-acceptance",
+      "gate:computer-use-longrun",
+      "gate:longhost-chaos",
+      "gate:synthetic-soak",
+      "gate:combined-acceptance",
+      "gate:post-test-audit",
+      "gate:evidence-consistency"
+    ],
+    "edges": [
+      [
+        "gate:syntax-check",
+        "qualification:whole"
+      ],
+      [
+        "gate:all-unit-tests",
+        "qualification:whole"
+      ],
+      [
+        "gate:architecture-verifier",
+        "qualification:whole"
+      ],
+      [
+        "gate:external-fixtures",
+        "qualification:whole"
+      ],
+      [
+        "gate:install-pipeline",
+        "qualification:whole"
+      ],
+      [
+        "gate:cordis-adapter",
+        "qualification:whole"
+      ],
+      [
+        "gate:process-adapter",
+        "qualification:whole"
+      ],
+      [
+        "gate:native-hns-adapter",
+        "qualification:whole"
+      ],
+      [
+        "gate:health-restart-continuity",
+        "qualification:whole"
+      ],
+      [
+        "gate:community-installer",
+        "qualification:whole"
+      ],
+      [
+        "gate:electron-ui-acceptance",
+        "qualification:whole"
+      ],
+      [
+        "gate:computer-use-longrun",
+        "qualification:whole"
+      ],
+      [
+        "gate:longhost-chaos",
+        "qualification:whole"
+      ],
+      [
+        "gate:synthetic-soak",
+        "qualification:whole"
+      ],
+      [
+        "gate:combined-acceptance",
+        "qualification:whole"
+      ],
+      [
+        "gate:post-test-audit",
+        "qualification:whole"
+      ],
+      [
+        "gate:evidence-consistency",
+        "qualification:whole"
+      ]
+    ]
+  },
+  "requestedClaim": "qualification:whole",
+  "admissibleTypes": {
+    "types": [
+      "archived-qualification-record"
+    ],
+    "provenance": [
+      "repository-archive"
+    ]
+  }
+}

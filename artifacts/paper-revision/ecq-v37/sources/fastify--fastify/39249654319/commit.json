@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-19T11:25:54Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "committer": {
+    "date": "2026-10-19T11:25:54Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/f5d01391e90b2e1d5d1c34a9d59ea529a10a55c3",
+  "message": "feat!: fail closed when a response content type is not declared in the content map\n\nWhen a route declares a per-media-type (`content`) response schema but the\nresponse `Content-Type` is neither a declared key nor `*/*`, the payload was\npreviously serialized with a raw `JSON.stringify`. That fallback bypassed the\nresponse schema and could expose fields the schema was meant to strip.\n\nThe route response path now fails closed. If the response content type is not\ndeclared and no `*/*` catch-all matches, `getSchemaSerializer` throws\n`FST_ERR_MISSING_CONTENTTYPE_SERIALIZATION_FN` and the reply is a `500`,\nsurfacing the misconfiguration instead of silently returning unsanitized data.\n\nThe error handler call path is unchanged: it still resolves the default error\nserializer (requesting `failClosed: false`), so error responses are unaffected.",
+  "node_id": "C_kwDOBCRpgtoAKGY1ZDAxMzkxZTkwYjJlMWQ1ZDFjMzRhOWQ1OWVhNTI5YTEwYTU1YzM",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/2cbb98e25f75e23cf8dafedc9a111943f2888669",
+      "sha": "2cbb98e25f75e23cf8dafedc9a111943f2888669",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/2cbb98e25f75e23cf8dafedc9a111943f2888669"
+    }
+  ],
+  "sha": "f5d01391e90b2e1d5d1c34a9d59ea529a10a55c3",
+  "tree": {
+    "sha": "335d377d1d1abdf85112cb9e989cffa8fb4c61af",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/335d377d1d1abdf85112cb9e989cffa8fb4c61af"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/f5d01391e90b2e1d5d1c34a9d59ea529a10a55c3",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

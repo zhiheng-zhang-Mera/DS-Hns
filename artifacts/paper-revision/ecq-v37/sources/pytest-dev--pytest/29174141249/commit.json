@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-07-07T14:43:21Z",
+    "email": "bruno@pytest.org",
+    "name": "Bruno Oliveira"
+  },
+  "committer": {
+    "date": "2026-07-07T14:43:21Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/efc013416e45d9162dc00dca9e4a83e1ef1c4089",
+  "message": "Merge pull request #14682 from The-Compiler/doc-ai-slop\n\nFix AI slop issues in docs",
+  "node_id": "C_kwDOAjwLddoAKGVmYzAxMzQxNmU0NWQ5MTYyZGMwMGRjYTllNGE4M2UxZWYxYzQwODk",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/96238a4683b12afeabee534430306dfe38fcdb7b",
+      "sha": "96238a4683b12afeabee534430306dfe38fcdb7b",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/96238a4683b12afeabee534430306dfe38fcdb7b"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/1027dee0156aa4928a1d09d3eac91d20c6a1b306",
+      "sha": "1027dee0156aa4928a1d09d3eac91d20c6a1b306",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/1027dee0156aa4928a1d09d3eac91d20c6a1b306"
+    }
+  ],
+  "sha": "efc013416e45d9162dc00dca9e4a83e1ef1c4089",
+  "tree": {
+    "sha": "45aef4c94b8a875683c50df83578c14edb77acfb",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/45aef4c94b8a875683c50df83578c14edb77acfb"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/efc013416e45d9162dc00dca9e4a83e1ef1c4089",
+  "verification": {
+    "payload": "tree 45aef4c94b8a875683c50df83578c14edb77acfb\nparent 96238a4683b12afeabee534430306dfe38fcdb7b\nparent 1027dee0156aa4928a1d09d3eac91d20c6a1b306\nauthor Bruno Oliveira <bruno@pytest.org> 1783435401 -0300\ncommitter GitHub <noreply@github.com> 1783435401 -0300\n\nMerge pull request #14682 from The-Compiler/doc-ai-slop\n\nFix AI slop issues in docs",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqTRCJCRC1aQ7uu5UhlAAAm9sQAD/7Qu/UcX/zsbJ18FgyhWGs\nooaIkRRXfymNcBvVv3IJX/YEOJ65GaTEZw8FzpDTsry2b+0tm5AVIcNj+7v+Xr4F\n5M9ax4SubvHCRHYuXPIJ9nY5KNFB6AiaWr5r/XTrGUm0X1T91ep0/RW10cMI6c95\nMyOi6bCWJFYrYNoqetji/P3klcc6yIWGfMbgJLNMf/Wexw8xk3vOP7A1QqpULtQX\nHPlKr9uS3NEnL74HSHTxVhTeFVQtnXZPJ3P5X4r8ziVTVjBC3XjzAwsHusgJOcpa\nOXWCXZOvqXCCKiXjd/+inYgvg06mpUKrLm5h19IEM8riSLN3ZFSWAZY3O1xREsig\n/VLvrE6u+J1Oa3gbAHIgNlErSYqr5OUEK6f//Mr+20HLKmDnbU86kxqdhTMlO9hQ\nIaiLeg4trMlKDi7EuT8o5aiBdk/63CicJZ0qcBgJcFpcwhxDTbF+XqVEFvO99Rw3\nevmzuTUPnuCMKBCgjA5E7AXJnVDlASJponm1/firKCSs3H9QDdyKIyudhjFD4WvY\nLHqed+DYSOPbL5otLlYonsTknSzus8lU2VY3/1tq84oscFrkKV4o9L86fdKpd+n3\n5dOOuBElviaPqzr25jh+NX3y18DIQ4wha+mPkoSd6EiykWsLmAvo+uc8EE39w0CE\niOBoIpamyq4INlwnFl/i\n=/CAZ\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-07-07T14:43:21Z"
+  }
+}

@@ -1,0 +1,432 @@
+{
+  "eventContext": {
+    "event_name": "push",
+    "repository_owner": "fastify"
+  },
+  "mappingSpec": {
+    "artifacts": {
+      "119139539323": {
+        "path": "job-119139539323.json",
+        "sha256": "17e804f10cfce5779bf991bab5d950e48d0afe21dc39c02e51d30784b12a4252"
+      }
+    },
+    "caseId": "d231e362f379b6a6f2f9",
+    "configurationDigest": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee",
+    "repositoryId": "fastify/fastify",
+    "tree": "f818e02459085147bfb18c1e4a0228fa09b35f1a"
+  },
+  "record": {
+    "jobs": [
+      {
+        "check_run_url": "https://api.github.com/repos/fastify/fastify/check-runs/119139539323",
+        "completed_at": "2026-10-21T09:14:55Z",
+        "conclusion": "success",
+        "created_at": "2026-10-21T09:14:21Z",
+        "head_branch": "fix/content-schema-case-canonicalization",
+        "head_sha": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+        "html_url": "https://github.com/fastify/fastify/actions/runs/39575395079/job/119139539323",
+        "id": 119139539323,
+        "labels": [
+          "ubuntu-latest"
+        ],
+        "name": "Lint Markdown",
+        "node_id": "CR_kwDOBCRpgs8AAAAbvUUZew",
+        "run_attempt": 1,
+        "run_id": 39575395079,
+        "run_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions",
+        "runner_id": 1000219229,
+        "runner_name": "GitHub Actions 1000219229",
+        "started_at": "2026-10-21T09:14:24Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completed_at": "2026-10-21T09:14:26Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "started_at": "2026-10-21T09:14:25Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:28Z",
+            "conclusion": "success",
+            "name": "Checkout Code",
+            "number": 2,
+            "started_at": "2026-10-21T09:14:26Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:29Z",
+            "conclusion": "success",
+            "name": "Setup Node",
+            "number": 3,
+            "started_at": "2026-10-21T09:14:28Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:50Z",
+            "conclusion": "success",
+            "name": "Install Linter",
+            "number": 4,
+            "started_at": "2026-10-21T09:14:29Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:51Z",
+            "conclusion": "success",
+            "name": "Add Matcher",
+            "number": 5,
+            "started_at": "2026-10-21T09:14:50Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:52Z",
+            "conclusion": "success",
+            "name": "Run Linter",
+            "number": 6,
+            "started_at": "2026-10-21T09:14:51Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:52Z",
+            "conclusion": "success",
+            "name": "Post Setup Node",
+            "number": 11,
+            "started_at": "2026-10-21T09:14:52Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:52Z",
+            "conclusion": "success",
+            "name": "Post Checkout Code",
+            "number": 12,
+            "started_at": "2026-10-21T09:14:52Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-10-21T09:14:52Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 13,
+            "started_at": "2026-10-21T09:14:52Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://api.github.com/repos/fastify/fastify/actions/jobs/119139539323",
+        "workflow_name": "Lint Docs"
+      }
+    ],
+    "run": {
+      "actor": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/11542387?v=4",
+        "events_url": "https://api.github.com/users/Tony133/events{/privacy}",
+        "followers_url": "https://api.github.com/users/Tony133/followers",
+        "following_url": "https://api.github.com/users/Tony133/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Tony133/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/Tony133",
+        "id": 11542387,
+        "login": "Tony133",
+        "node_id": "MDQ6VXNlcjExNTQyMzg3",
+        "organizations_url": "https://api.github.com/users/Tony133/orgs",
+        "received_events_url": "https://api.github.com/users/Tony133/received_events",
+        "repos_url": "https://api.github.com/users/Tony133/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/Tony133/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Tony133/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/Tony133",
+        "user_view_type": "public"
+      },
+      "artifacts_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079/artifacts",
+      "cancel_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079/cancel",
+      "check_suite_id": 107246221505,
+      "check_suite_node_id": "CS_kwDOBCRpgs8AAAAY-F94wQ",
+      "check_suite_url": "https://api.github.com/repos/fastify/fastify/check-suites/107246221505",
+      "conclusion": "success",
+      "created_at": "2026-10-21T09:14:21Z",
+      "display_title": "Merge branch 'main' into fix/content-schema-case-canonicalization",
+      "event": "push",
+      "head_branch": "fix/content-schema-case-canonicalization",
+      "head_commit": {
+        "author": {
+          "email": "Tony133@users.noreply.github.com",
+          "name": "Antonio Tripodi"
+        },
+        "committer": {
+          "email": "noreply@github.com",
+          "name": "GitHub"
+        },
+        "id": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+        "message": "Merge branch 'main' into fix/content-schema-case-canonicalization\n\nSigned-off-by: Antonio Tripodi <Tony133@users.noreply.github.com>",
+        "timestamp": "2026-10-21T09:14:18Z",
+        "tree_id": "f818e02459085147bfb18c1e4a0228fa09b35f1a"
+      },
+      "head_repository": {
+        "archive_url": "https://api.github.com/repos/fastify/fastify/{archive_format}{/ref}",
+        "assignees_url": "https://api.github.com/repos/fastify/fastify/assignees{/user}",
+        "blobs_url": "https://api.github.com/repos/fastify/fastify/git/blobs{/sha}",
+        "branches_url": "https://api.github.com/repos/fastify/fastify/branches{/branch}",
+        "collaborators_url": "https://api.github.com/repos/fastify/fastify/collaborators{/collaborator}",
+        "comments_url": "https://api.github.com/repos/fastify/fastify/comments{/number}",
+        "commits_url": "https://api.github.com/repos/fastify/fastify/commits{/sha}",
+        "compare_url": "https://api.github.com/repos/fastify/fastify/compare/{base}...{head}",
+        "contents_url": "https://api.github.com/repos/fastify/fastify/contents/{+path}",
+        "contributors_url": "https://api.github.com/repos/fastify/fastify/contributors",
+        "deployments_url": "https://api.github.com/repos/fastify/fastify/deployments",
+        "description": "Fast and low overhead web framework, for Node.js",
+        "downloads_url": "https://api.github.com/repos/fastify/fastify/downloads",
+        "events_url": "https://api.github.com/repos/fastify/fastify/events",
+        "fork": false,
+        "forks_url": "https://api.github.com/repos/fastify/fastify/forks",
+        "full_name": "fastify/fastify",
+        "git_commits_url": "https://api.github.com/repos/fastify/fastify/git/commits{/sha}",
+        "git_refs_url": "https://api.github.com/repos/fastify/fastify/git/refs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/fastify/fastify/git/tags{/sha}",
+        "hooks_url": "https://api.github.com/repos/fastify/fastify/hooks",
+        "html_url": "https://github.com/fastify/fastify",
+        "id": 69495170,
+        "issue_comment_url": "https://api.github.com/repos/fastify/fastify/issues/comments{/number}",
+        "issue_events_url": "https://api.github.com/repos/fastify/fastify/issues/events{/number}",
+        "issues_url": "https://api.github.com/repos/fastify/fastify/issues{/number}",
+        "keys_url": "https://api.github.com/repos/fastify/fastify/keys{/key_id}",
+        "labels_url": "https://api.github.com/repos/fastify/fastify/labels{/name}",
+        "languages_url": "https://api.github.com/repos/fastify/fastify/languages",
+        "merges_url": "https://api.github.com/repos/fastify/fastify/merges",
+        "milestones_url": "https://api.github.com/repos/fastify/fastify/milestones{/number}",
+        "name": "fastify",
+        "node_id": "MDEwOlJlcG9zaXRvcnk2OTQ5NTE3MA==",
+        "notifications_url": "https://api.github.com/repos/fastify/fastify/notifications{?since,all,participating}",
+        "owner": {
+          "avatar_url": "https://avatars.githubusercontent.com/u/24939410?v=4",
+          "events_url": "https://api.github.com/users/fastify/events{/privacy}",
+          "followers_url": "https://api.github.com/users/fastify/followers",
+          "following_url": "https://api.github.com/users/fastify/following{/other_user}",
+          "gists_url": "https://api.github.com/users/fastify/gists{/gist_id}",
+          "gravatar_id": "",
+          "html_url": "https://github.com/fastify",
+          "id": 24939410,
+          "login": "fastify",
+          "node_id": "MDEyOk9yZ2FuaXphdGlvbjI0OTM5NDEw",
+          "organizations_url": "https://api.github.com/users/fastify/orgs",
+          "received_events_url": "https://api.github.com/users/fastify/received_events",
+          "repos_url": "https://api.github.com/users/fastify/repos",
+          "site_admin": false,
+          "starred_url": "https://api.github.com/users/fastify/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/fastify/subscriptions",
+          "type": "Organization",
+          "url": "https://api.github.com/users/fastify",
+          "user_view_type": "public"
+        },
+        "private": false,
+        "pulls_url": "https://api.github.com/repos/fastify/fastify/pulls{/number}",
+        "releases_url": "https://api.github.com/repos/fastify/fastify/releases{/id}",
+        "stargazers_url": "https://api.github.com/repos/fastify/fastify/stargazers",
+        "statuses_url": "https://api.github.com/repos/fastify/fastify/statuses/{sha}",
+        "subscribers_url": "https://api.github.com/repos/fastify/fastify/subscribers",
+        "subscription_url": "https://api.github.com/repos/fastify/fastify/subscription",
+        "tags_url": "https://api.github.com/repos/fastify/fastify/tags",
+        "teams_url": "https://api.github.com/repos/fastify/fastify/teams",
+        "trees_url": "https://api.github.com/repos/fastify/fastify/git/trees{/sha}",
+        "url": "https://api.github.com/repos/fastify/fastify"
+      },
+      "head_sha": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+      "html_url": "https://github.com/fastify/fastify/actions/runs/39575395079",
+      "id": 39575395079,
+      "jobs_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079/jobs",
+      "logs_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079/logs",
+      "name": "Lint Docs",
+      "node_id": "WFR_kwLOBCRpgs8AAAAJNuCbBw",
+      "path": ".github/workflows/md-lint.yml",
+      "previous_attempt_url": null,
+      "pull_requests": [
+        {
+          "base": {
+            "ref": "main",
+            "repo": {
+              "id": 69495170,
+              "name": "fastify",
+              "url": "https://api.github.com/repos/fastify/fastify"
+            },
+            "sha": "e61a91e73bed771396d8ae7365b5d3ca2501e624"
+          },
+          "head": {
+            "ref": "fix/content-schema-case-canonicalization",
+            "repo": {
+              "id": 69495170,
+              "name": "fastify",
+              "url": "https://api.github.com/repos/fastify/fastify"
+            },
+            "sha": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6"
+          },
+          "id": 4319840217,
+          "number": 6969,
+          "url": "https://api.github.com/repos/fastify/fastify/pulls/6969"
+        }
+      ],
+      "referenced_workflows": [],
+      "repository": {
+        "archive_url": "https://api.github.com/repos/fastify/fastify/{archive_format}{/ref}",
+        "assignees_url": "https://api.github.com/repos/fastify/fastify/assignees{/user}",
+        "blobs_url": "https://api.github.com/repos/fastify/fastify/git/blobs{/sha}",
+        "branches_url": "https://api.github.com/repos/fastify/fastify/branches{/branch}",
+        "collaborators_url": "https://api.github.com/repos/fastify/fastify/collaborators{/collaborator}",
+        "comments_url": "https://api.github.com/repos/fastify/fastify/comments{/number}",
+        "commits_url": "https://api.github.com/repos/fastify/fastify/commits{/sha}",
+        "compare_url": "https://api.github.com/repos/fastify/fastify/compare/{base}...{head}",
+        "contents_url": "https://api.github.com/repos/fastify/fastify/contents/{+path}",
+        "contributors_url": "https://api.github.com/repos/fastify/fastify/contributors",
+        "deployments_url": "https://api.github.com/repos/fastify/fastify/deployments",
+        "description": "Fast and low overhead web framework, for Node.js",
+        "downloads_url": "https://api.github.com/repos/fastify/fastify/downloads",
+        "events_url": "https://api.github.com/repos/fastify/fastify/events",
+        "fork": false,
+        "forks_url": "https://api.github.com/repos/fastify/fastify/forks",
+        "full_name": "fastify/fastify",
+        "git_commits_url": "https://api.github.com/repos/fastify/fastify/git/commits{/sha}",
+        "git_refs_url": "https://api.github.com/repos/fastify/fastify/git/refs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/fastify/fastify/git/tags{/sha}",
+        "hooks_url": "https://api.github.com/repos/fastify/fastify/hooks",
+        "html_url": "https://github.com/fastify/fastify",
+        "id": 69495170,
+        "issue_comment_url": "https://api.github.com/repos/fastify/fastify/issues/comments{/number}",
+        "issue_events_url": "https://api.github.com/repos/fastify/fastify/issues/events{/number}",
+        "issues_url": "https://api.github.com/repos/fastify/fastify/issues{/number}",
+        "keys_url": "https://api.github.com/repos/fastify/fastify/keys{/key_id}",
+        "labels_url": "https://api.github.com/repos/fastify/fastify/labels{/name}",
+        "languages_url": "https://api.github.com/repos/fastify/fastify/languages",
+        "merges_url": "https://api.github.com/repos/fastify/fastify/merges",
+        "milestones_url": "https://api.github.com/repos/fastify/fastify/milestones{/number}",
+        "name": "fastify",
+        "node_id": "MDEwOlJlcG9zaXRvcnk2OTQ5NTE3MA==",
+        "notifications_url": "https://api.github.com/repos/fastify/fastify/notifications{?since,all,participating}",
+        "owner": {
+          "avatar_url": "https://avatars.githubusercontent.com/u/24939410?v=4",
+          "events_url": "https://api.github.com/users/fastify/events{/privacy}",
+          "followers_url": "https://api.github.com/users/fastify/followers",
+          "following_url": "https://api.github.com/users/fastify/following{/other_user}",
+          "gists_url": "https://api.github.com/users/fastify/gists{/gist_id}",
+          "gravatar_id": "",
+          "html_url": "https://github.com/fastify",
+          "id": 24939410,
+          "login": "fastify",
+          "node_id": "MDEyOk9yZ2FuaXphdGlvbjI0OTM5NDEw",
+          "organizations_url": "https://api.github.com/users/fastify/orgs",
+          "received_events_url": "https://api.github.com/users/fastify/received_events",
+          "repos_url": "https://api.github.com/users/fastify/repos",
+          "site_admin": false,
+          "starred_url": "https://api.github.com/users/fastify/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/fastify/subscriptions",
+          "type": "Organization",
+          "url": "https://api.github.com/users/fastify",
+          "user_view_type": "public"
+        },
+        "private": false,
+        "pulls_url": "https://api.github.com/repos/fastify/fastify/pulls{/number}",
+        "releases_url": "https://api.github.com/repos/fastify/fastify/releases{/id}",
+        "stargazers_url": "https://api.github.com/repos/fastify/fastify/stargazers",
+        "statuses_url": "https://api.github.com/repos/fastify/fastify/statuses/{sha}",
+        "subscribers_url": "https://api.github.com/repos/fastify/fastify/subscribers",
+        "subscription_url": "https://api.github.com/repos/fastify/fastify/subscription",
+        "tags_url": "https://api.github.com/repos/fastify/fastify/tags",
+        "teams_url": "https://api.github.com/repos/fastify/fastify/teams",
+        "trees_url": "https://api.github.com/repos/fastify/fastify/git/trees{/sha}",
+        "url": "https://api.github.com/repos/fastify/fastify"
+      },
+      "rerun_url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079/rerun",
+      "run_attempt": 1,
+      "run_number": 3450,
+      "run_started_at": "2026-10-21T09:14:21Z",
+      "status": "completed",
+      "triggering_actor": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/11542387?v=4",
+        "events_url": "https://api.github.com/users/Tony133/events{/privacy}",
+        "followers_url": "https://api.github.com/users/Tony133/followers",
+        "following_url": "https://api.github.com/users/Tony133/following{/other_user}",
+        "gists_url": "https://api.github.com/users/Tony133/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/Tony133",
+        "id": 11542387,
+        "login": "Tony133",
+        "node_id": "MDQ6VXNlcjExNTQyMzg3",
+        "organizations_url": "https://api.github.com/users/Tony133/orgs",
+        "received_events_url": "https://api.github.com/users/Tony133/received_events",
+        "repos_url": "https://api.github.com/users/Tony133/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/Tony133/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/Tony133/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/Tony133",
+        "user_view_type": "public"
+      },
+      "updated_at": "2026-10-21T09:14:55Z",
+      "url": "https://api.github.com/repos/fastify/fastify/actions/runs/39575395079",
+      "workflow_id": 27885020,
+      "workflow_url": "https://api.github.com/repos/fastify/fastify/actions/workflows/27885020"
+    }
+  },
+  "workflow": {
+    "jobs": {
+      "build": {
+        "name": "Lint Markdown",
+        "permissions": {
+          "contents": "read"
+        },
+        "runs-on": "ubuntu-latest",
+        "steps": [
+          {
+            "name": "Checkout Code",
+            "uses": "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "with": {
+              "persist-credentials": "false"
+            }
+          },
+          {
+            "name": "Setup Node",
+            "uses": "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+            "with": {
+              "check-latest": "true",
+              "node-version": "lts/*"
+            }
+          },
+          {
+            "name": "Install Linter",
+            "run": "npm install --ignore-scripts"
+          },
+          {
+            "name": "Add Matcher",
+            "uses": "xt0rted/markdownlint-problem-matcher@1a5fabfb577370cfdf5af944d418e4be3ea06f27"
+          },
+          {
+            "name": "Run Linter",
+            "run": "./node_modules/.bin/markdownlint-cli2"
+          }
+        ]
+      }
+    },
+    "name": "Lint Docs",
+    "on": {
+      "pull_request": {
+        "branches": [
+          "main"
+        ],
+        "paths": [
+          "**/*.md"
+        ]
+      },
+      "push": {
+        "branches-ignore": [
+          "main"
+        ],
+        "paths": [
+          "**/*.md"
+        ]
+      }
+    },
+    "permissions": {
+      "contents": "read"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-10-24T19:56:06Z",
+    "email": "opensource@ronnypfannschmidt.de",
+    "name": "Ronny Pfannschmidt"
+  },
+  "committer": {
+    "date": "2026-10-24T19:56:06Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/0f54d41bedf00505bb1ac2c724abf96ba6dcf48d",
+  "message": "Merge pull request #15193 from paneendrakumar0/expose-parameterset-13431\n\nfeat(mark): expose `pytest.ParameterSet` in public API (#13431)",
+  "node_id": "C_kwDOAjwLddoAKDBmNTRkNDFiZWRmMDA1MDViYjFhYzJjNzI0YWJmOTZiYTZkY2Y0OGQ",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/4088e1a84ef1cb8ba80aac4e75449459fc092c12",
+      "sha": "4088e1a84ef1cb8ba80aac4e75449459fc092c12",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/4088e1a84ef1cb8ba80aac4e75449459fc092c12"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/e84596392cf61d3dc2a9ea32009e73a65fdb2132",
+      "sha": "e84596392cf61d3dc2a9ea32009e73a65fdb2132",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/e84596392cf61d3dc2a9ea32009e73a65fdb2132"
+    }
+  ],
+  "sha": "0f54d41bedf00505bb1ac2c724abf96ba6dcf48d",
+  "tree": {
+    "sha": "d2ab21025cac52250c44e21140d0c468a33ca253",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/d2ab21025cac52250c44e21140d0c468a33ca253"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/0f54d41bedf00505bb1ac2c724abf96ba6dcf48d",
+  "verification": {
+    "payload": "tree d2ab21025cac52250c44e21140d0c468a33ca253\nparent 4088e1a84ef1cb8ba80aac4e75449459fc092c12\nparent e84596392cf61d3dc2a9ea32009e73a65fdb2132\nauthor Ronny Pfannschmidt <opensource@ronnypfannschmidt.de> 1792871766 -0400\ncommitter GitHub <noreply@github.com> 1792871766 -0400\n\nMerge pull request #15193 from paneendrakumar0/expose-parameterset-13431\n\nfeat(mark): expose `pytest.ParameterSet` in public API (#13431)",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq3Q1WCRC1aQ7uu5UhlAAAXPMQAKyR+rO2Sbzcd4aUtO6T7W6S\nJn0nXtc8b3qI+El2bZVzwlFeVuZ0KOXqPa3muMhyXd0yc43lmV3IkHK/YeQTHFYl\niqligFDNcrI3Pn5HR8eMhliH1U0JthweHnQXlzPnizyl/zmkI/c6g9V+85nIfzwf\nHCslEotNcFFUY/g6523fXOpT8sAjG9z945LIfN4jdwwovozTxoavZQXsxQEg7ZlW\njKkVy5wAArpLQrPqhGXfn1twM/QnjyGPHkxVoEIBCScRVNOsxgyalyvk0G6YqzqR\nM/bsxtB/Mk7Q/tAj9LSU2A9noI4E2rio2JDn31vge/ebX2olyits8mXmh7ww0765\n4kDj1K/YAVU8TLUqVzOkERXAyThY1SMT9HOizekNyr7NsUe4CwZ8O+ympvbIJ2X9\n/+tcjevJOZo+v1jrLbF3hpULGe1JE0AxRZUzl16tr2lMNxUKCofi03DEsUizRTKL\nPw0gCYjHSGSVpPdxbvzOCZRsCvT6fwXITfTqxHtowf0hKxJ67MH8aT1z9JJZ6Hi2\nq2YSoQeCM4JyxBcb8u6AIsg95sBClhVgtcrkP8x0vX1tiEV7l9PeBVom/+FOQbFq\nEMYN/xnyDo8xg39H0I6CRSyhDNV95ua8zF6MNoL1sbd3Ws+nzQNgZKdMvApptXuZ\nMZ091TrGXoMsIm/Sy7Sn\n=z5v5\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-24T19:56:07Z"
+  }
+}

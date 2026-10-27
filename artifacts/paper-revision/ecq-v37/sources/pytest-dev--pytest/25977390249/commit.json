@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-05-14T13:47:53Z",
+    "email": "yastcher@gmail.com",
+    "name": "Yast"
+  },
+  "committer": {
+    "date": "2026-05-14T13:47:53Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/8571cf8d44a390c4c61f82c9b5a825ae393b1203",
+  "message": "Deprecate `self` in class-scoped fixtures on base classes (#14071)\n\nCloses #14011\nCloses #10819",
+  "node_id": "C_kwDOAjwLddoAKDg1NzFjZjhkNDRhMzkwYzRjNjFmODJjOWI1YTgyNWFlMzkzYjEyMDM",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/21be7a259424e509e3d667082a138bcc8fc45c00",
+      "sha": "21be7a259424e509e3d667082a138bcc8fc45c00",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/21be7a259424e509e3d667082a138bcc8fc45c00"
+    }
+  ],
+  "sha": "8571cf8d44a390c4c61f82c9b5a825ae393b1203",
+  "tree": {
+    "sha": "8eb2e8aa56bea86ab2d6c3c1cd05e865b82a0e23",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/8eb2e8aa56bea86ab2d6c3c1cd05e865b82a0e23"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/8571cf8d44a390c4c61f82c9b5a825ae393b1203",
+  "verification": {
+    "payload": "tree 8eb2e8aa56bea86ab2d6c3c1cd05e865b82a0e23\nparent 21be7a259424e509e3d667082a138bcc8fc45c00\nauthor Yast <yastcher@gmail.com> 1778766473 +0300\ncommitter GitHub <noreply@github.com> 1778766473 +0000\n\nDeprecate `self` in class-scoped fixtures on base classes (#14071)\n\nCloses #14011\nCloses #10819",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqBdKJCRC1aQ7uu5UhlAAA4BYQAHCdFYjw4NgSwilOBtc69q30\nlXwyr8yVLZKBCsbfHR4nxpua1DmfDC8vT/SiWcBMsA4y3kq4U4zym+ouFGOysfcj\nwxWeXD1sbkZEG7MCfTN479anzWDan0CwmOnOuxL3UoazchPWjA/vO2Pv3BQgzox5\nm3DjuNNn21rCLrEEklH/UjbftTsbLP90Gx6EUtG9Jq/84Y8XBe9ZzoKS05cDshNv\nqoPwf5Dvxhe0E1/cWDUi7Mcf+B/w5oqttbUKTGE7w0VHZH7fzpcSTWbo2iSQSm0h\nsclHeXPAT+7gkCLM9gh8eZBs7deR8AhqMB2pyr2w05VJR+RKrWSRfP2FsgHLFbfr\n88AZwGTjUvkL6WBBDrKEIMssVE5uNcJY2eFN8Mq/LXdjsYEpjur+2qyWIopQeHS1\nNnwRX05if4nWhy5VTH6secxGsjpHRaF8B6F/qZBNBySaPtSYKXYZdK543u/Ip5Qf\nzeSpRSYKpwQFUsZg7xguSM0I2bYGAwaR7uksv6pZlI950VFq6OCWN4zUEtG3Sgtm\nBnYWi+p+nRMi3dPwuJHKegh+h2dkSoXUg6GPgxcCr0gVb0i8W9q8Td1zuPfOM/t5\nDihhhYkt2AieyGZKoNMQEh/McqOw5Z73XSAJRmxLkZ6izW5DGqvLFyCguS3iufI4\nfWM+fdlvM4fr6kHYOq7k\n=jJ19\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-05-14T13:47:53Z"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-08-06T12:47:32Z",
+    "email": "opensource@ronnypfannschmidt.de",
+    "name": "Ronny Pfannschmidt"
+  },
+  "committer": {
+    "date": "2026-08-06T12:47:32Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/28e86a6c2ae0173831e4925a4af89b02a2936d09",
+  "message": "Merge pull request #14807 from RonnyPfannschmidt/refactor/config-file-dispatch\n\nrefactor: dispatch config file loading by filename, then suffix",
+  "node_id": "C_kwDOAjwLddoAKDI4ZTg2YTZjMmFlMDE3MzgzMWU0OTI1YTRhZjg5YjAyYTI5MzZkMDk",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/9072c4b7bb0832f6d752520a762469babe7a0c44",
+      "sha": "9072c4b7bb0832f6d752520a762469babe7a0c44",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/9072c4b7bb0832f6d752520a762469babe7a0c44"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/d5ef28ce51cf883669401766cbdaf504f3de7df2",
+      "sha": "d5ef28ce51cf883669401766cbdaf504f3de7df2",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/d5ef28ce51cf883669401766cbdaf504f3de7df2"
+    }
+  ],
+  "sha": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+  "tree": {
+    "sha": "2947e834e0e3fc2d524bc96e17da4c965eb0a2bf",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/2947e834e0e3fc2d524bc96e17da4c965eb0a2bf"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/28e86a6c2ae0173831e4925a4af89b02a2936d09",
+  "verification": {
+    "payload": "tree 2947e834e0e3fc2d524bc96e17da4c965eb0a2bf\nparent 9072c4b7bb0832f6d752520a762469babe7a0c44\nparent d5ef28ce51cf883669401766cbdaf504f3de7df2\nauthor Ronny Pfannschmidt <opensource@ronnypfannschmidt.de> 1786020452 +0200\ncommitter GitHub <noreply@github.com> 1786020452 +0200\n\nMerge pull request #14807 from RonnyPfannschmidt/refactor/config-file-dispatch\n\nrefactor: dispatch config file loading by filename, then suffix",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqdIJkCRC1aQ7uu5UhlAAAhaMQADl0CA2lolMZaYNvxR50lHPW\nkuNHBMoRDrbWdn3TwnS53UFnAMy4CsuEtflYw9W0krqVER+X6hK5DJnSr0yuVJ80\nj+uz6IisbIQMiPoS05fDUwDLjgbj4WCWmi6vfDS+8bey+/not+nZgOQTU/0IOJVd\nKhUWjr6mefmYDU0ofzA/fPfA34VozRiiwckETGH106XfLnmqVWRLtF8I5f7Rhjcx\ncHqoprJg4paMq5NrU05HxdzXEdoRvuztUU2YCt2NDylaTfXUP1FKfrs7HbsyDQTY\nUXO6oazkczLGn5t5fDq4fwXusQ4pwa6/DGmZvR08Nr2po7TJ3qFOYKXC+7hq3tyI\nqfeXLL/p4cMtcJU5ntz7FPQjIPbVyD0KMWQrhX9V884C7h8J2UJmPJOCM4Oq01Zf\n06abYzMdy5KONGPQTQv4Qplu8pFYL065he9qF7RKc37/47zVahMwXGFkyaCtLjKV\nPkJLOFoLSqgFbONFtWhBG2SZiKJR/NqF2xz7dbSQd5rxJHEG/A42L/rFkagbO8i2\nG+xKtd/0fj3TIfVD8Q75wdJHwZCwrPmPb5/CNqDMTDbkNtk8GuEkJOqzT3m0I3v1\nZt5T1VY5r09zUp+zM/Smo7R6XoxJ+GqJyB6TDaA+C9kc1C6q/jGJQpL3/xmGbVev\nEv54uJBnEV0vqBNKm6FI\n=ENsi\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-08-06T12:47:36Z"
+  }
+}

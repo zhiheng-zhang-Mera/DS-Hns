@@ -1,0 +1,1013 @@
+{
+  "bundle": {
+    "caseId": "R1",
+    "evidence": [
+      {
+        "id": "plugin-acceleration.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration.test.js",
+        "claimId": "gate:plugin-acceleration.test.js",
+        "scope": "gate:plugin-acceleration.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-acceleration-cache.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration-cache.test.js",
+        "claimId": "gate:plugin-acceleration-cache.test.js",
+        "scope": "gate:plugin-acceleration-cache.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration-cache.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-acceleration-high-performance.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration-high-performance.test.js",
+        "claimId": "gate:plugin-acceleration-high-performance.test.js",
+        "scope": "gate:plugin-acceleration-high-performance.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration-high-performance.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-acceleration-mounted.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration-mounted.test.js",
+        "claimId": "gate:plugin-acceleration-mounted.test.js",
+        "scope": "gate:plugin-acceleration-mounted.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration-mounted.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-acceleration-parallel.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration-parallel.test.js",
+        "claimId": "gate:plugin-acceleration-parallel.test.js",
+        "scope": "gate:plugin-acceleration-parallel.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration-parallel.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-acceleration-patch-first.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration-patch-first.test.js",
+        "claimId": "gate:plugin-acceleration-patch-first.test.js",
+        "scope": "gate:plugin-acceleration-patch-first.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration-patch-first.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-acceleration-persistent-tools.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-acceleration-persistent-tools.test.js",
+        "claimId": "gate:plugin-acceleration-persistent-tools.test.js",
+        "scope": "gate:plugin-acceleration-persistent-tools.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-acceleration-persistent-tools.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-compat.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-compat.test.js",
+        "claimId": "gate:plugin-compat.test.js",
+        "scope": "gate:plugin-compat.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-compat.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-ui-wiring.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-ui-wiring.test.js",
+        "claimId": "gate:plugin-ui-wiring.test.js",
+        "scope": "gate:plugin-ui-wiring.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-ui-wiring.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "ui-bilingual.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "ui-bilingual.test.js",
+        "claimId": "gate:ui-bilingual.test.js",
+        "scope": "gate:ui-bilingual.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "ui-bilingual.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "ui-layout-contract.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "ui-layout-contract.test.js",
+        "claimId": "gate:ui-layout-contract.test.js",
+        "scope": "gate:ui-layout-contract.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "ui-layout-contract.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "ui-panel-load.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "ui-panel-load.test.js",
+        "claimId": "gate:ui-panel-load.test.js",
+        "scope": "gate:ui-panel-load.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "ui-panel-load.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "mega-features.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "mega-features.test.js",
+        "claimId": "gate:mega-features.test.js",
+        "scope": "gate:mega-features.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "mega-features.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "mega-feature-wiring.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "mega-feature-wiring.test.js",
+        "claimId": "gate:mega-feature-wiring.test.js",
+        "scope": "gate:mega-feature-wiring.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "mega-feature-wiring.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "mega-plugin-manager.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "mega-plugin-manager.test.js",
+        "claimId": "gate:mega-plugin-manager.test.js",
+        "scope": "gate:mega-plugin-manager.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "mega-plugin-manager.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "mega-plugin-store.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "mega-plugin-store.test.js",
+        "claimId": "gate:mega-plugin-store.test.js",
+        "scope": "gate:mega-plugin-store.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "mega-plugin-store.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "mega-store-github.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "mega-store-github.test.js",
+        "claimId": "gate:mega-store-github.test.js",
+        "scope": "gate:mega-store-github.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "mega-store-github.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "mega-store-installer.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "mega-store-installer.test.js",
+        "claimId": "gate:mega-store-installer.test.js",
+        "scope": "gate:mega-store-installer.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "mega-store-installer.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      },
+      {
+        "id": "plugin-store-mount.test.js",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+          "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+        },
+        "runId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "gateId": "plugin-store-mount.test.js",
+        "claimId": "gate:plugin-store-mount.test.js",
+        "scope": "gate:plugin-store-mount.test.js",
+        "outcome": "PASS",
+        "evidenceType": "static-source-inspection",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "plugin-store-mount.test.js",
+            "path": "workflow-before.yml",
+            "objectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "expectedObjectId": "sha256:041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7",
+            "sha256": "041e19a57de06ddffec9de4e7c84ed5893da44f2688df9949f8ae48565e0d4e7"
+          }
+        ]
+      }
+    ]
+  },
+  "contract": {
+    "contractId": "historical-suite-coverage-profile",
+    "statePolicy": {
+      "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+      "commit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "tree": "19a3fd3c5dae0ab00a74779ae537275581fddbbc"
+    },
+    "runPolicy": {
+      "allowedRunIds": [
+        "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d"
+      ]
+    },
+    "requiredGates": [
+      {
+        "id": "plugin-acceleration.test.js",
+        "claimId": "gate:plugin-acceleration.test.js",
+        "scope": "gate:plugin-acceleration.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-acceleration-cache.test.js",
+        "claimId": "gate:plugin-acceleration-cache.test.js",
+        "scope": "gate:plugin-acceleration-cache.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-acceleration-high-performance.test.js",
+        "claimId": "gate:plugin-acceleration-high-performance.test.js",
+        "scope": "gate:plugin-acceleration-high-performance.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-acceleration-mounted.test.js",
+        "claimId": "gate:plugin-acceleration-mounted.test.js",
+        "scope": "gate:plugin-acceleration-mounted.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-acceleration-parallel.test.js",
+        "claimId": "gate:plugin-acceleration-parallel.test.js",
+        "scope": "gate:plugin-acceleration-parallel.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-acceleration-patch-first.test.js",
+        "claimId": "gate:plugin-acceleration-patch-first.test.js",
+        "scope": "gate:plugin-acceleration-patch-first.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-acceleration-persistent-tools.test.js",
+        "claimId": "gate:plugin-acceleration-persistent-tools.test.js",
+        "scope": "gate:plugin-acceleration-persistent-tools.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-compat.test.js",
+        "claimId": "gate:plugin-compat.test.js",
+        "scope": "gate:plugin-compat.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-ui-wiring.test.js",
+        "claimId": "gate:plugin-ui-wiring.test.js",
+        "scope": "gate:plugin-ui-wiring.test.js",
+        "required": true
+      },
+      {
+        "id": "ui-bilingual.test.js",
+        "claimId": "gate:ui-bilingual.test.js",
+        "scope": "gate:ui-bilingual.test.js",
+        "required": true
+      },
+      {
+        "id": "ui-layout-contract.test.js",
+        "claimId": "gate:ui-layout-contract.test.js",
+        "scope": "gate:ui-layout-contract.test.js",
+        "required": true
+      },
+      {
+        "id": "ui-panel-load.test.js",
+        "claimId": "gate:ui-panel-load.test.js",
+        "scope": "gate:ui-panel-load.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-features.test.js",
+        "claimId": "gate:mega-features.test.js",
+        "scope": "gate:mega-features.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-feature-wiring.test.js",
+        "claimId": "gate:mega-feature-wiring.test.js",
+        "scope": "gate:mega-feature-wiring.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-plugin-manager.test.js",
+        "claimId": "gate:mega-plugin-manager.test.js",
+        "scope": "gate:mega-plugin-manager.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-plugin-store.test.js",
+        "claimId": "gate:mega-plugin-store.test.js",
+        "scope": "gate:mega-plugin-store.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-store-github.test.js",
+        "claimId": "gate:mega-store-github.test.js",
+        "scope": "gate:mega-store-github.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-store-installer.test.js",
+        "claimId": "gate:mega-store-installer.test.js",
+        "scope": "gate:mega-store-installer.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-store-mount.test.js",
+        "claimId": "gate:plugin-store-mount.test.js",
+        "scope": "gate:plugin-store-mount.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-adapters-contract.test.js",
+        "claimId": "gate:plugin-adapters-contract.test.js",
+        "scope": "gate:plugin-adapters-contract.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-adapters-detection.test.js",
+        "claimId": "gate:plugin-adapters-detection.test.js",
+        "scope": "gate:plugin-adapters-detection.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-adapters-lifecycle.test.js",
+        "claimId": "gate:plugin-adapters-lifecycle.test.js",
+        "scope": "gate:plugin-adapters-lifecycle.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-adapters-framework.test.js",
+        "claimId": "gate:plugin-adapters-framework.test.js",
+        "scope": "gate:plugin-adapters-framework.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-adapters-fault-injection.test.js",
+        "claimId": "gate:plugin-adapters-fault-injection.test.js",
+        "scope": "gate:plugin-adapters-fault-injection.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-adapters-compatibility.test.js",
+        "claimId": "gate:plugin-adapters-compatibility.test.js",
+        "scope": "gate:plugin-adapters-compatibility.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-cordis-structure.test.js",
+        "claimId": "gate:plugin-cordis-structure.test.js",
+        "scope": "gate:plugin-cordis-structure.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-cordis-bridge.test.js",
+        "claimId": "gate:plugin-cordis-bridge.test.js",
+        "scope": "gate:plugin-cordis-bridge.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-cordis-dsh.test.js",
+        "claimId": "gate:plugin-cordis-dsh.test.js",
+        "scope": "gate:plugin-cordis-dsh.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-process-adapter.test.js",
+        "claimId": "gate:plugin-process-adapter.test.js",
+        "scope": "gate:plugin-process-adapter.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-hns-native.test.js",
+        "claimId": "gate:plugin-hns-native.test.js",
+        "scope": "gate:plugin-hns-native.test.js",
+        "required": true
+      },
+      {
+        "id": "plugin-install-pipeline.test.js",
+        "claimId": "gate:plugin-install-pipeline.test.js",
+        "scope": "gate:plugin-install-pipeline.test.js",
+        "required": true
+      },
+      {
+        "id": "mega-core-install-acceptance.test.js",
+        "claimId": "gate:mega-core-install-acceptance.test.js",
+        "scope": "gate:mega-core-install-acceptance.test.js",
+        "required": true
+      }
+    ],
+    "claimGraph": {
+      "nodes": [
+        "workflow:suite-assertion-membership",
+        "gate:plugin-acceleration.test.js",
+        "gate:plugin-acceleration-cache.test.js",
+        "gate:plugin-acceleration-high-performance.test.js",
+        "gate:plugin-acceleration-mounted.test.js",
+        "gate:plugin-acceleration-parallel.test.js",
+        "gate:plugin-acceleration-patch-first.test.js",
+        "gate:plugin-acceleration-persistent-tools.test.js",
+        "gate:plugin-compat.test.js",
+        "gate:plugin-ui-wiring.test.js",
+        "gate:ui-bilingual.test.js",
+        "gate:ui-layout-contract.test.js",
+        "gate:ui-panel-load.test.js",
+        "gate:mega-features.test.js",
+        "gate:mega-feature-wiring.test.js",
+        "gate:mega-plugin-manager.test.js",
+        "gate:mega-plugin-store.test.js",
+        "gate:mega-store-github.test.js",
+        "gate:mega-store-installer.test.js",
+        "gate:plugin-store-mount.test.js",
+        "gate:plugin-adapters-contract.test.js",
+        "gate:plugin-adapters-detection.test.js",
+        "gate:plugin-adapters-lifecycle.test.js",
+        "gate:plugin-adapters-framework.test.js",
+        "gate:plugin-adapters-fault-injection.test.js",
+        "gate:plugin-adapters-compatibility.test.js",
+        "gate:plugin-cordis-structure.test.js",
+        "gate:plugin-cordis-bridge.test.js",
+        "gate:plugin-cordis-dsh.test.js",
+        "gate:plugin-process-adapter.test.js",
+        "gate:plugin-hns-native.test.js",
+        "gate:plugin-install-pipeline.test.js",
+        "gate:mega-core-install-acceptance.test.js"
+      ],
+      "edges": [
+        [
+          "gate:plugin-acceleration.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-acceleration-cache.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-acceleration-high-performance.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-acceleration-mounted.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-acceleration-parallel.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-acceleration-patch-first.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-acceleration-persistent-tools.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-compat.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-ui-wiring.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:ui-bilingual.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:ui-layout-contract.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:ui-panel-load.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-features.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-feature-wiring.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-plugin-manager.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-plugin-store.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-store-github.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-store-installer.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-store-mount.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-adapters-contract.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-adapters-detection.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-adapters-lifecycle.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-adapters-framework.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-adapters-fault-injection.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-adapters-compatibility.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-cordis-structure.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-cordis-bridge.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-cordis-dsh.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-process-adapter.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-hns-native.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:plugin-install-pipeline.test.js",
+          "workflow:suite-assertion-membership"
+        ],
+        [
+          "gate:mega-core-install-acceptance.test.js",
+          "workflow:suite-assertion-membership"
+        ]
+      ]
+    },
+    "requestedClaim": "workflow:suite-assertion-membership",
+    "admissibleTypes": {
+      "types": [
+        "static-source-inspection"
+      ],
+      "provenance": [
+        "repository-archive"
+      ]
+    }
+  },
+  "mappingWitnesses": [
+    {
+      "target": "/contract/requiredGates",
+      "basis": "8808e2f72f9631073f30dee7a1994f1c4541593b:.github/workflows/verify.yml suite assertion list",
+      "originalWholePassed": null,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "measuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration.test.js",
+      "source": "results[id=plugin-acceleration.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration-cache.test.js",
+      "source": "results[id=plugin-acceleration-cache.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration-high-performance.test.js",
+      "source": "results[id=plugin-acceleration-high-performance.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration-mounted.test.js",
+      "source": "results[id=plugin-acceleration-mounted.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration-parallel.test.js",
+      "source": "results[id=plugin-acceleration-parallel.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration-patch-first.test.js",
+      "source": "results[id=plugin-acceleration-patch-first.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-acceleration-persistent-tools.test.js",
+      "source": "results[id=plugin-acceleration-persistent-tools.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-compat.test.js",
+      "source": "results[id=plugin-compat.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-ui-wiring.test.js",
+      "source": "results[id=plugin-ui-wiring.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/ui-bilingual.test.js",
+      "source": "results[id=ui-bilingual.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/ui-layout-contract.test.js",
+      "source": "results[id=ui-layout-contract.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/ui-panel-load.test.js",
+      "source": "results[id=ui-panel-load.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/mega-features.test.js",
+      "source": "results[id=mega-features.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/mega-feature-wiring.test.js",
+      "source": "results[id=mega-feature-wiring.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/mega-plugin-manager.test.js",
+      "source": "results[id=mega-plugin-manager.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/mega-plugin-store.test.js",
+      "source": "results[id=mega-plugin-store.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/mega-store-github.test.js",
+      "source": "results[id=mega-store-github.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/mega-store-installer.test.js",
+      "source": "results[id=mega-store-installer.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    },
+    {
+      "target": "/evidence/plugin-store-mount.test.js",
+      "source": "results[id=plugin-store-mount.test.js]",
+      "originalPassed": true,
+      "originalRunId": "source-inspection:1ff1507ef27b280573bd9454c4ffb159c36c400d",
+      "originalMeasuredCode": "1ff1507ef27b280573bd9454c4ffb159c36c400d"
+    }
+  ],
+  "notes": [
+    "Retrospective static coverage comparison; no failed or green CI execution is asserted.",
+    "Source-inspection PASS means a suite assertion occurs in the before-workflow text. Missing expanded requirements are coverage diagnostics, not observed production failures."
+  ],
+  "metadata": {
+    "repairCommit": "8808e2f72f9631073f30dee7a1994f1c4541593b",
+    "beforeCommit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+    "requiredSuites": 32,
+    "presentAssertions": 19,
+    "missingAssertions": [
+      "plugin-adapters-contract.test.js",
+      "plugin-adapters-detection.test.js",
+      "plugin-adapters-lifecycle.test.js",
+      "plugin-adapters-framework.test.js",
+      "plugin-adapters-fault-injection.test.js",
+      "plugin-adapters-compatibility.test.js",
+      "plugin-cordis-structure.test.js",
+      "plugin-cordis-bridge.test.js",
+      "plugin-cordis-dsh.test.js",
+      "plugin-process-adapter.test.js",
+      "plugin-hns-native.test.js",
+      "plugin-install-pipeline.test.js",
+      "mega-core-install-acceptance.test.js"
+    ]
+  }
+}

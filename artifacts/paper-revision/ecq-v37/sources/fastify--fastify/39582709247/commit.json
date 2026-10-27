@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-21T10:02:38Z",
+    "email": "prakharpathak200@gmail.com",
+    "name": "Prakhar Pathak"
+  },
+  "committer": {
+    "date": "2026-10-21T10:11:08Z",
+    "email": "Tony133@users.noreply.github.com",
+    "name": "Antonio Tripodi"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/f6e32cb012027688b0552d46c78a68b406701601",
+  "message": "feat(hooks): support disposables in onClose hook (#7121)\n\n(cherry picked from commit 5d4c23352d90c2474bfaf1a0d530c86b699cb795)",
+  "node_id": "C_kwDOBCRpgtoAKGY2ZTMyY2IwMTIwMjc2ODhiMDU1MmQ0NmM3OGE2OGI0MDY3MDE2MDE",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+      "sha": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/e6693bb666e6111bba3ff561b72c44e18f6dbd0d"
+    }
+  ],
+  "sha": "f6e32cb012027688b0552d46c78a68b406701601",
+  "tree": {
+    "sha": "0336bd78c0eb5a3ab09c0df8b96f3fab7078f880",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/0336bd78c0eb5a3ab09c0df8b96f3fab7078f880"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/f6e32cb012027688b0552d46c78a68b406701601",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

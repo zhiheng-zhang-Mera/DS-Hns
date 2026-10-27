@@ -1,0 +1,29 @@
+{
+  "caseId": "R3",
+  "evidence": [
+    {
+      "id": "phase-c-report",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+        "tree": "8cea76e201438854ff90b6bffff0800074c8f9ab"
+      },
+      "runId": "archive-record:task4-phase-c-summary",
+      "gateId": "phase-c-report",
+      "claimId": "gate:phase-c-report",
+      "scope": "gate:phase-c-report",
+      "outcome": "PASS",
+      "evidenceType": "archived-measurement-report",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "phase-c-report",
+          "path": "phase-c-summary.json",
+          "objectId": "sha256:610d38a6a23081d196a9c3f35a8671d8fa7ed10b1636d9c049c0862fb1eee5f2",
+          "expectedObjectId": "sha256:610d38a6a23081d196a9c3f35a8671d8fa7ed10b1636d9c049c0862fb1eee5f2",
+          "sha256": "610d38a6a23081d196a9c3f35a8671d8fa7ed10b1636d9c049c0862fb1eee5f2"
+        }
+      ]
+    }
+  ]
+}

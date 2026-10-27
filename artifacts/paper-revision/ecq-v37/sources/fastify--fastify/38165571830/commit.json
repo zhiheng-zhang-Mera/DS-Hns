@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-11T07:47:52Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "committer": {
+    "date": "2026-10-11T18:51:21Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/f566cf4b6e32d80f14f53fe47a0510639653e929",
+  "message": "chore(.npmrc): exempt find-my-way from min-release-age\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01KX8HBM13zoVQ522fthCMKz\nSigned-off-by: Matteo Collina <hello@matteocollina.com>",
+  "node_id": "C_kwDOBCRpgtoAKGY1NjZjZjRiNmUzMmQ4MGYxNGY1M2ZlNDdhMDUxMDYzOTY1M2U5Mjk",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/d0af612afa781b29fb9f42b40d14c73b799a2fbe",
+      "sha": "d0af612afa781b29fb9f42b40d14c73b799a2fbe",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/d0af612afa781b29fb9f42b40d14c73b799a2fbe"
+    }
+  ],
+  "sha": "f566cf4b6e32d80f14f53fe47a0510639653e929",
+  "tree": {
+    "sha": "704e15130d2c0379293ade71aa47004730f93255",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/704e15130d2c0379293ade71aa47004730f93255"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/f566cf4b6e32d80f14f53fe47a0510639653e929",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

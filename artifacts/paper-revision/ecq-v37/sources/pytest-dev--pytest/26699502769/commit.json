@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-05-30T11:49:42Z",
+    "email": "162705204+EternalRights@users.noreply.github.com",
+    "name": "EternalRights"
+  },
+  "committer": {
+    "date": "2026-05-30T11:49:42Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/f976bb67b293cf358e2fbd0352638e2f5a9da8e0",
+  "message": "Fix Code.getargs() treating co_flags bitmask values as counts (#14493)\n\nCO_VARARGS (4) and CO_VARKEYWORDS (8) are bitmask flags, but they were\nused directly as increment values for the argument count via `&`.\nThis caused co_varnames[:argcount] to slice beyond the actual arguments\nwhen the function body contained enough local variables.\n\nFix by wrapping the bitmask results in bool(), so they contribute\nat most 1 to the argcount.\n\nCloses #14492",
+  "node_id": "C_kwDOAjwLddoAKGY5NzZiYjY3YjI5M2NmMzU4ZTJmYmQwMzUyNjM4ZTJmNWE5ZGE4ZTA",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/4748bb15b9053a791c04783d4d84eba512c7cf79",
+      "sha": "4748bb15b9053a791c04783d4d84eba512c7cf79",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/4748bb15b9053a791c04783d4d84eba512c7cf79"
+    }
+  ],
+  "sha": "f976bb67b293cf358e2fbd0352638e2f5a9da8e0",
+  "tree": {
+    "sha": "89b2269be2dcc6895c79ebad4f401ed370cb2c7f",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/89b2269be2dcc6895c79ebad4f401ed370cb2c7f"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/f976bb67b293cf358e2fbd0352638e2f5a9da8e0",
+  "verification": {
+    "payload": "tree 89b2269be2dcc6895c79ebad4f401ed370cb2c7f\nparent 4748bb15b9053a791c04783d4d84eba512c7cf79\nauthor EternalRights <162705204+EternalRights@users.noreply.github.com> 1780141782 +0800\ncommitter GitHub <noreply@github.com> 1780141782 -0300\n\nFix Code.getargs() treating co_flags bitmask values as counts (#14493)\n\nCO_VARARGS (4) and CO_VARKEYWORDS (8) are bitmask flags, but they were\nused directly as increment values for the argument count via `&`.\nThis caused co_varnames[:argcount] to slice beyond the actual arguments\nwhen the function body contained enough local variables.\n\nFix by wrapping the bitmask results in bool(), so they contribute\nat most 1 to the argcount.\n\nCloses #14492",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqGs7WCRC1aQ7uu5UhlAAAv9UQAAXMU8V2w6f1ATFu4ycVFLa6\ncYSpOoz7ctHgz89QIv24FGFbyhLQcUO1BITSEI6wr7I1uF325cKCQDMJUG0iXIny\nTwmlOnZJXcZgLufI07Bhgiofyt5VYqHSgpLaUva2cNGi6iuB0b172jpPU7B/e4me\nzQo1Rvs+XCuZq+tUPlqTK6gjURIh7uhSTc0xbX8JInMkyQGQFhiALSaRDMBYqv85\nDLvLVINbvLXZ/uAeaeETOJYXvMISmUXefW1DRbqyOPcRjJxjz3H30VVbboRnH+HV\n4tflXi32MKwLYP9k2fwPyueBrVLbnrSasdpUoD4JhEzTr+Qm4FSCOFeJ3io6H3mc\nQi9zIDp6zYKEAIYG9G0ptSsmCdLMucM39WoAeRN1O8IkXhSpL+FxgGaVrS3yi6ec\npYOQhDLSBM1nqVzFz51/D17uQOnHkaIe9T2D4BUnwwRl2MgRoxPv8WNG7P8NRHNV\nKgjq8Hr8kHq6LKc3hRz04V1aDRW2BzqSzpdOz1yqmTPA/3DryNTx7YRmOqcDNfVv\npKmRTPXilRRp9UT4Y+/59KOkqwOm8QrQ7IzVGfpTZaVPVsNBKICWEXDMgNSzOp81\nhJTGyfDFg+6muonUg5lvtpcYI7DyRyoVGCG/OpabKbhlBQmRwlD+Jz6Y3W2QJYHk\n9bRiawwguxsL901fELgA\n=375h\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-05-30T11:49:42Z"
+  }
+}

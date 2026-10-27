@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-06-19T11:05:10Z",
+    "email": "ran@unusedvar.com",
+    "name": "Ran Benita"
+  },
+  "committer": {
+    "date": "2026-06-19T11:05:10Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/4904d2ba80c3532037fc1d5360ac6faf30b93f2f",
+  "message": "Merge pull request #14628 from bluetech/cherry-pick-release\n\nCherry pick 9.1.1 release notes",
+  "node_id": "C_kwDOAjwLddoAKDQ5MDRkMmJhODBjMzUzMjAzN2ZjMWQ1MzYwYWM2ZmFmMzBiOTNmMmY",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/a07c31a97d0a412c09b1f2f5953adb4b4a75d04d",
+      "sha": "a07c31a97d0a412c09b1f2f5953adb4b4a75d04d",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/a07c31a97d0a412c09b1f2f5953adb4b4a75d04d"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/4c942a42d2060420da02cbbfde80db626b7d59e5",
+      "sha": "4c942a42d2060420da02cbbfde80db626b7d59e5",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/4c942a42d2060420da02cbbfde80db626b7d59e5"
+    }
+  ],
+  "sha": "4904d2ba80c3532037fc1d5360ac6faf30b93f2f",
+  "tree": {
+    "sha": "11c87083c227768ce8e71891fe159562d1de20b0",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/11c87083c227768ce8e71891fe159562d1de20b0"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/4904d2ba80c3532037fc1d5360ac6faf30b93f2f",
+  "verification": {
+    "payload": "tree 11c87083c227768ce8e71891fe159562d1de20b0\nparent a07c31a97d0a412c09b1f2f5953adb4b4a75d04d\nparent 4c942a42d2060420da02cbbfde80db626b7d59e5\nauthor Ran Benita <ran@unusedvar.com> 1781867110 +0300\ncommitter GitHub <noreply@github.com> 1781867110 +0300\n\nMerge pull request #14628 from bluetech/cherry-pick-release\n\nCherry pick 9.1.1 release notes",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqNSJmCRC1aQ7uu5UhlAAAeTgQAGslzYGFwCIaOTD6Xsc2u+m+\njkT1lVTK9nwe3otiTw3tnYkpXP0oWSrW8N2obguIeiZY1D7YLvfpIh73XyHjgY33\nhscE1IW82Eq0SyQnWxj/PP8IZQ6/BVuEGW4+hs53oN5qllNWLTvbs/JvbXW/lH4M\nLqC1M2ccC1i7SBpckb19FkkZDZfikEvGseyIyiGikMRcR7Ov2dRgEIZNjEplyOHB\nHHPpdL/p2KKvz7xmOLW6Sx1z7dWH24PzQLBjKVrFtImF8mO16qd/zwBDutOuLAHA\ntCccTPiRw/Ga6KGRWrWb809WvRB1Sd+4H5i4YIK/UrYaKm/GnAZ79yw5ZNvq5eBX\nqF3iKdfIRj4VTwTuH+IV4oXuwC8YWZgeLERvEzVY9lxyIwYTPhkTrviaXd39XrFU\nXYsL8LtBdPMgOCe/TBPxswTfDuT4o143VzSXvMChRt1jkamXGMgjuSy7misfYLi6\nkCsoAl0Aw7Sqfe9yTHHjrMOwvaywwihL6jdV8c1O5p5lCrQlyXRPuJaQr4p2fkwb\ng8z+YeVIYh+ZWutBQRZ1IngHCs9Atg/KqyIZM5yrbxLCKyEG/x+ZZrYIVdAs4Y1+\neZTY+v6k+k9+lxz3Q1uC5oDoLGEaDBNjKZnGvFQg9YrBOOvi3RwsKotIuojblHhJ\nZp19Wtxst3Bt8gCL03ce\n=v5Pi\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-06-19T11:05:11Z"
+  }
+}

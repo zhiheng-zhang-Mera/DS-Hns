@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-09-24T07:25:06Z",
+    "email": "opensource@ronnypfannschmidt.de",
+    "name": "Ronny Pfannschmidt"
+  },
+  "committer": {
+    "date": "2026-09-24T07:25:06Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/8721173580390a9d297e5af06cac3f0b6841f425",
+  "message": "testing: ignore Cython's PyPy collection_type warning (#15096)\n\nPyPy 3.11.16 (PyPy 8.0.0) makes Cython-compiled numpy.random emit\n'cython.collection_type only works on PyPy with the C flag\nCYTHON_USE_TYPE_SPECS=1' as a RuntimeWarning on import. hypothesis\nimports numpy.random whenever numpy is loaded, so under\nfilterwarnings=error every @given test fails on the pypy3-xdist job.\nSame numpy 2.4.6 and hypothesis 6.168.1 import cleanly on PyPy 3.11.15.\n\nCo-authored-by: Claude Opus 5.5 via Claude Code <noreply@anthropic.com>",
+  "node_id": "C_kwDOAjwLddoAKDg3MjExNzM1ODAzOTBhOWQyOTdlNWFmMDZjYWMzZjBiNjg0MWY0MjU",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/f9554ee56d264da285f3951ebfdf6f1d59ba4077",
+      "sha": "f9554ee56d264da285f3951ebfdf6f1d59ba4077",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/f9554ee56d264da285f3951ebfdf6f1d59ba4077"
+    }
+  ],
+  "sha": "8721173580390a9d297e5af06cac3f0b6841f425",
+  "tree": {
+    "sha": "d9483007eb2fe86f68c29552bb2b239d5c577d98",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/d9483007eb2fe86f68c29552bb2b239d5c577d98"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/8721173580390a9d297e5af06cac3f0b6841f425",
+  "verification": {
+    "payload": "tree d9483007eb2fe86f68c29552bb2b239d5c577d98\nparent f9554ee56d264da285f3951ebfdf6f1d59ba4077\nauthor Ronny Pfannschmidt <opensource@ronnypfannschmidt.de> 1790234706 +0200\ncommitter GitHub <noreply@github.com> 1790234706 +0300\n\ntesting: ignore Cython's PyPy collection_type warning (#15096)\n\nPyPy 3.11.16 (PyPy 8.0.0) makes Cython-compiled numpy.random emit\n'cython.collection_type only works on PyPy with the C flag\nCYTHON_USE_TYPE_SPECS=1' as a RuntimeWarning on import. hypothesis\nimports numpy.random whenever numpy is loaded, so under\nfilterwarnings=error every @given test fails on the pypy3-xdist job.\nSame numpy 2.4.6 and hypothesis 6.168.1 import cleanly on PyPy 3.11.15.\n\nCo-authored-by: Claude Opus 5.5 via Claude Code <noreply@anthropic.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqtNBSCRC1aQ7uu5UhlAAA67kQAHDrxYsOOdTxIqRAPAFuhaQc\niQZX8irhxKJnuT8pXffFOH6lPLVrwmVLgZ+1K8X7n9cNOPQc5nBQSsQlZhL90vpC\nwiiUk1aUEN8PD4SHwnSZYOV4GN6IcLyajxrm8kxBrhotHPYeEsLUsj1FmvGbxJvi\nsqGWVh33mZkSFBSDK5oOyU5520qf5wMvzUWiKVaAbJ5cB9nJzOYZuE9sYv0aTFqx\nFhoXBurjBqISsZ3+DuLmvn4XoNPJ/agY89y1ZoZA7+WXz50LVWfW9i1KtV/ZNIju\naMHaKl/cYDxrmeqDIDUInyQ9WqRtOhAnjUI9GvkB3hIvMueKp2EHwIIsz0cb8ZNB\nMI7yBKdk0K03eF6CUxFyGmLbIDMornIk51kJnJZXYvjO4BzeojXLQSSPMReMmd8p\nL19VSvTXgQeapBmtmWsQKAVCsfbWO5rOFpKO/wscF1f2f+tmsmOCk/yl8E8ueDWu\nLnCt8dBLfJvtbt4vp2PgmcjdfrEknZ5nQGIb3GEdaOAXtmnqPZT+neGQlOWzhx/9\nNIjErSvLTdLnSiHAWjZ2fm3q6Bpdt/KB8imzl+3o7FdsPHOVYUQ1P60NLIVU+TDH\nQ2qW2fEpBdKVF2TZsnysT73YBab9W3xFNtI2jT5Jzbr14ARCQOfQlP9nZycu+ESe\nADDCP/XPT62DhMEb15fR\n=ieCm\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-09-24T07:25:07Z"
+  }
+}

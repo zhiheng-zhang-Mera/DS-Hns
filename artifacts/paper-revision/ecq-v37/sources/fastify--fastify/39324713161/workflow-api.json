@@ -1,0 +1,18 @@
+{
+  "_links": {
+    "git": "https://api.github.com/repos/fastify/fastify/git/blobs/ea424fdcc8465c53dbe5f5e5b22e30d92024dc68",
+    "html": "https://github.com/fastify/fastify/blob/e6693bb666e6111bba3ff561b72c44e18f6dbd0d/.github/workflows/md-lint.yml",
+    "self": "https://api.github.com/repos/fastify/fastify/contents/.github/workflows/md-lint.yml?ref=e6693bb666e6111bba3ff561b72c44e18f6dbd0d"
+  },
+  "content": "bmFtZTogTGludCBEb2NzCgpvbjoKICBwdXNoOgogICAgYnJhbmNoZXMtaWdu\nb3JlOgogICAgICAtIG1haW4KICAgIHBhdGhzOgogICAgICAgLSAiKiovKi5t\nZCIKICBwdWxsX3JlcXVlc3Q6CiAgICBicmFuY2hlczoKICAgICAgLSBtYWlu\nCiAgICBwYXRoczoKICAgICAgIC0gIioqLyoubWQiCgpwZXJtaXNzaW9uczoK\nICBjb250ZW50czogcmVhZAoKam9iczoKICBidWlsZDoKICAgIG5hbWU6IExp\nbnQgTWFya2Rvd24KICAgIHJ1bnMtb246IHVidW50dS1sYXRlc3QKICAgIHBl\ncm1pc3Npb25zOgogICAgICBjb250ZW50czogcmVhZAoKICAgIHN0ZXBzOgog\nICAgICAtIG5hbWU6IENoZWNrb3V0IENvZGUKICAgICAgICB1c2VzOiBhY3Rp\nb25zL2NoZWNrb3V0QDljMDkxYmIyMWI3YzFjMWQxOTkxYmI5MDhkODllNGU5\nZGRkZmUzZTAgIyB2Ny4wLjAKICAgICAgICB3aXRoOgogICAgICAgICAgcGVy\nc2lzdC1jcmVkZW50aWFsczogZmFsc2UKCiAgICAgIC0gbmFtZTogU2V0dXAg\nTm9kZQogICAgICAgIHVzZXM6IGFjdGlvbnMvc2V0dXAtbm9kZUA4MjA3NjI3\nODYwMjY3NDBjNzZmMzYwODViMGVmYzQ3YTMxZmU1MDIwICMgdjcuMC4wCiAg\nICAgICAgd2l0aDoKICAgICAgICAgIG5vZGUtdmVyc2lvbjogJ2x0cy8qJwog\nICAgICAgICAgY2hlY2stbGF0ZXN0OiB0cnVlCgogICAgICAtIG5hbWU6IElu\nc3RhbGwgTGludGVyCiAgICAgICAgcnVuOiBucG0gaW5zdGFsbCAtLWlnbm9y\nZS1zY3JpcHRzCgogICAgICAtIG5hbWU6IEFkZCBNYXRjaGVyCiAgICAgICAg\ndXNlczogeHQwcnRlZC9tYXJrZG93bmxpbnQtcHJvYmxlbS1tYXRjaGVyQDFh\nNWZhYmZiNTc3MzcwY2ZkZjVhZjk0NGQ0MThlNGJlM2VhMDZmMjcgIyB2My4w\nLjAKCiAgICAgIC0gbmFtZTogUnVuIExpbnRlcgogICAgICAgIHJ1bjogLi9u\nb2RlX21vZHVsZXMvLmJpbi9tYXJrZG93bmxpbnQtY2xpMgoK\n",
+  "download_url": "https://raw.githubusercontent.com/fastify/fastify/e6693bb666e6111bba3ff561b72c44e18f6dbd0d/.github/workflows/md-lint.yml",
+  "encoding": "base64",
+  "git_url": "https://api.github.com/repos/fastify/fastify/git/blobs/ea424fdcc8465c53dbe5f5e5b22e30d92024dc68",
+  "html_url": "https://github.com/fastify/fastify/blob/e6693bb666e6111bba3ff561b72c44e18f6dbd0d/.github/workflows/md-lint.yml",
+  "name": "md-lint.yml",
+  "path": ".github/workflows/md-lint.yml",
+  "sha": "ea424fdcc8465c53dbe5f5e5b22e30d92024dc68",
+  "size": 936,
+  "type": "file",
+  "url": "https://api.github.com/repos/fastify/fastify/contents/.github/workflows/md-lint.yml?ref=e6693bb666e6111bba3ff561b72c44e18f6dbd0d"
+}

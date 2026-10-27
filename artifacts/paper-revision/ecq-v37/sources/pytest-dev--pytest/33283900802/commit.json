@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-08-27T19:55:50Z",
+    "email": "51440383+even-even@users.noreply.github.com",
+    "name": "Vladimir Roshchin"
+  },
+  "committer": {
+    "date": "2026-08-27T19:55:50Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/fdba12e1708313f56e9cf713d260c029764ca2b7",
+  "message": "chore: drop duplicate PLR1714 ruff rule (#14933)\n\nCo-authored-by: vyuroshchin <>\nCo-authored-by: Pierre Sassoulas <pierre.sassoulas@gmail.com>",
+  "node_id": "C_kwDOAjwLddoAKGZkYmExMmUxNzA4MzEzZjU2ZTljZjcxM2QyNjBjMDI5NzY0Y2EyYjc",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/814d3da7f473ffde635559af58292ed90f23793d",
+      "sha": "814d3da7f473ffde635559af58292ed90f23793d",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/814d3da7f473ffde635559af58292ed90f23793d"
+    }
+  ],
+  "sha": "fdba12e1708313f56e9cf713d260c029764ca2b7",
+  "tree": {
+    "sha": "249081d4e05af555c5a13b16199d7dc411ca0d18",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/249081d4e05af555c5a13b16199d7dc411ca0d18"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/fdba12e1708313f56e9cf713d260c029764ca2b7",
+  "verification": {
+    "payload": "tree 249081d4e05af555c5a13b16199d7dc411ca0d18\nparent 814d3da7f473ffde635559af58292ed90f23793d\nauthor Vladimir Roshchin <51440383+even-even@users.noreply.github.com> 1787860550 +0300\ncommitter GitHub <noreply@github.com> 1787860550 +0200\n\nchore: drop duplicate PLR1714 ruff rule (#14933)\n\nCo-authored-by: vyuroshchin <>\nCo-authored-by: Pierre Sassoulas <pierre.sassoulas@gmail.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqkJZGCRC1aQ7uu5UhlAAA9uQQAB0+mr44iVH3CCbUEmrfn+2g\nCLzfYQN/qrTbqF8f7WgqvU3GXPQyRxWapRMgohG11NG16p3rVxzRqye0Abs8yicU\ntv5EX24OdzuFaJt0dVom+dwFNtEz/eIVcY3JgIQ2WrDJu5kP5oJHVCB/Q2MxDxsr\nc2RDWVvND4H45Lwya/zpexpE2Pu8CbfowP/E+eYF2CLGQDA1w42Tl4VbgX5u/gPP\np4chgYExKFKadC624mOos01kREN3cv+wcYfiH/61E8hD1mUwu7apV0xxbJDvrsb8\nOhdWshM1iwH7yLgdTg5BM0abW9L7UJ2dvIO9gFT854PrhVZWB7uLpu/L1L7fHtuw\nMC2ZHOWlrejyCiIp2IClNTdj4zEKD1McxmM7BJA+HB9pgij5DZAHf+vWtwcKIfot\nJOZR4ZAPVYdjmfj1V0eTkV6B4NGCOqsihlgwdr/Q7qTlOV5WVlU6+pvvVymMFhJt\nPJR8bLe+nLW6MZqd1Xs4EHNmO8dAKwb+/6glco6i74oxBQn+l1J6k0ZJCP86Qb6U\nMq0oo3803wARkkv8oBga+h0M9SHLsLhk9h0G7iwId3qJRiH8831QoHbvALCpRwt/\nGPZVSkrqYm22tlJH0g8lcuwRl+KdRQLRWoD52UpK3g8gZPSqBvc98mcoG/D3dswP\nJZ8MY3WAi9dTcpzZt28N\n=724R\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-08-27T19:55:51Z"
+  }
+}

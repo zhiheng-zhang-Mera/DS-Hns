@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-10T10:19:46Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "committer": {
+    "date": "2026-10-11T18:51:21Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/7fddecba7251b632747e5b26330a9395df8e4c83",
+  "message": "feat!: enable routerOptions.compile by default\n\nCompile the router trees with find-my-way's compiler mode by default,\nmaking route lookups 1.3x to 2x faster. Set `routerOptions.compile` to\n`false` to restore the previous tree walk.\n\nBREAKING CHANGE: `routerOptions.compile` now defaults to `true`.\n\nCo-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>",
+  "node_id": "C_kwDOBCRpgtoAKDdmZGRlY2JhNzI1MWI2MzI3NDdlNWIyNjMzMGE5Mzk1ZGY4ZTRjODM",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/f566cf4b6e32d80f14f53fe47a0510639653e929",
+      "sha": "f566cf4b6e32d80f14f53fe47a0510639653e929",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/f566cf4b6e32d80f14f53fe47a0510639653e929"
+    }
+  ],
+  "sha": "7fddecba7251b632747e5b26330a9395df8e4c83",
+  "tree": {
+    "sha": "7dac3362af05de0fbae45d052eb2078d470a13ed",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/7dac3362af05de0fbae45d052eb2078d470a13ed"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/7fddecba7251b632747e5b26330a9395df8e4c83",
+  "verification": {
+    "payload": null,
+    "reason": "unsigned",
+    "signature": null,
+    "verified": false,
+    "verified_at": null
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "scope": "Three heterogeneous archival mapping cases, not independent new ECQ effectiveness trials.",
+  "cases": [
+    {
+      "id": "R1",
+      "bundlePath": "R1/bundle.json",
+      "contractPath": "R1/contract.json",
+      "artifactRoot": "R1",
+      "notes": [
+        "Retrospective static coverage comparison; no failed or green CI execution is asserted.",
+        "Source-inspection PASS means a suite assertion occurs in the before-workflow text. Missing expanded requirements are coverage diagnostics, not observed production failures."
+      ],
+      "metadata": {
+        "repairCommit": "8808e2f72f9631073f30dee7a1994f1c4541593b",
+        "beforeCommit": "1ff1507ef27b280573bd9454c4ffb159c36c400d",
+        "requiredSuites": 32,
+        "presentAssertions": 19,
+        "missingAssertions": [
+          "plugin-adapters-contract.test.js",
+          "plugin-adapters-detection.test.js",
+          "plugin-adapters-lifecycle.test.js",
+          "plugin-adapters-framework.test.js",
+          "plugin-adapters-fault-injection.test.js",
+          "plugin-adapters-compatibility.test.js",
+          "plugin-cordis-structure.test.js",
+          "plugin-cordis-bridge.test.js",
+          "plugin-cordis-dsh.test.js",
+          "plugin-process-adapter.test.js",
+          "plugin-hns-native.test.js",
+          "plugin-install-pipeline.test.js",
+          "mega-core-install-acceptance.test.js"
+        ]
+      }
+    },
+    {
+      "id": "R2",
+      "bundlePath": "R2/bundle.json",
+      "contractPath": "R2/contract.json",
+      "artifactRoot": "R2",
+      "notes": [
+        "Archived report-level mapping; whole-run passed=false and UI 127/130 remain false.",
+        "Archive-object digest checks the stored summary bytes; no claim to rerun historical raw operations."
+      ],
+      "metadata": {
+        "measuredCommit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+        "summarySha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+        "originalWholePassed": false,
+        "originalMandatoryFailures": 1,
+        "originalEvidenceConsistency": "PASS"
+      }
+    },
+    {
+      "id": "R3",
+      "bundlePath": "R3/bundle.json",
+      "contractPath": "R3/contract.json",
+      "artifactRoot": "R3",
+      "notes": [
+        "This profile maps a stored measurement report to its measured code, not a new timing trial.",
+        "Archive-record locator is not claimed as the original measurement run. Historical storage commit 0bbd32e is recorded separately and is not substituted for measured code."
+      ],
+      "metadata": {
+        "measuredCommit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+        "storageCommit": "0bbd32e",
+        "repairCommit": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+        "sourceReportStatus": "PASS",
+        "sourceReportRuns": 3
+      }
+    }
+  ]
+}

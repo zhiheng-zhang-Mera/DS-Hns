@@ -1,0 +1,2688 @@
+{
+  "artifactTrust": "Archive exact canonical JSON projection of each source API job object. Trusted expected digest is pinned at collection, independently of subsequent mutations. This verifies archive integrity of API records, not authenticity of underlying test execution or missing workflow upload artifacts.",
+  "cases": 360,
+  "collectorCompletedUtc": "2026-10-27T07:14:38.049884+00:00",
+  "collectorStartedUtc": "2026-10-27T07:12:32.090564+00:00",
+  "cutoffUtc": "2026-10-27T07:09:19Z",
+  "evaluationCases": 240,
+  "planSha256": "ec2089ddf332b1f426a9176f0f278978bad75d7d567680a57de2add1af46c7d8",
+  "projects": [
+    {
+      "candidateCount": 60,
+      "developmentRuns": 10,
+      "evaluationRuns": 20,
+      "excluded": [],
+      "profile": {
+        "claim": "recorded documentation-link-check workflow outcome",
+        "event": "schedule",
+        "repository": "pytest-dev/pytest",
+        "workflow": "doc-check-links.yml"
+      },
+      "repository": "pytest-dev/pytest",
+      "selected": [
+        {
+          "baseId": "2a64c90f8e09be52097d",
+          "conclusion": "failure",
+          "createdAt": "2026-10-25T00:38:38Z",
+          "event": "schedule",
+          "headSha": "0f54d41bedf00505bb1ac2c724abf96ba6dcf48d",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "0f54d41bedf00505bb1ac2c724abf96ba6dcf48d",
+                "jobId": 121031849299,
+                "rawConclusion": "failure",
+                "runId": 40147490790,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-121031849299"
+            }
+          ],
+          "runId": "40147490790",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/40147490790",
+          "sourceDirectory": "sources/pytest-dev--pytest/40147490790",
+          "split": "development",
+          "treeSha": "d2ab21025cac52250c44e21140d0c468a33ca253",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "676d95134aed97c11cb00ec7b4d85645f56dbf284395474f73fc0f28c34751c9"
+        },
+        {
+          "baseId": "b0b60747f85dd6240b2a",
+          "conclusion": "failure",
+          "createdAt": "2026-10-18T00:38:54Z",
+          "event": "schedule",
+          "headSha": "420cf37a3fc8c03c9a4769c2635a03773d27be10",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "420cf37a3fc8c03c9a4769c2635a03773d27be10",
+                "jobId": 117545248334,
+                "rawConclusion": "failure",
+                "runId": 39083532149,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-117545248334"
+            }
+          ],
+          "runId": "39083532149",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/39083532149",
+          "sourceDirectory": "sources/pytest-dev--pytest/39083532149",
+          "split": "development",
+          "treeSha": "03879dafe14ac0b22d9066ec614cf0b3eedd9900",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "a959dc9d80cbd740620c",
+          "conclusion": "failure",
+          "createdAt": "2026-10-11T00:45:53Z",
+          "event": "schedule",
+          "headSha": "4e64e831268758cf0040c52c144e0f09f46cd8a3",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "4e64e831268758cf0040c52c144e0f09f46cd8a3",
+                "jobId": 114352394357,
+                "rawConclusion": "failure",
+                "runId": 38099531711,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-114352394357"
+            }
+          ],
+          "runId": "38099531711",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/38099531711",
+          "sourceDirectory": "sources/pytest-dev--pytest/38099531711",
+          "split": "development",
+          "treeSha": "ff049fb4cc577ebcd547f585dd66fe0a1c526fa8",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "dc39fe3c01e04e57041b",
+          "conclusion": "failure",
+          "createdAt": "2026-10-04T01:16:12Z",
+          "event": "schedule",
+          "headSha": "2887015cade4757385308e7a7d8083557fc637e2",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "2887015cade4757385308e7a7d8083557fc637e2",
+                "jobId": 111333394736,
+                "rawConclusion": "failure",
+                "runId": 37167493424,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-111333394736"
+            }
+          ],
+          "runId": "37167493424",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/37167493424",
+          "sourceDirectory": "sources/pytest-dev--pytest/37167493424",
+          "split": "development",
+          "treeSha": "b707e9b186fe4dc45c09847bc11d7beb09f5f4ea",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "fc77eb714544c0ac7a21",
+          "conclusion": "failure",
+          "createdAt": "2026-09-27T00:44:11Z",
+          "event": "schedule",
+          "headSha": "8721173580390a9d297e5af06cac3f0b6841f425",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "8721173580390a9d297e5af06cac3f0b6841f425",
+                "jobId": 108519449624,
+                "rawConclusion": "failure",
+                "runId": 36283392425,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-108519449624"
+            }
+          ],
+          "runId": "36283392425",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/36283392425",
+          "sourceDirectory": "sources/pytest-dev--pytest/36283392425",
+          "split": "development",
+          "treeSha": "d9483007eb2fe86f68c29552bb2b239d5c577d98",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "57e7d25f5dded808cf34",
+          "conclusion": "failure",
+          "createdAt": "2026-09-20T00:41:59Z",
+          "event": "schedule",
+          "headSha": "6a0de9be56365e75ff30d75cee9654739ca95f97",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "6a0de9be56365e75ff30d75cee9654739ca95f97",
+                "jobId": 105994472487,
+                "rawConclusion": "failure",
+                "runId": 35479449080,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-105994472487"
+            }
+          ],
+          "runId": "35479449080",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/35479449080",
+          "sourceDirectory": "sources/pytest-dev--pytest/35479449080",
+          "split": "development",
+          "treeSha": "cdfd3069f0b1a997b090206e7660f958dd955fbc",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "9bc386954265e2f330a5",
+          "conclusion": "failure",
+          "createdAt": "2026-09-13T00:42:07Z",
+          "event": "schedule",
+          "headSha": "3fd8675d6d798507c06cf9c60753be6d9d7b0e17",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "3fd8675d6d798507c06cf9c60753be6d9d7b0e17",
+                "jobId": 103647244872,
+                "rawConclusion": "failure",
+                "runId": 34728638591,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-103647244872"
+            }
+          ],
+          "runId": "34728638591",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/34728638591",
+          "sourceDirectory": "sources/pytest-dev--pytest/34728638591",
+          "split": "development",
+          "treeSha": "7f32d4b874ec740a39aac1ae9dd35e4dd98f12fe",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "ac41b59b4512ee857788",
+          "conclusion": "failure",
+          "createdAt": "2026-09-06T00:42:12Z",
+          "event": "schedule",
+          "headSha": "eadb5a625081a1c9db58552797fecf8c88b2508c",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "eadb5a625081a1c9db58552797fecf8c88b2508c",
+                "jobId": 101402354176,
+                "rawConclusion": "failure",
+                "runId": 34001980410,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-101402354176"
+            }
+          ],
+          "runId": "34001980410",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/34001980410",
+          "sourceDirectory": "sources/pytest-dev--pytest/34001980410",
+          "split": "development",
+          "treeSha": "79d234e849e47fc8abae8e6012a7e02b00316a4d",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5"
+        },
+        {
+          "baseId": "659075a780f833ac31f4",
+          "conclusion": "failure",
+          "createdAt": "2026-08-30T00:41:14Z",
+          "event": "schedule",
+          "headSha": "fdba12e1708313f56e9cf713d260c029764ca2b7",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "fdba12e1708313f56e9cf713d260c029764ca2b7",
+                "jobId": 99183617278,
+                "rawConclusion": "failure",
+                "runId": 33283900802,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-99183617278"
+            }
+          ],
+          "runId": "33283900802",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/33283900802",
+          "sourceDirectory": "sources/pytest-dev--pytest/33283900802",
+          "split": "development",
+          "treeSha": "249081d4e05af555c5a13b16199d7dc411ca0d18",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "1cbdca5f82a547c3d43c41e7acc35310ba3402418f1bcc7bf09c921a6dbd81e9"
+        },
+        {
+          "baseId": "9ec591cebb0c7df286d3",
+          "conclusion": "failure",
+          "createdAt": "2026-08-23T00:17:09Z",
+          "event": "schedule",
+          "headSha": "df87db7b0462fb764ef73fa00561adf8ad047572",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "df87db7b0462fb764ef73fa00561adf8ad047572",
+                "jobId": 97114672548,
+                "rawConclusion": "failure",
+                "runId": 32607452341,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-97114672548"
+            }
+          ],
+          "runId": "32607452341",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/32607452341",
+          "sourceDirectory": "sources/pytest-dev--pytest/32607452341",
+          "split": "development",
+          "treeSha": "aa9326445d40ef16da9a674b0c34b64137b908a7",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "1cbdca5f82a547c3d43c41e7acc35310ba3402418f1bcc7bf09c921a6dbd81e9"
+        },
+        {
+          "baseId": "7e238d9999ba9ce2ae3b",
+          "conclusion": "failure",
+          "createdAt": "2026-08-16T00:16:49Z",
+          "event": "schedule",
+          "headSha": "fa7ccb176fd48f5591bfb3e3525492698a1d3f25",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "fa7ccb176fd48f5591bfb3e3525492698a1d3f25",
+                "jobId": 95089956227,
+                "rawConclusion": "failure",
+                "runId": 31916833207,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-95089956227"
+            }
+          ],
+          "runId": "31916833207",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/31916833207",
+          "sourceDirectory": "sources/pytest-dev--pytest/31916833207",
+          "split": "evaluation",
+          "treeSha": "2161f41c447e2821c98a1152a8aa99a5d67c92f1",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "1cbdca5f82a547c3d43c41e7acc35310ba3402418f1bcc7bf09c921a6dbd81e9"
+        },
+        {
+          "baseId": "914cb8b503ceb4531224",
+          "conclusion": "failure",
+          "createdAt": "2026-08-09T00:22:58Z",
+          "event": "schedule",
+          "headSha": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+                "jobId": 93174937232,
+                "rawConclusion": "failure",
+                "runId": 31286038372,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-93174937232"
+            }
+          ],
+          "runId": "31286038372",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/31286038372",
+          "sourceDirectory": "sources/pytest-dev--pytest/31286038372",
+          "split": "evaluation",
+          "treeSha": "2947e834e0e3fc2d524bc96e17da4c965eb0a2bf",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "1cbdca5f82a547c3d43c41e7acc35310ba3402418f1bcc7bf09c921a6dbd81e9"
+        },
+        {
+          "baseId": "7715d8f8607c7da4cf36",
+          "conclusion": "failure",
+          "createdAt": "2026-08-02T00:42:44Z",
+          "event": "schedule",
+          "headSha": "1d5c40392ea42db38582b096f639eb762a5527c8",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "1d5c40392ea42db38582b096f639eb762a5527c8",
+                "jobId": 91436897411,
+                "rawConclusion": "failure",
+                "runId": 30725711695,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-91436897411"
+            }
+          ],
+          "runId": "30725711695",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/30725711695",
+          "sourceDirectory": "sources/pytest-dev--pytest/30725711695",
+          "split": "evaluation",
+          "treeSha": "ceac32e713e52dd91f3133009aea77dbc667a00a",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "1cbdca5f82a547c3d43c41e7acc35310ba3402418f1bcc7bf09c921a6dbd81e9"
+        },
+        {
+          "baseId": "af04858070972887caaa",
+          "conclusion": "failure",
+          "createdAt": "2026-07-26T00:44:36Z",
+          "event": "schedule",
+          "headSha": "36704f9b54c40b3de715f5d5d28666faf566b843",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "36704f9b54c40b3de715f5d5d28666faf566b843",
+                "jobId": 89739208330,
+                "rawConclusion": "failure",
+                "runId": 30181683620,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-89739208330"
+            }
+          ],
+          "runId": "30181683620",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/30181683620",
+          "sourceDirectory": "sources/pytest-dev--pytest/30181683620",
+          "split": "evaluation",
+          "treeSha": "b21fef3d43b1617decccbc2dbc4903dfb054130f",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "1cbdca5f82a547c3d43c41e7acc35310ba3402418f1bcc7bf09c921a6dbd81e9"
+        },
+        {
+          "baseId": "f3ecc5f7c9b2d9daa73c",
+          "conclusion": "failure",
+          "createdAt": "2026-07-19T00:41:30Z",
+          "event": "schedule",
+          "headSha": "67a174fcee355334c53588be2eeba8df702477e9",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "67a174fcee355334c53588be2eeba8df702477e9",
+                "jobId": 88140058040,
+                "rawConclusion": "failure",
+                "runId": 29667360272,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-88140058040"
+            }
+          ],
+          "runId": "29667360272",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/29667360272",
+          "sourceDirectory": "sources/pytest-dev--pytest/29667360272",
+          "split": "evaluation",
+          "treeSha": "a36192b658b9f04d674b26639ac8621d266019de",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f33f06f9ccbe103d44046c9a61729479f182127e42851aff72ae234ba6551aab"
+        },
+        {
+          "baseId": "53f81fca80c244127fbb",
+          "conclusion": "failure",
+          "createdAt": "2026-07-12T00:42:40Z",
+          "event": "schedule",
+          "headSha": "efc013416e45d9162dc00dca9e4a83e1ef1c4089",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "efc013416e45d9162dc00dca9e4a83e1ef1c4089",
+                "jobId": 86600158949,
+                "rawConclusion": "failure",
+                "runId": 29174141249,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-86600158949"
+            }
+          ],
+          "runId": "29174141249",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/29174141249",
+          "sourceDirectory": "sources/pytest-dev--pytest/29174141249",
+          "split": "evaluation",
+          "treeSha": "45aef4c94b8a875683c50df83578c14edb77acfb",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f33f06f9ccbe103d44046c9a61729479f182127e42851aff72ae234ba6551aab"
+        },
+        {
+          "baseId": "2ecb165f26117c30a411",
+          "conclusion": "failure",
+          "createdAt": "2026-07-05T00:49:15Z",
+          "event": "schedule",
+          "headSha": "1aa747de62dd9e9f395513c25298ba604f1724d0",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "1aa747de62dd9e9f395513c25298ba604f1724d0",
+                "jobId": 85180261887,
+                "rawConclusion": "failure",
+                "runId": 28724831944,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-85180261887"
+            }
+          ],
+          "runId": "28724831944",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/28724831944",
+          "sourceDirectory": "sources/pytest-dev--pytest/28724831944",
+          "split": "evaluation",
+          "treeSha": "2d3f64e076cab29b61a9e4d9e71fd6d6fbb2cb96",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "bf4d6644b6033120fddb7fefa15c671bc544dc16571afc9505742edb0135faf3"
+        },
+        {
+          "baseId": "192776e346cf9f6ed72a",
+          "conclusion": "failure",
+          "createdAt": "2026-06-28T01:00:49Z",
+          "event": "schedule",
+          "headSha": "3fa8d9b15b733aadb8a043cca3e98447804e1f28",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "3fa8d9b15b733aadb8a043cca3e98447804e1f28",
+                "jobId": 83864978953,
+                "rawConclusion": "failure",
+                "runId": 28307044871,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-83864978953"
+            }
+          ],
+          "runId": "28307044871",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/28307044871",
+          "sourceDirectory": "sources/pytest-dev--pytest/28307044871",
+          "split": "evaluation",
+          "treeSha": "b6df91d107564cba7c4b62ab6029bdac2bc6834d",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "d82c4371f37c78256b24d3c1dc20d822aecf6a101553ab25dc4a12d078786d61"
+        },
+        {
+          "baseId": "4303881d4b962fcdd959",
+          "conclusion": "failure",
+          "createdAt": "2026-06-21T01:07:30Z",
+          "event": "schedule",
+          "headSha": "4904d2ba80c3532037fc1d5360ac6faf30b93f2f",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "4904d2ba80c3532037fc1d5360ac6faf30b93f2f",
+                "jobId": 82529776333,
+                "rawConclusion": "failure",
+                "runId": 27889257328,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-82529776333"
+            }
+          ],
+          "runId": "27889257328",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/27889257328",
+          "sourceDirectory": "sources/pytest-dev--pytest/27889257328",
+          "split": "evaluation",
+          "treeSha": "11c87083c227768ce8e71891fe159562d1de20b0",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "d82c4371f37c78256b24d3c1dc20d822aecf6a101553ab25dc4a12d078786d61"
+        },
+        {
+          "baseId": "8c01761c867084f248f2",
+          "conclusion": "failure",
+          "createdAt": "2026-06-14T01:05:47Z",
+          "event": "schedule",
+          "headSha": "f8e2aa8abf0b47eb553ee21835f279652fffd5fd",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f8e2aa8abf0b47eb553ee21835f279652fffd5fd",
+                "jobId": 81237440138,
+                "rawConclusion": "failure",
+                "runId": 27484271354,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-81237440138"
+            }
+          ],
+          "runId": "27484271354",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/27484271354",
+          "sourceDirectory": "sources/pytest-dev--pytest/27484271354",
+          "split": "evaluation",
+          "treeSha": "d2bec24b18ca300fdeb7e4145ed1a1a1b6b9e6d1",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "80ef9604eccc789b1ea8",
+          "conclusion": "failure",
+          "createdAt": "2026-06-07T01:03:35Z",
+          "event": "schedule",
+          "headSha": "3422c67a3a46ccb4b5549c88821d5d768843418e",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "3422c67a3a46ccb4b5549c88821d5d768843418e",
+                "jobId": 79920563585,
+                "rawConclusion": "failure",
+                "runId": 27078708996,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-79920563585"
+            }
+          ],
+          "runId": "27078708996",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/27078708996",
+          "sourceDirectory": "sources/pytest-dev--pytest/27078708996",
+          "split": "evaluation",
+          "treeSha": "6c183331c6298027836b8fa89cfbb8a0b2f33169",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "9fe5f43a3c94adc9a5a5",
+          "conclusion": "failure",
+          "createdAt": "2026-05-31T01:01:14Z",
+          "event": "schedule",
+          "headSha": "f976bb67b293cf358e2fbd0352638e2f5a9da8e0",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f976bb67b293cf358e2fbd0352638e2f5a9da8e0",
+                "jobId": 78689688071,
+                "rawConclusion": "failure",
+                "runId": 26699502769,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-78689688071"
+            }
+          ],
+          "runId": "26699502769",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/26699502769",
+          "sourceDirectory": "sources/pytest-dev--pytest/26699502769",
+          "split": "evaluation",
+          "treeSha": "89b2269be2dcc6895c79ebad4f401ed370cb2c7f",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "cd55d0aa85f0208406ce",
+          "conclusion": "failure",
+          "createdAt": "2026-05-24T00:57:36Z",
+          "event": "schedule",
+          "headSha": "46ea2a3cfc50ae42310c278387be49d165d71581",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "46ea2a3cfc50ae42310c278387be49d165d71581",
+                "jobId": 77561097673,
+                "rawConclusion": "failure",
+                "runId": 26347987859,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-77561097673"
+            }
+          ],
+          "runId": "26347987859",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/26347987859",
+          "sourceDirectory": "sources/pytest-dev--pytest/26347987859",
+          "split": "evaluation",
+          "treeSha": "1e9b711de39ecc6e2b55d17c16fa47901ad0a7e1",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "19788858809349505105",
+          "conclusion": "failure",
+          "createdAt": "2026-05-17T00:55:09Z",
+          "event": "schedule",
+          "headSha": "8571cf8d44a390c4c61f82c9b5a825ae393b1203",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "8571cf8d44a390c4c61f82c9b5a825ae393b1203",
+                "jobId": 76359852168,
+                "rawConclusion": "failure",
+                "runId": 25977390249,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-76359852168"
+            }
+          ],
+          "runId": "25977390249",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/25977390249",
+          "sourceDirectory": "sources/pytest-dev--pytest/25977390249",
+          "split": "evaluation",
+          "treeSha": "8eb2e8aa56bea86ab2d6c3c1cd05e865b82a0e23",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "38f06f399877e94f7da5",
+          "conclusion": "failure",
+          "createdAt": "2026-05-10T00:53:46Z",
+          "event": "schedule",
+          "headSha": "b10612810dc6f3614385f6456ddc5e7c8277e15b",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "b10612810dc6f3614385f6456ddc5e7c8277e15b",
+                "jobId": 75193999845,
+                "rawConclusion": "failure",
+                "runId": 25615980901,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-75193999845"
+            }
+          ],
+          "runId": "25615980901",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/25615980901",
+          "sourceDirectory": "sources/pytest-dev--pytest/25615980901",
+          "split": "evaluation",
+          "treeSha": "96def961d91c52d865fa5d891fb9691926d9dd4d",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "e00e59e7e9b42c0bb69a",
+          "conclusion": "failure",
+          "createdAt": "2026-05-03T00:52:29Z",
+          "event": "schedule",
+          "headSha": "deb9f5f79b0537a5e80cc26dd11bfb217e263a72",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "deb9f5f79b0537a5e80cc26dd11bfb217e263a72",
+                "jobId": 74080634494,
+                "rawConclusion": "failure",
+                "runId": 25266041103,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-74080634494"
+            }
+          ],
+          "runId": "25266041103",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/25266041103",
+          "sourceDirectory": "sources/pytest-dev--pytest/25266041103",
+          "split": "evaluation",
+          "treeSha": "e1052b3308ad2d3f3fa5f71320ab4e53f0c6894e",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "e700f8101a72f81a6c90",
+          "conclusion": "failure",
+          "createdAt": "2026-04-26T00:47:16Z",
+          "event": "schedule",
+          "headSha": "a38b20d79039d50c504320b5d4d790c61893a90e",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "a38b20d79039d50c504320b5d4d790c61893a90e",
+                "jobId": 73043632673,
+                "rawConclusion": "failure",
+                "runId": 24944556848,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-73043632673"
+            }
+          ],
+          "runId": "24944556848",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/24944556848",
+          "sourceDirectory": "sources/pytest-dev--pytest/24944556848",
+          "split": "evaluation",
+          "treeSha": "db93986607f44f6abbca93813f2d6aa2f2e5f327",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "52a14ba07eefa68c8af5",
+          "conclusion": "failure",
+          "createdAt": "2026-04-19T00:45:41Z",
+          "event": "schedule",
+          "headSha": "90465694d3501267decade1ac0be988999940957",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "90465694d3501267decade1ac0be988999940957",
+                "jobId": 71982148048,
+                "rawConclusion": "failure",
+                "runId": 24617503320,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-71982148048"
+            }
+          ],
+          "runId": "24617503320",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/24617503320",
+          "sourceDirectory": "sources/pytest-dev--pytest/24617503320",
+          "split": "evaluation",
+          "treeSha": "1f0d8cfde52092b26bb0f3371c31143f76fcdf13",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "efd1df500127993665f0",
+          "conclusion": "failure",
+          "createdAt": "2026-04-12T00:43:28Z",
+          "event": "schedule",
+          "headSha": "5f7684db1f9e7141493b6447f4f026aadc30af56",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "5f7684db1f9e7141493b6447f4f026aadc30af56",
+                "jobId": 70938815332,
+                "rawConclusion": "failure",
+                "runId": 24295172966,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-70938815332"
+            }
+          ],
+          "runId": "24295172966",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/24295172966",
+          "sourceDirectory": "sources/pytest-dev--pytest/24295172966",
+          "split": "evaluation",
+          "treeSha": "97f36d226d7b0bdeb4d1803c6ba99649f893c61c",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        {
+          "baseId": "5cf91a18e9bc01d2b416",
+          "conclusion": "failure",
+          "createdAt": "2026-04-05T00:41:36Z",
+          "event": "schedule",
+          "headSha": "f93656d611f3c9cd22f346dfeda52cddb778c589",
+          "jobConclusions": {
+            "doc-check-links": "failure"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:doc-check-links",
+                  "id": "doc-check-links",
+                  "name": "doc-check-links",
+                  "required": true,
+                  "scope": "job:doc-check-links"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f93656d611f3c9cd22f346dfeda52cddb778c589",
+                "jobId": 69970436335,
+                "rawConclusion": "failure",
+                "runId": 23990937571,
+                "workflowJob": "doc-check-links"
+              },
+              "target": "/evidence/job-69970436335"
+            }
+          ],
+          "runId": "23990937571",
+          "runUrl": "https://github.com/pytest-dev/pytest/actions/runs/23990937571",
+          "sourceDirectory": "sources/pytest-dev--pytest/23990937571",
+          "split": "evaluation",
+          "treeSha": "029f34245f8ec3a80e25982e1b78cbe05e913562",
+          "workflowPath": ".github/workflows/doc-check-links.yml",
+          "workflowSha256": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        }
+      ],
+      "selectedCount": 30
+    },
+    {
+      "candidateCount": 100,
+      "developmentRuns": 10,
+      "evaluationRuns": 20,
+      "excluded": [],
+      "profile": {
+        "claim": "recorded Markdown-lint workflow outcome",
+        "event": "push",
+        "repository": "fastify/fastify",
+        "workflow": "md-lint.yml"
+      },
+      "repository": "fastify/fastify",
+      "selected": [
+        {
+          "baseId": "624a3a945f0b82e31f90",
+          "conclusion": "success",
+          "createdAt": "2026-10-25T15:52:44Z",
+          "event": "push",
+          "headSha": "18a704976f66504001b6eaa4843328e479a35192",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "18a704976f66504001b6eaa4843328e479a35192",
+                "jobId": 121216050836,
+                "rawConclusion": "success",
+                "runId": 40209019433,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-121216050836"
+            }
+          ],
+          "runId": "40209019433",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40209019433",
+          "sourceDirectory": "sources/fastify--fastify/40209019433",
+          "split": "development",
+          "treeSha": "564621c47365c5825adce085b673688aace504e6",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "3ba50ee2356ecd6a43f1",
+          "conclusion": "success",
+          "createdAt": "2026-10-25T12:40:17Z",
+          "event": "push",
+          "headSha": "c41086728020917e89c2c164b3f61d3633c6e665",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "c41086728020917e89c2c164b3f61d3633c6e665",
+                "jobId": 121171246303,
+                "rawConclusion": "success",
+                "runId": 40194140036,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-121171246303"
+            }
+          ],
+          "runId": "40194140036",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40194140036",
+          "sourceDirectory": "sources/fastify--fastify/40194140036",
+          "split": "development",
+          "treeSha": "4b517551fee97306f70a272758d359d9d67f666d",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "ea132e91cc523f18e347",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T21:44:47Z",
+          "event": "push",
+          "headSha": "5b6d1e68d00cac4fd36d7cfd826512c0d544d8bd",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "5b6d1e68d00cac4fd36d7cfd826512c0d544d8bd",
+                "jobId": 120996238698,
+                "rawConclusion": "success",
+                "runId": 40135564989,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120996238698"
+            }
+          ],
+          "runId": "40135564989",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40135564989",
+          "sourceDirectory": "sources/fastify--fastify/40135564989",
+          "split": "development",
+          "treeSha": "440a66ff8b90c600931326b84fb4f0d267445085",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "aef81fe6a82087e566c9",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T16:07:05Z",
+          "event": "push",
+          "headSha": "25cd11e772ddebb2de7a4266fb326faf694d9463",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "25cd11e772ddebb2de7a4266fb326faf694d9463",
+                "jobId": 120919727247,
+                "rawConclusion": "success",
+                "runId": 40110064954,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120919727247"
+            }
+          ],
+          "runId": "40110064954",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40110064954",
+          "sourceDirectory": "sources/fastify--fastify/40110064954",
+          "split": "development",
+          "treeSha": "47a7b568a41718ca53980780e21a0565e3e7cc45",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "9dd08d583ffed156fb7f",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T15:54:04Z",
+          "event": "push",
+          "headSha": "d60a57b5b636e338773d070c8220305416f9b837",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "d60a57b5b636e338773d070c8220305416f9b837",
+                "jobId": 120916783702,
+                "rawConclusion": "success",
+                "runId": 40109072763,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120916783702"
+            }
+          ],
+          "runId": "40109072763",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40109072763",
+          "sourceDirectory": "sources/fastify--fastify/40109072763",
+          "split": "development",
+          "treeSha": "5c6eb801488c6726e85bd6b62943342f291ddf71",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "3d6bc30b8319cf8353f2",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T15:53:43Z",
+          "event": "push",
+          "headSha": "c11173466ddb946cbd4cc464a998a2ec38b9c70e",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "c11173466ddb946cbd4cc464a998a2ec38b9c70e",
+                "jobId": 120916706276,
+                "rawConclusion": "success",
+                "runId": 40109045726,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120916706276"
+            }
+          ],
+          "runId": "40109045726",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40109045726",
+          "sourceDirectory": "sources/fastify--fastify/40109045726",
+          "split": "development",
+          "treeSha": "b73aeb6f11d4f70895e5623bf552b75ce6b0ff4d",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "10cb90681326c2a0bb97",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T15:29:10Z",
+          "event": "push",
+          "headSha": "32bfc5e0fd33da603792f2fea6b4dcca5b8c2f91",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "32bfc5e0fd33da603792f2fea6b4dcca5b8c2f91",
+                "jobId": 120911182401,
+                "rawConclusion": "success",
+                "runId": 40107179545,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120911182401"
+            }
+          ],
+          "runId": "40107179545",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40107179545",
+          "sourceDirectory": "sources/fastify--fastify/40107179545",
+          "split": "development",
+          "treeSha": "4ac7055d0b41a172a3e5aba40f4719a4b27c8eb1",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "8d2ae86de911d567a3d4",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T13:04:37Z",
+          "event": "push",
+          "headSha": "f240dd6fa49f84366ec6c9fa836c48d824eebd33",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f240dd6fa49f84366ec6c9fa836c48d824eebd33",
+                "jobId": 120880017511,
+                "rawConclusion": "success",
+                "runId": 40096586142,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120880017511"
+            }
+          ],
+          "runId": "40096586142",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40096586142",
+          "sourceDirectory": "sources/fastify--fastify/40096586142",
+          "split": "development",
+          "treeSha": "342c19a18ec9a89bd2d674a8dfe452e1ef45b417",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "c5841f44d6ffc10a1cf0",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T10:48:43Z",
+          "event": "push",
+          "headSha": "9d25681179f35e10cb40654213a2157a9a7357ee",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "9d25681179f35e10cb40654213a2157a9a7357ee",
+                "jobId": 120852985513,
+                "rawConclusion": "success",
+                "runId": 40087385112,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120852985513"
+            }
+          ],
+          "runId": "40087385112",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40087385112",
+          "sourceDirectory": "sources/fastify--fastify/40087385112",
+          "split": "development",
+          "treeSha": "1f33e5e845cb2fdafc2fd2854633dde1e5ad03f0",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "22e0ad5711a47387610e",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T10:48:42Z",
+          "event": "push",
+          "headSha": "28c370cf1bd111c0e20d6362b50aba7fac084487",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "28c370cf1bd111c0e20d6362b50aba7fac084487",
+                "jobId": 120852980526,
+                "rawConclusion": "success",
+                "runId": 40087383143,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120852980526"
+            }
+          ],
+          "runId": "40087383143",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40087383143",
+          "sourceDirectory": "sources/fastify--fastify/40087383143",
+          "split": "development",
+          "treeSha": "ef3e22227740e0a938287fa0ea9d6502cec1b1eb",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "8e7dc3fb326268acbec2",
+          "conclusion": "success",
+          "createdAt": "2026-10-24T10:32:45Z",
+          "event": "push",
+          "headSha": "24ab391708b81721390fe32be0543a5f732414f6",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "24ab391708b81721390fe32be0543a5f732414f6",
+                "jobId": 120849943624,
+                "rawConclusion": "success",
+                "runId": 40086339755,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-120849943624"
+            }
+          ],
+          "runId": "40086339755",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/40086339755",
+          "sourceDirectory": "sources/fastify--fastify/40086339755",
+          "split": "evaluation",
+          "treeSha": "82af02b0338d0b89a5dab96052e7c96f60b98f23",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "860308cfdc9d6f67fdf9",
+          "conclusion": "success",
+          "createdAt": "2026-10-21T10:11:12Z",
+          "event": "push",
+          "headSha": "f6e32cb012027688b0552d46c78a68b406701601",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f6e32cb012027688b0552d46c78a68b406701601",
+                "jobId": 119163952966,
+                "rawConclusion": "success",
+                "runId": 39582709247,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-119163952966"
+            }
+          ],
+          "runId": "39582709247",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/39582709247",
+          "sourceDirectory": "sources/fastify--fastify/39582709247",
+          "split": "evaluation",
+          "treeSha": "0336bd78c0eb5a3ab09c0df8b96f3fab7078f880",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "d231e362f379b6a6f2f9",
+          "conclusion": "success",
+          "createdAt": "2026-10-21T09:14:21Z",
+          "event": "push",
+          "headSha": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "4e4836118c20175dfd01b8e9afac29ebcc31c1d6",
+                "jobId": 119139539323,
+                "rawConclusion": "success",
+                "runId": 39575395079,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-119139539323"
+            }
+          ],
+          "runId": "39575395079",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/39575395079",
+          "sourceDirectory": "sources/fastify--fastify/39575395079",
+          "split": "evaluation",
+          "treeSha": "f818e02459085147bfb18c1e4a0228fa09b35f1a",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "f78fa03e92b6dae5fffe",
+          "conclusion": "success",
+          "createdAt": "2026-10-19T21:05:30Z",
+          "event": "push",
+          "headSha": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+                "jobId": 118307431572,
+                "rawConclusion": "success",
+                "runId": 39324713161,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-118307431572"
+            }
+          ],
+          "runId": "39324713161",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/39324713161",
+          "sourceDirectory": "sources/fastify--fastify/39324713161",
+          "split": "evaluation",
+          "treeSha": "3d55f5ffe9ebc23d01420a49544c5cfcd7fed685",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "f1636b9b25da0eab8bcf",
+          "conclusion": "success",
+          "createdAt": "2026-10-19T12:07:48Z",
+          "event": "push",
+          "headSha": "f5d01391e90b2e1d5d1c34a9d59ea529a10a55c3",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f5d01391e90b2e1d5d1c34a9d59ea529a10a55c3",
+                "jobId": 118050032814,
+                "rawConclusion": "success",
+                "runId": 39249654319,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-118050032814"
+            }
+          ],
+          "runId": "39249654319",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/39249654319",
+          "sourceDirectory": "sources/fastify--fastify/39249654319",
+          "split": "evaluation",
+          "treeSha": "335d377d1d1abdf85112cb9e989cffa8fb4c61af",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "15bb8c50bb1d3a47239b",
+          "conclusion": "success",
+          "createdAt": "2026-10-14T21:19:54Z",
+          "event": "push",
+          "headSha": "f00abd1607c200836333494aa39da91bdc59e5c6",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f00abd1607c200836333494aa39da91bdc59e5c6",
+                "jobId": 116110823739,
+                "rawConclusion": "success",
+                "runId": 38639414972,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-116110823739"
+            }
+          ],
+          "runId": "38639414972",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38639414972",
+          "sourceDirectory": "sources/fastify--fastify/38639414972",
+          "split": "evaluation",
+          "treeSha": "7fc2730fa0eaf3b54d87ae0f23c36defc8dac9e6",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "0275c08cfa2a20bfd088",
+          "conclusion": "success",
+          "createdAt": "2026-10-14T08:07:37Z",
+          "event": "push",
+          "headSha": "a763449aca7334dc505df8cc9ba3c1eaaef8a3ac",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "a763449aca7334dc505df8cc9ba3c1eaaef8a3ac",
+                "jobId": 115748865023,
+                "rawConclusion": "success",
+                "runId": 38532938540,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-115748865023"
+            }
+          ],
+          "runId": "38532938540",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38532938540",
+          "sourceDirectory": "sources/fastify--fastify/38532938540",
+          "split": "evaluation",
+          "treeSha": "5b1315628a9782a934e0a4459b2e79c4223fc80f",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "f37909e6a2ae643563fd",
+          "conclusion": "success",
+          "createdAt": "2026-10-13T22:22:54Z",
+          "event": "push",
+          "headSha": "9e08b8007e49c5bc1988037eba2884f7187864d3",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "9e08b8007e49c5bc1988037eba2884f7187864d3",
+                "jobId": 115571379649,
+                "rawConclusion": "success",
+                "runId": 38477401707,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-115571379649"
+            }
+          ],
+          "runId": "38477401707",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38477401707",
+          "sourceDirectory": "sources/fastify--fastify/38477401707",
+          "split": "evaluation",
+          "treeSha": "58c7d04b829fa960a30732e48f71ac4dabcaef76",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "82ea854f77c756274f21",
+          "conclusion": "success",
+          "createdAt": "2026-10-13T21:16:32Z",
+          "event": "push",
+          "headSha": "c35296dde9e36997a565bd277412132d937b98d4",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "c35296dde9e36997a565bd277412132d937b98d4",
+                "jobId": 115544051080,
+                "rawConclusion": "success",
+                "runId": 38469347558,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-115544051080"
+            }
+          ],
+          "runId": "38469347558",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38469347558",
+          "sourceDirectory": "sources/fastify--fastify/38469347558",
+          "split": "evaluation",
+          "treeSha": "946d03cc3562aec0b1d5a7bdca9fd721ac79df74",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "e12ec126cc2540a2c89f",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T13:48:30Z",
+          "event": "push",
+          "headSha": "63496dececd62be88c8c296dc2ea9e8eaab7107f",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "63496dececd62be88c8c296dc2ea9e8eaab7107f",
+                "jobId": 114841960501,
+                "rawConclusion": "success",
+                "runId": 38258293494,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114841960501"
+            }
+          ],
+          "runId": "38258293494",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38258293494",
+          "sourceDirectory": "sources/fastify--fastify/38258293494",
+          "split": "evaluation",
+          "treeSha": "de84fc7b977e8713e348f13835cace38f64f6eb4",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "ba3511575a7480720a97",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T13:37:41Z",
+          "event": "push",
+          "headSha": "f722529a5e97070f5cb64610e19b99ee6274cffe",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f722529a5e97070f5cb64610e19b99ee6274cffe",
+                "jobId": 114837565434,
+                "rawConclusion": "success",
+                "runId": 38257011494,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114837565434"
+            }
+          ],
+          "runId": "38257011494",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38257011494",
+          "sourceDirectory": "sources/fastify--fastify/38257011494",
+          "split": "evaluation",
+          "treeSha": "de84fc7b977e8713e348f13835cace38f64f6eb4",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "19e4ed6dccbee12f5f11",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T10:59:45Z",
+          "event": "push",
+          "headSha": "3fa1eb3980b54714bb1336302d94e83082fb02b7",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "3fa1eb3980b54714bb1336302d94e83082fb02b7",
+                "jobId": 114779298836,
+                "rawConclusion": "success",
+                "runId": 38239793543,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114779298836"
+            }
+          ],
+          "runId": "38239793543",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38239793543",
+          "sourceDirectory": "sources/fastify--fastify/38239793543",
+          "split": "evaluation",
+          "treeSha": "4b1a4ed25365177125983c91621a6fdb6b8ba7e2",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "dbb60b0336767aeacfdd",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T10:55:03Z",
+          "event": "push",
+          "headSha": "20b55d43a707607ec8ef103962e985b6bf126a06",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "20b55d43a707607ec8ef103962e985b6bf126a06",
+                "jobId": 114777661826,
+                "rawConclusion": "success",
+                "runId": 38239300111,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114777661826"
+            }
+          ],
+          "runId": "38239300111",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38239300111",
+          "sourceDirectory": "sources/fastify--fastify/38239300111",
+          "split": "evaluation",
+          "treeSha": "fbe9e3e22fd41063cbb18c5769128e275035ba20",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "a633038555fa5232f328",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T10:41:22Z",
+          "event": "push",
+          "headSha": "10aa6d502a082342b4eaf9c73bab8b08d0ed57ff",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "10aa6d502a082342b4eaf9c73bab8b08d0ed57ff",
+                "jobId": 114772986831,
+                "rawConclusion": "success",
+                "runId": 38237892751,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114772986831"
+            }
+          ],
+          "runId": "38237892751",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38237892751",
+          "sourceDirectory": "sources/fastify--fastify/38237892751",
+          "split": "evaluation",
+          "treeSha": "fbe9e3e22fd41063cbb18c5769128e275035ba20",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "f7255b33955cbf614553",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T10:29:04Z",
+          "event": "push",
+          "headSha": "db3933f8bceeb3b6c889f85ea694e3a9a1b56a22",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "db3933f8bceeb3b6c889f85ea694e3a9a1b56a22",
+                "jobId": 114768713149,
+                "rawConclusion": "success",
+                "runId": 38236603585,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114768713149"
+            }
+          ],
+          "runId": "38236603585",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38236603585",
+          "sourceDirectory": "sources/fastify--fastify/38236603585",
+          "split": "evaluation",
+          "treeSha": "670e5247ab9da01ec06d22309fc264d7a6fc99ca",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "85ea6ffbc0392a03c984",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T10:25:00Z",
+          "event": "push",
+          "headSha": "3241fbd2f10a8ca1503533726836b53b6e8775a2",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "3241fbd2f10a8ca1503533726836b53b6e8775a2",
+                "jobId": 114767302174,
+                "rawConclusion": "success",
+                "runId": 38236177969,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114767302174"
+            }
+          ],
+          "runId": "38236177969",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38236177969",
+          "sourceDirectory": "sources/fastify--fastify/38236177969",
+          "split": "evaluation",
+          "treeSha": "361ac935fce0f48d042f848b39e74c2dfcd9cba8",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "4297b11f21270e332f74",
+          "conclusion": "success",
+          "createdAt": "2026-10-12T08:39:40Z",
+          "event": "push",
+          "headSha": "3d59332743df2d79220a5bd30634f364903c5973",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "3d59332743df2d79220a5bd30634f364903c5973",
+                "jobId": 114729978832,
+                "rawConclusion": "success",
+                "runId": 38224926578,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114729978832"
+            }
+          ],
+          "runId": "38224926578",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38224926578",
+          "sourceDirectory": "sources/fastify--fastify/38224926578",
+          "split": "evaluation",
+          "treeSha": "932113f5c234d550fcbb42198aa50686edcf2dd2",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "410bc9a14ceca2ca259c",
+          "conclusion": "success",
+          "createdAt": "2026-10-11T18:51:32Z",
+          "event": "push",
+          "headSha": "7fddecba7251b632747e5b26330a9395df8e4c83",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "7fddecba7251b632747e5b26330a9395df8e4c83",
+                "jobId": 114547311525,
+                "rawConclusion": "success",
+                "runId": 38165571863,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114547311525"
+            }
+          ],
+          "runId": "38165571863",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38165571863",
+          "sourceDirectory": "sources/fastify--fastify/38165571863",
+          "split": "evaluation",
+          "treeSha": "7dac3362af05de0fbae45d052eb2078d470a13ed",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "95c805e997b4a7a6e58e",
+          "conclusion": "success",
+          "createdAt": "2026-10-11T18:51:32Z",
+          "event": "push",
+          "headSha": "f566cf4b6e32d80f14f53fe47a0510639653e929",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "f566cf4b6e32d80f14f53fe47a0510639653e929",
+                "jobId": 114547311202,
+                "rawConclusion": "success",
+                "runId": 38165571830,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114547311202"
+            }
+          ],
+          "runId": "38165571830",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38165571830",
+          "sourceDirectory": "sources/fastify--fastify/38165571830",
+          "split": "evaluation",
+          "treeSha": "704e15130d2c0379293ade71aa47004730f93255",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        {
+          "baseId": "73e732f2e3da3c01b368",
+          "conclusion": "success",
+          "createdAt": "2026-10-11T11:44:41Z",
+          "event": "push",
+          "headSha": "94dc268b8e8035ee45dfc8a696368e3f10a089d3",
+          "jobConclusions": {
+            "Lint Markdown": "success"
+          },
+          "mappingWitnesses": [
+            {
+              "basis": "pinned workflow declarations and supported event conditions",
+              "expected": [
+                {
+                  "claimId": "job:build",
+                  "id": "build",
+                  "name": "Lint Markdown",
+                  "required": true,
+                  "scope": "job:build"
+                }
+              ],
+              "source": "workflow.jobs",
+              "target": "/contract/requiredGates"
+            },
+            {
+              "basis": "direct API-field mapping; job name matched to workflow declaration",
+              "source": {
+                "commit": "94dc268b8e8035ee45dfc8a696368e3f10a089d3",
+                "jobId": 114461864367,
+                "rawConclusion": "success",
+                "runId": 38136678737,
+                "workflowJob": "build"
+              },
+              "target": "/evidence/job-114461864367"
+            }
+          ],
+          "runId": "38136678737",
+          "runUrl": "https://github.com/fastify/fastify/actions/runs/38136678737",
+          "sourceDirectory": "sources/fastify--fastify/38136678737",
+          "split": "evaluation",
+          "treeSha": "68d7082aae720a105dbf4504f51ca338741f8e2b",
+          "workflowPath": ".github/workflows/md-lint.yml",
+          "workflowSha256": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        }
+      ],
+      "selectedCount": 30
+    }
+  ],
+  "qualificationScope": "Profile concerns GitHub API-reported outcome of the named workflow only, not release readiness or underlying log validity. Expected gate set comes from pinned workflow before inspecting result records.",
+  "toolVersions": {
+    "python": "3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]",
+    "pyyaml": "6.0.3"
+  }
+}

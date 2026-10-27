@@ -1,0 +1,30 @@
+{
+  "caseId": "7afa6ab8af464b825d38d9ab",
+  "evidence": [
+    {
+      "artifactRefs": [
+        {
+          "expectedObjectId": "github-job:117545248334",
+          "id": "record-117545248334",
+          "objectId": "github-job:117545248334",
+          "path": "job-117545248334.json",
+          "sha256": "b51c40ffbf2f4784058ae74e385398c51583b71ace34871f4493d7b4c48266b7"
+        }
+      ],
+      "claimId": "job:doc-check-links",
+      "evidenceType": "github-actions-job-api-record",
+      "gateId": "doc-check-links",
+      "id": "job-117545248334",
+      "outcome": "FAIL",
+      "provenance": "github-rest-api-collected",
+      "runId": "39083532149",
+      "scope": "job:doc-check-links",
+      "subject": {
+        "commit": "0000000000000000000000000000000000000000",
+        "configurationDigest": "323954d50ed415978db2a90dcdbb3ff171cc51e7928598a599a2da6f2c2181f5",
+        "repositoryId": "pytest-dev/pytest",
+        "tree": "03879dafe14ac0b22d9066ec614cf0b3eedd9900"
+      }
+    }
+  ]
+}

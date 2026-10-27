@@ -1,0 +1,5 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+let resolveArtifact;try{({resolveArtifact}=require('../../scripts/ecq/resolver.cjs'));}catch(e){if(e.code!=='MODULE_NOT_FOUND')throw e;resolveArtifact=()=>({});}
+test('resolver reads bytes and digest',()=>{const root=fs.mkdtempSync(path.join(os.tmpdir(),'ecq-resolve-'));fs.writeFileSync(path.join(root,'a'),'a');const r=resolveArtifact({path:'./a'},root);assert.equal(r.status,'FOUND');assert.equal(r.actualSha256,'ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb');});
+test('resolver blocks parent traversal and absolute path',()=>{const root=os.tmpdir();assert.equal(resolveArtifact({path:'../secret'},root).status,'UNAVAILABLE');assert.equal(resolveArtifact({path:path.join(root,'secret')},root).status,'UNAVAILABLE');});
+test('resolver missing and unavailable distinct',()=>{assert.equal(resolveArtifact({path:'nonexistent-ecq-983'},os.tmpdir()).status,'MISSING');assert.equal(resolveArtifact({availability:'UNAVAILABLE'},os.tmpdir()).status,'UNAVAILABLE');});

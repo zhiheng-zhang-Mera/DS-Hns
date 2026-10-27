@@ -1,0 +1,30 @@
+{
+  "caseId": "5493e41d3f1f724a33f5f275",
+  "evidence": [
+    {
+      "artifactRefs": [
+        {
+          "expectedObjectId": "github-job:114461864367",
+          "id": "record-114461864367",
+          "objectId": "github-job:114461864367",
+          "path": "job-114461864367.json",
+          "sha256": "75e50559ed35b70f34fbe8029cb580b999b1c9dd607ed45f0ce5cbc7f9664ab6"
+        }
+      ],
+      "claimId": "job:build",
+      "evidenceType": "github-actions-job-api-record",
+      "gateId": "build",
+      "id": "job-114461864367",
+      "outcome": "PASS",
+      "provenance": "github-rest-api-collected",
+      "runId": "38136678737",
+      "scope": "job:build",
+      "subject": {
+        "commit": "94dc268b8e8035ee45dfc8a696368e3f10a089d3",
+        "configurationDigest": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee",
+        "repositoryId": "fastify/fastify",
+        "tree": "68d7082aae720a105dbf4504f51ca338741f8e2b"
+      }
+    }
+  ]
+}

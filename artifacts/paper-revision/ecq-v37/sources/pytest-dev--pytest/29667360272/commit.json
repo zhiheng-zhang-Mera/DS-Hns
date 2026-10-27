@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-07-13T15:01:26Z",
+    "email": "ran@unusedvar.com",
+    "name": "Ran Benita"
+  },
+  "committer": {
+    "date": "2026-07-13T15:01:26Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/67a174fcee355334c53588be2eeba8df702477e9",
+  "message": "Merge pull request #14699 from pytest-dev/dependabot/pip/testing/plugins_integration/pytest-rerunfailures-16.4\n\nbuild(deps): Bump pytest-rerunfailures from 16.3 to 16.4 in /testing/plugins_integration",
+  "node_id": "C_kwDOAjwLddoAKDY3YTE3NGZjZWUzNTUzMzRjNTM1ODhiZTJlZWJhOGRmNzAyNDc3ZTk",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/6153372429f86e6ff224548d62e54945def76d8f",
+      "sha": "6153372429f86e6ff224548d62e54945def76d8f",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/6153372429f86e6ff224548d62e54945def76d8f"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/ac9c70926cb7f2bf9ce33bfd51215cd28f6c52a3",
+      "sha": "ac9c70926cb7f2bf9ce33bfd51215cd28f6c52a3",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/ac9c70926cb7f2bf9ce33bfd51215cd28f6c52a3"
+    }
+  ],
+  "sha": "67a174fcee355334c53588be2eeba8df702477e9",
+  "tree": {
+    "sha": "a36192b658b9f04d674b26639ac8621d266019de",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/a36192b658b9f04d674b26639ac8621d266019de"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/67a174fcee355334c53588be2eeba8df702477e9",
+  "verification": {
+    "payload": "tree a36192b658b9f04d674b26639ac8621d266019de\nparent 6153372429f86e6ff224548d62e54945def76d8f\nparent ac9c70926cb7f2bf9ce33bfd51215cd28f6c52a3\nauthor Ran Benita <ran@unusedvar.com> 1783954886 +0300\ncommitter GitHub <noreply@github.com> 1783954886 +0300\n\nMerge pull request #14699 from pytest-dev/dependabot/pip/testing/plugins_integration/pytest-rerunfailures-16.4\n\nbuild(deps): Bump pytest-rerunfailures from 16.3 to 16.4 in /testing/plugins_integration",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqVP3GCRC1aQ7uu5UhlAAAetsQAEUtgsPyei5YyzUyLcSFGutQ\nomjmgAG/oAkEbzD+cZTesFrYVb2QYJ4LvlbpXBB+JgJHbn7Zhrif0FRTrjS4ccye\nqvy5F8B25NX0B2UrsdeY2NB7LLokzB8v7oCNP0hgpbnKslxn1PTxvRIrMcaC2FRs\nKhXa/6FJG+AIgMo0P+W2lGSU3aZTtSyAGm4uMD6HRQQh7j3SgPu1mYhcZnEX6lq0\n7l7UFPd9Tk3JRd1zXXaYXMpTIZ9Mj0n6jhpduwngxRm3S1w9I+Km1yWwqQb7sEZT\nds8m+gBiBDPpcZL+tQn7mUu94uhf8AzPAJMQTzBfizP0GjtkAYJ3gvoiMcIDNCvH\nP1UxZb9rL3kuZ/E2w+DNrZvVDGRiPd/QIfj5ln97KucntCLO7LiZank9X8zNnE8g\nCgN8ZVMEEeUCzrQsIZBOYp4s7TG6mcofPF8Zx5nz8ggK4jpJ1bUweSfRub3sshWF\nmX+m+FjhN9XGq26T/WPJOCbcixghR+9XUDxPJRWZ7kbGqDthFBtFSO5tBBqc9zch\n3/JeJafPGObgdzF4wSXQkzTOoWxA4qLhAPeRO0j33p0ALbM4ThA5u/ooQp4E0C4W\nPGsj1J1OkTm7Umy4O0zWMflATcGeaVa4Kx6lrAaS3ho2NKtu5pvdn/KWUgi3rcN8\nNHC/LhXc69VwyLRowpcM\n=HNTT\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-07-13T15:01:27Z"
+  }
+}

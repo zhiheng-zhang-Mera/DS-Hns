@@ -1,0 +1,27 @@
+{
+  "check_run_url": "https://api.github.com/repos/pytest-dev/pytest/check-runs/69970436335",
+  "completed_at": "2026-04-05T00:54:34Z",
+  "conclusion": "failure",
+  "created_at": "2026-04-05T00:41:36Z",
+  "head_branch": "main",
+  "head_sha": "f93656d611f3c9cd22f346dfeda52cddb778c589",
+  "html_url": "https://github.com/pytest-dev/pytest/actions/runs/23990937571/job/69970436335",
+  "id": 69970436335,
+  "labels": [
+    "ubuntu-latest"
+  ],
+  "name": "doc-check-links",
+  "node_id": "CR_kwDOAjwLdc8AAAAQSpAg7w",
+  "run_attempt": 1,
+  "run_id": 23990937571,
+  "run_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/23990937571",
+  "runner_group_id": 0,
+  "runner_group_name": "GitHub Actions",
+  "runner_id": 1000261373,
+  "runner_name": "GitHub Actions 1000261373",
+  "started_at": "2026-04-05T00:41:40Z",
+  "status": "completed",
+  "steps": [],
+  "url": "https://api.github.com/repos/pytest-dev/pytest/actions/jobs/69970436335",
+  "workflow_name": "Doc Check Links"
+}

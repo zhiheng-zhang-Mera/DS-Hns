@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-05-01T12:09:06Z",
+    "email": "me@the-compiler.org",
+    "name": "Freya Bruhin"
+  },
+  "committer": {
+    "date": "2026-05-01T12:09:06Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/deb9f5f79b0537a5e80cc26dd11bfb217e263a72",
+  "message": "Add a space after the test name with --setup-show (#14430)\n\nBefore, a test's result was printed immediately after --setup-show output:\n\n    SETUP    F fixt\n    test_show.py::test_a (fixtures used: fixt)PASSED\n    TEARDOWN F fixt\n\nIn the extreme case, with monochrome output or yellow and white colors being\nclose to each other, an \"x\" for an xfailing test can be misinterpreted as part\nof a test name:\n\n    test_show.py::test_xfailx\n\nThis adds a space to clearly distinguish the output:\n\n    test_show.py::test_a (fixtures used: fixt) PASSED\n\nand\n\n    test_show.py::test_xfail x",
+  "node_id": "C_kwDOAjwLddoAKGRlYjlmNWY3OWIwNTM3YTVlODBjYzI2ZGQxMWJmYjIxN2UyNjNhNzI",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/2aa07343b6ebcb426f4cc595e3bf1912b0a442de",
+      "sha": "2aa07343b6ebcb426f4cc595e3bf1912b0a442de",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/2aa07343b6ebcb426f4cc595e3bf1912b0a442de"
+    }
+  ],
+  "sha": "deb9f5f79b0537a5e80cc26dd11bfb217e263a72",
+  "tree": {
+    "sha": "e1052b3308ad2d3f3fa5f71320ab4e53f0c6894e",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/e1052b3308ad2d3f3fa5f71320ab4e53f0c6894e"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/deb9f5f79b0537a5e80cc26dd11bfb217e263a72",
+  "verification": {
+    "payload": "tree e1052b3308ad2d3f3fa5f71320ab4e53f0c6894e\nparent 2aa07343b6ebcb426f4cc595e3bf1912b0a442de\nauthor Freya Bruhin <me@the-compiler.org> 1777637346 +0200\ncommitter GitHub <noreply@github.com> 1777637346 +0200\n\nAdd a space after the test name with --setup-show (#14430)\n\nBefore, a test's result was printed immediately after --setup-show output:\n\n    SETUP    F fixt\n    test_show.py::test_a (fixtures used: fixt)PASSED\n    TEARDOWN F fixt\n\nIn the extreme case, with monochrome output or yellow and white colors being\nclose to each other, an \"x\" for an xfailing test can be misinterpreted as part\nof a test name:\n\n    test_show.py::test_xfailx\n\nThis adds a space to clearly distinguish the output:\n\n    test_show.py::test_a (fixtures used: fixt) PASSED\n\nand\n\n    test_show.py::test_xfail x",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp9JfiCRC1aQ7uu5UhlAAAhaUQADBOcpktdaOn4DNB00THuVk3\nsa+6s8/yMBY5hhdFk5z9t3Nq/5JzZR6CvVmc9msL8i+eTiklQ2GxaANrQOEF40US\nvdbeJbKSVasTUJkPTosb7uPKE/+Tu0UgWnRMClFVIjMQI61Ri25UcBlSH6cNUMSu\nGx+nO96dc8fHVLLtDQzy3sCXZVyXL/Yg0NlCzEiOXyUahIwjtso2RHTynMKPnfiu\nHJkejZ64GMNWz9FPzxnxu43J/8h9wgHhtSsJryv5dvCKS5aw00QTnpiGFsA0HaiZ\nvSPNHi72VZLLngCJYSpWagIO8PNLgRaYD/DgsuW7653hRyxzsnYJCD7i2tMeoFcY\nvbfqChtl5U1f5337SpCOI4jsz3oIhI66DAChWPxv0kWEl9obKFqVOhKA/vokzhNa\nz+sUMH1CEvFxYMYac5ebVe1vz2oDPVEl9i/N+S6hMjqqHzW/F7yE83uJiReu/7AH\nLBSeu925y/s2e4/8xGgcq7TJbGXsBWPXIhrro7u8bukPD7ubLwKRnV07BPHG/VG0\nL10qbO1wnj4bzkKZkMx6QV/h17/iKKDi/JG8aqJjOS+3OI71HUOgVTZ5bh+KUhVz\nq+90VbtAMb+ire6iHoUN1CHFv8kwUbn6566UIGz3uJgrfo+aDyySaAEw990zqsiV\nCWfauGftHlPCV8P20kAB\n=nf+x\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-05-01T12:09:07Z"
+  }
+}

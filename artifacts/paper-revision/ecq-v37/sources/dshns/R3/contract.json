@@ -1,0 +1,42 @@
+{
+  "contractId": "dshns:archive-record:task4-phase-c-summary",
+  "statePolicy": {
+    "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+    "commit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+    "tree": "8cea76e201438854ff90b6bffff0800074c8f9ab"
+  },
+  "runPolicy": {
+    "allowedRunIds": [
+      "archive-record:task4-phase-c-summary"
+    ]
+  },
+  "requiredGates": [
+    {
+      "id": "phase-c-report",
+      "claimId": "gate:phase-c-report",
+      "scope": "gate:phase-c-report",
+      "required": true
+    }
+  ],
+  "claimGraph": {
+    "nodes": [
+      "report:phase-c-measured-state",
+      "gate:phase-c-report"
+    ],
+    "edges": [
+      [
+        "gate:phase-c-report",
+        "report:phase-c-measured-state"
+      ]
+    ]
+  },
+  "requestedClaim": "report:phase-c-measured-state",
+  "admissibleTypes": {
+    "types": [
+      "archived-measurement-report"
+    ],
+    "provenance": [
+      "repository-archive"
+    ]
+  }
+}

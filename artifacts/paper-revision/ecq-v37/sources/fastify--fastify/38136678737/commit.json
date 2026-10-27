@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-10-11T11:44:39Z",
+    "email": "matteopietro.dazzi@gmail.com",
+    "name": "Matteo Pietro Dazzi"
+  },
+  "committer": {
+    "date": "2026-10-11T11:44:39Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/94dc268b8e8035ee45dfc8a696368e3f10a089d3",
+  "message": "Merge branch 'main' into docs/fix-owasp-redos-link",
+  "node_id": "C_kwDOBCRpgtoAKDk0ZGMyNjhiOGU4MDM1ZWU0NWRmYzhhNjk2MzY4ZTNmMTBhMDg5ZDM",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/60280b510afd7b7511368ffc96ab242849b3f81c",
+      "sha": "60280b510afd7b7511368ffc96ab242849b3f81c",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/60280b510afd7b7511368ffc96ab242849b3f81c"
+    },
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/9e6d963f097f5512a07908e221404a7a8e69e5ba",
+      "sha": "9e6d963f097f5512a07908e221404a7a8e69e5ba",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/9e6d963f097f5512a07908e221404a7a8e69e5ba"
+    }
+  ],
+  "sha": "94dc268b8e8035ee45dfc8a696368e3f10a089d3",
+  "tree": {
+    "sha": "68d7082aae720a105dbf4504f51ca338741f8e2b",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/68d7082aae720a105dbf4504f51ca338741f8e2b"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/94dc268b8e8035ee45dfc8a696368e3f10a089d3",
+  "verification": {
+    "payload": "tree 68d7082aae720a105dbf4504f51ca338741f8e2b\nparent 60280b510afd7b7511368ffc96ab242849b3f81c\nparent 9e6d963f097f5512a07908e221404a7a8e69e5ba\nauthor Matteo Pietro Dazzi <matteopietro.dazzi@gmail.com> 1791719079 +0200\ncommitter GitHub <noreply@github.com> 1791719079 +0200\n\nMerge branch 'main' into docs/fix-owasp-redos-link",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqy3anCRC1aQ7uu5UhlAAArGAQAHEGOSqnsAy7Gdg2lvRtJ3Yu\nActBUov+7hPS88s4bbPXkkDIk8An7vdoX8IseID3hI+ALOyMxn5WDnOVUR8KG1R9\n2wmZOyb6deITrAGmblsHMmH0fkSyIr6kEIYNZwPLbuCYBeaaENpZuOtWTPKqhsCa\nziZy4MnAaPcQ7vGfEgN/FbpCzHnOF7AEHEXELOxL10kuFllcsKysw5btXSvtBH4N\nlgN7AtRRkqqplzZNh1QZgLdIPdW1lWi7FwsuS7QevyZo9+FHDzVYYIrFKH8V8kIG\nQMB4iye6U5YoKWKNAyJ9paOoGuAH1TABheJI8Ge0jeTVzDRFS2ppUBFVlrP8QiXg\nsLPkzmJ+kVdxMod2PcYQTc4mSmnGNzG62ra+JvgOG5ZuyATHJ+xT9qpFoVTla3tS\nk2bpHtPCNeKxNXw1ZVUUUjLKAj7VM6O+mqY1bDxggsIbA21L0nwIY4eVeEMLmGd5\nt8OeDLZPdm11238tW73DdQxFjTjFNB1djix9AKelW9ZUkwSy7hGpcplsnVnfcPjD\nKKzg2FR9mYEggknjYZvPeBUr8YaupOBISdOmoxswMHavw6oNAD5fIUAh6/wzRRC9\nTh5Ok4jZN+Co9ctdgipUfDcxDXyaTyhkgtXAHPZFheb6FxE4HzhJ9SVheWY+gdAu\nXSEcldBHYOFdRdwVvPxK\n=6JjW\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-11T11:44:40Z"
+  }
+}

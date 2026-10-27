@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-04-16T11:59:31Z",
+    "email": "miketheman@gmail.com",
+    "name": "Mike Fiedler"
+  },
+  "committer": {
+    "date": "2026-04-16T11:59:31Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/90465694d3501267decade1ac0be988999940957",
+  "message": "Add `--max-warnings` option to fail test runs (#14372)\n\nAllow users to set a maximum number of allowed warnings via --max-warnings\nCLI option or max_warnings config option. When the warning count exceeds\nthe threshold and all tests pass, pytest exits with a new WARNINGS_ERROR\nexit code (6). \n\nThis supports gradually ratcheting down warnings in a\ncodebase without converting them all to errors.\n\nCloses #14371\n\nSigned-off-by: Mike Fiedler <miketheman@gmail.com>",
+  "node_id": "C_kwDOAjwLddoAKDkwNDY1Njk0ZDM1MDEyNjdkZWNhZGUxYWMwYmU5ODg5OTk5NDA5NTc",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/2f156949b1e4bcaebd572ed545bedd47ae2f0ba9",
+      "sha": "2f156949b1e4bcaebd572ed545bedd47ae2f0ba9",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/2f156949b1e4bcaebd572ed545bedd47ae2f0ba9"
+    }
+  ],
+  "sha": "90465694d3501267decade1ac0be988999940957",
+  "tree": {
+    "sha": "1f0d8cfde52092b26bb0f3371c31143f76fcdf13",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/1f0d8cfde52092b26bb0f3371c31143f76fcdf13"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/90465694d3501267decade1ac0be988999940957",
+  "verification": {
+    "payload": "tree 1f0d8cfde52092b26bb0f3371c31143f76fcdf13\nparent 2f156949b1e4bcaebd572ed545bedd47ae2f0ba9\nauthor Mike Fiedler <miketheman@gmail.com> 1776340771 -0400\ncommitter GitHub <noreply@github.com> 1776340771 -0300\n\nAdd `--max-warnings` option to fail test runs (#14372)\n\nAllow users to set a maximum number of allowed warnings via --max-warnings\nCLI option or max_warnings config option. When the warning count exceeds\nthe threshold and all tests pass, pytest exits with a new WARNINGS_ERROR\nexit code (6). \n\nThis supports gradually ratcheting down warnings in a\ncodebase without converting them all to errors.\n\nCloses #14371\n\nSigned-off-by: Mike Fiedler <miketheman@gmail.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp4M8jCRC1aQ7uu5UhlAAAiWYQAGFBsulcYHgx1xt5UOojc7N6\nDK1h0PCcSFpZ1sMw00HV2MFG9VsN2drKpqIK6AuE0FfnDVYkakm+cUEzKB69br8i\nOP4IPxBvVji+RoXnMV+m0/TLDf9Ns5bSMhcwKd/Zi/S0cfatLS2qfaYkWzE8ZhHv\nKALH0YSRpGZ0vN+4h+9xez8SzEqZYGEZ1KJCY2Qwe7rEo4laD4iaZ4MV6Y2OkHoJ\nRyRSbURhM8AyDGLnxofA5PryBRz4CL8gIIj2Sp28a0i4TVMMlN3/bkohSj95cMeC\n9J2dIlzTIXM6L8IPD8XCiwcclr78oym/9hQaoQi01B5q8DRYZh4rQDRHWRDiSmye\nOdnsesoFg0F/twBjJaJoveEdl3EqA9bgE3ZZkdW1TwLmIicJw4+I1n1hNk2us5uF\nNZcJ86GDGohykzcBxmY6Aq8XReNR4NPhM3gK/8fpKM+5KkBLSywIWtb25FaK5caK\nrxfjVvNBoHWsanfagE++tkQixJyoxqZZZY1nk26A8RMka5O+sBlINlN4fgVJ4oen\nSxsq1XC9c4Br0wvmWcoY+m1vJ03aImM4BDFi67jOMS7AJ7cO4dd2T6URnaLDCaLe\n3LioVJ6obUiThtSJr23zDNKb0lgR9rlPfx5BWrGCw/2yIxLTNXMbk2yr2Yik/12h\nq8g7BWazHx2U8xrjJRDl\n=saBc\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-04-16T11:59:32Z"
+  }
+}

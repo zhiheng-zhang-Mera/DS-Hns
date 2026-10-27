@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-08-15T19:56:35Z",
+    "email": "pierre.sassoulas@gmail.com",
+    "name": "Pierre Sassoulas"
+  },
+  "committer": {
+    "date": "2026-08-15T19:56:35Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/fa7ccb176fd48f5591bfb3e3525492698a1d3f25",
+  "message": "[refactor] Start using match case in 'assertrepr_compare' (#13762)\n\nReplace the if/elif dispatch on ``op`` with a ``match``/``case`` on\n``(left, op, right)``. The ``str()`` and ``AbstractSet()`` class\npatterns subsume the ``istext`` / ``isset`` guards that the if/elif\nform needed alongside the operator check.\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+  "node_id": "C_kwDOAjwLddoAKGZhN2NjYjE3NmZkNDhmNTU5MWJmYjNlMzUyNTQ5MjY5OGExZDNmMjU",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/68308aa288e00ff84880572ed9b3590f6cd7d470",
+      "sha": "68308aa288e00ff84880572ed9b3590f6cd7d470",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/68308aa288e00ff84880572ed9b3590f6cd7d470"
+    }
+  ],
+  "sha": "fa7ccb176fd48f5591bfb3e3525492698a1d3f25",
+  "tree": {
+    "sha": "2161f41c447e2821c98a1152a8aa99a5d67c92f1",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/2161f41c447e2821c98a1152a8aa99a5d67c92f1"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/fa7ccb176fd48f5591bfb3e3525492698a1d3f25",
+  "verification": {
+    "payload": "tree 2161f41c447e2821c98a1152a8aa99a5d67c92f1\nparent 68308aa288e00ff84880572ed9b3590f6cd7d470\nauthor Pierre Sassoulas <pierre.sassoulas@gmail.com> 1786823795 +0200\ncommitter GitHub <noreply@github.com> 1786823795 +0200\n\n[refactor] Start using match case in 'assertrepr_compare' (#13762)\n\nReplace the if/elif dispatch on ``op`` with a ``match``/``case`` on\n``(left, op, right)``. The ``str()`` and ``AbstractSet()`` class\npatterns subsume the ``istext`` / ``isset`` guards that the if/elif\nform needed alongside the operator check.\n\nCo-authored-by: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqgMRzCRC1aQ7uu5UhlAAAc9kQAJZnTs38oOve+pUz6B4ld3uT\nqrjaTGhSos5V/G9O3VAijlL1gC1FXbO4ej0BnO3f2eWZiuJZlPTg5bIhp65Kylwj\nmEl6wQHt4b5QmPdvkcZ+JE+rjc++UgtdCyUcTFlPtBwlJlp3q+cdURONGHtrIzOy\n3p6ZEJNvg/VVKmjtSX/V0lzOromHUcyKXvB8oW45v0FK1MX342sC7fKhdiJTLVpT\nk2T/1BMM59KvNl7N7IDVxYD27ay8v7ZZ3g9UgcgtdcwWamyikWQ8cdlgnn0FNBum\n8ce/rm/+6FOsizs1gjJHP1O3jBXjMvdeqsiXWK9IXkaUV2q7nbbYX/SpXDyH0L6v\n6uRb/ButF0KHMQHvz26rGoM03eYRmjyrWOkBSRjAZdXyPzF7x6uTfbfOAJcGRPxz\n4fSIaVgsvxDAvGoLeD/vsd24vIFzEPPmRRMWwqRatr4Gn6nAMrBKPpK+xeYLsJFr\nwCDkuFKM33fJVROlRGW+Q7vNufQZWrMUs7R9vuTKS+zr3gpyLs5aIS/mL1sVGwyJ\n11K9XmXUnzaSPT5aU5AH7A6CNcPDFqq9FNb86mI5hmlOuLAuN4MfsyPufX7rHZ4v\nQGffaOWlW3SrGv8d2ffLCdvKI5kRzugU4rIjIrwhcyhNMvFfAXNBsiZrjEXT0msC\nFTa6i8Nk4cSvmOSWZT2M\n=PUYE\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-08-15T19:56:35Z"
+  }
+}

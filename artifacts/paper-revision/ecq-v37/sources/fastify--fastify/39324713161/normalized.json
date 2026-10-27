@@ -1,0 +1,102 @@
+{
+  "bundle": {
+    "caseId": "f78fa03e92b6dae5fffe",
+    "evidence": [
+      {
+        "id": "job-118307431572",
+        "subject": {
+          "repositoryId": "fastify/fastify",
+          "commit": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+          "tree": "3d55f5ffe9ebc23d01420a49544c5cfcd7fed685",
+          "configurationDigest": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+        },
+        "runId": "39324713161",
+        "gateId": "build",
+        "claimId": "job:build",
+        "scope": "job:build",
+        "outcome": "PASS",
+        "evidenceType": "github-actions-job-api-record",
+        "provenance": "github-rest-api-collected",
+        "artifactRefs": [
+          {
+            "id": "record-118307431572",
+            "path": "job-118307431572.json",
+            "objectId": "github-job:118307431572",
+            "expectedObjectId": "github-job:118307431572",
+            "sha256": "3da959ad8e88829e4428178f4055a26b3ea22a5422e66247b53ffc27361e4907"
+          }
+        ]
+      }
+    ]
+  },
+  "contract": {
+    "contractId": "actions:fastify/fastify:39324713161",
+    "statePolicy": {
+      "repositoryId": "fastify/fastify",
+      "commit": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+      "tree": "3d55f5ffe9ebc23d01420a49544c5cfcd7fed685",
+      "configurationDigest": "1df71d89b1ce8a22025539d35760db833c4c7a182d0e0eac417d95d8420f2cee"
+    },
+    "runPolicy": {
+      "allowedRunIds": [
+        "39324713161"
+      ]
+    },
+    "requiredGates": [
+      {
+        "id": "build",
+        "claimId": "job:build",
+        "scope": "job:build",
+        "required": true
+      }
+    ],
+    "claimGraph": {
+      "nodes": [
+        "workflow:recorded-outcome",
+        "job:build"
+      ],
+      "edges": [
+        [
+          "job:build",
+          "workflow:recorded-outcome"
+        ]
+      ]
+    },
+    "requestedClaim": "workflow:recorded-outcome",
+    "admissibleTypes": {
+      "types": [
+        "github-actions-job-api-record"
+      ],
+      "provenance": [
+        "github-rest-api-collected"
+      ]
+    }
+  },
+  "mappingWitnesses": [
+    {
+      "target": "/contract/requiredGates",
+      "source": "workflow.jobs",
+      "basis": "pinned workflow declarations and supported event conditions",
+      "expected": [
+        {
+          "id": "build",
+          "name": "Lint Markdown",
+          "claimId": "job:build",
+          "scope": "job:build",
+          "required": true
+        }
+      ]
+    },
+    {
+      "target": "/evidence/job-118307431572",
+      "source": {
+        "jobId": 118307431572,
+        "runId": 39324713161,
+        "commit": "e6693bb666e6111bba3ff561b72c44e18f6dbd0d",
+        "workflowJob": "build",
+        "rawConclusion": "success"
+      },
+      "basis": "direct API-field mapping; job name matched to workflow declaration"
+    }
+  ]
+}

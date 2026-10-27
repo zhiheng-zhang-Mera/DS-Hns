@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-12T10:24:56Z",
+    "email": "hello@matteocollina.com",
+    "name": "Matteo Collina"
+  },
+  "committer": {
+    "date": "2026-10-12T10:24:56Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/3241fbd2f10a8ca1503533726836b53b6e8775a2",
+  "message": "[Backport 5.x] fix(validation): lowercase header names in propertyNames enum/const (#7104)\n\nBackport of 35c32375731c111439682b2f9e6e0baed2694269 to `5.x`.\n\n- Lowercase header names in `propertyNames` `enum`/`const` in headers\nschemas\n- Document that regex header-name constraints are not case-normalized\n- Add `FSTSEC003` warning when a `$ref` is used inside `propertyNames`\nin a headers schema\n\nThe only conflict was in `lib/warnings.js`: `5.x` also has `FSTWRN004`\nand `FSTDEP022`–`FSTDEP025`, so both sets are kept.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01EeyumS5b9M4aQc8C2UCHJQ\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+  "node_id": "C_kwDOBCRpgtoAKDMyNDFmYmQyZjEwYThjYTE1MDM1MzM3MjY4MzZiNTNiNmU4Nzc1YTI",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/1a46b1bfca2bcec8fad0ce9606cb75da14aa9c3b",
+      "sha": "1a46b1bfca2bcec8fad0ce9606cb75da14aa9c3b",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/1a46b1bfca2bcec8fad0ce9606cb75da14aa9c3b"
+    }
+  ],
+  "sha": "3241fbd2f10a8ca1503533726836b53b6e8775a2",
+  "tree": {
+    "sha": "361ac935fce0f48d042f848b39e74c2dfcd9cba8",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/361ac935fce0f48d042f848b39e74c2dfcd9cba8"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/3241fbd2f10a8ca1503533726836b53b6e8775a2",
+  "verification": {
+    "payload": "tree 361ac935fce0f48d042f848b39e74c2dfcd9cba8\nparent 1a46b1bfca2bcec8fad0ce9606cb75da14aa9c3b\nauthor Matteo Collina <hello@matteocollina.com> 1791800696 +0200\ncommitter GitHub <noreply@github.com> 1791800696 +0200\n\n[Backport 5.x] fix(validation): lowercase header names in propertyNames enum/const (#7104)\n\nBackport of 35c32375731c111439682b2f9e6e0baed2694269 to `5.x`.\n\n- Lowercase header names in `propertyNames` `enum`/`const` in headers\nschemas\n- Document that regex header-name constraints are not case-normalized\n- Add `FSTSEC003` warning when a `$ref` is used inside `propertyNames`\nin a headers schema\n\nThe only conflict was in `lib/warnings.js`: `5.x` also has `FSTWRN004`\nand `FSTDEP022`–`FSTDEP025`, so both sets are kept.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01EeyumS5b9M4aQc8C2UCHJQ\n\n---------\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqzLV4CRC1aQ7uu5UhlAAAhRUQAEHIg9yOu4WuVI6iul4r/SoA\nqNXaKFfr0YNA+Te+3r2DRL911FT1DECejb35F9Xwy77YqFJirIRFHZAgupsadhOd\nf1bFuWYd1w/6PPmZ1WCjyFWKo3wxmH7JL6xX/sNGCa+B+3La8L08rdgn4pd7oZzq\njzsJGL0aYfGwN7d/9ULJBVEF1rBO+nE1i/Em9gKrp/wOGQkxxsgzz5xi5AwzJQy3\nAFr1l0II6kxqAbNswhK6hdkzCF8tQYYIk4Rqk7ODu2KuflkZRPKrBd48alVhkMVJ\nCW2zE1aFpkXG3DXL1ffssNsK+PHDKXiQgCkuoLnumvfuaLm0aBoBAeLrCkCU4FK5\nJ7lL+MHFEd1uSdF/aF8RCM7yU4luDSHrnhqvA1khsLr/wwXbDoG+uPh2FAkBvRFf\nUpXZWr/GQ0+D63z5WX1Krnpg866q3tatjGogyn3SsYlf5A6tT1jRUxWAkhoFbEGh\nxqHpeA3VYB6XhXK6BWPIBszG2URe84lJ/kxiRWUV0teFHXUzj6T6z0e+nL6nLHK5\nX6hIqe0+HWgyf2SvdKtsl3owHer+ar2R95XTZysFzIn7cUu08rNGE645KuhlsL4c\n0PlNw+mZ3JcAMzlh2IZjXLGWoS8can91krojccSNrGHZ+Eli7VvxAHzNbS4qyEgR\nq7Tazg5xAN/FYDVXEWOH\n=OLLK\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-12T10:24:57Z"
+  }
+}

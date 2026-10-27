@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-10-24T13:04:33Z",
+    "email": "manuel.spigolon@nearform.com",
+    "name": "Manuel Spigolon"
+  },
+  "committer": {
+    "date": "2026-10-24T13:04:33Z",
+    "email": "manuel.spigolon@nearform.com",
+    "name": "Manuel Spigolon"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/f240dd6fa49f84366ec6c9fa836c48d824eebd33",
+  "message": "Merge remote-tracking branch 'origin/main' into harden-citgm-package-workflow-input\n\n# Conflicts:\n#\t.github/workflows/citgm-package.yml",
+  "node_id": "C_kwDOBCRpgtoAKGYyNDBkZDZmYTQ5Zjg0MzY2ZWM2YzlmYTgzNmM0OGQ4MjRlZWJkMzM",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/24d93cbfff0795374c4e62ebb21770faf17b24ff",
+      "sha": "24d93cbfff0795374c4e62ebb21770faf17b24ff",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/24d93cbfff0795374c4e62ebb21770faf17b24ff"
+    },
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/5c1f3935e43b35679c71ea7a65275a348d1efbd1",
+      "sha": "5c1f3935e43b35679c71ea7a65275a348d1efbd1",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/5c1f3935e43b35679c71ea7a65275a348d1efbd1"
+    }
+  ],
+  "sha": "f240dd6fa49f84366ec6c9fa836c48d824eebd33",
+  "tree": {
+    "sha": "342c19a18ec9a89bd2d674a8dfe452e1ef45b417",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/342c19a18ec9a89bd2d674a8dfe452e1ef45b417"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/f240dd6fa49f84366ec6c9fa836c48d824eebd33",
+  "verification": {
+    "payload": "tree 342c19a18ec9a89bd2d674a8dfe452e1ef45b417\nparent 24d93cbfff0795374c4e62ebb21770faf17b24ff\nparent 5c1f3935e43b35679c71ea7a65275a348d1efbd1\nauthor Manuel Spigolon <manuel.spigolon@nearform.com> 1792847073 +0200\ncommitter Manuel Spigolon <manuel.spigolon@nearform.com> 1792847073 +0200\n\nMerge remote-tracking branch 'origin/main' into harden-citgm-package-workflow-input\n\n# Conflicts:\n#\t.github/workflows/citgm-package.yml\n",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\niQJPBAABCAA5FiEEM85rNjiXeWv8ALw7mb2vQKcp2a0FAmrcrOEbFIAAAAAABAAO\nbWFudTIsMi41KzEuMTIsMCwzAAoJEJm9r0CnKdmtFy4QAIU2zaUBuzwdkfg7fpEz\nafa3q9cwJklzrCLf4W7G5ciulx8LcHwjWzOFY9Mw06Eo1blfI4Pr30LagaTb5kIJ\nAAlXzweGh0I/CHH2hrYNLqFI7OodhweOh4mfPk927UbIajSCiXN69cWkeyAXltFO\n9JnWZ9mO2OuB7VMM3lshHf2uUGkDS0ClGotVNhK0DsoIhPmtqZ+2VqRRM99p+sEe\nzhcToq20dLQNMiZOGEkKkzl45rE9nz9VbXFb1GzKOzriNf66POdFCvYzk176yBSs\nPVfkpA22RV8qGOOPXMRR3m7OQV98yYAPC3ZF2aVITwt6rJHCQhTzWSlEgswyzGYo\n1I9Hqjikj1DYLVK7U5QoIK7a4QxqpAvMpZKO72EgNCixAGl0nfK13DUOUA4KvHb3\nGtwFO4UmVsfB4yJ5zryVb7UuI8tSWtFFrGQdyj74vyc7ky/BpCbIBPkC1DZCV2Ck\nJSRY6A4KcQiPlF/sbDjYC8HTiDj1sOM6l1hJOKTEHu0c7NgSNSfzOH6Twhe4GIKU\nvnRoaT1GsEPRhLdvh3asvVn0rL7Ywj4ClK868s3Z/GFBHkc+eOTkeCOqcs1++3nM\nwipffRju93WbuR9gTw5KVB54X83aNRaOd1/MiIzfEerV3BPPuyNrjDiSQsys1gLr\n0YYHjlS42D6JQRIjt8kZ8wPn\n=hMyZ\n-----END PGP SIGNATURE-----",
+    "verified": true,
+    "verified_at": "2026-10-24T13:04:36Z"
+  }
+}

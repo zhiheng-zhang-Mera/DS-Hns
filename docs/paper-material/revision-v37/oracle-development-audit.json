@@ -1,0 +1,1725 @@
+{
+  "representatives": [
+    {
+      "template": "single",
+      "caseId": "02abcd9586e34b69fd61c72c",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "pass",
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "0fdfc8e2c24b7aa87540396a5abdc08c7f09d706ee2379466a88a22150d718ec",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "e13ba6a18d925370337e6000",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "fail",
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "64f643be813131b81587a69e884d19e18eb521eb62f0577083a4d6c5809b1a9b",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "46a02723e16918be62a41ef3",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "unknown",
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "UNRESOLVED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "a142c7eeeb0663d75975c49a5716d1423397827c923c9b7ea9b11184e5b035a3",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "2b17d6ab7de9a8bef659a97a",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "S",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "4155ba124f876819ca774a0987f4478f22f649feeb27f523f86bc161d8086c5a",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "7a308f8243b5d65846a8ce53",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "R",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "60c2dce91834c9196664910fd6ce74523eb8bb06627969a3eade1623ca3001b3",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "363ccf2278ce1bba2d799ad2",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "G",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "a6b77179918cc1854a356f1f543efc56505210b8e45fe5ecfa785ae2b4f739b0",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "72fb32fc883bc4b700c27299",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "V",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "6258abba9876725984654f087f07f88f0bf823a747e6c7249f17ba1179d2d216",
+        "contractPath": "c9ac077b84a8f4d17e682dc718a7e2ddab6f4a812bbe98fa9457f3f9cc8080fa"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "b5d62052e78408294a8b86b0",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "E",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "c1382b09bcbef4161bc3fdfa813833b22c9cef5d6635215d184aaac6e2c85cfa",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "60b59ec4cfb662dc4eabb3a0",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "C",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "5fe4d404505a779fdef2fce0ce4e8b402c757cdf1622c5dfde3b2ddc9e3efa75",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "f8078fc399458f25ab4127ba",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "I",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "878471d93b48cc3258fee2aa0e6794b41839bc4b83cdb9f6a482599625cdc896",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "8647b2c7974c2170296a1110",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "T",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "b8b7ad1a0c58a59c387595941e124aeae9712b9e0efa679a5487bf6932813aa6",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "3bea5ccc3966f788e8bfd8ab",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "SR",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ],
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "23904dcefa27589a38ad50de90f107a3ccda4588ced590f213816454a7ee9f26",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "fd39f212d9cc376fe6beb44d",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "GV",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_G": [
+          "VIOLATED"
+        ],
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "28c17e3529f590bfe81732d4684ae18de056717bae8cb1c2a18b99bbb89a8d79",
+        "contractPath": "c9ac077b84a8f4d17e682dc718a7e2ddab6f4a812bbe98fa9457f3f9cc8080fa"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "395ba10d0f1086cd4f27a769",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "EI",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "9dbe799ce9028903b276ebf7eb3974ef9678004e5f0e7b18b21b272e8aa0c8cd",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "single",
+      "caseId": "3758a923865d3e4aeaa49dba",
+      "baseId": "564fc29e3beb9ede872ef5f5",
+      "family": "CT",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "325d77e242631157f036ccf5a8072bcacb1964ce17fcccdc5c3683c7f809a954",
+        "contractPath": "bdab3da52bd6a857e9ebbb9d8479fc9425daec0648772ba3c12138d2e3a546d8"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "240d840a50654bb683d78ca0",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "pass",
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "6a0e81c19c6bab5245850dd49a8748c2a586e5c273460d7226fe25c1e875b644",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "1be1906b7926b3f352f92d56",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "fail",
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "6ab562fdcfa14ab3c2d497c0a5c55bf8256ba8a95574aa29f97402751a26c234",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "5951bf5f1351a81ead694461",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "unknown",
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "UNRESOLVED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "7523259f87453ffc716259daeaa2092f328b488d3811f505fba41743bbc1380c",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "ce80116536c2d3124e12e817",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "S",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "7fbcb731a5f2c6a8dd63e9e3709fd116ae8e78d12b0cb55ede4c7e4876f4acec",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "9ae4e2af9828a4dca900c617",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "R",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "d24cb32793689eddbcd6f4645143b73c6aa8ce326fea9663656eaaff70686eae",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "4c73eb3837ead60cd07e4aab",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "G",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "423d6883ffe24b50ad8a68bdd0a767e75f4f782354c34d964e3c9fbad543fca1",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "4484d201f47ac21a8e6c712d",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "V",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "e4d36e220b3aec57292c46e1897da7e17d699df23ca3d00e7e7acd26a7b81fbe",
+        "contractPath": "5fbea4cc30276d4b530323963ce5767cb6d1612817f40d73af2c48cc91f16fdb"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "abeed1d6a1106a166cf40494",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "E",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "d5fcb979bebe7d00b32081de1fa2ad3d3ae8f2869e7139276af0fc391ee67365",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "de7f49f1aef4a832c06603a0",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "C",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "843332e5c55588bd340984df21e3bf7f871d0aa460aa05e772f6e8f083c0b0ba",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "20775734ad46779a61965492",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "I",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "50225d728e1cfd418f62b16b2b63bba89282eb78c8fcf31faf5accd7306b6545",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "a2e606fa136dd324d897fca4",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "T",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "fb6ec68bff3df0dba5ccb0affed33f5a1943b639c9a2b362f00e7039704e3f01",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "d739a4693aac080548451a7c",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "SR",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ],
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "45c340d915a19a8510ea525bd11e3337f643698d87304ccd80389715e2046ab2",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "223042c2e7d47d73d594a5ab",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "GV",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ],
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "1ceeca0c33c5f1268da00caab5ef0329fc5634dd57daebe57f15888661ae41cb",
+        "contractPath": "5fbea4cc30276d4b530323963ce5767cb6d1612817f40d73af2c48cc91f16fdb"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "f2d24f6e983ec7bb6cf1ffa8",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "EI",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "40f37b9238db26585acff9da00bdce1ee3f0c5dcbf7a0689279abd78941ddb60",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "multi",
+      "caseId": "dd392aa574a7c4dfb4ea94f0",
+      "baseId": "ce9ceba7595b52f9efea493f",
+      "family": "CT",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "1ac3bb6b766bcc92798011277ea5e2e10cd959b76d656a5db4d209bb2f833d24",
+        "contractPath": "39e5610547a4535aa3a5dbfd6d8fec1083813c0031bd1813d39e294debcf00ca"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "e2d89b4caf621b1992451abd",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "pass",
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "ffda6dbebcce627b8e9c4045e43e1fc9aeed1a0488dc0825fd4e890822c97b10",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "a48b61a2e9cb5cb6f93cffdf",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "fail",
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "24c6dcb734540883be02f1b9b962843e964c15ffb7142fca278aca6c889819ae",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "1fcb535a39e15320e43af9ca",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "unknown",
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "UNRESOLVED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "e6bd70e40a7e4d94213a966317f1c1396d803e79148c4e1ca12735dabe94e8c7",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "59788fd5c930db141ee1b7bf",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "S",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "704ee8d1d9545905b083bde7fa77ffbb8fcb69ade919b31adb506eb30370ffb5",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "54d3471e56ba4623f4c06da1",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "R",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "b250312bd4f2a69616889506f98de12a07ac6c64605c728f5888400201b401e8",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "8e301ed396fe624042f084b0",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "G",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "c69f7905001c207197230b859a92502f340f3d1a8fd95865518e5fc328ee6126",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "ae507e4133f0fbc532ec9f6c",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "V",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "392ff0d1d5cca16482280aa4c27093d5d7a82d34c25638c5616e7ff7014b2594",
+        "contractPath": "a3a3b2ee9ac647a54c16bdc7f50a6e5ddb32134070c0289c69b946d7f2da4f9c"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "2eab0765304745cbe7e1c65e",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "E",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "dc238808512d412b6a35c9eb5ff81f10d75676a33a3ffdd3e161be7181e9b84f",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "0b71d1dc538b7c60c150edc6",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "C",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "a6b4b8a998210fc77112817ba13e973c5571a39ab575a00305073772984b3651",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "9e3b8d48f3bba638490be95b",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "I",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "81a70158611bdb8d97b30714955e16ab6fca538b24280fc91970284bc44276bc",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "98e6a829cbff1c3c80dc18b9",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "T",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "8f57ee610bf1650ac2ce7bb0b50eb8b40de263789b45abbd30d5d4b304d66d26",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "a893d468bcf182056bdcb946",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "SR",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ],
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "9b4470324ae15288fe5132dd26f619709f92f9e7866b1ad890b2ba55a3a3cda0",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "fa1a14c779abfa5235966ff2",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "GV",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ],
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "29ebab1b1ad4206f428b41bcc6e49f080dfabcbe32398969a16fd7c56ddb36e5",
+        "contractPath": "a3a3b2ee9ac647a54c16bdc7f50a6e5ddb32134070c0289c69b946d7f2da4f9c"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "9bc551b1faac6138359aeb67",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "EI",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "03aba7b18f255927ee0ff74a0f9e99937f0fbdb2e0628800fcedb96e2148da3e",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "matrix",
+      "caseId": "8cc2054276b872f9e9ca314c",
+      "baseId": "01f752407ec35129d57fe8f4",
+      "family": "CT",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "a622a893f33ed609d21f50ab262ef05e83ff8bde69695b3b942ef1ecaa9e2dc3",
+        "contractPath": "8a3c5d65966ac99c43156034ae513a64272e69a337d2e8439717eca1fbf21b4b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "6cf4384cd4541f5624f9f5fd",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "pass",
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "18b82fe486bca06d9cd904d363d85ac9a00b3c9e796e398676457870c726aca0",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "837861fb6db126e118f434c3",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "fail",
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "9c2e28ad89e4d5b4bda0e64ab1661c429f43309fd29fc6ada4538ef436549a4b",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "b31a93c4b676b3e1086bfe5a",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "unknown",
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "UNRESOLVED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "417cb13d67f4cbde67a08557ab99f21dcb54787a6569c5f4850a8a5807f43419",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "26ef0b09bf78585979a44f8f",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "S",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "9e93a383f15e5a8deddd4763101232ab0917e3b667a0edd6a406950d89adf28f",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "f5122d97612ec01b2dec4ea2",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "R",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "516cd175b97187804169067ae36bbae9490efb5e50bbf30436ed22f5d338a2b1",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "3428023eaa3f858b82de1dc9",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "G",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "15b72115228e989df8ef44bca20481d2c7cf5809ff5dafe9c050aaade32ecb11",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "9df181df0c4e1ee9bd7876ed",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "V",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "e247eccf36a497fa0bc6972a9a1df476a4a8f8cdab29b06945b26fbe7e511def",
+        "contractPath": "ebf646c357f7c6a45173c5cbfc107776b48462de5f0d8ff19509a52ab88e0407"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "32674995fa20b1034a5e30f3",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "E",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "0f6d4522d40724292120c20abae9f2821d3ca950763a905151d37592b739cf6c",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "607cbbf76336d297ee0986d3",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "C",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "acf0562ab13e376518fb2621135053218cd3e92e9cb425b5fe7789517497150c",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "bdfe094a821a74e3bbbd01c2",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "I",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "a915585bb937ae9571b4676bf5f6346d52090eeb3359d165399f5f3509deb9de",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "49b709bf1f46dfea9a315e92",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "T",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "9c6bc36b1e98c5e326e0d31464f143c333cb05d0f0cacc73a104e3408d5b5f59",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "9c9830c0bd0e089c7ab80534",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "SR",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ],
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "62025d15a5afb18090a159dd8ba3ba17033fe609cbf1878293aa346cdf6fcfb7",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "62d55e03339dc9faa090117d",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "GV",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ],
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "13ef2134c1e6b1fac423d27634779529828171af822f84e16488a6dffeca48c3",
+        "contractPath": "ebf646c357f7c6a45173c5cbfc107776b48462de5f0d8ff19509a52ab88e0407"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "34bb67c72e36a04f4e5a4d8d",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "EI",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "c372d54b0b8bd539ed2a154b4b07135dab99132ff72aeb9316cce769cc6ed9f1",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "dependent",
+      "caseId": "b858bc3dd3602274feeb9d8c",
+      "baseId": "ed40f63abd24d37d5360a6d9",
+      "family": "CT",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "ce65aadcd8e48b0c87bcf0a527a497187ab58a30ee10dc292e5a484632a173dc",
+        "contractPath": "af931e2b6e0ae8541b9e536b4a45327645ca091c06325fa015ed93ccf9ff723b"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "b84408fd9f7e548f74af766d",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "pass",
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "4556ae23a9fd4dee9a32953f20deaf088183dd69a56c4f9a3648dc30c8fc57a3",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "6a7c13cbe4b189440d8c1def",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "fail",
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "b6f855ee227a8d68a581f7d3c3aac219dd927a25e7fb16ff72fee01dfc655884",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "1048906836a86fe879e82bc1",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "unknown",
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "UNRESOLVED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "527fb0228f2c27805c92bb7274a320d1b079720cb333034c00d9e96132b5f987",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "50ceb8252a726198c3f30493",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "S",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "5dbf3ac812a58cb0786bc13f04653938982d7070c75c381470b12213395e8ac1",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "a3322cea9db5ce29544d630f",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "R",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "b768c68e5f45fc73249a8708f6d100db23b311db229e441cd74da95bcd819a0e",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "7c3d5946d4ff0b562376a339",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "G",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "b5a5178fcfa44b0c99dba263e076d496720ed484fd3f7ae16a245386a23d5474",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "cf0599271ff178f38b7f6866",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "V",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "1f4e043761273651caad258d433119f36b2386ba91f263cfee31a0cf3c5ba8e5",
+        "contractPath": "a48ef16d7b0089a317fcc61590a797e53f5003b779a59085ab80fa2a6c1b0d4d"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "d586bda031c3bb87bfd93a98",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "E",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "fc3fb595d4e10ba7cb8cd88b7ab757310baba0dd5a7f4cd8927946f917b2509f",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "6a597b9e65e1cacbbbe1839c",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "C",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "1338fbcdf74374b6fcda39c9e9bcd95b81f66c87cda2f0e5211caa21152137ed",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "b9b857cf8a30d820b593f568",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "I",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "a8ae238872ba9fc51b4dbef9572acda6f746f9d3a5b4527314a59ee2f984b251",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "9d1460cc201cd524411e30cd",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "T",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "fe726c311b6d0cd61b414844a3d635d6961c46b46f321947f4528d4b8439837d",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "cf1efaf19307888e36e0c039",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "SR",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ],
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "af21150dd0a5d9ecff12829da141a7ae31f66cd9831e83aaed077eaf2487d9db",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "9269bf48ec7d8eaed11e49ad",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "GV",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ],
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "1072f44a718557a09e9f2e90aab9809c641abf64c464e8a0e4eb682b73fcd058",
+        "contractPath": "a48ef16d7b0089a317fcc61590a797e53f5003b779a59085ab80fa2a6c1b0d4d"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "b564bf5804345f442bff1a16",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "EI",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "bc61e5c3e578cbc1b83a870c0e50358fbac8bd0337aafe2845d8166fc72305ff",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "reuse",
+      "caseId": "3aa4a46abdfc30679697615c",
+      "baseId": "d81de0f51a01a54cfa41bce0",
+      "family": "CT",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "ed5e5ce59d3b6096e351efc67e85ad14fb4f0392699b2fb1a93dd54f0d16d38c",
+        "contractPath": "b03d4f82bde37ae7a15c49e2a604a4e070a0000052b10a12fcb7c03b93e10d8a"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "31d30c1d13a910728c1834f2",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "pass",
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "17a036cee9f151261b32b29ab40fe3be9b00253848ad74d8fce65fbfb29e4b98",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "75bf298230319da59ae12039",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "fail",
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "nonEstablished": {},
+      "inputSha256": {
+        "bundlePath": "0fc65a81c1caf5846d68989d34d9605c0af346e25b3f6fbf813ff3d0860bdc8b",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "0b8d9639f04d57280b1359bf",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "unknown",
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "UNRESOLVED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "ab9a855eedbd94594527e816a6c6dedcc002958745a1aa025ce5fcf8d78bb4a4",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "896df0f0b059d8ab7b4a29e6",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "S",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "24f70df8ab87fd5433b1de25dcdaec5f1dab1f9eb29afa18ec40602ffb9b07b7",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "d400ae84863fb7c2158f5e4a",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "R",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "5f7a3aafda9c402aa909d2be98342f0ffa238707c0ca5888df7e75e875affa51",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "3fea170efae94bcd40c37eea",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "G",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "6d7913220f1ea01e9ed3ce963d16eeb9d5a7183dcc7ee2d249bcdcfc8570448a",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "b247e0b42ae2c6694fcf959c",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "V",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "afb741bcc19a4c541450f8545e732b061a7c8f3948fda4003f98c346e66d4142",
+        "contractPath": "ac57ac6a99ba1d3e7eae5199864021ca5252efb664d990d922a426d7b0e692d3"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "d8b3f16d1c4a06522b5b2072",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "E",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "UNRESOLVED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "54543cdd78af7daf5ce2b12d7ea7e3502a81c724e14849c543dc597b4dff60a5",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "dd1c700cb121e9f33e71dd4a",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "C",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "52a5b2546795e53e9dbc12718db95c7756acc7e61f8b1cf42b719a46275fb9e5",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "d3e0560135014bc36f2c83ce",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "I",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "705ec5e6bc38d208a335615f0b87ad3193508f7d2df32d13e6bdf08e37bda93f",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "1af75da9a6b018f9dec101fb",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "T",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "d94729ecfb6553967830e155566b056187cf0cdc9b172e65d79fe5dc44fa5313",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "743faae912897c261e6ecf20",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "SR",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_R": [
+          "VIOLATED"
+        ],
+        "I_S": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "2437d07c1c699c06d42c2cb16fd782e61bdec45fb05f12f39afbcf9c06733222",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "8451fc97349c2fc93e3ed64b",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "GV",
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_G": [
+          "VIOLATED"
+        ],
+        "I_V": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "d83bd5f8d7a8ebe9b2925044de365bfa45d386169c9e8aebac1b58b43d08514f",
+        "contractPath": "ac57ac6a99ba1d3e7eae5199864021ca5252efb664d990d922a426d7b0e692d3"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "e93ed39a4bccb7147fa3e558",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "EI",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_E": [
+          "VIOLATED"
+        ],
+        "I_I": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "037a50a25bd0c4c2de38f9d8fcc8f80113a6e083997f1a0287474ee9b24f54d1",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    },
+    {
+      "template": "nested",
+      "caseId": "37c31f97d6c61e4a46349383",
+      "baseId": "964d5219d4d479504bddc69b",
+      "family": "CT",
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "nonEstablished": {
+        "I_C": [
+          "VIOLATED"
+        ],
+        "I_T": [
+          "VIOLATED"
+        ]
+      },
+      "inputSha256": {
+        "bundlePath": "b086d80559d535e51551632fadc058b59b0cfafdc01b07d7e2540bdfa66cbcbb",
+        "contractPath": "e91bba3d81e83bee80c11076a1984195f0401408324a58af82cc9c6859333523"
+      }
+    }
+  ],
+  "independence": "Read specification, interface, generated facts and generator; no native or SHACL implementation imported/read. Labels calculated from actual facts only. Family used solely in external audit assertions, never in evaluate or label_case.",
+  "counts": {
+    "developmentCases": 300,
+    "representativeBases": 6,
+    "representativeCases": 90
+  },
+  "labelAxes": [
+    {
+      "closure": "CLOSED",
+      "gate": "SATISFIED",
+      "authorize": true,
+      "cases": 20
+    },
+    {
+      "closure": "CLOSED",
+      "gate": "UNSATISFIED",
+      "authorize": false,
+      "cases": 20
+    },
+    {
+      "closure": "UNRESOLVED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "cases": 20
+    },
+    {
+      "closure": "VIOLATED",
+      "gate": "SATISFIED",
+      "authorize": false,
+      "cases": 200
+    },
+    {
+      "closure": "VIOLATED",
+      "gate": "UNRESOLVED",
+      "authorize": false,
+      "cases": 40
+    }
+  ]
+}

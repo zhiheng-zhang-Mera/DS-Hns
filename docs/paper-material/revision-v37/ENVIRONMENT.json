@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-27",
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.14.3",
+  "node": "v24.14.0",
+  "pyshacl": "0.40.1",
+  "rdflib": "7.6.0",
+  "pyyaml": "6.0.3",
+  "specSha256": "35107941b87a11945d65668fd422d06bd57d65668ef6351b75afdca5c30f34b3",
+  "protocolSha256": "a32834015f1eca4b13613bc4f47f604e5f5b990870529c6d0e82c71e152f90a2",
+  "secondOS": {
+    "available": false,
+    "evidence": "wsl --list reports no installed distribution; no Docker or Linux runtime configured",
+    "action": "No machine-wide OS installation performed"
+  },
+  "dependencies": [
+    {
+      "wheel": "html5rdf-1.2.1-py2.py3-none-any.whl",
+      "sha256": "1f519121bc366af3e485310dc8041d2e86e5173c1a320fac3dc9d2604069b83e"
+    },
+    {
+      "wheel": "owlrl-7.6.2-py3-none-any.whl",
+      "sha256": "83347bf7f133979e87b2b18695d51d25510b99cec3f6919b5df05d4fbf058ae0"
+    },
+    {
+      "wheel": "packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+    },
+    {
+      "wheel": "prettytable-3.18.0-py3-none-any.whl",
+      "sha256": "b3346e0e6f79180833aebaac088ae926340586cf6d7d991b9eb125b65f72313a"
+    },
+    {
+      "wheel": "pyparsing-3.3.3-py3-none-any.whl",
+      "sha256": "ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4"
+    },
+    {
+      "wheel": "pyshacl-0.40.1-py3-none-any.whl",
+      "sha256": "27dd58c8ddfa103303b4a8c40b2c666332ffc912dbcd3137f7adc7b7bc5e6bda"
+    },
+    {
+      "wheel": "pyyaml-6.0.3-cp314-cp314-win_amd64.whl",
+      "sha256": "4a2e8cebe2ff6ab7d1050ecd59c25d4c8bd7e6f400f5f82b96557ac0abafd0ac"
+    },
+    {
+      "wheel": "rdflib-7.6.0-py3-none-any.whl",
+      "sha256": "30c0a3ebf4c0e09215f066be7246794b6492e054e782d7ac2a34c9f70a15e0dd"
+    },
+    {
+      "wheel": "wcwidth-0.9.4-cp310-abi3-win_amd64.whl",
+      "sha256": "f28d77153303450ee13ebbe888297e75cf532c754555b6cabafc9bdda16c421c"
+    }
+  ]
+}

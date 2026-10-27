@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-04-11T16:05:47Z",
+    "email": "ran@unusedvar.com",
+    "name": "Ran Benita"
+  },
+  "committer": {
+    "date": "2026-04-11T16:05:47Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/5f7684db1f9e7141493b6447f4f026aadc30af56",
+  "message": "Merge pull request #14379 from bluetech/importlib-cleanup\n\npathlib,assertion/rewrite: clean up some no longer needed code for `importlib` import mode",
+  "node_id": "C_kwDOAjwLddoAKDVmNzY4NGRiMWY5ZTcxNDE0OTNiNjQ0N2Y0ZjAyNmFhZGMzMGFmNTY",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/18db92df7f2515e4a9bf589c54a863693dff724d",
+      "sha": "18db92df7f2515e4a9bf589c54a863693dff724d",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/18db92df7f2515e4a9bf589c54a863693dff724d"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/166a857f3a6375e72b9f4c65daf4d66f2e7d4ec7",
+      "sha": "166a857f3a6375e72b9f4c65daf4d66f2e7d4ec7",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/166a857f3a6375e72b9f4c65daf4d66f2e7d4ec7"
+    }
+  ],
+  "sha": "5f7684db1f9e7141493b6447f4f026aadc30af56",
+  "tree": {
+    "sha": "97f36d226d7b0bdeb4d1803c6ba99649f893c61c",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/97f36d226d7b0bdeb4d1803c6ba99649f893c61c"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/5f7684db1f9e7141493b6447f4f026aadc30af56",
+  "verification": {
+    "payload": "tree 97f36d226d7b0bdeb4d1803c6ba99649f893c61c\nparent 18db92df7f2515e4a9bf589c54a863693dff724d\nparent 166a857f3a6375e72b9f4c65daf4d66f2e7d4ec7\nauthor Ran Benita <ran@unusedvar.com> 1775923547 +0300\ncommitter GitHub <noreply@github.com> 1775923547 +0300\n\nMerge pull request #14379 from bluetech/importlib-cleanup\n\npathlib,assertion/rewrite: clean up some no longer needed code for `importlib` import mode",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp2nFbCRC1aQ7uu5UhlAAAdswQAAwL4rQed6KJ+iD65oClUZqC\njRNRAVU9qRR10p6oqodEqPYWsx5kY4yWmlyBZ7M4VjBcns5O6LTt8NiMBfiJgZFy\nKnOtLNWR7b3yHQIcnAz2ZfFgoIDW7lXkpstbS8BkdlkEKir/gVj/pgSK1OUZDCFl\nIUIWYzAYA+HD5Ep5niZBHd8rDE/vLpLmX3kpm8rkW9ipTNdAy2aVd5icNq2uFe1c\nZWeLyMXtDKoyYb3hzg/kYU8rks9wsK8Lf1jLACBZ73+JJQTuAWiRFIfUaJiec+nx\n3uiL99TKpG1iOtrty54KgsTsxihJHP7nbniT1n6SJtj0IqW8ntRFhA8sa06II0EG\nDnDawawoBD8VUjeSOXpmvC5VapcGPATDUSo6SGKNQ9Ua/ZgLMF9Nct/KKu3e5egv\nxmdRlEUo3/X9ZVf6nS+DOQuQJTchu9msSPhdrVoD3sCGDM9kSUW8lCx1ha9cRQUJ\nRfjpt7zXBOwtRgkYUHR7neW8fTFu/M+F1l/ii0M4DZQPYNFrDCyxMMNGrsbewD2s\nNJ+iECFyEIqalYnVXxwNXu/LxbyY1qCQs2VEDsH7wrnMw8GJBhUlApmbNwL0xqdO\nPUSWVOup4MrgZKRVucSYGdatVZzIPCeAi1VIcfRcgn15IdRYSazYbRzKqUs+LG2b\nxQsu4B5wcM/bLskNbJRj\n=sew8\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-04-11T16:05:48Z"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-07-25T15:25:47Z",
+    "email": "zac.hatfield.dodds@gmail.com",
+    "name": "Zac Hatfield-Dodds"
+  },
+  "committer": {
+    "date": "2026-07-25T15:25:47Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/36704f9b54c40b3de715f5d5d28666faf566b843",
+  "message": "Fix elision of long collections in assertion messages with -vv (#14748)\n\nThe message part of `assert cond, msg` went through\n`saferepr(obj, maxsize)`, where `-vv` maps to `maxsize=None`. That lifts\nthe overall string-length cap, but `SafeRepr` still inherits reprlib's\nper-container limits (`maxlist=6` etc.), so e.g. `assert False, dir(\"\")`\nstayed elided with `...` at any verbosity — the exact reproducer from\nissue #12307, which #12662 only partially fixed (it covered long scalar\nreprs but not collections).\n\nUse the `_saferepr` helper instead, as originally proposed in #12322:\nit routes `maxsize=None` to `saferepr_unlimited()`, which uses a plain\n`repr()`, matching how asserted expressions are already displayed at\nhigh verbosity.\n\nCloses #12322\nFixes #12307\n\n\n\nClaude-Session: https://claude.ai/code/session_01QgcKk5Az2fxFFfEP2tQ9Sk\n\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Sorin Sbarnea <sorin.sbarnea@gmail.com>",
+  "node_id": "C_kwDOAjwLddoAKDM2NzA0ZjliNTRjNDBiM2RlNzE1ZjVkNWQyODY2NmZhZjU2NmI4NDM",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/344c23787cdb3431dcc441b8b63ee9950f04b921",
+      "sha": "344c23787cdb3431dcc441b8b63ee9950f04b921",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/344c23787cdb3431dcc441b8b63ee9950f04b921"
+    }
+  ],
+  "sha": "36704f9b54c40b3de715f5d5d28666faf566b843",
+  "tree": {
+    "sha": "b21fef3d43b1617decccbc2dbc4903dfb054130f",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/b21fef3d43b1617decccbc2dbc4903dfb054130f"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/36704f9b54c40b3de715f5d5d28666faf566b843",
+  "verification": {
+    "payload": "tree b21fef3d43b1617decccbc2dbc4903dfb054130f\nparent 344c23787cdb3431dcc441b8b63ee9950f04b921\nauthor Zac Hatfield-Dodds <zac.hatfield.dodds@gmail.com> 1784993147 +0200\ncommitter GitHub <noreply@github.com> 1784993147 +0200\n\nFix elision of long collections in assertion messages with -vv (#14748)\n\nThe message part of `assert cond, msg` went through\n`saferepr(obj, maxsize)`, where `-vv` maps to `maxsize=None`. That lifts\nthe overall string-length cap, but `SafeRepr` still inherits reprlib's\nper-container limits (`maxlist=6` etc.), so e.g. `assert False, dir(\"\")`\nstayed elided with `...` at any verbosity — the exact reproducer from\nissue #12307, which #12662 only partially fixed (it covered long scalar\nreprs but not collections).\n\nUse the `_saferepr` helper instead, as originally proposed in #12322:\nit routes `maxsize=None` to `saferepr_unlimited()`, which uses a plain\n`repr()`, matching how asserted expressions are already displayed at\nhigh verbosity.\n\nCloses #12322\nFixes #12307\n\n\n\nClaude-Session: https://claude.ai/code/session_01QgcKk5Az2fxFFfEP2tQ9Sk\n\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Sorin Sbarnea <sorin.sbarnea@gmail.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqZNV7CRC1aQ7uu5UhlAAAelQQAFuw/rBRPjq0IbmJILYOUAhX\nKWT9bX7pPGu8rVedCrePGPahUoCiVWGxdA16sJy7i6mYkqEciFDuJr9Oh2UgezPm\nll5fVVA0C7pH9Gn3xxo8yoW4TOhZQcm9MaCLYMBmh/cVJuMKPtY3gpTvS16B07yB\n3DIy9swmZ7e/Xs2m51kWcYVg7O6+qpjSN/444XKnzYRtHc+Lba3hdQHqUMhIOm3X\nWpAtEsPoQYnPY+bvxb92zRxEDi8DKoddheAYKaFD74HtQlUiwRI7vOv1Gkrdb5lB\nMJ65YLN9PYHMjRpTQLIPL4YZiQnw8ou7B7vq+D4fkxgnaAiC+zk0FrNDI7mvyr1T\nkKpyrhvbo20CGmJV2SjetKjFnboS1MKHpk/h/hWYnpa66enP0AEJmAri28rCzSyW\n0Qw9Mp74k841YhhfEtPfCdhwOERT9VOkQnmxFgFtfX4wfrIaDxmFv0S8mCVfDaFE\nvxW/fgnQO+we++GB06k/Klyd4klFHWcPT7nLav3Hl8XLNmcEoMXcrWLa+2NTApwy\n10u0YV9MUJSV0X1eItePoicZtJF065S5kHXPb9fDq+7nudTbq6Ob6JPSeqfM0O3N\n9Bbn/uzXkX+LH+9AhethKRFi6MIIiUve8D2lRdv5dBsgVlr1q1xm8LuMlpGjSc/x\nO3kqVbkstsl9xf87N/dd\n=0LS0\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-07-25T15:25:48Z"
+  }
+}

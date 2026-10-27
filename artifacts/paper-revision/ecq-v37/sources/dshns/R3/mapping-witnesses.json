@@ -1,0 +1,100 @@
+{
+  "bundle": {
+    "caseId": "R3",
+    "evidence": [
+      {
+        "id": "phase-c-report",
+        "subject": {
+          "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+          "commit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+          "tree": "8cea76e201438854ff90b6bffff0800074c8f9ab"
+        },
+        "runId": "archive-record:task4-phase-c-summary",
+        "gateId": "phase-c-report",
+        "claimId": "gate:phase-c-report",
+        "scope": "gate:phase-c-report",
+        "outcome": "PASS",
+        "evidenceType": "archived-measurement-report",
+        "provenance": "repository-archive",
+        "artifactRefs": [
+          {
+            "id": "phase-c-report",
+            "path": "phase-c-summary.json",
+            "objectId": "sha256:610d38a6a23081d196a9c3f35a8671d8fa7ed10b1636d9c049c0862fb1eee5f2",
+            "expectedObjectId": "sha256:610d38a6a23081d196a9c3f35a8671d8fa7ed10b1636d9c049c0862fb1eee5f2",
+            "sha256": "610d38a6a23081d196a9c3f35a8671d8fa7ed10b1636d9c049c0862fb1eee5f2"
+          }
+        ]
+      }
+    ]
+  },
+  "contract": {
+    "contractId": "dshns:archive-record:task4-phase-c-summary",
+    "statePolicy": {
+      "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+      "commit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+      "tree": "8cea76e201438854ff90b6bffff0800074c8f9ab"
+    },
+    "runPolicy": {
+      "allowedRunIds": [
+        "archive-record:task4-phase-c-summary"
+      ]
+    },
+    "requiredGates": [
+      {
+        "id": "phase-c-report",
+        "claimId": "gate:phase-c-report",
+        "scope": "gate:phase-c-report",
+        "required": true
+      }
+    ],
+    "claimGraph": {
+      "nodes": [
+        "report:phase-c-measured-state",
+        "gate:phase-c-report"
+      ],
+      "edges": [
+        [
+          "gate:phase-c-report",
+          "report:phase-c-measured-state"
+        ]
+      ]
+    },
+    "requestedClaim": "report:phase-c-measured-state",
+    "admissibleTypes": {
+      "types": [
+        "archived-measurement-report"
+      ],
+      "provenance": [
+        "repository-archive"
+      ]
+    }
+  },
+  "mappingWitnesses": [
+    {
+      "target": "/contract/requiredGates",
+      "basis": "explicit report-level qualification of preserved Phase C measured-code metadata",
+      "originalWholePassed": true,
+      "originalRunId": "archive-record:task4-phase-c-summary",
+      "measuredCode": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5"
+    },
+    {
+      "target": "/evidence/phase-c-report",
+      "source": "results[id=phase-c-report]",
+      "originalPassed": true,
+      "originalRunId": "archive-record:task4-phase-c-summary",
+      "originalMeasuredCode": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5"
+    }
+  ],
+  "notes": [
+    "This profile maps a stored measurement report to its measured code, not a new timing trial.",
+    "Archive-record locator is not claimed as the original measurement run. Historical storage commit 0bbd32e is recorded separately and is not substituted for measured code."
+  ],
+  "metadata": {
+    "measuredCommit": "9cecd68fdcc39ffc1d0f3700365acecdb818bae5",
+    "storageCommit": "0bbd32e",
+    "repairCommit": "5afb25ca07c23d5535301d8ad9a504a6d108a80d",
+    "sourceReportStatus": "PASS",
+    "sourceReportRuns": 3
+  }
+}

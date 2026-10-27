@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-10-12T13:37:38Z",
+    "email": "Tony133@users.noreply.github.com",
+    "name": "Antonio Tripodi"
+  },
+  "committer": {
+    "date": "2026-10-12T13:37:38Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/f722529a5e97070f5cb64610e19b99ee6274cffe",
+  "message": "Merge branch '5.x' into backport-7004-to-5.x",
+  "node_id": "C_kwDOBCRpgtoAKGY3MjI1MjlhNWU5NzA3MGY1Y2I2NDYxMGUxOWI5OWVlNjI3NGNmZmU",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/18a80c82b8f05a0be0175adcd8bed88a3b064ada",
+      "sha": "18a80c82b8f05a0be0175adcd8bed88a3b064ada",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/18a80c82b8f05a0be0175adcd8bed88a3b064ada"
+    },
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/20b55d43a707607ec8ef103962e985b6bf126a06",
+      "sha": "20b55d43a707607ec8ef103962e985b6bf126a06",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/20b55d43a707607ec8ef103962e985b6bf126a06"
+    }
+  ],
+  "sha": "f722529a5e97070f5cb64610e19b99ee6274cffe",
+  "tree": {
+    "sha": "de84fc7b977e8713e348f13835cace38f64f6eb4",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/de84fc7b977e8713e348f13835cace38f64f6eb4"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/f722529a5e97070f5cb64610e19b99ee6274cffe",
+  "verification": {
+    "payload": "tree de84fc7b977e8713e348f13835cace38f64f6eb4\nparent 18a80c82b8f05a0be0175adcd8bed88a3b064ada\nparent 20b55d43a707607ec8ef103962e985b6bf126a06\nauthor Antonio Tripodi <Tony133@users.noreply.github.com> 1791812258 +0200\ncommitter GitHub <noreply@github.com> 1791812258 +0200\n\nMerge branch '5.x' into backport-7004-to-5.x",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqzOKiCRC1aQ7uu5UhlAAAvhEQABHw6BPbxszDf+9bUFolxBUy\nZFfzzywovknjg+5P9SIKGk7HPipeA9Fw8WEX7GbUZ9zWI5rPn6VINrcNXTBjU2qb\nmVlWYf7v/9EQHsXZxpCtzUiBMvjUpzOZCJJ3+Z/c9UKjwsfxppYtEb1vCwm2eE+9\ncrT1d2sm2l2smclBxOFYREWAf+w4LRDdv+oB7e6+3DzGA/ti0+V7EO0+cDvbICGt\nmAJj8iDnB7qmtunB5JJQOzo+XsobIULUhXbpxxCIKqKsgEEcTYMoedsSglxK9Stt\nOe9pugWoQcNcZj7x/YQ+CP+hvU7K8uGXawiswYybFNzFdzs+eytIEhdDVJBudqQr\nqnPtKPqZ1d6Z2AKXksLAKhRtVFMo9IKJ/NTWMvnVmSajh9aOTEfxEe6Y6oFfB01K\nDlGosQhRkdCdQIr+BmQTw+CKxjySfObQgnJX7Fu1ZtJOgtolHCK3eWil/jYDo8BV\n/n5tx2XiDdFA6tmxrPU1qKnfVZctQjbX01HYnrTW/eOhzZHT/ujXxgZEG0urCMLP\nttxKT0GGliiHyTkfRPVHAppYyH5rAeAq7Nr0SHjMkXLlObzbeWXTu8Ff+F546id0\n6yCPg4xpb8u3dNtWiEtWIdiBhmkNqALhEWRBw+HyL1rHJCN69v/8CFDKW00LBF1U\nEPBLzuP8x6HS4oqSn2rk\n=LMw6\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-12T13:37:39Z"
+  }
+}

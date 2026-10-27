@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-05-09T10:49:29Z",
+    "email": "49699333+dependabot[bot]@users.noreply.github.com",
+    "name": "dependabot[bot]"
+  },
+  "committer": {
+    "date": "2026-05-09T10:49:29Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/b10612810dc6f3614385f6456ddc5e7c8277e15b",
+  "message": "build(deps): Bump django in /testing/plugins_integration (#14450)\n\nBumps [django](https://github.com/django/django) from 6.0.4 to 6.0.5.\n- [Commits](https://github.com/django/django/compare/6.0.4...6.0.5)\n\n---\nupdated-dependencies:\n- dependency-name: django\n  dependency-version: 6.0.5\n  dependency-type: direct:production\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+  "node_id": "C_kwDOAjwLddoAKGIxMDYxMjgxMGRjNmYzNjE0Mzg1ZjY0NTZkZGM1ZTdjODI3N2UxNWI",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/a481f264d70ac3d053d5f7408f4ac1ec439d0c2f",
+      "sha": "a481f264d70ac3d053d5f7408f4ac1ec439d0c2f",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/a481f264d70ac3d053d5f7408f4ac1ec439d0c2f"
+    }
+  ],
+  "sha": "b10612810dc6f3614385f6456ddc5e7c8277e15b",
+  "tree": {
+    "sha": "96def961d91c52d865fa5d891fb9691926d9dd4d",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/96def961d91c52d865fa5d891fb9691926d9dd4d"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/b10612810dc6f3614385f6456ddc5e7c8277e15b",
+  "verification": {
+    "payload": "tree 96def961d91c52d865fa5d891fb9691926d9dd4d\nparent a481f264d70ac3d053d5f7408f4ac1ec439d0c2f\nauthor dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com> 1778323769 +0200\ncommitter GitHub <noreply@github.com> 1778323769 +0200\n\nbuild(deps): Bump django in /testing/plugins_integration (#14450)\n\nBumps [django](https://github.com/django/django) from 6.0.4 to 6.0.5.\n- [Commits](https://github.com/django/django/compare/6.0.4...6.0.5)\n\n---\nupdated-dependencies:\n- dependency-name: django\n  dependency-version: 6.0.5\n  dependency-type: direct:production\n...\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp/xE5CRC1aQ7uu5UhlAAAzicQAAg1p8HZN3OFzEwOybjR8IXX\nKwJ2n+meHyYLGsb9gHRv71kJs1gVHqOidaGN7c8rly3w2fLNqHAkvWQHJv9r3E0i\nuA5HU/Og+RxftV8JOcvXd4IYyiP0EpHSJ1u/f6rRhfpxJ47/8h6MGRk7qIXdebqo\ntdgwPkEH1aE7g4QtGiWszzVHhWEE1gN0Ke8g6DcG7cAcyO1wo3Wqdnx++uFKSCDj\n8MACPbXpeNi+f0fudroKIyYsAKlDBsoMpQrt2DZXmEHqmCUK3oZq3K51kGKcCs0W\njBvYwMXBUKs8l7UpcOvahvqWQBdUZDIdLw8Dq3ud24T8S3Ym+bJe5aIkgnVO+DQP\n10Hn/DzN8wtq/q18nHJ6+ks7eoxKlZbO4i5e07CVCdjGDiQGLOdoR/QgqWdalm63\noP5NrFXhk4aEWUTTXeXA1TPoK4ZEWgTeGxxvO6ihoo/evL3eiJHK3/7tTPH0OgWF\nC0QyaC+tKFdzqybIuOdOvcWZTSCQ/krF+Gbo05J5wS1NqanMtT+Emscc0NOfns6J\nAT3CNe3hYYj0Vv74RmYd3rvZg5k3+js97Ip36xpUVD913z8NeQh+ctAPlqyJhlVf\ndGMtJkFmOteAMoAx+RPemiY0q46wBWV4IMgLfbLs0W0DhQDSau4WOvI9Dwt2+5tZ\nmwnCwSBWaMxVhKvmQdcr\n=Pdsq\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-05-09T10:49:30Z"
+  }
+}

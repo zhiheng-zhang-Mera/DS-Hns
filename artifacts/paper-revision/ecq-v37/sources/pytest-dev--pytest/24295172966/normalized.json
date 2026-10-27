@@ -1,0 +1,102 @@
+{
+  "bundle": {
+    "caseId": "efd1df500127993665f0",
+    "evidence": [
+      {
+        "id": "job-70938815332",
+        "subject": {
+          "repositoryId": "pytest-dev/pytest",
+          "commit": "5f7684db1f9e7141493b6447f4f026aadc30af56",
+          "tree": "97f36d226d7b0bdeb4d1803c6ba99649f893c61c",
+          "configurationDigest": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+        },
+        "runId": "24295172966",
+        "gateId": "doc-check-links",
+        "claimId": "job:doc-check-links",
+        "scope": "job:doc-check-links",
+        "outcome": "FAIL",
+        "evidenceType": "github-actions-job-api-record",
+        "provenance": "github-rest-api-collected",
+        "artifactRefs": [
+          {
+            "id": "record-70938815332",
+            "path": "job-70938815332.json",
+            "objectId": "github-job:70938815332",
+            "expectedObjectId": "github-job:70938815332",
+            "sha256": "6d00e5afc8f6b394e0035380d0b6a205f58a64015bf40e946713e8a875760958"
+          }
+        ]
+      }
+    ]
+  },
+  "contract": {
+    "contractId": "actions:pytest-dev/pytest:24295172966",
+    "statePolicy": {
+      "repositoryId": "pytest-dev/pytest",
+      "commit": "5f7684db1f9e7141493b6447f4f026aadc30af56",
+      "tree": "97f36d226d7b0bdeb4d1803c6ba99649f893c61c",
+      "configurationDigest": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc"
+    },
+    "runPolicy": {
+      "allowedRunIds": [
+        "24295172966"
+      ]
+    },
+    "requiredGates": [
+      {
+        "id": "doc-check-links",
+        "claimId": "job:doc-check-links",
+        "scope": "job:doc-check-links",
+        "required": true
+      }
+    ],
+    "claimGraph": {
+      "nodes": [
+        "workflow:recorded-outcome",
+        "job:doc-check-links"
+      ],
+      "edges": [
+        [
+          "job:doc-check-links",
+          "workflow:recorded-outcome"
+        ]
+      ]
+    },
+    "requestedClaim": "workflow:recorded-outcome",
+    "admissibleTypes": {
+      "types": [
+        "github-actions-job-api-record"
+      ],
+      "provenance": [
+        "github-rest-api-collected"
+      ]
+    }
+  },
+  "mappingWitnesses": [
+    {
+      "target": "/contract/requiredGates",
+      "source": "workflow.jobs",
+      "basis": "pinned workflow declarations and supported event conditions",
+      "expected": [
+        {
+          "id": "doc-check-links",
+          "name": "doc-check-links",
+          "claimId": "job:doc-check-links",
+          "scope": "job:doc-check-links",
+          "required": true
+        }
+      ]
+    },
+    {
+      "target": "/evidence/job-70938815332",
+      "source": {
+        "jobId": 70938815332,
+        "runId": 24295172966,
+        "commit": "5f7684db1f9e7141493b6447f4f026aadc30af56",
+        "workflowJob": "doc-check-links",
+        "rawConclusion": "failure"
+      },
+      "basis": "direct API-field mapping; job name matched to workflow declaration"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-10-17T16:09:20Z",
+    "email": "opensource@ronnypfannschmidt.de",
+    "name": "Ronny Pfannschmidt"
+  },
+  "committer": {
+    "date": "2026-10-17T16:09:20Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/420cf37a3fc8c03c9a4769c2635a03773d27be10",
+  "message": "Merge pull request #15128 from RonnyPfannschmidt/fix-9236-pluggy-floor\n\nRequire pluggy>=1.6 so caplog keeps its handler (#9236)",
+  "node_id": "C_kwDOAjwLddoAKDQyMGNmMzdhM2ZjOGMwM2M5YTQ3NjljMjYzNWEwMzc3M2QyN2JlMTA",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/cb6ff97bcb147f2bb5d9e0072c424dc03a452ba1",
+      "sha": "cb6ff97bcb147f2bb5d9e0072c424dc03a452ba1",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/cb6ff97bcb147f2bb5d9e0072c424dc03a452ba1"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/20d5e7d405f6504974bbe83d38e195d5ed819aa2",
+      "sha": "20d5e7d405f6504974bbe83d38e195d5ed819aa2",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/20d5e7d405f6504974bbe83d38e195d5ed819aa2"
+    }
+  ],
+  "sha": "420cf37a3fc8c03c9a4769c2635a03773d27be10",
+  "tree": {
+    "sha": "03879dafe14ac0b22d9066ec614cf0b3eedd9900",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/03879dafe14ac0b22d9066ec614cf0b3eedd9900"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/420cf37a3fc8c03c9a4769c2635a03773d27be10",
+  "verification": {
+    "payload": "tree 03879dafe14ac0b22d9066ec614cf0b3eedd9900\nparent cb6ff97bcb147f2bb5d9e0072c424dc03a452ba1\nparent 20d5e7d405f6504974bbe83d38e195d5ed819aa2\nauthor Ronny Pfannschmidt <opensource@ronnypfannschmidt.de> 1792253360 -0400\ncommitter GitHub <noreply@github.com> 1792253360 -0400\n\nMerge pull request #15128 from RonnyPfannschmidt/fix-9236-pluggy-floor\n\nRequire pluggy>=1.6 so caplog keeps its handler (#9236)",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJq052wCRC1aQ7uu5UhlAAAzDcQAGD1tCtEDN5BfZq6aORHeP40\nrNkztkuUfucomObe2SSbj1boZf8/iki1J9MJnkI6nUuIx9JqpfAPRkesB08c3ynG\n1Ecr9hhiaDbgR4Jao7vbMzI+qcgaugEQinCKBUb6xrh8Z0OoOT+pSK+7owZacbEO\n6lbl3P+8xNRlKktyp3RyoA4fG1fTEttyFEAftzsK70VAbzK17/WXwE6/8tASdZY6\nGVpigUn35L56ph3WVSL+DBFYHBtL/ZrH3G2lVk+qhmzGVQhcaQWWnmimFMT0h0Ia\nwBaQA1Q9kzfg3LWEC1ZGNMhpprfhCdQLPoIQD0xAlrfzfVBk6pkLIvFqTI224zge\n0240mHzvGUJtfZKBjMAGxT/DDU6Yn7Y8SWS0jcbrIo0uB8EWAcvu8r60x/kO5SGF\nBKyFDXEOxP7z9K2xWSDztimrygnxYk56HACPIxLfQxzhFHIEtzR7p0bq1Vxi+LjY\n/D3o4Vq8OwL3+sm8D9J7koEH/mX/gRuI2Z42f5sVa7m3Cyb8clvZ6Nu5xH+S7zHa\n/+HC4E0+LQ25EcUdKa4E+pF5/B8L87owEuKlKWfsSqyYlSVErF/m5OXF0ySeyZyC\nfpm8uXsRIZRfP4HldC6+8TR3T9i3RxHm/miio2+VxOJRTIUTEoJAhPjhdO9DzmIo\nGfboLDwT0SnPavz+V8X5\n=jXAk\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-17T16:09:20Z"
+  }
+}

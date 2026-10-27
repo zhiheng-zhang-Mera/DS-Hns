@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-10-10T22:03:01Z",
+    "email": "opensource@ronnypfannschmidt.de",
+    "name": "Ronny Pfannschmidt"
+  },
+  "committer": {
+    "date": "2026-10-10T22:03:01Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/4e64e831268758cf0040c52c144e0f09f46cd8a3",
+  "message": "Merge pull request #15145 from pytest-dev/claude/project-thread-0ll2wg\n\nFix node duration formatting when rounding crosses a unit boundary",
+  "node_id": "C_kwDOAjwLddoAKDRlNjRlODMxMjY4NzU4Y2YwMDQwYzUyYzE0NGUwZjA5ZjQ2Y2Q4YTM",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/4fa645fe43855630b4492fc3fdec13050152f4ef",
+      "sha": "4fa645fe43855630b4492fc3fdec13050152f4ef",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/4fa645fe43855630b4492fc3fdec13050152f4ef"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/3212d470263f5707563466a16facad43dc5d130b",
+      "sha": "3212d470263f5707563466a16facad43dc5d130b",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/3212d470263f5707563466a16facad43dc5d130b"
+    }
+  ],
+  "sha": "4e64e831268758cf0040c52c144e0f09f46cd8a3",
+  "tree": {
+    "sha": "ff049fb4cc577ebcd547f585dd66fe0a1c526fa8",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/ff049fb4cc577ebcd547f585dd66fe0a1c526fa8"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/4e64e831268758cf0040c52c144e0f09f46cd8a3",
+  "verification": {
+    "payload": "tree ff049fb4cc577ebcd547f585dd66fe0a1c526fa8\nparent 4fa645fe43855630b4492fc3fdec13050152f4ef\nparent 3212d470263f5707563466a16facad43dc5d130b\nauthor Ronny Pfannschmidt <opensource@ronnypfannschmidt.de> 1791669781 -0400\ncommitter GitHub <noreply@github.com> 1791669781 -0400\n\nMerge pull request #15145 from pytest-dev/claude/project-thread-0ll2wg\n\nFix node duration formatting when rounding crosses a unit boundary",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqyrYVCRC1aQ7uu5UhlAAA3ucQAAIp5ZxxtgsNjMq1CIrdajFN\nPR/sa9zs5uv52e1tYqa2Pu8xS4c95BH7WWPF7iU7utA5xQidVBqseoch5N9/RKwM\ndIsFRukvzTT/59I46av0Bpj1hDMZS/lZ7t7tZbvURyjVevvfDR/5D7BfRV5+TKat\nk7mgtgEXRhDZv0qOSEeHKBbwAL4hLaIsmXPUHw0r1VpIBUHByhEPnn3o0kR+TXBv\nekN264YJh6tl6bueM92Ws7gfQIfgtYaCYEXBaCM+lCra3kjQawApJfpl8WxIRNDd\nSf2TYfOWOOloo2OlRFAvd+CxfYJL8qU9z0+V4SSRVgPvLaTu3POvu2bOHebsMo7Z\nWLy4ofOBVVEGmYwDWI0scuh/Ypd1JmqXC2cfv9Gp9q3RQYK3L7gaczJhN+k+g6ry\nhUBhUF+k191xFt73Mpf5LgnF6HNxY/LG8QcDvGiIIv+GUNbeh5BFWoEJ5B8PkiGX\n5iXnx+CtNGGECTnuUmofkSo37SNo6pU+zDnSpSHfUpoerNbHDnjbHtSTfuHmc169\nvGtxV7vDVxmtEs5zZgZ1vlxt7aXpyXh/4D9dZDMP0To36pI4jnky7EEbplt2e+ON\nCcc8y76CZITkvS45e0BH1Hhc5DSoJuBmYTNYpNO1E/Oud2wNwM7jcwEvj1gnbQ5m\n36r4W/NKP1eQTRwErGDC\n=PEdM\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-10T22:03:01Z"
+  }
+}

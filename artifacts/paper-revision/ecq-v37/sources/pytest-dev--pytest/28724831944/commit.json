@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-06-30T05:25:39Z",
+    "email": "66853113+pre-commit-ci[bot]@users.noreply.github.com",
+    "name": "pre-commit-ci[bot]"
+  },
+  "committer": {
+    "date": "2026-06-30T05:25:39Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/1aa747de62dd9e9f395513c25298ba604f1724d0",
+  "message": "[pre-commit.ci] pre-commit autoupdate (#14663)\n\nupdates:\n- [github.com/astral-sh/ruff-pre-commit: v0.15.18 → v0.15.20](https://github.com/astral-sh/ruff-pre-commit/compare/v0.15.18...v0.15.20)\n- [github.com/RobertCraigie/pyright-python: v1.1.410 → v1.1.411](https://github.com/RobertCraigie/pyright-python/compare/v1.1.410...v1.1.411)\n\nCo-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>",
+  "node_id": "C_kwDOAjwLddoAKDFhYTc0N2RlNjJkZDllOWYzOTU1MTNjMjUyOThiYTYwNGYxNzI0ZDA",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/0e0f7813327ca0ef65feb457cf9a5885e9ba7cb9",
+      "sha": "0e0f7813327ca0ef65feb457cf9a5885e9ba7cb9",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/0e0f7813327ca0ef65feb457cf9a5885e9ba7cb9"
+    }
+  ],
+  "sha": "1aa747de62dd9e9f395513c25298ba604f1724d0",
+  "tree": {
+    "sha": "2d3f64e076cab29b61a9e4d9e71fd6d6fbb2cb96",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/2d3f64e076cab29b61a9e4d9e71fd6d6fbb2cb96"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/1aa747de62dd9e9f395513c25298ba604f1724d0",
+  "verification": {
+    "payload": "tree 2d3f64e076cab29b61a9e4d9e71fd6d6fbb2cb96\nparent 0e0f7813327ca0ef65feb457cf9a5885e9ba7cb9\nauthor pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com> 1782797139 +0200\ncommitter GitHub <noreply@github.com> 1782797139 +0200\n\n[pre-commit.ci] pre-commit autoupdate (#14663)\n\nupdates:\n- [github.com/astral-sh/ruff-pre-commit: v0.15.18 → v0.15.20](https://github.com/astral-sh/ruff-pre-commit/compare/v0.15.18...v0.15.20)\n- [github.com/RobertCraigie/pyright-python: v1.1.410 → v1.1.411](https://github.com/RobertCraigie/pyright-python/compare/v1.1.410...v1.1.411)\n\nCo-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqQ1NTCRC1aQ7uu5UhlAAAfrUQAHQz7u5crAyzRDzG1II7cwGk\nsc8mn8WRwBLs5z54G46dyTo2Ke0lJ/eslmjpe/XQQIWgQG/n1nTvr5Zyk9TGycXS\n6UTTARRYwRR13zkemwmggR1UDGExoqs/OMhVIV1Azk5/bF3PQbSSPTVlDsV+4DPX\n3S6is4Gzf0sfv6Aauv10OTd3cA3oIzjF3jeR4ex7J+g8iqXLe7DB3d+MR7PD+Y8o\n8AV3NZGAndIMDTM/noGhG/JcMJ4OU31ZB31fdQybJw1bxC+Wp7A8LNyN7y5B68vb\nR7RiPQhms7jakLaCz1kt7jTlJY8qdfk+auiyrGKNd/EWJgbXolO4AAiD8rf0sGir\nLv0AAhLGZOR8+ZfCFjLz5BJ+QEQLajU4YrR89xDwlKPOR2LNovzoFsuxXpZIaGnp\nVPHsWv9RLq4PUYWPWR0RM+ThPADTTbln9H6/yOIlT/uxyQOYZ4Y38TTwoVa9Artm\nw3ZmI6IoJCDT7S/f3FG1xH3LcjCacCpptWv5fRfjeYS6ctN3MSp31ZQtBnHPBQhT\nAb22G6Pjqraqek3YV7tsykCTPeM8yZw/xHwYmrOx64Tm1k5E9W0/T8IRA0XwBTIe\nUx6ZJZZg3gacCOlZpYFL4Rwwq7U86gLKJ48orHm8viKG+AJimbN8cnIcJUt97Vow\nEIbyULCb8hlezEAqgUqe\n=Ylbl\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-06-30T05:25:40Z"
+  }
+}

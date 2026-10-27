@@ -28,3 +28,7 @@ artifacts/qualification/history/5afb25ca07c23d5535301d8ad9a504a6d108a80d/** -tex
 artifacts/qualification/history/cc3d9097c4d8b07ee7f8a97a6f9e2c94dbb5a28c/** -text
 artifacts/qualification/history/997345fc8d0b7e219bfd6697ce9914427e0dd8e9/** -text
 artifacts/paper-revision/** -text whitespace=cr-at-eol
+
+scripts/ecq/** -text whitespace=cr-at-eol
+tests/ecq/** -text whitespace=cr-at-eol
+docs/paper-material/revision-v37/** -text whitespace=cr-at-eol

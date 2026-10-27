@@ -1,0 +1,406 @@
+{
+  "eventContext": {
+    "event_name": "schedule",
+    "repository_owner": "pytest-dev"
+  },
+  "mappingSpec": {
+    "artifacts": {
+      "81237440138": {
+        "path": "job-81237440138.json",
+        "sha256": "e05c8c13d4904fa4fd85dc500a70776f63bd5d53b140d8f0a8c239be899d05f0"
+      }
+    },
+    "caseId": "8c01761c867084f248f2",
+    "configurationDigest": "f3a718db0e8559b416e2b90b550a3e40ed3388487e0ecb9023f036883e86bedc",
+    "repositoryId": "pytest-dev/pytest",
+    "tree": "d2bec24b18ca300fdeb7e4145ed1a1a1b6b9e6d1"
+  },
+  "record": {
+    "jobs": [
+      {
+        "check_run_url": "https://api.github.com/repos/pytest-dev/pytest/check-runs/81237440138",
+        "completed_at": "2026-06-14T01:15:47Z",
+        "conclusion": "failure",
+        "created_at": "2026-06-14T01:05:47Z",
+        "head_branch": "main",
+        "head_sha": "f8e2aa8abf0b47eb553ee21835f279652fffd5fd",
+        "html_url": "https://github.com/pytest-dev/pytest/actions/runs/27484271354/job/81237440138",
+        "id": 81237440138,
+        "labels": [
+          "ubuntu-latest"
+        ],
+        "name": "doc-check-links",
+        "node_id": "CR_kwDOAjwLdc8AAAAS6iD2ig",
+        "run_attempt": 1,
+        "run_id": 27484271354,
+        "run_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354",
+        "runner_group_id": 0,
+        "runner_group_name": "GitHub Actions",
+        "runner_id": 1000304856,
+        "runner_name": "GitHub Actions 1000304856",
+        "started_at": "2026-06-14T01:05:49Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completed_at": "2026-06-14T01:05:51Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "started_at": "2026-06-14T01:05:50Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:05:56Z",
+            "conclusion": "success",
+            "name": "Checkout",
+            "number": 2,
+            "started_at": "2026-06-14T01:05:51Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:05:57Z",
+            "conclusion": "success",
+            "name": "Setup Python",
+            "number": 3,
+            "started_at": "2026-06-14T01:05:56Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:05:59Z",
+            "conclusion": "success",
+            "name": "Install tox",
+            "number": 4,
+            "started_at": "2026-06-14T01:05:57Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:15:44Z",
+            "conclusion": "failure",
+            "name": "Run sphinx linkcheck via tox",
+            "number": 5,
+            "started_at": "2026-06-14T01:05:59Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:15:44Z",
+            "conclusion": "skipped",
+            "name": "Post Setup Python",
+            "number": 9,
+            "started_at": "2026-06-14T01:15:44Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:15:44Z",
+            "conclusion": "success",
+            "name": "Post Checkout",
+            "number": 10,
+            "started_at": "2026-06-14T01:15:44Z",
+            "status": "completed"
+          },
+          {
+            "completed_at": "2026-06-14T01:15:44Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 11,
+            "started_at": "2026-06-14T01:15:44Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://api.github.com/repos/pytest-dev/pytest/actions/jobs/81237440138",
+        "workflow_name": "Doc Check Links"
+      }
+    ],
+    "run": {
+      "actor": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/1085180?v=4",
+        "events_url": "https://api.github.com/users/nicoddemus/events{/privacy}",
+        "followers_url": "https://api.github.com/users/nicoddemus/followers",
+        "following_url": "https://api.github.com/users/nicoddemus/following{/other_user}",
+        "gists_url": "https://api.github.com/users/nicoddemus/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/nicoddemus",
+        "id": 1085180,
+        "login": "nicoddemus",
+        "node_id": "MDQ6VXNlcjEwODUxODA=",
+        "organizations_url": "https://api.github.com/users/nicoddemus/orgs",
+        "received_events_url": "https://api.github.com/users/nicoddemus/received_events",
+        "repos_url": "https://api.github.com/users/nicoddemus/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/nicoddemus/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/nicoddemus/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/nicoddemus",
+        "user_view_type": "public"
+      },
+      "artifacts_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354/artifacts",
+      "cancel_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354/cancel",
+      "check_suite_id": 73952457884,
+      "check_suite_node_id": "CS_kwDOAjwLdc8AAAARN-j0nA",
+      "check_suite_url": "https://api.github.com/repos/pytest-dev/pytest/check-suites/73952457884",
+      "conclusion": "failure",
+      "created_at": "2026-06-14T01:05:47Z",
+      "display_title": "Doc Check Links",
+      "event": "schedule",
+      "head_branch": "main",
+      "head_commit": {
+        "author": {
+          "email": "ran@unusedvar.com",
+          "name": "Ran Benita"
+        },
+        "committer": {
+          "email": "noreply@github.com",
+          "name": "GitHub"
+        },
+        "id": "f8e2aa8abf0b47eb553ee21835f279652fffd5fd",
+        "message": "Merge pull request #14590 from bluetech/cherry-pick-release\n\nCherry pick 9.1.0 release notes",
+        "timestamp": "2026-06-13T19:18:43Z",
+        "tree_id": "d2bec24b18ca300fdeb7e4145ed1a1a1b6b9e6d1"
+      },
+      "head_repository": {
+        "archive_url": "https://api.github.com/repos/pytest-dev/pytest/{archive_format}{/ref}",
+        "assignees_url": "https://api.github.com/repos/pytest-dev/pytest/assignees{/user}",
+        "blobs_url": "https://api.github.com/repos/pytest-dev/pytest/git/blobs{/sha}",
+        "branches_url": "https://api.github.com/repos/pytest-dev/pytest/branches{/branch}",
+        "collaborators_url": "https://api.github.com/repos/pytest-dev/pytest/collaborators{/collaborator}",
+        "comments_url": "https://api.github.com/repos/pytest-dev/pytest/comments{/number}",
+        "commits_url": "https://api.github.com/repos/pytest-dev/pytest/commits{/sha}",
+        "compare_url": "https://api.github.com/repos/pytest-dev/pytest/compare/{base}...{head}",
+        "contents_url": "https://api.github.com/repos/pytest-dev/pytest/contents/{+path}",
+        "contributors_url": "https://api.github.com/repos/pytest-dev/pytest/contributors",
+        "deployments_url": "https://api.github.com/repos/pytest-dev/pytest/deployments",
+        "description": "The pytest framework makes it easy to write small tests, yet scales to support complex functional testing",
+        "downloads_url": "https://api.github.com/repos/pytest-dev/pytest/downloads",
+        "events_url": "https://api.github.com/repos/pytest-dev/pytest/events",
+        "fork": false,
+        "forks_url": "https://api.github.com/repos/pytest-dev/pytest/forks",
+        "full_name": "pytest-dev/pytest",
+        "git_commits_url": "https://api.github.com/repos/pytest-dev/pytest/git/commits{/sha}",
+        "git_refs_url": "https://api.github.com/repos/pytest-dev/pytest/git/refs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/pytest-dev/pytest/git/tags{/sha}",
+        "hooks_url": "https://api.github.com/repos/pytest-dev/pytest/hooks",
+        "html_url": "https://github.com/pytest-dev/pytest",
+        "id": 37489525,
+        "issue_comment_url": "https://api.github.com/repos/pytest-dev/pytest/issues/comments{/number}",
+        "issue_events_url": "https://api.github.com/repos/pytest-dev/pytest/issues/events{/number}",
+        "issues_url": "https://api.github.com/repos/pytest-dev/pytest/issues{/number}",
+        "keys_url": "https://api.github.com/repos/pytest-dev/pytest/keys{/key_id}",
+        "labels_url": "https://api.github.com/repos/pytest-dev/pytest/labels{/name}",
+        "languages_url": "https://api.github.com/repos/pytest-dev/pytest/languages",
+        "merges_url": "https://api.github.com/repos/pytest-dev/pytest/merges",
+        "milestones_url": "https://api.github.com/repos/pytest-dev/pytest/milestones{/number}",
+        "name": "pytest",
+        "node_id": "MDEwOlJlcG9zaXRvcnkzNzQ4OTUyNQ==",
+        "notifications_url": "https://api.github.com/repos/pytest-dev/pytest/notifications{?since,all,participating}",
+        "owner": {
+          "avatar_url": "https://avatars.githubusercontent.com/u/8897583?v=4",
+          "events_url": "https://api.github.com/users/pytest-dev/events{/privacy}",
+          "followers_url": "https://api.github.com/users/pytest-dev/followers",
+          "following_url": "https://api.github.com/users/pytest-dev/following{/other_user}",
+          "gists_url": "https://api.github.com/users/pytest-dev/gists{/gist_id}",
+          "gravatar_id": "",
+          "html_url": "https://github.com/pytest-dev",
+          "id": 8897583,
+          "login": "pytest-dev",
+          "node_id": "MDEyOk9yZ2FuaXphdGlvbjg4OTc1ODM=",
+          "organizations_url": "https://api.github.com/users/pytest-dev/orgs",
+          "received_events_url": "https://api.github.com/users/pytest-dev/received_events",
+          "repos_url": "https://api.github.com/users/pytest-dev/repos",
+          "site_admin": false,
+          "starred_url": "https://api.github.com/users/pytest-dev/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/pytest-dev/subscriptions",
+          "type": "Organization",
+          "url": "https://api.github.com/users/pytest-dev",
+          "user_view_type": "public"
+        },
+        "private": false,
+        "pulls_url": "https://api.github.com/repos/pytest-dev/pytest/pulls{/number}",
+        "releases_url": "https://api.github.com/repos/pytest-dev/pytest/releases{/id}",
+        "stargazers_url": "https://api.github.com/repos/pytest-dev/pytest/stargazers",
+        "statuses_url": "https://api.github.com/repos/pytest-dev/pytest/statuses/{sha}",
+        "subscribers_url": "https://api.github.com/repos/pytest-dev/pytest/subscribers",
+        "subscription_url": "https://api.github.com/repos/pytest-dev/pytest/subscription",
+        "tags_url": "https://api.github.com/repos/pytest-dev/pytest/tags",
+        "teams_url": "https://api.github.com/repos/pytest-dev/pytest/teams",
+        "trees_url": "https://api.github.com/repos/pytest-dev/pytest/git/trees{/sha}",
+        "url": "https://api.github.com/repos/pytest-dev/pytest"
+      },
+      "head_sha": "f8e2aa8abf0b47eb553ee21835f279652fffd5fd",
+      "html_url": "https://github.com/pytest-dev/pytest/actions/runs/27484271354",
+      "id": 27484271354,
+      "jobs_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354/jobs",
+      "logs_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354/logs",
+      "name": "Doc Check Links",
+      "node_id": "WFR_kwLOAjwLdc8AAAAGZjCy-g",
+      "path": ".github/workflows/doc-check-links.yml",
+      "previous_attempt_url": null,
+      "pull_requests": [
+        {
+          "base": {
+            "ref": "main",
+            "repo": {
+              "id": 1011929234,
+              "name": "pytest",
+              "url": "https://api.github.com/repos/mergify-ci-insights/pytest"
+            },
+            "sha": "464faff77e3b2316ccd2037c88690d6d4600b24d"
+          },
+          "head": {
+            "ref": "main",
+            "repo": {
+              "id": 37489525,
+              "name": "pytest",
+              "url": "https://api.github.com/repos/pytest-dev/pytest"
+            },
+            "sha": "679d09c6945156746e17e9ec0b1c8309bbde3ad3"
+          },
+          "id": 2733386088,
+          "number": 43,
+          "url": "https://api.github.com/repos/mergify-ci-insights/pytest/pulls/43"
+        }
+      ],
+      "referenced_workflows": [],
+      "repository": {
+        "archive_url": "https://api.github.com/repos/pytest-dev/pytest/{archive_format}{/ref}",
+        "assignees_url": "https://api.github.com/repos/pytest-dev/pytest/assignees{/user}",
+        "blobs_url": "https://api.github.com/repos/pytest-dev/pytest/git/blobs{/sha}",
+        "branches_url": "https://api.github.com/repos/pytest-dev/pytest/branches{/branch}",
+        "collaborators_url": "https://api.github.com/repos/pytest-dev/pytest/collaborators{/collaborator}",
+        "comments_url": "https://api.github.com/repos/pytest-dev/pytest/comments{/number}",
+        "commits_url": "https://api.github.com/repos/pytest-dev/pytest/commits{/sha}",
+        "compare_url": "https://api.github.com/repos/pytest-dev/pytest/compare/{base}...{head}",
+        "contents_url": "https://api.github.com/repos/pytest-dev/pytest/contents/{+path}",
+        "contributors_url": "https://api.github.com/repos/pytest-dev/pytest/contributors",
+        "deployments_url": "https://api.github.com/repos/pytest-dev/pytest/deployments",
+        "description": "The pytest framework makes it easy to write small tests, yet scales to support complex functional testing",
+        "downloads_url": "https://api.github.com/repos/pytest-dev/pytest/downloads",
+        "events_url": "https://api.github.com/repos/pytest-dev/pytest/events",
+        "fork": false,
+        "forks_url": "https://api.github.com/repos/pytest-dev/pytest/forks",
+        "full_name": "pytest-dev/pytest",
+        "git_commits_url": "https://api.github.com/repos/pytest-dev/pytest/git/commits{/sha}",
+        "git_refs_url": "https://api.github.com/repos/pytest-dev/pytest/git/refs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/pytest-dev/pytest/git/tags{/sha}",
+        "hooks_url": "https://api.github.com/repos/pytest-dev/pytest/hooks",
+        "html_url": "https://github.com/pytest-dev/pytest",
+        "id": 37489525,
+        "issue_comment_url": "https://api.github.com/repos/pytest-dev/pytest/issues/comments{/number}",
+        "issue_events_url": "https://api.github.com/repos/pytest-dev/pytest/issues/events{/number}",
+        "issues_url": "https://api.github.com/repos/pytest-dev/pytest/issues{/number}",
+        "keys_url": "https://api.github.com/repos/pytest-dev/pytest/keys{/key_id}",
+        "labels_url": "https://api.github.com/repos/pytest-dev/pytest/labels{/name}",
+        "languages_url": "https://api.github.com/repos/pytest-dev/pytest/languages",
+        "merges_url": "https://api.github.com/repos/pytest-dev/pytest/merges",
+        "milestones_url": "https://api.github.com/repos/pytest-dev/pytest/milestones{/number}",
+        "name": "pytest",
+        "node_id": "MDEwOlJlcG9zaXRvcnkzNzQ4OTUyNQ==",
+        "notifications_url": "https://api.github.com/repos/pytest-dev/pytest/notifications{?since,all,participating}",
+        "owner": {
+          "avatar_url": "https://avatars.githubusercontent.com/u/8897583?v=4",
+          "events_url": "https://api.github.com/users/pytest-dev/events{/privacy}",
+          "followers_url": "https://api.github.com/users/pytest-dev/followers",
+          "following_url": "https://api.github.com/users/pytest-dev/following{/other_user}",
+          "gists_url": "https://api.github.com/users/pytest-dev/gists{/gist_id}",
+          "gravatar_id": "",
+          "html_url": "https://github.com/pytest-dev",
+          "id": 8897583,
+          "login": "pytest-dev",
+          "node_id": "MDEyOk9yZ2FuaXphdGlvbjg4OTc1ODM=",
+          "organizations_url": "https://api.github.com/users/pytest-dev/orgs",
+          "received_events_url": "https://api.github.com/users/pytest-dev/received_events",
+          "repos_url": "https://api.github.com/users/pytest-dev/repos",
+          "site_admin": false,
+          "starred_url": "https://api.github.com/users/pytest-dev/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/pytest-dev/subscriptions",
+          "type": "Organization",
+          "url": "https://api.github.com/users/pytest-dev",
+          "user_view_type": "public"
+        },
+        "private": false,
+        "pulls_url": "https://api.github.com/repos/pytest-dev/pytest/pulls{/number}",
+        "releases_url": "https://api.github.com/repos/pytest-dev/pytest/releases{/id}",
+        "stargazers_url": "https://api.github.com/repos/pytest-dev/pytest/stargazers",
+        "statuses_url": "https://api.github.com/repos/pytest-dev/pytest/statuses/{sha}",
+        "subscribers_url": "https://api.github.com/repos/pytest-dev/pytest/subscribers",
+        "subscription_url": "https://api.github.com/repos/pytest-dev/pytest/subscription",
+        "tags_url": "https://api.github.com/repos/pytest-dev/pytest/tags",
+        "teams_url": "https://api.github.com/repos/pytest-dev/pytest/teams",
+        "trees_url": "https://api.github.com/repos/pytest-dev/pytest/git/trees{/sha}",
+        "url": "https://api.github.com/repos/pytest-dev/pytest"
+      },
+      "rerun_url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354/rerun",
+      "run_attempt": 1,
+      "run_number": 41,
+      "run_started_at": "2026-06-14T01:05:47Z",
+      "status": "completed",
+      "triggering_actor": {
+        "avatar_url": "https://avatars.githubusercontent.com/u/1085180?v=4",
+        "events_url": "https://api.github.com/users/nicoddemus/events{/privacy}",
+        "followers_url": "https://api.github.com/users/nicoddemus/followers",
+        "following_url": "https://api.github.com/users/nicoddemus/following{/other_user}",
+        "gists_url": "https://api.github.com/users/nicoddemus/gists{/gist_id}",
+        "gravatar_id": "",
+        "html_url": "https://github.com/nicoddemus",
+        "id": 1085180,
+        "login": "nicoddemus",
+        "node_id": "MDQ6VXNlcjEwODUxODA=",
+        "organizations_url": "https://api.github.com/users/nicoddemus/orgs",
+        "received_events_url": "https://api.github.com/users/nicoddemus/received_events",
+        "repos_url": "https://api.github.com/users/nicoddemus/repos",
+        "site_admin": false,
+        "starred_url": "https://api.github.com/users/nicoddemus/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/nicoddemus/subscriptions",
+        "type": "User",
+        "url": "https://api.github.com/users/nicoddemus",
+        "user_view_type": "public"
+      },
+      "updated_at": "2026-06-14T01:15:48Z",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/actions/runs/27484271354",
+      "workflow_id": 185633067,
+      "workflow_url": "https://api.github.com/repos/pytest-dev/pytest/actions/workflows/185633067"
+    }
+  },
+  "workflow": {
+    "jobs": {
+      "doc-check-links": {
+        "if": "github.repository_owner == 'pytest-dev'",
+        "runs-on": "ubuntu-latest",
+        "steps": [
+          {
+            "name": "Checkout",
+            "uses": "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+            "with": {
+              "fetch-depth": "0",
+              "persist-credentials": "false"
+            }
+          },
+          {
+            "name": "Setup Python",
+            "uses": "actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405",
+            "with": {
+              "cache": "pip",
+              "python-version": "3.13"
+            }
+          },
+          {
+            "name": "Install tox",
+            "run": "python -m pip install --upgrade pip\npip install tox\n"
+          },
+          {
+            "name": "Run sphinx linkcheck via tox",
+            "run": "tox -e docs-checklinks"
+          }
+        ]
+      }
+    },
+    "name": "Doc Check Links",
+    "on": {
+      "schedule": [
+        {
+          "cron": "0 0 * * 0"
+        }
+      ],
+      "workflow_dispatch": ""
+    },
+    "permissions": {}
+  }
+}

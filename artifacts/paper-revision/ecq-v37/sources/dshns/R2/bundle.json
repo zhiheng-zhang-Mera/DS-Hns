@@ -1,0 +1,413 @@
+{
+  "caseId": "R2",
+  "evidence": [
+    {
+      "id": "syntax-check",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "syntax-check",
+      "claimId": "gate:syntax-check",
+      "scope": "gate:syntax-check",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "syntax-check",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "all-unit-tests",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "all-unit-tests",
+      "claimId": "gate:all-unit-tests",
+      "scope": "gate:all-unit-tests",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "all-unit-tests",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "architecture-verifier",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "architecture-verifier",
+      "claimId": "gate:architecture-verifier",
+      "scope": "gate:architecture-verifier",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "architecture-verifier",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "external-fixtures",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "external-fixtures",
+      "claimId": "gate:external-fixtures",
+      "scope": "gate:external-fixtures",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "external-fixtures",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "install-pipeline",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "install-pipeline",
+      "claimId": "gate:install-pipeline",
+      "scope": "gate:install-pipeline",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "install-pipeline",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "cordis-adapter",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "cordis-adapter",
+      "claimId": "gate:cordis-adapter",
+      "scope": "gate:cordis-adapter",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "cordis-adapter",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "process-adapter",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "process-adapter",
+      "claimId": "gate:process-adapter",
+      "scope": "gate:process-adapter",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "process-adapter",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "native-hns-adapter",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "native-hns-adapter",
+      "claimId": "gate:native-hns-adapter",
+      "scope": "gate:native-hns-adapter",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "native-hns-adapter",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "health-restart-continuity",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "health-restart-continuity",
+      "claimId": "gate:health-restart-continuity",
+      "scope": "gate:health-restart-continuity",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "health-restart-continuity",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "community-installer",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "community-installer",
+      "claimId": "gate:community-installer",
+      "scope": "gate:community-installer",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "community-installer",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "electron-ui-acceptance",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "electron-ui-acceptance",
+      "claimId": "gate:electron-ui-acceptance",
+      "scope": "gate:electron-ui-acceptance",
+      "outcome": "FAIL",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "electron-ui-acceptance",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "computer-use-longrun",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "computer-use-longrun",
+      "claimId": "gate:computer-use-longrun",
+      "scope": "gate:computer-use-longrun",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "computer-use-longrun",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "longhost-chaos",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "longhost-chaos",
+      "claimId": "gate:longhost-chaos",
+      "scope": "gate:longhost-chaos",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "longhost-chaos",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "synthetic-soak",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "synthetic-soak",
+      "claimId": "gate:synthetic-soak",
+      "scope": "gate:synthetic-soak",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "synthetic-soak",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "combined-acceptance",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "combined-acceptance",
+      "claimId": "gate:combined-acceptance",
+      "scope": "gate:combined-acceptance",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "combined-acceptance",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "post-test-audit",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "post-test-audit",
+      "claimId": "gate:post-test-audit",
+      "scope": "gate:post-test-audit",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "post-test-audit",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    },
+    {
+      "id": "evidence-consistency",
+      "subject": {
+        "repositoryId": "zhiheng-zhang-Mera/DS-Hns",
+        "commit": "1a2fa2c4881cb7337f480c770b25337fd55b7654",
+        "tree": "e4b2e6edb50450a7e8a35b9c48e357b3a537c49f"
+      },
+      "runId": "2026-09-23T05-33-13-145Z-0c277af6",
+      "gateId": "evidence-consistency",
+      "claimId": "gate:evidence-consistency",
+      "scope": "gate:evidence-consistency",
+      "outcome": "PASS",
+      "evidenceType": "archived-qualification-record",
+      "provenance": "repository-archive",
+      "artifactRefs": [
+        {
+          "id": "evidence-consistency",
+          "path": "qualification-summary.json",
+          "objectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "expectedObjectId": "sha256:da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f",
+          "sha256": "da5e660446d959a08ea4af53f152f1c1eada48bed8a22056370e1e12a52da07f"
+        }
+      ]
+    }
+  ]
+}

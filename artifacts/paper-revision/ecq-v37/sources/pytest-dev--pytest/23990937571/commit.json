@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-04-01T15:35:35Z",
+    "email": "116320535+JuliaKnaak@users.noreply.github.com",
+    "name": "Julia Knaak"
+  },
+  "committer": {
+    "date": "2026-04-01T15:35:35Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/f93656d611f3c9cd22f346dfeda52cddb778c589",
+  "message": "Make ScopeName public to enable downstream type checking  (#14325)\n\nCloses #14137",
+  "node_id": "C_kwDOAjwLddoAKGY5MzY1NmQ2MTFmM2M5Y2QyMmYzNDZkZmVkYTUyY2RkYjc3OGM1ODk",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/80f54926278ad4a489030c8c189b359bf2b9658a",
+      "sha": "80f54926278ad4a489030c8c189b359bf2b9658a",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/80f54926278ad4a489030c8c189b359bf2b9658a"
+    }
+  ],
+  "sha": "f93656d611f3c9cd22f346dfeda52cddb778c589",
+  "tree": {
+    "sha": "029f34245f8ec3a80e25982e1b78cbe05e913562",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/029f34245f8ec3a80e25982e1b78cbe05e913562"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/f93656d611f3c9cd22f346dfeda52cddb778c589",
+  "verification": {
+    "payload": "tree 029f34245f8ec3a80e25982e1b78cbe05e913562\nparent 80f54926278ad4a489030c8c189b359bf2b9658a\nauthor Julia Knaak <116320535+JuliaKnaak@users.noreply.github.com> 1775057735 -0700\ncommitter GitHub <noreply@github.com> 1775057735 +0000\n\nMake ScopeName public to enable downstream type checking  (#14325)\n\nCloses #14137",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJpzTtHCRC1aQ7uu5UhlAAAOc4QAE8eml21H74ItezpwvtqiBV8\nOCNZ9J1wIVAYvgDBwDEu4w+F7cM7fbu2/Dfv0i3r1MpdnV+9AMgMU4J5Xa7Kg8oM\nrZYV9gsrQzMnqx/SxFWZGg1+1R6tUh+fmJeqY9ZmTa8AD5FBTKJAZwPRf5Y5NK9T\nQNbgwpsYn3Ac74imDz4N43+hX+rWXJyAJTLwHezV05fnw2tljZbOGpCUPcZPSbLd\ncMkLlIpBocXoMt8NwgrWMOBuacWmYr+XdTNngzdiUq/1BPZnoPuSwQaeyzCUkR2e\noYQ2BqWq9ZrLV/wynR3CRCRTJuMn+QfT14gSfVoWSlPv+3ooFVE9rDaUAKyqbiLg\nCK3xx2eI+kJL1ZqycB7DTdpRZKQ5LhAhXluz8m++wnq69XgypfAx4q0INAT3/QYw\nT5zu9PqZbSpwkPqqjiKUVaGWI9CwQ0xgwG/+67ZZBt/G7dCPKTmAaUh8Twq1xoto\n+AT4LQ/+V1U4pLmCNO7TDhhtndclxGVxJ2dUFhtnsUO2cpE7ztRfVyViZ4pIIthS\n1mC2oJ5PM0dPyS3dq511X5jR4wElGxp98RaPYlVxAklidHl9FHnZT3Fe+kAsZmLV\nHgPkaGgSC/mEdq/iyFtWuOFKZPRuqcIIicam85uIflxaVrAQKPK4k0IVkF27nJ/I\ns3eOqvGyji4cgeQOVYkL\n=aH2t\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-04-01T15:35:36Z"
+  }
+}

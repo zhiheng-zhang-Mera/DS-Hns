@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-08-20T19:20:51Z",
+    "email": "opensource@ronnypfannschmidt.de",
+    "name": "Ronny Pfannschmidt"
+  },
+  "committer": {
+    "date": "2026-08-20T19:20:51Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/df87db7b0462fb764ef73fa00561adf8ad047572",
+  "message": "Merge pull request #14813 from RonnyPfannschmidt/ronny/assert-rewrite-coverage-harness\n\ntest(rewrite): systematic coverage matrix for assertion rewriting",
+  "node_id": "C_kwDOAjwLddoAKGRmODdkYjdiMDQ2MmZiNzY0ZWY3M2ZhMDA1NjFhZGY4YWQwNDc1NzI",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/d724e161fbe681edc8dff8308d6523f4f59623a4",
+      "sha": "d724e161fbe681edc8dff8308d6523f4f59623a4",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/d724e161fbe681edc8dff8308d6523f4f59623a4"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/8c204fa41f10eb17257577f00805ae09a649e511",
+      "sha": "8c204fa41f10eb17257577f00805ae09a649e511",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/8c204fa41f10eb17257577f00805ae09a649e511"
+    }
+  ],
+  "sha": "df87db7b0462fb764ef73fa00561adf8ad047572",
+  "tree": {
+    "sha": "aa9326445d40ef16da9a674b0c34b64137b908a7",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/aa9326445d40ef16da9a674b0c34b64137b908a7"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/df87db7b0462fb764ef73fa00561adf8ad047572",
+  "verification": {
+    "payload": "tree aa9326445d40ef16da9a674b0c34b64137b908a7\nparent d724e161fbe681edc8dff8308d6523f4f59623a4\nparent 8c204fa41f10eb17257577f00805ae09a649e511\nauthor Ronny Pfannschmidt <opensource@ronnypfannschmidt.de> 1787253651 +0200\ncommitter GitHub <noreply@github.com> 1787253651 +0200\n\nMerge pull request #14813 from RonnyPfannschmidt/ronny/assert-rewrite-coverage-harness\n\ntest(rewrite): systematic coverage matrix for assertion rewriting",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqh1OTCRC1aQ7uu5UhlAAAjK0QAKKNFmXDcNPITWw+fOrnAAxK\nryIvBOQ+ytIYjb63ny0pTd0CfhT5H0U0utBzzfzM4K3LWmjXhWDxsKwfNbzEDmBI\nbxzzwHDV6DbdgRLlSE9/zVeuBWKDzic+WQYVrqnp1iBkTFTYLU1l8Mj/6uZQcdyI\nyhRu16x0ByVJQMx/OZWcEuVj3QCoJMSDDO4DRKNoLYiPdtVgCAZBHMRDr7mKMY1w\nJBmfPsM5DxHRNiU3iQvy1ybX193Pb8VhYjAFGWP9VujTj8L0b4D6z7rXD1jkFffc\ngZ5FfoeFDz6w7uQcLESvAC0R27J/nsn+d3i1ulohEuEQMekEhrO0qRtXQoG45lYN\n5Sp4KvTsse6j3/u1wDpKeLiDlvmFw4W8JzlPhc4ofzivHrEOFWlo3jeVW3dqNf/N\nSZ9xlpJzUo3V+FN0dJ8ura6K7wsiCM2t9BmLReQSBaEpRGNjXNoKHAfGLZPxAJF2\nUkOOItYHmyQHu/Em3f9QSZ355nOvMyO7x4peG8L+sOzJWLQY66nyRs5MqCtHciZw\nIH5JkqDJZCfXyWTVKLp+4WXu1T5jm6lrSToXc2bAX9i1bjDPWo7L82Nsogh0ZHMa\nIh7zBjhVIHfeSbdxHMvKupKlPnr4YN/8iSa7/EG3adK5r45WJbGISgKHjs2bzmMt\nnlnGC9AEyHdn7bsxLpGb\n=sncH\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-08-20T19:20:52Z"
+  }
+}

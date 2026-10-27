@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-06-27T14:29:06Z",
+    "email": "59937191+Aditya-Tripuraneni@users.noreply.github.com",
+    "name": "Aditya"
+  },
+  "committer": {
+    "date": "2026-06-27T14:29:06Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/3fa8d9b15b733aadb8a043cca3e98447804e1f28",
+  "message": "Fix off-by-one in trailing assertion diff skipping (#14637) (#14639)",
+  "node_id": "C_kwDOAjwLddoAKDNmYThkOWIxNWI3MzNhYWRiOGEwNDNjY2EzZTk4NDQ3ODA0ZTFmMjg",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/e6d8374449d0862093295f131b21a0eb2ca9526b",
+      "sha": "e6d8374449d0862093295f131b21a0eb2ca9526b",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/e6d8374449d0862093295f131b21a0eb2ca9526b"
+    }
+  ],
+  "sha": "3fa8d9b15b733aadb8a043cca3e98447804e1f28",
+  "tree": {
+    "sha": "b6df91d107564cba7c4b62ab6029bdac2bc6834d",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/b6df91d107564cba7c4b62ab6029bdac2bc6834d"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/3fa8d9b15b733aadb8a043cca3e98447804e1f28",
+  "verification": {
+    "payload": "tree b6df91d107564cba7c4b62ab6029bdac2bc6834d\nparent e6d8374449d0862093295f131b21a0eb2ca9526b\nauthor Aditya <59937191+Aditya-Tripuraneni@users.noreply.github.com> 1782570546 -0400\ncommitter GitHub <noreply@github.com> 1782570546 +0200\n\nFix off-by-one in trailing assertion diff skipping (#14637) (#14639)",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqP94yCRC1aQ7uu5UhlAAA8FYQACZtp4Lh+LTI5o9hZtyUzqlD\n0Z/501Mo1gyMLEGPRdXIp4IMo/7Qh3ap4CgYeK6LT6gEOG9sqNx0woWdmwvajox7\netgDA+clqIbjDlTiYvUGrUvY7k5+j1U0JaqzHYqVsFLA/TuXhi3wfVLDIbXKWNBY\nYVv5bUzgJZx+SmMOU/4VTmVpqraNyah2DMIGDdmo31hr8X4SncE7eeV1qiMeq4F+\nnb3zNjsjEWNZXZKMTa4C79jjxYrCqbpwqiU7GYCabwEuezSpAav9L6T5RwoEkM+k\npse4c+bWQzA+j7bq67b8lQHiiVk5dN0g4XGmSF4WWAUHIuyPiFl+CP0AIoc1Rv2l\nkOU9YX5Kr95UU+vKc/44W5u5ueaJLny91t/5jBPtHP/5qNEocqlBdVrXdETALiUh\nbGS6v/ur6I7pFbeMM+QpB8Evv19lznlNBjwOf6FF51UsbmwaLfYOeapDFhDf4Kzf\ny2Yxev/Dd6ml/pYeI8Gy+W5EzIXuBkhUM8nGB0+pmFO03qIfuXLCNSem3wolY0wZ\nJRcyQZOvLcuP6TPSXcnzVc04cn2e54HxvcwFGJWZ5ehozst2+cfVMMfprD6LuifM\npKJYQYh+NI5oOojihtXV0hJ0JTuiPaD/npwrvpipZorPLaEo8fzTFq7n2PWMXcfn\nETOD9dxvPK5IiU9ByPd3\n=KkBg\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-06-27T14:29:07Z"
+  }
+}

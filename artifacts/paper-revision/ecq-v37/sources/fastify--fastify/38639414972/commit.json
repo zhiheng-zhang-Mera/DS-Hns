@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-10-14T21:19:51Z",
+    "email": "Tony133@users.noreply.github.com",
+    "name": "Antonio Tripodi"
+  },
+  "committer": {
+    "date": "2026-10-14T21:19:51Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/fastify/fastify/commit/f00abd1607c200836333494aa39da91bdc59e5c6",
+  "message": "[Backport 5.x] feat: add routerOptions.compile to use find-my-way compiler mode (#7116)\n\nProposal:\n\nManual backport of #7096 to `5.x`: the automated backport failed with\nconflicts, see\nhttps://github.com/fastify/fastify/pull/7096#issuecomment-6155131364.\n\nCherry-pick of fcba984c0a41d7cfacff5234e0594d3b561cb804 with these\nconflict resolutions:\n\n- `build/build-validation.js` / `lib/config-validator.js`: `main` moved\n`allowUnsafeRegex`, `caseSensitive` and `constraints` into\n`routerOptions`, which is not the case on 5.x. Only `compile: false` is\nadded, then the validator was regenerated with `npm run\nbuild:validation`.\n- `fastify.d.ts`: only `compile?: boolean` is added to\n`FastifyRouterOptions`, without the `constraints` rework from v6.\n- `fastify.js`: kept `VERSION = '5.12.7'`.\n- `test/internals/initial-config.test.js`: kept the 5.x snapshot (no\n`routerOptions` in the defaults).\n- `lib/route.js`: added the `defaultInitOptions` import from\n`./initial-config-validation.js`, which `main` already had and the new\n`routerOptions.compile ??=` line needs.\n- `test/router-compile.test.js`: on 5.x `initialConfig.routerOptions` is\nonly exposed when the user passes it, so the \"defaults to false\" test\nasserts `undefined` instead of `.compile === false`. Everything else is\nunchanged.\n\nNote:\n\n`.npmrc` also carries over the `min-release-age-exclude[]=find-my-way`\nentry, needed until `find-my-way@9.10.0` is older than 7 days\n(2026-10-17).\n\n---------\n\nSigned-off-by: Tony133 <a.tripodi133@gmail.com>\nCo-authored-by: Matteo Collina <hello@matteocollina.com>",
+  "node_id": "C_kwDOBCRpgtoAKGYwMGFiZDE2MDdjMjAwODM2MzMzNDk0YWEzOWRhOTFiZGM1OWU1YzY",
+  "parents": [
+    {
+      "html_url": "https://github.com/fastify/fastify/commit/8db5cc375c309c13362a2340144a350f166d9851",
+      "sha": "8db5cc375c309c13362a2340144a350f166d9851",
+      "url": "https://api.github.com/repos/fastify/fastify/git/commits/8db5cc375c309c13362a2340144a350f166d9851"
+    }
+  ],
+  "sha": "f00abd1607c200836333494aa39da91bdc59e5c6",
+  "tree": {
+    "sha": "7fc2730fa0eaf3b54d87ae0f23c36defc8dac9e6",
+    "url": "https://api.github.com/repos/fastify/fastify/git/trees/7fc2730fa0eaf3b54d87ae0f23c36defc8dac9e6"
+  },
+  "url": "https://api.github.com/repos/fastify/fastify/git/commits/f00abd1607c200836333494aa39da91bdc59e5c6",
+  "verification": {
+    "payload": "tree 7fc2730fa0eaf3b54d87ae0f23c36defc8dac9e6\nparent 8db5cc375c309c13362a2340144a350f166d9851\nauthor Antonio Tripodi <Tony133@users.noreply.github.com> 1792012791 +0200\ncommitter GitHub <noreply@github.com> 1792012791 +0200\n\n[Backport 5.x] feat: add routerOptions.compile to use find-my-way compiler mode (#7116)\n\nProposal:\n\nManual backport of #7096 to `5.x`: the automated backport failed with\nconflicts, see\nhttps://github.com/fastify/fastify/pull/7096#issuecomment-6155131364.\n\nCherry-pick of fcba984c0a41d7cfacff5234e0594d3b561cb804 with these\nconflict resolutions:\n\n- `build/build-validation.js` / `lib/config-validator.js`: `main` moved\n`allowUnsafeRegex`, `caseSensitive` and `constraints` into\n`routerOptions`, which is not the case on 5.x. Only `compile: false` is\nadded, then the validator was regenerated with `npm run\nbuild:validation`.\n- `fastify.d.ts`: only `compile?: boolean` is added to\n`FastifyRouterOptions`, without the `constraints` rework from v6.\n- `fastify.js`: kept `VERSION = '5.12.7'`.\n- `test/internals/initial-config.test.js`: kept the 5.x snapshot (no\n`routerOptions` in the defaults).\n- `lib/route.js`: added the `defaultInitOptions` import from\n`./initial-config-validation.js`, which `main` already had and the new\n`routerOptions.compile ??=` line needs.\n- `test/router-compile.test.js`: on 5.x `initialConfig.routerOptions` is\nonly exposed when the user passes it, so the \"defaults to false\" test\nasserts `undefined` instead of `.compile === false`. Everything else is\nunchanged.\n\nNote:\n\n`.npmrc` also carries over the `min-release-age-exclude[]=find-my-way`\nentry, needed until `find-my-way@9.10.0` is older than 7 days\n(2026-10-17).\n\n---------\n\nSigned-off-by: Tony133 <a.tripodi133@gmail.com>\nCo-authored-by: Matteo Collina <hello@matteocollina.com>",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqz/H3CRC1aQ7uu5UhlAAAkrMQABeHpup6+nAwdESBvIO3zkFA\nlLTEZr4/hJ5CIgu/dyWynnbqFdUevlz9cVmtJ2c4cIATnB9j+EcwfE3H6X1wa55A\nuFTjE2FS/AasICqAUqt9qQv5cmn8Lp5OoUsUbR8EY2l0XHlO+wonpnjmMlFPcS89\nywugwEdSkQet0qvYzkQXGZtHK9UWrvmJXGrREnECnDKrJNnvCXRksOrAMBwaQzE9\n48cb3SKHz7N+i9kP/2xfaOShbA0gc1c1Pi4QviWRZk3YCndHsceDZ9mSXKdp5byj\nczi+1tv5jgHjPKMm6+Fp9ZcHbtzngTvxPnYVBtpwxq9NeJ4SQ320zv+LCWcajr83\nzWb4TwkVLva4QiXKtHUa6XxFevhf1Vk3FXNsjtufirYEC3EjRRANRWelclffAHG/\n8homqX4VXkYwFKxo6+6cHAGNB4knujNiQlMxjJamQp0EWqaswQC6sr5damuG3HUS\nuSUw7uFBfvtmtXCLcbqIRYO778OuJMEl1bXTH+q+fNNXWIkNXZQSvIgxZiCuTEcF\nQTBNhOayBXUOcnmCd7sdU8f8Hy3S0uYRezkZd2dA7fjxdbifCiU+MOsV7TXOIetz\nnCReqxYxY+QmJ8I2SXGIecsvQEoNJ6iPf9U0xIb4JPO3UBSJXWoWXgDHN2P3zikm\nwcsdjFmf38usopFepbwC\n=ioFs\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-10-14T21:19:51Z"
+  }
+}

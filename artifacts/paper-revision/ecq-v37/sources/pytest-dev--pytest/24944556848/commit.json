@@ -1,0 +1,35 @@
+{
+  "author": {
+    "date": "2026-04-25T18:54:10Z",
+    "email": "162705204+EternalRights@users.noreply.github.com",
+    "name": "EternalRights"
+  },
+  "committer": {
+    "date": "2026-04-25T18:54:10Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/a38b20d79039d50c504320b5d4d790c61893a90e",
+  "message": "raises: is_fully_escaped does not handle consecutive backslashes correctly (#14393)",
+  "node_id": "C_kwDOAjwLddoAKGEzOGIyMGQ3OTAzOWQ1MGM1MDQzMjBiNWQ0ZDc5MGM2MTg5M2E5MGU",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/d4fde45a5846dfed2581d38a4e90e9d4be917e2f",
+      "sha": "d4fde45a5846dfed2581d38a4e90e9d4be917e2f",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/d4fde45a5846dfed2581d38a4e90e9d4be917e2f"
+    }
+  ],
+  "sha": "a38b20d79039d50c504320b5d4d790c61893a90e",
+  "tree": {
+    "sha": "db93986607f44f6abbca93813f2d6aa2f2e5f327",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/db93986607f44f6abbca93813f2d6aa2f2e5f327"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/a38b20d79039d50c504320b5d4d790c61893a90e",
+  "verification": {
+    "payload": "tree db93986607f44f6abbca93813f2d6aa2f2e5f327\nparent d4fde45a5846dfed2581d38a4e90e9d4be917e2f\nauthor EternalRights <162705204+EternalRights@users.noreply.github.com> 1777143250 +0800\ncommitter GitHub <noreply@github.com> 1777143250 +0000\n\nraises: is_fully_escaped does not handle consecutive backslashes correctly (#14393)",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJp7Q3SCRC1aQ7uu5UhlAAA2dMQAJQnO6qJOp6+QJ3sSCWVUsUO\nem92rD0ptwWG95uQrynt1MAo+m2YYYyD1Hy3GXr4Yh9zRhCCBILRyrfDEHaMnBnO\nzfQuHRBnuWzrwz2ZG/DqERtVQlHZpSwoPx7ccRvczrMlvJA+vL22khrjSCu3E7vg\nIqlpExJfelWG2QaKgZNGsdGsccQl5fVt61BemR4e5lyAuPcvI6cQ0pKv7MfimKf5\noZIpRyN7MO+MDeT9qTDJqWMrrJRrmdIPWU/Yk2kcATOwtua9xiI4Ejs41ZxS3yGL\nqRwvkv+enZQXGjH753ao56XBoJ6wBhwyIvHe6lV18roYJQqhGBt6NCDDrypMNKg5\nLcKpbpj+BzCkOuVeAvHb5pktvXd3moMT0NE5BzbZSbLBzUXvS+p3BmsEGwhAqmAu\nZUGAVIBHFGjSxbPiHEu2EDZ0KCXvGn0/pKQ0WNEEdcKFsvLheEq6KQZWig5+Hcm6\nVmLOtYZ0xD67fSWpBOqXiErM7ePPltI2D6IXgNbxGcd93V0vvoFR5GyhC2CoZ+RN\nu9DG5ai/MWkGKpjQrorIgw5KuzIN76n+9npHD3F0QtJftYzvLjd7sFOk96f+aQcf\njurdf8hEGPkeF95jID6i4q2MgTzqa0rlynUyAc+ZvKwdx/VVmhiPuPrdncxO1tWr\nszuxIw6/mRAxzdb7XZda\n=vipf\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-04-25T18:54:10Z"
+  }
+}

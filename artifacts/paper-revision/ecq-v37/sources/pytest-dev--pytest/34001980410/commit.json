@@ -1,0 +1,40 @@
+{
+  "author": {
+    "date": "2026-09-05T18:28:38Z",
+    "email": "ran@unusedvar.com",
+    "name": "Ran Benita"
+  },
+  "committer": {
+    "date": "2026-09-05T18:28:38Z",
+    "email": "noreply@github.com",
+    "name": "GitHub"
+  },
+  "html_url": "https://github.com/pytest-dev/pytest/commit/eadb5a625081a1c9db58552797fecf8c88b2508c",
+  "message": "Merge pull request #14967 from faheel/patch-1\n\nFix minor grammar issue in run parameter section",
+  "node_id": "C_kwDOAjwLddoAKGVhZGI1YTYyNTA4MWExYzlkYjU4NTUyNzk3ZmVjZjhjODhiMjUwOGM",
+  "parents": [
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/51e9a9f148cd2509a31e3fa0d2b1b3204c2b0dd7",
+      "sha": "51e9a9f148cd2509a31e3fa0d2b1b3204c2b0dd7",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/51e9a9f148cd2509a31e3fa0d2b1b3204c2b0dd7"
+    },
+    {
+      "html_url": "https://github.com/pytest-dev/pytest/commit/9ccaf9df2ba287d92b4e25588ec7dbe7e1d34ebc",
+      "sha": "9ccaf9df2ba287d92b4e25588ec7dbe7e1d34ebc",
+      "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/9ccaf9df2ba287d92b4e25588ec7dbe7e1d34ebc"
+    }
+  ],
+  "sha": "eadb5a625081a1c9db58552797fecf8c88b2508c",
+  "tree": {
+    "sha": "79d234e849e47fc8abae8e6012a7e02b00316a4d",
+    "url": "https://api.github.com/repos/pytest-dev/pytest/git/trees/79d234e849e47fc8abae8e6012a7e02b00316a4d"
+  },
+  "url": "https://api.github.com/repos/pytest-dev/pytest/git/commits/eadb5a625081a1c9db58552797fecf8c88b2508c",
+  "verification": {
+    "payload": "tree 79d234e849e47fc8abae8e6012a7e02b00316a4d\nparent 51e9a9f148cd2509a31e3fa0d2b1b3204c2b0dd7\nparent 9ccaf9df2ba287d92b4e25588ec7dbe7e1d34ebc\nauthor Ran Benita <ran@unusedvar.com> 1788632918 +0300\ncommitter GitHub <noreply@github.com> 1788632918 +0300\n\nMerge pull request #14967 from faheel/patch-1\n\nFix minor grammar issue in run parameter section",
+    "reason": "valid",
+    "signature": "-----BEGIN PGP SIGNATURE-----\n\nwsFcBAABCAAQBQJqnF9WCRC1aQ7uu5UhlAAAW1wQAFqtJpSzbYUkgIPOBl7dLgZa\nEbW1d4cPabytXiPrvsAbf0JCAVsiDpePUG7lneKPbNJvZLOfgIndVZf8OKJ3VKt7\nbCrrafql+rU3IUbPH9XyHhOtxfQh9YRBXtlqGakUfJUbnMPPpn1KZfcwAQtFY7gD\n/Tmn333gtU7vjunx52RorkizYEhdeJkrOFWHRcIbh8bSTJqlSeFMLPQvMCJInRLg\nvrm95/I7wGU/3hwnHlSxicD+IlBa8eOtm9M2F9sPqVIU8+vEs4ORPo+QFo5aE09Y\nSNUvppawRMgmPNlsrjq9Qit4cuuyeHpMkt4sB46VRrsDAdPdevGiZLyUa2AzbGyp\nRZh61fv/yF3ioJ6FmX0b9LW+U4rfjPlKr9vvg16X9qV2/nA53siRL5C+pOi4QfcH\nubiPUPPxA/UqNxg6zVUlWFA+0r1af+2DlRslGttF0pxrdMNVpDdzxt1NUvUS1Uyc\nA3ip7QnFPGtpAyM7v/3+jBgXzWDuMGN3EV66WZFghKQD5cQn3hk8TCCM0I+jDbso\nBqiGnBrw2ZPP9Vdn1mGxIKFkn8Aopl56lpH2ufvDkFVWG4wVD6paWNQ7mUoyOb7I\n3fKZViYRxfTlXYL3P1KTVMHf1HXB4AXXLqFw5EzvSA0DfHHP1rNAdPJtWo6w9l54\n/zfAesuf2eTSMM/OW3Dy\n=QSa0\n-----END PGP SIGNATURE-----\n",
+    "verified": true,
+    "verified_at": "2026-09-05T18:28:39Z"
+  }
+}
