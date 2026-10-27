@@ -1,0 +1,39 @@
+{
+  "sourceVersion": "independent-reference-v3",
+  "sourcePath": "scripts/ecq/corpus/reference_labels_v3.py",
+  "sourceSha256": "ab5b71b36e6ee70f6e1eb1498261426b63a8ff5fe2188b19050da9172ced478e",
+  "legacyReferenceSha256Unchanged": "a51a00b2dd7a79529f94df2030a75e98e50dbbe437be6931cfe9bfe9737b0611",
+  "registeredLabelChecks": [
+    {
+      "manifest": "artifacts/paper-revision/ecq-v37/corpus/development/manifest.jsonl",
+      "labels": "artifacts/paper-revision/ecq-v37/corpus/oracle/development.jsonl",
+      "cases": 300,
+      "serializedLabelsByteIdentical": true,
+      "sha256": "ef4e3824355713278c8fd98c5bbce50e2079e4221edfd15c6b3a8bb9977df0d5"
+    },
+    {
+      "manifest": "artifacts/paper-revision/ecq-v37/corpus/evaluation/manifest.jsonl",
+      "labels": "artifacts/paper-revision/ecq-v37/corpus/oracle/evaluation.jsonl",
+      "cases": 900,
+      "serializedLabelsByteIdentical": true,
+      "sha256": "d396805a19b724324b5adce1dadfbc552153e58e52c35e2c2fbbe15c33ec0e9a"
+    },
+    {
+      "manifest": "artifacts/paper-revision/ecq-v37/external-corpus/evaluation.jsonl",
+      "labels": "artifacts/paper-revision/ecq-v37/external-corpus/oracle-evaluation.jsonl",
+      "cases": 240,
+      "serializedLabelsByteIdentical": true,
+      "sha256": "4a34a582f3d8c705fc039c5eab0c038d3f8fd64623eb0cb4bb4dc79021764869"
+    },
+    {
+      "manifest": "artifacts/paper-revision/ecq-v37/sources/dshns/manifest.jsonl",
+      "labels": "artifacts/paper-revision/ecq-v37/sources/dshns/oracle.jsonl",
+      "cases": 3,
+      "serializedLabelsByteIdentical": true,
+      "sha256": "209e53dd71e180958360141478dbd3aaaf4498017810758191275e9071168925"
+    }
+  ],
+  "totalRegisteredCases": 1443,
+  "newMethodJudgmentsRequired": false,
+  "reason": "The correction concerns an empty statePolicy outside every registered input. All registered labels retain exact serialized bytes, including their legacy oracleIdentity tag; actual amended source identity is recorded separately."
+}

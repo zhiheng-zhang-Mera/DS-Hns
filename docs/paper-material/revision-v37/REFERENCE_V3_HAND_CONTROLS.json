@@ -1,0 +1,161 @@
+{
+  "controls": [
+    {
+      "control": "complete-pass",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "CLOSED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": true
+    },
+    {
+      "control": "honest-fail",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "CLOSED",
+      "gateSatisfaction": "UNSATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "authorized-reuse",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "CLOSED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": true
+    },
+    {
+      "control": "unauthorized-run",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "different-configuration",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "missing-state",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "UNRESOLVED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "mismatch-dominates-missing",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "empty-state-policy",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "UNRESOLVED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "missing-artifact",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "unavailable-artifact",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "UNRESOLVED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "wrong-object-unavailable",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "corrupt-bytes",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "wrong-object-found",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "unrelated-claim",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "scope-rebinding",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "unknown-type",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "UNRESOLVED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "disallowed-type",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "compound-state-run",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "empty-references",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "UNRESOLVED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": false
+    },
+    {
+      "control": "missing-gate",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "VIOLATED",
+      "gateSatisfaction": "UNRESOLVED",
+      "authorizePass": false
+    },
+    {
+      "control": "equivalent-relative-path",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "CLOSED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": true
+    },
+    {
+      "control": "nested-claim-path",
+      "nativeAndShaclMatchAmendedReference": true,
+      "closureStatus": "CLOSED",
+      "gateSatisfaction": "SATISFIED",
+      "authorizePass": true
+    }
+  ],
+  "controlCount": 22,
+  "observerCalls": 44,
+  "scope": "Hand-constructed semantic controls, separate from all registered research denominators. Compared all three axes and all relationship/witness/reason records."
+}

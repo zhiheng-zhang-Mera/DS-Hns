@@ -1,0 +1,17 @@
+F...
+======================================================================
+FAIL: test_empty_state_policy_is_unresolved (test_reference_v3.CurrentReferenceTests.test_empty_state_policy_is_unresolved)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_v3.py", line 36, in test_empty_state_policy_is_unresolved
+    self.assertEqual(self.state(),'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ESTABLISHED' != 'UNRESOLVED'
+- ESTABLISHED
++ UNRESOLVED
+
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.077s
+
+FAILED (failures=1)
