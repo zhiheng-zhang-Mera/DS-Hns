@@ -119,7 +119,7 @@ def evaluate(bundle, contract, artifact_root):
             binding = _combine([_equal(item.get('claimId'), gate.get('claimId')),
                                 _equal(item.get('scope'), gate.get('scope'))])
         add('I_C', 'e:' + ident, binding,
-            ['/contract/requiredGates/' + str(gate_id), pointer + '/binding'])
+            ['/contract/requiredGates' + ('/' + str(gate_id) if gate_id is not None else ''), pointer + '/binding'])
         types = contract.get('admissibleTypes') or {}
         type_status = _combine([_member(item.get('evidenceType'), types.get('types')),
                                 _member(item.get('provenance'), types.get('provenance'))])

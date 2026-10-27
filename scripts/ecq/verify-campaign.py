@@ -2,7 +2,8 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import zipfile
 
 
 def _json(path):
@@ -42,6 +43,20 @@ def verify(campaign_dir, freeze_file):
         raise ValueError('registered grid mismatch: missing=%d extra=%d' %
                          (len(expected-set(actual)), len(set(actual)-expected)))
     failures = 0
+    archive_path = directory / 'raw-evidence.zip'
+    archive = zipfile.ZipFile(archive_path) if archive_path.is_file() else None
+    archive_names = set()
+    if archive is not None:
+        names = archive.namelist()
+        if len(names) != len(set(names)):
+            archive.close()
+            raise ValueError('duplicate raw archive member')
+        for name in names:
+            normalized = name.replace('\\', '/')
+            if PurePosixPath(normalized).is_absolute() or '..' in normalized.split('/') or ':' in normalized:
+                archive.close()
+                raise ValueError('unsafe raw archive member')
+        archive_names = set(names)
     for row in attempts:
         if row['campaignId'] != campaign['campaignId']:
             raise ValueError('campaign identity mismatch')
@@ -60,8 +75,23 @@ def verify(campaign_dir, freeze_file):
             if row.get('result') is not None:
                 raise ValueError('execution failure disguised as a qualification result')
         for field in ('stdoutPath', 'stderrPath'):
-            if row.get(field) and not (directory / row[field]).is_file():
-                raise ValueError('missing raw execution stream: ' + row[field])
+            if not row.get(field): continue
+            relative = row[field].replace('\\', '/')
+            if PurePosixPath(relative).is_absolute() or '..' in relative.split('/') or ':' in relative:
+                raise ValueError('unsafe raw stream path')
+            physical = directory / relative
+            if physical.is_file():
+                raw = physical.read_bytes()
+            elif archive is not None and relative in archive_names:
+                raw = archive.read(relative)
+            else:
+                raise ValueError('missing raw execution stream: ' + relative)
+            if field == 'stdoutPath' and status == 'COMPLETED':
+                observed = json.loads(raw.decode('utf-8-sig'))
+                if isinstance(observed, dict) and 'result' in observed:
+                    observed = observed['result']
+                if observed != row['result']:
+                    raise ValueError('raw stdout disagrees with saved result: ' + relative)
         capabilities = row.get('capabilities', {})
         for field in ('authorization', 'closure', 'gateSatisfaction', 'relationDiagnostics', 'witnesses'):
             if not isinstance(capabilities.get(field), bool):
@@ -85,6 +115,7 @@ def verify(campaign_dir, freeze_file):
         if _sha(code_root / name) != expected_sha:
             raise ValueError('frozen file digest mismatch: ' + name)
         checked += 1
+    if archive is not None: archive.close()
     return {'verified': True, 'campaignId': campaign['campaignId'], 'cases': len(entries),
             'methods': methods, 'expectedOutputs': len(expected), 'actualOutputs': len(attempts),
             'executionFailures': failures, 'frozenFilesChecked': checked,

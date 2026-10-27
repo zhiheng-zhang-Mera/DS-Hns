@@ -15,4 +15,8 @@ class ShaclTests(unittest.TestCase):
  def test_capability_and_execution_failure_are_distinct(self):
   from run import execute
   r=execute({'bad':1},{},'absent');self.assertEqual(r['executionStatus'],'RUNTIME_ERROR');self.assertIsNone(r['result'])
+ def test_duplicate_ids_are_execution_errors_not_overwritten_relations(self):
+  from run import execute
+  b={'evidence':[{'id':'same'},{'id':'same'}]};c={'requiredGates':[{'id':'g'}]}
+  r=execute(b,c,'.');self.assertEqual(r['executionStatus'],'RUNTIME_ERROR');self.assertIsNone(r['result'])
 if __name__=='__main__':unittest.main()

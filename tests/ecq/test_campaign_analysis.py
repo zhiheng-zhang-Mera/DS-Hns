@@ -4,6 +4,7 @@ from pathlib import Path
 import hashlib
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -95,6 +96,35 @@ class CampaignAnalysisTests(unittest.TestCase):
         self.manifest_file.write_text(self.manifest_file.read_text()+'\n')
         self.write_campaign()
         with self.assertRaises(ValueError): self.verifier().verify(self.root, self.freeze_file)
+
+    def archived_streams(self, result_override=None):
+        row=self.attempts[0]
+        row['stdoutPath']='raw/record.stdout.json'
+        row['stderrPath']='raw/record.stderr.txt'
+        self.write_campaign()
+        with zipfile.ZipFile(self.root/'raw-evidence.zip','w') as archive:
+            archive.writestr(row['stdoutPath'],json.dumps(row['result'] if result_override is None else result_override))
+            archive.writestr(row['stderrPath'],'')
+
+    def test_archived_raw_streams_preserve_result_and_grid(self):
+        self.archived_streams()
+        self.assertTrue(self.verifier().verify(self.root,self.freeze_file)['verified'])
+
+    def test_missing_raw_archive_is_rejected(self):
+        self.archived_streams();(self.root/'raw-evidence.zip').unlink()
+        with self.assertRaises(ValueError):self.verifier().verify(self.root,self.freeze_file)
+
+    def test_archived_stdout_disagreement_is_rejected(self):
+        self.archived_streams({'authorizePass':False})
+        with self.assertRaises(ValueError):self.verifier().verify(self.root,self.freeze_file)
+
+    def test_shacl_wrapper_stdout_is_compared_to_ledger_result(self):
+        row=self.attempts[0];row['stdoutPath']='raw/wrapped.json';row['stderrPath']='raw/error.txt'
+        self.write_campaign()
+        with zipfile.ZipFile(self.root/'raw-evidence.zip','w') as archive:
+            archive.writestr(row['stdoutPath'],json.dumps({'executionStatus':'COMPLETED','result':row['result']}))
+            archive.writestr(row['stderrPath'],'')
+        self.assertTrue(self.verifier().verify(self.root,self.freeze_file)['verified'])
 
     def test_error_is_retained_but_not_a_correct_rejection(self):
         row = next(r for r in self.attempts if r['methodId']=='ECQ' and r['caseId']=='invalid')

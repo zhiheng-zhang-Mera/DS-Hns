@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 
 PREFIXES = ('scripts/ecq', 'tests/ecq', 'docs/paper-material/revision-v37',
             'artifacts/paper-revision/ecq-v37')
@@ -28,12 +29,13 @@ def export(source_root, destination, source_commit):
                              and not any(part in EXCLUDED_PARTS for part in path.relative_to(source_root).parts)
                              and path.suffix not in ('.pyc', '.pyo'))
     if (source_root/'LICENSE').is_file():inventory.append(source_root/'LICENSE')
-    sources={}
-    for path in sorted(inventory):
+    def copy_one(path):
         if path.is_symlink():raise ValueError('source symlink is not an immutable package file: '+str(path))
         relative=path.relative_to(source_root).as_posix();target=destination/relative
         target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(path,target)
-        sources[relative]={'sha256':_sha(target),'sourcePath':relative,'origin':'DS-Hns snapshot'}
+        return relative,{'sha256':_sha(target),'sourcePath':relative,'origin':'DS-Hns snapshot'}
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        sources=dict(pool.map(copy_one,sorted(inventory)))
     requirements=source_root/'docs/paper-material/revision-v37/requirements.lock'
     (destination/'requirements.lock').write_bytes(requirements.read_bytes() if requirements.exists() else b'')
     (destination/'README.md').write_text('''# ECQ v37 reproducible research artifact

@@ -4,37 +4,27 @@ x:QualificationShape a sh:NodeShape ; sh:targetNode x:audit ;
  sh:sparql [ sh:message "VIOLATED" ; sh:select """
  PREFIX x: <urn:ecq:>
  SELECT $this ?value WHERE {
- $this x:relation ?value . ?value x:kind ?kind; x:contract ?c .
  { ?value x:kind "I_S"; x:contract ?c . ?value x:field ?f . ?f x:actual ?a; x:expected ?b . FILTER(?a != ?b) }
- UNION { ?value x:kind "I_R"; x:contract ?c . ?value x:evidence/x:run ?a . FILTER NOT EXISTS { ?c x:allowedRun ?a } }
+ UNION { ?value x:kind "I_R"; x:contract ?c . ?c x:runsKnown true . ?value x:evidence/x:run ?a . FILTER NOT EXISTS { ?c x:allowedRun ?a } }
  UNION { ?value x:kind "I_G"; x:contract ?c . ?value x:gate ?gate . FILTER NOT EXISTS { ?gate x:evidence ?e } }
- UNION { ?value x:kind "I_V"; x:contract ?c . ?value x:evidence/x:claimNode ?a . ?c x:requested ?b . FILTER NOT EXISTS { ?a x:supports* ?b } }
- UNION { ?value x:kind "I_C"; x:contract ?c . ?value x:evidence ?e . ?e x:gateId ?id .
-   { FILTER NOT EXISTS { ?e x:gate ?g } }
-   UNION { ?e x:gate ?g; x:claim ?a . ?g x:claim ?b . FILTER(?a != ?b) }
-   UNION { ?e x:gate ?g; x:scope ?a . ?g x:scope ?b . FILTER(?a != ?b) } }
- UNION { ?value x:kind "I_E"; x:contract ?c . ?value x:ref ?r .
-   { ?r x:readStatus "MISSING" }
-   UNION { ?r x:object ?a; x:expectedObject ?b . FILTER(?a != ?b) } }
+ UNION { ?value x:kind "I_V"; x:contract ?c . ?value x:evidence/x:claimNode ?a . ?c x:requested ?b; x:graphKnown true . FILTER(!EXISTS { ?a a x:Claim } || !EXISTS { ?b a x:Claim } || !EXISTS { ?a x:supports* ?b }) }
+ UNION { ?value x:kind "I_C"; x:contract ?c; x:evidence ?e .
+ FILTER((EXISTS { ?e x:gateId ?id } && !EXISTS { ?e x:gate ?g }) || EXISTS { ?e x:gate ?g; x:claim ?a . ?g x:claim ?b . FILTER(?a != ?b) } || EXISTS { ?e x:gate ?g; x:scope ?a . ?g x:scope ?b . FILTER(?a != ?b) }) }
+ UNION { ?value x:kind "I_E"; x:contract ?c; x:ref ?r . FILTER(EXISTS { ?r x:readStatus "MISSING" } || EXISTS { ?r x:object ?a; x:expectedObject ?b . FILTER(?a != ?b) }) }
  UNION { ?value x:kind "I_I"; x:contract ?c . ?value x:ref ?r . ?r x:readStatus "FOUND"; x:digest ?a; x:expectedDigest ?b . FILTER(?a != ?b) }
- UNION { ?value x:kind "I_T"; x:contract ?c . ?value x:evidence ?e .
-   { ?e x:type ?a . FILTER NOT EXISTS { ?c x:allowedType ?a } }
-   UNION { ?e x:provenance ?a . FILTER NOT EXISTS { ?c x:allowedProvenance ?a } } }
+ UNION { ?value x:kind "I_T"; x:contract ?c; x:evidence ?e . FILTER(EXISTS { ?c x:typesKnown true . ?e x:type ?a . FILTER NOT EXISTS { ?c x:allowedType ?a } } || EXISTS { ?c x:provenanceKnown true . ?e x:provenance ?a . FILTER NOT EXISTS { ?c x:allowedProvenance ?a } }) }
+
  }
  """ ] ;
  sh:sparql [ sh:message "UNRESOLVED" ; sh:select """
  PREFIX x: <urn:ecq:>
  SELECT $this ?value WHERE {
- $this x:relation ?value . ?value x:kind ?kind; x:contract ?c .
  { ?value x:kind "I_S"; x:contract ?c . ?value x:field ?f . FILTER NOT EXISTS { ?f x:actual ?a; x:expected ?b } }
- UNION { ?value x:kind "I_R"; x:contract ?c . ?value x:evidence ?e . FILTER NOT EXISTS { ?e x:run ?a } }
- UNION { ?value x:kind "I_V"; x:contract ?c . ?value x:evidence ?e . FILTER NOT EXISTS { ?e x:claimNode ?a . ?c x:requested ?b } }
- UNION { ?value x:kind "I_C"; x:contract ?c . ?value x:evidence ?e .
-   FILTER NOT EXISTS { ?e x:gateId ?id; x:claim ?claim; x:scope ?scope } }
- UNION { ?value x:kind "I_E"; x:contract ?c . ?value x:ref ?r .
-   { ?r x:readStatus "UNAVAILABLE" }
-   UNION { FILTER NOT EXISTS { ?r x:object ?a; x:expectedObject ?b } } }
+ UNION { ?value x:kind "I_R"; x:contract ?c . ?value x:evidence ?e . FILTER(!EXISTS { ?e x:run ?a } || !EXISTS { ?c x:runsKnown true }) }
+ UNION { ?value x:kind "I_V"; x:contract ?c . ?value x:evidence ?e . FILTER(!EXISTS { ?e x:claimNode ?a . ?c x:requested ?b } || !EXISTS { ?c x:graphKnown true }) }
+ UNION { ?value x:kind "I_C"; x:contract ?c; x:evidence ?e . FILTER(!EXISTS { ?e x:gateId ?id; x:claim ?claim; x:scope ?scope } || EXISTS { ?e x:gate ?gate . FILTER NOT EXISTS { ?gate x:claim ?gc; x:scope ?gs } }) }
+ UNION { ?value x:kind "I_E"; x:contract ?c; x:ref ?r . FILTER(EXISTS { ?r x:readStatus "UNAVAILABLE" } || !EXISTS { ?r x:object ?a; x:expectedObject ?b }) }
  UNION { ?value x:kind "I_I"; x:contract ?c . ?value x:ref ?r . FILTER NOT EXISTS { ?r x:readStatus "FOUND"; x:digest ?a; x:expectedDigest ?b } }
- UNION { ?value x:kind "I_T"; x:contract ?c . ?value x:evidence ?e . FILTER NOT EXISTS { ?e x:type ?a; x:provenance ?b } }
+ UNION { ?value x:kind "I_T"; x:contract ?c . ?value x:evidence ?e . FILTER(!EXISTS { ?e x:type ?a; x:provenance ?b } || !EXISTS { ?c x:typesKnown true; x:provenanceKnown true }) }
  }
  """ ] .

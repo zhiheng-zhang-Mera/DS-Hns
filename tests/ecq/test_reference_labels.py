@@ -128,6 +128,12 @@ class ReferenceLabelsTests(unittest.TestCase):
                          ['VIOLATED'] * 3)
         self.assertEqual(len(states), 8)
 
+    def test_missing_gate_binding_witness_points_to_contract_collection(self):
+        del self.bundle['evidence'][0]['gateId']
+        relation = next(r for r in self.result()['relations'] if r['invariant'] == 'I_C')
+        self.assertEqual(relation['status'], 'UNRESOLVED')
+        self.assertEqual(relation['witnessRefs'], ['/contract/requiredGates', '/evidence/observation/binding'])
+
     def test_no_artifact_does_not_vacuously_establish_integrity(self):
         self.bundle['evidence'][0]['artifactRefs'] = []
         states = self.states(self.result())

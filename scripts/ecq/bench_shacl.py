@@ -22,16 +22,20 @@ def main():
    t=time.perf_counter();prepared=convert(b,c,f/'artifacts');rdf=(time.perf_counter()-t)*1000
    t=time.perf_counter();r=evaluate(b,c,f/'artifacts',prepared);rule=(time.perf_counter()-t)*1000
    t=time.perf_counter();e=evaluate(json.loads(bt),json.loads(ct),f/'artifacts');end=(time.perf_counter()-t)*1000
-   if index>=0:rows.append({'methodId':'B2','gates':len(c['requiredGates']),'artifact_bytes':sum(x.stat().st_size for x in (f/'artifacts').iterdir()),'round':index,'normalize_ms':normalize,'rdf_and_digest_ms':rdf,'rule_ms':rule,'end_to_end_ms':end,'peak_rss_bytes':peak_rss(),'authorizePass':e['authorizePass'],'ruleAuthorizePass':r['authorizePass']})
+   measurement={'phase':'warmup' if index<0 else 'formal','methodId':'B2','gates':len(c['requiredGates']),'artifact_bytes':sum(x.stat().st_size for x in (f/'artifacts').iterdir()),'round':index,'normalize_ms':normalize,'rdf_and_digest_ms':rdf,'rule_ms':rule,'end_to_end_ms':end,'peak_rss_bytes':peak_rss(),'authorizePass':e['authorizePass'],'ruleAuthorizePass':r['authorizePass']}
+   with (out/(f.name+'.all-attempts.jsonl')).open('a')as stream:stream.write(json.dumps(measurement)+'\n')
+   if index>=0:rows.append(measurement)
   (out/(f.name+'.jsonl')).write_text(''.join(json.dumps(r)+'\n'for r in rows));print(json.dumps({'completed':len(rows)}));return
  starts=[]
  for f in sorted(fixtures.glob('fixture-*')):
   t=time.perf_counter();child=subprocess.Popen([sys.executable,__file__,'--fixtures',str(fixtures),'--out',str(out),'--worker',str(f)],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
   ready=child.stdout.readline();startup=(time.perf_counter()-t)*1000
   if not json.loads(ready).get('ready'):raise RuntimeError(ready)
-  stdout,stderr=child.communicate(timeout=1800)
+  try:stdout,stderr=child.communicate(timeout=180)
+  except subprocess.TimeoutExpired:
+   child.kill();stdout,stderr=child.communicate();(out/(f.name+'.censored.json')).write_text(json.dumps({'status':'BUDGET_CENSORED','budgetSeconds':180,'stage':'warmup or formal loop','stdout':stdout,'stderr':stderr}));starts.append({'fixture':f.name,'methodId':'B2','startup_ms':startup,'status':'BUDGET_CENSORED'});print(f.name,'BUDGET_CENSORED',flush=True);continue
   if child.returncode:raise RuntimeError(stderr)
   starts.append({'fixture':f.name,'methodId':'B2','startup_ms':startup});print(f.name,stdout.strip(),flush=True)
- (out/'startup.json').write_text(json.dumps(starts,indent=2));(out/'config.json').write_text(json.dumps({'warmups':5,'rounds':30,'methods':['B2'],'order':'Separate B2 process after Node campaign, not paired-in-time across runtimes','normalizationDefinition':'JSON decoding only; RDF mapping plus digest separate; rule validates already prepared graph','rssDefinition':'OS cumulative process peak RSS isolated per configuration','cachePolicy':'OS cache uncontrolled, five warmups, E2E reopens and hashes files','secondOS':False},indent=2))
- (out/'measurements.jsonl').write_text(''.join(f.read_text()for f in sorted(out.glob('fixture-*.jsonl'))))
+ (out/'startup.json').write_text(json.dumps(starts,indent=2));(out/'config.json').write_text(json.dumps({'warmups':5,'rounds':30,'methods':['B2'],'order':'Separate B2 process after Node campaign, not paired-in-time across runtimes','normalizationDefinition':'JSON decoding only; RDF mapping plus digest separate; rule validates already prepared graph','rssDefinition':'OS cumulative process peak RSS isolated per configuration','cachePolicy':'OS cache uncontrolled, five warmups, E2E reopens and hashes files','secondOS':False,'configurationBudgetSeconds':180,'budgetRule':'Parent kills owned worker at 180 seconds; all finished warmup/formal attempts retained; censored configurations have no complete 30-round estimate'},indent=2))
+ (out/'measurements.jsonl').write_text(''.join(f.read_text()for f in sorted(out.glob('fixture-*.jsonl'))if not f.name.endswith('.all-attempts.jsonl')))
 if __name__=='__main__':main()
