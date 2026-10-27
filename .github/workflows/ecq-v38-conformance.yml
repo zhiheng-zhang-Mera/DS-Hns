@@ -13,7 +13,7 @@ jobs:
         version: [18, 20]
     uses: ./.github/workflows/ecq-v38-probe-reusable.yml
     with:
-      label: ${{ matrix.version }}
+      label: ${{ format('{0}', matrix.version) }}
       flag: false
   expressions:
     runs-on: ubuntu-latest
