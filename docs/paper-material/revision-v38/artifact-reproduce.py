@@ -49,6 +49,25 @@ def verify_cost(root):
         checked+=1
     return checked
 
+def verify_archive_replay(root):
+    stored=root/'artifacts/paper-revision/ecq-v38/archive-study';actual=root/'.runtime/archive-replay'
+    retrospective=json.loads((stored/'evaluation-retrospective-native.json').read_text(encoding='utf-8-sig'))
+    expected_gate={r['id']:r['qualification']['gate'] for r in retrospective}
+    checked=0
+    for split in ('development','evaluation'):
+        expected={r['id']:r for r in json.loads((stored/(split+'-results.json')).read_text(encoding='utf-8'))}
+        replay=json.loads((actual/(split+'-results.json')).read_text(encoding='utf-8'))
+        if {r['id'] for r in replay}!=set(expected):raise ValueError('archive replay membership differs')
+        for row in replay:
+            old=expected[row['id']]
+            if not row.get('sourceCheck',{}).get('valid'):raise ValueError('replayed source certificate rejected')
+            for key in ('nativeAuthorized','referenceAuthorized','nativeClosure','referenceClosure','sourceInstances','jobCount','uniqueLeafBindings','referenceGate'):
+                if row.get(key)!=old.get(key):raise ValueError('archive replay differs: '+row['id']+' '+key)
+            gate=expected_gate[row['id']] if split=='evaluation' else row['referenceGate']
+            if row['nativeGate']!=gate:raise ValueError('archive gate differs from final retrospective decision')
+            checked+=1
+    return checked
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--root',default=str(pathlib.Path(__file__).resolve().parent));p.add_argument('--full-archives',action='store_true');a=p.parse_args();root=pathlib.Path(a.root).resolve()
     checked=verify_inventory(root);env=bootstrap(root)
@@ -58,6 +77,6 @@ def main():
         run=subprocess.run(cmd,cwd=root,env=env,capture_output=True,encoding='utf-8',errors='replace',timeout=900)
         print(json.dumps({'command':cmd,'exitCode':run.returncode,'stdoutTail':run.stdout[-4000:],'stderrTail':run.stderr[-3000:]}))
         if run.returncode:raise SystemExit(run.returncode)
-    report={'status':'PASS','inventoryFiles':checked,'costSummaryCellsRecomputed':verify_cost(root),'archivesRecomputed':a.full_archives,'networkRequired':False,'runtimesRequired':'Node24.14.0 and Python3.14.3; runtime binaries are not bundled'}
+    report={'status':'PASS','inventoryFiles':checked,'costSummaryCellsRecomputed':verify_cost(root),'archivesRecomputed':a.full_archives,'archiveReplayCasesVerified':verify_archive_replay(root) if a.full_archives else 0,'networkRequired':False,'runtimesRequired':'Node24.14.0 and Python3.14.3; runtime binaries are not bundled'}
     (root/'REPRODUCTION_RESULT.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report))
 if __name__=='__main__':main()
