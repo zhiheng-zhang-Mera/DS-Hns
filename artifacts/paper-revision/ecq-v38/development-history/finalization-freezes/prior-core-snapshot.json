@@ -1,0 +1,17 @@
+{
+  "phase": "SUPERSEDED_RETROSPECTIVE_SNAPSHOT",
+  "frozenAtUtc": "2026-10-27T11:58:15.298442+00:00",
+  "firstBlindCommit": "724d23032568ef3ba33b338ca7433560471de8bb",
+  "sourceSelectionUnchanged": true,
+  "originalBlindResultsPreserved": true,
+  "files": {
+    "scripts/ecq-v38/native/index.mjs": "932596fe1f17045529a0459f567bc78cad8216b26deef23218e2ecac97cabfa3",
+    "scripts/ecq-v38/native/expressions.mjs": "bdaa46922b0e400a581f33903f3816246b57cb4025036fb419f015e6160cfe23",
+    "scripts/ecq-v38/reference/reference.py": "f1a1bbabe20104ba5835750a94db349dc346d8831b600e7c4a271cb1f902adc8",
+    "scripts/ecq-v38/study/run_archives.py": "74eb529ea16e02d1faa9efa317d6c9c0ad222144ac5e8e70e732afaffeeee52a",
+    "scripts/ecq-v38/platform/replay_fixed.py": "91912403de9c9aba0d79d7479c75170959f56e409417b63268c7d31bada8ffb7",
+    "scripts/ecq-v38/study/run_cost.py": "73e43c6d73557f602193273aa4a1bafa59bc4f9b5bc4095f38a8cb28cda31f96",
+    "scripts/ecq-v38/study/bench_native.mjs": "b3b1e0357211b772f3481726f06e231983549626a8d36745ef95ba2fb7683a37"
+  },
+  "supportedDomain": "Joint typed ASCII scalar/context fragment with explicit unknown boundaries; invalid schemas never authorize"
+}

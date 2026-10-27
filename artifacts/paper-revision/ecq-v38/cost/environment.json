@@ -7,10 +7,14 @@
     "NumberOfCores": 16,
     "NumberOfLogicalProcessors": 24
   },
-  "loadProtocol": "No concurrent archive or exhaustive-erasure loops; lightweight document authoring only",
-  "methodPhase": "post-evaluation UNKNOWN propagation amendment",
+  "loadProtocol": "No concurrent archive or exhaustive-erasure loops; document/calibration reads and Git network push may overlap; background power and scheduler uncontrolled",
+  "methodPhase": "FINAL_BOUNDED_RETROSPECTIVE_CORE",
   "benchmarkIsRuntimeDescriptive": true,
-  "nativeSourceSha256": "9b04dfc5c26e0a5c8c5429cc9580decdf4fcfbfa5499af9c64b271d0e7269aeb",
-  "referenceSourceSha256": "5db46a672ec852d9e190e858217c9ede3a11fcc20c86d48f02c0dddc0e396fff",
-  "node": "v24.14.0"
+  "nativeSourceSha256": "53126678cd46abb9b091ff1b93b1e3f4a8c9a65485f299a60836657dcc1d067e",
+  "referenceSourceSha256": "9e0952e1b39cfa1dff73b0c7eb8ede2301122121315363bdd0f0e7af49ea6214",
+  "node": "v24.14.0",
+  "backgroundPowerAndSchedulerNotControlled": true,
+  "measuredAtUtc": "2026-10-27T13:09:45.767396+00:00",
+  "finalCore": true,
+  "expressionSourceSha256": "45a2f009176e15c9f73c5ecad36b3505c3c7b82ad82241dff8f70e69550cbce5"
 }

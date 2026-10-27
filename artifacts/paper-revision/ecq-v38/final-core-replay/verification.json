@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "cases": 240,
+  "comparison": "Final core versus retained reference diagnoses/extraction; first native five disagreements preserved",
+  "changedReferenceDecisionsOrExtraction": [],
+  "methodHashes": {
+    "scripts/ecq-v38/native/index.mjs": "53126678cd46abb9b091ff1b93b1e3f4a8c9a65485f299a60836657dcc1d067e",
+    "scripts/ecq-v38/native/expressions.mjs": "45a2f009176e15c9f73c5ecad36b3505c3c7b82ad82241dff8f70e69550cbce5",
+    "scripts/ecq-v38/reference/reference.py": "9e0952e1b39cfa1dff73b0c7eb8ede2301122121315363bdd0f0e7af49ea6214"
+  },
+  "observedAtUtc": "2026-10-27T13:09:26.334896+00:00"
+}

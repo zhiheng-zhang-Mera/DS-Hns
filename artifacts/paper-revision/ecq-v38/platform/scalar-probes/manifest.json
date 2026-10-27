@@ -18,5 +18,35 @@
     "file": "matrix-jobs.json",
     "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40490954765/jobs?per_page=100",
     "sha256": "4104cd324a5ab3db3b7bdc13f9079d2e8bb75cf4db06985109b2c074f0fbda6d"
+  },
+  {
+    "file": "case-run.json",
+    "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40495380124",
+    "sha256": "f24aec6970f5405d82f621475a490915896eb183050eab0456b0cb64d8f80f8f"
+  },
+  {
+    "file": "case-jobs.json",
+    "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40495380124/jobs?per_page=100",
+    "sha256": "7aa8e0ec04b74b7e11a15efe4e8bdeba50487e2713534c5a4ea698930f3c6d6c"
+  },
+  {
+    "file": "numeric-run.json",
+    "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40496198392",
+    "sha256": "8f9b70e2726410c2aa92a5bd5a608870c84fb9317df0b52e70b3231c3088ed0f"
+  },
+  {
+    "file": "numeric-jobs.json",
+    "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40496198392/jobs?per_page=100",
+    "sha256": "486fde48576681161e8a0b672802744f94e33bbe7ba1ae841f420754c502b793"
+  },
+  {
+    "file": "reuse-run.json",
+    "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40508078051",
+    "sha256": "f25d5d0c20c0370b46cf2365aa603645dd04c7915e4c20a392126d5f0306b154"
+  },
+  {
+    "file": "reuse-jobs.json",
+    "endpoint": "repos/zhiheng-zhang-Mera/DS-Hns/actions/runs/40508078051/jobs?per_page=100",
+    "sha256": "02257c293b24f8128e507537f211476c867546169384630f8389012107da53d2"
   }
 ]

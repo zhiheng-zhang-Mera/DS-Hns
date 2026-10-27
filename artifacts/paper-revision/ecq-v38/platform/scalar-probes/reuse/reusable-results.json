@@ -1,0 +1,18 @@
+{
+  "all-skipped": {
+    "result": "skipped",
+    "outputs": {}
+  },
+  "mixed": {
+    "result": "success",
+    "outputs": {}
+  },
+  "after-all-skipped": {
+    "result": "skipped",
+    "outputs": {}
+  },
+  "after-mixed": {
+    "result": "success",
+    "outputs": {}
+  }
+}
