@@ -11,31 +11,56 @@ from ruamel.yaml import YAML
 class Unknown:
     def __repr__(self): return 'UNKNOWN'
 U = Unknown()
+MAX_NUMBER=9007199254740991
+def unsupported_number(x):
+    return isinstance(x,(int,float)) and not isinstance(x,bool) and (abs(x)>MAX_NUMBER or isinstance(x,float) and not math.isfinite(x))
+def lookup(mapping,key,missing=U):
+    """Own dictionary lookup; ambiguous capture casing never selects a winner."""
+    if not isinstance(mapping,dict) or not isinstance(key,str): return U
+    if not key.isascii() or any(not isinstance(k,str) or not k.isascii() for k in mapping): return U
+    matches=[k for k in mapping if k.lower()==key.lower()]
+    return mapping[matches[0]] if len(matches)==1 else missing if not matches else U
 def decode_unknown(x):
+    if unsupported_number(x): return U
     if isinstance(x,dict):
         if x.get('$unknown') is True or x.get('unknown') is True: return U
         return {k:decode_unknown(v) for k,v in x.items()}
     if isinstance(x,list): return [decode_unknown(v) for v in x]
     return x
 def truth(x):
-    if x is U: return U
+    if x is U or unsupported_number(x): return U
     return not (x is None or x is False or x == '' or isinstance(x, (int,float)) and (x == 0 or math.isnan(x)))
 def number(x):
     if x is None: return 0
     if isinstance(x,bool): return int(x)
-    if isinstance(x,(int,float)): return x
+    if isinstance(x,(int,float)): return U if unsupported_number(x) else x
     if isinstance(x,str):
-        try: return 0 if not x.strip() else int(x,16) if re.fullmatch(r'[+-]?0[xX][0-9a-fA-F]+',x) else float(x)
-        except ValueError: pass
-    return float('nan')
+        if not x.isascii(): return U
+        x=x.strip(' \t\r\n\f\v')
+        if not x: return 0
+        if re.fullmatch(r'0x[0-9a-fA-F]+',x):
+            n=int(x,16); return n if n<=2147483647 else U
+        if re.fullmatch(r'0o[0-7]+',x):
+            n=int(x,8); return n if n<=2147483647 else U
+        if re.fullmatch(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?',x):
+            try:
+                n=float(x); return U if unsupported_number(n) else n
+            except ValueError: pass
+    return U
 def equal(a,b):
-    if a is U or b is U: return U
-    if isinstance(a,str) and isinstance(b,str): return a.casefold()==b.casefold()
-    if type(a) is not type(b): return number(a)==number(b)
-    if isinstance(a,(dict,list)): return a is b
+    if a is U or b is U or unsupported_number(a) or unsupported_number(b): return U
+    if not (a is None or isinstance(a,(bool,int,float,str))) or not (b is None or isinstance(b,(bool,int,float,str))): return U
+    if isinstance(a,str) and isinstance(b,str):
+        if a==b: return True
+        if not a.isascii() or not b.isascii(): return U
+        return a.lower()==b.lower()
+    if isinstance(a,str) and not a.isascii() or isinstance(b,str) and not b.isascii(): return U
+    if type(a) is not type(b):
+        a=number(a); b=number(b)
+        return U if a is U or b is U else a==b
     return a==b
 
-TOKEN = re.compile(r"\s*(?:(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|('(?:[^']|'')*')|([A-Za-z_][A-Za-z_0-9-]*)|(&&|\|\||==|!=|[!().,\[\]-]))")
+TOKEN = re.compile(r"\s*(?:(0x[0-9a-fA-F]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|('(?:[^']|'')*')|([A-Za-z_][A-Za-z_0-9-]*)|(&&|\|\||==|!=|[!().,\[\]-]))")
 class Expression:
     def __init__(self,text,context):
         text = str(text).strip()
@@ -65,11 +90,17 @@ class Expression:
         t=self.take()
         if t=='!':
             a=truth(self.parse(3)); return U if a is U else not a
-        if t=='-': return -number(self.parse(3))
+        if t=='-':
+            a=self.parse(3)
+            n=number(a)
+            return U if n is U else -n
         if t=='(':
             a=self.parse(); self.take(')'); return a
         if t.startswith("'"): return t[1:-1].replace("''", "'")
-        if t[0].isdigit(): return float(t) if any(c in t for c in '.eE') else int(t)
+        if t[0].isdigit():
+            if t.startswith('0x'): return number(t)
+            value=float(t) if any(c in t for c in '.eE') else int(t)
+            return U if unsupported_number(value) else value
         if t in ('true','false','null'): return {'true':True,'false':False,'null':None}[t]
         if self.peek()=='(':
             self.take(); args=[]
@@ -78,13 +109,14 @@ class Expression:
                 while self.peek()==',': self.take(); args.append(self.parse())
             self.take(')')
             if args: return U
-            return True if t=='always' else self.context.get('$'+t,U)
-        a=self.context.get(t,U); complete=t=='matrix' or t!='needs' and self.context.get('$complete',False)
+            function=t.lower()
+            return True if function=='always' else self.context.get('$'+function,U) if function in ('success','failure','cancelled') else U
+        a=lookup(self.context,t); root=t.lower(); complete=root=='matrix' or root!='needs' and self.context.get('$complete',False)
         while self.peek() in ('.','['):
             op=self.take()
             if op=='.': key=self.take()
             else: key=self.parse(); self.take(']')
-            a=U if a is U or key is U else a.get(str(key),None if complete else U) if isinstance(a,dict) else U
+            a=U if a is U or key is U else lookup(a,str(key),None if complete else U)
         return a
 def evaluate(text,context):
     text=decode_unknown(text); context=decode_unknown(context)
@@ -97,14 +129,20 @@ def display(value):
     if value is U: return None
     if value is None: return ''
     if isinstance(value,bool): return str(value).lower()
+    if isinstance(value,(dict,list)): return None
+    if isinstance(value,float):
+        if not math.isfinite(value) or not value.is_integer() or abs(value)>9007199254740991 or value==0 and math.copysign(1,value)<0: return None
+        return str(int(value))
+    if isinstance(value,int) and abs(value)>9007199254740991: return None
     return str(value)
 def template(text,context):
     failed=False
     def replace(m):
         nonlocal failed
         v=evaluate(m.group(1),context)
-        if v is U: failed=True
-        return display(v) or ''
+        rendered=display(v)
+        if rendered is None: failed=True
+        return rendered or ''
     out=re.sub(r'\$\{\{(.*?)\}\}',replace,str(text))
     return None if failed else out
 def load_workflow(envelope):
@@ -147,6 +185,8 @@ def compile_flat(envelope):
         needs=job.get('needs',[]); needs=[needs] if isinstance(needs,str) else needs
         deps[key]=needs; rows,errors=matrix_rows(job.get('strategy',{}).get('matrix'))
         matrix_unknown=bool(errors)
+        if '${{' not in str(job.get('name','')) and any(value is None or display(value) is None for _,suffix in rows for value in suffix):
+            matrix_unknown=True; errors.append('implicit matrix value rendering unsupported')
         if 'uses' in job: errors.append('reusable workflow expansion unsupported')
         group={'id':key,'needs':needs,'guard':job.get('if',True),'instances':[],'unsupported':errors,'placeholderName':job.get('name',key)}
         for i,(row,suffix) in enumerate(rows):
@@ -248,12 +288,36 @@ def freeze_inventory(contract,records):
     """Trusted capture inventory persists through every erasure transformation."""
     return [{k:r[k] for k in ('id','name','runId','runAttempt','headSha') if k in r} for r in records]
 def qualify(envelope,contract=None,inventory=None,records=None,nonvacuity=False):
+    def boolean_or_unknown(value):
+        return type(value) is bool or value is U or isinstance(value,dict) and set(value)=={'$unknown'} and value['$unknown'] is True
+    frame_invalid='claimScope' in envelope and envelope['claimScope'] not in ('workflow-conformity','test-execution')
+    frame_invalid=frame_invalid or 'eventContextComplete' in envelope and type(envelope['eventContextComplete']) is not bool
+    context=envelope.get('eventContext',{})
+    frame_invalid=frame_invalid or not isinstance(context,dict)
+    for holder in (envelope,context if isinstance(context,dict) else {}):
+        for key in ('captureComplete','workflowCancelled'):
+            if key in holder and not boolean_or_unknown(holder[key]): frame_invalid=True
+    if frame_invalid:
+        return {'closure':'OPEN','gate':'UNKNOWN','satisfied':False,'authorized':False,'activeInstances':0,'obligations':[['frame','invalid scope or flag schema']],'diagnostics':[['frame','invalid scope or flag schema']]}
     nonvacuity=nonvacuity or envelope.get('claimScope')=='test-execution'
     supplied_contract=contract
     contract=compile_contract(envelope)
     records=envelope.get('sourceJobs',[]) if records is None else records
     inventory=inventory or envelope.get('captureInventory')
     if inventory is None: raise ValueError('fixed captureInventory required; freeze before erasure')
+    def valid_id(value):
+        return type(value) is int and 0<value<=MAX_NUMBER or isinstance(value,str) and bool(value.strip())
+    def valid_text(value): return isinstance(value,str) and bool(value.strip())
+    run=envelope.get('runIdentity',{})
+    def matches_run(entry):
+        return all(k in entry and k in run and type(entry[k]) is type(run[k]) and entry[k]==run[k] for k in ('runId','runAttempt','headSha'))
+    schema_error=not isinstance(inventory,list) or not isinstance(records,list)
+    schema_error=schema_error or not isinstance(run,dict) or not valid_id(run.get('runId')) or type(run.get('runAttempt')) is not int or not 0<run.get('runAttempt',0)<=MAX_NUMBER or not valid_text(run.get('headSha'))
+    if not schema_error:
+        schema_error=any(not isinstance(entry,dict) or not valid_id(entry.get('id')) or not valid_text(entry.get('name')) or not matches_run(entry) for entry in inventory)
+        schema_error=schema_error or any(not isinstance(record,dict) or not valid_id(record.get('id')) for record in records)
+    if schema_error:
+        return {'closure':'OPEN','gate':'UNKNOWN','satisfied':False,'authorized':False,'activeInstances':0,'obligations':[['inventory','invalid identity schema']],'diagnostics':[['inventory','invalid identity schema']]}
     facts={r['id']:r for r in records}; inv=[]; diagnostics=[]; states={}; applicability={}; gate_values=[]; active=0
     if 'captureComplete' in envelope and envelope['captureComplete'] is not True: diagnostics.append(['inventory','capture completeness unknown'])
     if supplied_contract is not None and not check_source(envelope,supplied_contract)['valid']: diagnostics.append(['source','invalid supplied contract'])
@@ -278,9 +342,9 @@ def qualify(envelope,contract=None,inventory=None,records=None,nonvacuity=False)
             return [states[n]] + [v for p in groups[n]['needs'] for v in upstream(p)]
         history=[v for n in g['needs'] for v in upstream(n)]
         ctx['$failure']=True if 'failure' in history else U if U in history else False
-        ctx['$cancelled']=ctx.get('workflowCancelled',U); ctx['$always']=True
+        ctx['$cancelled']=decode_unknown(envelope.get('workflowCancelled',U)); ctx['$always']=True
         guard=evaluate(g['guard'],ctx)
-        if not re.search(r'\b(success|failure|cancelled|always)\s*\(',re.sub(r"'(?:[^']|'')*'",'',str(g['guard']))):
+        if not re.search(r'\b(success|failure|cancelled|always)\s*\(',re.sub(r"'(?:[^']|'')*'",'',str(g['guard'])),re.IGNORECASE|re.ASCII):
             guard=False if truth(guard) is False or ctx['$success'] is False else U if guard is U or ctx['$success'] is U else truth(guard)
         guard=truth(guard)
         if g.get('parentGroup'):
@@ -292,13 +356,13 @@ def qualify(envelope,contract=None,inventory=None,records=None,nonvacuity=False)
             if len(captured)>1: diagnostics.append([key,'multiple inactive placeholders'])
             for entry in captured:
                 fact=facts.get(entry['id'],{})
-                if fact.get('conclusion')!='skipped' or entry['name']!=g['placeholderName'] or fact.get('type')!='job' or fact.get('status')!='completed' or fact.get('name')!=entry['name'] or any(fact.get(k)!=v or entry.get(k)!=v for k,v in envelope.get('runIdentity',{}).items()) or len(set(entry['groupCandidates']+[next(i['groupId'] for i in contract['instances'] if i['id']==ident) for ident in entry['candidates']]))!=1:
+                if fact.get('conclusion')!='skipped' or entry['name']!=g['placeholderName'] or fact.get('type')!='job' or fact.get('status')!='completed' or fact.get('name')!=entry['name'] or not matches_run(fact) or len(set(entry['groupCandidates']+[next(i['groupId'] for i in contract['instances'] if i['id']==ident) for ident in entry['candidates']]))!=1:
                     diagnostics.append([entry['id'],'invalid or erased inactive placeholder'])
             states[key]='skipped'; return 'skipped'
         if guard is U: diagnostics.append([key,'unknown applicability']); gate_values.append(U); states[key]=U; return U
         if 'children' in g:
             results=[group_result(child) for child in g['children']]
-            states[key]=U if U in results else 'failure' if 'failure' in results else 'cancelled' if 'cancelled' in results else 'success'
+            states[key]=U if U in results else 'failure' if 'failure' in results else 'cancelled' if 'cancelled' in results else 'skipped' if results and all(value=='skipped' for value in results) else 'success'
             return states[key]
         active+=len(g['instances']); results=[]
         for ident in g['instances']:
@@ -311,7 +375,7 @@ def qualify(envelope,contract=None,inventory=None,records=None,nonvacuity=False)
             raw=record.get('conclusion')
             gate_values.append(True if raw=='success' else policy if raw=='failure' and (policy is True or policy is U) else False if raw in ('failure','cancelled','skipped') else U)
             effective=U if raw not in ('success','failure','cancelled','skipped') or raw=='failure' and policy is U else 'success' if raw=='failure' and policy is True else raw
-            if record.get('name')!=candidates[0]['name'] or record.get('status')!='completed' or record.get('conclusion') not in ('success','failure','cancelled','skipped') or record.get('type')!='job' or any(record.get(k)!=v or candidates[0].get(k)!=v for k,v in envelope.get('runIdentity',{}).items()): diagnostics.append([ident,'unknown or invalid job fact']); results.append(effective); continue
+            if record.get('name')!=candidates[0]['name'] or record.get('status')!='completed' or record.get('conclusion') not in ('success','failure','cancelled','skipped') or record.get('type')!='job' or not matches_run(record): diagnostics.append([ident,'unknown or invalid job fact']); results.append(effective); continue
             if raw=='failure' and policy is U: diagnostics.append([ident,'unknown acceptance policy']); results.append(U); continue
             outcome=record['conclusion']
             if outcome=='failure' and policy is True: outcome='success'

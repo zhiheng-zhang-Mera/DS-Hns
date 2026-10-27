@@ -1,0 +1,13 @@
+======================================================================
+FAIL: test_runner_numeric_cast_conservative_intersection (test_reference.ReferenceTests.test_runner_numeric_cast_conservative_intersection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 23, in test_runner_numeric_cast_conservative_intersection
+    self.assertIs(r.evaluate(text,{}),r.U)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not UNKNOWN
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.601s
+
+FAILED (failures=1)

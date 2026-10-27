@@ -1,0 +1,13 @@
+======================================================================
+FAIL: test_numeric_magnitude_is_unknown_in_every_scalar_path (test_reference.ReferenceTests.test_numeric_magnitude_is_unknown_in_every_scalar_path)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 23, in test_numeric_magnitude_is_unknown_in_every_scalar_path
+    self.assertIs(r.evaluate(expr,{'matrix':{'n':9007199254740993}}),r.U)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not UNKNOWN
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.386s
+
+FAILED (failures=1)

@@ -1,0 +1,5 @@
+
+Algorithm : SHA256
+Hash      : 13722DB05C6DAF96D82E3335DC7A8C24525CC658A82B4C04BE21B88EC5D4D72A
+Path      : D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\amendments\reusable-aggregate\platform-reusable-results.json
+

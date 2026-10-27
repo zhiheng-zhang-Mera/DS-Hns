@@ -1,0 +1,104 @@
+✖ ASCII context keys are case insensitive and absent top roots stay unknown (5.2498ms)
+✖ mixed-case active guard cannot authorize absent evidence (16.6394ms)
+✖ bounded string comparisons refuse uncertain non-ASCII case rules (2.088ms)
+✖ implicit structured matrix display names remain unresolved (4.6713ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 278.2367
+
+✖ failing tests:
+
+test at tests\ecq-v38\native\ascii-case-lookup.test.mjs:4:1
+✖ ASCII context keys are case insensitive and absent top roots stay unknown (5.2498ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/ascii-case-lookup.test.mjs:5:9)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\ascii-case-lookup.test.mjs:12:1
+✖ mixed-case active guard cannot authorize absent evidence (16.6394ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  'FALSE' !== 'TRUE'
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/ascii-case-lookup.test.mjs:14:9)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'FALSE',
+    expected: 'TRUE',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\ascii-case-lookup.test.mjs:16:1
+✖ bounded string comparisons refuse uncertain non-ASCII case rules (2.088ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + true
+  - {
+  -   '$unknown': true
+  - }
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/ascii-case-lookup.test.mjs:18:9)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: { '$unknown': true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\ascii-case-lookup.test.mjs:24:1
+✖ implicit structured matrix display names remain unresolved (4.6713ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + [
+  +   'test ([object Object])'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/ascii-case-lookup.test.mjs:26:9)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'test ([object Object])' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

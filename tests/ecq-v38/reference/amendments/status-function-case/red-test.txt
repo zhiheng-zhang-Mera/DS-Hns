@@ -1,0 +1,13 @@
+======================================================================
+FAIL: test_status_function_case_cannot_discharge_missing_cleanup (test_reference.ReferenceTests.test_status_function_case_cannot_discharge_missing_cleanup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 27, in test_status_function_case_cannot_discharge_missing_cleanup
+    self.assertFalse(r.qualify(e)['authorized'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.441s
+
+FAILED (failures=1)

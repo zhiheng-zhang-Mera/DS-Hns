@@ -1,0 +1,20 @@
+======================================================================
+FAIL: test_canonical_cancellation_fact_is_frozen_envelope_field (test_reference.ReferenceTests.test_canonical_cancellation_fact_is_frozen_envelope_field)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 27, in test_canonical_cancellation_fact_is_frozen_envelope_field
+    self.assertEqual((q['closure'],q['gate'],q['authorized']),('CLOSED','SAT',True))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Tuples differ: ('OPEN', 'SAT', False) != ('CLOSED', 'SAT', True)
+
+First differing element 0:
+'OPEN'
+'CLOSED'
+
+- ('OPEN', 'SAT', False)
++ ('CLOSED', 'SAT', True)
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.451s
+
+FAILED (failures=1)

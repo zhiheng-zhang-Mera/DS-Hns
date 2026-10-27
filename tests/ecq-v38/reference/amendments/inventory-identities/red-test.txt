@@ -1,0 +1,16 @@
+======================================================================
+FAIL: test_invalid_fixed_inventory_identities_never_authorize (test_reference.ReferenceTests.test_invalid_fixed_inventory_identities_never_authorize)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 25, in test_invalid_fixed_inventory_identities_never_authorize
+    self.assertEqual(q['closure'],'OPEN')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'CLOSED' != 'OPEN'
+- CLOSED
++ OPEN
+
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.328s
+
+FAILED (failures=1)

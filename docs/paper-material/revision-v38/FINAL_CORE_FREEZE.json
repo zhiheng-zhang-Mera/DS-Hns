@@ -1,0 +1,22 @@
+{
+  "phase": "FINAL_PUBLICATION_CORE_SNAPSHOT",
+  "firstBlindCommit": "724d23032568ef3ba33b338ca7433560471de8bb",
+  "firstGateAgreement": "155/160",
+  "originalResultsPreserved": true,
+  "finalCoreHashes": {
+    "scripts/ecq-v38/native/index.mjs": "53126678cd46abb9b091ff1b93b1e3f4a8c9a65485f299a60836657dcc1d067e",
+    "scripts/ecq-v38/native/expressions.mjs": "45a2f009176e15c9f73c5ecad36b3505c3c7b82ad82241dff8f70e69550cbce5",
+    "scripts/ecq-v38/reference/reference.py": "9e0952e1b39cfa1dff73b0c7eb8ede2301122121315363bdd0f0e7af49ea6214"
+  },
+  "amendments": [
+    "Unknown applicability preserves UNKNOWN generated needs results",
+    "ASCII-insensitive own-property lookup and known status-function names",
+    "Bounded finite scalar comparisons and coercions; unsupported structures/Unicode stayUNKNOWN",
+    "Typed inventory identities, scope and assertion flags; strict Boolean tolerance",
+    "Canonical cancellation assertion lookup; snapshot validity is assumed for guard-evaluation context",
+    "Reusable caller aggregation verified in owned run40508078051: all-skipped=>skipped; mixedsuccess/skipped=>success; downstreamneedsretaincoverage"
+  ],
+  "unchanged45ControlLabels": true,
+  "retrospectiveNotBlind": true,
+  "observedAtUtc": "2026-10-27T13:06:45.823412+00:00"
+}

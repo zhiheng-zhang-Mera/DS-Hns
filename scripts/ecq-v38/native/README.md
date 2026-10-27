@@ -23,6 +23,17 @@ explicitly UNKNOWN. Missing needs fields cannot become known null by this flag.
 UNKNOWN blocks closure. Omission of this field is permitted only under the controlled
 input assumption that captureInventory is independently trusted complete; real
 collectors must supply their observed pagination-completeness Boolean.
+Captured record IDs must be positive safe integers or nonempty strings; names must
+be nonempty strings. Run headers require a valid runId by the same ID rule, a
+positive safe-integer runAttempt, and a nonempty headSha string, with matching own
+fields on every captured inventory item and payload. Missing/null/Boolean/empty
+identities cannot create an anonymous record binding.
+`claimScope` is omitted/default workflow-conformity, or exactly workflow-conformity
+or test-execution. Other scopes, nulls and misspellings block closure. A present
+eventContextComplete must be Boolean; captureComplete and workflowCancelled must
+be Boolean or the explicit UNKNOWN marker. Invalid frame types block closure and
+do not gain meaning from JavaScript truthiness. These frame assertions are fixed
+before observation erasure.
 
 Contract fields: schemaVersion, workflowIdentity, sourceSha256, jobGroups
 (`id,needs,guard,instances,unsupported`), instances (`id,groupId,matrix,names,
@@ -50,6 +61,46 @@ at least one established active source leaf makes it true, unknown applicability
 with none established makes it UNKNOWN, and zero active leaves makes it false.
 Thus a complete all-inactive archive can be CLOSED/UNSAT for test-execution scope.
 Authorization requires CLOSED and SAT.
+Failure tolerance requires an evaluated Boolean continue-on-error policy; numeric
+or string truthiness does not establish explicit permission to accept failure.
+Non-Boolean policies remain UNKNOWN. Job-if guards still use expression truthiness.
+Whole object/array/function comparisons are outside the scalar comparison profile
+and return UNKNOWN before reference identity checks. Null remains a supported scalar;
+object truthiness and traversal to supported scalar properties remain available.
+
+The expression profile resolves ASCII context keys case-insensitively using own
+properties only (including dotted/bracketed keys and root names). Multiple own keys
+with the same ASCII fold are UNKNOWN rather than selecting a conflicting value.
+An unavailable top-level named context is always UNKNOWN, even when the independently
+captured event context is declared complete. Complete known matrix rows still use
+the platform-confirmed null scalar for absent properties; generated needs remains
+partial. Keywords are the supported lowercase true/false/null spellings; unsupported
+named roots, including other spellings not accepted by this grammar, remain UNKNOWN.
+
+String comparison and string search support the ASCII case-insensitive profile.
+Identical Unicode strings compare equal, but nonidentical comparisons involving
+non-ASCII text remain UNKNOWN, including cross-type numeric comparisons, rather
+than claim complete equivalence to the runner's Unicode case rules. Non-ASCII
+property keys are outside this profile. Unicode literal rendering is preserved.
+Implicit matrix names with structured object/array values are unresolved with empty
+name alternatives; explicit supported scalar name expressions remain available.
+
+Numeric coercion is a bounded profile, rather than a full GitHub-number claim.
+Null, Boolean and finite numeric values are supported. String-to-number conversion
+supports empty/ASCII whitespace, finite ASCII signed decimal/exponent grammar, and
+unsigned lowercase-prefix 0x/0o forms only within 0..2147483647. Other casts remain
+UNKNOWN, including malformed text, binary prefixes, uppercase prefixes, infinities,
+overflow and non-ASCII text; equality and unary minus propagate that UNKNOWN.
+Numeric literals must be finite, and hexadecimal literals use the same small range.
+All numeric scalar values additionally have absolute magnitude at most 2^53-1,
+including literals, context/YAML matrix facts, coercions, comparisons and truth
+operands; out-of-domain values become UNKNOWN before equality identity checks.
+Fractions within this magnitude may be compared, while their rendering stays
+outside the stable-integer formatting profile.
+String rendering of numbers is restricted to safe integers excluding negative zero;
+noninteger/unstable numeric formatting and implicit matrix suffixes outside the
+string/Boolean/stable-integer profile remain unresolved. Explicit object-property
+names that evaluate to supported scalar strings remain supported.
 
 Reusable definitions are supplied independently, never fetched from observed job
 names: `reusableDefinitions: {"./.github/workflows/child.yml": {workflow:"YAML",
@@ -75,3 +126,5 @@ Neither flag is derived from observed job success. The compiler does not authent
 the collector or GitHub. Nested source witnesses retain deepest definition identity
 and an outer-to-inner callerChain. Wrappers retain children and no evidence slots;
 only source leaf instances bind observations.
+
+Owned platform run40508078051 confirms reusable caller aggregation: a nonempty all-skipped child set yields skipped; mixed success/skipped yields success. Unknown child applicability or payloads remain unknown. This is a bounded provider conformance observation, not a complete model of platform scheduling.

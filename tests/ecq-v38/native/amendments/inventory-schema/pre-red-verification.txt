@@ -1,0 +1,54 @@
+✖ capture and payload identity cannot be null missing empty or Boolean (7.0505ms)
+✔ positive integer and nonempty string record IDs remain valid (1.6503ms)
+✖ captured name and immutable run header require typed nonempty schema (0.9252ms)
+✔ fixed valid inventory cannot bind payload whose id was erased (0.4048ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 2
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 103.0384
+
+✖ failing tests:
+
+test at tests\ecq-v38\native\inventory-schema.test.mjs:5:1
+✖ capture and payload identity cannot be null missing empty or Boolean (7.0505ms)
+  AssertionError [ERR_ASSERTION]: null
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/inventory-schema.test.mjs:6:179)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\inventory-schema.test.mjs:9:1
+✖ captured name and immutable run header require typed nonempty schema (0.9252ms)
+  AssertionError [ERR_ASSERTION]: runId
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/inventory-schema.test.mjs:10:227)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

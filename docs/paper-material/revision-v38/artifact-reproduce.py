@@ -72,7 +72,9 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--root',default=str(pathlib.Path(__file__).resolve().parent));p.add_argument('--full-archives',action='store_true');a=p.parse_args();root=pathlib.Path(a.root).resolve()
     checked=verify_inventory(root);env=bootstrap(root)
     commands=[[sys.executable,'scripts/ecq-v38/collection/verify.py'],[sys.executable,'scripts/ecq-v38/platform/verify_platform.py'],['node','--test',*map(str,sorted((root/'tests/ecq-v38/native').glob('*.test.mjs')))], [sys.executable,'-m','unittest','discover','-s','tests/ecq-v38/reference','-v'],[sys.executable,'scripts/ecq-v38/study/run_controls.py']]
-    if a.full_archives:commands += [[sys.executable,'scripts/ecq-v38/study/run_archives.py','--split',s,'--out',str(root/'.runtime/archive-replay')] for s in ('development','evaluation')]
+    if a.full_archives:
+        commands += [[sys.executable,'scripts/ecq-v38/study/run_archives.py','--split',s,'--out',str(root/'.runtime/archive-replay')] for s in ('development','evaluation')]
+        commands += [[sys.executable,'scripts/ecq-v38/platform/replay_fixed.py','--out',str(root/'.runtime/platform-replay')]]
     for cmd in commands:
         run=subprocess.run(cmd,cwd=root,env=env,capture_output=True,encoding='utf-8',errors='replace',timeout=900)
         print(json.dumps({'command':cmd,'exitCode':run.returncode,'stdoutTail':run.stdout[-4000:],'stderrTail':run.stderr[-3000:]}))

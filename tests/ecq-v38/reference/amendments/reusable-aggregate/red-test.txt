@@ -1,0 +1,13 @@
+======================================================================
+FAIL: test_reusable_all_skipped_and_mixed_results_control_downstream (test_reference.ReferenceTests.test_reusable_all_skipped_and_mixed_results_control_downstream)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 29, in test_reusable_all_skipped_and_mixed_results_control_downstream
+    self.assertTrue(r.qualify(e)['authorized'])
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 26 tests in 0.615s
+
+FAILED (failures=1)

@@ -1,0 +1,20 @@
+======================================================================
+FAIL: test_frame_scope_and_flag_types_never_fall_back (test_reference.ReferenceTests.test_frame_scope_and_flag_types_never_fall_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 25, in test_frame_scope_and_flag_types_never_fall_back
+    self.assertEqual((q['closure'],q['gate'],q['authorized']),('OPEN','UNKNOWN',False))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Tuples differ: ('CLOSED', 'SAT', True) != ('OPEN', 'UNKNOWN', False)
+
+First differing element 0:
+'CLOSED'
+'OPEN'
+
+- ('CLOSED', 'SAT', True)
++ ('OPEN', 'UNKNOWN', False)
+
+----------------------------------------------------------------------
+Ran 22 tests in 0.396s
+
+FAILED (failures=1)

@@ -1,0 +1,61 @@
+✖ loose numeric casts outside bounded intersection remain UNKNOWN (3.6049ms)
+✔ bounded decimal, lowercase small hex/octal, null and Boolean casts remain supported (0.6397ms)
+✖ noninteger and unstable numeric rendering remain unresolved (0.7457ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 1
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 177.2696
+
+✖ failing tests:
+
+test at tests\ecq-v38\native\bounded-number.test.mjs:5:1
+✖ loose numeric casts outside bounded intersection remain UNKNOWN (3.6049ms)
+  AssertionError [ERR_ASSERTION]: '0b10' == 2
+  + actual - expected
+  
+  + true
+  - {
+  -   '$unknown': true
+  - }
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/bounded-number.test.mjs:6:212)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: { '$unknown': true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\bounded-number.test.mjs:11:1
+✖ noninteger and unstable numeric rendering remain unresolved (0.7457ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + '1.5'
+  - {
+  -   '$unknown': true
+  - }
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/bounded-number.test.mjs:12:9)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '1.5',
+    expected: { '$unknown': true },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

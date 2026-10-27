@@ -1,0 +1,396 @@
+"""Independent bounded GitHub workflow archive semantics. No native imports."""
+import argparse
+import hashlib
+import itertools
+import json
+import math
+import re
+from pathlib import Path
+from ruamel.yaml import YAML
+
+class Unknown:
+    def __repr__(self): return 'UNKNOWN'
+U = Unknown()
+MAX_NUMBER=9007199254740991
+def unsupported_number(x):
+    return isinstance(x,(int,float)) and not isinstance(x,bool) and (abs(x)>MAX_NUMBER or isinstance(x,float) and not math.isfinite(x))
+def lookup(mapping,key,missing=U):
+    """Own dictionary lookup; ambiguous capture casing never selects a winner."""
+    if not isinstance(mapping,dict) or not isinstance(key,str): return U
+    if not key.isascii() or any(not isinstance(k,str) or not k.isascii() for k in mapping): return U
+    matches=[k for k in mapping if k.lower()==key.lower()]
+    return mapping[matches[0]] if len(matches)==1 else missing if not matches else U
+def decode_unknown(x):
+    if unsupported_number(x): return U
+    if isinstance(x,dict):
+        if x.get('$unknown') is True or x.get('unknown') is True: return U
+        return {k:decode_unknown(v) for k,v in x.items()}
+    if isinstance(x,list): return [decode_unknown(v) for v in x]
+    return x
+def truth(x):
+    if x is U or unsupported_number(x): return U
+    return not (x is None or x is False or x == '' or isinstance(x, (int,float)) and (x == 0 or math.isnan(x)))
+def number(x):
+    if x is None: return 0
+    if isinstance(x,bool): return int(x)
+    if isinstance(x,(int,float)): return U if unsupported_number(x) else x
+    if isinstance(x,str):
+        if not x.isascii(): return U
+        x=x.strip(' \t\r\n\f\v')
+        if not x: return 0
+        if re.fullmatch(r'0x[0-9a-fA-F]+',x):
+            n=int(x,16); return n if n<=2147483647 else U
+        if re.fullmatch(r'0o[0-7]+',x):
+            n=int(x,8); return n if n<=2147483647 else U
+        if re.fullmatch(r'[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?',x):
+            try:
+                n=float(x); return U if unsupported_number(n) else n
+            except ValueError: pass
+    return U
+def equal(a,b):
+    if a is U or b is U or unsupported_number(a) or unsupported_number(b): return U
+    if isinstance(a,str) and isinstance(b,str):
+        if a==b: return True
+        if not a.isascii() or not b.isascii(): return U
+        return a.lower()==b.lower()
+    if isinstance(a,str) and not a.isascii() or isinstance(b,str) and not b.isascii(): return U
+    if type(a) is not type(b):
+        a=number(a); b=number(b)
+        return U if a is U or b is U else a==b
+    if isinstance(a,(dict,list)): return a is b
+    return a==b
+
+TOKEN = re.compile(r"\s*(?:(0x[0-9a-fA-F]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|('(?:[^']|'')*')|([A-Za-z_][A-Za-z_0-9-]*)|(&&|\|\||==|!=|[!().,\[\]-]))")
+class Expression:
+    def __init__(self,text,context):
+        text = str(text).strip()
+        if text.startswith('${{') and text.endswith('}}'): text=text[3:-2].strip()
+        self.tokens=[]; self.i=0; self.context=context; pos=0
+        while pos<len(text):
+            m=TOKEN.match(text,pos)
+            if not m: raise ValueError('unsupported expression token')
+            self.tokens.append(next(v for v in m.groups() if v is not None)); pos=m.end()
+    def peek(self): return self.tokens[self.i] if self.i<len(self.tokens) else None
+    def take(self,expected=None):
+        t=self.peek()
+        if t is None or expected is not None and t!=expected: raise ValueError('expression syntax')
+        self.i+=1; return t
+    def parse(self,level=0):
+        if level<3:
+            a=self.parse(level+1); ops=[['||'],['&&'],['==','!=']][level]
+            while self.peek() in ops:
+                op=self.take(); b=self.parse(level+1)
+                if op in ('==','!='):
+                    a=equal(a,b)
+                    if op=='!=' and a is not U: a=not a
+                elif op=='&&':
+                    a = b if truth(a) is True else a if truth(a) is False else U
+                else: a = a if truth(a) is True else b if truth(a) is False else U
+            return a
+        t=self.take()
+        if t=='!':
+            a=truth(self.parse(3)); return U if a is U else not a
+        if t=='-':
+            a=self.parse(3)
+            n=number(a)
+            return U if n is U else -n
+        if t=='(':
+            a=self.parse(); self.take(')'); return a
+        if t.startswith("'"): return t[1:-1].replace("''", "'")
+        if t[0].isdigit():
+            if t.startswith('0x'): return number(t)
+            value=float(t) if any(c in t for c in '.eE') else int(t)
+            return U if unsupported_number(value) else value
+        if t in ('true','false','null'): return {'true':True,'false':False,'null':None}[t]
+        if self.peek()=='(':
+            self.take(); args=[]
+            if self.peek()!=')':
+                args.append(self.parse())
+                while self.peek()==',': self.take(); args.append(self.parse())
+            self.take(')')
+            if args: return U
+            return True if t=='always' else self.context.get('$'+t,U)
+        a=lookup(self.context,t); root=t.lower(); complete=root=='matrix' or root!='needs' and self.context.get('$complete',False)
+        while self.peek() in ('.','['):
+            op=self.take()
+            if op=='.': key=self.take()
+            else: key=self.parse(); self.take(']')
+            a=U if a is U or key is U else lookup(a,str(key),None if complete else U)
+        return a
+def evaluate(text,context):
+    text=decode_unknown(text); context=decode_unknown(context)
+    if not isinstance(text,str): return text
+    try:
+        p=Expression(text,context); value=p.parse()
+        return value if p.peek() is None else U
+    except (ValueError,TypeError,IndexError): return U
+def display(value):
+    if value is U: return None
+    if value is None: return ''
+    if isinstance(value,bool): return str(value).lower()
+    if isinstance(value,(dict,list)): return None
+    if isinstance(value,float):
+        if not math.isfinite(value) or not value.is_integer() or abs(value)>9007199254740991 or value==0 and math.copysign(1,value)<0: return None
+        return str(int(value))
+    if isinstance(value,int) and abs(value)>9007199254740991: return None
+    return str(value)
+def template(text,context):
+    failed=False
+    def replace(m):
+        nonlocal failed
+        v=evaluate(m.group(1),context)
+        rendered=display(v)
+        if rendered is None: failed=True
+        return rendered or ''
+    out=re.sub(r'\$\{\{(.*?)\}\}',replace,str(text))
+    return None if failed else out
+def load_workflow(envelope):
+    source=envelope['workflow']
+    if isinstance(source,dict): source=source.get('content',source.get('yaml'))
+    yaml=YAML(typ='safe'); yaml.version=(1,2); yaml.allow_duplicate_keys=False
+    return yaml.load(source)
+def matrix_rows(matrix):
+    if matrix is None: return [({},[])],[]
+    if not isinstance(matrix,dict): return [({},[])],['dynamic matrix']
+    def dynamic(x):
+        if isinstance(x,str): return '${{' in x
+        if isinstance(x,dict): return any(dynamic(v) for v in x.values())
+        if isinstance(x,list): return any(dynamic(v) for v in x)
+        return False
+    if dynamic(matrix): return [({},[])],['dynamic matrix value']
+    axes={k:v for k,v in matrix.items() if k not in ('include','exclude')}
+    if any(not isinstance(v,list) for v in axes.values()): return [({},[])],['dynamic matrix axis']
+    if math.prod(len(v) for v in axes.values())>256: return [({},[])],['matrix bound exceeded']
+    rows=[(dict(zip(axes,values)),list(values)) for values in itertools.product(*axes.values())] if axes else []
+    excludes=matrix.get('exclude',[]); includes=matrix.get('include',[])
+    if not isinstance(excludes,list) or not isinstance(includes,list): return [({},[])],['dynamic matrix include/exclude']
+    if any(not isinstance(v,dict) for v in excludes+includes): return [({},[])],['malformed matrix include/exclude']
+    if len(includes)>256: return [({},[])],['matrix include bound exceeded']
+    def same(a,b): return type(a) is type(b) and a==b
+    rows=[(r,n) for r,n in rows if not any(all(k in r and same(r[k],v) for k,v in e.items()) for e in excludes)]
+    originals=[dict(r) for r,_ in rows]
+    for inc in includes:
+        matched=False
+        for idx,(row,names) in enumerate(rows[:len(originals)]):
+            if all(k not in originals[idx] or same(originals[idx][k],v) for k,v in inc.items()): row.update(inc); matched=True
+        if not matched: rows.append((dict(inc),list(inc.values())))
+    return ([({},[])],['matrix bound exceeded']) if len(rows)>256 else (rows,[])
+def compile_flat(envelope):
+    workflow=load_workflow(envelope); jobs=workflow.get('jobs',{})
+    source=envelope['workflow']; source=source.get('content',source.get('yaml')) if isinstance(source,dict) else source
+    source_hash=hashlib.sha256(source.encode()).hexdigest()
+    groups=[]; instances=[]; issues=[]; deps={}
+    for key,job in jobs.items():
+        needs=job.get('needs',[]); needs=[needs] if isinstance(needs,str) else needs
+        deps[key]=needs; rows,errors=matrix_rows(job.get('strategy',{}).get('matrix'))
+        matrix_unknown=bool(errors)
+        if '${{' not in str(job.get('name','')) and any(value is None or display(value) is None for _,suffix in rows for value in suffix):
+            matrix_unknown=True; errors.append('implicit matrix value rendering unsupported')
+        if 'uses' in job: errors.append('reusable workflow expansion unsupported')
+        group={'id':key,'needs':needs,'guard':job.get('if',True),'instances':[],'unsupported':errors,'placeholderName':job.get('name',key)}
+        for i,(row,suffix) in enumerate(rows):
+            ctx=dict(envelope.get('eventContext',{}),matrix=row)
+            base=None if matrix_unknown else template(job.get('name',key),ctx)
+            if base is not None and suffix and '${{' not in str(job.get('name','')): base+=' ('+', '.join(display(v) or '' for v in suffix)+')'
+            ident=key+'['+str(i)+']'; group['instances'].append(ident)
+            raw=envelope['workflow']; raw=raw.get('content',raw.get('yaml')) if isinstance(raw,dict) else raw
+            witness={'path':['jobs',key],'matrixIndex':i,'sourceSha256':hashlib.sha256(raw.encode()).hexdigest()}
+            instances.append({'id':ident,'groupId':key,'matrix':row,'names':[] if base is None else [base],'continueOnError':job.get('continue-on-error',False),'sourceWitness':witness})
+        issues.extend({'groupId':key,'reason':e} for e in errors); groups.append(group)
+    visiting=set(); visited=set()
+    def visit(k):
+        if k in visiting: raise ValueError('needs cycle')
+        if k in visited: return
+        if k not in deps: raise ValueError('unknown needs job')
+        visiting.add(k)
+        for n in deps[k]: visit(n)
+        visiting.remove(k); visited.add(k)
+    for key in deps: visit(key)
+    return {'schemaVersion':'ecq-v38-reference-1','workflowIdentity':envelope.get('workflowIdentity'),'sourceSha256':source_hash,'jobGroups':groups,'instances':instances,'dependencies':deps,'sourceWitnesses':[i['sourceWitness'] for i in instances],'unresolvedFeatures':issues}
+
+def compile_contract(envelope,_depth=0):
+    contract=compile_flat(envelope); source=load_workflow(envelope)
+    contract['sourceIdentities']=[envelope.get('workflowIdentity')]
+    for wrapper in list(contract['jobGroups']):
+        job=source['jobs'][wrapper['id']]
+        if 'uses' not in job: continue
+        uses=job['uses']; definition=envelope.get('reusableDefinitions',{}).get(uses)
+        identity=definition.get('workflowIdentity',{}) if isinstance(definition,dict) else {}
+        caller=envelope.get('workflowIdentity',{})
+        pin=re.fullmatch(r'([^/]+/[^/]+)/(.+)@([a-fA-F0-9]{40})',str(uses))
+        valid=identity.get('verified') is True and re.fullmatch(r'[a-fA-F0-9]{40}',str(identity.get('commit',''))) and _depth<3
+        if str(uses).startswith('./'):
+            valid=valid and identity.get('commit')==caller.get('commit') and identity.get('repository')==caller.get('repository') and identity.get('path')==uses[2:]
+        else: valid=valid and pin is not None and (identity.get('repository'),identity.get('path'),identity.get('commit'))==pin.groups()
+        if not valid: continue
+        child_env=dict(envelope,workflow=definition.get('workflow',definition.get('content')),workflowIdentity=identity)
+        child_source=load_workflow(child_env)
+        if not isinstance(child_source.get('on'),dict) or 'workflow_call' not in child_source['on']: continue
+        declared=((child_source.get('on') or {}).get('workflow_call') or {}).get('inputs',{})
+        caller_instances=[i for i in contract['instances'] if i['groupId']==wrapper['id']]
+        expanded=[]; child_instances=[]; child_issues=[]; child_ids=[]; input_errors=False
+        for instance in caller_instances:
+            inputs={}; bad_inputs=[]
+            context=dict(envelope.get('eventContext',{}),matrix=instance['matrix'])
+            supplied=job.get('with',{})
+            for key,decl in declared.items():
+                typ=decl.get('type'); value=supplied.get(key,decl.get('default',{'boolean':False,'number':0,'string':''}.get(typ,U)))
+                if key not in supplied and decl.get('required') and 'default' not in decl: value=U
+                if isinstance(value,str) and '${{' in value:
+                    value=evaluate(value,context) if re.fullmatch(r'\s*\$\{\{.*\}\}\s*',value) else template(value,context)
+                ok=typ=='boolean' and isinstance(value,bool) or typ=='number' and isinstance(value,(int,float)) and not isinstance(value,bool) or typ=='string' and isinstance(value,str)
+                if not ok: bad_inputs.append(key); value=U
+                inputs[key]=value
+            bad_inputs.extend(k for k in supplied if k not in declared)
+            child_env['eventContext']=dict(envelope.get('eventContext',{}),inputs=inputs)
+            child=compile_contract(child_env,_depth+1); prefix=instance['id']+'/'
+            remap={g['id']:prefix+g['id'] for g in child['jobGroups']}
+            for group in child['jobGroups']:
+                original=group['id']; group['id']=remap[original]
+                group['needsAliases']={alias:remap[n] for alias,n in group.get('needsAliases',{n:n for n in group['needs']}).items()}
+                group['needs']=[remap[n] for n in group['needs']]
+                group['instances']=[prefix+i for i in group['instances']]
+                group['parentGroup']=remap[group['parentGroup']] if group.get('parentGroup') else wrapper['id']
+                if 'children' in group: group['children']=[remap[k] for k in group['children']]
+                group.setdefault('inputs',inputs)
+                group['placeholderName']=' / '.join([instance['names'][0],group['placeholderName']]) if instance['names'] else None
+                expanded.append(group); child_ids.append(group['id'])
+            for leaf in child['instances']:
+                leaf['id']=prefix+leaf['id']; leaf['groupId']=remap[leaf['groupId']]
+                leaf['names']=[a+' / '+b for a in instance['names'] for b in leaf['names']]
+                witness=leaf['sourceWitness']; matrix_index=caller_instances.index(instance)
+                chain=[{'workflowIdentity':caller,'path':['jobs',wrapper['id']],'matrixIndex':matrix_index}]+witness.get('callerChain',[])
+                leaf['sourceWitness']=dict(witness,workflowIdentity=witness.get('workflowIdentity',identity),callerPath=['jobs',wrapper['id']],callerMatrixIndex=matrix_index,callerChain=chain)
+                child_instances.append(leaf)
+            child_issues.extend(dict(issue,groupId=remap[issue['groupId']]) for issue in child['unresolvedFeatures'])
+            if bad_inputs:
+                input_errors=True
+                child_issues.append({'groupId':wrapper['id'],'reason':'unresolved reusable input'})
+            contract['sourceIdentities'].extend(child['sourceIdentities'])
+        wrapper['instances']=[]; wrapper['children']=[g['id'] for g in expanded if g['parentGroup']==wrapper['id']]; wrapper['reusableIdentity']=identity; wrapper['unsupported']=[e for e in wrapper['unsupported'] if e!='reusable workflow expansion unsupported']
+        if input_errors: wrapper['unsupported'].append('unresolved reusable input')
+        replacement=[]; inserted=False
+        for leaf in contract['instances']:
+            if leaf['groupId']==wrapper['id']:
+                if not inserted: replacement.extend(child_instances); inserted=True
+            else: replacement.append(leaf)
+        if not inserted: replacement.extend(child_instances)
+        contract['instances']=replacement
+        group_index=contract['jobGroups'].index(wrapper)
+        contract['jobGroups'][group_index+1:group_index+1]=expanded
+        contract['unresolvedFeatures']=[u for u in contract['unresolvedFeatures'] if u['groupId']!=wrapper['id'] or u['reason']!='reusable workflow expansion unsupported']+child_issues
+        contract['dependencies'].update({g['id']:g['needs'] for g in expanded})
+    contract['sourceWitnesses']=[i['sourceWitness'] for i in contract['instances']]
+    return contract
+
+def freeze_inventory(contract,records):
+    """Trusted capture inventory persists through every erasure transformation."""
+    return [{k:r[k] for k in ('id','name','runId','runAttempt','headSha') if k in r} for r in records]
+def qualify(envelope,contract=None,inventory=None,records=None,nonvacuity=False):
+    nonvacuity=nonvacuity or envelope.get('claimScope')=='test-execution'
+    supplied_contract=contract
+    contract=compile_contract(envelope)
+    records=envelope.get('sourceJobs',[]) if records is None else records
+    inventory=inventory or envelope.get('captureInventory')
+    if inventory is None: raise ValueError('fixed captureInventory required; freeze before erasure')
+    facts={r['id']:r for r in records}; inv=[]; diagnostics=[]; states={}; applicability={}; gate_values=[]; active=0
+    if 'captureComplete' in envelope and envelope['captureComplete'] is not True: diagnostics.append(['inventory','capture completeness unknown'])
+    if supplied_contract is not None and not check_source(envelope,supplied_contract)['valid']: diagnostics.append(['source','invalid supplied contract'])
+    for r in inventory:
+        inv.append(dict(r,candidates=[i['id'] for i in contract['instances'] if r.get('name') in i['names']],groupCandidates=[g['id'] for g in contract['jobGroups'] if r.get('name')==g['placeholderName']]))
+    if len(facts)!=len(records) or len({r['id'] for r in inv})!=len(inv): diagnostics.append(['inventory','duplicate id'])
+    if any(r['id'] not in {entry['id'] for entry in inv} for r in records): diagnostics.append(['inventory','uncaptured record'])
+    if envelope.get('workflowIdentity',{}).get('verified') is not True: diagnostics.append(['source','unverified identity'])
+    if not envelope.get('runIdentity'): diagnostics.append(['run','missing run identity'])
+    if any(k not in envelope.get('runIdentity',{}) for k in ('runId','runAttempt','headSha')): diagnostics.append(['run','incomplete run identity'])
+    groups={g['id']:g for g in contract['jobGroups']}
+    def group_result(key):
+        nonlocal active
+        if key in states: return states[key]
+        g=groups[key]; ancestors=[group_result(n) for n in g['needs']]
+        ctx=dict(envelope.get('eventContext',{}))
+        if 'inputs' in g: ctx['inputs']=g['inputs']
+        ctx['$complete']=envelope.get('eventContextComplete',False)
+        ctx['needs']={alias:{'result':states[n],'outputs':U} for alias,n in g.get('needsAliases',{n:n for n in g['needs']}).items()}
+        ctx['$success']=U if U in ancestors else all(v=='success' for v in ancestors)
+        def upstream(n):
+            return [states[n]] + [v for p in groups[n]['needs'] for v in upstream(p)]
+        history=[v for n in g['needs'] for v in upstream(n)]
+        ctx['$failure']=True if 'failure' in history else U if U in history else False
+        ctx['$cancelled']=ctx.get('workflowCancelled',U); ctx['$always']=True
+        guard=evaluate(g['guard'],ctx)
+        if not re.search(r'\b(success|failure|cancelled|always)\s*\(',re.sub(r"'(?:[^']|'')*'",'',str(g['guard']))):
+            guard=False if truth(guard) is False or ctx['$success'] is False else U if guard is U or ctx['$success'] is U else truth(guard)
+        guard=truth(guard)
+        if g.get('parentGroup'):
+            parent=applicability.get(g['parentGroup'],U)
+            guard=False if parent is False else U if parent is U else guard
+        applicability[key]=guard
+        if guard is False:
+            captured=[entry for entry in inv if key in entry['groupCandidates'] or any(ident in g['instances'] for ident in entry['candidates'])]
+            if len(captured)>1: diagnostics.append([key,'multiple inactive placeholders'])
+            for entry in captured:
+                fact=facts.get(entry['id'],{})
+                if fact.get('conclusion')!='skipped' or entry['name']!=g['placeholderName'] or fact.get('type')!='job' or fact.get('status')!='completed' or fact.get('name')!=entry['name'] or any(fact.get(k)!=v or entry.get(k)!=v for k,v in envelope.get('runIdentity',{}).items()) or len(set(entry['groupCandidates']+[next(i['groupId'] for i in contract['instances'] if i['id']==ident) for ident in entry['candidates']]))!=1:
+                    diagnostics.append([entry['id'],'invalid or erased inactive placeholder'])
+            states[key]='skipped'; return 'skipped'
+        if guard is U: diagnostics.append([key,'unknown applicability']); gate_values.append(U); states[key]=U; return U
+        if 'children' in g:
+            results=[group_result(child) for child in g['children']]
+            states[key]=U if U in results else 'failure' if 'failure' in results else 'cancelled' if 'cancelled' in results else 'success'
+            return states[key]
+        active+=len(g['instances']); results=[]
+        for ident in g['instances']:
+            candidates=[r for r in inv if ident in r['candidates']]
+            if len(candidates)!=1 or len(candidates[0]['candidates'])!=1: diagnostics.append([ident,'ambiguous or absent fixed binding']); results.append(U); gate_values.append(U); continue
+            record=facts.get(candidates[0]['id'],{})
+            instance=next(i for i in contract['instances'] if i['id']==ident)
+            policy=evaluate(instance['continueOnError'],dict(ctx,matrix=instance['matrix']))
+            if not isinstance(policy,bool): policy=U
+            raw=record.get('conclusion')
+            gate_values.append(True if raw=='success' else policy if raw=='failure' and (policy is True or policy is U) else False if raw in ('failure','cancelled','skipped') else U)
+            effective=U if raw not in ('success','failure','cancelled','skipped') or raw=='failure' and policy is U else 'success' if raw=='failure' and policy is True else raw
+            if record.get('name')!=candidates[0]['name'] or record.get('status')!='completed' or record.get('conclusion') not in ('success','failure','cancelled','skipped') or record.get('type')!='job' or any(record.get(k)!=v or candidates[0].get(k)!=v for k,v in envelope.get('runIdentity',{}).items()): diagnostics.append([ident,'unknown or invalid job fact']); results.append(effective); continue
+            if raw=='failure' and policy is U: diagnostics.append([ident,'unknown acceptance policy']); results.append(U); continue
+            outcome=record['conclusion']
+            if outcome=='failure' and policy is True: outcome='success'
+            results.append(outcome)
+            if outcome!='success': diagnostics.append([ident,'unaccepted outcome'])
+        states[key]= U if U in results else 'failure' if 'failure' in results else 'cancelled' if 'cancelled' in results else 'skipped' if 'skipped' in results else 'success'
+        return states[key]
+    for key in groups: group_result(key)
+    # Surplus and conflicting captured records remain obligations even when erased.
+    for entry in inv:
+        if not entry['candidates'] and not (len(entry['groupCandidates'])==1 and applicability.get(entry['groupCandidates'][0]) is False):
+            diagnostics.append([entry['id'],'unbound captured record'])
+    if nonvacuity and not active:
+        diagnostics.append(['claim','nonvacuity'])
+        gate_values.append(U if any(v is U for v in applicability.values()) else False)
+    diagnostics.extend(['source',u['reason']] for u in contract['unresolvedFeatures'])
+    closed=not any(d[1] not in ('unaccepted outcome','nonvacuity') for d in diagnostics)
+    gate='UNSAT' if any(v is False for v in gate_values) else 'UNKNOWN' if any(v is U for v in gate_values) else 'SAT'
+    return {'closure':'CLOSED' if closed else 'OPEN','gate':gate,'satisfied':gate=='SAT','authorized':closed and gate=='SAT','activeInstances':active,'obligations':diagnostics,'diagnostics':diagnostics}
+def check_source(envelope,claimed):
+    """Re-enumerate the universe from YAML rather than trusting witness counts."""
+    expected=compile_contract(envelope)
+    def projection(c):
+        deps=c.get('dependencies',{})
+        edges=sorted((n,k) for k,needs in deps.items() for n in needs) if isinstance(deps,dict) else sorted((e.get('from'),e.get('to')) for e in deps)
+        identities=sorted(set(json.dumps(i,sort_keys=True) for i in c.get('sourceIdentities',[])))
+        witness_fields=('path','matrixIndex','sourceSha256','workflowIdentity','callerPath','callerMatrixIndex','callerChain')
+        return {'workflowIdentity':c.get('workflowIdentity'),'sourceSha256':c.get('sourceSha256'),'sourceIdentities':identities,'dependencies':edges,
+            'jobGroups':[{k:g.get(k) for k in ('id','needs','guard','instances','children','parentGroup','inputs','needsAliases','reusableIdentity','placeholderName')} for g in c.get('jobGroups',[])],
+            'instances':[dict({k:i.get(k) for k in ('id','groupId','matrix','names','continueOnError')},sourceWitness={k:i.get('sourceWitness',{}).get(k) for k in witness_fields}) for i in c.get('instances',[])],
+            'sourceWitnesses':[{k:w.get(k) for k in witness_fields} for w in c.get('sourceWitnesses',[])],
+            'unsupportedGroups':sorted(g['id'] for g in c.get('jobGroups',[]) if g.get('unsupported'))}
+    return {'valid':json_ready(projection(expected))==json_ready(projection(claimed)),'checkedFields':list(projection(expected))}
+def json_ready(x):
+    if x is U: return {'$unknown':True}
+    if isinstance(x,dict): return {k:json_ready(v) for k,v in x.items()}
+    if isinstance(x,list): return [json_ready(v) for v in x]
+    return x
+if __name__=='__main__':
+    p=argparse.ArgumentParser(); p.add_argument('input'); p.add_argument('--mode',choices=['compile','qualify','check'],default='compile'); p.add_argument('--contract'); a=p.parse_args()
+    env=json.loads(Path(a.input).read_text(encoding='utf-8-sig'))
+    out=compile_contract(env) if a.mode=='compile' else qualify(env) if a.mode=='qualify' else check_source(env,json.loads(Path(a.contract).read_text(encoding='utf-8-sig')))
+    print(json.dumps(json_ready(out),ensure_ascii=False))

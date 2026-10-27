@@ -1,0 +1,13 @@
+======================================================================
+FAIL: test_dictionary_case_insensitivity_and_unicode_boundary (test_reference.ReferenceTests.test_dictionary_case_insensitivity_and_unicode_boundary)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq-v38\reference\test_reference.py", line 22, in test_dictionary_case_insensitivity_and_unicode_boundary
+    self.assertTrue(r.evaluate("github.EVENT_NAME == 'push'",{'github':{'event_name':'push'},'$complete':True}))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.820s
+
+FAILED (failures=1)

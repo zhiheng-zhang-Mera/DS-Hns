@@ -1,0 +1,36 @@
+✔ measured reusable all-skipped aggregate remains skipped under active caller (14.8642ms)
+✖ measured mixed success/skipped aggregate is success and requires downstream evidence (5.4775ms)
+✔ reusable aggregate preserves failed cancelled and unknown child results (9.8897ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 172.6615
+
+✖ failing tests:
+
+test at tests\ecq-v38\native\reusable-aggregate.test.mjs:7:1
+✖ measured mixed success/skipped aggregate is success and requires downstream evidence (5.4775ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'skipped'
+  - 'success'
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/reusable-aggregate.test.mjs:7:132)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'skipped',
+    expected: 'success',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

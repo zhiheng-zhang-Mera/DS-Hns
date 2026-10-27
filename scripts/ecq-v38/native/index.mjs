@@ -1,9 +1,12 @@
 import {parseDocument} from 'yaml';
 import {createHash} from 'node:crypto';
-import {evaluate,render,truth,unknown,U} from './expressions.mjs';
+import {evaluate,render,truth,unknown,U,stableNumberString} from './expressions.mjs';
 export {evaluate,U};
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const arr=x=>x===undefined?[]:Array.isArray(x)?x:[x];
+const nonemptyString=x=>typeof x==='string'&&x.trim().length>0;
+const recordId=x=>typeof x==='number'&&Number.isSafeInteger(x)&&x>0||nonemptyString(x);
+const runHeader=x=>x!==null&&typeof x==='object'&&['runId','runAttempt','headSha'].every(k=>Object.hasOwn(x,k))&&recordId(x.runId)&&Number.isSafeInteger(x.runAttempt)&&x.runAttempt>0&&nonemptyString(x.headSha);
 export function expandMatrix(matrix){
   if(matrix===undefined)return {rows:[{}],keys:[]};
   if(!matrix||typeof matrix!=='object'||Array.isArray(matrix))throw Error('dynamic/invalid matrix');
@@ -30,8 +33,8 @@ export function compile(input,internal={depth:0,ancestors:[]}){
     const group={id,needs:arr(job.needs),guard:job.if??true,instances:[],unsupported:[],placeholderName:job.name??id};jobGroups.push(group);
     let expansion,matrixUnknown=false;try{expansion=expandMatrix(job.strategy?.matrix);}catch(e){group.unsupported.push(e.message);matrixUnknown=true;expansion={rows:[{}],keys:[]};}
     if(job.strategy?.['fail-fast']!==undefined&&typeof job.strategy['fail-fast']!=='boolean')group.unsupported.push('dynamic fail-fast');
-    expansion.rows.forEach((matrix,i)=>{const ctx={...input.eventContext,matrix};let name=render(job.name??id,ctx,{complete:input.eventContextComplete,partialRoots:['needs']});
-      if(!unknown(name)&&job.strategy?.matrix&&!String(job.name??'').includes('${{')){const vals=expansion.keys.length?expansion.keys.map(k=>matrix[k]):Object.values(matrix);name+=` (${vals.map(String).join(', ')})`;}
+    expansion.rows.forEach((matrix,i)=>{const ctx={...input.eventContext,matrix};let name=render(job.name??id,ctx,{complete:input.eventContextComplete===true,partialRoots:['needs']});
+      if(!unknown(name)&&job.strategy?.matrix&&!String(job.name??'').includes('${{')){const vals=expansion.keys.length?expansion.keys.map(k=>matrix[k]):Object.values(matrix);if(vals.some(v=>!['string','boolean'].includes(typeof v)&&!stableNumberString(v))){name=U;if(!group.unsupported.includes('implicit matrix display outside scalar profile'))group.unsupported.push('implicit matrix display outside scalar profile');}else name+=` (${vals.map(String).join(', ')})`;}
       const instance={id:`${id}[${i}]`,groupId:id,matrix,names:matrixUnknown||unknown(name)?[]:[name],continueOnError:job['continue-on-error']??false,sourceWitness:{path:['jobs',id],matrixIndex:i,sourceSha256:digest,sourceRange:doc.getIn(['jobs',id],true)?.range??null}};instances.push(instance);group.instances.push(instance.id);
     });
     if(job.uses){
@@ -53,7 +56,7 @@ export function compile(input,internal={depth:0,ancestors:[]}){
           const inputs=Object.create(null);for(const [name,declaration]of Object.entries(declarations)){
             let value=Object.hasOwn(job.with??{},name)?job.with[name]:declaration.default;
             if(value===undefined)value=declaration.required?U:declaration.type==='boolean'?false:declaration.type==='number'?0:'';
-            if(typeof value==='string'&&value.includes('${{'))value=/^\s*\$\{\{[\s\S]*\}\}\s*$/.test(value)?evaluate(value,{...input.eventContext,matrix:callerInstance.matrix,inputs:input.eventContext?.inputs},{complete:input.eventContextComplete,partialRoots:['needs']}):render(value,{...input.eventContext,matrix:callerInstance.matrix},{complete:input.eventContextComplete,partialRoots:['needs']});
+            if(typeof value==='string'&&value.includes('${{'))value=/^\s*\$\{\{[\s\S]*\}\}\s*$/.test(value)?evaluate(value,{...input.eventContext,matrix:callerInstance.matrix,inputs:input.eventContext?.inputs},{complete:input.eventContextComplete===true,partialRoots:['needs']}):render(value,{...input.eventContext,matrix:callerInstance.matrix},{complete:input.eventContextComplete===true,partialRoots:['needs']});
             if(!['boolean','number','string'].includes(declaration.type)||unknown(value)||typeof value!==declaration.type){const reason=`unknown or ill-typed reusable input ${name}`;if(!group.unsupported.includes(reason))group.unsupported.push(reason);value=U;}inputs[name]=value;
           }
           if(callerInstance.names.length!==1){const reason='unknown reusable caller name';if(!group.unsupported.includes(reason))group.unsupported.push(reason);}
@@ -83,14 +86,16 @@ export function qualify(input,contract=compile(input)){
   const obligations=[],gateValues=[],inventory=input.captureInventory??[],facts=new Map(arr(input.sourceJobs).map(r=>[r.id,r])),results=Object.create(null),states=Object.create(null),attributed=new Set(),byId=new Map(contract.jobGroups.map(g=>[g.id,g]));
   const add=(slot,kind,value,detail={})=>obligations.push({slot,kind,value:unknown(value)?'UNKNOWN':value?'TRUE':'FALSE',...detail});
   add('$workflow','contractSourceReconstruction',contractMatches);
+  add('$workflow','metadataSchema',(input.claimScope===undefined||['workflow-conformity','test-execution'].includes(input.claimScope))&&(input.eventContextComplete===undefined||typeof input.eventContextComplete==='boolean')&&['captureComplete','workflowCancelled'].every(k=>typeof input[k]==='boolean'||unknown(input[k])));
   add('$workflow','sourceClosure',contract.unresolvedFeatures.length===0?true:U,{unresolvedFeatures:contract.unresolvedFeatures});
   add('$workflow','sourceIdentity',input.workflowIdentity?.verified===true);
   add('$workflow','fixedInventory',Array.isArray(input.captureInventory));
+  add('$workflow','inventorySchema',inventory.every(r=>r!==null&&typeof r==='object'&&Object.hasOwn(r,'id')&&recordId(r.id)&&Object.hasOwn(r,'name')&&nonemptyString(r.name)&&runHeader(r)&&['runId','runAttempt','headSha'].every(k=>r[k]===input.runIdentity?.[k])));
   add('$workflow','captureComplete',input.captureComplete===undefined?true:unknown(input.captureComplete)?U:input.captureComplete===true);
   add('$workflow','inventoryUnique',new Set(inventory.map(r=>r.id)).size===inventory.length);
   add('$workflow','factIdsUnique',new Set(arr(input.sourceJobs).map(r=>r.id)).size===arr(input.sourceJobs).length);
   add('$workflow','factsWithinInventory',arr(input.sourceJobs).every(r=>inventory.some(i=>i.id===r.id)));
-  add('$workflow','runIdentity',input.runIdentity?.runId!==undefined&&input.runIdentity?.runAttempt!==undefined&&typeof input.runIdentity?.headSha==='string');
+  add('$workflow','runIdentity',runHeader(input.runIdentity));
   for(const captured of inventory){const record=facts.get(captured.id);add(`capture:${captured.id}`,'recordCoverage',record?true:U);if(record){
     add(`capture:${captured.id}`,'inventoryIdentity',['runId','runAttempt','headSha'].some(k=>unknown(captured[k]))?U:['runId','runAttempt','headSha'].every(k=>captured[k]===input.runIdentity?.[k]));
     add(`capture:${captured.id}`,'recordIdentity',['runId','runAttempt','headSha'].some(k=>unknown(record[k]))?U:['runId','runAttempt','headSha'].every(k=>record[k]===input.runIdentity?.[k]));
@@ -103,15 +108,15 @@ export function qualify(input,contract=compile(input)){
     const ancestors=new Set();function ancestorsOf(n){for(const x of byId.get(n).needs){ancestors.add(x);ancestorsOf(x);}}ancestorsOf(id);
     const success=g.needs.every(n=>results[n]==='success')?true:g.needs.some(n=>['failure','cancelled','skipped'].includes(results[n]))?false:U;
     const failure=[...ancestors].some(n=>results[n]==='failure')?true:[...ancestors].some(n=>unknown(results[n]))?U:false;
-    const status={success,failure,cancelled:input.workflowCancelled??U};const needs=Object.fromEntries(Object.entries(g.needsAliases??Object.fromEntries(g.needs.map(n=>[n,n]))).map(([alias,n])=>[alias,{result:results[n],outputs:U}]));
-    const ctx={...input.eventContext,...(g.inputs?{inputs:g.inputs}:{}),needs};let active=evaluate(g.guard,ctx,{complete:input.eventContextComplete,partialRoots:['needs'],status});
+    const status={success,failure,cancelled:typeof input.workflowCancelled==='boolean'?input.workflowCancelled:U};const needs=Object.fromEntries(Object.entries(g.needsAliases??Object.fromEntries(g.needs.map(n=>[n,n]))).map(([alias,n])=>[alias,{result:results[n],outputs:U}]));
+    const ctx={...input.eventContext,...(g.inputs?{inputs:g.inputs}:{}),needs};let active=evaluate(g.guard,ctx,{complete:input.eventContextComplete===true,partialRoots:['needs'],status});
     const expressionCode=typeof g.guard==='string'?g.guard.replace(/'(?:[^']|'')*'/g,"''"):'';
     if(typeof g.guard!=='string'||! /\b(success|failure|cancelled|always)\s*\(/i.test(expressionCode)){const t=truth(active);active=t===false||success===false?false:unknown(t)||unknown(success)?U:true;}
     active=truth(active);if(g.parentGroup&&states[g.parentGroup]==='UNKNOWN'&&active!==false)active=U;states[id]=unknown(active)?'UNKNOWN':active?'TRUE':'FALSE';add(id,'applicabilityResolved',unknown(active)?U:true,{applicability:states[id]});
     if(unknown(active))gateValues.push(U);
-    if(active===false){const placeholder=render(g.placeholderName,ctx,{complete:input.eventContextComplete,partialRoots:['needs'],status});const matches=unknown(placeholder)?[]:inventory.filter(r=>r.name===placeholder);matches.forEach(r=>attributed.add(r.id));
+    if(active===false){const placeholder=render(g.placeholderName,ctx,{complete:input.eventContextComplete===true,partialRoots:['needs'],status});const matches=unknown(placeholder)?[]:inventory.filter(r=>r.name===placeholder);matches.forEach(r=>attributed.add(r.id));
       const owners=new Set(contract.instances.filter(i=>i.names.includes(placeholder)).map(i=>i.groupId));let uncertainOwner=false;
-      for(const candidate of contract.jobGroups){const name=render(candidate.placeholderName,{...input.eventContext,...(candidate.inputs?{inputs:candidate.inputs}:{}),needs:{}},{complete:input.eventContextComplete,partialRoots:['needs']});if(unknown(name))uncertainOwner=true;else if(name===placeholder)owners.add(candidate.id);}
+      for(const candidate of contract.jobGroups){const name=render(candidate.placeholderName,{...input.eventContext,...(candidate.inputs?{inputs:candidate.inputs}:{}),needs:{}},{complete:input.eventContextComplete===true,partialRoots:['needs']});if(unknown(name))uncertainOwner=true;else if(name===placeholder)owners.add(candidate.id);}
       const unique=owners.size===1&&owners.has(id)&&!uncertainOwner;
       add(id,'inactivePlaceholder',matches.length===0?true:matches.length===1&&unique?(unknown(facts.get(matches[0].id)?.conclusion)?U:facts.get(matches[0].id)?.conclusion==='skipped'):U);results[id]='skipped';return;}
     if(g.unsupported.length){add(id,'supported',U,{reasons:g.unsupported});if(active===true)gateValues.push(U);}
@@ -127,12 +132,12 @@ export function qualify(input,contract=compile(input)){
       if(!record){outcomes.push(U);if(active===true)gateValues.push(U);continue;}
       add(instance.id,'runBinding',record.runId===undefined||record.runAttempt===undefined?U:record.runId===input.runIdentity?.runId&&record.runAttempt===input.runIdentity?.runAttempt);
       const c=record.conclusion;const known=['success','failure','cancelled','skipped','timed_out','action_required','neutral','startup_failure'].includes(c);add(instance.id,'state',known?true:U,{originalConclusion:unknown(c)?null:c});
-      const tolerated=truth(evaluate(instance.continueOnError,{...ctx,matrix:instance.matrix},{complete:input.eventContextComplete,partialRoots:['needs'],status}));
+      const policy=evaluate(instance.continueOnError,{...ctx,matrix:instance.matrix},{complete:input.eventContextComplete===true,partialRoots:['needs'],status}),tolerated=typeof policy==='boolean'?policy:U;
       let accepted=c==='success'?true:c==='failure'?(unknown(tolerated)?U:tolerated):known?false:U;
       if(active===true)gateValues.push(accepted);
       add(instance.id,'outcome',accepted,{originalConclusion:unknown(c)?null:c,tolerated:unknown(tolerated)?'UNKNOWN':tolerated});outcomes.push(!known||c==='failure'&&unknown(tolerated)?U:c==='failure'&&tolerated===true?'success':c);
     }
-    results[id]=unknown(active)||outcomes.some(unknown)?U:outcomes.some(c=>['failure','timed_out','action_required','startup_failure'].includes(c))?'failure':outcomes.includes('cancelled')?'cancelled':outcomes.every(c=>c==='success')?'success':'skipped';
+    results[id]=unknown(active)||outcomes.some(unknown)?U:outcomes.some(c=>['failure','timed_out','action_required','startup_failure'].includes(c))?'failure':outcomes.includes('cancelled')?'cancelled':(g.children?outcomes.includes('success'):outcomes.every(c=>c==='success'))?'success':'skipped';
   }
   contract.jobGroups.forEach(g=>group(g.id));
   for(const captured of inventory)add(`capture:${captured.id}`,'sourceAttribution',attributed.has(captured.id)?true:U);
@@ -142,3 +147,4 @@ export function qualify(input,contract=compile(input)){
   const gate=gateValues.includes(false)?'UNSAT':gateValues.some(unknown)?'UNKNOWN':'SAT';const satisfied=gate==='SAT';
   return {closure,gate,satisfied,authorized:closure==='CLOSED'&&satisfied,nonVacuity,applicability:states,results,obligations};
 }
+

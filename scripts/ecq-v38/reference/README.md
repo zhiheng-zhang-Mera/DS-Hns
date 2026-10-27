@@ -72,7 +72,7 @@ convenience fields, deliberately excluded from certificate validity. Operational
 placeholder names, complete sourceWitnesses, source identities, deepest leaf
 identity and outer-to-inner callerChain are authoritative and checked.
 
-Seventeen test methods include 64 exhaustive fact erasure subsets, ambiguity and
+Twenty-six test methods include 64 exhaustive fact erasure subsets, ambiguity and
 surplus-deletion counterexamples, missing predecessor/tolerance, YAML 1.2 matrix
 enumeration, DAG cycles, unknown guards and zero-active scope, scalar controls
 corroborated by the owned Actions platform probe, and source certificate attacks
@@ -83,3 +83,30 @@ two-level local source closure, missing callee records, pin mismatch, native
 certificate checking and forged identity/caller metadata. The owned platform
 probe corroborates scalar and placeholder rules; it does not yet establish all
 nested reusable aggregate-outcome edge cases.
+
+Retrospective amendments are preserved under tests/ecq-v38/reference/amendments.
+Dictionary lookup supports own ASCII keys without case sensitivity and blocks
+case-colliding captures. Non-ASCII dictionary keys and nonidentical Unicode
+string comparisons are conservatively UNKNOWN. Unary numeric conversion retains
+UNKNOWN. Numeric string coercion is bounded to empty ASCII whitespace, finite
+ASCII decimals and lowercase unsigned 0x/0o values within signed Int32 positive
+range; other forms remain UNKNOWN. Implicit object/array and unstable numeric
+matrix displays retain slots without guessed names. Explicit object string
+property names remain supported.
+All numeric scalar facts, including literals and captured/YAML context values,
+are bounded to finite magnitude at most 9007199254740991. Values outside that
+domain remain UNKNOWN before equality, truthiness or numeric conversion.
+Fixed captured IDs require positive safe integers or nonempty strings, names
+must be nonempty, and run headers must match with exact types. Malformed fixed
+inventory or payload IDs return OPEN/UNKNOWN rather than authorizing or crashing.
+Claim scope accepts only its documented two names or the absent default;
+eventContextComplete must be Boolean, and capture/cancellation flags must be
+Boolean or UNKNOWN. Invalid frame types cannot silently select a weaker claim.
+`cancelled()` reads only the canonical envelope.workflowCancelled frozen fact,
+never legacy context fields, observed job presence or a final run conclusion.
+The four zero-argument status function names and explicit-status detection are
+ASCII case insensitive; quoted text does not count as a function invocation.
+Equality is confined to the declared scalar domain; structured object/array
+comparisons remain UNKNOWN while traversal to supported scalar properties works.
+
+Owned platform run40508078051 confirms reusable caller aggregation: a nonempty all-skipped child set yields skipped; mixed success/skipped yields success. Unknown child applicability or payloads remain unknown. This is a bounded provider conformance observation, not a complete model of platform scheduling.

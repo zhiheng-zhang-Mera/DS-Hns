@@ -1,0 +1,74 @@
+✖ unrecognized claim scopes cannot silently acquire conformity authorization (8.6375ms)
+✖ frame flags have explicit Boolean or declared UNKNOWN types (1.0131ms)
+✖ supported frame flags and default/conformity scope remain accepted (1.9864ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 137.6914
+
+✖ failing tests:
+
+test at tests\ecq-v38\native\frame-schema.test.mjs:5:1
+✖ unrecognized claim scopes cannot silently acquire conformity authorization (8.6375ms)
+  AssertionError [ERR_ASSERTION]: null
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/frame-schema.test.mjs:5:205)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\frame-schema.test.mjs:6:1
+✖ frame flags have explicit Boolean or declared UNKNOWN types (1.0131ms)
+  AssertionError [ERR_ASSERTION]: eventContextComplete/false
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/frame-schema.test.mjs:6:247)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq-v38\native\frame-schema.test.mjs:7:1
+✖ supported frame flags and default/conformity scope remain accepted (1.9864ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (file:///D:/temp/DS-Hns-experiments-20261026/tests/ecq-v38/native/frame-schema.test.mjs:7:414)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
