@@ -1,0 +1,5 @@
+group,method,cases,authorization_correct,invalid_false_authorized,invalid_cases,valid_false_rejected,valid_cases,execution_failures
+DS-Hns-history,B0,3,2,1,1,0,1,0
+DS-Hns-history,B1,3,3,0,1,0,1,0
+DS-Hns-history,B2,3,3,0,1,0,1,0
+DS-Hns-history,ECQ,3,3,0,1,0,1,0

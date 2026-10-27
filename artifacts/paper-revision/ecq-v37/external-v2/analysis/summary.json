@@ -1,0 +1,3959 @@
+{
+  "baseClusters": 40,
+  "byFamily": {
+    "missing-gate": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "all": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "all": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        }
+      }
+    },
+    "original": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "all": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": {
+          "denominator": 20,
+          "numerator": 20,
+          "rate": 1.0
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "all": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": {
+          "denominator": 20,
+          "numerator": 20,
+          "rate": 1.0
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        }
+      }
+    },
+    "scope-binding": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          },
+          "all": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 80,
+          "numerator": 80,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          },
+          "all": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 80,
+          "numerator": 80,
+          "rate": 1.0
+        }
+      }
+    },
+    "unavailable-artifact": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          },
+          "VIOLATED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "all": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 80,
+          "numerator": 80,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          },
+          "VIOLATED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "all": {
+            "actual": 80,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 80,
+            "recall": 1.0,
+            "truePositive": 80
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 80,
+          "numerator": 80,
+          "rate": 1.0
+        }
+      }
+    },
+    "wrong-run": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "all": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_S": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "all": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        }
+      }
+    },
+    "wrong-state": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 20,
+          "rate": 0.5,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 40,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "all": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 40,
+            "numerator": 40,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_E": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_G": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_I": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_R": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_S": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "UNRESOLVED": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "VIOLATED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "all": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 40,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 40,
+        "semanticMatch": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 40,
+          "numerator": 40,
+          "rate": 1.0
+        }
+      }
+    }
+  },
+  "bySource": {
+    "fastify/fastify": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 40,
+          "rate": 0.3333333333333333
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 80,
+          "rate": 0.8,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 120,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 100,
+          "rate": 0.8333333333333334
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 20,
+          "rate": 0.2,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 120,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_E": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_G": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_I": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_R": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_S": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "UNRESOLVED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "VIOLATED": {
+            "actual": 100,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 100,
+            "recall": 1.0,
+            "truePositive": 100
+          },
+          "all": {
+            "actual": 140,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 140,
+            "recall": 1.0,
+            "truePositive": 140
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 120,
+        "semanticMatch": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 140,
+          "numerator": 140,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_E": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_G": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_I": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_R": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_S": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "UNRESOLVED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "VIOLATED": {
+            "actual": 100,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 100,
+            "recall": 1.0,
+            "truePositive": 100
+          },
+          "all": {
+            "actual": 140,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 140,
+            "recall": 1.0,
+            "truePositive": 140
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 20,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "legitimateFailMatch": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "registeredCases": 120,
+        "semanticMatch": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 140,
+          "numerator": 140,
+          "rate": 1.0
+        }
+      }
+    },
+    "pytest-dev/pytest": {
+      "B0": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 120,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B1": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 0,
+            "rate": 0.0
+          }
+        },
+        "diagnostics": null,
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": null,
+        "registeredCases": 120,
+        "semanticMatch": null,
+        "witnesses": null
+      },
+      "B2": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_E": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_G": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_I": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_R": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_S": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "UNRESOLVED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "VIOLATED": {
+            "actual": 100,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 100,
+            "recall": 1.0,
+            "truePositive": 100
+          },
+          "all": {
+            "actual": 140,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 140,
+            "recall": 1.0,
+            "truePositive": 140
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 20,
+          "numerator": 20,
+          "rate": 1.0
+        },
+        "registeredCases": 120,
+        "semanticMatch": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 140,
+          "numerator": 140,
+          "rate": 1.0
+        }
+      },
+      "ECQ": {
+        "authorizationAccuracy": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "capabilityCoverage": {
+          "authorization": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "closure": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "gateSatisfaction": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "relationDiagnostics": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          },
+          "witnesses": {
+            "denominator": 120,
+            "numerator": 120,
+            "rate": 1.0
+          }
+        },
+        "diagnostics": {
+          "I_C": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_E": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_G": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_I": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_R": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_S": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "I_T": {
+            "actual": 0,
+            "f1": null,
+            "precision": null,
+            "predicted": 0,
+            "recall": null,
+            "truePositive": 0
+          },
+          "I_V": {
+            "actual": 20,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 20,
+            "recall": 1.0,
+            "truePositive": 20
+          },
+          "UNRESOLVED": {
+            "actual": 40,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 40,
+            "recall": 1.0,
+            "truePositive": 40
+          },
+          "VIOLATED": {
+            "actual": 100,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 100,
+            "recall": 1.0,
+            "truePositive": 100
+          },
+          "all": {
+            "actual": 140,
+            "f1": 1.0,
+            "precision": 1.0,
+            "predicted": 140,
+            "recall": 1.0,
+            "truePositive": 140
+          }
+        },
+        "executionFailureRate": {
+          "denominator": 120,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "executionFailures": 0,
+        "falseAuthorization": {
+          "denominator": 100,
+          "numerator": 0,
+          "rate": 0.0,
+          "unfinished": 0
+        },
+        "falseRejection": {
+          "denominator": 0,
+          "numerator": 0,
+          "rate": null
+        },
+        "legitimateFailMatch": {
+          "denominator": 20,
+          "numerator": 20,
+          "rate": 1.0
+        },
+        "registeredCases": 120,
+        "semanticMatch": {
+          "denominator": 120,
+          "numerator": 120,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 140,
+          "numerator": 140,
+          "rate": 1.0
+        }
+      }
+    }
+  },
+  "campaignId": "external-v2",
+  "cases": 240,
+  "inputSha256": {
+    "attempts": "22521d79f5f702f64226584d2cd438c003939d6735148b85c043d13e6cdd72b9",
+    "manifest": "68f2cc48874ffd745fb2a0eb397ef1465f6e6d9e48a1b0c7d1bd0a3d82ce2947",
+    "oracle": "4a34a582f3d8c705fc039c5eab0c038d3f8fd64623eb0cb4bb4dc79021764869"
+  },
+  "interpretation": "Seed/base-conditional intervals; template topology is shared. Degenerate intervals do not establish population certainty. Execution failures count as unsuccessful completion, never as correct rejections.",
+  "methodOutputs": 960,
+  "methods": {
+    "B0": {
+      "authorizationAccuracy": {
+        "denominator": 240,
+        "numerator": 160,
+        "rate": 0.6666666666666666
+      },
+      "capabilityCoverage": {
+        "authorization": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "closure": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "gateSatisfaction": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "relationDiagnostics": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "witnesses": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        }
+      },
+      "diagnostics": null,
+      "executionFailureRate": {
+        "denominator": 240,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "executionFailures": 0,
+      "falseAuthorization": {
+        "denominator": 200,
+        "numerator": 80,
+        "rate": 0.4,
+        "unfinished": 0
+      },
+      "falseRejection": {
+        "denominator": 20,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "legitimateFailMatch": null,
+      "registeredCases": 240,
+      "semanticMatch": null,
+      "witnesses": null
+    },
+    "B1": {
+      "authorizationAccuracy": {
+        "denominator": 240,
+        "numerator": 220,
+        "rate": 0.9166666666666666
+      },
+      "capabilityCoverage": {
+        "authorization": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "closure": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "gateSatisfaction": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "relationDiagnostics": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        },
+        "witnesses": {
+          "denominator": 240,
+          "numerator": 0,
+          "rate": 0.0
+        }
+      },
+      "diagnostics": null,
+      "executionFailureRate": {
+        "denominator": 240,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "executionFailures": 0,
+      "falseAuthorization": {
+        "denominator": 200,
+        "numerator": 20,
+        "rate": 0.1,
+        "unfinished": 0
+      },
+      "falseRejection": {
+        "denominator": 20,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "legitimateFailMatch": null,
+      "registeredCases": 240,
+      "semanticMatch": null,
+      "witnesses": null
+    },
+    "B2": {
+      "authorizationAccuracy": {
+        "denominator": 240,
+        "numerator": 240,
+        "rate": 1.0
+      },
+      "capabilityCoverage": {
+        "authorization": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "closure": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "gateSatisfaction": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "relationDiagnostics": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        }
+      },
+      "diagnostics": {
+        "I_C": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_E": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_G": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_I": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_R": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_S": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_T": {
+          "actual": 0,
+          "f1": null,
+          "precision": null,
+          "predicted": 0,
+          "recall": null,
+          "truePositive": 0
+        },
+        "I_V": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "UNRESOLVED": {
+          "actual": 80,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 80,
+          "recall": 1.0,
+          "truePositive": 80
+        },
+        "VIOLATED": {
+          "actual": 200,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 200,
+          "recall": 1.0,
+          "truePositive": 200
+        },
+        "all": {
+          "actual": 280,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 280,
+          "recall": 1.0,
+          "truePositive": 280
+        }
+      },
+      "executionFailureRate": {
+        "denominator": 240,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "executionFailures": 0,
+      "falseAuthorization": {
+        "denominator": 200,
+        "numerator": 0,
+        "rate": 0.0,
+        "unfinished": 0
+      },
+      "falseRejection": {
+        "denominator": 20,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "legitimateFailMatch": {
+        "denominator": 20,
+        "numerator": 20,
+        "rate": 1.0
+      },
+      "registeredCases": 240,
+      "semanticMatch": {
+        "denominator": 240,
+        "numerator": 240,
+        "rate": 1.0
+      },
+      "witnesses": {
+        "denominator": 280,
+        "numerator": 280,
+        "rate": 1.0
+      }
+    },
+    "ECQ": {
+      "authorizationAccuracy": {
+        "denominator": 240,
+        "numerator": 240,
+        "rate": 1.0
+      },
+      "capabilityCoverage": {
+        "authorization": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "closure": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "gateSatisfaction": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "relationDiagnostics": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        },
+        "witnesses": {
+          "denominator": 240,
+          "numerator": 240,
+          "rate": 1.0
+        }
+      },
+      "diagnostics": {
+        "I_C": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_E": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_G": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_I": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_R": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_S": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "I_T": {
+          "actual": 0,
+          "f1": null,
+          "precision": null,
+          "predicted": 0,
+          "recall": null,
+          "truePositive": 0
+        },
+        "I_V": {
+          "actual": 40,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 40,
+          "recall": 1.0,
+          "truePositive": 40
+        },
+        "UNRESOLVED": {
+          "actual": 80,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 80,
+          "recall": 1.0,
+          "truePositive": 80
+        },
+        "VIOLATED": {
+          "actual": 200,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 200,
+          "recall": 1.0,
+          "truePositive": 200
+        },
+        "all": {
+          "actual": 280,
+          "f1": 1.0,
+          "precision": 1.0,
+          "predicted": 280,
+          "recall": 1.0,
+          "truePositive": 280
+        }
+      },
+      "executionFailureRate": {
+        "denominator": 240,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "executionFailures": 0,
+      "falseAuthorization": {
+        "denominator": 200,
+        "numerator": 0,
+        "rate": 0.0,
+        "unfinished": 0
+      },
+      "falseRejection": {
+        "denominator": 20,
+        "numerator": 0,
+        "rate": 0.0
+      },
+      "legitimateFailMatch": {
+        "denominator": 20,
+        "numerator": 20,
+        "rate": 1.0
+      },
+      "registeredCases": 240,
+      "semanticMatch": {
+        "denominator": 240,
+        "numerator": 240,
+        "rate": 1.0
+      },
+      "witnesses": {
+        "denominator": 280,
+        "numerator": 280,
+        "rate": 1.0
+      }
+    }
+  },
+  "obligationOverlapCases": {
+    "I_C|I_C": 40,
+    "I_C|I_V": 40,
+    "I_E|I_E": 40,
+    "I_E|I_I": 40,
+    "I_G|I_G": 40,
+    "I_I|I_E": 40,
+    "I_I|I_I": 40,
+    "I_R|I_R": 40,
+    "I_S|I_S": 40,
+    "I_V|I_C": 40,
+    "I_V|I_V": 40
+  },
+  "pairedBootstrap": [
+    {
+      "authorizationAccuracyDifference": {
+        "ci95": [
+          0.3333333333333333,
+          0.3333333333333333
+        ],
+        "degenerate": true,
+        "difference": 0.3333333333333333
+      },
+      "clusters": 40,
+      "comparator": "B0",
+      "falseAuthorizationDifference": {
+        "ci95": [
+          -0.4,
+          -0.4
+        ],
+        "degenerate": true,
+        "difference": -0.4
+      },
+      "reference": "ECQ",
+      "repetitions": 10000,
+      "seed": 20261027,
+      "strata": 2,
+      "unit": "baseId within sourceGroup"
+    },
+    {
+      "authorizationAccuracyDifference": {
+        "ci95": [
+          0.08333333333333333,
+          0.08333333333333333
+        ],
+        "degenerate": true,
+        "difference": 0.08333333333333333
+      },
+      "clusters": 40,
+      "comparator": "B1",
+      "falseAuthorizationDifference": {
+        "ci95": [
+          -0.1,
+          -0.1
+        ],
+        "degenerate": true,
+        "difference": -0.1
+      },
+      "reference": "ECQ",
+      "repetitions": 10000,
+      "seed": 20261027,
+      "strata": 2,
+      "unit": "baseId within sourceGroup"
+    },
+    {
+      "authorizationAccuracyDifference": {
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "degenerate": true,
+        "difference": 0.0
+      },
+      "clusters": 40,
+      "comparator": "B2",
+      "falseAuthorizationDifference": {
+        "ci95": [
+          0.0,
+          0.0
+        ],
+        "degenerate": true,
+        "difference": 0.0
+      },
+      "reference": "ECQ",
+      "repetitions": 10000,
+      "seed": 20261027,
+      "strata": 2,
+      "unit": "baseId within sourceGroup"
+    }
+  ],
+  "schemaVersion": 1
+}

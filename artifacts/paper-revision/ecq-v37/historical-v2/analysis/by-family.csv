@@ -1,0 +1,5 @@
+group,method,cases,authorization_correct,invalid_false_authorized,invalid_cases,valid_false_rejected,valid_cases,execution_failures
+archival-mapping,B0,3,2,1,1,0,1,0
+archival-mapping,B1,3,3,0,1,0,1,0
+archival-mapping,B2,3,3,0,1,0,1,0
+archival-mapping,ECQ,3,3,0,1,0,1,0

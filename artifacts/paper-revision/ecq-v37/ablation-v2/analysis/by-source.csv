@@ -1,0 +1,9 @@
+group,method,cases,authorization_correct,invalid_false_authorized,invalid_cases,valid_false_rejected,valid_cases,execution_failures
+controlled,ECQ-no-I_C,900,840,60,780,0,60,0
+controlled,ECQ-no-I_E,900,900,0,780,0,60,0
+controlled,ECQ-no-I_G,900,900,0,780,0,60,0
+controlled,ECQ-no-I_I,900,840,60,780,0,60,0
+controlled,ECQ-no-I_R,900,840,60,780,0,60,0
+controlled,ECQ-no-I_S,900,840,60,780,0,60,0
+controlled,ECQ-no-I_T,900,840,60,780,0,60,0
+controlled,ECQ-no-I_V,900,840,60,780,0,60,0

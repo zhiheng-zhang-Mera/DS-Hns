@@ -1,0 +1,17 @@
+{
+  "verified": true,
+  "campaignId": "historical-v2",
+  "cases": 3,
+  "methods": [
+    "B0",
+    "B1",
+    "B2",
+    "ECQ"
+  ],
+  "expectedOutputs": 12,
+  "actualOutputs": 12,
+  "executionFailures": 0,
+  "frozenFilesChecked": 7094,
+  "manifestSha256": "1335abfbcd3fd9782bad3216c91fe674173375e21f27bdfae54090be47850f36",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e"
+}

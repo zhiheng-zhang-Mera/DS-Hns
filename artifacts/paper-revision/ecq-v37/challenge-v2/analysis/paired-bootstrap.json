@@ -1,0 +1,77 @@
+[
+  {
+    "reference": "ECQ",
+    "comparator": "B0",
+    "clusters": 60,
+    "strata": 1,
+    "repetitions": 10000,
+    "seed": 20261027,
+    "unit": "baseId within sourceGroup",
+    "authorizationAccuracyDifference": {
+      "difference": 0.8555555555555555,
+      "ci95": [
+        0.8488888888888889,
+        0.8611111111111112
+      ],
+      "degenerate": false
+    },
+    "falseAuthorizationDifference": {
+      "difference": -0.9871794871794872,
+      "ci95": [
+        -0.9935897435897436,
+        -0.9794871794871794
+      ],
+      "degenerate": false
+    }
+  },
+  {
+    "reference": "ECQ",
+    "comparator": "B1",
+    "clusters": 60,
+    "strata": 1,
+    "repetitions": 10000,
+    "seed": 20261027,
+    "unit": "baseId within sourceGroup",
+    "authorizationAccuracyDifference": {
+      "difference": 0.26666666666666666,
+      "ci95": [
+        0.26666666666666666,
+        0.26666666666666666
+      ],
+      "degenerate": true
+    },
+    "falseAuthorizationDifference": {
+      "difference": -0.3076923076923077,
+      "ci95": [
+        -0.3076923076923077,
+        -0.3076923076923077
+      ],
+      "degenerate": true
+    }
+  },
+  {
+    "reference": "ECQ",
+    "comparator": "B2",
+    "clusters": 60,
+    "strata": 1,
+    "repetitions": 10000,
+    "seed": 20261027,
+    "unit": "baseId within sourceGroup",
+    "authorizationAccuracyDifference": {
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "degenerate": true
+    },
+    "falseAuthorizationDifference": {
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "degenerate": true
+    }
+  }
+]

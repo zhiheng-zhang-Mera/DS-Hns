@@ -1,0 +1,8 @@
+{
+  "file": "D:\\temp\\ecq-v37-prior-v1.zip",
+  "files": 30668,
+  "bytes": 19415660,
+  "sha256": "3bd8aae3147a4e1f283658b7b78ffafa83f63832eb506ba513137bedee32092d",
+  "reproductionVerified": true,
+  "sourceCommitScope": "freeze/code/input commit; generated outputs inventoried separately"
+}

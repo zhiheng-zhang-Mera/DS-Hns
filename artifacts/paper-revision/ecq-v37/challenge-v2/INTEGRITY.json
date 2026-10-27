@@ -1,0 +1,17 @@
+{
+  "verified": true,
+  "campaignId": "challenge-v2",
+  "cases": 900,
+  "methods": [
+    "B0",
+    "B1",
+    "B2",
+    "ECQ"
+  ],
+  "expectedOutputs": 3600,
+  "actualOutputs": 3600,
+  "executionFailures": 0,
+  "frozenFilesChecked": 7094,
+  "manifestSha256": "a469bb699a67d540720cd26e9eb26702709e8362ddce50852eb32c530b796d9b",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e"
+}

@@ -1,0 +1,9 @@
+{
+  "campaignId": "ablation-v2",
+  "members": 14400,
+  "archiveSha256": "e5bcde103d51781dd0d23d4e4694cab8bb12d1c3d2215fb89225c485e787af93",
+  "archiveBytes": 6979990,
+  "physicalBytesCompared": true,
+  "memberPrefix": "raw/",
+  "purpose": "Byte-preserving compaction; original streams moved to external backup after archive verification."
+}

@@ -1,0 +1,9 @@
+{
+  "campaignId": "challenge-v2",
+  "members": 7200,
+  "archiveSha256": "6bb38dfc32cff142348e266bfd286d4edef931ea7d085bb9726ae7e2d9bc4dc7",
+  "archiveBytes": 2749276,
+  "physicalBytesCompared": true,
+  "memberPrefix": "raw/",
+  "purpose": "Byte-preserving compaction; original streams moved to external backup after archive verification."
+}

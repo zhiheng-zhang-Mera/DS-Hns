@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "batchId": "E2-E5-final-20260927-02",
+  "phase": "FINAL",
+  "seed": 20260928,
+  "runCount": 21,
+  "invalidRuns": 0,
+  "counts": {
+    "PASS": 12,
+    "EXPECTED_BLOCK": 9,
+    "FAIL": 0,
+    "INVALID": 0
+  },
+  "faultCatalogSha256": "ff6a691d28244a9857eae686b8245b2a5602e4897b3521c5ae7f092faefcbd10",
+  "faultCoverage": {
+    "total": 89,
+    "observed": 9,
+    "notRun": 80,
+    "notRunByStatus": {
+      "NOT_RUN_MAINTENANCE_WINDOW": 6,
+      "NOT_RUN_NO_ADAPTER": 74
+    }
+  },
+  "rawRunIds": [
+    "E2-W0-fault04",
+    "E5-W2-fault81-01",
+    "E5-W2-fault84-02",
+    "E5-W2-fault85-03",
+    "E5-W2-fault80-04",
+    "E5-W2-fault87-05",
+    "E5-W2-fault83-06",
+    "E5-W2-fault83-07",
+    "E5-W2-fault82-08",
+    "E5-W2-fault81-09",
+    "E5-W2-fault86-10",
+    "E5-W2-fault86-11",
+    "E5-W2-fault82-12",
+    "E5-W2-fault80-13",
+    "E5-W2-fault82-14",
+    "E5-W2-fault83-15",
+    "E5-W2-fault87-16",
+    "E5-W2-fault84-17",
+    "E5-W2-fault85-18",
+    "E5-W2-fault80-19",
+    "E5-W2-fault81-20"
+  ],
+  "oracleStats": [
+    {
+      "id": "O1_progress_preservation",
+      "observed": 1,
+      "passed": 1,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.20654931437723745,
+        "high": 1
+      }
+    },
+    {
+      "id": "O2_no_verified_replay",
+      "observed": 1,
+      "passed": 1,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.20654931437723745,
+        "high": 1
+      }
+    },
+    {
+      "id": "O3_no_duplicate_effect",
+      "observed": 1,
+      "passed": 1,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.20654931437723745,
+        "high": 1
+      }
+    },
+    {
+      "id": "O4_cursor_monotonic",
+      "observed": 1,
+      "passed": 1,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.20654931437723745,
+        "high": 1
+      }
+    },
+    {
+      "id": "O5_fail_closed_correct",
+      "observed": 9,
+      "passed": 9,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.7008549515804559,
+        "high": 1
+      }
+    },
+    {
+      "id": "O6_single_execution_owner",
+      "observed": 1,
+      "passed": 1,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.20654931437723745,
+        "high": 1
+      }
+    },
+    {
+      "id": "O7_cleanup_safety",
+      "observed": 20,
+      "passed": 20,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.8388748419471806,
+        "high": 1
+      }
+    },
+    {
+      "id": "O8_cleanup_completeness",
+      "observed": 20,
+      "passed": 20,
+      "failed": 0,
+      "wilson95": {
+        "low": 0.8388748419471806,
+        "high": 1
+      }
+    },
+    {
+      "id": "O9_reboot_autonomy",
+      "observed": 0,
+      "passed": 0,
+      "failed": 0,
+      "wilson95": null
+    }
+  ],
+  "acceptanceGates": {
+    "A1": {
+      "status": "PASS",
+      "reason": "the E0 gate is checksummed and matches the exact tested branch and implementation SHA"
+    },
+    "A2": {
+      "status": "PASS",
+      "reason": "all applicable observed safety oracles passed with no invalid or failing run"
+    },
+    "A3": {
+      "status": "PASS",
+      "reason": "every executable safe fault ID has an accepted E2 observation and every other catalog row carries an explicit scope/maintenance reason"
+    },
+    "A4": {
+      "status": "NOT_RUN",
+      "reason": "E3 eight-scenario × ten-seed × W1/W2/W3 robustness matrix was not run"
+    },
+    "A5": {
+      "status": "PASS",
+      "reason": "E5 recorded 20 accepted W2 observations covering fault IDs 80–87; O7/O8 cleanup evidence and D:-work/C:-scratch identities were verified"
+    },
+    "A6": {
+      "status": "NOT_RUN",
+      "reason": "E6 real reboot repetitions were not run; no separately confirmed safe maintenance window was supplied"
+    },
+    "A7": {
+      "status": "PASS",
+      "reason": "raw runs and derived IDs verified; checksum manifest covers freeze, E0, raw-run checksum files and analysis tables"
+    },
+    "A8": {
+      "status": "PASS",
+      "reason": "the report separates simulated/real process/reboot evidence, records NOT_RUN reasons, and limits claims to exercised configurations"
+    }
+  },
+  "acceptanceStatus": "HNS_INTEGRATION_RC_NOT_READY"
+}

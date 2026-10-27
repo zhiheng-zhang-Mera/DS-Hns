@@ -1,0 +1,5 @@
+group,method,cases,authorization_correct,invalid_false_authorized,invalid_cases,valid_false_rejected,valid_cases,execution_failures
+controlled,B0,900,130,770,780,0,60,0
+controlled,B1,900,660,240,780,0,60,0
+controlled,B2,900,900,0,780,0,60,0
+controlled,ECQ,900,900,0,780,0,60,0

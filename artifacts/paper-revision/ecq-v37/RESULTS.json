@@ -1,0 +1,494 @@
+{
+  "scope": "V2 qualification outputs only; historical auxiliary mappings not pooled with challenge or external replay; cost study is separate.",
+  "frozenMethodCommit": "58d9f19808e3b009f8b19dc86ff6aa1f750e01f1",
+  "finalPrimaryAndAblationOutputs": 11760,
+  "auxiliaryHistoricalOutputs": 12,
+  "totalV2QualificationOutputs": 11772,
+  "priorV1RetainedSeparately": true,
+  "campaigns": [
+    {
+      "campaignId": "challenge-v2",
+      "cases": 900,
+      "baseClusters": 60,
+      "methodOutputs": 3600,
+      "executionFailures": 0,
+      "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+      "rawArchiveSha256": "6bb38dfc32cff142348e266bfd286d4edef931ea7d085bb9726ae7e2d9bc4dc7",
+      "rawArchiveBytes": 2749276,
+      "methods": {
+        "B0": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 130,
+            "rate": 0.14444444444444443
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 770,
+            "rate": 0.9871794871794872,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": null
+        },
+        "B1": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 660,
+            "rate": 0.7333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 240,
+            "rate": 0.3076923076923077,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": null
+        },
+        "B2": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 900,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 900,
+            "rate": 1.0
+          }
+        },
+        "ECQ": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 900,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 900,
+            "rate": 1.0
+          }
+        }
+      }
+    },
+    {
+      "campaignId": "external-v2",
+      "cases": 240,
+      "baseClusters": 40,
+      "methodOutputs": 960,
+      "executionFailures": 0,
+      "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+      "rawArchiveSha256": "3964e892ab805443dbf3e773dbaed5ee7bac82d1efb6aa2948a10f0376bf3cc9",
+      "rawArchiveBytes": 600670,
+      "methods": {
+        "B0": {
+          "authorizationAccuracy": {
+            "denominator": 240,
+            "numerator": 160,
+            "rate": 0.6666666666666666
+          },
+          "falseAuthorization": {
+            "denominator": 200,
+            "numerator": 80,
+            "rate": 0.4,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 20,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": null
+        },
+        "B1": {
+          "authorizationAccuracy": {
+            "denominator": 240,
+            "numerator": 220,
+            "rate": 0.9166666666666666
+          },
+          "falseAuthorization": {
+            "denominator": 200,
+            "numerator": 20,
+            "rate": 0.1,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 20,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": null
+        },
+        "B2": {
+          "authorizationAccuracy": {
+            "denominator": 240,
+            "numerator": 240,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 200,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 20,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 240,
+            "numerator": 240,
+            "rate": 1.0
+          }
+        },
+        "ECQ": {
+          "authorizationAccuracy": {
+            "denominator": 240,
+            "numerator": 240,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 200,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 20,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 240,
+            "numerator": 240,
+            "rate": 1.0
+          }
+        }
+      }
+    },
+    {
+      "campaignId": "ablation-v2",
+      "cases": 900,
+      "baseClusters": 60,
+      "methodOutputs": 7200,
+      "executionFailures": 0,
+      "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+      "rawArchiveSha256": "e5bcde103d51781dd0d23d4e4694cab8bb12d1c3d2215fb89225c485e787af93",
+      "rawArchiveBytes": 6979990,
+      "methods": {
+        "ECQ-no-I_C": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 60,
+            "rate": 0.07692307692307693,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_E": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 900,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_G": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 900,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_I": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 60,
+            "rate": 0.07692307692307693,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_R": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 60,
+            "rate": 0.07692307692307693,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_S": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 60,
+            "rate": 0.07692307692307693,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_T": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 60,
+            "rate": 0.07692307692307693,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        },
+        "ECQ-no-I_V": {
+          "authorizationAccuracy": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          },
+          "falseAuthorization": {
+            "denominator": 780,
+            "numerator": 60,
+            "rate": 0.07692307692307693,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 60,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 900,
+            "numerator": 840,
+            "rate": 0.9333333333333333
+          }
+        }
+      }
+    },
+    {
+      "campaignId": "historical-v2",
+      "cases": 3,
+      "baseClusters": 3,
+      "methodOutputs": 12,
+      "executionFailures": 0,
+      "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+      "rawArchiveSha256": "cc5e474ad86d4027fe1de7f427d33940e3eae6701c7f5ba0c4bfe7d52fbc5ed7",
+      "rawArchiveBytes": 12994,
+      "methods": {
+        "B0": {
+          "authorizationAccuracy": {
+            "denominator": 3,
+            "numerator": 2,
+            "rate": 0.6666666666666666
+          },
+          "falseAuthorization": {
+            "denominator": 1,
+            "numerator": 1,
+            "rate": 1.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": null
+        },
+        "B1": {
+          "authorizationAccuracy": {
+            "denominator": 3,
+            "numerator": 3,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": null
+        },
+        "B2": {
+          "authorizationAccuracy": {
+            "denominator": 3,
+            "numerator": 3,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 3,
+            "numerator": 3,
+            "rate": 1.0
+          }
+        },
+        "ECQ": {
+          "authorizationAccuracy": {
+            "denominator": 3,
+            "numerator": 3,
+            "rate": 1.0
+          },
+          "falseAuthorization": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0,
+            "unfinished": 0
+          },
+          "falseRejection": {
+            "denominator": 1,
+            "numerator": 0,
+            "rate": 0.0
+          },
+          "semanticMatch": {
+            "denominator": 3,
+            "numerator": 3,
+            "rate": 1.0
+          }
+        }
+      }
+    }
+  ]
+}

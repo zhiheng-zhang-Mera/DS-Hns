@@ -1,0 +1,17 @@
+{
+  "verified": true,
+  "campaignId": "external-v2",
+  "cases": 240,
+  "methods": [
+    "B0",
+    "B1",
+    "B2",
+    "ECQ"
+  ],
+  "expectedOutputs": 960,
+  "actualOutputs": 960,
+  "executionFailures": 0,
+  "frozenFilesChecked": 7094,
+  "manifestSha256": "68f2cc48874ffd745fb2a0eb397ef1465f6e6d9e48a1b0c7d1bd0a3d82ce2947",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e"
+}

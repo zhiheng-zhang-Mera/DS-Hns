@@ -1,0 +1,9 @@
+group,method,cases,authorization_correct,invalid_false_authorized,invalid_cases,valid_false_rejected,valid_cases,execution_failures
+fastify/fastify,B0,120,40,80,100,0,20,0
+fastify/fastify,B1,120,100,20,100,0,20,0
+fastify/fastify,B2,120,120,0,100,0,20,0
+fastify/fastify,ECQ,120,120,0,100,0,20,0
+pytest-dev/pytest,B0,120,120,0,100,0,0,0
+pytest-dev/pytest,B1,120,120,0,100,0,0,0
+pytest-dev/pytest,B2,120,120,0,100,0,0,0
+pytest-dev/pytest,ECQ,120,120,0,100,0,0,0

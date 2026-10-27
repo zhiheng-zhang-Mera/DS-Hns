@@ -1,0 +1,9 @@
+{
+  "campaignId": "historical-v2",
+  "members": 24,
+  "archiveSha256": "cc5e474ad86d4027fe1de7f427d33940e3eae6701c7f5ba0c4bfe7d52fbc5ed7",
+  "archiveBytes": 12994,
+  "physicalBytesCompared": true,
+  "memberPrefix": "raw/",
+  "purpose": "Byte-preserving compaction; original streams moved to external backup after archive verification."
+}

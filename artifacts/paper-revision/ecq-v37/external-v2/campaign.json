@@ -1,0 +1,17 @@
+{
+  "campaignId": "external-v2",
+  "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+  "methods": [
+    "B0",
+    "B1",
+    "B2",
+    "ECQ"
+  ],
+  "manifestPath": "../external-corpus/evaluation.jsonl",
+  "manifestSha256": "68f2cc48874ffd745fb2a0eb397ef1465f6e6d9e48a1b0c7d1bd0a3d82ce2947",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e",
+  "startedAt": "2026-10-27T07:40:08.327Z",
+  "dataset": "external",
+  "mode": "primary",
+  "registeredCases": 240
+}

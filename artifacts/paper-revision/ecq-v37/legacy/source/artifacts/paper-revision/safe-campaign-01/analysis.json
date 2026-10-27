@@ -1,0 +1,483 @@
+{
+  "protocol": "safe-v1",
+  "mode": "campaign",
+  "total_arm_observations": 630,
+  "budget_arm_observations": 270,
+  "checkpoint_arm_observations": 360,
+  "infrastructure_errors": [],
+  "new_ecq_episodes": 0,
+  "groups": [
+    {
+      "experiment": "A3",
+      "scenario": "burst",
+      "arm": "bounded",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 3
+    },
+    {
+      "experiment": "A3",
+      "scenario": "burst",
+      "arm": "cap-off",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 30,
+      "disagreement_episodes": 30,
+      "accepted_mean": 8
+    },
+    {
+      "experiment": "A3",
+      "scenario": "burst",
+      "arm": "simple-window",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 3
+    },
+    {
+      "experiment": "A3",
+      "scenario": "spaced",
+      "arm": "bounded",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 8
+    },
+    {
+      "experiment": "A3",
+      "scenario": "spaced",
+      "arm": "cap-off",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 8
+    },
+    {
+      "experiment": "A3",
+      "scenario": "spaced",
+      "arm": "simple-window",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 8
+    },
+    {
+      "experiment": "A3",
+      "scenario": "window-edge",
+      "arm": "bounded",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 6
+    },
+    {
+      "experiment": "A3",
+      "scenario": "window-edge",
+      "arm": "cap-off",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 30,
+      "disagreement_episodes": 30,
+      "accepted_mean": 8
+    },
+    {
+      "experiment": "A3",
+      "scenario": "window-edge",
+      "arm": "simple-window",
+      "n": 30,
+      "errors": 0,
+      "over_budget": 0,
+      "disagreement_episodes": 0,
+      "accepted_mean": 6
+    },
+    {
+      "experiment": "A4",
+      "scenario": "boundary",
+      "arm": "checkpoint",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": 397.4923000000126
+    },
+    {
+      "experiment": "A4",
+      "scenario": "boundary",
+      "arm": "langgraph-sqlite",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": 3409.996950000015
+    },
+    {
+      "experiment": "A4",
+      "scenario": "boundary",
+      "arm": "replay",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 5.933333333333334,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 169.41419999999925
+    },
+    {
+      "experiment": "A4",
+      "scenario": "boundary",
+      "arm": "simple-journal",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": 171.62200000000303
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "checkpoint",
+      "n": 30,
+      "errors": 0,
+      "complete": 27,
+      "exactly_once": 0,
+      "duplicate_episodes": 27,
+      "duplicate_count_mean": 0.9,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 409.57829999999376
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "langgraph-sqlite",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 1,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 3412.518500000064
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "replay",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 0,
+      "duplicate_episodes": 30,
+      "duplicate_count_mean": 5.933333333333334,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 167.32670000000508
+    },
+    {
+      "experiment": "A4",
+      "scenario": "gap",
+      "arm": "simple-journal",
+      "n": 30,
+      "errors": 0,
+      "complete": 27,
+      "exactly_once": 0,
+      "duplicate_episodes": 27,
+      "duplicate_count_mean": 0.9,
+      "wilson95_fixture_only": [
+        0,
+        0.11351339317396876
+      ],
+      "recovery_ms_median": 172.7533500000427
+    },
+    {
+      "experiment": "A4",
+      "scenario": "no-fault",
+      "arm": "checkpoint",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": null
+    },
+    {
+      "experiment": "A4",
+      "scenario": "no-fault",
+      "arm": "langgraph-sqlite",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": null
+    },
+    {
+      "experiment": "A4",
+      "scenario": "no-fault",
+      "arm": "replay",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": null
+    },
+    {
+      "experiment": "A4",
+      "scenario": "no-fault",
+      "arm": "simple-journal",
+      "n": 30,
+      "errors": 0,
+      "complete": 30,
+      "exactly_once": 30,
+      "duplicate_episodes": 0,
+      "duplicate_count_mean": 0,
+      "wilson95_fixture_only": [
+        0.8864866068260312,
+        0.9999999999999999
+      ],
+      "recovery_ms_median": null
+    }
+  ],
+  "paired": [
+    {
+      "scenario": "no-fault",
+      "comparator": "replay",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": null,
+      "latency_difference_bootstrap95": null,
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "no-fault",
+      "comparator": "simple-journal",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": null,
+      "latency_difference_bootstrap95": null,
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "no-fault",
+      "comparator": "langgraph-sqlite",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": null,
+      "latency_difference_bootstrap95": null,
+      "cross_runtime_latency_causal_claim_allowed": false
+    },
+    {
+      "scenario": "boundary",
+      "comparator": "replay",
+      "n_pairs": 30,
+      "exact_success_difference": 1,
+      "exact_difference_bootstrap95": [
+        1,
+        1
+      ],
+      "duplicate_reduction_mean": 5.933333333333334,
+      "duplicate_reduction_bootstrap95": [
+        4.866666666666666,
+        7.066666666666666
+      ],
+      "recovery_latency_difference_ms_median": 220.858000000022,
+      "latency_difference_bootstrap95": [
+        199.86865000000398,
+        266.9031499999837
+      ],
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "boundary",
+      "comparator": "simple-journal",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": 224.554850000015,
+      "latency_difference_bootstrap95": [
+        198.23715000000084,
+        260.14175000005343
+      ],
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "boundary",
+      "comparator": "langgraph-sqlite",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": -3004.933899999989,
+      "latency_difference_bootstrap95": [
+        -3050.0459499999997,
+        -2955.9240499999723
+      ],
+      "cross_runtime_latency_causal_claim_allowed": false
+    },
+    {
+      "scenario": "gap",
+      "comparator": "replay",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 5.033333333333333,
+      "duplicate_reduction_bootstrap95": [
+        4,
+        6.133333333333334
+      ],
+      "recovery_latency_difference_ms_median": 241.1318499999761,
+      "latency_difference_bootstrap95": [
+        208.9119500000088,
+        267.6886499999673
+      ],
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "gap",
+      "comparator": "simple-journal",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0
+      ],
+      "recovery_latency_difference_ms_median": 228.9592999999877,
+      "latency_difference_bootstrap95": [
+        209.71239999998943,
+        262.0766499999736
+      ],
+      "cross_runtime_latency_causal_claim_allowed": true
+    },
+    {
+      "scenario": "gap",
+      "comparator": "langgraph-sqlite",
+      "n_pairs": 30,
+      "exact_success_difference": 0,
+      "exact_difference_bootstrap95": [
+        0,
+        0
+      ],
+      "duplicate_reduction_mean": 0.1,
+      "duplicate_reduction_bootstrap95": [
+        0,
+        0.2
+      ],
+      "recovery_latency_difference_ms_median": -2978.500699999946,
+      "latency_difference_bootstrap95": [
+        -3018.5916500000167,
+        -2938.5077000000165
+      ],
+      "cross_runtime_latency_causal_claim_allowed": false
+    }
+  ],
+  "limitations": [
+    "One Windows host; component adapters, not desktop product workflow.",
+    "A3 is deterministic virtual-time policy testing, three fixed schedule families; no physical restart.",
+    "A4 uses 30 generated seeds in each fixed fault stratum; four arms paired, not independent populations.",
+    "Wilson and bootstrap intervals conditional on sampled fixture seeds; structural outcomes are not general reliability estimates.",
+    "Effect and checkpoint are not one transaction; gap duplicates are counterevidence retained.",
+    "Cross-runtime launch/import latency not an algorithmic speed comparison."
+  ]
+}

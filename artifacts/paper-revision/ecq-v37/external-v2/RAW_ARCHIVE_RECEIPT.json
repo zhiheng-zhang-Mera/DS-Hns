@@ -1,0 +1,9 @@
+{
+  "campaignId": "external-v2",
+  "members": 1920,
+  "archiveSha256": "3964e892ab805443dbf3e773dbaed5ee7bac82d1efb6aa2948a10f0376bf3cc9",
+  "archiveBytes": 600670,
+  "physicalBytesCompared": true,
+  "memberPrefix": "raw/",
+  "purpose": "Byte-preserving compaction; original streams moved to external backup after archive verification."
+}

@@ -1,0 +1,17 @@
+{
+  "campaignId": "historical-v2",
+  "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+  "methods": [
+    "B0",
+    "B1",
+    "B2",
+    "ECQ"
+  ],
+  "manifestPath": "../sources/dshns/manifest.jsonl",
+  "manifestSha256": "1335abfbcd3fd9782bad3216c91fe674173375e21f27bdfae54090be47850f36",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e",
+  "startedAt": "2026-10-27T07:45:08.374Z",
+  "dataset": "historical",
+  "mode": "primary",
+  "registeredCases": 3
+}

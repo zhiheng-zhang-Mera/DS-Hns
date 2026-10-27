@@ -1,0 +1,21 @@
+{
+  "verified": true,
+  "campaignId": "ablation-v2",
+  "cases": 900,
+  "methods": [
+    "ECQ-no-I_S",
+    "ECQ-no-I_R",
+    "ECQ-no-I_G",
+    "ECQ-no-I_V",
+    "ECQ-no-I_E",
+    "ECQ-no-I_C",
+    "ECQ-no-I_I",
+    "ECQ-no-I_T"
+  ],
+  "expectedOutputs": 7200,
+  "actualOutputs": 7200,
+  "executionFailures": 0,
+  "frozenFilesChecked": 7094,
+  "manifestSha256": "a469bb699a67d540720cd26e9eb26702709e8362ddce50852eb32c530b796d9b",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e"
+}

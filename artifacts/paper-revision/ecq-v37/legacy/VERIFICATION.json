@@ -1,0 +1,229 @@
+{
+  "scope": "Independent read-only reanalysis of original component records; 750 arm observations, not new ECQ qualification cases.",
+  "archives": [
+    {
+      "id": "safe-campaign-01",
+      "zipSha256": "fbcc54b064a9f677aea25b9712a3b0b5d20fca3d86170be80987d7f28596b5ed",
+      "verifiedInnerFiles": 1967,
+      "zipMembersIncludingChecksum": 1968,
+      "rows": 630,
+      "recomputedAnalysisEqualPublished": true,
+      "independentlyReconstructedGroups": {
+        "A3|burst|bounded": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|burst|cap-off": {
+          "n": 30,
+          "overBudgetEpisodes": 30,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|burst|simple-window": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|spaced|bounded": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|spaced|cap-off": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|spaced|simple-window": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|window-edge|bounded": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|window-edge|cap-off": {
+          "n": 30,
+          "overBudgetEpisodes": 30,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A3|window-edge|simple-window": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 0,
+          "exactSequence": 0,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|boundary|checkpoint": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|boundary|langgraph-sqlite": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|boundary|replay": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        },
+        "A4|boundary|simple-journal": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|gap|checkpoint": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 27,
+          "exactSequence": 0,
+          "duplicateEpisodes": 27,
+          "nonzeroResumeExits": 3
+        },
+        "A4|gap|langgraph-sqlite": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        },
+        "A4|gap|replay": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        },
+        "A4|gap|simple-journal": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 27,
+          "exactSequence": 0,
+          "duplicateEpisodes": 27,
+          "nonzeroResumeExits": 3
+        },
+        "A4|no-fault|checkpoint": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|no-fault|langgraph-sqlite": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|no-fault|replay": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        },
+        "A4|no-fault|simple-journal": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 30,
+          "duplicateEpisodes": 0,
+          "nonzeroResumeExits": 0
+        }
+      },
+      "nonzeroResumeExits": 6
+    },
+    {
+      "id": "safe-gap-v2",
+      "zipSha256": "488e5ef9488186a3cc2595e24b3eb4d2c71af2806f6bc12a3610b571bcbe1d39",
+      "verifiedInnerFiles": 575,
+      "zipMembersIncludingChecksum": 576,
+      "rows": 120,
+      "recomputedAnalysisEqualPublished": true,
+      "independentlyReconstructedGroups": {
+        "A4|gap|checkpoint": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        },
+        "A4|gap|langgraph-sqlite": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        },
+        "A4|gap|replay": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        },
+        "A4|gap|simple-journal": {
+          "n": 30,
+          "overBudgetEpisodes": 0,
+          "complete": 30,
+          "exactSequence": 0,
+          "duplicateEpisodes": 30,
+          "nonzeroResumeExits": 0
+        }
+      },
+      "nonzeroResumeExits": 0
+    }
+  ],
+  "legacyLatencyMeaning": "spawn-to-terminal-exit, including failed exits; no cross-runtime causal recovery-speed claim",
+  "sourceCommit": "4023749389233a424b48320f6d30c160784986bd"
+}

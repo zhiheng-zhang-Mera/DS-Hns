@@ -1,0 +1,17 @@
+{
+  "campaignId": "challenge-v2",
+  "methodRevision": "5703bdc53c2fbc773d57b46db2a89d6ba31dbe3d7102a459a69f5b48f596f865",
+  "methods": [
+    "B0",
+    "B1",
+    "B2",
+    "ECQ"
+  ],
+  "manifestPath": "../corpus/evaluation/manifest.jsonl",
+  "manifestSha256": "a469bb699a67d540720cd26e9eb26702709e8362ddce50852eb32c530b796d9b",
+  "freezeSha256": "98f20ebd77e86b2b717d158681d83082510f8b9dedba81d58c99b21a52e3247e",
+  "startedAt": "2026-10-27T07:40:08.329Z",
+  "dataset": "challenge",
+  "mode": "primary",
+  "registeredCases": 900
+}
