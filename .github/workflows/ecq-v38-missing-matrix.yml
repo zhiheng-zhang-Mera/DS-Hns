@@ -1,0 +1,27 @@
+name: ecq-v38-missing-matrix-conformance
+on:
+  push:
+    branches: [codex/ecq-v38]
+    paths: [.github/workflows/ecq-v38-missing-matrix.yml]
+permissions:
+  contents: read
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    continue-on-error: ${{ matrix.absent == '0' }}
+    strategy:
+      matrix:
+        axis: [1]
+    steps:
+      - env:
+          OBSERVATIONS: >-
+            {"missingJSON":${{ toJSON(matrix.absent) }},"missingStringZero":${{ matrix.absent == '0' }},"literalEmptyStringZero":${{ '' == '0' }},"rendered":"${{ matrix.absent }}"}
+        run: printf '%s\n' "$OBSERVATIONS" > matrix-missing.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: matrix-missing-observations
+          path: matrix-missing.json
+          retention-days: 7
+      - name: Deliberate raw failure tests tolerance expression
+        run: exit 17
