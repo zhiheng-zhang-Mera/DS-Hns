@@ -10,10 +10,10 @@ jobs:
   typed-reuse:
     strategy:
       matrix:
-        version: [18, 20]
+        version: ['18', '20']
     uses: ./.github/workflows/ecq-v38-probe-reusable.yml
     with:
-      label: ${{ format('{0}', matrix.version) }}
+      label: ${{ matrix.version }}
       flag: false
   expressions:
     runs-on: ubuntu-latest
@@ -23,13 +23,18 @@ jobs:
         env:
           OBSERVATIONS: >-
             {"caseInsensitive":${{ 'A' == 'a' }},"emptyZero":${{ '' == 0 }},"boolZero":${{ false == 0 }},"missingNull":${{ github.event.nonexistent == null }},"missingFalse":${{ github.event.nonexistent == false }},"operandFallback":${{ toJSON('' || 'fallback') }},"operandAnd":${{ toJSON('yes' && 'value') }},"arrayTruthy":${{ !!fromJSON('[]') }},"hexString":${{ '0xff' == 255 }},"spaceZero":${{ ' ' == 0 }}}
+          IDENTITY_JSON: >-
+            {"workflowSha":"${{ github.workflow_sha }}","workflowRef":"${{ github.workflow_ref }}","sha":"${{ github.sha }}","repository":"${{ github.repository }}","runId":"${{ github.run_id }}","runAttempt":"${{ github.run_attempt }}","eventName":"${{ github.event_name }}"}
         run: |
           printf '%s\n' "$OBSERVATIONS" > expressions.json
+          printf '%s\n' "$IDENTITY_JSON" > identity.json
           python -c 'import json; x=json.load(open("expressions.json")); assert x["caseInsensitive"] and x["emptyZero"] and x["operandFallback"]=="fallback" and x["operandAnd"]=="value"'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: expression-observations
-          path: expressions.json
+          path: |
+            expressions.json
+            identity.json
           retention-days: 7
   tolerated:
     runs-on: ubuntu-latest
