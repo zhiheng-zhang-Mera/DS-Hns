@@ -1,0 +1,48 @@
+name: ecq-v38-reusable-result-conformance
+on:
+  push:
+    branches: [codex/ecq-v38]
+    paths: [.github/workflows/ecq-v38-reuse-result.yml, .github/workflows/ecq-v38-probe-skip-reuse.yml]
+permissions:
+  contents: read
+jobs:
+  all-skipped:
+    uses: ./.github/workflows/ecq-v38-probe-skip-reuse.yml
+    with:
+      enabled: false
+  mixed:
+    uses: ./.github/workflows/ecq-v38-probe-skip-reuse.yml
+    with:
+      enabled: true
+  after-all-skipped:
+    needs: all-skipped
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo all-skipped-wrapper-was-success
+  after-mixed:
+    needs: mixed
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo mixed-wrapper-was-success
+  inspector:
+    if: always()
+    needs: [all-skipped, mixed, after-all-skipped, after-mixed]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          IDENTITY_JSON: >-
+            {"workflowSha":"${{ github.workflow_sha }}","workflowRef":"${{ github.workflow_ref }}","sha":"${{ github.sha }}","runId":"${{ github.run_id }}","runAttempt":"${{ github.run_attempt }}","repository":"${{ github.repository }}"}
+        run: |
+          printf '%s\n' "$NEEDS_JSON" > reusable-results.json
+          printf '%s\n' "$IDENTITY_JSON" > identity.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reusable-results
+          path: |
+            reusable-results.json
+            identity.json
+          retention-days: 7

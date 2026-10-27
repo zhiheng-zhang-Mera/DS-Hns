@@ -1,0 +1,20 @@
+name: ecq-v38-skip-reuse-helper
+on:
+  workflow_call:
+    inputs:
+      enabled:
+        type: boolean
+        required: true
+jobs:
+  active:
+    if: inputs.enabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo controlled-active-leaf
+  inactive:
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo unreachable
