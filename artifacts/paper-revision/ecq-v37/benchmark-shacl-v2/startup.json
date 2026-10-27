@@ -1,0 +1,36 @@
+[
+  {
+    "fixture": "fixture-10-1048576",
+    "methodId": "B2",
+    "startup_ms": 547.0408999826759
+  },
+  {
+    "fixture": "fixture-10-67108864",
+    "methodId": "B2",
+    "startup_ms": 488.00070001743734
+  },
+  {
+    "fixture": "fixture-100-1048576",
+    "methodId": "B2",
+    "startup_ms": 613.0127999931574,
+    "status": "BUDGET_CENSORED"
+  },
+  {
+    "fixture": "fixture-100-67108864",
+    "methodId": "B2",
+    "startup_ms": 558.7077001109719,
+    "status": "BUDGET_CENSORED"
+  },
+  {
+    "fixture": "fixture-1000-1048576",
+    "methodId": "B2",
+    "startup_ms": 613.8222001027316,
+    "status": "BUDGET_CENSORED"
+  },
+  {
+    "fixture": "fixture-1000-67108864",
+    "methodId": "B2",
+    "startup_ms": 673.9793999586254,
+    "status": "BUDGET_CENSORED"
+  }
+]

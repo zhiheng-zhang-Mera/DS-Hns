@@ -1,0 +1,14 @@
+{
+  "warmups": 5,
+  "rounds": 30,
+  "methods": [
+    "B2"
+  ],
+  "order": "Separate B2 process after Node campaign, not paired-in-time across runtimes",
+  "normalizationDefinition": "JSON decoding only; RDF mapping plus digest separate; rule validates already prepared graph",
+  "rssDefinition": "OS cumulative process peak RSS isolated per configuration",
+  "cachePolicy": "OS cache uncontrolled, five warmups, E2E reopens and hashes files",
+  "secondOS": false,
+  "configurationBudgetSeconds": 180,
+  "budgetRule": "Parent kills owned worker at 180 seconds; all finished warmup/formal attempts retained; censored configurations have no complete 30-round estimate"
+}

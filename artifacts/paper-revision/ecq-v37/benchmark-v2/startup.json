@@ -1,0 +1,110 @@
+[
+  {
+    "methodId": "B0",
+    "gates": 10,
+    "artifact_bytes": 1048576,
+    "startup_ms": 124.85409999999999
+  },
+  {
+    "methodId": "B1",
+    "gates": 10,
+    "artifact_bytes": 1048576,
+    "startup_ms": 88.34389999999999
+  },
+  {
+    "methodId": "ECQ",
+    "gates": 10,
+    "artifact_bytes": 1048576,
+    "startup_ms": 83.6583
+  },
+  {
+    "methodId": "B0",
+    "gates": 10,
+    "artifact_bytes": 67108864,
+    "startup_ms": 85.30110000000013
+  },
+  {
+    "methodId": "B1",
+    "gates": 10,
+    "artifact_bytes": 67108864,
+    "startup_ms": 78.92409999999995
+  },
+  {
+    "methodId": "ECQ",
+    "gates": 10,
+    "artifact_bytes": 67108864,
+    "startup_ms": 87.30549999999994
+  },
+  {
+    "methodId": "B0",
+    "gates": 100,
+    "artifact_bytes": 1048576,
+    "startup_ms": 123.19159999999829
+  },
+  {
+    "methodId": "B1",
+    "gates": 100,
+    "artifact_bytes": 1048576,
+    "startup_ms": 112.22950000000128
+  },
+  {
+    "methodId": "ECQ",
+    "gates": 100,
+    "artifact_bytes": 1048576,
+    "startup_ms": 92.71019999999771
+  },
+  {
+    "methodId": "B0",
+    "gates": 100,
+    "artifact_bytes": 67108864,
+    "startup_ms": 134.54959999999846
+  },
+  {
+    "methodId": "B1",
+    "gates": 100,
+    "artifact_bytes": 67108864,
+    "startup_ms": 107.08800000000338
+  },
+  {
+    "methodId": "ECQ",
+    "gates": 100,
+    "artifact_bytes": 67108864,
+    "startup_ms": 103.6672000000035
+  },
+  {
+    "methodId": "B0",
+    "gates": 1000,
+    "artifact_bytes": 1048576,
+    "startup_ms": 115.71800000000803
+  },
+  {
+    "methodId": "B1",
+    "gates": 1000,
+    "artifact_bytes": 1048576,
+    "startup_ms": 117.8411999999953
+  },
+  {
+    "methodId": "ECQ",
+    "gates": 1000,
+    "artifact_bytes": 1048576,
+    "startup_ms": 112.31399999999849
+  },
+  {
+    "methodId": "B0",
+    "gates": 1000,
+    "artifact_bytes": 67108864,
+    "startup_ms": 142.92190000001574
+  },
+  {
+    "methodId": "B1",
+    "gates": 1000,
+    "artifact_bytes": 67108864,
+    "startup_ms": 87.26900000002934
+  },
+  {
+    "methodId": "ECQ",
+    "gates": 1000,
+    "artifact_bytes": 67108864,
+    "startup_ms": 83.08230000000913
+  }
+]

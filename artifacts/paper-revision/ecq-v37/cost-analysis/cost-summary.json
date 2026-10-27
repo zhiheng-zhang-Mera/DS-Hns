@@ -1,0 +1,1179 @@
+{
+  "coldStartup": [
+    {
+      "artifact_bytes": 1048576,
+      "gates": 10,
+      "methodId": "B0",
+      "observations": 1,
+      "startup_ms": 124.85409999999999,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 10,
+      "methodId": "B0",
+      "observations": 1,
+      "startup_ms": 85.30110000000013,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 100,
+      "methodId": "B0",
+      "observations": 1,
+      "startup_ms": 123.19159999999829,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 100,
+      "methodId": "B0",
+      "observations": 1,
+      "startup_ms": 134.54959999999846,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 1000,
+      "methodId": "B0",
+      "observations": 1,
+      "startup_ms": 115.71800000000803,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 1000,
+      "methodId": "B0",
+      "observations": 1,
+      "startup_ms": 142.92190000001574,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 10,
+      "methodId": "B1",
+      "observations": 1,
+      "startup_ms": 88.34389999999999,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 10,
+      "methodId": "B1",
+      "observations": 1,
+      "startup_ms": 78.92409999999995,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 100,
+      "methodId": "B1",
+      "observations": 1,
+      "startup_ms": 112.22950000000128,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 100,
+      "methodId": "B1",
+      "observations": 1,
+      "startup_ms": 107.08800000000338,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 1000,
+      "methodId": "B1",
+      "observations": 1,
+      "startup_ms": 117.8411999999953,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 1000,
+      "methodId": "B1",
+      "observations": 1,
+      "startup_ms": 87.26900000002934,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 10,
+      "methodId": "B2",
+      "observations": 1,
+      "startup_ms": 547.0408999826759,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 10,
+      "methodId": "B2",
+      "observations": 1,
+      "startup_ms": 488.00070001743734,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 100,
+      "methodId": "B2",
+      "observations": 1,
+      "startup_ms": 613.0127999931574,
+      "status": "BUDGET_CENSORED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 100,
+      "methodId": "B2",
+      "observations": 1,
+      "startup_ms": 558.7077001109719,
+      "status": "BUDGET_CENSORED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 1000,
+      "methodId": "B2",
+      "observations": 1,
+      "startup_ms": 613.8222001027316,
+      "status": "BUDGET_CENSORED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 1000,
+      "methodId": "B2",
+      "observations": 1,
+      "startup_ms": 673.9793999586254,
+      "status": "BUDGET_CENSORED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 10,
+      "methodId": "ECQ",
+      "observations": 1,
+      "startup_ms": 83.6583,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 10,
+      "methodId": "ECQ",
+      "observations": 1,
+      "startup_ms": 87.30549999999994,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 100,
+      "methodId": "ECQ",
+      "observations": 1,
+      "startup_ms": 92.71019999999771,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 100,
+      "methodId": "ECQ",
+      "observations": 1,
+      "startup_ms": 103.6672000000035,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 1048576,
+      "gates": 1000,
+      "methodId": "ECQ",
+      "observations": 1,
+      "startup_ms": 112.31399999999849,
+      "status": "COMPLETED"
+    },
+    {
+      "artifact_bytes": 67108864,
+      "gates": 1000,
+      "methodId": "ECQ",
+      "observations": 1,
+      "startup_ms": 83.08230000000913,
+      "status": "COMPLETED"
+    }
+  ],
+  "configurations": {
+    "benchmark-shacl-v2": {
+      "budgetRule": "Parent kills owned worker at 180 seconds; all finished warmup/formal attempts retained; censored configurations have no complete 30-round estimate",
+      "cachePolicy": "OS cache uncontrolled, five warmups, E2E reopens and hashes files",
+      "configurationBudgetSeconds": 180,
+      "methods": [
+        "B2"
+      ],
+      "normalizationDefinition": "JSON decoding only; RDF mapping plus digest separate; rule validates already prepared graph",
+      "order": "Separate B2 process after Node campaign, not paired-in-time across runtimes",
+      "rounds": 30,
+      "rssDefinition": "OS cumulative process peak RSS isolated per configuration",
+      "secondOS": false,
+      "warmups": 5
+    },
+    "benchmark-v2": {
+      "cachePolicy": "OS cache uncontrolled; 5 warmups by default; resolver facts rebuilt each sample; E2E reopens and hashes all inspected artifacts",
+      "environment": {
+        "arch": "x64",
+        "cpus": "Intel(R) Core(TM) i7-14650HX",
+        "logicalCpus": 24,
+        "node": "v24.14.0",
+        "platform": "win32",
+        "totalMemoryBytes": 34066345984
+      },
+      "gates": [
+        10,
+        100,
+        1000
+      ],
+      "methods": [
+        "B0",
+        "B1",
+        "ECQ"
+      ],
+      "normalizationDefinition": "JSON decoding of the normalized bundle and contract, not source adaptation",
+      "rounds": 30,
+      "rssDefinition": "OS-reported cumulative process peak RSS, isolated method/configuration worker, sampled after both timed stages",
+      "sizes": [
+        1048576,
+        67108864
+      ],
+      "startupDefinition": "parent fork to IPC ready; separate from persistent-process rule/E2E samples",
+      "warmups": 5
+    }
+  },
+  "groups": [
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "B0",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 0.05574999999993224,
+          "n": 30,
+          "q1": 0.05314999999997383,
+          "q3": 0.05655000000001564
+        },
+        "normalize_ms": {
+          "median": 0.05320000000003233,
+          "n": 30,
+          "q1": 0.05145000000000266,
+          "q3": 0.053775000000030104
+        },
+        "peak_rss_bytes": {
+          "median": 48775168.0,
+          "n": 30,
+          "q1": 48775168.0,
+          "q3": 48775168.0
+        },
+        "rule_ms": {
+          "median": 0.0036999999999807187,
+          "n": 30,
+          "q1": 0.003500000000030923,
+          "q3": 0.003899999999973147
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "B0",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 0.17489999999997963,
+          "n": 30,
+          "q1": 0.16727499999979045,
+          "q3": 0.17767499999899883
+        },
+        "normalize_ms": {
+          "median": 0.16305000000011205,
+          "n": 30,
+          "q1": 0.1580749999998261,
+          "q3": 0.17109999999729553
+        },
+        "peak_rss_bytes": {
+          "median": 179306496.0,
+          "n": 30,
+          "q1": 179306496.0,
+          "q3": 179306496.0
+        },
+        "rule_ms": {
+          "median": 0.01160000000072614,
+          "n": 30,
+          "q1": 0.010650000001078297,
+          "q3": 0.028374999999869033
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "B0",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 0.9064499999999498,
+          "n": 30,
+          "q1": 0.38592500000004293,
+          "q3": 0.9480249999996886
+        },
+        "normalize_ms": {
+          "median": 0.8823000000002139,
+          "n": 30,
+          "q1": 0.38227500000004966,
+          "q3": 0.9123500000005151
+        },
+        "peak_rss_bytes": {
+          "median": 51769344.0,
+          "n": 30,
+          "q1": 51769344.0,
+          "q3": 56946688.0
+        },
+        "rule_ms": {
+          "median": 0.013200000000324508,
+          "n": 30,
+          "q1": 0.006549999999947431,
+          "q3": 0.01430000000061682
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "B0",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 1.1573000000007596,
+          "n": 30,
+          "q1": 1.1159249999982421,
+          "q3": 1.3504750000010972
+        },
+        "normalize_ms": {
+          "median": 0.9408999999996013,
+          "n": 30,
+          "q1": 0.9254749999972773,
+          "q3": 0.9548500000028071
+        },
+        "peak_rss_bytes": {
+          "median": 185442304.0,
+          "n": 30,
+          "q1": 185442304.0,
+          "q3": 185442304.0
+        },
+        "rule_ms": {
+          "median": 0.022049999999580905,
+          "n": 30,
+          "q1": 0.015399999999317515,
+          "q3": 0.031725000000733417
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "B0",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 8.536699999996927,
+          "n": 30,
+          "q1": 8.29244999999355,
+          "q3": 9.21060000000216
+        },
+        "normalize_ms": {
+          "median": 8.985249999997905,
+          "n": 30,
+          "q1": 8.580750000004628,
+          "q3": 9.35687500000131
+        },
+        "peak_rss_bytes": {
+          "median": 69595136.0,
+          "n": 30,
+          "q1": 67629056.0,
+          "q3": 72032256.0
+        },
+        "rule_ms": {
+          "median": 0.06320000000414439,
+          "n": 30,
+          "q1": 0.05327499999839347,
+          "q3": 0.07892500000161817
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "B0",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 8.800749999994878,
+          "n": 30,
+          "q1": 8.521375000002081,
+          "q3": 9.370450000002165
+        },
+        "normalize_ms": {
+          "median": 8.771649999998772,
+          "n": 30,
+          "q1": 8.442599999991216,
+          "q3": 9.392625000007683
+        },
+        "peak_rss_bytes": {
+          "median": 194043904.0,
+          "n": 30,
+          "q1": 194043904.0,
+          "q3": 194043904.0
+        },
+        "rule_ms": {
+          "median": 0.06564999999682186,
+          "n": 30,
+          "q1": 0.06315000000176951,
+          "q3": 0.07517500000358268
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "B1",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 3.9841500000000565,
+          "n": 30,
+          "q1": 3.940699999999964,
+          "q3": 4.146850000000001
+        },
+        "normalize_ms": {
+          "median": 0.0524499999999648,
+          "n": 30,
+          "q1": 0.04999999999998295,
+          "q3": 0.05467500000001735
+        },
+        "peak_rss_bytes": {
+          "median": 49758208.0,
+          "n": 30,
+          "q1": 48918528.0,
+          "q3": 49758208.0
+        },
+        "rule_ms": {
+          "median": 0.018799999999941974,
+          "n": 30,
+          "q1": 0.016925000000014734,
+          "q3": 0.032149999999987244
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "B1",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 185.86919999999918,
+          "n": 30,
+          "q1": 182.57124999999996,
+          "q3": 190.1700749999991
+        },
+        "normalize_ms": {
+          "median": 0.13805000000047585,
+          "n": 30,
+          "q1": 0.13170000000036453,
+          "q3": 0.2063250000003336
+        },
+        "peak_rss_bytes": {
+          "median": 207392768.0,
+          "n": 30,
+          "q1": 207392768.0,
+          "q3": 207392768.0
+        },
+        "rule_ms": {
+          "median": 0.0956000000005588,
+          "n": 30,
+          "q1": 0.08974999999918509,
+          "q3": 0.1435750000000553
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "B1",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 108.13600000000042,
+          "n": 30,
+          "q1": 29.290174999999977,
+          "q3": 112.89839999999958
+        },
+        "normalize_ms": {
+          "median": 0.8744500000000244,
+          "n": 30,
+          "q1": 0.3850000000001046,
+          "q3": 0.8927749999998014
+        },
+        "peak_rss_bytes": {
+          "median": 66584576.0,
+          "n": 30,
+          "q1": 66285568.0,
+          "q3": 66584576.0
+        },
+        "rule_ms": {
+          "median": 0.5126000000000204,
+          "n": 30,
+          "q1": 0.18419999999997572,
+          "q3": 0.5437250000002223
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "B1",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 293.74935000000005,
+          "n": 30,
+          "q1": 285.40859999999975,
+          "q3": 304.00150000000394
+        },
+        "normalize_ms": {
+          "median": 0.8992500000003929,
+          "n": 30,
+          "q1": 0.891625000001568,
+          "q3": 0.9145999999973355
+        },
+        "peak_rss_bytes": {
+          "median": 188506112.0,
+          "n": 30,
+          "q1": 186142720.0,
+          "q3": 189202432.0
+        },
+        "rule_ms": {
+          "median": 1.1305500000016764,
+          "n": 30,
+          "q1": 0.7891749999998865,
+          "q3": 1.4792250000018612
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "B1",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 1058.2670500000058,
+          "n": 30,
+          "q1": 1031.749499999998,
+          "q3": 1073.7649500000007
+        },
+        "normalize_ms": {
+          "median": 8.603350000004866,
+          "n": 30,
+          "q1": 8.351074999998673,
+          "q3": 8.997449999998935
+        },
+        "peak_rss_bytes": {
+          "median": 108656640.0,
+          "n": 30,
+          "q1": 88762368.0,
+          "q3": 126656512.0
+        },
+        "rule_ms": {
+          "median": 23.270849999993516,
+          "n": 30,
+          "q1": 13.619874999996682,
+          "q3": 35.3739000000005
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "B1",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 1278.9862999999896,
+          "n": 30,
+          "q1": 1237.5929249999972,
+          "q3": 1337.1148500000036
+        },
+        "normalize_ms": {
+          "median": 8.442050000008749,
+          "n": 30,
+          "q1": 8.278024999999616,
+          "q3": 8.772124999999505
+        },
+        "peak_rss_bytes": {
+          "median": 219705344.0,
+          "n": 30,
+          "q1": 219705344.0,
+          "q3": 219705344.0
+        },
+        "rule_ms": {
+          "median": 21.925849999999627,
+          "n": 30,
+          "q1": 19.81995000000461,
+          "q3": 26.05659999999989
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "B2",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 767.1046501491219,
+          "n": 30,
+          "q1": 751.9419749150984,
+          "q3": 788.9089250820689
+        },
+        "normalize_ms": {
+          "median": 0.2180999144911766,
+          "n": 30,
+          "q1": 0.20382512593641877,
+          "q3": 0.2344751264899969
+        },
+        "peak_rss_bytes": {
+          "median": 85919744.0,
+          "n": 30,
+          "q1": 82625536.0,
+          "q3": 86138880.0
+        },
+        "rdf_and_digest_ms": {
+          "median": 53.046699962578714,
+          "n": 30,
+          "q1": 51.46022490225732,
+          "q3": 56.3740250072442
+        },
+        "rule_ms": {
+          "median": 715.0987500790507,
+          "n": 30,
+          "q1": 699.0532499621622,
+          "q3": 726.8987249699421
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "B2",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 949.9189498601481,
+          "n": 30,
+          "q1": 933.2923750043847,
+          "q3": 963.0851000547409
+        },
+        "normalize_ms": {
+          "median": 0.22510008420795202,
+          "n": 30,
+          "q1": 0.21415000082924962,
+          "q3": 0.24975003907456994
+        },
+        "peak_rss_bytes": {
+          "median": 92692480.0,
+          "n": 30,
+          "q1": 88810496.0,
+          "q3": 92807168.0
+        },
+        "rdf_and_digest_ms": {
+          "median": 234.69245003070682,
+          "n": 30,
+          "q1": 230.82612501457334,
+          "q3": 239.2072249785997
+        },
+        "rule_ms": {
+          "median": 721.2380500277504,
+          "n": 30,
+          "q1": 710.7736000325531,
+          "q3": 750.564249989111
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": {
+        "budgetSeconds": 180,
+        "stage": "warmup or formal loop",
+        "status": "BUDGET_CENSORED",
+        "stderr": "",
+        "stdout": ""
+      },
+      "formalCount": 20,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "B2",
+      "metrics": null,
+      "partialObservedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "status": "BUDGET_CENSORED",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": {
+        "budgetSeconds": 180,
+        "stage": "warmup or formal loop",
+        "status": "BUDGET_CENSORED",
+        "stderr": "",
+        "stdout": ""
+      },
+      "formalCount": 19,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "B2",
+      "metrics": null,
+      "partialObservedRounds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "status": "BUDGET_CENSORED",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": {
+        "budgetSeconds": 180,
+        "stage": "warmup or formal loop",
+        "status": "BUDGET_CENSORED",
+        "stderr": "",
+        "stdout": ""
+      },
+      "formalCount": 0,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "B2",
+      "metrics": null,
+      "partialObservedRounds": [],
+      "status": "BUDGET_CENSORED",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 1
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": {
+        "budgetSeconds": 180,
+        "stage": "warmup or formal loop",
+        "status": "BUDGET_CENSORED",
+        "stderr": "",
+        "stdout": ""
+      },
+      "formalCount": 0,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "B2",
+      "metrics": null,
+      "partialObservedRounds": [],
+      "status": "BUDGET_CENSORED",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 1
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "ECQ",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 4.311199999999985,
+          "n": 30,
+          "q1": 4.159274999999951,
+          "q3": 4.704150000000041
+        },
+        "normalize_ms": {
+          "median": 0.05119999999999436,
+          "n": 30,
+          "q1": 0.05012500000002973,
+          "q3": 0.05372499999998581
+        },
+        "peak_rss_bytes": {
+          "median": 55549952.0,
+          "n": 30,
+          "q1": 55549952.0,
+          "q3": 55636992.0
+        },
+        "rule_ms": {
+          "median": 0.15264999999999418,
+          "n": 30,
+          "q1": 0.15032500000000937,
+          "q3": 0.15739999999999554
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 10,
+      "methodId": "ECQ",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 186.4119000000003,
+          "n": 30,
+          "q1": 181.84984999999915,
+          "q3": 189.4730250000016
+        },
+        "normalize_ms": {
+          "median": 0.14209999999911815,
+          "n": 30,
+          "q1": 0.1378999999997177,
+          "q3": 0.15254999999865504
+        },
+        "peak_rss_bytes": {
+          "median": 248733696.0,
+          "n": 30,
+          "q1": 248659968.0,
+          "q3": 249043968.0
+        },
+        "rule_ms": {
+          "median": 0.7272500000008222,
+          "n": 30,
+          "q1": 0.6445999999996275,
+          "q3": 3.552449999999226
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "ECQ",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 109.48554999999988,
+          "n": 30,
+          "q1": 30.786700000000053,
+          "q3": 114.94797499999936
+        },
+        "normalize_ms": {
+          "median": 0.9029000000002725,
+          "n": 30,
+          "q1": 0.38717499999998495,
+          "q3": 0.926325000001043
+        },
+        "peak_rss_bytes": {
+          "median": 77869056.0,
+          "n": 30,
+          "q1": 77869056.0,
+          "q3": 78249984.0
+        },
+        "rule_ms": {
+          "median": 3.307300000000396,
+          "n": 30,
+          "q1": 1.404175000000123,
+          "q3": 3.512600000000475
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 100,
+      "methodId": "ECQ",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 295.1157499999972,
+          "n": 30,
+          "q1": 289.46247500000027,
+          "q3": 304.8479249999991
+        },
+        "normalize_ms": {
+          "median": 0.9084499999999025,
+          "n": 30,
+          "q1": 0.88842499999555,
+          "q3": 0.9310749999995096
+        },
+        "peak_rss_bytes": {
+          "median": 261115904.0,
+          "n": 30,
+          "q1": 260247552.0,
+          "q3": 261984256.0
+        },
+        "rule_ms": {
+          "median": 8.056300000000192,
+          "n": 30,
+          "q1": 7.918900000001486,
+          "q3": 8.71657499999992
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 1048576,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "ECQ",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 1126.6550500000012,
+          "n": 30,
+          "q1": 1111.240575000007,
+          "q3": 1146.9726250000003
+        },
+        "normalize_ms": {
+          "median": 8.539450000007491,
+          "n": 30,
+          "q1": 8.341249999990396,
+          "q3": 8.857150000004367
+        },
+        "peak_rss_bytes": {
+          "median": 204863488.0,
+          "n": 30,
+          "q1": 201838592.0,
+          "q3": 204869632.0
+        },
+        "rule_ms": {
+          "median": 105.55094999998983,
+          "n": 30,
+          "q1": 94.91787500001374,
+          "q3": 117.25052499999947
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    },
+    {
+      "artifact_bytes": 67108864,
+      "authorizationFailures": 0,
+      "budget": null,
+      "formalCount": 30,
+      "formalRoundsExpected": 30,
+      "gates": 1000,
+      "methodId": "ECQ",
+      "metrics": {
+        "end_to_end_ms": {
+          "median": 1420.6152999999977,
+          "n": 30,
+          "q1": 1400.0289499999963,
+          "q3": 1454.2779750000027
+        },
+        "normalize_ms": {
+          "median": 8.638500000000931,
+          "n": 30,
+          "q1": 8.414899999999761,
+          "q3": 8.946500000005472
+        },
+        "peak_rss_bytes": {
+          "median": 346136576.0,
+          "n": 30,
+          "q1": 330381312.0,
+          "q3": 346136576.0
+        },
+        "rule_ms": {
+          "median": 156.4751000000033,
+          "n": 30,
+          "q1": 139.1984750000047,
+          "q3": 161.44027500000084
+        }
+      },
+      "partialObservedRounds": null,
+      "status": "COMPLETE",
+      "warmupsDeclared": 5,
+      "warmupsRecorded": 5
+    }
+  ],
+  "inputSha256": {
+    "benchmark-shacl-v2/config.json": "b49eed1ea02a5eb87a391be64cede1a7fe706df0c4280eefea5b16d9dc72dfe6",
+    "benchmark-shacl-v2/fixture-10-1048576.all-attempts.jsonl": "a93250dce5226482f822f18d18eadd74507ac12b8196d4ca669bc8a14655bd47",
+    "benchmark-shacl-v2/fixture-10-67108864.all-attempts.jsonl": "9c7532eaf70314f8dd74c9c839544bfbedcd95911b31b1aa429d5a24700b2aee",
+    "benchmark-shacl-v2/fixture-100-1048576.all-attempts.jsonl": "0655ac4c5a6ac6904c90932912fb3cb5d95cf4ffc08d64c5d870aa3ee3701b8a",
+    "benchmark-shacl-v2/fixture-100-1048576.censored.json": "e7a234943c0e5cb43e0b9bdef230fe768d0ec3947c77c31ffc3e94565479190f",
+    "benchmark-shacl-v2/fixture-100-67108864.all-attempts.jsonl": "d5e166bd4095516df2d1ba8b21a560c88322ceebff1e54df7d2eab100399b3b6",
+    "benchmark-shacl-v2/fixture-100-67108864.censored.json": "e7a234943c0e5cb43e0b9bdef230fe768d0ec3947c77c31ffc3e94565479190f",
+    "benchmark-shacl-v2/fixture-1000-1048576.all-attempts.jsonl": "e72e18d765d173f343a6b4d6c0806c800bf2860bb5df353b1869c2014b9309a3",
+    "benchmark-shacl-v2/fixture-1000-1048576.censored.json": "e7a234943c0e5cb43e0b9bdef230fe768d0ec3947c77c31ffc3e94565479190f",
+    "benchmark-shacl-v2/fixture-1000-67108864.all-attempts.jsonl": "eab53391ea2d3bb6fa41bc732d2c1ab2d484f2f4fb67963992a144c26168ae5a",
+    "benchmark-shacl-v2/fixture-1000-67108864.censored.json": "e7a234943c0e5cb43e0b9bdef230fe768d0ec3947c77c31ffc3e94565479190f",
+    "benchmark-shacl-v2/measurements.jsonl": "6db659219d26c6a6b1bd5d3dc07e164990ddf4ed03bf4b7826472a9b633ffa2f",
+    "benchmark-shacl-v2/startup.json": "37a4509b2aad61643f2526daad06806f9a93e47eebd3776023c9c02e0dd476c6",
+    "benchmark-v2/config.json": "7b6ecd4b91fc61cfcea95f5b72dca50ae994e0e6ca1cac762c8c88c803e28313",
+    "benchmark-v2/measurements.jsonl": "c8c89dda24dd276b29ba7d3448cf15b90c3b90f3052d259c2bcc632f151440da",
+    "benchmark-v2/startup.json": "2c96f4750cf82ef7f62b849a7926d3d29610a38a96132cffc495d6885126ab78",
+    "benchmark-v2/warmups.jsonl": "20f691626d87731834e3d41f3b2fc6e0039704d94a94482fbc11e080765b2d54"
+  },
+  "interpretation": "Same-host, single-OS descriptive measurements. B2 is measured after Node methods, not paired in time across runtimes. OS cache is uncontrolled. Censored/incomplete configurations have no full-round estimate. Warmup records are counted when archived, otherwise unavailable rather than inferred from the declaration. RSS is cumulative worker high-water mark; startup observations are separate.",
+  "quantiles": "Linear interpolation at (n-1)*p; median p=.5, q1=.25, q3=.75.",
+  "schemaVersion": 1
+}

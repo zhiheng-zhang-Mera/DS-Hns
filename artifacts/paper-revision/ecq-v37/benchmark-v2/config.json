@@ -1,0 +1,30 @@
+{
+  "gates": [
+    10,
+    100,
+    1000
+  ],
+  "sizes": [
+    1048576,
+    67108864
+  ],
+  "warmups": 5,
+  "rounds": 30,
+  "methods": [
+    "B0",
+    "B1",
+    "ECQ"
+  ],
+  "cachePolicy": "OS cache uncontrolled; 5 warmups by default; resolver facts rebuilt each sample; E2E reopens and hashes all inspected artifacts",
+  "normalizationDefinition": "JSON decoding of the normalized bundle and contract, not source adaptation",
+  "rssDefinition": "OS-reported cumulative process peak RSS, isolated method/configuration worker, sampled after both timed stages",
+  "startupDefinition": "parent fork to IPC ready; separate from persistent-process rule/E2E samples",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "node": "v24.14.0",
+    "cpus": "Intel(R) Core(TM) i7-14650HX",
+    "logicalCpus": 24,
+    "totalMemoryBytes": 34066345984
+  }
+}

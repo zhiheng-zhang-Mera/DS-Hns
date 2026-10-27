@@ -1,0 +1,1 @@
+{"phase": "warmup", "methodId": "B2", "gates": 1000, "artifact_bytes": 67108864, "round": -5, "normalize_ms": 4.4837999157607555, "rdf_and_digest_ms": 906.4573000650853, "rule_ms": 75373.33309999667, "end_to_end_ms": 86052.48169996776, "peak_rss_bytes": 230154240, "authorizePass": true, "ruleAuthorizePass": true}
