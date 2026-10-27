@@ -1,0 +1,26 @@
+name: ecq-v38-owned-reusable-probe
+on:
+  workflow_call:
+    inputs:
+      label:
+        type: string
+        required: true
+      flag:
+        type: boolean
+        default: true
+jobs:
+  observe:
+    name: Typed ${{ inputs.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          INPUTS_JSON: ${{ toJSON(inputs) }}
+        run: |
+          printf '%s\n' "$INPUTS_JSON" > inputs.json
+          python -c 'import json; x=json.load(open("inputs.json")); assert isinstance(x["label"],str) and x["flag"] is False'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: input-observations-${{ inputs.label }}
+          path: inputs.json
+          retention-days: 7

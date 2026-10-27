@@ -2,11 +2,19 @@ name: ecq-v38-platform-conformance
 on:
   push:
     branches: [codex/ecq-v38]
-    paths: [.github/workflows/ecq-v38-conformance.yml]
+    paths: [.github/workflows/ecq-v38-conformance.yml, .github/workflows/ecq-v38-probe-reusable.yml]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  typed-reuse:
+    strategy:
+      matrix:
+        version: [18, 20]
+    uses: ./.github/workflows/ecq-v38-probe-reusable.yml
+    with:
+      label: ${{ matrix.version }}
+      flag: false
   expressions:
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -73,10 +81,16 @@ jobs:
       - name: Record needs aggregation
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          STATUS_FAILURE: ${{ failure() }}
+          STATUS_SUCCESS: ${{ success() }}
+          STATUS_CANCELLED: ${{ cancelled() }}
         run: |
           printf '%s\n' "$NEEDS_JSON" > needs.json
+          printf '{"failure":%s,"success":%s,"cancelled":%s}\n' "$STATUS_FAILURE" "$STATUS_SUCCESS" "$STATUS_CANCELLED" > status-functions.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: needs-observations
-          path: needs.json
+          path: |
+            needs.json
+            status-functions.json
           retention-days: 7
