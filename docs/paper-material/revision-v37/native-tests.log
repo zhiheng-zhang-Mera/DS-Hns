@@ -1,0 +1,1031 @@
+✖ outcome-only accepts favorable labels irrespective of omitted relations (4.012ms)
+✖ conventional manifest accepts absent scope/type checks but enforces integrity (0.5296ms)
+✖ manifest gate set is independent of received evidence (0.3744ms)
+✖ unsupported axes are null with explicit capabilities (0.3786ms)
+✖ required gate obligations come from independent contract (6.1195ms)
+✖ missing reference creates unresolved-required relation instance (17.3411ms)
+✖ resolver reads bytes and digest (5.8684ms)
+✖ resolver blocks parent traversal and absolute path (0.569ms)
+✖ resolver missing and unavailable distinct (0.4207ms)
+✖ valid complete PASS authorizes (8.9313ms)
+✖ honestFailRemainsClosed (2.4186ms)
+✖ authorizedReuseIsAccepted (2.5116ms)
+✖ unauthorizedRunMixIsViolated (2.1497ms)
+✖ sameCommitDifferentConfiguration (1.7803ms)
+✖ missingArtifactLeavesIntegrityUnresolved (2.037ms)
+✖ unavailable differs from confirmed absent (1.7268ms)
+✖ missing expected digest remains unresolved (1.7174ms)
+✖ wrong bytes violate integrity (3.1834ms)
+✖ wrong object identity violates reference even if bytes agree (4.3084ms)
+✖ compoundDiagnosticsPreserveAllInstances (2.1013ms)
+✔ reorderingPreservesDecision and relation IDs (4.1294ms)
+✖ scopeUsesDeclaredSupportGraph not prefix (1.8738ms)
+✖ binding checks scope separately from graph support (1.7878ms)
+✖ missing refs cannot disappear obligations (1.938ms)
+✖ gate contract persists without results (1.6217ms)
+✖ FAIL dominates another missing gate outcome (1.5596ms)
+✖ ablation removes only chosen invariant family (1.6565ms)
+✖ CLI ordinary rejection exit zero; malformed execution exit two (111.932ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 1
+ℹ fail 27
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 436.3988
+
+✖ failing tests:
+
+test at tests\ecq\baselines.test.cjs:3:1
+✖ outcome-only accepts favorable labels irrespective of omitted relations (4.012ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\baselines.test.cjs:3:108)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\baselines.test.cjs:4:1
+✖ conventional manifest accepts absent scope/type checks but enforces integrity (0.5296ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\baselines.test.cjs:4:114)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\baselines.test.cjs:5:1
+✖ manifest gate set is independent of received evidence (0.3744ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - false
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\baselines.test.cjs:5:141)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\baselines.test.cjs:6:1
+✖ unsupported axes are null with explicit capabilities (0.3786ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - null
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\baselines.test.cjs:6:168)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\obligations.test.cjs:2:1
+✖ required gate obligations come from independent contract (6.1195ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+  + []
+  - [
+  -   'I_G:g:g'
+  - ]
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\obligations.test.cjs:2:77)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ 'I_G:g:g' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\obligations.test.cjs:3:1
+✖ missing reference creates unresolved-required relation instance (17.3411ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(a.some(x=>x.obligationId==='I_E:a:x:required'))
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\obligations.test.cjs:3:171)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\ecq\resolver.test.cjs:3:1
+✖ resolver reads bytes and digest (5.8684ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'FOUND'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\resolver.test.cjs:3:202)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'FOUND',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\resolver.test.cjs:4:1
+✖ resolver blocks parent traversal and absolute path (0.569ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'UNAVAILABLE'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\resolver.test.cjs:4:94)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'UNAVAILABLE',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\resolver.test.cjs:5:1
+✖ resolver missing and unavailable distinct (0.4207ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'MISSING'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\resolver.test.cjs:5:62)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'MISSING',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:19:1
+✖ valid complete PASS authorizes (8.9313ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:19:69)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:20:1
+✖ honestFailRemainsClosed (2.4186ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'CLOSED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:20:96)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'CLOSED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:21:1
+✖ authorizedReuseIsAccepted (2.5116ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:21:127)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:22:1
+✖ unauthorizedRunMixIsViolated (2.1497ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:22:83)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:23:1
+✖ sameCommitDifferentConfiguration (1.7803ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:23:111)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:24:1
+✖ missingArtifactLeavesIntegrityUnresolved (2.037ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:24:135)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:25:1
+✖ unavailable differs from confirmed absent (1.7268ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'UNRESOLVED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:25:142)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'UNRESOLVED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:26:1
+✖ missing expected digest remains unresolved (1.7174ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'UNRESOLVED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:26:115)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'UNRESOLVED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:27:1
+✖ wrong bytes violate integrity (3.1834ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:27:122)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:28:1
+✖ wrong object identity violates reference even if bytes agree (4.3084ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:28:136)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:29:1
+✖ compoundDiagnosticsPreserveAllInstances (2.1013ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:29:188)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:31:1
+✖ scopeUsesDeclaredSupportGraph not prefix (1.8738ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:31:149)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:32:1
+✖ binding checks scope separately from graph support (1.7878ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:32:107)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:33:1
+✖ missing refs cannot disappear obligations (1.938ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'UNRESOLVED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:33:115)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'UNRESOLVED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:34:1
+✖ gate contract persists without results (1.6217ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:34:113)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:35:1
+✖ FAIL dominates another missing gate outcome (1.5596ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'UNSATISFIED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:35:193)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'UNSATISFIED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:36:1
+✖ ablation removes only chosen invariant family (1.6565ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:36:152)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\semantics.test.cjs:37:1
+✖ CLI ordinary rejection exit zero; malformed execution exit two (111.932ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:37:475)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+✔ outcome-only accepts favorable labels irrespective of omitted relations (1.6155ms)
+✔ conventional manifest accepts absent scope/type checks but enforces integrity (0.6622ms)
+✔ manifest gate set is independent of received evidence (0.2834ms)
+✔ unsupported axes are null with explicit capabilities (0.2733ms)
+✔ required gate obligations come from independent contract (2.9314ms)
+✔ missing reference creates unresolved-required relation instance (154.2889ms)
+✔ resolver reads bytes and digest (6.7158ms)
+✔ resolver blocks parent traversal and absolute path (0.456ms)
+✔ resolver missing and unavailable distinct (3.1607ms)
+✔ valid complete PASS authorizes (120.0522ms)
+✔ honestFailRemainsClosed (4.933ms)
+✔ authorizedReuseIsAccepted (4.1845ms)
+✔ unauthorizedRunMixIsViolated (4.0762ms)
+✔ sameCommitDifferentConfiguration (24.7625ms)
+✔ missingArtifactLeavesIntegrityUnresolved (3.6329ms)
+✔ unavailable differs from confirmed absent (1.7185ms)
+✔ missing expected digest remains unresolved (5.2812ms)
+✔ wrong bytes violate integrity (20.5266ms)
+✔ wrong object identity violates reference even if bytes agree (5.7229ms)
+✔ compoundDiagnosticsPreserveAllInstances (1.7269ms)
+✔ reorderingPreservesDecision and relation IDs (9.3189ms)
+✔ scopeUsesDeclaredSupportGraph not prefix (3.0945ms)
+✔ binding checks scope separately from graph support (5.8352ms)
+✔ missing refs cannot disappear obligations (1.9204ms)
+✔ gate contract persists without results (1.8561ms)
+✔ FAIL dominates another missing gate outcome (3.6682ms)
+✔ ablation removes only chosen invariant family (3.2497ms)
+✔ CLI ordinary rejection exit zero; malformed execution exit two (260.2886ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 717.6404
+✔ required gate obligations come from independent contract (2.8925ms)
+✔ missing reference creates unresolved-required relation instance (19.9672ms)
+✖ binding witness points to exact gate contract (2.7418ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 180.023
+
+✖ failing tests:
+
+test at tests\ecq\obligations.test.cjs:4:1
+✖ binding witness points to exact gate contract (2.7418ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   '/contract/requiredGates',
+  -   '/contract/requiredGates/g',
+      '/evidence/x/binding'
+    ]
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\obligations.test.cjs:4:186)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '/contract/requiredGates', '/evidence/x/binding' ],
+    expected: [ '/contract/requiredGates/g', '/evidence/x/binding' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+✔ outcome-only accepts favorable labels irrespective of omitted relations (1.7671ms)
+✔ conventional manifest accepts absent scope/type checks but enforces integrity (0.777ms)
+✔ manifest gate set is independent of received evidence (0.2995ms)
+✔ unsupported axes are null with explicit capabilities (0.3351ms)
+✔ required gate obligations come from independent contract (3.0525ms)
+✔ missing reference creates unresolved-required relation instance (19.907ms)
+✔ binding witness points to exact gate contract (0.4937ms)
+✔ resolver reads bytes and digest (6.2507ms)
+✔ resolver blocks parent traversal and absolute path (0.4923ms)
+✔ resolver missing and unavailable distinct (1.8768ms)
+✔ valid complete PASS authorizes (27.9ms)
+✔ honestFailRemainsClosed (5.1135ms)
+✔ authorizedReuseIsAccepted (3.6588ms)
+✔ unauthorizedRunMixIsViolated (3.4525ms)
+✔ sameCommitDifferentConfiguration (4.9608ms)
+✔ missingArtifactLeavesIntegrityUnresolved (3.5361ms)
+✔ unavailable differs from confirmed absent (1.8155ms)
+✔ missing expected digest remains unresolved (4.6275ms)
+✔ wrong bytes violate integrity (5.1834ms)
+✔ wrong object identity violates reference even if bytes agree (5.1832ms)
+✔ compoundDiagnosticsPreserveAllInstances (1.7799ms)
+✔ reorderingPreservesDecision and relation IDs (8.5788ms)
+✔ scopeUsesDeclaredSupportGraph not prefix (4.4681ms)
+✔ binding checks scope separately from graph support (4.522ms)
+✔ missing refs cannot disappear obligations (1.6261ms)
+✔ gate contract persists without results (1.6235ms)
+✔ FAIL dominates another missing gate outcome (3.0818ms)
+✔ ablation removes only chosen invariant family (3.0209ms)
+✔ CLI ordinary rejection exit zero; malformed execution exit two (255.771ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 593.4728
+✔ valid complete PASS authorizes (28.7443ms)
+✔ honestFailRemainsClosed (5.5004ms)
+✔ authorizedReuseIsAccepted (3.9019ms)
+✔ unauthorizedRunMixIsViolated (4.431ms)
+✔ sameCommitDifferentConfiguration (5.5096ms)
+✔ missingArtifactLeavesIntegrityUnresolved (3.6258ms)
+✔ unavailable differs from confirmed absent (1.8184ms)
+✔ missing expected digest remains unresolved (4.4513ms)
+✔ wrong bytes violate integrity (5.4992ms)
+✔ wrong object identity violates reference even if bytes agree (5.3266ms)
+✖ known object mismatch dominates unavailable bytes (3.8786ms)
+✔ compoundDiagnosticsPreserveAllInstances (1.9178ms)
+✔ reorderingPreservesDecision and relation IDs (9.2428ms)
+✔ scopeUsesDeclaredSupportGraph not prefix (4.1005ms)
+✔ binding checks scope separately from graph support (4.9058ms)
+✔ missing refs cannot disappear obligations (1.8836ms)
+✔ gate contract persists without results (1.5638ms)
+✔ FAIL dominates another missing gate outcome (4.4898ms)
+✔ ablation removes only chosen invariant family (4.9454ms)
+✔ CLI ordinary rejection exit zero; malformed execution exit two (257.9055ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 19
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 545.774
+
+✖ failing tests:
+
+test at tests\ecq\semantics.test.cjs:29:1
+✖ known object mismatch dominates unavailable bytes (3.8786ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'UNRESOLVED'
+  - 'VIOLATED'
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\semantics.test.cjs:29:172)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'UNRESOLVED',
+    expected: 'VIOLATED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+✔ outcome-only accepts favorable labels irrespective of omitted relations (1.6479ms)
+✔ conventional manifest accepts absent scope/type checks but enforces integrity (0.6841ms)
+✔ manifest gate set is independent of received evidence (0.2622ms)
+✔ unsupported axes are null with explicit capabilities (0.5535ms)
+✔ required gate obligations come from independent contract (2.9883ms)
+✔ missing reference creates unresolved-required relation instance (20.6599ms)
+✔ binding witness points to exact gate contract (0.4969ms)
+✔ resolver reads bytes and digest (6.5762ms)
+✔ resolver blocks parent traversal and absolute path (0.4943ms)
+✔ resolver missing and unavailable distinct (1.7423ms)
+✔ valid complete PASS authorizes (28.9499ms)
+✔ honestFailRemainsClosed (4.295ms)
+✔ authorizedReuseIsAccepted (3.76ms)
+✔ unauthorizedRunMixIsViolated (3.4451ms)
+✔ sameCommitDifferentConfiguration (4.9702ms)
+✔ missingArtifactLeavesIntegrityUnresolved (3.3979ms)
+✔ unavailable differs from confirmed absent (1.8063ms)
+✔ missing expected digest remains unresolved (3.1674ms)
+✔ wrong bytes violate integrity (4.6511ms)
+✔ wrong object identity violates reference even if bytes agree (6.0468ms)
+✔ known object mismatch dominates unavailable bytes (2.1293ms)
+✔ compoundDiagnosticsPreserveAllInstances (1.746ms)
+✔ reorderingPreservesDecision and relation IDs (8.8526ms)
+✔ scopeUsesDeclaredSupportGraph not prefix (3.9581ms)
+✔ binding checks scope separately from graph support (4.8355ms)
+✔ missing refs cannot disappear obligations (1.7468ms)
+✔ gate contract persists without results (1.6287ms)
+✔ FAIL dominates another missing gate outcome (3.8915ms)
+✔ ablation removes only chosen invariant family (3.3632ms)
+✔ CLI ordinary rejection exit zero; malformed execution exit two (250.75ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 583.8919
+✖ benchmark fixture preserves exact gate and byte grid (4.1285ms)
+✖ benchmark registers all rounds methods and separates startup (1.6268ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 163.798
+
+✖ failing tests:
+
+test at tests\ecq\bench.test.cjs:3:1
+✖ benchmark fixture preserves exact gate and byte grid (4.1285ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  undefined !== 101
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\bench.test.cjs:3:173)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.start (node:internal/test_runner/test:1015:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 101,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\ecq\bench.test.cjs:4:1
+✖ benchmark registers all rounds methods and separates startup (1.6268ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 4
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\bench.test.cjs:4:252)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 4,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+✔ benchmark fixture preserves exact gate and byte grid (15.6683ms)
+✔ benchmark registers all rounds methods and separates startup (376.5963ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 556.6004
+✔ outcome-only accepts favorable labels irrespective of omitted relations (1.7591ms)
+✔ conventional manifest accepts absent scope/type checks but enforces integrity (0.6998ms)
+✔ manifest gate set is independent of received evidence (0.3127ms)
+✔ unsupported axes are null with explicit capabilities (0.3086ms)
+✔ benchmark fixture preserves exact gate and byte grid (11.0222ms)
+✔ benchmark registers all rounds methods and separates startup (383.7894ms)
+✔ required gate obligations come from independent contract (3.1594ms)
+✔ missing reference creates unresolved-required relation instance (20.2461ms)
+✔ binding witness points to exact gate contract (0.528ms)
+✔ resolver reads bytes and digest (7.0988ms)
+✔ resolver blocks parent traversal and absolute path (0.5452ms)
+✔ resolver missing and unavailable distinct (1.9334ms)
+✔ valid complete PASS authorizes (30.0135ms)
+✔ honestFailRemainsClosed (3.9345ms)
+✔ authorizedReuseIsAccepted (3.8583ms)
+✔ unauthorizedRunMixIsViolated (4.0919ms)
+✔ sameCommitDifferentConfiguration (7.5093ms)
+✔ missingArtifactLeavesIntegrityUnresolved (3.7421ms)
+✔ unavailable differs from confirmed absent (2.1334ms)
+✔ missing expected digest remains unresolved (3.8585ms)
+✔ wrong bytes violate integrity (5.054ms)
+✔ wrong object identity violates reference even if bytes agree (5.3248ms)
+✔ known object mismatch dominates unavailable bytes (2.2155ms)
+✔ compoundDiagnosticsPreserveAllInstances (2.0136ms)
+✔ reorderingPreservesDecision and relation IDs (9.2171ms)
+✔ scopeUsesDeclaredSupportGraph not prefix (3.6778ms)
+✔ binding checks scope separately from graph support (6.6056ms)
+✔ missing refs cannot disappear obligations (1.9545ms)
+✔ gate contract persists without results (1.8578ms)
+✔ FAIL dominates another missing gate outcome (3.2306ms)
+✔ ablation removes only chosen invariant family (5.1946ms)
+✔ CLI ordinary rejection exit zero; malformed execution exit two (266.2439ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 639.5646
+✔ required gate obligations come from independent contract (3.1391ms)
+✔ missing reference creates unresolved-required relation instance (16.4335ms)
+✔ binding witness points to exact gate contract (0.3534ms)
+✖ missing and null gate bindings share collection-root witness (1.7847ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160.0221
+
+✖ failing tests:
+
+test at tests\ecq\obligations.test.cjs:5:1
+✖ missing and null gate bindings share collection-root witness (1.7847ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   '/contract/requiredGates/undefined',
+  -   '/contract/requiredGates',
+      '/evidence/x/binding'
+    ]
+  
+      at TestContext.<anonymous> (D:\temp\DS-Hns-experiments-20261026\tests\ecq\obligations.test.cjs:5:336)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '/contract/requiredGates/undefined', '/evidence/x/binding' ],
+    expected: [ '/contract/requiredGates', '/evidence/x/binding' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+✔ outcome-only accepts favorable labels irrespective of omitted relations (0.8165ms)
+✔ conventional manifest accepts absent scope/type checks but enforces integrity (0.337ms)
+✔ manifest gate set is independent of received evidence (0.1348ms)
+✔ unsupported axes are null with explicit capabilities (0.137ms)
+✔ benchmark fixture preserves exact gate and byte grid (5.2326ms)
+✔ benchmark registers all rounds methods and separates startup (197.6106ms)
+✔ required gate obligations come from independent contract (1.4659ms)
+✔ missing reference creates unresolved-required relation instance (9.7146ms)
+✔ binding witness points to exact gate contract (0.2426ms)
+✔ missing and null gate bindings share collection-root witness (0.251ms)
+✔ resolver reads bytes and digest (3.3933ms)
+✔ resolver blocks parent traversal and absolute path (0.2436ms)
+✔ resolver missing and unavailable distinct (0.8465ms)
+✔ valid complete PASS authorizes (18.4631ms)
+✔ honestFailRemainsClosed (2.0106ms)
+✔ authorizedReuseIsAccepted (2.7886ms)
+✔ unauthorizedRunMixIsViolated (1.9687ms)
+✔ sameCommitDifferentConfiguration (1.9574ms)
+✔ missingArtifactLeavesIntegrityUnresolved (1.6822ms)
+✔ unavailable differs from confirmed absent (0.7973ms)
+✔ missing expected digest remains unresolved (2.5776ms)
+✔ wrong bytes violate integrity (19.4177ms)
+✔ wrong object identity violates reference even if bytes agree (3.3973ms)
+✔ known object mismatch dominates unavailable bytes (1.238ms)
+✔ compoundDiagnosticsPreserveAllInstances (1.1976ms)
+✔ reorderingPreservesDecision and relation IDs (5.541ms)
+✔ scopeUsesDeclaredSupportGraph not prefix (1.7309ms)
+✔ binding checks scope separately from graph support (3.506ms)
+✔ missing refs cannot disappear obligations (1.0488ms)
+✔ gate contract persists without results (0.9367ms)
+✔ FAIL dominates another missing gate outcome (2.1375ms)
+✔ ablation removes only chosen invariant family (2.1271ms)
+✔ CLI ordinary rejection exit zero; malformed execution exit two (134.7302ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 350.7339

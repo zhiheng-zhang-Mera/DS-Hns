@@ -1,0 +1,27 @@
+E.......E...
+======================================================================
+ERROR: test_archived_raw_streams_preserve_result_and_grid (test_campaign_analysis.CampaignAnalysisTests.test_archived_raw_streams_preserve_result_and_grid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 111, in test_archived_raw_streams_preserve_result_and_grid
+    self.assertTrue(self.verifier().verify(self.root,self.freeze_file)['verified'])
+                    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\temp\DS-Hns-experiments-20261026\scripts\ecq\verify-campaign.py", line 64, in verify
+    raise ValueError('missing raw execution stream: ' + row[field])
+ValueError: missing raw execution stream: raw/record.stdout.json
+
+======================================================================
+ERROR: test_shacl_wrapper_stdout_is_compared_to_ledger_result (test_campaign_analysis.CampaignAnalysisTests.test_shacl_wrapper_stdout_is_compared_to_ledger_result)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 127, in test_shacl_wrapper_stdout_is_compared_to_ledger_result
+    self.assertTrue(self.verifier().verify(self.root,self.freeze_file)['verified'])
+                    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\temp\DS-Hns-experiments-20261026\scripts\ecq\verify-campaign.py", line 64, in verify
+    raise ValueError('missing raw execution stream: ' + row[field])
+ValueError: missing raw execution stream: raw/wrapped.json
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.138s
+
+FAILED (errors=2)

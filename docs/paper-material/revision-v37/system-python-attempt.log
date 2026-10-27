@@ -1,0 +1,25 @@
+..........................EE
+======================================================================
+ERROR: test_capability_and_execution_failure_are_distinct (test_shacl_profile.ShaclTests.test_capability_and_execution_failure_are_distinct)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_profile.py", line 16, in test_capability_and_execution_failure_are_distinct
+    from run import execute
+  File "D:\temp\DS-Hns-experiments-20261026\scripts\ecq\baselines\shacl\run.py", line 4, in <module>
+    from rdflib import Graph
+ModuleNotFoundError: No module named 'rdflib'
+
+======================================================================
+ERROR: test_real_shacl_semantic_controls (test_shacl_profile.ShaclTests.test_real_shacl_semantic_controls)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_profile.py", line 6, in test_real_shacl_semantic_controls
+    from run import evaluate
+  File "D:\temp\DS-Hns-experiments-20261026\scripts\ecq\baselines\shacl\run.py", line 4, in <module>
+    from rdflib import Graph
+ModuleNotFoundError: No module named 'rdflib'
+
+----------------------------------------------------------------------
+Ran 28 tests in 0.518s
+
+FAILED (errors=2)

@@ -1,0 +1,137 @@
+FF.FFFFFFFF.F
+======================================================================
+FAIL: test_absolute_path_inside_root_is_unavailable (test_shacl_boundaries.ShaclBoundaries.test_absolute_path_inside_root_is_unavailable)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 83, in test_absolute_path_inside_root_is_unavailable
+    self.assertEqual(self.status('I_E'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ESTABLISHED' != 'UNRESOLVED'
+- ESTABLISHED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_empty_state_policy_is_unknown_not_established (test_shacl_boundaries.ShaclBoundaries.test_empty_state_policy_is_unknown_not_established)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 44, in test_empty_state_policy_is_unknown_not_established
+    self.assertEqual(self.status('I_S'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ESTABLISHED' != 'UNRESOLVED'
+- ESTABLISHED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_missing_allowed_provenance_is_unknown_not_disallowed (test_shacl_boundaries.ShaclBoundaries.test_missing_allowed_provenance_is_unknown_not_disallowed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 56, in test_missing_allowed_provenance_is_unknown_not_disallowed
+    self.assertEqual(self.status('I_T'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'VIOLATED' != 'UNRESOLVED'
+- VIOLATED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_missing_allowed_runs_is_unknown_not_disallowed (test_shacl_boundaries.ShaclBoundaries.test_missing_allowed_runs_is_unknown_not_disallowed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 48, in test_missing_allowed_runs_is_unknown_not_disallowed
+    self.assertEqual(self.status('I_R'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'VIOLATED' != 'UNRESOLVED'
+- VIOLATED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_missing_allowed_types_is_unknown_not_disallowed (test_shacl_boundaries.ShaclBoundaries.test_missing_allowed_types_is_unknown_not_disallowed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 52, in test_missing_allowed_types_is_unknown_not_disallowed
+    self.assertEqual(self.status('I_T'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'VIOLATED' != 'UNRESOLVED'
+- VIOLATED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_missing_claim_graph_is_unknown (test_shacl_boundaries.ShaclBoundaries.test_missing_claim_graph_is_unknown)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 66, in test_missing_claim_graph_is_unknown
+    self.assertEqual(self.status('I_V'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'VIOLATED' != 'UNRESOLVED'
+- VIOLATED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_missing_expected_gate_claim_is_unknown_binding (test_shacl_boundaries.ShaclBoundaries.test_missing_expected_gate_claim_is_unknown_binding)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 70, in test_missing_expected_gate_claim_is_unknown_binding
+    self.assertEqual(self.status('I_C'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ESTABLISHED' != 'UNRESOLVED'
+- ESTABLISHED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_missing_expected_gate_scope_is_unknown_binding (test_shacl_boundaries.ShaclBoundaries.test_missing_expected_gate_scope_is_unknown_binding)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 74, in test_missing_expected_gate_scope_is_unknown_binding
+    self.assertEqual(self.status('I_C'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ESTABLISHED' != 'UNRESOLVED'
+- ESTABLISHED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_parent_traversal_is_unavailable_not_confirmed_missing (test_shacl_boundaries.ShaclBoundaries.test_parent_traversal_is_unavailable_not_confirmed_missing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 78, in test_parent_traversal_is_unavailable_not_confirmed_missing
+    self.assertEqual(self.status('I_E'), 'UNRESOLVED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'VIOLATED' != 'UNRESOLVED'
+- VIOLATED
++ UNRESOLVED
+
+
+======================================================================
+FAIL: test_reflexive_path_does_not_declare_an_unknown_claim_node (test_shacl_boundaries.ShaclBoundaries.test_reflexive_path_does_not_declare_an_unknown_claim_node)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 62, in test_reflexive_path_does_not_declare_an_unknown_claim_node
+    self.assertEqual(self.status('I_V'), 'VIOLATED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'ESTABLISHED' != 'VIOLATED'
+- ESTABLISHED
++ VIOLATED
+
+
+======================================================================
+FAIL: test_unsupported_engine_feature_is_not_generic_runtime_failure (test_shacl_boundaries.ShaclBoundaries.test_unsupported_engine_feature_is_not_generic_runtime_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_shacl_boundaries.py", line 89, in test_unsupported_engine_feature_is_not_generic_runtime_failure
+    self.assertEqual(result['executionStatus'], 'UNSUPPORTED')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'RUNTIME_ERROR' != 'UNSUPPORTED'
+- RUNTIME_ERROR
++ UNSUPPORTED
+
+
+----------------------------------------------------------------------
+Ran 13 tests in 4.519s
+
+FAILED (failures=11)

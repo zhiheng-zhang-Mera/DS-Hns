@@ -1,0 +1,64 @@
+FFFFF
+======================================================================
+FAIL: test_duplicate_formal_round_is_rejected (test_cost_analysis.CostAnalysisTests.test_duplicate_formal_round_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 38, in test_duplicate_formal_round_is_rejected
+    with self.assertRaises(ValueError):self.analyzer().analyze(self.root)
+                                       ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 25, in analyzer
+    p=ROOT/'scripts/ecq/analyze_costs.py';self.assertTrue(p.exists(),'independent cost analyzer must exist')
+                                          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent cost analyzer must exist
+
+======================================================================
+FAIL: test_known_median_quartiles_and_separate_startup (test_cost_analysis.CostAnalysisTests.test_known_median_quartiles_and_separate_startup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 29, in test_known_median_quartiles_and_separate_startup
+    s=self.analyzer().analyze(self.root);g=s['groups'][0]
+      ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 25, in analyzer
+    p=ROOT/'scripts/ecq/analyze_costs.py';self.assertTrue(p.exists(),'independent cost analyzer must exist')
+                                          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent cost analyzer must exist
+
+======================================================================
+FAIL: test_missing_round_is_not_silently_a_thirty_round_estimate (test_cost_analysis.CostAnalysisTests.test_missing_round_is_not_silently_a_thirty_round_estimate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 52, in test_missing_round_is_not_silently_a_thirty_round_estimate
+    self.rows.pop();self.write();g=self.analyzer().analyze(self.root)['groups'][0]
+                                   ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 25, in analyzer
+    p=ROOT/'scripts/ecq/analyze_costs.py';self.assertTrue(p.exists(),'independent cost analyzer must exist')
+                                          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent cost analyzer must exist
+
+======================================================================
+FAIL: test_partial_budget_never_produces_full_estimate (test_cost_analysis.CostAnalysisTests.test_partial_budget_never_produces_full_estimate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 47, in test_partial_budget_never_produces_full_estimate
+    g=next(g for g in self.analyzer().analyze(self.root)['groups'] if g['methodId']=='B2')
+                      ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 25, in analyzer
+    p=ROOT/'scripts/ecq/analyze_costs.py';self.assertTrue(p.exists(),'independent cost analyzer must exist')
+                                          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent cost analyzer must exist
+
+======================================================================
+FAIL: test_serialization_is_deterministic_and_detects_published_tamper (test_cost_analysis.CostAnalysisTests.test_serialization_is_deterministic_and_detects_published_tamper)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 57, in test_serialization_is_deterministic_and_detects_published_tamper
+    m=self.analyzer();out=self.root/'analysis';m.write_analysis(self.root,out)
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 25, in analyzer
+    p=ROOT/'scripts/ecq/analyze_costs.py';self.assertTrue(p.exists(),'independent cost analyzer must exist')
+                                          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent cost analyzer must exist
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.022s
+
+FAILED (failures=5)

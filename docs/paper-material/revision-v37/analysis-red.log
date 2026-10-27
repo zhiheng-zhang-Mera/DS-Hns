@@ -1,0 +1,101 @@
+FFFFFFFF
+======================================================================
+FAIL: test_changed_input_digest_rejected (test_campaign_analysis.CampaignAnalysisTests.test_changed_input_digest_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 97, in test_changed_input_digest_rejected
+    with self.assertRaises(ValueError): self.verifier().verify(self.root, self.freeze_file)
+                                        ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 65, in verifier
+    self.assertIsNotNone(module, 'campaign verifier must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : campaign verifier must exist
+
+======================================================================
+FAIL: test_duplicate_record_rejected (test_campaign_analysis.CampaignAnalysisTests.test_duplicate_record_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 87, in test_duplicate_record_rejected
+    with self.assertRaises(ValueError): self.verifier().verify(self.root, self.freeze_file)
+                                        ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 65, in verifier
+    self.assertIsNotNone(module, 'campaign verifier must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : campaign verifier must exist
+
+======================================================================
+FAIL: test_error_is_retained_but_not_a_correct_rejection (test_campaign_analysis.CampaignAnalysisTests.test_error_is_retained_but_not_a_correct_rejection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 103, in test_error_is_retained_but_not_a_correct_rejection
+    self.assertEqual(self.verifier().verify(self.root, self.freeze_file)['executionFailures'], 1)
+                     ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 65, in verifier
+    self.assertIsNotNone(module, 'campaign verifier must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : campaign verifier must exist
+
+======================================================================
+FAIL: test_exact_membership_accepts_complete_grid (test_campaign_analysis.CampaignAnalysisTests.test_exact_membership_accepts_complete_grid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 75, in test_exact_membership_accepts_complete_grid
+    report = self.verifier().verify(self.root, self.freeze_file)
+             ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 65, in verifier
+    self.assertIsNotNone(module, 'campaign verifier must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : campaign verifier must exist
+
+======================================================================
+FAIL: test_missing_record_rejected (test_campaign_analysis.CampaignAnalysisTests.test_missing_record_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 82, in test_missing_record_rejected
+    with self.assertRaises(ValueError): self.verifier().verify(self.root, self.freeze_file)
+                                        ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 65, in verifier
+    self.assertIsNotNone(module, 'campaign verifier must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : campaign verifier must exist
+
+======================================================================
+FAIL: test_success_axes_diagnostics_and_paired_clusters (test_campaign_analysis.CampaignAnalysisTests.test_success_axes_diagnostics_and_paired_clusters)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 111, in test_success_axes_diagnostics_and_paired_clusters
+    summary = self.analyzer().analyze(self.manifest, self.attempts, self.labels, bootstrap_repetitions=100)
+              ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 70, in analyzer
+    self.assertIsNotNone(module, 'independent analyzer must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : independent analyzer must exist
+
+======================================================================
+FAIL: test_wrong_revision_rejected (test_campaign_analysis.CampaignAnalysisTests.test_wrong_revision_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 92, in test_wrong_revision_rejected
+    with self.assertRaises(ValueError): self.verifier().verify(self.root, self.freeze_file)
+                                        ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 65, in verifier
+    self.assertIsNotNone(module, 'campaign verifier must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : campaign verifier must exist
+
+======================================================================
+FAIL: test_wrong_witness_is_not_correct_diagnosis_witness (test_campaign_analysis.CampaignAnalysisTests.test_wrong_witness_is_not_correct_diagnosis_witness)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 125, in test_wrong_witness_is_not_correct_diagnosis_witness
+    summary = self.analyzer().analyze(self.manifest, self.attempts, self.labels, bootstrap_repetitions=10)
+              ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_campaign_analysis.py", line 70, in analyzer
+    self.assertIsNotNone(module, 'independent analyzer must exist')
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : independent analyzer must exist
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.127s
+
+FAILED (failures=8)

@@ -1,0 +1,53 @@
+FFFF
+======================================================================
+FAIL: test_changed_file_is_rejected (test_artifact_reproduction.ArtifactReproductionTests.test_changed_file_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 48, in test_changed_file_is_rejected
+    self.exporter().export(self.source,self.destination,'immutable-commit')
+    ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 34, in exporter
+    result=module('export_artifact');self.assertIsNotNone(result,'artifact exporter must exist');return result
+                                     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : artifact exporter must exist
+
+======================================================================
+FAIL: test_exact_snapshot_inventory_and_benchmark_exclusion (test_artifact_reproduction.ArtifactReproductionTests.test_exact_snapshot_inventory_and_benchmark_exclusion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 40, in test_exact_snapshot_inventory_and_benchmark_exclusion
+    manifest=self.exporter().export(self.source,self.destination,'immutable-commit')
+             ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 34, in exporter
+    result=module('export_artifact');self.assertIsNotNone(result,'artifact exporter must exist');return result
+                                     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : artifact exporter must exist
+
+======================================================================
+FAIL: test_missing_file_is_rejected (test_artifact_reproduction.ArtifactReproductionTests.test_missing_file_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 53, in test_missing_file_is_rejected
+    self.exporter().export(self.source,self.destination,'immutable-commit')
+    ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 34, in exporter
+    result=module('export_artifact');self.assertIsNotNone(result,'artifact exporter must exist');return result
+                                     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : artifact exporter must exist
+
+======================================================================
+FAIL: test_path_escape_and_symlink_are_not_exported (test_artifact_reproduction.ArtifactReproductionTests.test_path_escape_and_symlink_are_not_exported)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 58, in test_path_escape_and_symlink_are_not_exported
+    self.exporter().export(self.source,self.destination,'immutable-commit')
+    ~~~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_artifact_reproduction.py", line 34, in exporter
+    result=module('export_artifact');self.assertIsNotNone(result,'artifact exporter must exist');return result
+                                     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: unexpectedly None : artifact exporter must exist
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.054s
+
+FAILED (failures=4)

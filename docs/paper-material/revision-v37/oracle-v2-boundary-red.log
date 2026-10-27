@@ -1,0 +1,23 @@
+.........F......
+======================================================================
+FAIL: test_missing_gate_binding_witness_points_to_contract_collection (test_reference_labels.ReferenceLabelsTests.test_missing_gate_binding_witness_points_to_contract_collection)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 135, in test_missing_gate_binding_witness_points_to_contract_collection
+    self.assertEqual(relation['witnessRefs'], ['/contract/requiredGates', '/evidence/observation/binding'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['/contract/requiredGates/None', '/evidence/observation/binding'] != ['/contract/requiredGates', '/evidence/observation/binding']
+
+First differing element 0:
+'/contract/requiredGates/None'
+'/contract/requiredGates'
+
+- ['/contract/requiredGates/None', '/evidence/observation/binding']
+?                          -----
+
++ ['/contract/requiredGates', '/evidence/observation/binding']
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.183s
+
+FAILED (failures=1)

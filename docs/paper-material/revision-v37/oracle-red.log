@@ -1,0 +1,194 @@
+FFFFFFFFFFFFF
+======================================================================
+FAIL: test_authorized_reuse_and_forbidden_reuse_differ_by_contract (test_reference_labels.ReferenceLabelsTests.test_authorized_reuse_and_forbidden_reuse_differ_by_contract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 66, in test_authorized_reuse_and_forbidden_reuse_differ_by_contract
+    self.assertTrue(self.result()['authorizePass'])
+                    ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_claim_graph_uses_paths_not_prefix (test_reference_labels.ReferenceLabelsTests.test_claim_graph_uses_paths_not_prefix)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 102, in test_claim_graph_uses_paths_not_prefix
+    states = self.states(self.result())
+                         ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_claim_rebinding_and_type_combination_retains_all_findings (test_reference_labels.ReferenceLabelsTests.test_claim_rebinding_and_type_combination_retains_all_findings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 110, in test_claim_rebinding_and_type_combination_retains_all_findings
+    states = self.states(self.result())
+                         ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_cli_keeps_manifest_metadata_and_resolves_relative_paths (test_reference_labels.ReferenceLabelsTests.test_cli_keeps_manifest_metadata_and_resolves_relative_paths)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 146, in test_cli_keeps_manifest_metadata_and_resolves_relative_paths
+    self.oracle()
+    ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_complete_pass_and_honest_fail_are_closed (test_reference_labels.ReferenceLabelsTests.test_complete_pass_and_honest_fail_are_closed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 58, in test_complete_pass_and_honest_fail_are_closed
+    self.assertEqual((self.result()['closureStatus'], self.result()['authorizePass']), ('CLOSED', True))
+                      ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_corrupt_bytes_and_wrong_object_have_distinct_relationships (test_reference_labels.ReferenceLabelsTests.test_corrupt_bytes_and_wrong_object_have_distinct_relationships)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 94, in test_corrupt_bytes_and_wrong_object_have_distinct_relationships
+    states = self.states(self.result())
+                         ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_empty_evidence_and_fail_dominates_missing_gate (test_reference_labels.ReferenceLabelsTests.test_empty_evidence_and_fail_dominates_missing_gate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 124, in test_empty_evidence_and_fail_dominates_missing_gate
+    result = self.result()
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_missing_reference_violates_reference_but_leaves_integrity_unknown (test_reference_labels.ReferenceLabelsTests.test_missing_reference_violates_reference_but_leaves_integrity_unknown)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 82, in test_missing_reference_violates_reference_but_leaves_integrity_unknown
+    states = self.states(self.result())
+                         ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_no_artifact_does_not_vacuously_establish_integrity (test_reference_labels.ReferenceLabelsTests.test_no_artifact_does_not_vacuously_establish_integrity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 117, in test_no_artifact_does_not_vacuously_establish_integrity
+    states = self.states(self.result())
+                         ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_same_commit_configuration_mismatch_is_a_state_violation (test_reference_labels.ReferenceLabelsTests.test_same_commit_configuration_mismatch_is_a_state_violation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 72, in test_same_commit_configuration_mismatch_is_a_state_violation
+    self.assertEqual(self.states(self.result())['I_S:e:observation'], 'VIOLATED')
+                                 ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_sorting_and_equivalent_paths_preserve_relations (test_reference_labels.ReferenceLabelsTests.test_sorting_and_equivalent_paths_preserve_relations)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 131, in test_sorting_and_equivalent_paths_preserve_relations
+    before = self.result()
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_unavailable_reference_is_unknown_not_confirmed_missing (test_reference_labels.ReferenceLabelsTests.test_unavailable_reference_is_unknown_not_confirmed_missing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 88, in test_unavailable_reference_is_unknown_not_confirmed_missing
+    result = self.result()
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+======================================================================
+FAIL: test_unknown_state_and_known_mismatch_keep_violation (test_reference_labels.ReferenceLabelsTests.test_unknown_state_and_known_mismatch_keep_violation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 76, in test_unknown_state_and_known_mismatch_keep_violation
+    self.assertEqual(self.states(self.result())['I_S:e:observation'], 'UNRESOLVED')
+                                 ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 51, in result
+    return self.oracle().evaluate(self.bundle, self.contract, self.root)
+           ~~~~~~~~~~~^^
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_reference_labels.py", line 43, in oracle
+    self.assertTrue(MODULE_PATH.exists(), 'independent reference evaluator must exist')
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : independent reference evaluator must exist
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.052s
+
+FAILED (failures=13)

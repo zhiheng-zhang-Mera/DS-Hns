@@ -1,0 +1,23 @@
+F...F..
+======================================================================
+FAIL: test_duplicate_archived_warmup_is_rejected (test_cost_analysis.CostAnalysisTests.test_duplicate_archived_warmup_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 49, in test_duplicate_archived_warmup_is_rejected
+    with self.assertRaises(ValueError):self.analyzer().analyze(self.root)
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_native_warmups_are_counted_when_archived (test_cost_analysis.CostAnalysisTests.test_native_warmups_are_counted_when_archived)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\temp\DS-Hns-experiments-20261026\tests\ecq\test_cost_analysis.py", line 44, in test_native_warmups_are_counted_when_archived
+    self.assertEqual(g['warmupsRecorded'],5)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != 5
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.072s
+
+FAILED (failures=2)
