@@ -16,7 +16,7 @@ jobs:
     steps:
       - env:
           OBSERVATIONS: >-
-            {"missingJSON":${{ toJSON(matrix.absent) }},"missingStringZero":${{ matrix.absent == '0' }},"literalEmptyStringZero":${{ '' == '0' }},"rendered":"${{ matrix.absent }}","mixedRoot":${{ GiThUb.event_name == 'push' }},"mixedProperty":${{ github.EVENT_NAME == 'push' }},"matrixCase":${{ MATRIX.AXIS == 1 }},"unicodeSharpS":${{ 'ß' == 'ss' }},"unicodeKelvin":${{ 'K' == 'K' }}}
+            {"missingJSON":${{ toJSON(matrix.absent) }},"missingStringZero":${{ matrix.absent == '0' }},"literalEmptyStringZero":${{ '' == '0' }},"rendered":"${{ matrix.absent }}","mixedRoot":${{ GiThUb.event_name == 'push' }},"mixedProperty":${{ github.EVENT_NAME == 'push' }},"matrixCase":${{ MATRIX.AXIS == 1 }},"unicodeSharpS":${{ 'ß' == 'ss' }},"unicodeKelvin":${{ 'K' == 'K' }},"binaryString":${{ '0b10' == 2 }},"octalString":${{ '0o10' == 8 }},"upperHex":${{ '0XFF' == 255 }},"largeHex":${{ '0xffffffff' == -1 }}}
         run: printf '%s\n' "$OBSERVATIONS" > matrix-missing.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
