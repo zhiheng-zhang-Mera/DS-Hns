@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "mainMethodFreezeCommit": "58d9f19808e3b009f8b19dc86ff6aa1f750e01f1",
+  "beforeFormalMeasurement": true,
+  "files": {
+    "scripts/ecq/bench_cost.cjs": "1f9399c81e4124153c03c2a48540e21ea86dd8b38dc8485ca3d4dac8d30e8dcd",
+    "scripts/ecq/bench_shacl_cost.py": "5fda9e57a13a1307ed59230202cb660086671a3a9e917f12717e91e24e11805d",
+    "scripts/ecq/analyze_costs.py": "70a66941dab7d1d98d0b99a0c66f8ceb16aa9486bc1d3fd6ad4a21fac0f61414",
+    "tests/ecq/bench-cost.test.cjs": "7a8f634e462a88794a3f1f51f129ac9ae8cb7c2c4f3c6f9386a00111e635f1ac",
+    "tests/ecq/test_cost_analysis.py": "4f3976cb1edc60d47c01398dd989dfa0167cfb001e9a4c16ab2d0f65aa01e08a",
+    "tests/ecq/test_cost_rss.py": "a1e78fc05121da50a390094274d21b3f473ba5e02ba9de36360f5de54d16d658",
+    "docs/paper-material/revision-v37/COST_REPRODUCTION.md": "576899daa3479ae860b4d49fdd74292e6b3274f8704abfa35c811a6aceecf13c"
+  },
+  "design": {
+    "gateCounts": [
+      10,
+      100,
+      1000
+    ],
+    "artifactBytes": [
+      1048576,
+      67108864
+    ],
+    "warmups": 5,
+    "rounds": 30,
+    "B2configurationBudgetSeconds": 180,
+    "B2order": "after all Node measurements; descriptive cross-runtime costs",
+    "statistic": "median and linear interpolated quartiles for complete30roundgroups; incomplete configurations censored, allattempts retained"
+  },
+  "unexecutedPrototypeNote": "Frozen prototypes bench.cjs/bench_shacl.py are not the formal cost drivers. New drivers preserve native warmup records and fix Windows HANDLE typing for a positive RSS reading before any formal cost measurement."
+}
