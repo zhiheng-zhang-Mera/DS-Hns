@@ -1,0 +1,1 @@
+{"workflow":"jobs:\n  test:\n    strategy:\n      matrix:\n        os: [linux, windows]\n","workflowIdentity":{"verified":true},"runIdentity":{"runId":1,"runAttempt":1,"headSha":"abc"},"eventContext":{},"captureInventory":[],"sourceJobs":[]}

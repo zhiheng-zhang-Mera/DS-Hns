@@ -1,0 +1,183 @@
+{
+  "contract": {
+    "schemaVersion": "ecq-v38/1",
+    "workflowIdentity": {
+      "verified": true
+    },
+    "sourceSha256": "056a203785a58383a691b0b4994a1b0c4ef1304cc100718cbb894284c4acdd1c",
+    "sourceIdentities": [
+      {
+        "verified": true
+      }
+    ],
+    "jobGroups": [
+      {
+        "id": "test",
+        "needs": [],
+        "guard": true,
+        "instances": [
+          "test[0]",
+          "test[1]"
+        ],
+        "unsupported": [],
+        "placeholderName": "test"
+      }
+    ],
+    "instances": [
+      {
+        "id": "test[0]",
+        "groupId": "test",
+        "matrix": {
+          "os": "linux"
+        },
+        "names": [
+          "test (linux)"
+        ],
+        "continueOnError": false,
+        "sourceWitness": {
+          "path": [
+            "jobs",
+            "test"
+          ],
+          "matrixIndex": 0,
+          "sourceSha256": "056a203785a58383a691b0b4994a1b0c4ef1304cc100718cbb894284c4acdd1c",
+          "sourceRange": [
+            18,
+            71,
+            71
+          ]
+        }
+      },
+      {
+        "id": "test[1]",
+        "groupId": "test",
+        "matrix": {
+          "os": "windows"
+        },
+        "names": [
+          "test (windows)"
+        ],
+        "continueOnError": false,
+        "sourceWitness": {
+          "path": [
+            "jobs",
+            "test"
+          ],
+          "matrixIndex": 1,
+          "sourceSha256": "056a203785a58383a691b0b4994a1b0c4ef1304cc100718cbb894284c4acdd1c",
+          "sourceRange": [
+            18,
+            71,
+            71
+          ]
+        }
+      }
+    ],
+    "dependencies": [],
+    "sourceWitnesses": [
+      {
+        "path": [
+          "jobs",
+          "test"
+        ],
+        "matrixIndex": 0,
+        "sourceSha256": "056a203785a58383a691b0b4994a1b0c4ef1304cc100718cbb894284c4acdd1c",
+        "sourceRange": [
+          18,
+          71,
+          71
+        ]
+      },
+      {
+        "path": [
+          "jobs",
+          "test"
+        ],
+        "matrixIndex": 1,
+        "sourceSha256": "056a203785a58383a691b0b4994a1b0c4ef1304cc100718cbb894284c4acdd1c",
+        "sourceRange": [
+          18,
+          71,
+          71
+        ]
+      }
+    ],
+    "unresolvedFeatures": []
+  },
+  "qualification": {
+    "closure": "OPEN",
+    "gate": "UNKNOWN",
+    "satisfied": true,
+    "authorized": false,
+    "nonVacuity": true,
+    "applicability": {
+      "test": "TRUE"
+    },
+    "results": {
+      "test": {
+        "$unknown": true
+      }
+    },
+    "obligations": [
+      {
+        "slot": "$workflow",
+        "kind": "contractSourceReconstruction",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "sourceIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "fixedInventory",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "inventoryUnique",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "factIdsUnique",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "factsWithinInventory",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "runIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "test",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "test[0]",
+        "kind": "binding",
+        "value": "UNKNOWN",
+        "candidateIds": [],
+        "expectedNames": [
+          "test (linux)"
+        ]
+      },
+      {
+        "slot": "test[1]",
+        "kind": "binding",
+        "value": "UNKNOWN",
+        "candidateIds": [],
+        "expectedNames": [
+          "test (windows)"
+        ]
+      }
+    ]
+  }
+}

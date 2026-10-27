@@ -1,0 +1,7563 @@
+[
+  {
+    "id": "active-success",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 1,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "active-failure",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "failure"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "failure"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "FALSE",
+          "originalConclusion": "failure",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unaccepted outcome"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unaccepted outcome"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "active-cancelled",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "cancelled"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "cancelled"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "FALSE",
+          "originalConclusion": "cancelled",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unaccepted outcome"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unaccepted outcome"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "active-skipped",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "skipped"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "FALSE",
+          "originalConclusion": "skipped",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unaccepted outcome"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unaccepted outcome"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "active-missing",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "false-empty",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 0,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "false-skipped",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 0,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "false-contradiction",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          1,
+          "invalid or erased inactive placeholder"
+        ]
+      ],
+      "diagnostics": [
+        [
+          1,
+          "invalid or erased inactive placeholder"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "false-nonvacuous",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": false,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "FALSE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "UNSAT",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          "claim",
+          "nonvacuity"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "claim",
+          "nonvacuity"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "unknown-guard",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "UNKNOWN"
+      },
+      "results": {
+        "test": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "UNKNOWN",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          "test",
+          "unknown applicability"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test",
+          "unknown applicability"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "short-circuit-false",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 0,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "tolerated-failure",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "failure"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "failure",
+          "tolerated": true
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 1,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "tolerated-missing",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "needs-success",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "a": "TRUE",
+        "b": "TRUE"
+      },
+      "results": {
+        "a": "success",
+        "b": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "a"
+          ]
+        },
+        {
+          "slot": "a[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "b",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            2
+          ],
+          "expectedNames": [
+            "b"
+          ]
+        },
+        {
+          "slot": "b[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 2,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "needs-skipped",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "a": "FALSE",
+        "b": "FALSE"
+      },
+      "results": {
+        "a": "skipped",
+        "b": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "a",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "b",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "b",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 0,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "tolerated-needs",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "a": "TRUE",
+        "b": "TRUE"
+      },
+      "results": {
+        "a": "success",
+        "b": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "a"
+          ]
+        },
+        {
+          "slot": "a[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "failure"
+        },
+        {
+          "slot": "a[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "failure",
+          "tolerated": true
+        },
+        {
+          "slot": "b",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            2
+          ],
+          "expectedNames": [
+            "b"
+          ]
+        },
+        {
+          "slot": "b[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "b[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 2,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "matrix-all",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test (a)"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "test[1]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            2
+          ],
+          "expectedNames": [
+            "test (b)"
+          ]
+        },
+        {
+          "slot": "test[1]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 2,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "matrix-missing",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test (a)"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "test[1]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "test (b)"
+          ]
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 2,
+      "obligations": [
+        [
+          "test[1]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[1]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "matrix-false-placeholder",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 0,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "matrix-include-metadata",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test (a)"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "test[1]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            2
+          ],
+          "expectedNames": [
+            "test (b)"
+          ]
+        },
+        {
+          "slot": "test[1]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 2,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "matrix-exclude",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test (a)"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 1,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "matrix-name-fallback",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "3.14"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "test[1]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            2
+          ],
+          "expectedNames": [
+            "Windows"
+          ]
+        },
+        {
+          "slot": "test[1]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[1]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 2,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "duplicate-binding",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [
+            1,
+            2
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "unmatched-capture",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:2",
+          "kind": "sourceAttribution",
+          "value": "UNKNOWN"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          2,
+          "unbound captured record"
+        ]
+      ],
+      "diagnostics": [
+        [
+          2,
+          "unbound captured record"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "unverified-source",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "FALSE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "source",
+          "unverified identity"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "source",
+          "unverified identity"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "wrong-runId",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "FALSE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "wrong-runAttempt",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "FALSE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "wrong-headSha",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "wrong-name",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "wrong-status",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "wrong-type",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "FALSE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "unknown or invalid job fact"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "prototype-job-constructor",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "constructor": "TRUE"
+      },
+      "results": {
+        "constructor": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "constructor",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "constructor[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "constructor"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "constructor[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "constructor[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "prototype-job-toString",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "toString": "TRUE"
+      },
+      "results": {
+        "toString": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "toString",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "toString[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "toString"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "toString[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "toString[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "prototype-job-hasOwnProperty",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "hasOwnProperty": "TRUE"
+      },
+      "results": {
+        "hasOwnProperty": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "hasOwnProperty",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "hasOwnProperty[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "hasOwnProperty"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "hasOwnProperty[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "hasOwnProperty[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "prototype-job-__proto__",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "__proto__": "TRUE"
+      },
+      "results": {
+        "__proto__": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "__proto__",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "__proto__[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "__proto__"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "__proto__[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "__proto__[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "prototype-context",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "TRUE"
+      },
+      "results": {
+        "test": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "test[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "test"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "inactive-name-collision",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "a": "FALSE",
+        "b": "FALSE"
+      },
+      "results": {
+        "a": "skipped",
+        "b": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "a",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "a",
+          "kind": "inactivePlaceholder",
+          "value": "UNKNOWN"
+        },
+        {
+          "slot": "b",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "b",
+          "kind": "inactivePlaceholder",
+          "value": "UNKNOWN"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          1,
+          "invalid or erased inactive placeholder"
+        ],
+        [
+          1,
+          "invalid or erased inactive placeholder"
+        ]
+      ],
+      "diagnostics": [
+        [
+          1,
+          "invalid or erased inactive placeholder"
+        ],
+        [
+          1,
+          "invalid or erased inactive placeholder"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "pinned-reuse",
+    "expectedAuthorized": true,
+    "native": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "nonVacuity": true,
+      "applicability": {
+        "call": "TRUE",
+        "call[0]/test": "TRUE"
+      },
+      "results": {
+        "call[0]/test": "success",
+        "call": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call[0]/test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "call / unit"
+          ]
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "CLOSED",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": true,
+      "activeInstances": 1,
+      "obligations": [],
+      "diagnostics": []
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "pinned-reuse-missing",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "call": "TRUE",
+        "call[0]/test": "TRUE"
+      },
+      "results": {
+        "call[0]/test": {
+          "$unknown": true
+        },
+        "call": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call[0]/test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "call / unit"
+          ]
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "call[0]/test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "call[0]/test[0]",
+          "ambiguous or absent fixed binding"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "pinned-reuse-unresolved",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "call": "TRUE"
+      },
+      "results": {
+        "call": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "UNKNOWN",
+          "unresolvedFeatures": [
+            {
+              "groupId": "call",
+              "reason": "reusable definition unavailable"
+            }
+          ]
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call",
+          "kind": "supported",
+          "value": "UNKNOWN",
+          "reasons": [
+            "reusable definition unavailable"
+          ]
+        },
+        {
+          "slot": "call[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "call"
+          ]
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "UNKNOWN"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "call[0]",
+          "ambiguous or absent fixed binding"
+        ],
+        [
+          1,
+          "unbound captured record"
+        ],
+        [
+          "source",
+          "reusable workflow expansion unsupported"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "call[0]",
+          "ambiguous or absent fixed binding"
+        ],
+        [
+          1,
+          "unbound captured record"
+        ],
+        [
+          "source",
+          "reusable workflow expansion unsupported"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "pinned-reuse-root-unknown",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "call": "TRUE",
+        "call[0]/test": "TRUE"
+      },
+      "results": {
+        "call[0]/test": "success",
+        "call": "success"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "FALSE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call[0]/test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "call / unit"
+          ]
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "call[0]/test[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "source",
+          "unverified identity"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "source",
+          "unverified identity"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "false-unresolved-reuse",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "call": "FALSE"
+      },
+      "results": {
+        "call": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "UNKNOWN",
+          "unresolvedFeatures": [
+            {
+              "groupId": "call",
+              "reason": "reusable definition unavailable"
+            }
+          ]
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "call",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "call",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          "source",
+          "reusable workflow expansion unsupported"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "source",
+          "reusable workflow expansion unsupported"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "false-dynamic-matrix",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "UNKNOWN",
+          "unresolvedFeatures": [
+            {
+              "groupId": "test",
+              "reason": "dynamic/invalid matrix"
+            }
+          ]
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          "source",
+          "dynamic matrix"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "source",
+          "dynamic matrix"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "incomplete-empty-capture",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "test": "FALSE"
+      },
+      "results": {
+        "test": "skipped"
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "FALSE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "test",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "FALSE"
+        },
+        {
+          "slot": "test",
+          "kind": "inactivePlaceholder",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "SAT",
+      "satisfied": true,
+      "authorized": false,
+      "activeInstances": 0,
+      "obligations": [
+        [
+          "inventory",
+          "capture completeness unknown"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "inventory",
+          "capture completeness unknown"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  },
+  {
+    "id": "generated-needs-output",
+    "expectedAuthorized": false,
+    "native": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "nonVacuity": true,
+      "applicability": {
+        "first": "TRUE",
+        "second": "UNKNOWN"
+      },
+      "results": {
+        "first": "success",
+        "second": {
+          "$unknown": true
+        }
+      },
+      "obligations": [
+        {
+          "slot": "$workflow",
+          "kind": "contractSourceReconstruction",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceClosure",
+          "value": "TRUE",
+          "unresolvedFeatures": []
+        },
+        {
+          "slot": "$workflow",
+          "kind": "sourceIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "fixedInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "captureComplete",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "inventoryUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factIdsUnique",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "factsWithinInventory",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$workflow",
+          "kind": "runIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordCoverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "inventoryIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordIdentity",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordName",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordType",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordStatus",
+          "value": "TRUE"
+        },
+        {
+          "slot": "capture:1",
+          "kind": "recordState",
+          "value": "TRUE"
+        },
+        {
+          "slot": "first",
+          "kind": "applicabilityResolved",
+          "value": "TRUE",
+          "applicability": "TRUE"
+        },
+        {
+          "slot": "first[0]",
+          "kind": "binding",
+          "value": "TRUE",
+          "candidateIds": [
+            1
+          ],
+          "expectedNames": [
+            "first"
+          ]
+        },
+        {
+          "slot": "first[0]",
+          "kind": "coverage",
+          "value": "TRUE"
+        },
+        {
+          "slot": "first[0]",
+          "kind": "runBinding",
+          "value": "TRUE"
+        },
+        {
+          "slot": "first[0]",
+          "kind": "state",
+          "value": "TRUE",
+          "originalConclusion": "success"
+        },
+        {
+          "slot": "first[0]",
+          "kind": "outcome",
+          "value": "TRUE",
+          "originalConclusion": "success",
+          "tolerated": false
+        },
+        {
+          "slot": "second",
+          "kind": "applicabilityResolved",
+          "value": "UNKNOWN",
+          "applicability": "UNKNOWN"
+        },
+        {
+          "slot": "second[0]",
+          "kind": "binding",
+          "value": "UNKNOWN",
+          "candidateIds": [],
+          "expectedNames": [
+            "second"
+          ]
+        },
+        {
+          "slot": "capture:1",
+          "kind": "sourceAttribution",
+          "value": "TRUE"
+        },
+        {
+          "slot": "$claim",
+          "kind": "outcome",
+          "value": "TRUE",
+          "predicate": "nonVacuity"
+        }
+      ]
+    },
+    "reference": {
+      "closure": "OPEN",
+      "gate": "UNKNOWN",
+      "satisfied": false,
+      "authorized": false,
+      "activeInstances": 1,
+      "obligations": [
+        [
+          "second",
+          "unknown applicability"
+        ]
+      ],
+      "diagnostics": [
+        [
+          "second",
+          "unknown applicability"
+        ]
+      ]
+    },
+    "sourceCheck": {
+      "valid": true,
+      "checkedFields": [
+        "workflowIdentity",
+        "sourceSha256",
+        "sourceIdentities",
+        "dependencies",
+        "jobGroups",
+        "instances",
+        "sourceWitnesses",
+        "unsupportedGroups"
+      ]
+    }
+  }
+]

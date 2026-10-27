@@ -1,0 +1,9 @@
+{
+  "workflow": "name: controlled example\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps: []\n",
+  "workflowIdentity": {"commit": "controlled-source", "path": ".github/workflows/example.yml", "verified": true},
+  "eventContext": {"github": {"event_name": "push"}},
+  "runIdentity": {"runId": 9, "runAttempt": 1, "headSha": "controlled-head"},
+  "captureInventory": [{"id": 1, "name": "test", "runId": 9, "runAttempt": 1, "headSha": "controlled-head"}],
+  "sourceJobs": [{"id": 1, "name": "test", "type": "job", "status": "completed", "conclusion": "success", "runId": 9, "runAttempt": 1, "headSha": "controlled-head"}],
+  "claimScope": "test-execution"
+}

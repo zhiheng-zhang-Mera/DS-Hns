@@ -1,0 +1,1893 @@
+[
+  {
+    "id": "active-success",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "SAT"
+  },
+  {
+    "id": "active-failure",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "failure",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "UNSAT"
+  },
+  {
+    "id": "active-cancelled",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "cancelled",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "UNSAT"
+  },
+  {
+    "id": "active-skipped",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "skipped",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "UNSAT"
+  },
+  {
+    "id": "active-missing",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    },
+    "expectedClosure": "OPEN",
+    "expectedGate": "UNKNOWN"
+  },
+  {
+    "id": "false-empty",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "SAT"
+  },
+  {
+    "id": "false-skipped",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "skipped",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "SAT"
+  },
+  {
+    "id": "false-contradiction",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "false-nonvacuous",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": [],
+      "claimScope": "test-execution"
+    },
+    "expectedClosure": "CLOSED",
+    "expectedGate": "UNSAT"
+  },
+  {
+    "id": "unknown-guard",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: github.event.pull_request.merged\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    },
+    "expectedClosure": "OPEN",
+    "expectedGate": "UNKNOWN"
+  },
+  {
+    "id": "short-circuit-false",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: github.event_name == 'pull_request' && github.event.pull_request.merged\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "tolerated-failure",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    continue-on-error: true\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "failure",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "tolerated-missing",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    continue-on-error: true\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "needs-success",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  a: {}\n  b:\n    needs: a\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "a",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "b",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "a",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "b",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "needs-skipped",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  a:\n    if: false\n  b:\n    needs: a\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "a",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "b",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "a",
+          "conclusion": "skipped",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "b",
+          "conclusion": "skipped",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "tolerated-needs",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  a:\n    continue-on-error: true\n  b:\n    needs: a\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "a",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "b",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "a",
+          "conclusion": "failure",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "b",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "matrix-all",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    strategy:\n      matrix:\n        axis: [a, b]\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "test (b)",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "test (b)",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "matrix-missing",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    strategy:\n      matrix:\n        axis: [a, b]\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "matrix-false-placeholder",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n    strategy:\n      matrix:\n        axis: [a, b]\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "skipped",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "matrix-include-metadata",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    strategy:\n      matrix:\n        axis: [a, b]\n        include:\n          - axis: a\n            extra: true\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "test (b)",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "test (b)",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "matrix-exclude",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    strategy:\n      matrix:\n        axis: [a, b]\n        exclude:\n          - axis: b\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test (a)",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "matrix-name-fallback",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  test:\n    name: ${{ matrix.label || matrix.python }}\n    strategy:\n      matrix:\n        include:\n          - python: '3.14'\n          - python: '3.13'\n            label: Windows\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "3.14",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "Windows",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "3.14",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "Windows",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "duplicate-binding",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "unmatched-capture",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "other",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        },
+        {
+          "id": 2,
+          "name": "other",
+          "conclusion": "failure",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "unverified-source",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": false
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    },
+    "expectedClosure": "OPEN",
+    "expectedGate": "SAT"
+  },
+  {
+    "id": "wrong-runId",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 20,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrong-runAttempt",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 2,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrong-headSha",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "wrong"
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrong-name",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "wrong",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrong-status",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "in_progress",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "wrong-type",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    runs-on: ubuntu-latest\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "test",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "test",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "step",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "prototype-job-constructor",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  constructor: {}\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "prototype-job-toString",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  toString: {}\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "prototype-job-hasOwnProperty",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  hasOwnProperty: {}\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "prototype-job-__proto__",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  __proto__: {}\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "prototype-context",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: github.constructor == null\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": [],
+      "eventContextComplete": true
+    }
+  },
+  {
+    "id": "inactive-name-collision",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  a:\n    name: shared\n    if: false\n  b:\n    name: shared\n    if: false\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "shared",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "shared",
+          "conclusion": "skipped",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "pinned-reuse",
+    "expectedAuthorized": true,
+    "input": {
+      "workflow": "jobs:\n  call:\n    uses: example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    with:\n      label: unit\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "call / unit",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "call / unit",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "reusableDefinitions": {
+        "example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
+          "workflow": "on:\n  workflow_call:\n    inputs:\n      label:\n        type: string\n        required: true\njobs:\n  test:\n    name: ${{ inputs.label }}\n",
+          "workflowIdentity": {
+            "repository": "example/project",
+            "path": ".github/workflows/child.yml",
+            "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "verified": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "pinned-reuse-missing",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  call:\n    uses: example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    with:\n      label: unit\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": [],
+      "reusableDefinitions": {
+        "example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
+          "workflow": "on:\n  workflow_call:\n    inputs:\n      label:\n        type: string\n        required: true\njobs:\n  test:\n    name: ${{ inputs.label }}\n",
+          "workflowIdentity": {
+            "repository": "example/project",
+            "path": ".github/workflows/child.yml",
+            "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "verified": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "pinned-reuse-unresolved",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  call:\n    uses: example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    with:\n      label: unit\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "call / unit",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "call / unit",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ]
+    }
+  },
+  {
+    "id": "pinned-reuse-root-unknown",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  call:\n    uses: example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    with:\n      label: unit\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": false
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "call / unit",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "call / unit",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "reusableDefinitions": {
+        "example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
+          "workflow": "on:\n  workflow_call:\n    inputs:\n      label:\n        type: string\n        required: true\njobs:\n  test:\n    name: ${{ inputs.label }}\n",
+          "workflowIdentity": {
+            "repository": "example/project",
+            "path": ".github/workflows/child.yml",
+            "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "verified": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "false-unresolved-reuse",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  call:\n    if: false\n    uses: example/project/.github/workflows/child.yml@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "false-dynamic-matrix",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n    strategy:\n      matrix: ${{ github.event.matrix }}\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": []
+    }
+  },
+  {
+    "id": "incomplete-empty-capture",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  test:\n    if: false\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [],
+      "sourceJobs": [],
+      "captureComplete": false
+    }
+  },
+  {
+    "id": "generated-needs-output",
+    "expectedAuthorized": false,
+    "input": {
+      "workflow": "jobs:\n  first:\n    outputs:\n      flag: go\n  second:\n    needs: first\n    if: needs.first.outputs.flag == 'go'\n",
+      "workflowIdentity": {
+        "commit": "controlled-source",
+        "path": "workflow.yml",
+        "verified": true
+      },
+      "eventContext": {
+        "github": {
+          "event_name": "push"
+        }
+      },
+      "workflowCancelled": false,
+      "runIdentity": {
+        "runId": 19,
+        "runAttempt": 1,
+        "headSha": "controlled-source"
+      },
+      "captureInventory": [
+        {
+          "id": 1,
+          "name": "first",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "sourceJobs": [
+        {
+          "id": 1,
+          "name": "first",
+          "conclusion": "success",
+          "status": "completed",
+          "type": "job",
+          "runId": 19,
+          "runAttempt": 1,
+          "headSha": "controlled-source"
+        }
+      ],
+      "eventContextComplete": true,
+      "claimScope": "test-execution"
+    },
+    "expectedClosure": "OPEN",
+    "expectedGate": "UNKNOWN"
+  }
+]

@@ -1,0 +1,1 @@
+{"name":"ecq-v38-native","version":"1.0.0","private":true,"type":"module","dependencies":{"yaml":"2.8.3"},"scripts":{"test":"node --test ../../../tests/ecq-v38/native/*.test.mjs"}}

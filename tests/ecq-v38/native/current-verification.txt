@@ -1,0 +1,42 @@
+✔ basic closure and immutable inventory erasure (23.0654ms)
+✔ operand semantics, coercion, unknown (2.0821ms)
+✔ matrix include merges against original cells and exclusions (1.3459ms)
+✔ ambiguous names cannot disappear with facts (2.8053ms)
+✔ DAG cycle rejected and unsupported reuse stays obligation (3.3892ms)
+✔ false group requires no matrix leaves; unknown blocks (5.6089ms)
+✔ failure retained and tolerance separated (1.6937ms)
+✔ YAML 1.2 on key and booleans preserved (0.6993ms)
+✔ fixed capture metadata blocks contradictions and erasure (7.4418ms)
+✔ false group rejects contradictory success and permits skipped placeholder (5.5235ms)
+✔ modified producer universe rejected against source (1.292ms)
+✔ exhaustive scalar fact erasure never creates authorization (118.6636ms)
+✔ zero expanded leaves cannot establish test execution (0.9034ms)
+✔ owned platform conformance probes: operand and numeric coercion (0.4984ms)
+✔ quoted status function names do not suppress implicit success guard (2.0853ms)
+✔ prototype-named jobs retain mandatory obligations (1.9738ms)
+✔ context lookup never reads inherited properties (0.7963ms)
+✔ matrix expansion rejects oversized Cartesian product before allocation (0.5113ms)
+✔ inactive alias collision cannot reuse one skipped placeholder twice (0.9946ms)
+✔ explicit incomplete capture blocks even zero active jobs (1.0487ms)
+✔ inactive groups cannot discharge unresolved source closure (1.2264ms)
+✔ complete immutable event context cannot complete uncaptured needs outputs (2.218ms)
+✔ gate uses strong-Kleene outcomes independently of closure metadata (1.2587ms)
+✔ execution nonvacuity is a gate predicate with unknown applicability preserved (3.2244ms)
+✔ unknown tolerated-failure policy leaves needs result unknown (3.0746ms)
+✔ unsupported dynamic matrix retains an unknown-name synthetic slot (1.3865ms)
+✔ pinned local reuse independently enumerates child obligations (34.6345ms)
+✔ unpinned remote and mismatched local identity remain unsupported (2.7529ms)
+✔ typed inputs reject string boolean rather than silently truthy (4.9212ms)
+✔ pinned remote matrix caller and callee names evaluated separately (16.8124ms)
+✔ false reusable caller permits one caller placeholder and disables children (9.1635ms)
+✔ callee needs aliases retain local names and downstream guard aggregates (7.5594ms)
+✔ root execution identity unknown preserves source-enumerated reusable leaves (6.3991ms)
+✔ ill-typed archived input preserves known callee universe as UNKNOWN (5.8011ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 473.1374

@@ -1,0 +1,7 @@
+{
+  "schema": "ecq-v38-controls/1",
+  "cases": 45,
+  "sha256": "d8630ce8febeacde015f53edf68ef8c9dc083366f5af73790c7e374b7d3881dd",
+  "labels": "hand-specified authorization; not implementation-derived",
+  "scope": "development controls, not held-out real-archive performance"
+}

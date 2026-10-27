@@ -1,0 +1,23 @@
+✔ basic closure and immutable inventory erasure (21.8925ms)
+✔ operand semantics, coercion, unknown (2.0896ms)
+✔ matrix include merges against original cells and exclusions (1.3485ms)
+✔ ambiguous names cannot disappear with facts (2.9034ms)
+✔ DAG cycle rejected and unsupported reuse stays obligation (3.3444ms)
+✔ false group requires no matrix leaves; unknown blocks (5.4969ms)
+✔ failure retained and tolerance separated (1.3443ms)
+✔ YAML 1.2 on key and booleans preserved (0.6906ms)
+✔ fixed capture metadata blocks contradictions and erasure (5.9406ms)
+✔ false group rejects contradictory success and permits skipped placeholder (5.3118ms)
+✔ modified producer universe rejected against source (1.3745ms)
+✔ exhaustive scalar fact erasure never creates authorization (109.116ms)
+✔ zero expanded leaves cannot establish test execution (0.8458ms)
+✔ owned platform conformance probes: operand and numeric coercion (0.4823ms)
+✔ quoted status function names do not suppress implicit success guard (1.915ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 421.611

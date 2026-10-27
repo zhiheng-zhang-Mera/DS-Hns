@@ -1,0 +1,6354 @@
+[
+  {
+    "id": "active-success/facts/000",
+    "parent": "active-success",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/001",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/010",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/011",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/100",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/101",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/110",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/facts/111",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/records/",
+    "parent": "active-success",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-success/records/0",
+    "parent": "active-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/000",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/001",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/010",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/011",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/100",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/101",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/110",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/facts/111",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/records/",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-failure/records/0",
+    "parent": "active-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/000",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/001",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/010",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/011",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/100",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/101",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/110",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/facts/111",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/records/",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-cancelled/records/0",
+    "parent": "active-cancelled",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/000",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/001",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/010",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/011",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/100",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/101",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/110",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/facts/111",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/records/",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-skipped/records/0",
+    "parent": "active-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-missing/facts/",
+    "parent": "active-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "active-missing/records/",
+    "parent": "active-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-empty/facts/",
+    "parent": "false-empty",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-empty/records/",
+    "parent": "false-empty",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/000",
+    "parent": "false-skipped",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/001",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/010",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/011",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/100",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/101",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/110",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/facts/111",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/records/",
+    "parent": "false-skipped",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-skipped/records/0",
+    "parent": "false-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/000",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/001",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/010",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/011",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/100",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/101",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/110",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/facts/111",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/records/",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-contradiction/records/0",
+    "parent": "false-contradiction",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-nonvacuous/facts/",
+    "parent": "false-nonvacuous",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-nonvacuous/records/",
+    "parent": "false-nonvacuous",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unknown-guard/facts/",
+    "parent": "unknown-guard",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unknown-guard/records/",
+    "parent": "unknown-guard",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "short-circuit-false/facts/",
+    "parent": "short-circuit-false",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "short-circuit-false/records/",
+    "parent": "short-circuit-false",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/000",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/001",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/010",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/011",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/100",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/101",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/110",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/facts/111",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/records/",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-failure/records/0",
+    "parent": "tolerated-failure",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-missing/facts/",
+    "parent": "tolerated-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-missing/records/",
+    "parent": "tolerated-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000000",
+    "parent": "needs-success",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/000111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/001111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/010111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/011111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/100111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/101111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/110111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111000",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111001",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111010",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111011",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111100",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111101",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111110",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/facts/111111",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/records/",
+    "parent": "needs-success",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/records/0",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/records/1",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-success/records/0,1",
+    "parent": "needs-success",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/000111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/001111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/010111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/011111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/100111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/101111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/110111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111000",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111001",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111010",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111011",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111100",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111101",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111110",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/facts/111111",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/records/",
+    "parent": "needs-skipped",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/records/0",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/records/1",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "needs-skipped/records/0,1",
+    "parent": "needs-skipped",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/000111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/001111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/010111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/011111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/100111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/101111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/110111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111000",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111001",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111010",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111011",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111100",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111101",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111110",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/facts/111111",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/records/",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/records/0",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/records/1",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "tolerated-needs/records/0,1",
+    "parent": "tolerated-needs",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000000",
+    "parent": "matrix-all",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/000111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/001111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/010111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/011111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/100111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/101111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/110111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111000",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111001",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111010",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111011",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111100",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111101",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111110",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/facts/111111",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/records/",
+    "parent": "matrix-all",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/records/0",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/records/1",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-all/records/0,1",
+    "parent": "matrix-all",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/000",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/001",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/010",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/011",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/100",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/101",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/110",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/facts/111",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/records/",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-missing/records/0",
+    "parent": "matrix-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/000",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/001",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/010",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/011",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/100",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/101",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/110",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/facts/111",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/records/",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-false-placeholder/records/0",
+    "parent": "matrix-false-placeholder",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/000111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/001111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/010111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/011111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/100111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/101111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/110111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111000",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111001",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111010",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111011",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111100",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111101",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111110",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/facts/111111",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/records/",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/records/0",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/records/1",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-include-metadata/records/0,1",
+    "parent": "matrix-include-metadata",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/000",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/001",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/010",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/011",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/100",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/101",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/110",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/facts/111",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/records/",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-exclude/records/0",
+    "parent": "matrix-exclude",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/000111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/001111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/010111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/011111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/100111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/101111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/110111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111000",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111001",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111010",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111011",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111100",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111101",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111110",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/facts/111111",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/records/",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/records/0",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/records/1",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "matrix-name-fallback/records/0,1",
+    "parent": "matrix-name-fallback",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/000111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/001111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/010111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/011111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/100111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/101111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/110111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111000",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111001",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111010",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111011",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111100",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111101",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111110",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/facts/111111",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/records/",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/records/0",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/records/1",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "duplicate-binding/records/0,1",
+    "parent": "duplicate-binding",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/000111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/001111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/010111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/011111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/100111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/101111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/110111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111000",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111001",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111010",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111011",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111100",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111101",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111110",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/facts/111111",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/records/",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/records/0",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/records/1",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unmatched-capture/records/0,1",
+    "parent": "unmatched-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/000",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/001",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/010",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/011",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/100",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/101",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/110",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/facts/111",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/records/",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "unverified-source/records/0",
+    "parent": "unverified-source",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/000",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/001",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/010",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/011",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/100",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/101",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/110",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/facts/111",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/records/",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runId/records/0",
+    "parent": "wrong-runId",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/000",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/001",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/010",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/011",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/100",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/101",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/110",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/facts/111",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/records/",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-runAttempt/records/0",
+    "parent": "wrong-runAttempt",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/000",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/001",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/010",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/011",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/100",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/101",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/110",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/facts/111",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/records/",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-headSha/records/0",
+    "parent": "wrong-headSha",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/000",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/001",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/010",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/011",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/100",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/101",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/110",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/facts/111",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/records/",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-name/records/0",
+    "parent": "wrong-name",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/000",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/001",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/010",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/011",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/100",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/101",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/110",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/facts/111",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/records/",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-status/records/0",
+    "parent": "wrong-status",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/000",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/001",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/010",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/011",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/100",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/101",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/110",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/facts/111",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/records/",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "wrong-type/records/0",
+    "parent": "wrong-type",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-constructor/facts/",
+    "parent": "prototype-job-constructor",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-constructor/records/",
+    "parent": "prototype-job-constructor",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-toString/facts/",
+    "parent": "prototype-job-toString",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-toString/records/",
+    "parent": "prototype-job-toString",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-hasOwnProperty/facts/",
+    "parent": "prototype-job-hasOwnProperty",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-hasOwnProperty/records/",
+    "parent": "prototype-job-hasOwnProperty",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-__proto__/facts/",
+    "parent": "prototype-job-__proto__",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-job-__proto__/records/",
+    "parent": "prototype-job-__proto__",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-context/facts/",
+    "parent": "prototype-context",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "prototype-context/records/",
+    "parent": "prototype-context",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/000",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/001",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/010",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/011",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/100",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/101",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/110",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/facts/111",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/records/",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "inactive-name-collision/records/0",
+    "parent": "inactive-name-collision",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/000",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/001",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/010",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/011",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/100",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/101",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/110",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/facts/111",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/records/",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": true,
+    "referenceAuthorized": true,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse/records/0",
+    "parent": "pinned-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-missing/facts/",
+    "parent": "pinned-reuse-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-missing/records/",
+    "parent": "pinned-reuse-missing",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/000",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/001",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/010",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/011",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/100",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/101",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/110",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/facts/111",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/records/",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-unresolved/records/0",
+    "parent": "pinned-reuse-unresolved",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/000",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/001",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/010",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/011",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/100",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/101",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/110",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/facts/111",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/records/",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "pinned-reuse-root-unknown/records/0",
+    "parent": "pinned-reuse-root-unknown",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-unresolved-reuse/facts/",
+    "parent": "false-unresolved-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-unresolved-reuse/records/",
+    "parent": "false-unresolved-reuse",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-dynamic-matrix/facts/",
+    "parent": "false-dynamic-matrix",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "false-dynamic-matrix/records/",
+    "parent": "false-dynamic-matrix",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "incomplete-empty-capture/facts/",
+    "parent": "incomplete-empty-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "incomplete-empty-capture/records/",
+    "parent": "incomplete-empty-capture",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/000",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/001",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/010",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/011",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/100",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/101",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/110",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/facts/111",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/records/",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  },
+  {
+    "id": "generated-needs-output/records/0",
+    "parent": "generated-needs-output",
+    "nativeAuthorized": false,
+    "referenceAuthorized": false,
+    "nativeGain": false,
+    "referenceGain": false
+  }
+]

@@ -1,0 +1,355 @@
+{
+  "contract": {
+    "schemaVersion": "ecq-v38/1",
+    "workflowIdentity": {
+      "verified": true,
+      "repository": "root/repo",
+      "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "sourceSha256": "c31fc769d92943dc4cca13e4efbff5520c58acd60a9371fe622686731b9ae4c5",
+    "sourceIdentities": [
+      {
+        "verified": true,
+        "repository": "root/repo",
+        "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "repository": "owner/repo",
+        "path": ".github/workflows/child.yml",
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "verified": true
+      }
+    ],
+    "jobGroups": [
+      {
+        "id": "call",
+        "needs": [],
+        "guard": true,
+        "instances": [],
+        "unsupported": [],
+        "placeholderName": "call",
+        "children": [
+          "call[0]/first",
+          "call[0]/second"
+        ],
+        "reusableIdentity": {
+          "repository": "owner/repo",
+          "path": ".github/workflows/child.yml",
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "verified": true
+        }
+      },
+      {
+        "id": "call[0]/first",
+        "needs": [],
+        "guard": "inputs.enabled",
+        "instances": [
+          "call[0]/first[0]"
+        ],
+        "unsupported": [],
+        "placeholderName": "call / first",
+        "inputs": {
+          "enabled": true
+        },
+        "parentGroup": "call",
+        "needsAliases": {}
+      },
+      {
+        "id": "call[0]/second",
+        "needs": [
+          "call[0]/first"
+        ],
+        "guard": true,
+        "instances": [
+          "call[0]/second[0]"
+        ],
+        "unsupported": [],
+        "placeholderName": "call / second",
+        "inputs": {
+          "enabled": true
+        },
+        "parentGroup": "call",
+        "needsAliases": {
+          "first": "call[0]/first"
+        }
+      }
+    ],
+    "instances": [
+      {
+        "id": "call[0]/first[0]",
+        "groupId": "call[0]/first",
+        "matrix": {},
+        "names": [
+          "call / first"
+        ],
+        "continueOnError": false,
+        "sourceWitness": {
+          "path": [
+            "jobs",
+            "first"
+          ],
+          "matrixIndex": 0,
+          "sourceSha256": "7104a1bdb70e49977380fc0a48fc8e01a57cf84040f01465a520f14a257e509d",
+          "sourceRange": [
+            99,
+            118,
+            118
+          ],
+          "workflowIdentity": {
+            "repository": "owner/repo",
+            "path": ".github/workflows/child.yml",
+            "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "verified": true
+          },
+          "callerPath": [
+            "jobs",
+            "call"
+          ],
+          "callerMatrixIndex": 0,
+          "callerChain": [
+            {
+              "workflowIdentity": {
+                "verified": true,
+                "repository": "root/repo",
+                "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              },
+              "path": [
+                "jobs",
+                "call"
+              ],
+              "matrixIndex": 0
+            }
+          ]
+        }
+      },
+      {
+        "id": "call[0]/second[0]",
+        "groupId": "call[0]/second",
+        "matrix": {},
+        "names": [
+          "call / second"
+        ],
+        "continueOnError": false,
+        "sourceWitness": {
+          "path": [
+            "jobs",
+            "second"
+          ],
+          "matrixIndex": 0,
+          "sourceSha256": "7104a1bdb70e49977380fc0a48fc8e01a57cf84040f01465a520f14a257e509d",
+          "sourceRange": [
+            132,
+            145,
+            145
+          ],
+          "workflowIdentity": {
+            "repository": "owner/repo",
+            "path": ".github/workflows/child.yml",
+            "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "verified": true
+          },
+          "callerPath": [
+            "jobs",
+            "call"
+          ],
+          "callerMatrixIndex": 0,
+          "callerChain": [
+            {
+              "workflowIdentity": {
+                "verified": true,
+                "repository": "root/repo",
+                "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              },
+              "path": [
+                "jobs",
+                "call"
+              ],
+              "matrixIndex": 0
+            }
+          ]
+        }
+      }
+    ],
+    "dependencies": [
+      {
+        "from": "call[0]/first",
+        "to": "call[0]/second"
+      }
+    ],
+    "sourceWitnesses": [
+      {
+        "path": [
+          "jobs",
+          "first"
+        ],
+        "matrixIndex": 0,
+        "sourceSha256": "7104a1bdb70e49977380fc0a48fc8e01a57cf84040f01465a520f14a257e509d",
+        "sourceRange": [
+          99,
+          118,
+          118
+        ],
+        "workflowIdentity": {
+          "repository": "owner/repo",
+          "path": ".github/workflows/child.yml",
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "verified": true
+        },
+        "callerPath": [
+          "jobs",
+          "call"
+        ],
+        "callerMatrixIndex": 0,
+        "callerChain": [
+          {
+            "workflowIdentity": {
+              "verified": true,
+              "repository": "root/repo",
+              "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "path": [
+              "jobs",
+              "call"
+            ],
+            "matrixIndex": 0
+          }
+        ]
+      },
+      {
+        "path": [
+          "jobs",
+          "second"
+        ],
+        "matrixIndex": 0,
+        "sourceSha256": "7104a1bdb70e49977380fc0a48fc8e01a57cf84040f01465a520f14a257e509d",
+        "sourceRange": [
+          132,
+          145,
+          145
+        ],
+        "workflowIdentity": {
+          "repository": "owner/repo",
+          "path": ".github/workflows/child.yml",
+          "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "verified": true
+        },
+        "callerPath": [
+          "jobs",
+          "call"
+        ],
+        "callerMatrixIndex": 0,
+        "callerChain": [
+          {
+            "workflowIdentity": {
+              "verified": true,
+              "repository": "root/repo",
+              "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "path": [
+              "jobs",
+              "call"
+            ],
+            "matrixIndex": 0
+          }
+        ]
+      }
+    ],
+    "unresolvedFeatures": []
+  },
+  "qualification": {
+    "closure": "OPEN",
+    "gate": "UNKNOWN",
+    "satisfied": true,
+    "authorized": false,
+    "nonVacuity": true,
+    "applicability": {
+      "call": "TRUE",
+      "call[0]/first": "TRUE",
+      "call[0]/second": "UNKNOWN"
+    },
+    "results": {
+      "call[0]/first": {
+        "$unknown": true
+      },
+      "call[0]/second": {
+        "$unknown": true
+      },
+      "call": {
+        "$unknown": true
+      }
+    },
+    "obligations": [
+      {
+        "slot": "$workflow",
+        "kind": "contractSourceReconstruction",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "sourceIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "fixedInventory",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "inventoryUnique",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "factIdsUnique",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "factsWithinInventory",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "runIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "call",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "call[0]/first",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "call[0]/first[0]",
+        "kind": "binding",
+        "value": "UNKNOWN",
+        "candidateIds": [],
+        "expectedNames": [
+          "call / first"
+        ]
+      },
+      {
+        "slot": "call[0]/second",
+        "kind": "applicabilityResolved",
+        "value": "UNKNOWN",
+        "applicability": "UNKNOWN"
+      },
+      {
+        "slot": "call[0]/second[0]",
+        "kind": "binding",
+        "value": "UNKNOWN",
+        "candidateIds": [],
+        "expectedNames": [
+          "call / second"
+        ]
+      }
+    ]
+  }
+}

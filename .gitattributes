@@ -32,3 +32,6 @@ artifacts/paper-revision/** -text whitespace=cr-at-eol
 scripts/ecq/** -text whitespace=cr-at-eol
 tests/ecq/** -text whitespace=cr-at-eol
 docs/paper-material/revision-v37/** -text whitespace=cr-at-eol
+scripts/ecq-v38/** -text whitespace=cr-at-eol
+tests/ecq-v38/** -text whitespace=cr-at-eol
+docs/paper-material/revision-v38/** -text whitespace=cr-at-eol

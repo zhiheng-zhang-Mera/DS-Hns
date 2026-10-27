@@ -1,0 +1,902 @@
+[
+  {
+    "id": "active-success",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "active-success",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "active-success",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "active-success",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "active-failure",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "active-failure",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "active-failure",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "active-failure",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "active-cancelled",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "active-cancelled",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "active-cancelled",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "active-cancelled",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "active-skipped",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "active-skipped",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "active-skipped",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "active-skipped",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "active-missing",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "active-missing",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "active-missing",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "active-missing",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "false-empty",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "false-empty",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "false-empty",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "false-empty",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "false-skipped",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "false-skipped",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "false-skipped",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "false-skipped",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "false-contradiction",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "false-contradiction",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "false-contradiction",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "false-contradiction",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "false-nonvacuous",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "false-nonvacuous",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "false-nonvacuous",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "false-nonvacuous",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "unknown-guard",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "unknown-guard",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "unknown-guard",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "unknown-guard",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "short-circuit-false",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "short-circuit-false",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "short-circuit-false",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "short-circuit-false",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-failure",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-failure",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-failure",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-failure",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-missing",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-missing",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-missing",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-missing",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "needs-success",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "needs-success",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "needs-success",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "needs-success",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "needs-skipped",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "needs-skipped",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "needs-skipped",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "needs-skipped",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-needs",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-needs",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-needs",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "tolerated-needs",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "matrix-all",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "matrix-all",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "matrix-all",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "matrix-all",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "matrix-missing",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "matrix-missing",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "matrix-missing",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "matrix-missing",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "matrix-false-placeholder",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "matrix-false-placeholder",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "matrix-false-placeholder",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "matrix-false-placeholder",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "matrix-include-metadata",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "matrix-include-metadata",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "matrix-include-metadata",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "matrix-include-metadata",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "matrix-exclude",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "matrix-exclude",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "matrix-exclude",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "matrix-exclude",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "matrix-name-fallback",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "matrix-name-fallback",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "matrix-name-fallback",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "matrix-name-fallback",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "duplicate-binding",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "duplicate-binding",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "duplicate-binding",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "duplicate-binding",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "unmatched-capture",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "unmatched-capture",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "unmatched-capture",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "unmatched-capture",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "unverified-source",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "unverified-source",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "unverified-source",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "unverified-source",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runId",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runId",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runId",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runId",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runAttempt",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runAttempt",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runAttempt",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "wrong-runAttempt",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "wrong-headSha",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "wrong-headSha",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "wrong-headSha",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "wrong-headSha",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "wrong-name",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "wrong-name",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "wrong-name",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "wrong-name",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "wrong-status",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "wrong-status",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "wrong-status",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "wrong-status",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "wrong-type",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "wrong-type",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "wrong-type",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "wrong-type",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-constructor",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-constructor",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-constructor",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-constructor",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-toString",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-toString",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-toString",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-toString",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-hasOwnProperty",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-hasOwnProperty",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-hasOwnProperty",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-hasOwnProperty",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-__proto__",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-__proto__",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-__proto__",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "prototype-job-__proto__",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "prototype-context",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "prototype-context",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "prototype-context",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "prototype-context",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "inactive-name-collision",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "inactive-name-collision",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "inactive-name-collision",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "inactive-name-collision",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-missing",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-missing",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-missing",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-missing",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-unresolved",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-unresolved",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-unresolved",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-unresolved",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-root-unknown",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-root-unknown",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-root-unknown",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "pinned-reuse-root-unknown",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "false-unresolved-reuse",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "false-unresolved-reuse",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "false-unresolved-reuse",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "false-unresolved-reuse",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "false-dynamic-matrix",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "false-dynamic-matrix",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "false-dynamic-matrix",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "false-dynamic-matrix",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "incomplete-empty-capture",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "incomplete-empty-capture",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "incomplete-empty-capture",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "incomplete-empty-capture",
+    "attack": "forge-name",
+    "rejected": true
+  },
+  {
+    "id": "generated-needs-output",
+    "attack": "drop-instance",
+    "rejected": true
+  },
+  {
+    "id": "generated-needs-output",
+    "attack": "drop-group",
+    "rejected": true
+  },
+  {
+    "id": "generated-needs-output",
+    "attack": "forge-source-hash",
+    "rejected": true
+  },
+  {
+    "id": "generated-needs-output",
+    "attack": "forge-name",
+    "rejected": true
+  }
+]

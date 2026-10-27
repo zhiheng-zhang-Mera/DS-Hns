@@ -1,0 +1,570 @@
+{
+  "scope": "80 frozen DEVELOPMENT inputs only; no held-out access",
+  "checkerFailures": 0,
+  "fieldCounts": {
+    "jobGroups": 10,
+    "unresolvedFeatures": 20
+  },
+  "cases": [
+    {
+      "id": "pytest-dev/pytest:test.yml:40423131207",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:40409602734",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:40406478863",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:40300826927",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:40296682128",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:39910759306",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:39602764127",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:39518790015",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:39518385541",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pytest-dev/pytest:test.yml:39518344631",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:40114083173",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:40114080730",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:40112256648",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:40111757647",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:40111688782",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:39314212561",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:39312861228",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:39309568952",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:39249867214",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:ci.yml:39220969235",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:40111757516",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:40111688605",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:40111202635",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:40111187283",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:40109985644",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:39312860719",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:39309568115",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:39220968759",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:39185325785",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "fastify/fastify:integration.yml:38625609782",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:33237248557",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:33236247619",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:33184128478",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:32731289211",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:32215945590",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:37631414474",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:34727211010",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:34561453561",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:34252544596",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "pallets/flask:tests.yaml:34251262977",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:40348371060",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:40130089077",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:40073247055",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:40062798504",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:40059449811",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:39633681905",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:39267949389",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:39245025855",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:39236418694",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:ci.yml:39104182539",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38728543476",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38685945350",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38535445521",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38531625106",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38369296337",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38718283682",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38716678374",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38382365081",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:38053602967",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "nodejs/undici:nodejs.yml:36106282985",
+      "checkerValid": true,
+      "diffs": [
+        {
+          "path": "/jobGroups/2/unsupported/0",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        },
+        {
+          "path": "/unresolvedFeatures/length",
+          "reference": 12,
+          "native": 1
+        },
+        {
+          "path": "/unresolvedFeatures/0/reason",
+          "reference": "unresolved reusable input",
+          "native": "unknown or ill-typed reusable input node-version"
+        }
+      ]
+    },
+    {
+      "id": "psf/requests:run-tests.yml:36454554968",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:36454548111",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:35650667084",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:35628779678",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:35628772960",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:29765540818",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:25747498310",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:25686655353",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:25686595644",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "psf/requests:run-tests.yml:25236506476",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:25069404834",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:25006178058",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:24008751195",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:23697541476",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:23399243491",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:35071320524",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:26175769958",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:22547825202",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:22379030162",
+      "checkerValid": true,
+      "diffs": []
+    },
+    {
+      "id": "encode/httpx:test-suite.yml:22368072496",
+      "checkerValid": true,
+      "diffs": []
+    }
+  ]
+}
