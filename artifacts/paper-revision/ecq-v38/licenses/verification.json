@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "errors": [],
+  "snapshots": 32,
+  "primaryHeadSnapshots": 23,
+  "additionalSnapshots": 9,
+  "apiCalls": 40,
+  "found": 32,
+  "unknown": 0,
+  "noticeStatusCounts": {
+    "FOUND": 8
+  },
+  "sourceCollectionManifestSha256": "d1b559ee9612dfaa396a250547c4012e1286b4ad9d0c57d6b2439e342f2913b7"
+}

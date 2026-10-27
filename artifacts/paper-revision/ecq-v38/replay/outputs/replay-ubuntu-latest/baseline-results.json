@@ -1,0 +1,818 @@
+{
+  "static-all-required": [
+    {
+      "id": "active-success",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "active-failure",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-cancelled",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-skipped",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-empty",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-skipped",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-contradiction",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-nonvacuous",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unknown-guard",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "short-circuit-false",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "tolerated-failure",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "needs-success",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "needs-skipped",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "tolerated-needs",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-all",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "matrix-false-placeholder",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "matrix-include-metadata",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-exclude",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-name-fallback",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "duplicate-binding",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unmatched-capture",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unverified-source",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-runId",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-runAttempt",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-headSha",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-name",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-status",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-type",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-constructor",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-toString",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-hasOwnProperty",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-__proto__",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-context",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "inactive-name-collision",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-unresolved",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-root-unknown",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-unresolved-reuse",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-dynamic-matrix",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "incomplete-empty-capture",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "generated-needs-output",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    }
+  ],
+  "survivor-derived": [
+    {
+      "id": "active-success",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "active-failure",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-cancelled",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-skipped",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-missing",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-empty",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-skipped",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-contradiction",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-nonvacuous",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unknown-guard",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "short-circuit-false",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-failure",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-missing",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "needs-success",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "needs-skipped",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-needs",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-all",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "matrix-false-placeholder",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "matrix-include-metadata",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-exclude",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-name-fallback",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "duplicate-binding",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unmatched-capture",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unverified-source",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-runId",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-runAttempt",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-headSha",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-name",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-status",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-type",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-constructor",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "prototype-job-toString",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "prototype-job-hasOwnProperty",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "prototype-job-__proto__",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "prototype-context",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "inactive-name-collision",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse",
+      "expectedAuthorized": true,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-missing",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-unresolved",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-root-unknown",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-unresolved-reuse",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-dynamic-matrix",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "incomplete-empty-capture",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "generated-needs-output",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    }
+  ],
+  "unknown-as-inactive": [
+    {
+      "id": "active-success",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "active-failure",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-cancelled",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-skipped",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "active-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-empty",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-skipped",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "false-contradiction",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-nonvacuous",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unknown-guard",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "short-circuit-false",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-failure",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "needs-success",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "needs-skipped",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "tolerated-needs",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-all",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "matrix-false-placeholder",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-include-metadata",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-exclude",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "matrix-name-fallback",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "duplicate-binding",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unmatched-capture",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "unverified-source",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-runId",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-runAttempt",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-headSha",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-name",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-status",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "wrong-type",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-constructor",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-toString",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-hasOwnProperty",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-job-__proto__",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "prototype-context",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "inactive-name-collision",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse",
+      "expectedAuthorized": true,
+      "authorized": true,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-missing",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-unresolved",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "pinned-reuse-root-unknown",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-unresolved-reuse",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "false-dynamic-matrix",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "incomplete-empty-capture",
+      "expectedAuthorized": false,
+      "authorized": false,
+      "error": null
+    },
+    {
+      "id": "generated-needs-output",
+      "expectedAuthorized": false,
+      "authorized": true,
+      "error": null
+    }
+  ]
+}

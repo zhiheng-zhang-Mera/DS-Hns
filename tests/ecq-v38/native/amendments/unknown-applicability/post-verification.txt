@@ -1,0 +1,45 @@
+✔ basic closure and immutable inventory erasure (22.966ms)
+✔ operand semantics, coercion, unknown (2.0453ms)
+✔ matrix include merges against original cells and exclusions (1.296ms)
+✔ ambiguous names cannot disappear with facts (2.8601ms)
+✔ DAG cycle rejected and unsupported reuse stays obligation (3.3337ms)
+✔ false group requires no matrix leaves; unknown blocks (5.1345ms)
+✔ failure retained and tolerance separated (1.341ms)
+✔ YAML 1.2 on key and booleans preserved (0.6854ms)
+✔ fixed capture metadata blocks contradictions and erasure (6.185ms)
+✔ false group rejects contradictory success and permits skipped placeholder (5.1734ms)
+✔ modified producer universe rejected against source (1.2093ms)
+✔ exhaustive scalar fact erasure never creates authorization (140.2231ms)
+✔ zero expanded leaves cannot establish test execution (1.1261ms)
+✔ owned platform conformance probes: operand and numeric coercion (0.5439ms)
+✔ quoted status function names do not suppress implicit success guard (2.3781ms)
+✔ prototype-named jobs retain mandatory obligations (2.6476ms)
+✔ context lookup never reads inherited properties (1.1064ms)
+✔ matrix expansion rejects oversized Cartesian product before allocation (0.7088ms)
+✔ inactive alias collision cannot reuse one skipped placeholder twice (2.008ms)
+✔ explicit incomplete capture blocks even zero active jobs (1.5718ms)
+✔ inactive groups cannot discharge unresolved source closure (1.2457ms)
+✔ complete immutable event context cannot complete uncaptured needs outputs (2.705ms)
+✔ gate uses strong-Kleene outcomes independently of closure metadata (1.5345ms)
+✔ execution nonvacuity is a gate predicate with unknown applicability preserved (1.606ms)
+✔ unknown tolerated-failure policy leaves needs result unknown (1.3474ms)
+✔ unsupported dynamic matrix retains an unknown-name synthetic slot (1.1876ms)
+✔ observed success under unknown applicability cannot establish needs result (1.731ms)
+✔ observed failure under unknown guard contributes only unknown gate (0.9679ms)
+✔ known independent active failure dominates unknown-applicability gate (1.5111ms)
+✔ pinned local reuse independently enumerates child obligations (35.291ms)
+✔ unpinned remote and mismatched local identity remain unsupported (2.5205ms)
+✔ typed inputs reject string boolean rather than silently truthy (4.5012ms)
+✔ pinned remote matrix caller and callee names evaluated separately (14.9897ms)
+✔ false reusable caller permits one caller placeholder and disables children (8.2064ms)
+✔ callee needs aliases retain local names and downstream guard aggregates (7.4542ms)
+✔ root execution identity unknown preserves source-enumerated reusable leaves (4.1917ms)
+✔ ill-typed archived input preserves known callee universe as UNKNOWN (7.0268ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 37
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 498.2243

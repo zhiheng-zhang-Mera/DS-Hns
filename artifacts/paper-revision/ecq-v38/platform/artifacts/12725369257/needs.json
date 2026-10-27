@@ -1,0 +1,26 @@
+{
+  "expressions": {
+    "result": "success",
+    "outputs": {}
+  },
+  "tolerated": {
+    "result": "success",
+    "outputs": {}
+  },
+  "matrix": {
+    "result": "success",
+    "outputs": {}
+  },
+  "before-matrix": {
+    "result": "skipped",
+    "outputs": {}
+  },
+  "skipped": {
+    "result": "skipped",
+    "outputs": {}
+  },
+  "implicit-after-skipped": {
+    "result": "skipped",
+    "outputs": {}
+  }
+}

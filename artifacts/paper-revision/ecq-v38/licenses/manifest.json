@@ -1,0 +1,322 @@
+[
+  {
+    "endpoint": "repos/pytest-dev/pytest/license?ref=8409c48a1c7fd33e77bc91134acef99fe56460a4",
+    "file": "raw/001-a7de59995bf11f83.json",
+    "sha256": "e92ac7c535805ab03624c2b9c703c6ab997d3543b7c41f8a832f3c804e20e7b7",
+    "bytes": 2567,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:04.037583+00:00"
+  },
+  {
+    "endpoint": "repos/pytest-dev/pytest/license?ref=6cf296b3854bc0a8adef60b1d62d98e560d3ee5c",
+    "file": "raw/002-6910d422888bf862.json",
+    "sha256": "25af77feb06ee4edb7680b728dedeb0cb0ccc39a77888007b74346543844fea3",
+    "bytes": 2567,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:03.692112+00:00"
+  },
+  {
+    "endpoint": "repos/pytest-dev/pytest/license?ref=21a6d405798d06a4212246dd1249cd338c647a1c",
+    "file": "raw/003-03526802edfef0be.json",
+    "sha256": "d203ccf6224cab5b22bac6647d0252a8800b50dafffaa33fe6e76da2c16e9a09",
+    "bytes": 2567,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:03.644782+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/fastify/license?ref=03ad87287b84af85b7256247877aeb1045ce569e",
+    "file": "raw/004-685c810587e00b75.json",
+    "sha256": "890c1a65b755b02cfa3b74d18f379b83c1b0e795eb433597e04d4f756133a91d",
+    "bytes": 2597,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:03.654601+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/fastify/license?ref=2a64ae1627d78fe1f22fb021a7e5763581384473",
+    "file": "raw/005-385fe120c9ed06ea.json",
+    "sha256": "8d4201635fa9b774b48b168f07d8a28aa87cba0fa438b49508da6feeae463794",
+    "bytes": 2597,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:03.874641+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/fastify/license?ref=4962daa922a9d46131e0ff65282cbcda3449527c",
+    "file": "raw/006-78c321ab96d5f656.json",
+    "sha256": "f521fa0ac4b800d86653c4442cfe535a48523d97f666b50b074189161bcfc618",
+    "bytes": 2597,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:03.983355+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/fastify/license?ref=2a64ae1627d78fe1f22fb021a7e5763581384473",
+    "file": "raw/007-385fe120c9ed06ea.json",
+    "sha256": "8d4201635fa9b774b48b168f07d8a28aa87cba0fa438b49508da6feeae463794",
+    "bytes": 2597,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:04.678648+00:00"
+  },
+  {
+    "endpoint": "repos/pallets/flask/license?ref=80d2383dfc43ece6ec9e460b63dc7f2f997d3732",
+    "file": "raw/008-69fd884563d319b5.json",
+    "sha256": "8b46e135a0e634aab2c202ba1018f754eec6d85c94168d1f7703ddcd829b4ecc",
+    "bytes": 3154,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:04.459091+00:00"
+  },
+  {
+    "endpoint": "repos/pallets/flask/license?ref=7689f98403e2c0b0bc8d1031e60f8cff2620e86a",
+    "file": "raw/009-e9ce865234116157.json",
+    "sha256": "04d46ff63167fc687f3dcbfb923920ea7497c79fc358bb82f9cb0ab96225ec86",
+    "bytes": 3154,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:04.544269+00:00"
+  },
+  {
+    "endpoint": "repos/pallets/flask/license?ref=81798b406f97ffe4795d2c9fc18db7db744a96dc",
+    "file": "raw/010-d7d696142b85c088.json",
+    "sha256": "a6b1defeb0dc1f22a97a6e16a64857c49f1afdd6118405531e7e8977e8d301a1",
+    "bytes": 3154,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:04.554034+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=617b2dc3d5c3c29418ebb2aba019236a2d97e83e",
+    "file": "raw/011-c743393c59efb9cc.json",
+    "sha256": "54999150a04071c3e2ed51337b2d84355e7edc4f263b63c03f9a0c661a865dde",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.046150+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=47520d658a4f6a205930b3dd125b5b627cd97ee2",
+    "file": "raw/012-780c0dbb99ab155e.json",
+    "sha256": "af477d92f12e3756d1373028c934a1846c6bc33f20e6dc722c3f2fcdcc01db0a",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.124534+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=d18001034ab0e0dd537a221992fbb69885e8239b",
+    "file": "raw/013-4a54f9909310f017.json",
+    "sha256": "a255d6ed6432d421ccb1710c8d4e00707d5a658710659a11a90a263b97738138",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.512159+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=5e1b25e51a934adc418e51eb9853a3ca71ecb15b",
+    "file": "raw/014-0ebcbb9507e53685.json",
+    "sha256": "75c328182b15832c6108069d5e710ae834ebb85f001d7af8bc1aa797e8a07a2b",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.512568+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=56b943471a2df56657b0a7cce6245c009c256c81",
+    "file": "raw/015-46e1f43d07556166.json",
+    "sha256": "1f1e3a45ad99a3a79a372b73d5bc4d96df3dfbe70f8cba6891585b43fced2f79",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.447220+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=b17c61b618b1824f1f5d9edcacaf16801343a295",
+    "file": "raw/016-f183592156afa783.json",
+    "sha256": "4daf2cea8b8116286451565e67b3d5d5d2e98e1853058e0a426babe04e9f4d3b",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.499438+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=09cb24de8246178f5195efb9ab89b1ae5cd1264a",
+    "file": "raw/017-71d5e60287a11f1c.json",
+    "sha256": "d9b933367b50d4cd7c5d7ee3d65bd53db7598b544387be793dc89b6a795c2244",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.864774+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=c640e6d7f6fc034389da0df1a72897d969adaacd",
+    "file": "raw/018-37443f821ecdc785.json",
+    "sha256": "a9e740fe1282c030c03f4abe39ea0462710cfc4ed65da3148b18c95387b8a53d",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:05.934295+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=5bae75923893e3e80c1af77824435d243e08f053",
+    "file": "raw/019-e9ba471464cf979e.json",
+    "sha256": "2f7abf99e779f1f041843afec06062c6a6fd9840498434a951da3138f4b6b660",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:06.267941+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=968863678bc09c0205fc916138c1a74e11f46e5b",
+    "file": "raw/020-b4101fa20079d822.json",
+    "sha256": "f96a280eeb113244938acaddd494d5e11b1dd1b6d6ad87f39a9d935b17fe0923",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:06.370184+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=4fe61631b36245e2bdf324f8f9577b26949446ce",
+    "file": "raw/021-058757e87f907e78.json",
+    "sha256": "c5ea23edc8ea944295656295ccd8e2e6372ffffccc45cce9c543fbf885e516e6",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:06.370928+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/license?ref=eebd08e2add76010ebe5e573da88e3ff5a23e74a",
+    "file": "raw/022-bebd349e21265785.json",
+    "sha256": "551bd0dbcc7a21d459e68e8014a8acdea45bf22efbec5b0d79941ecab0344ba9",
+    "bytes": 15031,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:06.314760+00:00"
+  },
+  {
+    "endpoint": "repos/encode/httpx/license?ref=83d203a86d955b7695613df6378b56f9003112ce",
+    "file": "raw/023-4e06a89ac161d5e0.json",
+    "sha256": "1dc040e87ef2db35d912253f3112f3c9641f65fbf53bef572657b82d1cf528d3",
+    "bytes": 3186,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:06.679087+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/workflows/license?ref=ef591e2186785d5ab36b9fe6a79c7ce2f1d94e57",
+    "file": "raw/024-df21728edfdb6c2b.json",
+    "sha256": "d4d21402dd8051d93b65ce094e7e45fd75a063eea916e179dd98e8f17a89e9b4",
+    "bytes": 2611,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:06.620189+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/fastify/license?ref=03ad87287b84af85b7256247877aeb1045ce569e",
+    "file": "raw/025-685c810587e00b75.json",
+    "sha256": "890c1a65b755b02cfa3b74d18f379b83c1b0e795eb433597e04d4f756133a91d",
+    "bytes": 2597,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.004097+00:00"
+  },
+  {
+    "endpoint": "repos/fastify/fastify/license?ref=03ad87287b84af85b7256247877aeb1045ce569e",
+    "file": "raw/026-685c810587e00b75.json",
+    "sha256": "890c1a65b755b02cfa3b74d18f379b83c1b0e795eb433597e04d4f756133a91d",
+    "bytes": 2597,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.265083+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=617b2dc3d5c3c29418ebb2aba019236a2d97e83e",
+    "file": "raw/027-c743393c59efb9cc.json",
+    "sha256": "54999150a04071c3e2ed51337b2d84355e7edc4f263b63c03f9a0c661a865dde",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.099363+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=617b2dc3d5c3c29418ebb2aba019236a2d97e83e",
+    "file": "raw/028-c743393c59efb9cc.json",
+    "sha256": "54999150a04071c3e2ed51337b2d84355e7edc4f263b63c03f9a0c661a865dde",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.340741+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=47520d658a4f6a205930b3dd125b5b627cd97ee2",
+    "file": "raw/029-780c0dbb99ab155e.json",
+    "sha256": "af477d92f12e3756d1373028c934a1846c6bc33f20e6dc722c3f2fcdcc01db0a",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.488057+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=c687fe8b37569c93cc1639cea89009541508b58a",
+    "file": "raw/030-9a17b52f198cb87d.json",
+    "sha256": "d9a3dfd310eeeccdb85e9db4f334624f1919756bfa92f7f123af00e902e49740",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.757602+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=908b35ba876785e4ba3f180e41b8314ba2dc5641",
+    "file": "raw/031-e279e1791ce31063.json",
+    "sha256": "9c56399affc1738d3cc4f1812be383bb09a83a048ca313a86379584e89974460",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:08.094540+00:00"
+  },
+  {
+    "endpoint": "repos/nodejs/undici/license?ref=5e1b25e51a934adc418e51eb9853a3ca71ecb15b",
+    "file": "raw/032-0ebcbb9507e53685.json",
+    "sha256": "75c328182b15832c6108069d5e710ae834ebb85f001d7af8bc1aa797e8a07a2b",
+    "bytes": 2539,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:49:07.794162+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=56b943471a2df56657b0a7cce6245c009c256c81",
+    "file": "raw/033-8198b05420ad6ff6.json",
+    "sha256": "eff1148be9ea6accc54bc7113014673fa00a0ad64e24c878a24d17c956569edc",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:27.961940+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=b17c61b618b1824f1f5d9edcacaf16801343a295",
+    "file": "raw/034-741453cf29b3e06d.json",
+    "sha256": "e79986615e4f5824a0efe9d868a33ba334a681f1ada2786ef878a2591f5030b1",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:27.956728+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=09cb24de8246178f5195efb9ab89b1ae5cd1264a",
+    "file": "raw/035-eb61ba8381c8facb.json",
+    "sha256": "3eefa7a4b4eadbf58670fbe364d1859287a0a68e603b404c0bda188523c66b25",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:27.938251+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=c640e6d7f6fc034389da0df1a72897d969adaacd",
+    "file": "raw/036-4933f19a75baf1b7.json",
+    "sha256": "fc936ef7ce68323fdf1286f2e1d69a56c0949aae4e85050f401c4934f1ed4e2c",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:27.986676+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=5bae75923893e3e80c1af77824435d243e08f053",
+    "file": "raw/037-8aef96a1c399e39f.json",
+    "sha256": "a6f8228ef885b37709ce47a261d671dea763458a51c2325452b2845978cdd576",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:27.954773+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=968863678bc09c0205fc916138c1a74e11f46e5b",
+    "file": "raw/038-5962b3c6724628e9.json",
+    "sha256": "b3b913b004e08c724c5f45a3c3a6a1cb87a3f6900e642f61bdfa3beebe8d7b3e",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:27.957189+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=4fe61631b36245e2bdf324f8f9577b26949446ce",
+    "file": "raw/039-8eb21b0066c83661.json",
+    "sha256": "a70b70db6ce93a1cdbf1ccba036b724d1ae015a6170fc466f5bf7900a4e62fde",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:28.550555+00:00"
+  },
+  {
+    "endpoint": "repos/psf/requests/contents/NOTICE?ref=eebd08e2add76010ebe5e573da88e3ff5a23e74a",
+    "file": "raw/040-11ff2c0f88847c41.json",
+    "sha256": "d37f99ec049ef3abb7b4df982e8ff2862296cfc989f0204dc75c059ecedf22c4",
+    "bytes": 937,
+    "exitCode": 0,
+    "retrievedAt": "2026-10-27T10:50:28.539488+00:00"
+  }
+]

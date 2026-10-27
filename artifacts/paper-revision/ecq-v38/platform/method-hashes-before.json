@@ -1,0 +1,7 @@
+{
+  "scripts/ecq-v38/native/cli.mjs": "55026ada4aacfde251ff39f5de38c8ca9eae5b2a5b4f669fdad6c296fea094e7",
+  "scripts/ecq-v38/native/expressions.mjs": "cbd6e06ab66fe3890b29fb92c57ffd656ceb0af383ad6ad0143b6f60f7b9ecc5",
+  "scripts/ecq-v38/native/index.mjs": "7eea348bd0310ca91881848770594c8135398ae39803c12e23fd461477c07388",
+  "scripts/ecq-v38/reference/development_diffs.py": "268e5659f26162e0724503b583b9806d2c8da06d6429d5ffc505a5404363709c",
+  "scripts/ecq-v38/reference/reference.py": "5db46a672ec852d9e190e858217c9ede3a11fcc20c86d48f02c0dddc0e396fff"
+}

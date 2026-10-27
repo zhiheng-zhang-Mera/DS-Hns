@@ -1,0 +1,9 @@
+{
+  "phase": "POST_EVALUATION_RETROSPECTIVE",
+  "rows": 4096,
+  "originalAuthorized": true,
+  "changedRowsFromFirst": 0,
+  "referenceDisagreements": 0,
+  "nativeSourceSha256": "9b04dfc5c26e0a5c8c5429cc9580decdf4fcfbfa5499af9c64b271d0e7269aeb",
+  "referenceUnchangedSha256": "5db46a672ec852d9e190e858217c9ede3a11fcc20c86d48f02c0dddc0e396fff"
+}

@@ -1,0 +1,16 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.14.3",
+  "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+  "cpu": {
+    "Name": "Intel(R) Core(TM) i7-14650HX",
+    "NumberOfCores": 16,
+    "NumberOfLogicalProcessors": 24
+  },
+  "loadProtocol": "No concurrent archive or exhaustive-erasure loops; lightweight document authoring only",
+  "methodPhase": "post-evaluation UNKNOWN propagation amendment",
+  "benchmarkIsRuntimeDescriptive": true,
+  "nativeSourceSha256": "9b04dfc5c26e0a5c8c5429cc9580decdf4fcfbfa5499af9c64b271d0e7269aeb",
+  "referenceSourceSha256": "5db46a672ec852d9e190e858217c9ede3a11fcc20c86d48f02c0dddc0e396fff",
+  "node": "v24.14.0"
+}

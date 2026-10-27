@@ -1,0 +1,970 @@
+{
+  "scope": "owned controlled conformance workflow; not independent external workflow cases",
+  "runId": 40488340238,
+  "workflowSha": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+  "jobs": 12,
+  "sourceCheck": {
+    "valid": true,
+    "checkedFields": [
+      "workflowIdentity",
+      "sourceSha256",
+      "sourceIdentities",
+      "dependencies",
+      "jobGroups",
+      "instances",
+      "sourceWitnesses",
+      "unsupportedGroups"
+    ]
+  },
+  "originalNative": {
+    "closure": "CLOSED",
+    "gate": "SAT",
+    "satisfied": true,
+    "authorized": true,
+    "nonVacuity": true,
+    "applicability": {
+      "typed-reuse": "TRUE",
+      "typed-reuse[0]/observe": "TRUE",
+      "typed-reuse[1]/observe": "TRUE",
+      "expressions": "TRUE",
+      "tolerated": "TRUE",
+      "failure-after-tolerated": "FALSE",
+      "success-after-tolerated": "TRUE",
+      "matrix": "TRUE",
+      "before-matrix": "FALSE",
+      "skipped": "FALSE",
+      "implicit-after-skipped": "FALSE",
+      "inspector": "TRUE"
+    },
+    "results": {
+      "typed-reuse[0]/observe": "success",
+      "typed-reuse[1]/observe": "success",
+      "typed-reuse": "success",
+      "expressions": "success",
+      "tolerated": "success",
+      "failure-after-tolerated": "skipped",
+      "success-after-tolerated": "success",
+      "matrix": "success",
+      "before-matrix": "skipped",
+      "skipped": "skipped",
+      "implicit-after-skipped": "skipped",
+      "inspector": "success"
+    },
+    "obligations": [
+      {
+        "slot": "$workflow",
+        "kind": "contractSourceReconstruction",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "sourceClosure",
+        "value": "TRUE",
+        "unresolvedFeatures": []
+      },
+      {
+        "slot": "$workflow",
+        "kind": "sourceIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "fixedInventory",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "captureComplete",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "inventoryUnique",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "factIdsUnique",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "factsWithinInventory",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$workflow",
+        "kind": "runIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "recordCoverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "inventoryIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "recordIdentity",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "recordName",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "recordType",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "recordStatus",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "recordState",
+        "value": "TRUE"
+      },
+      {
+        "slot": "typed-reuse",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[0]/observe",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[0]/observe[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135665764
+        ],
+        "expectedNames": [
+          "typed-reuse (18) / Typed 18"
+        ]
+      },
+      {
+        "slot": "typed-reuse[0]/observe[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[0]/observe[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[0]/observe[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "typed-reuse[0]/observe[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "typed-reuse[1]/observe",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[1]/observe[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135665534
+        ],
+        "expectedNames": [
+          "typed-reuse (20) / Typed 20"
+        ]
+      },
+      {
+        "slot": "typed-reuse[1]/observe[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[1]/observe[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "typed-reuse[1]/observe[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "typed-reuse[1]/observe[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "expressions",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "expressions[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135665112
+        ],
+        "expectedNames": [
+          "expressions"
+        ]
+      },
+      {
+        "slot": "expressions[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "expressions[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "expressions[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "expressions[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "tolerated",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "tolerated[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135665348
+        ],
+        "expectedNames": [
+          "tolerated"
+        ]
+      },
+      {
+        "slot": "tolerated[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "tolerated[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "tolerated[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "failure"
+      },
+      {
+        "slot": "tolerated[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "failure",
+        "tolerated": true
+      },
+      {
+        "slot": "failure-after-tolerated",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "FALSE"
+      },
+      {
+        "slot": "failure-after-tolerated",
+        "kind": "inactivePlaceholder",
+        "value": "TRUE"
+      },
+      {
+        "slot": "success-after-tolerated",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "success-after-tolerated[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135703627
+        ],
+        "expectedNames": [
+          "success-after-tolerated"
+        ]
+      },
+      {
+        "slot": "success-after-tolerated[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "success-after-tolerated[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "success-after-tolerated[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "success-after-tolerated[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "matrix",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "matrix[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135665243
+        ],
+        "expectedNames": [
+          "Matrix control (a)"
+        ]
+      },
+      {
+        "slot": "matrix[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "matrix[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "matrix[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "matrix[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "matrix[1]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135665806
+        ],
+        "expectedNames": [
+          "Matrix control (b)"
+        ]
+      },
+      {
+        "slot": "matrix[1]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "matrix[1]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "matrix[1]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "matrix[1]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "before-matrix",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "FALSE"
+      },
+      {
+        "slot": "before-matrix",
+        "kind": "inactivePlaceholder",
+        "value": "TRUE"
+      },
+      {
+        "slot": "skipped",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "FALSE"
+      },
+      {
+        "slot": "skipped",
+        "kind": "inactivePlaceholder",
+        "value": "TRUE"
+      },
+      {
+        "slot": "implicit-after-skipped",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "FALSE"
+      },
+      {
+        "slot": "implicit-after-skipped",
+        "kind": "inactivePlaceholder",
+        "value": "TRUE"
+      },
+      {
+        "slot": "inspector",
+        "kind": "applicabilityResolved",
+        "value": "TRUE",
+        "applicability": "TRUE"
+      },
+      {
+        "slot": "inspector[0]",
+        "kind": "binding",
+        "value": "TRUE",
+        "candidateIds": [
+          122135724198
+        ],
+        "expectedNames": [
+          "inspector"
+        ]
+      },
+      {
+        "slot": "inspector[0]",
+        "kind": "coverage",
+        "value": "TRUE"
+      },
+      {
+        "slot": "inspector[0]",
+        "kind": "runBinding",
+        "value": "TRUE"
+      },
+      {
+        "slot": "inspector[0]",
+        "kind": "state",
+        "value": "TRUE",
+        "originalConclusion": "success"
+      },
+      {
+        "slot": "inspector[0]",
+        "kind": "outcome",
+        "value": "TRUE",
+        "originalConclusion": "success",
+        "tolerated": false
+      },
+      {
+        "slot": "capture:122135665112",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665243",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665348",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665534",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665764",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135665806",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667095",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667419",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135667446",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135703627",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135706970",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "capture:122135724198",
+        "kind": "sourceAttribution",
+        "value": "TRUE"
+      },
+      {
+        "slot": "$claim",
+        "kind": "outcome",
+        "value": "TRUE",
+        "predicate": "nonVacuity"
+      }
+    ]
+  },
+  "originalReference": {
+    "closure": "CLOSED",
+    "gate": "SAT",
+    "satisfied": true,
+    "authorized": true,
+    "activeInstances": 8,
+    "obligations": [],
+    "diagnostics": []
+  },
+  "subsets": 4096,
+  "originalIncluded": true,
+  "nativeAuthorizedSubsets": 1,
+  "referenceAuthorizedSubsets": 1,
+  "nativeGain": 0,
+  "referenceGain": 0,
+  "disagreements": 0,
+  "methodHashesUnchanged": false,
+  "rawApiResponses": 27
+}

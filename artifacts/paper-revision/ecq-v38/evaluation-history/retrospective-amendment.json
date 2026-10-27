@@ -1,0 +1,22 @@
+{
+  "phase": "POST_EVALUATION_RETROSPECTIVE",
+  "firstMethodCommit": "724d23032568ef3ba33b338ca7433560471de8bb",
+  "firstGateAgreement": 155,
+  "runs": 160,
+  "finalGateAgreement": 160,
+  "finalAuthorized": 0,
+  "changedGateIds": [
+    "fastify/fastify:ci.yml:39024140666",
+    "fastify/fastify:ci.yml:38452351698",
+    "fastify/fastify:ci.yml:38381224306",
+    "fastify/fastify:ci.yml:38370241698",
+    "fastify/fastify:ci.yml:38363441899"
+  ],
+  "nativeSourceSha256": "9b04dfc5c26e0a5c8c5429cc9580decdf4fcfbfa5499af9c64b271d0e7269aeb",
+  "referenceSourceSha256": "5db46a672ec852d9e190e858217c9ede3a11fcc20c86d48f02c0dddc0e396fff",
+  "changes": [
+    "One line native result propagation preserves UNKNOWN applicability",
+    "Archive runner --out writes replay outputs separately; scientific extraction unchanged"
+  ],
+  "firstResultsPreserved": true
+}

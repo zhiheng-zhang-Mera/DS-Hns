@@ -1,0 +1,12 @@
+[
+  {
+    "Algorithm": "SHA256",
+    "Hash": "7EEA348BD0310CA91881848770594C8135398AE39803C12E23FD461477C07388",
+    "Path": "D:\\temp\\DS-Hns-experiments-20261026\\scripts\\ecq-v38\\native\\index.mjs"
+  },
+  {
+    "Algorithm": "SHA256",
+    "Hash": "CBD6E06AB66FE3890B29FB92C57FFD656CEB0AF383AD6AD0143B6F60F7B9ECC5",
+    "Path": "D:\\temp\\DS-Hns-experiments-20261026\\scripts\\ecq-v38\\native\\expressions.mjs"
+  }
+]

@@ -1,0 +1,44 @@
+{
+  "identity": {
+    "workflowSha": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+    "workflowRef": "zhiheng-zhang-Mera/DS-Hns/.github/workflows/ecq-v38-conformance.yml@refs/heads/codex/ecq-v38",
+    "sha": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+    "repository": "zhiheng-zhang-Mera/DS-Hns",
+    "runId": "40488340238",
+    "runAttempt": "1",
+    "eventName": "push"
+  },
+  "witness": {
+    "member": "identity.json",
+    "file": "artifacts/12727265005/identity.json",
+    "sha256": "871aef82e9a332af5b149187f858dc44cc6ea3a88ff93e11dab77d0768b5cd0a",
+    "bytes": 316
+  },
+  "checks": {
+    "repository": true,
+    "runId": true,
+    "runAttempt": true,
+    "headSha": true,
+    "eventName": true,
+    "workflowRef": true,
+    "workflowShaImmutable": true
+  },
+  "verified": true,
+  "sources": [
+    {
+      "repository": "zhiheng-zhang-Mera/DS-Hns",
+      "path": ".github/workflows/ecq-v38-conformance.yml",
+      "commit": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+      "file": "source/ecq-v38-conformance.yml",
+      "sha256": "a3886500cdb3e7f911cf9edffc848c40ac0857c6d10d19d09b2f0bb8a00b5319"
+    },
+    {
+      "repository": "zhiheng-zhang-Mera/DS-Hns",
+      "path": ".github/workflows/ecq-v38-probe-reusable.yml",
+      "commit": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+      "file": "source/ecq-v38-probe-reusable.yml",
+      "sha256": "ba084af8989e38cdc02b0a25081232e25d9c964d86dbe162469d8833f2472569"
+    }
+  ],
+  "limitation": "Owned artifact testimony and GitHub API provenance; no cryptographic producer authentication"
+}

@@ -1,0 +1,158 @@
+{
+  "apiCalls": 1093,
+  "incompleteJobs": [
+    39960286505
+  ],
+  "records": 240,
+  "rootIdentityUnknown": 240,
+  "strata": [
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "pytest-dev/pytest",
+      "selected": 15,
+      "workflow": "test.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "pytest-dev/pytest",
+      "selected": 15,
+      "workflow": "test.yml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "fastify/fastify",
+      "selected": 15,
+      "workflow": "ci.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "fastify/fastify",
+      "selected": 15,
+      "workflow": "ci.yml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "fastify/fastify",
+      "selected": 15,
+      "workflow": "integration.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "fastify/fastify",
+      "selected": 15,
+      "workflow": "integration.yml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "pallets/flask",
+      "selected": 15,
+      "workflow": "tests.yaml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "pallets/flask",
+      "selected": 15,
+      "workflow": "tests.yaml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "nodejs/undici",
+      "selected": 15,
+      "workflow": "ci.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "nodejs/undici",
+      "selected": 15,
+      "workflow": "ci.yml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "nodejs/undici",
+      "selected": 15,
+      "workflow": "nodejs.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "nodejs/undici",
+      "selected": 15,
+      "workflow": "nodejs.yml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "psf/requests",
+      "selected": 15,
+      "workflow": "run-tests.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "psf/requests",
+      "selected": 15,
+      "workflow": "run-tests.yml"
+    },
+    {
+      "conclusion": "success",
+      "deficit": 0,
+      "repository": "encode/httpx",
+      "selected": 15,
+      "workflow": "test-suite.yml"
+    },
+    {
+      "conclusion": "failure",
+      "deficit": 0,
+      "repository": "encode/httpx",
+      "selected": 15,
+      "workflow": "test-suite.yml"
+    }
+  ],
+  "zeroJobRuns": [
+    39518790015,
+    39518385541,
+    39518344631,
+    39233361661,
+    39232943050,
+    39232656470,
+    39232292305,
+    39231898827,
+    39231573219,
+    39148415515,
+    39314212561,
+    39312861228,
+    39309568952,
+    39220969235,
+    39185326029,
+    38625610662,
+    38591031014,
+    38442818195,
+    39312860719,
+    39309568115,
+    39220968759,
+    39185325785,
+    38625609782,
+    38591030739,
+    38442817357,
+    38062687949,
+    37832296461,
+    37522876139,
+    37414334300,
+    37292180055,
+    37199543951,
+    37186914866,
+    37051740149,
+    38814942177
+  ]
+}

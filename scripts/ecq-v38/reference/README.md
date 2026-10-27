@@ -72,7 +72,7 @@ convenience fields, deliberately excluded from certificate validity. Operational
 placeholder names, complete sourceWitnesses, source identities, deepest leaf
 identity and outer-to-inner callerChain are authoritative and checked.
 
-Sixteen test methods include 64 exhaustive fact erasure subsets, ambiguity and
+Seventeen test methods include 64 exhaustive fact erasure subsets, ambiguity and
 surplus-deletion counterexamples, missing predecessor/tolerance, YAML 1.2 matrix
 enumeration, DAG cycles, unknown guards and zero-active scope, scalar controls
 corroborated by the owned Actions platform probe, and source certificate attacks

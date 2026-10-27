@@ -1,0 +1,1 @@
+{"caseInsensitive":true,"emptyZero":true,"boolZero":true,"missingNull":true,"missingFalse":true,"operandFallback":"fallback","operandAnd":"value","arrayTruthy":true,"hexString":true,"spaceZero":true}

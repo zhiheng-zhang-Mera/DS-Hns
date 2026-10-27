@@ -1,0 +1,13 @@
+{
+  "methodCommit": "724d23032568ef3ba33b338ca7433560471de8bb",
+  "evaluationRuns": 160,
+  "nativeReferenceAuthorizationDisagreements": 0,
+  "gateDisagreements": 5,
+  "bothAuthorized": 0,
+  "sourceCertificateFailures": 0,
+  "archives": {
+    "initial-evaluation.zip": "e5a497e36ac20b4e258822784f577ddc0f0595166d5de93b66bd96cace6823d1",
+    "method-724d230.zip": "2a87ae2bff8532e86c45c015e32501e1413582ec124edf3618be8909c25318c7"
+  },
+  "retrospectiveAmendment": "native UNKNOWN applicability now retains UNKNOWN generated needs result; source/reference/selection unchanged"
+}

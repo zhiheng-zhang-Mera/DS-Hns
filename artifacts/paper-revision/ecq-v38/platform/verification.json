@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "errors": [],
+  "rawResponses": 27,
+  "frozenMethodCommit": "724d230",
+  "frozenMethodMatches": {
+    "scripts/ecq-v38/native/cli.mjs": true,
+    "scripts/ecq-v38/native/expressions.mjs": true,
+    "scripts/ecq-v38/native/index.mjs": true,
+    "scripts/ecq-v38/reference/development_diffs.py": true,
+    "scripts/ecq-v38/reference/reference.py": true
+  },
+  "checked": [
+    "raw digests",
+    "run and exact-attempt ordered jobs",
+    "artifact metadata/run identity",
+    "ZIP complete member bytes",
+    "explicit identity witness fields",
+    "pinned source bytes vs raw contents",
+    "frozen core Git bytes"
+  ]
+}

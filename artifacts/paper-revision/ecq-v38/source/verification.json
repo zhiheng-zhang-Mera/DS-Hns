@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "errors": [],
+  "records": 240,
+  "rawResponses": 1093,
+  "rawApiErrors": 1,
+  "splitCounts": {
+    "development": 80,
+    "evaluation": 160
+  },
+  "zeroJobs": 34,
+  "rootIdentityUnknown": 240,
+  "logicalRevisionCrossSplit": [
+    "fastify/fastify:8cef3ccdc38d017ab63f03b14183904d8d89fae6",
+    "fastify/fastify:05869c5cca5964776fdb61230ac60c5fa297f593",
+    "fastify/fastify:c9eda55453a93dc8f27c72a52f39e1f8ac60add3",
+    "fastify/fastify:66fb099880cb11edffd1bc19e7dd1e6d7029053c",
+    "fastify/fastify:9d0760c97a83895b16eb839dff9364fe4c978527",
+    "psf/requests:c640e6d7f6fc034389da0df1a72897d969adaacd"
+  ],
+  "verificationSchemaVersion": 2,
+  "rawDerivedBindingChecks": [
+    "selected-run-list-whole-values",
+    "record-selection-whole-values",
+    "run-detail-whole-values",
+    "exact-attempt-job-pages-whole-values-and-order",
+    "pagination-total-completeness-error-stop",
+    "decoded-yaml-base64-content-byte-equality",
+    "source-repository-path-ref-binding"
+  ]
+}

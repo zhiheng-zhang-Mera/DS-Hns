@@ -1,0 +1,35 @@
+{
+  "controls": 45,
+  "nativeGoldErrors": 0,
+  "referenceGoldErrors": 0,
+  "authorizationDisagreements": 0,
+  "sourceCheckFailures": 0,
+  "certificateAttacks": 180,
+  "certificateAcceptedAttacks": 0,
+  "erasureVariants": 794,
+  "nativeAuthorizationGains": 0,
+  "referenceAuthorizationGains": 0,
+  "erasureDisagreements": 0,
+  "baselines": {
+    "static-all-required": {
+      "falseAuthorization": 1,
+      "falseBlocking": 5,
+      "errors": 0
+    },
+    "survivor-derived": {
+      "falseAuthorization": 12,
+      "falseBlocking": 2,
+      "errors": 0
+    },
+    "unknown-as-inactive": {
+      "falseAuthorization": 3,
+      "falseBlocking": 0,
+      "errors": 0
+    }
+  },
+  "closureDisagreements": 0,
+  "gateDisagreements": 0,
+  "axisGoldCases": 11,
+  "nativeAxisGoldErrors": 0,
+  "referenceAxisGoldErrors": 0
+}

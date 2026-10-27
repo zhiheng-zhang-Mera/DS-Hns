@@ -29,7 +29,9 @@ def envelope(record):
     if hashlib.sha256((SOURCE/source['file']).read_bytes()).hexdigest()!=source['sha256']:raise ValueError('source hash mismatch')
     return dict(workflow=text,workflowIdentity=dict(repository=record['repository'],path=source['path'],commit=source['sha'],verified=False),eventContext=context,eventContextComplete=False,captureComplete=record['jobsPaginationComplete'],runIdentity=dict(runId=runid,runAttempt=attempt,headSha=head),captureInventory=[{k:j[k] for k in ('id','name','runId','runAttempt','headSha')} for j in jobs],sourceJobs=jobs,reusableDefinitions=definitions)
 
-def run(split):
+def run(split,out=None):
+    global OUT
+    if out is not None:OUT=Path(out).resolve()
     OUT.mkdir(parents=True,exist_ok=True); records=[r for r in json.loads((SOURCE/'records.json').read_text(encoding='utf-8')) if r['split']==split]
     cases=[]; rows=[]
     for record in records:
@@ -65,4 +67,4 @@ def itertools_group(rows):
     for row in rows:groups[(row.get('repository','INPUT_ERROR'),row.get('workflow','INPUT_ERROR'))].append(row)
     return sorted(groups.items())
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--split',choices=['development','evaluation'],default='development');run(parser.parse_args().split)
+    parser=argparse.ArgumentParser();parser.add_argument('--split',choices=['development','evaluation'],default='development');parser.add_argument('--out');a=parser.parse_args();run(a.split,a.out)

@@ -1,0 +1,86 @@
+[
+  {
+    "method": "native",
+    "size": 1,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 0.344450000000009,
+    "qualifyIncludingRecompileMsMedian": 0.41604999999998427,
+    "totalMsMedian": 0.7902499999999861
+  },
+  {
+    "method": "native",
+    "size": 10,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 0.40074999999998795,
+    "qualifyIncludingRecompileMsMedian": 0.6160000000000139,
+    "totalMsMedian": 1.0389499999999998
+  },
+  {
+    "method": "native",
+    "size": 100,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 1.6496999999999957,
+    "qualifyIncludingRecompileMsMedian": 3.5549999999999784,
+    "totalMsMedian": 5.266850000000005
+  },
+  {
+    "method": "native",
+    "size": 256,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 2.9520499999999856,
+    "qualifyIncludingRecompileMsMedian": 9.537800000000004,
+    "totalMsMedian": 12.710350000000005
+  },
+  {
+    "method": "reference",
+    "size": 1,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 2.710999920964241,
+    "qualifyIncludingRecompileMsMedian": 2.7290000580251217,
+    "certificateCheckMsMedian": 2.8439000016078353,
+    "totalQualificationMsMedian": 5.427650059573352
+  },
+  {
+    "method": "reference",
+    "size": 10,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 4.292000085115433,
+    "qualifyIncludingRecompileMsMedian": 4.408049979247153,
+    "certificateCheckMsMedian": 4.576349980197847,
+    "totalQualificationMsMedian": 8.74385004863143
+  },
+  {
+    "method": "reference",
+    "size": 100,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 20.238450029864907,
+    "qualifyIncludingRecompileMsMedian": 24.129899917170405,
+    "certificateCheckMsMedian": 22.929999977350235,
+    "totalQualificationMsMedian": 44.359899940900505
+  },
+  {
+    "method": "reference",
+    "size": 256,
+    "completed": 30,
+    "target": 30,
+    "censored": false,
+    "compileMsMedian": 47.33289999421686,
+    "qualifyIncludingRecompileMsMedian": 69.612400024198,
+    "certificateCheckMsMedian": 52.63379996176809,
+    "totalQualificationMsMedian": 116.59779993351549
+  }
+]

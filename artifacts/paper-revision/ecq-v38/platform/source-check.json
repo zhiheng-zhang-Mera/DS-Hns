@@ -1,0 +1,13 @@
+{
+  "valid": true,
+  "checkedFields": [
+    "workflowIdentity",
+    "sourceSha256",
+    "sourceIdentities",
+    "dependencies",
+    "jobGroups",
+    "instances",
+    "sourceWitnesses",
+    "unsupportedGroups"
+  ]
+}

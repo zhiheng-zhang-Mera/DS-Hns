@@ -1,0 +1,248 @@
+{
+  "workflow": "name: ecq-v38-platform-conformance\non:\n  push:\n    branches: [codex/ecq-v38]\n    paths: [.github/workflows/ecq-v38-conformance.yml, .github/workflows/ecq-v38-probe-reusable.yml]\n  workflow_dispatch:\npermissions:\n  contents: read\njobs:\n  typed-reuse:\n    strategy:\n      matrix:\n        version: ['18', '20']\n    uses: ./.github/workflows/ecq-v38-probe-reusable.yml\n    with:\n      label: ${{ matrix.version }}\n      flag: false\n  expressions:\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - name: Record concrete expression controls\n        env:\n          OBSERVATIONS: >-\n            {\"caseInsensitive\":${{ 'A' == 'a' }},\"emptyZero\":${{ '' == 0 }},\"boolZero\":${{ false == 0 }},\"missingNull\":${{ github.event.nonexistent == null }},\"missingFalse\":${{ github.event.nonexistent == false }},\"operandFallback\":${{ toJSON('' || 'fallback') }},\"operandAnd\":${{ toJSON('yes' && 'value') }},\"arrayTruthy\":${{ !!fromJSON('[]') }},\"hexString\":${{ '0xff' == 255 }},\"spaceZero\":${{ ' ' == 0 }}}\n          IDENTITY_JSON: >-\n            {\"workflowSha\":\"${{ github.workflow_sha }}\",\"workflowRef\":\"${{ github.workflow_ref }}\",\"sha\":\"${{ github.sha }}\",\"repository\":\"${{ github.repository }}\",\"runId\":\"${{ github.run_id }}\",\"runAttempt\":\"${{ github.run_attempt }}\",\"eventName\":\"${{ github.event_name }}\"}\n        run: |\n          printf '%s\\n' \"$OBSERVATIONS\" > expressions.json\n          printf '%s\\n' \"$IDENTITY_JSON\" > identity.json\n          python -c 'import json; x=json.load(open(\"expressions.json\")); assert x[\"caseInsensitive\"] and x[\"emptyZero\"] and x[\"operandFallback\"]==\"fallback\" and x[\"operandAnd\"]==\"value\"'\n      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: expression-observations\n          path: |\n            expressions.json\n            identity.json\n          retention-days: 7\n  tolerated:\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    continue-on-error: true\n    steps:\n      - name: Deliberate tolerated failure control\n        run: exit 17\n  failure-after-tolerated:\n    needs: tolerated\n    if: failure()\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - run: echo failure-status-control\n  success-after-tolerated:\n    needs: tolerated\n    if: success()\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - run: echo success-status-control\n  matrix:\n    name: Matrix control\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    strategy:\n      fail-fast: false\n      matrix:\n        axis: [a, b]\n        include:\n          - axis: a\n            extra: metadata\n    steps:\n      - run: echo controlled\n  before-matrix:\n    if: false\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    strategy:\n      matrix:\n        axis: [a, b]\n    steps:\n      - run: echo unreachable\n  skipped:\n    if: false\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - run: echo unreachable\n  implicit-after-skipped:\n    needs: skipped\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - run: echo unreachable\n  inspector:\n    if: always()\n    needs: [expressions, tolerated, matrix, before-matrix, skipped, implicit-after-skipped]\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - name: Record needs aggregation\n        env:\n          NEEDS_JSON: ${{ toJSON(needs) }}\n        run: |\n          printf '%s\\n' \"$NEEDS_JSON\" > needs.json\n      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: needs-observations\n          path: |\n            needs.json\n          retention-days: 7\n",
+  "workflowIdentity": {
+    "repository": "zhiheng-zhang-Mera/DS-Hns",
+    "path": ".github/workflows/ecq-v38-conformance.yml",
+    "commit": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+    "verified": true
+  },
+  "eventContext": {
+    "github": {
+      "event_name": "push",
+      "repository": "zhiheng-zhang-Mera/DS-Hns",
+      "sha": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+      "workflow_sha": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+      "workflow_ref": "zhiheng-zhang-Mera/DS-Hns/.github/workflows/ecq-v38-conformance.yml@refs/heads/codex/ecq-v38",
+      "run_id": "40488340238",
+      "run_attempt": "1"
+    }
+  },
+  "eventContextComplete": false,
+  "captureComplete": true,
+  "workflowCancelled": false,
+  "runIdentity": {
+    "runId": 40488340238,
+    "runAttempt": 1,
+    "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+  },
+  "captureInventory": [
+    {
+      "id": 122135665112,
+      "name": "expressions",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665243,
+      "name": "Matrix control (a)",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665348,
+      "name": "tolerated",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665534,
+      "name": "typed-reuse (20) / Typed 20",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665764,
+      "name": "typed-reuse (18) / Typed 18",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665806,
+      "name": "Matrix control (b)",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135667095,
+      "name": "before-matrix",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135667419,
+      "name": "implicit-after-skipped",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135667446,
+      "name": "skipped",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135703627,
+      "name": "success-after-tolerated",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135706970,
+      "name": "failure-after-tolerated",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135724198,
+      "name": "inspector",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    }
+  ],
+  "sourceJobs": [
+    {
+      "id": 122135665112,
+      "name": "expressions",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665243,
+      "name": "Matrix control (a)",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665348,
+      "name": "tolerated",
+      "status": "completed",
+      "conclusion": "failure",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665534,
+      "name": "typed-reuse (20) / Typed 20",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665764,
+      "name": "typed-reuse (18) / Typed 18",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135665806,
+      "name": "Matrix control (b)",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135667095,
+      "name": "before-matrix",
+      "status": "completed",
+      "conclusion": "skipped",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135667419,
+      "name": "implicit-after-skipped",
+      "status": "completed",
+      "conclusion": "skipped",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135667446,
+      "name": "skipped",
+      "status": "completed",
+      "conclusion": "skipped",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135703627,
+      "name": "success-after-tolerated",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135706970,
+      "name": "failure-after-tolerated",
+      "status": "completed",
+      "conclusion": "skipped",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    },
+    {
+      "id": 122135724198,
+      "name": "inspector",
+      "status": "completed",
+      "conclusion": "success",
+      "type": "job",
+      "runId": 40488340238,
+      "runAttempt": 1,
+      "headSha": "8426e793308c93d4828d2e4d2566d926e6a131fc"
+    }
+  ],
+  "reusableDefinitions": {
+    "./.github/workflows/ecq-v38-probe-reusable.yml": {
+      "workflow": "name: ecq-v38-owned-reusable-probe\non:\n  workflow_call:\n    inputs:\n      label:\n        type: string\n        required: true\n      flag:\n        type: boolean\n        default: true\njobs:\n  observe:\n    name: Typed ${{ inputs.label }}\n    runs-on: ubuntu-latest\n    timeout-minutes: 2\n    steps:\n      - env:\n          INPUTS_JSON: ${{ toJSON(inputs) }}\n        run: |\n          printf '%s\\n' \"$INPUTS_JSON\" > inputs.json\n          python -c 'import json; x=json.load(open(\"inputs.json\")); assert isinstance(x[\"label\"],str) and x[\"flag\"] is False'\n      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02\n        with:\n          name: input-observations-${{ inputs.label }}\n          path: inputs.json\n          retention-days: 7\n",
+      "workflowIdentity": {
+        "repository": "zhiheng-zhang-Mera/DS-Hns",
+        "path": ".github/workflows/ecq-v38-probe-reusable.yml",
+        "commit": "8426e793308c93d4828d2e4d2566d926e6a131fc",
+        "verified": true
+      }
+    }
+  },
+  "claimScope": "test-execution"
+}

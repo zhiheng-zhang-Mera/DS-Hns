@@ -1,0 +1,11 @@
+{
+  "runId": 40488594257,
+  "headSha": "724d23032568ef3ba33b338ca7433560471de8bb",
+  "conclusion": "success",
+  "bothMatchLocalSummary": true,
+  "platforms": [
+    "replay-ubuntu-latest",
+    "replay-windows-latest"
+  ],
+  "sameCasesNotPooled": true
+}

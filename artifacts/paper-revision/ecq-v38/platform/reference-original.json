@@ -1,0 +1,9 @@
+{
+  "closure": "CLOSED",
+  "gate": "SAT",
+  "satisfied": true,
+  "authorized": true,
+  "activeInstances": 8,
+  "obligations": [],
+  "diagnostics": []
+}

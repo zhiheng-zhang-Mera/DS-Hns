@@ -1,0 +1,110 @@
+name: ecq-v38-platform-conformance
+on:
+  push:
+    branches: [codex/ecq-v38]
+    paths: [.github/workflows/ecq-v38-conformance.yml, .github/workflows/ecq-v38-probe-reusable.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typed-reuse:
+    strategy:
+      matrix:
+        version: ['18', '20']
+    uses: ./.github/workflows/ecq-v38-probe-reusable.yml
+    with:
+      label: ${{ matrix.version }}
+      flag: false
+  expressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Record concrete expression controls
+        env:
+          OBSERVATIONS: >-
+            {"caseInsensitive":${{ 'A' == 'a' }},"emptyZero":${{ '' == 0 }},"boolZero":${{ false == 0 }},"missingNull":${{ github.event.nonexistent == null }},"missingFalse":${{ github.event.nonexistent == false }},"operandFallback":${{ toJSON('' || 'fallback') }},"operandAnd":${{ toJSON('yes' && 'value') }},"arrayTruthy":${{ !!fromJSON('[]') }},"hexString":${{ '0xff' == 255 }},"spaceZero":${{ ' ' == 0 }}}
+          IDENTITY_JSON: >-
+            {"workflowSha":"${{ github.workflow_sha }}","workflowRef":"${{ github.workflow_ref }}","sha":"${{ github.sha }}","repository":"${{ github.repository }}","runId":"${{ github.run_id }}","runAttempt":"${{ github.run_attempt }}","eventName":"${{ github.event_name }}"}
+        run: |
+          printf '%s\n' "$OBSERVATIONS" > expressions.json
+          printf '%s\n' "$IDENTITY_JSON" > identity.json
+          python -c 'import json; x=json.load(open("expressions.json")); assert x["caseInsensitive"] and x["emptyZero"] and x["operandFallback"]=="fallback" and x["operandAnd"]=="value"'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: expression-observations
+          path: |
+            expressions.json
+            identity.json
+          retention-days: 7
+  tolerated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    continue-on-error: true
+    steps:
+      - name: Deliberate tolerated failure control
+        run: exit 17
+  failure-after-tolerated:
+    needs: tolerated
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo failure-status-control
+  success-after-tolerated:
+    needs: tolerated
+    if: success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo success-status-control
+  matrix:
+    name: Matrix control
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    strategy:
+      fail-fast: false
+      matrix:
+        axis: [a, b]
+        include:
+          - axis: a
+            extra: metadata
+    steps:
+      - run: echo controlled
+  before-matrix:
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    strategy:
+      matrix:
+        axis: [a, b]
+    steps:
+      - run: echo unreachable
+  skipped:
+    if: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo unreachable
+  implicit-after-skipped:
+    needs: skipped
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo unreachable
+  inspector:
+    if: always()
+    needs: [expressions, tolerated, matrix, before-matrix, skipped, implicit-after-skipped]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Record needs aggregation
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          printf '%s\n' "$NEEDS_JSON" > needs.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: needs-observations
+          path: |
+            needs.json
+          retention-days: 7

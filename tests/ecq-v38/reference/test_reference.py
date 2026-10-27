@@ -18,6 +18,19 @@ def case(workflow='jobs:\n  test:\n    runs-on: ubuntu-latest\n'):
     return e
 
 class ReferenceTests(unittest.TestCase):
+    def test_platform_missing_value_distinct_from_empty_string(self):
+        # Owned Actions run40490589156 falsified the review hypothesis that
+        # expression-property absence is the literal empty-string value.
+        self.assertIsNone(r.evaluate('matrix.absent',{'matrix':{}}))
+        self.assertTrue(r.evaluate("matrix.absent == '0'",{'matrix':{}}))
+        self.assertTrue(r.evaluate('matrix.absent == 0',{'matrix':{}}))
+        self.assertTrue(r.evaluate('null == 0',{}))
+        self.assertTrue(r.evaluate("github.absent == '0'",{'github':{},'$complete':True}))
+        self.assertFalse(r.evaluate("'' == '0'",{}))
+        self.assertIs(r.evaluate("github.absent == '0'",{'github':{}}),r.U)
+        e=case("jobs:\n  test:\n    strategy:\n      matrix:\n        os: [linux]\n    continue-on-error: ${{ matrix.absent == '0' }}\n")
+        e['sourceJobs'][0]['conclusion']='failure'
+        self.assertTrue(r.qualify(e)['authorized'])
     def test_raw_tolerance_and_independent_gate_axes(self):
         e=case('jobs:\n  test:\n    strategy:\n      matrix:\n        tolerated: [true, false]\n    continue-on-error: ${{ matrix.tolerated }}\n')
         self.assertEqual(r.compile_contract(e)['instances'][0]['continueOnError'],'${{ matrix.tolerated }}')

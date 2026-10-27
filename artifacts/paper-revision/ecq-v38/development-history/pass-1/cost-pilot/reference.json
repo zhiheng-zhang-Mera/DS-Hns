@@ -1,0 +1,968 @@
+{
+  "runtime": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "warmups": 5,
+  "rounds": 30,
+  "rows": [
+    {
+      "size": 1,
+      "round": 0,
+      "compileMs": 2.6663001626729965,
+      "qualifyIncludingRecompileMs": 2.6838998310267925,
+      "certificateCheckMs": 2.906300127506256,
+      "totalQualificationMs": 5.350199993699789
+    },
+    {
+      "size": 1,
+      "round": 1,
+      "compileMs": 2.6938000228255987,
+      "qualifyIncludingRecompileMs": 2.7039998676627874,
+      "certificateCheckMs": 2.8255002107471228,
+      "totalQualificationMs": 5.397799890488386
+    },
+    {
+      "size": 1,
+      "round": 2,
+      "compileMs": 2.6624000165611506,
+      "qualifyIncludingRecompileMs": 2.7721000369638205,
+      "certificateCheckMs": 2.717799972742796,
+      "totalQualificationMs": 5.434500053524971
+    },
+    {
+      "size": 1,
+      "round": 3,
+      "compileMs": 2.9227999038994312,
+      "qualifyIncludingRecompileMs": 2.746199956163764,
+      "certificateCheckMs": 2.9116999357938766,
+      "totalQualificationMs": 5.668999860063195
+    },
+    {
+      "size": 1,
+      "round": 4,
+      "compileMs": 2.6632999069988728,
+      "qualifyIncludingRecompileMs": 2.7161999605596066,
+      "certificateCheckMs": 2.800100017338991,
+      "totalQualificationMs": 5.379499867558479
+    },
+    {
+      "size": 1,
+      "round": 5,
+      "compileMs": 5.881099961698055,
+      "qualifyIncludingRecompileMs": 2.8511998243629932,
+      "certificateCheckMs": 2.8496000450104475,
+      "totalQualificationMs": 8.732299786061049
+    },
+    {
+      "size": 1,
+      "round": 6,
+      "compileMs": 2.6984999421983957,
+      "qualifyIncludingRecompileMs": 2.6680000592023134,
+      "certificateCheckMs": 2.776999957859516,
+      "totalQualificationMs": 5.366500001400709
+    },
+    {
+      "size": 1,
+      "round": 7,
+      "compileMs": 2.609299961477518,
+      "qualifyIncludingRecompileMs": 2.7389000169932842,
+      "certificateCheckMs": 2.8361999429762363,
+      "totalQualificationMs": 5.348199978470802
+    },
+    {
+      "size": 1,
+      "round": 8,
+      "compileMs": 2.6760001201182604,
+      "qualifyIncludingRecompileMs": 2.6803999207913876,
+      "certificateCheckMs": 2.8627999126911163,
+      "totalQualificationMs": 5.356400040909648
+    },
+    {
+      "size": 1,
+      "round": 9,
+      "compileMs": 2.7290000580251217,
+      "qualifyIncludingRecompileMs": 2.6404999662190676,
+      "certificateCheckMs": 2.734599867835641,
+      "totalQualificationMs": 5.369500024244189
+    },
+    {
+      "size": 1,
+      "round": 10,
+      "compileMs": 2.659799996763468,
+      "qualifyIncludingRecompileMs": 2.626099856570363,
+      "certificateCheckMs": 2.8121001087129116,
+      "totalQualificationMs": 5.285899853333831
+    },
+    {
+      "size": 1,
+      "round": 11,
+      "compileMs": 2.720499876886606,
+      "qualifyIncludingRecompileMs": 2.635000040754676,
+      "certificateCheckMs": 2.8210999444127083,
+      "totalQualificationMs": 5.355499917641282
+    },
+    {
+      "size": 1,
+      "round": 12,
+      "compileMs": 2.6511000469326973,
+      "qualifyIncludingRecompileMs": 3.2420000061392784,
+      "certificateCheckMs": 2.8693999629467726,
+      "totalQualificationMs": 5.893100053071976
+    },
+    {
+      "size": 1,
+      "round": 13,
+      "compileMs": 2.7516998816281557,
+      "qualifyIncludingRecompileMs": 2.7807001024484634,
+      "certificateCheckMs": 2.8089999686926603,
+      "totalQualificationMs": 5.532399984076619
+    },
+    {
+      "size": 1,
+      "round": 14,
+      "compileMs": 2.7270999271422625,
+      "qualifyIncludingRecompileMs": 2.735000103712082,
+      "certificateCheckMs": 2.8813998214900494,
+      "totalQualificationMs": 5.462100030854344
+    },
+    {
+      "size": 1,
+      "round": 15,
+      "compileMs": 2.791999839246273,
+      "qualifyIncludingRecompileMs": 2.827899996191263,
+      "certificateCheckMs": 2.9393001459538937,
+      "totalQualificationMs": 5.619899835437536
+    },
+    {
+      "size": 1,
+      "round": 16,
+      "compileMs": 3.492899937555194,
+      "qualifyIncludingRecompileMs": 3.0176001600921154,
+      "certificateCheckMs": 2.8903998900204897,
+      "totalQualificationMs": 6.510500097647309
+    },
+    {
+      "size": 1,
+      "round": 17,
+      "compileMs": 2.8452000115066767,
+      "qualifyIncludingRecompileMs": 2.76309996843338,
+      "certificateCheckMs": 2.852699952200055,
+      "totalQualificationMs": 5.608299979940057
+    },
+    {
+      "size": 1,
+      "round": 18,
+      "compileMs": 2.7278000488877296,
+      "qualifyIncludingRecompileMs": 2.785600023344159,
+      "certificateCheckMs": 5.377900088205934,
+      "totalQualificationMs": 5.513400072231889
+    },
+    {
+      "size": 1,
+      "round": 19,
+      "compileMs": 2.934599993750453,
+      "qualifyIncludingRecompileMs": 2.763899974524975,
+      "certificateCheckMs": 2.7707999106496572,
+      "totalQualificationMs": 5.698499968275428
+    },
+    {
+      "size": 1,
+      "round": 20,
+      "compileMs": 2.7211999986320734,
+      "qualifyIncludingRecompileMs": 2.7261001523584127,
+      "certificateCheckMs": 2.8065999504178762,
+      "totalQualificationMs": 5.447300150990486
+    },
+    {
+      "size": 1,
+      "round": 21,
+      "compileMs": 2.701499965041876,
+      "qualifyIncludingRecompileMs": 2.700699958950281,
+      "certificateCheckMs": 2.8244000859558582,
+      "totalQualificationMs": 5.402199923992157
+    },
+    {
+      "size": 1,
+      "round": 22,
+      "compileMs": 2.6332999113947153,
+      "qualifyIncludingRecompileMs": 2.6562002021819353,
+      "certificateCheckMs": 2.741999924182892,
+      "totalQualificationMs": 5.289500113576651
+    },
+    {
+      "size": 1,
+      "round": 23,
+      "compileMs": 2.727600047364831,
+      "qualifyIncludingRecompileMs": 2.678399905562401,
+      "certificateCheckMs": 2.7843001298606396,
+      "totalQualificationMs": 5.405999952927232
+    },
+    {
+      "size": 1,
+      "round": 24,
+      "compileMs": 2.646199893206358,
+      "qualifyIncludingRecompileMs": 2.6730000972747803,
+      "certificateCheckMs": 2.838799962773919,
+      "totalQualificationMs": 5.319199990481138
+    },
+    {
+      "size": 1,
+      "round": 25,
+      "compileMs": 2.628500107675791,
+      "qualifyIncludingRecompileMs": 2.6895999908447266,
+      "certificateCheckMs": 2.8961999341845512,
+      "totalQualificationMs": 5.318100098520517
+    },
+    {
+      "size": 1,
+      "round": 26,
+      "compileMs": 2.688900101929903,
+      "qualifyIncludingRecompileMs": 2.7318999636918306,
+      "certificateCheckMs": 3.347699996083975,
+      "totalQualificationMs": 5.420800065621734
+    },
+    {
+      "size": 1,
+      "round": 27,
+      "compileMs": 2.768399892374873,
+      "qualifyIncludingRecompileMs": 2.7397999074310064,
+      "certificateCheckMs": 2.8490000404417515,
+      "totalQualificationMs": 5.50819979980588
+    },
+    {
+      "size": 1,
+      "round": 28,
+      "compileMs": 2.6757000014185905,
+      "qualifyIncludingRecompileMs": 3.0984999611973763,
+      "certificateCheckMs": 3.0356000643223524,
+      "totalQualificationMs": 5.774199962615967
+    },
+    {
+      "size": 1,
+      "round": 29,
+      "compileMs": 2.8206000570207834,
+      "qualifyIncludingRecompileMs": 2.717300085350871,
+      "certificateCheckMs": 2.852599835023284,
+      "totalQualificationMs": 5.5379001423716545
+    },
+    {
+      "size": 10,
+      "round": 0,
+      "compileMs": 4.223800031468272,
+      "qualifyIncludingRecompileMs": 4.366599954664707,
+      "certificateCheckMs": 4.741299897432327,
+      "totalQualificationMs": 8.59039998613298
+    },
+    {
+      "size": 10,
+      "round": 1,
+      "compileMs": 4.380499944090843,
+      "qualifyIncludingRecompileMs": 4.354400094598532,
+      "certificateCheckMs": 4.555899882689118,
+      "totalQualificationMs": 8.734900038689375
+    },
+    {
+      "size": 10,
+      "round": 2,
+      "compileMs": 4.281100118532777,
+      "qualifyIncludingRecompileMs": 4.393300041556358,
+      "certificateCheckMs": 4.551899852231145,
+      "totalQualificationMs": 8.674400160089135
+    },
+    {
+      "size": 10,
+      "round": 3,
+      "compileMs": 4.2177001014351845,
+      "qualifyIncludingRecompileMs": 4.455599933862686,
+      "certificateCheckMs": 4.663199884817004,
+      "totalQualificationMs": 8.67330003529787
+    },
+    {
+      "size": 10,
+      "round": 4,
+      "compileMs": 4.2501999996602535,
+      "qualifyIncludingRecompileMs": 4.222300136461854,
+      "certificateCheckMs": 4.5586999040097,
+      "totalQualificationMs": 8.472500136122108
+    },
+    {
+      "size": 10,
+      "round": 5,
+      "compileMs": 4.267700016498566,
+      "qualifyIncludingRecompileMs": 4.2357000056654215,
+      "certificateCheckMs": 4.54410002566874,
+      "totalQualificationMs": 8.503400022163987
+    },
+    {
+      "size": 10,
+      "round": 6,
+      "compileMs": 4.271900048479438,
+      "qualifyIncludingRecompileMs": 4.339899867773056,
+      "certificateCheckMs": 4.5182001776993275,
+      "totalQualificationMs": 8.611799916252494
+    },
+    {
+      "size": 10,
+      "round": 7,
+      "compileMs": 6.411300040781498,
+      "qualifyIncludingRecompileMs": 4.4946998823434114,
+      "certificateCheckMs": 4.526900127530098,
+      "totalQualificationMs": 10.90599992312491
+    },
+    {
+      "size": 10,
+      "round": 8,
+      "compileMs": 4.153200192376971,
+      "qualifyIncludingRecompileMs": 4.646399989724159,
+      "certificateCheckMs": 4.473499953746796,
+      "totalQualificationMs": 8.79960018210113
+    },
+    {
+      "size": 10,
+      "round": 9,
+      "compileMs": 4.762300057336688,
+      "qualifyIncludingRecompileMs": 4.434899892657995,
+      "certificateCheckMs": 4.5912000350654125,
+      "totalQualificationMs": 9.197199949994683
+    },
+    {
+      "size": 10,
+      "round": 10,
+      "compileMs": 4.844099981710315,
+      "qualifyIncludingRecompileMs": 4.63689980097115,
+      "certificateCheckMs": 4.5785000547766685,
+      "totalQualificationMs": 9.480999782681465
+    },
+    {
+      "size": 10,
+      "round": 11,
+      "compileMs": 4.197399830445647,
+      "qualifyIncludingRecompileMs": 4.389100009575486,
+      "certificateCheckMs": 4.584399983286858,
+      "totalQualificationMs": 8.586499840021133
+    },
+    {
+      "size": 10,
+      "round": 12,
+      "compileMs": 4.354200093075633,
+      "qualifyIncludingRecompileMs": 4.398599965497851,
+      "certificateCheckMs": 4.633700009435415,
+      "totalQualificationMs": 8.752800058573484
+    },
+    {
+      "size": 10,
+      "round": 13,
+      "compileMs": 4.2177001014351845,
+      "qualifyIncludingRecompileMs": 4.3657999485731125,
+      "certificateCheckMs": 4.549399949610233,
+      "totalQualificationMs": 8.583500050008297
+    },
+    {
+      "size": 10,
+      "round": 14,
+      "compileMs": 4.302900051698089,
+      "qualifyIncludingRecompileMs": 4.3929999228566885,
+      "certificateCheckMs": 4.546900046989322,
+      "totalQualificationMs": 8.695899974554777
+    },
+    {
+      "size": 10,
+      "round": 15,
+      "compileMs": 4.261999856680632,
+      "qualifyIncludingRecompileMs": 4.338100086897612,
+      "certificateCheckMs": 4.566699964925647,
+      "totalQualificationMs": 8.600099943578243
+    },
+    {
+      "size": 10,
+      "round": 16,
+      "compileMs": 4.251400008797646,
+      "qualifyIncludingRecompileMs": 4.339700099080801,
+      "certificateCheckMs": 4.617099883034825,
+      "totalQualificationMs": 8.591100107878447
+    },
+    {
+      "size": 10,
+      "round": 17,
+      "compileMs": 6.519000045955181,
+      "qualifyIncludingRecompileMs": 4.497299902141094,
+      "certificateCheckMs": 4.595800070092082,
+      "totalQualificationMs": 11.016299948096275
+    },
+    {
+      "size": 10,
+      "round": 18,
+      "compileMs": 4.629099974408746,
+      "qualifyIncludingRecompileMs": 4.417499992996454,
+      "certificateCheckMs": 4.649800015613437,
+      "totalQualificationMs": 9.0465999674052
+    },
+    {
+      "size": 10,
+      "round": 19,
+      "compileMs": 4.203200107440352,
+      "qualifyIncludingRecompileMs": 4.757399903610349,
+      "certificateCheckMs": 4.610300064086914,
+      "totalQualificationMs": 8.960600011050701
+    },
+    {
+      "size": 10,
+      "round": 20,
+      "compileMs": 4.3964998330920935,
+      "qualifyIncludingRecompileMs": 4.379300167784095,
+      "certificateCheckMs": 4.655499942600727,
+      "totalQualificationMs": 8.775800000876188
+    },
+    {
+      "size": 10,
+      "round": 21,
+      "compileMs": 4.332900047302246,
+      "qualifyIncludingRecompileMs": 4.384899977594614,
+      "certificateCheckMs": 4.54410002566874,
+      "totalQualificationMs": 8.71780002489686
+    },
+    {
+      "size": 10,
+      "round": 22,
+      "compileMs": 4.2322000954300165,
+      "qualifyIncludingRecompileMs": 4.287600051611662,
+      "certificateCheckMs": 4.511700011789799,
+      "totalQualificationMs": 8.519800147041678
+    },
+    {
+      "size": 10,
+      "round": 23,
+      "compileMs": 4.3073000852018595,
+      "qualifyIncludingRecompileMs": 4.55740001052618,
+      "certificateCheckMs": 4.73659997805953,
+      "totalQualificationMs": 8.86470009572804
+    },
+    {
+      "size": 10,
+      "round": 24,
+      "compileMs": 4.811299964785576,
+      "qualifyIncludingRecompileMs": 4.743000026792288,
+      "certificateCheckMs": 4.751299973577261,
+      "totalQualificationMs": 9.554299991577864
+    },
+    {
+      "size": 10,
+      "round": 25,
+      "compileMs": 4.851199919357896,
+      "qualifyIncludingRecompileMs": 4.737599985674024,
+      "certificateCheckMs": 4.785500001162291,
+      "totalQualificationMs": 9.58879990503192
+    },
+    {
+      "size": 10,
+      "round": 26,
+      "compileMs": 4.613499855622649,
+      "qualifyIncludingRecompileMs": 4.643100081011653,
+      "certificateCheckMs": 4.609500057995319,
+      "totalQualificationMs": 9.256599936634302
+    },
+    {
+      "size": 10,
+      "round": 27,
+      "compileMs": 6.517699919641018,
+      "qualifyIncludingRecompileMs": 4.574200138449669,
+      "certificateCheckMs": 4.522299859672785,
+      "totalQualificationMs": 11.091900058090687
+    },
+    {
+      "size": 10,
+      "round": 28,
+      "compileMs": 4.189200000837445,
+      "qualifyIncludingRecompileMs": 4.650000017136335,
+      "certificateCheckMs": 4.574199905619025,
+      "totalQualificationMs": 8.83920001797378
+    },
+    {
+      "size": 10,
+      "round": 29,
+      "compileMs": 4.211799940094352,
+      "qualifyIncludingRecompileMs": 4.435500130057335,
+      "certificateCheckMs": 4.572399891912937,
+      "totalQualificationMs": 8.647300070151687
+    },
+    {
+      "size": 100,
+      "round": 0,
+      "compileMs": 20.47140011563897,
+      "qualifyIncludingRecompileMs": 24.26859992556274,
+      "certificateCheckMs": 22.07760000601411,
+      "totalQualificationMs": 44.74000004120171
+    },
+    {
+      "size": 100,
+      "round": 1,
+      "compileMs": 19.873500103130937,
+      "qualifyIncludingRecompileMs": 23.72639998793602,
+      "certificateCheckMs": 23.67040002718568,
+      "totalQualificationMs": 43.59990009106696
+    },
+    {
+      "size": 100,
+      "round": 2,
+      "compileMs": 20.434800069779158,
+      "qualifyIncludingRecompileMs": 24.61639977991581,
+      "certificateCheckMs": 21.64200018160045,
+      "totalQualificationMs": 45.05119984969497
+    },
+    {
+      "size": 100,
+      "round": 3,
+      "compileMs": 19.44279996678233,
+      "qualifyIncludingRecompileMs": 24.078099988400936,
+      "certificateCheckMs": 23.110700072720647,
+      "totalQualificationMs": 43.52089995518327
+    },
+    {
+      "size": 100,
+      "round": 4,
+      "compileMs": 19.51869996264577,
+      "qualifyIncludingRecompileMs": 23.85069988667965,
+      "certificateCheckMs": 21.876400103792548,
+      "totalQualificationMs": 43.36939984932542
+    },
+    {
+      "size": 100,
+      "round": 5,
+      "compileMs": 20.043800119310617,
+      "qualifyIncludingRecompileMs": 23.438500007614493,
+      "certificateCheckMs": 22.8108000010252,
+      "totalQualificationMs": 43.48230012692511
+    },
+    {
+      "size": 100,
+      "round": 6,
+      "compileMs": 19.452499924227595,
+      "qualifyIncludingRecompileMs": 23.471200140193105,
+      "certificateCheckMs": 22.466399939730763,
+      "totalQualificationMs": 42.9237000644207
+    },
+    {
+      "size": 100,
+      "round": 7,
+      "compileMs": 20.49649995751679,
+      "qualifyIncludingRecompileMs": 24.59309995174408,
+      "certificateCheckMs": 23.90000014565885,
+      "totalQualificationMs": 45.08959990926087
+    },
+    {
+      "size": 100,
+      "round": 8,
+      "compileMs": 19.62959999218583,
+      "qualifyIncludingRecompileMs": 24.27139994688332,
+      "certificateCheckMs": 22.959599969908595,
+      "totalQualificationMs": 43.90099993906915
+    },
+    {
+      "size": 100,
+      "round": 9,
+      "compileMs": 20.322599913924932,
+      "qualifyIncludingRecompileMs": 24.131299927830696,
+      "certificateCheckMs": 23.474000161513686,
+      "totalQualificationMs": 44.45389984175563
+    },
+    {
+      "size": 100,
+      "round": 10,
+      "compileMs": 20.081100054085255,
+      "qualifyIncludingRecompileMs": 25.059300009161234,
+      "certificateCheckMs": 22.12080010212958,
+      "totalQualificationMs": 45.14040006324649
+    },
+    {
+      "size": 100,
+      "round": 11,
+      "compileMs": 20.27420001104474,
+      "qualifyIncludingRecompileMs": 24.09809990786016,
+      "certificateCheckMs": 23.140900069847703,
+      "totalQualificationMs": 44.3722999189049
+    },
+    {
+      "size": 100,
+      "round": 12,
+      "compileMs": 20.024499855935574,
+      "qualifyIncludingRecompileMs": 23.81120016798377,
+      "certificateCheckMs": 21.495699882507324,
+      "totalQualificationMs": 43.835700023919344
+    },
+    {
+      "size": 100,
+      "round": 13,
+      "compileMs": 19.60920006968081,
+      "qualifyIncludingRecompileMs": 23.915000027045608,
+      "certificateCheckMs": 23.24060001410544,
+      "totalQualificationMs": 43.52420009672642
+    },
+    {
+      "size": 100,
+      "round": 14,
+      "compileMs": 20.73789993301034,
+      "qualifyIncludingRecompileMs": 23.74730003066361,
+      "certificateCheckMs": 23.10850005596876,
+      "totalQualificationMs": 44.48519996367395
+    },
+    {
+      "size": 100,
+      "round": 15,
+      "compileMs": 20.377400098368526,
+      "qualifyIncludingRecompileMs": 23.968699853867292,
+      "certificateCheckMs": 21.9779999461025,
+      "totalQualificationMs": 44.34609995223582
+    },
+    {
+      "size": 100,
+      "round": 16,
+      "compileMs": 20.359300076961517,
+      "qualifyIncludingRecompileMs": 24.50850000604987,
+      "certificateCheckMs": 23.757099872455,
+      "totalQualificationMs": 44.86780008301139
+    },
+    {
+      "size": 100,
+      "round": 17,
+      "compileMs": 19.812799990177155,
+      "qualifyIncludingRecompileMs": 24.295100010931492,
+      "certificateCheckMs": 22.184799890965223,
+      "totalQualificationMs": 44.107900001108646
+    },
+    {
+      "size": 100,
+      "round": 18,
+      "compileMs": 20.423100097104907,
+      "qualifyIncludingRecompileMs": 24.128499906510115,
+      "certificateCheckMs": 23.352600168436766,
+      "totalQualificationMs": 44.55160000361502
+    },
+    {
+      "size": 100,
+      "round": 19,
+      "compileMs": 19.493400119245052,
+      "qualifyIncludingRecompileMs": 23.587399860844016,
+      "certificateCheckMs": 22.201400017365813,
+      "totalQualificationMs": 43.08079998008907
+    },
+    {
+      "size": 100,
+      "round": 20,
+      "compileMs": 20.577399991452694,
+      "qualifyIncludingRecompileMs": 23.97890016436577,
+      "certificateCheckMs": 22.707399912178516,
+      "totalQualificationMs": 44.55630015581846
+    },
+    {
+      "size": 100,
+      "round": 21,
+      "compileMs": 20.22710000164807,
+      "qualifyIncludingRecompileMs": 23.931199917569757,
+      "certificateCheckMs": 22.900399984791875,
+      "totalQualificationMs": 44.158299919217825
+    },
+    {
+      "size": 100,
+      "round": 22,
+      "compileMs": 19.963999977335334,
+      "qualifyIncludingRecompileMs": 24.383499985560775,
+      "certificateCheckMs": 22.72780006751418,
+      "totalQualificationMs": 44.34749996289611
+    },
+    {
+      "size": 100,
+      "round": 23,
+      "compileMs": 21.73370006494224,
+      "qualifyIncludingRecompileMs": 25.260699912905693,
+      "certificateCheckMs": 24.086599936708808,
+      "totalQualificationMs": 46.994399977847934
+    },
+    {
+      "size": 100,
+      "round": 24,
+      "compileMs": 20.207999972626567,
+      "qualifyIncludingRecompileMs": 25.354300159960985,
+      "certificateCheckMs": 24.170999880880117,
+      "totalQualificationMs": 45.56230013258755
+    },
+    {
+      "size": 100,
+      "round": 25,
+      "compileMs": 21.4992999099195,
+      "qualifyIncludingRecompileMs": 26.389900129288435,
+      "certificateCheckMs": 22.494599921628833,
+      "totalQualificationMs": 47.889200039207935
+    },
+    {
+      "size": 100,
+      "round": 26,
+      "compileMs": 19.591099815443158,
+      "qualifyIncludingRecompileMs": 24.32270022109151,
+      "certificateCheckMs": 23.036199854686856,
+      "totalQualificationMs": 43.91380003653467
+    },
+    {
+      "size": 100,
+      "round": 27,
+      "compileMs": 21.32180007174611,
+      "qualifyIncludingRecompileMs": 24.50559986755252,
+      "certificateCheckMs": 22.7012000977993,
+      "totalQualificationMs": 45.82739993929863
+    },
+    {
+      "size": 100,
+      "round": 28,
+      "compileMs": 20.835600094869733,
+      "qualifyIncludingRecompileMs": 24.2512000259012,
+      "certificateCheckMs": 23.069199873134494,
+      "totalQualificationMs": 45.08680012077093
+    },
+    {
+      "size": 100,
+      "round": 29,
+      "compileMs": 20.249800058081746,
+      "qualifyIncludingRecompileMs": 23.987499997019768,
+      "certificateCheckMs": 23.662699852138758,
+      "totalQualificationMs": 44.237300055101514
+    },
+    {
+      "size": 256,
+      "round": 0,
+      "compileMs": 47.83930000849068,
+      "qualifyIncludingRecompileMs": 70.89939992874861,
+      "certificateCheckMs": 52.18930006958544,
+      "totalQualificationMs": 118.73869993723929
+    },
+    {
+      "size": 256,
+      "round": 1,
+      "compileMs": 48.520199954509735,
+      "qualifyIncludingRecompileMs": 69.35780006460845,
+      "certificateCheckMs": 52.42599989287555,
+      "totalQualificationMs": 117.87800001911819
+    },
+    {
+      "size": 256,
+      "round": 2,
+      "compileMs": 48.36850007995963,
+      "qualifyIncludingRecompileMs": 67.72519997321069,
+      "certificateCheckMs": 50.25630001910031,
+      "totalQualificationMs": 116.09370005317032
+    },
+    {
+      "size": 256,
+      "round": 3,
+      "compileMs": 45.65190011635423,
+      "qualifyIncludingRecompileMs": 69.53130010515451,
+      "certificateCheckMs": 53.61349997110665,
+      "totalQualificationMs": 115.18320022150874
+    },
+    {
+      "size": 256,
+      "round": 4,
+      "compileMs": 45.48319987952709,
+      "qualifyIncludingRecompileMs": 67.2605000436306,
+      "certificateCheckMs": 51.23819992877543,
+      "totalQualificationMs": 112.74369992315769
+    },
+    {
+      "size": 256,
+      "round": 5,
+      "compileMs": 45.49570009112358,
+      "qualifyIncludingRecompileMs": 68.44279984943569,
+      "certificateCheckMs": 49.47300022467971,
+      "totalQualificationMs": 113.93849994055927
+    },
+    {
+      "size": 256,
+      "round": 6,
+      "compileMs": 45.62070011161268,
+      "qualifyIncludingRecompileMs": 70.63660002313554,
+      "certificateCheckMs": 51.997599890455604,
+      "totalQualificationMs": 116.25730013474822
+    },
+    {
+      "size": 256,
+      "round": 7,
+      "compileMs": 48.12100017443299,
+      "qualifyIncludingRecompileMs": 68.97199992090464,
+      "certificateCheckMs": 51.60419992171228,
+      "totalQualificationMs": 117.09300009533763
+    },
+    {
+      "size": 256,
+      "round": 8,
+      "compileMs": 47.80529998242855,
+      "qualifyIncludingRecompileMs": 68.90730001032352,
+      "certificateCheckMs": 52.24529979750514,
+      "totalQualificationMs": 116.71259999275208
+    },
+    {
+      "size": 256,
+      "round": 9,
+      "compileMs": 46.605899930000305,
+      "qualifyIncludingRecompileMs": 69.71330009400845,
+      "certificateCheckMs": 53.72389988042414,
+      "totalQualificationMs": 116.31920002400875
+    },
+    {
+      "size": 256,
+      "round": 10,
+      "compileMs": 47.259500017389655,
+      "qualifyIncludingRecompileMs": 69.68439999036491,
+      "certificateCheckMs": 50.908599980175495,
+      "totalQualificationMs": 116.94390000775456
+    },
+    {
+      "size": 256,
+      "round": 11,
+      "compileMs": 45.64359993673861,
+      "qualifyIncludingRecompileMs": 68.20109998807311,
+      "certificateCheckMs": 53.165100049227476,
+      "totalQualificationMs": 113.84469992481172
+    },
+    {
+      "size": 256,
+      "round": 12,
+      "compileMs": 44.767900137230754,
+      "qualifyIncludingRecompileMs": 69.12250001914799,
+      "certificateCheckMs": 50.32979999668896,
+      "totalQualificationMs": 113.89040015637875
+    },
+    {
+      "size": 256,
+      "round": 13,
+      "compileMs": 45.80720001831651,
+      "qualifyIncludingRecompileMs": 70.13770006597042,
+      "certificateCheckMs": 53.72549989260733,
+      "totalQualificationMs": 115.94490008428693
+    },
+    {
+      "size": 256,
+      "round": 14,
+      "compileMs": 46.977899968624115,
+      "qualifyIncludingRecompileMs": 71.53409998863935,
+      "certificateCheckMs": 53.27420006506145,
+      "totalQualificationMs": 118.51199995726347
+    },
+    {
+      "size": 256,
+      "round": 15,
+      "compileMs": 45.63359986059368,
+      "qualifyIncludingRecompileMs": 68.69370001368225,
+      "certificateCheckMs": 56.93090008571744,
+      "totalQualificationMs": 114.32729987427592
+    },
+    {
+      "size": 256,
+      "round": 16,
+      "compileMs": 51.24160018749535,
+      "qualifyIncludingRecompileMs": 74.12489992566407,
+      "certificateCheckMs": 55.904499953612685,
+      "totalQualificationMs": 125.36650011315942
+    },
+    {
+      "size": 256,
+      "round": 17,
+      "compileMs": 49.692500149831176,
+      "qualifyIncludingRecompileMs": 71.26359990797937,
+      "certificateCheckMs": 55.5207000579685,
+      "totalQualificationMs": 120.95610005781054
+    },
+    {
+      "size": 256,
+      "round": 18,
+      "compileMs": 49.115899950265884,
+      "qualifyIncludingRecompileMs": 71.68329996056855,
+      "certificateCheckMs": 52.99090011976659,
+      "totalQualificationMs": 120.79919991083443
+    },
+    {
+      "size": 256,
+      "round": 19,
+      "compileMs": 45.44829996302724,
+      "qualifyIncludingRecompileMs": 67.4658000934869,
+      "certificateCheckMs": 49.93460001423955,
+      "totalQualificationMs": 112.91410005651414
+    },
+    {
+      "size": 256,
+      "round": 20,
+      "compileMs": 44.485699851065874,
+      "qualifyIncludingRecompileMs": 66.27740012481809,
+      "certificateCheckMs": 54.85960002988577,
+      "totalQualificationMs": 110.76309997588396
+    },
+    {
+      "size": 256,
+      "round": 21,
+      "compileMs": 49.18639990501106,
+      "qualifyIncludingRecompileMs": 69.54040005803108,
+      "certificateCheckMs": 54.85749989748001,
+      "totalQualificationMs": 118.72679996304214
+    },
+    {
+      "size": 256,
+      "round": 22,
+      "compileMs": 45.70030001923442,
+      "qualifyIncludingRecompileMs": 70.78269985504448,
+      "certificateCheckMs": 54.66190003789961,
+      "totalQualificationMs": 116.4829998742789
+    },
+    {
+      "size": 256,
+      "round": 23,
+      "compileMs": 48.050199868157506,
+      "qualifyIncludingRecompileMs": 71.32590003311634,
+      "certificateCheckMs": 52.84160003066063,
+      "totalQualificationMs": 119.37609990127385
+    },
+    {
+      "size": 256,
+      "round": 24,
+      "compileMs": 49.44610013626516,
+      "qualifyIncludingRecompileMs": 72.34329986386001,
+      "certificateCheckMs": 58.439600048586726,
+      "totalQualificationMs": 121.78940000012517
+    },
+    {
+      "size": 256,
+      "round": 25,
+      "compileMs": 59.09190000966191,
+      "qualifyIncludingRecompileMs": 71.81079988367856,
+      "certificateCheckMs": 50.46700011007488,
+      "totalQualificationMs": 130.90269989334047
+    },
+    {
+      "size": 256,
+      "round": 26,
+      "compileMs": 47.40900010801852,
+      "qualifyIncludingRecompileMs": 74.46279982104897,
+      "certificateCheckMs": 52.26480006240308,
+      "totalQualificationMs": 121.87179992906749
+    },
+    {
+      "size": 256,
+      "round": 27,
+      "compileMs": 47.622299985960126,
+      "qualifyIncludingRecompileMs": 69.7443000972271,
+      "certificateCheckMs": 51.179900066927075,
+      "totalQualificationMs": 117.36660008318722
+    },
+    {
+      "size": 256,
+      "round": 28,
+      "compileMs": 45.30030000023544,
+      "qualifyIncludingRecompileMs": 68.18599998950958,
+      "certificateCheckMs": 51.40449991449714,
+      "totalQualificationMs": 113.48629998974502
+    },
+    {
+      "size": 256,
+      "round": 29,
+      "compileMs": 47.406299971044064,
+      "qualifyIncludingRecompileMs": 68.92280001193285,
+      "certificateCheckMs": 57.308599818497896,
+      "totalQualificationMs": 116.32909998297691
+    }
+  ]
+}

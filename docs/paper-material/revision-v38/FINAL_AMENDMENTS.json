@@ -1,0 +1,27 @@
+{
+  "firstCommit": "724d23032568ef3ba33b338ca7433560471de8bb",
+  "firstFreezeRetained": true,
+  "changesToOriginallyFrozenFiles": [
+    "docs/paper-material/revision-v38/erasure-semantics.md",
+    "scripts/ecq-v38/native/index.mjs",
+    "scripts/ecq-v38/reference/README.md",
+    "scripts/ecq-v38/study/run_archives.py",
+    "tests/ecq-v38/native/contract.test.mjs",
+    "tests/ecq-v38/reference/test_reference.py"
+  ],
+  "semanticImplementationChange": "One native result-propagation line retains UNKNOWN when applicability is UNKNOWN",
+  "nonSemanticChanges": [
+    "Archive --out isolates replay outputs",
+    "Three regression tests for unknown propagation",
+    "Established-judgment persistence added explicitly to formal premise",
+    "Missing-property review hypothesis falsified by live platform; no scalar core change"
+  ],
+  "firstEvaluationGateAgreement": "155/160",
+  "retrospectiveGateAgreement": "160/160",
+  "sameReferenceCore": true,
+  "finalCoreHashes": {
+    "scripts/ecq-v38/native/index.mjs": "9b04dfc5c26e0a5c8c5429cc9580decdf4fcfbfa5499af9c64b271d0e7269aeb",
+    "scripts/ecq-v38/native/expressions.mjs": "cbd6e06ab66fe3890b29fb92c57ffd656ceb0af383ad6ad0143b6f60f7b9ecc5",
+    "scripts/ecq-v38/reference/reference.py": "5db46a672ec852d9e190e858217c9ede3a11fcc20c86d48f02c0dddc0e396fff"
+  }
+}

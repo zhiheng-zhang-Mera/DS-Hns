@@ -132,7 +132,7 @@ export function qualify(input,contract=compile(input)){
       if(active===true)gateValues.push(accepted);
       add(instance.id,'outcome',accepted,{originalConclusion:unknown(c)?null:c,tolerated:unknown(tolerated)?'UNKNOWN':tolerated});outcomes.push(!known||c==='failure'&&unknown(tolerated)?U:c==='failure'&&tolerated===true?'success':c);
     }
-    results[id]=outcomes.some(unknown)?U:outcomes.some(c=>['failure','timed_out','action_required','startup_failure'].includes(c))?'failure':outcomes.includes('cancelled')?'cancelled':outcomes.every(c=>c==='success')?'success':'skipped';
+    results[id]=unknown(active)||outcomes.some(unknown)?U:outcomes.some(c=>['failure','timed_out','action_required','startup_failure'].includes(c))?'failure':outcomes.includes('cancelled')?'cancelled':outcomes.every(c=>c==='success')?'success':'skipped';
   }
   contract.jobGroups.forEach(g=>group(g.id));
   for(const captured of inventory)add(`capture:${captured.id}`,'sourceAttribution',attributed.has(captured.id)?true:U);

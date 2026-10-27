@@ -1,0 +1,295 @@
+{
+  "policy": "first formal selected head record per(repository,headSourceSnapshot.sha256), then first additional candidate/reusable bytes per(repository,sha256)",
+  "maxApiCalls": 60,
+  "workers": 6,
+  "snapshots": [
+    {
+      "repository": "pytest-dev/pytest",
+      "workflowSourceSha256": "b880bb9f2beb5c896b04ede7f42895bd17641e767b9ca2bb3eeee44941f35561",
+      "commit": "8409c48a1c7fd33e77bc91134acef99fe56460a4",
+      "sourceFile": "yaml/b880bb9f2beb5c896b04ede7f42895bd17641e767b9ca2bb3eeee44941f35561.yaml",
+      "sourcePath": ".github/workflows/test.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40423131207
+    },
+    {
+      "repository": "pytest-dev/pytest",
+      "workflowSourceSha256": "051bb0dd5378b01bfeb29fc6702dcc0fc47dfff558cafaa0f7faab4975c764e0",
+      "commit": "6cf296b3854bc0a8adef60b1d62d98e560d3ee5c",
+      "sourceFile": "yaml/051bb0dd5378b01bfeb29fc6702dcc0fc47dfff558cafaa0f7faab4975c764e0.yaml",
+      "sourcePath": ".github/workflows/test.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 39518790015
+    },
+    {
+      "repository": "pytest-dev/pytest",
+      "workflowSourceSha256": "53e0141b493af991edd4f4a9532367148acbe92f5314bbd7ed2647288032cc13",
+      "commit": "21a6d405798d06a4212246dd1249cd338c647a1c",
+      "sourceFile": "yaml/53e0141b493af991edd4f4a9532367148acbe92f5314bbd7ed2647288032cc13.yaml",
+      "sourcePath": ".github/workflows/test.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 39405826447
+    },
+    {
+      "repository": "fastify/fastify",
+      "workflowSourceSha256": "131aee3e120391a1c4349005d09df67a7d4abc4a2a5b25add691b635b5a723b6",
+      "commit": "03ad87287b84af85b7256247877aeb1045ce569e",
+      "sourceFile": "yaml/131aee3e120391a1c4349005d09df67a7d4abc4a2a5b25add691b635b5a723b6.yaml",
+      "sourcePath": ".github/workflows/ci.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40114083173
+    },
+    {
+      "repository": "fastify/fastify",
+      "workflowSourceSha256": "e6fe4e439f00cb1eaa8ed785c832cacd437e89c62421d8e5d1134a6d72029e7f",
+      "commit": "2a64ae1627d78fe1f22fb021a7e5763581384473",
+      "sourceFile": "yaml/e6fe4e439f00cb1eaa8ed785c832cacd437e89c62421d8e5d1134a6d72029e7f.yaml",
+      "sourcePath": ".github/workflows/ci.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40111688782
+    },
+    {
+      "repository": "fastify/fastify",
+      "workflowSourceSha256": "5d2a4a0fc8c0bbb794881b811d0746f17c7307285d6afd8111e0ef1537dfce4d",
+      "commit": "4962daa922a9d46131e0ff65282cbcda3449527c",
+      "sourceFile": "yaml/5d2a4a0fc8c0bbb794881b811d0746f17c7307285d6afd8111e0ef1537dfce4d.yaml",
+      "sourcePath": ".github/workflows/integration.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40111757516
+    },
+    {
+      "repository": "fastify/fastify",
+      "workflowSourceSha256": "3a29c7b4e14d26066307a0e78ae34bede6a0165f6309b1024cf4b8e74e616228",
+      "commit": "2a64ae1627d78fe1f22fb021a7e5763581384473",
+      "sourceFile": "yaml/3a29c7b4e14d26066307a0e78ae34bede6a0165f6309b1024cf4b8e74e616228.yaml",
+      "sourcePath": ".github/workflows/integration.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40111688605
+    },
+    {
+      "repository": "pallets/flask",
+      "workflowSourceSha256": "cb7190944c48625e6516ddf86d37118ffca12d7ab53c6f43b94e5cecbe176704",
+      "commit": "80d2383dfc43ece6ec9e460b63dc7f2f997d3732",
+      "sourceFile": "yaml/cb7190944c48625e6516ddf86d37118ffca12d7ab53c6f43b94e5cecbe176704.yaml",
+      "sourcePath": ".github/workflows/tests.yaml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 33237248557
+    },
+    {
+      "repository": "pallets/flask",
+      "workflowSourceSha256": "b9e91de90c44bd4d2926296389d96e20c7105c979afbc228022c198c7b6bc51b",
+      "commit": "7689f98403e2c0b0bc8d1031e60f8cff2620e86a",
+      "sourceFile": "yaml/b9e91de90c44bd4d2926296389d96e20c7105c979afbc228022c198c7b6bc51b.yaml",
+      "sourcePath": ".github/workflows/tests.yaml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 37631414474
+    },
+    {
+      "repository": "pallets/flask",
+      "workflowSourceSha256": "9ba4f383f1896749210f4215174cbb0f7658c6fa97406f3943ee44c537346ac9",
+      "commit": "81798b406f97ffe4795d2c9fc18db7db744a96dc",
+      "sourceFile": "yaml/9ba4f383f1896749210f4215174cbb0f7658c6fa97406f3943ee44c537346ac9.yaml",
+      "sourcePath": ".github/workflows/tests.yaml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 31525906346
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "297f97c6177f192d8f1ef0259b84375b486fd40e966f7a7511462a8a4ab826e0",
+      "commit": "617b2dc3d5c3c29418ebb2aba019236a2d97e83e",
+      "sourceFile": "yaml/297f97c6177f192d8f1ef0259b84375b486fd40e966f7a7511462a8a4ab826e0.yaml",
+      "sourcePath": ".github/workflows/ci.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40348371060
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "0cc226e9cc293d003806309c9eb3c1c719c57f386e451c10100d27d54cd5e1c2",
+      "commit": "47520d658a4f6a205930b3dd125b5b627cd97ee2",
+      "sourceFile": "yaml/0cc226e9cc293d003806309c9eb3c1c719c57f386e451c10100d27d54cd5e1c2.yaml",
+      "sourcePath": ".github/workflows/ci.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 40073247055
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "d2fc91056a85d1234c51eee8d2539bb80d3a0da941c18420c26c334acf597268",
+      "commit": "d18001034ab0e0dd537a221992fbb69885e8239b",
+      "sourceFile": "yaml/d2fc91056a85d1234c51eee8d2539bb80d3a0da941c18420c26c334acf597268.yaml",
+      "sourcePath": ".github/workflows/ci.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 38865291292
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "8c00c821a786391f342aa38ede16d76cd662031210083ac5282024706411c80a",
+      "commit": "5e1b25e51a934adc418e51eb9853a3ca71ecb15b",
+      "sourceFile": "yaml/8c00c821a786391f342aa38ede16d76cd662031210083ac5282024706411c80a.yaml",
+      "sourcePath": ".github/workflows/nodejs.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 38728543476
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "881865cff186f47787598b2a3d7e6e7eb4d56a3fe4c015414c3cd4d90d9cbb90",
+      "commit": "56b943471a2df56657b0a7cce6245c009c256c81",
+      "sourceFile": "yaml/881865cff186f47787598b2a3d7e6e7eb4d56a3fe4c015414c3cd4d90d9cbb90.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 36454554968
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "c251e3b1f8a1c54f7c08e8dd81a79da04bc012af8116e7b424539c29d6527493",
+      "commit": "b17c61b618b1824f1f5d9edcacaf16801343a295",
+      "sourceFile": "yaml/c251e3b1f8a1c54f7c08e8dd81a79da04bc012af8116e7b424539c29d6527493.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 29765540818
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "c35aaaf6121bf10e3cc5a2f232aeab3ea48b286100b59437c89bd85c8ae135e1",
+      "commit": "09cb24de8246178f5195efb9ab89b1ae5cd1264a",
+      "sourceFile": "yaml/c35aaaf6121bf10e3cc5a2f232aeab3ea48b286100b59437c89bd85c8ae135e1.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 25747498310
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "675ae3be9d5c5d8abedf3c3de7a900a02fea43ddc32d0f11c382b686bcb18602",
+      "commit": "c640e6d7f6fc034389da0df1a72897d969adaacd",
+      "sourceFile": "yaml/675ae3be9d5c5d8abedf3c3de7a900a02fea43ddc32d0f11c382b686bcb18602.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 25236506476
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "97a3cdabf5848186cc6a059d799556b2d3b6d415dde75f94ba4101af77bded75",
+      "commit": "5bae75923893e3e80c1af77824435d243e08f053",
+      "sourceFile": "yaml/97a3cdabf5848186cc6a059d799556b2d3b6d415dde75f94ba4101af77bded75.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 25136736389
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "c3a11ad68474e25be18a8e71e7ca6e18047e74c5d5fa43938a4edb6e0989e193",
+      "commit": "968863678bc09c0205fc916138c1a74e11f46e5b",
+      "sourceFile": "yaml/c3a11ad68474e25be18a8e71e7ca6e18047e74c5d5fa43938a4edb6e0989e193.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 21537611090
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "5a418cc51de41f236363a06197beffaa82f5a47cf686f3582275eab71c7e83a6",
+      "commit": "4fe61631b36245e2bdf324f8f9577b26949446ce",
+      "sourceFile": "yaml/5a418cc51de41f236363a06197beffaa82f5a47cf686f3582275eab71c7e83a6.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 21537261240
+    },
+    {
+      "repository": "psf/requests",
+      "workflowSourceSha256": "6e94cf1908098b889fe256caf3817c1a4fec990f3ed23583dfb13453f56c0114",
+      "commit": "eebd08e2add76010ebe5e573da88e3ff5a23e74a",
+      "sourceFile": "yaml/6e94cf1908098b889fe256caf3817c1a4fec990f3ed23583dfb13453f56c0114.yaml",
+      "sourcePath": ".github/workflows/run-tests.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 21537257597
+    },
+    {
+      "repository": "encode/httpx",
+      "workflowSourceSha256": "986de388f1d3deb853fa24aa3ed5a3c5fcd8e7e915b56147aabd15be866bfd2f",
+      "commit": "83d203a86d955b7695613df6378b56f9003112ce",
+      "sourceFile": "yaml/986de388f1d3deb853fa24aa3ed5a3c5fcd8e7e915b56147aabd15be866bfd2f.yaml",
+      "sourcePath": ".github/workflows/test-suite.yml",
+      "selectionKind": "headSourceSnapshot",
+      "firstRunId": 25069404834
+    },
+    {
+      "repository": "fastify/workflows",
+      "workflowSourceSha256": "26b34746fa892570dab7c8337f5d25aa166810ee11e0b21dfb2e6a4c84988c0c",
+      "commit": "ef591e2186785d5ab36b9fe6a79c7ce2f1d94e57",
+      "sourceFile": "yaml/26b34746fa892570dab7c8337f5d25aa166810ee11e0b21dfb2e6a4c84988c0c.yaml",
+      "sourcePath": ".github/workflows/nested-quality.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 40114083173
+    },
+    {
+      "repository": "fastify/fastify",
+      "workflowSourceSha256": "20bc850c0205b1852236039037f3f4b0beb630ac5d94556ec8285375dd61ab80",
+      "commit": "03ad87287b84af85b7256247877aeb1045ce569e",
+      "sourceFile": "yaml/20bc850c0205b1852236039037f3f4b0beb630ac5d94556ec8285375dd61ab80.yaml",
+      "sourcePath": ".github/workflows/coverage-nix.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 40114083173
+    },
+    {
+      "repository": "fastify/fastify",
+      "workflowSourceSha256": "954615b1ee0078937ca65f54a397ef337c86f2c49dad0512116cbc339ef2a2a6",
+      "commit": "03ad87287b84af85b7256247877aeb1045ce569e",
+      "sourceFile": "yaml/954615b1ee0078937ca65f54a397ef337c86f2c49dad0512116cbc339ef2a2a6.yaml",
+      "sourcePath": ".github/workflows/coverage-win.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 40114083173
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "3ae8c31a872edde04be390793a7346801f88369330be5963c5dfdcf0b5c4323b",
+      "commit": "617b2dc3d5c3c29418ebb2aba019236a2d97e83e",
+      "sourceFile": "yaml/3ae8c31a872edde04be390793a7346801f88369330be5963c5dfdcf0b5c4323b.yaml",
+      "sourcePath": ".github/workflows/nodejs.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 40348371060
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "6a88186487c87158ba46f65c94998043c3123ff42a810b8dd71c32555ff3f7e6",
+      "commit": "617b2dc3d5c3c29418ebb2aba019236a2d97e83e",
+      "sourceFile": "yaml/6a88186487c87158ba46f65c94998043c3123ff42a810b8dd71c32555ff3f7e6.yaml",
+      "sourcePath": ".github/workflows/nodejs-shared.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 40348371060
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "9313ecf1f9babacdc7c67ff9ce5431a6a374d2ede88a38fb88915a631b1f3a73",
+      "commit": "47520d658a4f6a205930b3dd125b5b627cd97ee2",
+      "sourceFile": "yaml/9313ecf1f9babacdc7c67ff9ce5431a6a374d2ede88a38fb88915a631b1f3a73.yaml",
+      "sourcePath": ".github/workflows/nodejs.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 40073247055
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "0ccaeecaad02c628001abdbf5322c3b88c6ac04bb7ce8c448e65089b348f7e6d",
+      "commit": "c687fe8b37569c93cc1639cea89009541508b58a",
+      "sourceFile": "yaml/0ccaeecaad02c628001abdbf5322c3b88c6ac04bb7ce8c448e65089b348f7e6d.yaml",
+      "sourcePath": ".github/workflows/nodejs.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 39633681905
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "6fd7bdde4ef87f427b631882528e086060d4e525736ef0aab3ff16558fe4fe17",
+      "commit": "908b35ba876785e4ba3f180e41b8314ba2dc5641",
+      "sourceFile": "yaml/6fd7bdde4ef87f427b631882528e086060d4e525736ef0aab3ff16558fe4fe17.yaml",
+      "sourcePath": ".github/workflows/nodejs.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 39023016637
+    },
+    {
+      "repository": "nodejs/undici",
+      "workflowSourceSha256": "65079a665445ed5e1e8eaf15bcba1ef7ceff83823b2ab16f5572300c1587e9d5",
+      "commit": "5e1b25e51a934adc418e51eb9853a3ca71ecb15b",
+      "sourceFile": "yaml/65079a665445ed5e1e8eaf15bcba1ef7ceff83823b2ab16f5572300c1587e9d5.yaml",
+      "sourcePath": ".github/workflows/test.yml",
+      "selectionKind": "additional-redistributed-source",
+      "firstRunId": 38728543476
+    }
+  ]
+}

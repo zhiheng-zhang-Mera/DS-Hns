@@ -1,0 +1,96 @@
+name: Quality
+
+# **What it does**: Runs dependency review, license checks, and linting for plugins.
+# **Why we have it**: Used by other workflows to ensure code quality and compliance.
+
+on:
+  workflow_call:
+    inputs:
+      license-check:
+        description: 'Check licenses.'
+        required: false
+        type: boolean
+        default: false
+      license-check-allowed-additional:
+        description: 'A semicolon separated list of additional licenses to allow.'
+        required: false
+        type: string
+        default: ''
+      lint:
+        description: 'Set to true to run linting scripts.'
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+
+  license-check:
+    if: >
+      !failure() &&
+      !cancelled() &&
+      inputs.license-check == true
+    name: Check Licenses
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          check-latest: true
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: npm i --ignore-scripts
+
+      - name: Check Licenses
+        env:
+          ALLOWED_ADDITIONAL: ${{ inputs.license-check-allowed-additional }}
+        run: npx license-checker --production --summary --onlyAllow="0BSD;Apache-2.0;BlueOak-1.0.0;BSD-2-Clause;BSD-3-Clause;ISC;MIT;$ALLOWED_ADDITIONAL"
+
+  linter:
+    name: Lint Code
+    if: >
+      !failure() &&
+      !cancelled() &&
+      inputs.lint == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          check-latest: true
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: npm i --ignore-scripts
+
+      - name: Lint code
+        run: npm run lint

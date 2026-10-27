@@ -49,3 +49,6 @@ tests/out/
 # checkout. `scripts\test-all.ps1` points the variable at a scratch directory; these two are the net.
 tests/data/
 app/data/
+scripts/ecq-v38/**/__pycache__/
+tests/ecq-v38/**/__pycache__/
+docs/paper-material/revision-v38/**/__pycache__/
