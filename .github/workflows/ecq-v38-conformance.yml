@@ -38,6 +38,20 @@ jobs:
     steps:
       - name: Deliberate tolerated failure control
         run: exit 17
+  failure-after-tolerated:
+    needs: tolerated
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo failure-status-control
+  success-after-tolerated:
+    needs: tolerated
+    if: success()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo success-status-control
   matrix:
     name: Matrix control
     runs-on: ubuntu-latest
@@ -81,16 +95,11 @@ jobs:
       - name: Record needs aggregation
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
-          STATUS_FAILURE: ${{ failure() }}
-          STATUS_SUCCESS: ${{ success() }}
-          STATUS_CANCELLED: ${{ cancelled() }}
         run: |
           printf '%s\n' "$NEEDS_JSON" > needs.json
-          printf '{"failure":%s,"success":%s,"cancelled":%s}\n' "$STATUS_FAILURE" "$STATUS_SUCCESS" "$STATUS_CANCELLED" > status-functions.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: needs-observations
           path: |
             needs.json
-            status-functions.json
           retention-days: 7
