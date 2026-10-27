@@ -142,4 +142,3 @@ export function qualify(input,contract=compile(input)){
   const gate=gateValues.includes(false)?'UNSAT':gateValues.some(unknown)?'UNKNOWN':'SAT';const satisfied=gate==='SAT';
   return {closure,gate,satisfied,authorized:closure==='CLOSED'&&satisfied,nonVacuity,applicability:states,results,obligations};
 }
-

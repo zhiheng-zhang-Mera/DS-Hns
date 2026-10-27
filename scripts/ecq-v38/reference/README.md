@@ -83,5 +83,3 @@ two-level local source closure, missing callee records, pin mismatch, native
 certificate checking and forged identity/caller metadata. The owned platform
 probe corroborates scalar and placeholder rules; it does not yet establish all
 nested reusable aggregate-outcome edge cases.
-
-

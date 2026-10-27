@@ -186,5 +186,3 @@ class ReferenceTests(unittest.TestCase):
             self.assertEqual(r.qualify(erased)['authorized'],not any(mask))
 
 if __name__=='__main__': unittest.main()
-
-
