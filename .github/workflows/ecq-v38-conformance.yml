@@ -1,58 +1,48 @@
-name: ecq-v38-platform-conformance
+name: ecq-v38-producer-evidence
 on:
   workflow_dispatch:
+    inputs:
+      scenario:
+        type: choice
+        options: [normal, required-failure]
+        required: true
 permissions:
   contents: read
 jobs:
-  identity:
+  producer:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
+    outputs:
+      matrix: ${{ steps.emit.outputs.matrix }}
     steps:
-      - name: Record execution identity
+      - id: emit
         env:
-          IDENTITY_JSON: >-
+          SCENARIO: ${{ inputs.scenario }}
+          IDENTITY: >-
             {"workflowSha":"${{ github.workflow_sha }}","workflowRef":"${{ github.workflow_ref }}","sha":"${{ github.sha }}","repository":"${{ github.repository }}","runId":"${{ github.run_id }}","runAttempt":"${{ github.run_attempt }}","eventName":"${{ github.event_name }}"}
-        run: printf '%s\n' "$IDENTITY_JSON" > identity.json
+        run: |
+          case "$SCENARIO" in
+            normal) matrix='{"shard":["alpha","beta"]}' ;;
+            required-failure) matrix='{"shard":["alpha","beta","gamma"]}' ;;
+            *) exit 2 ;;
+          esac
+          printf '%s\n' "$IDENTITY" > identity.json
+          printf '%s\n' "$matrix" > producer-matrix.json
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: expression-observations
-          path: identity.json
+          name: producer-evidence
+          path: |
+            identity.json
+            producer-matrix.json
           retention-days: 7
-  matrix:
-    name: Shard verification
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
+  test:
+    name: Dynamic ${{ matrix.shard }}
+    needs: producer
     strategy:
       fail-fast: false
-      matrix:
-        shard: [alpha, beta, gamma, delta]
-    steps:
-      - env:
-          SHARD: ${{ matrix.shard }}
-        run: printf '%s\n' "$SHARD"
-  push-only:
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - run: echo push-only
-  aggregate:
-    if: always()
-    needs: [matrix, push-only]
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Check declared dependency results
-        env:
-          MATRIX_RESULT: ${{ needs.matrix.result }}
-          OPTIONAL_RESULT: ${{ needs.push-only.result }}
-          NEEDS_JSON: ${{ toJSON(needs) }}
-        run: |
-          printf '%s\n' "$NEEDS_JSON" > needs.json
-          test "$MATRIX_RESULT" = success
-          test "$OPTIONAL_RESULT" = skipped
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: needs-observations
-          path: needs.json
-          retention-days: 7
+      matrix: ${{ fromJSON(needs.producer.outputs.matrix) }}
+    uses: ./.github/workflows/ecq-v38-probe-reusable.yml
+    with:
+      shard: ${{ matrix.shard }}
+      scenario: ${{ inputs.scenario }}

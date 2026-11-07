@@ -1,26 +1,25 @@
-name: ecq-v38-owned-reusable-probe
+name: ecq-v38-owned-dynamic-consumer
 on:
   workflow_call:
     inputs:
-      label:
+      shard:
         type: string
         required: true
-      flag:
-        type: boolean
-        default: true
+      scenario:
+        type: string
+        required: true
 jobs:
-  observe:
-    name: Typed ${{ inputs.label }}
+  check:
+    name: Check
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3
     steps:
-      - env:
-          INPUTS_JSON: ${{ toJSON(inputs) }}
+      - name: Record inputs and exercise the required outcome
+        env:
+          SHARD: ${{ inputs.shard }}
+          SCENARIO: ${{ inputs.scenario }}
         run: |
-          printf '%s\n' "$INPUTS_JSON" > inputs.json
-          python -c 'import json; x=json.load(open("inputs.json")); assert isinstance(x["label"],str) and x["flag"] is False'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: input-observations-${{ inputs.label }}
-          path: inputs.json
-          retention-days: 7
+          printf 'shard=%s\n' "$SHARD"
+          if [ "$SCENARIO" = required-failure ] && [ "$SHARD" = beta ]; then
+            exit 1
+          fi
