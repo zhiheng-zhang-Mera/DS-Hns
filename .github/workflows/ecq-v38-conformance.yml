@@ -19,13 +19,13 @@ jobs:
           path: identity.json
           retention-days: 7
   matrix:
-    name: Matrix sample
+    name: Shard verification
     runs-on: ubuntu-latest
     timeout-minutes: 2
     strategy:
       fail-fast: false
       matrix:
-        shard: [alpha, beta, gamma]
+        shard: [alpha, beta, gamma, delta]
     steps:
       - env:
           SHARD: ${{ matrix.shard }}
