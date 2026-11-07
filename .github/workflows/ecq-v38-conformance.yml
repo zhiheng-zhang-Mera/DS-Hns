@@ -39,7 +39,7 @@ jobs:
   tolerated:
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    continue-on-error: true
+    continue-on-error: false
     steps:
       - name: Deliberate tolerated failure control
         run: exit 17
